@@ -4,8 +4,8 @@ module SpaTs
     include("modules/data.jl")
 
     function main()
-        parsed_args = parse_commandline()
-        for (arg,val) in parsed_args
+        args = parse_commandline()
+        for (arg, val) in args
             println("  $arg  =>  $val")
         end
     end
