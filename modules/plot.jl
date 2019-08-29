@@ -108,35 +108,52 @@ module Plot
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
 
-        #= =#
-        # playing with phase
-        for (i, l) in enumerate(longitude)
-            if (l > 0.2)
-                phase_[i] -= 360.
-            elseif (l > -5) && phase_[i]<-160
-                phase_[i] += 360.
+        # fixing phase continuity, estimating phase change
+        dl = longitude[2]-longitude[1]
+        dphase = zeros(length(phase_)-1)
+        println("Longitude resolution = ", dl, " (deg.)")
+        for i in 1:length(phase_)-1
+            global dp
+            changed = true
+            while changed
+                changed = false
+                dp = abs(phase_[i+1] - phase_[i])
+                dpp = abs(phase_[i+1]+360. - phase_[i])
+                dpm = abs(phase_[i+1]-360. - phase_[i])
+                if dpp < dp
+                    phase_[i+1] += 360
+                    changed = true
+                end
+                if dpm < dp
+                    phase_[i+1] -= 360
+                    changed = true
+                end
             end
-            if (l > 4.2) phase_[i] -= 360. end
-            #if i == length(phase_)-6 phase_[i] += 360. end
-            #if i == 2 phase_[i] -= 360. end
-            #if i == 7 phase_[i] += 360. end
+            dphase[i] = dp
+            #println("$i $(longitude[i])  $dp")
         end
-        #= =#
 
         rc("font", size=6.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
-        subplots_adjust(left=0.13, bottom=0.08, right=0.99, top=0.92, wspace=0., hspace=0.)
+        subplots_adjust(left=0.13, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
         #plot(longitude, phase_, c="grey")
         scatter(longitude, phase_, marker=".", c="grey", s=3.)
         ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        #ylim(-500, 0)
+        #xlim(-1, 2)
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
+        ax2 = ax.twinx()
+        minorticks_on()
+        plot(longitude[7:end-9], dphase[6:end-9])
+        ax2.xaxis.set_label_position("top")
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
         subplot2grid((5, 3), (1, 0), rowspan=3)
@@ -157,6 +174,7 @@ module Plot
         subplot2grid((5, 3), (4, 1), colspan=2)
         minorticks_on()
         plot(longitude, average, c="grey")
+        axvline(x=0., ls=":", c="black")
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
@@ -221,9 +239,9 @@ module Plot
             end
         end
 
-        println(typeof(intensity_))
-        println(typeof(intens))
-        return
+        #println(typeof(intensity_))
+        #println(typeof(intens))
+        #return
 
         #left, skip = Tools.intensity_pulses(intens)
         bottom, skip = Tools.intensity_pulses(transpose(intens))

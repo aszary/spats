@@ -16,10 +16,10 @@ module SpaTs
         #Plot.single0(data, args["outdir"])
         #Plot.single(data, args["outdir"]; darkness=0.5, number=nothing, name_mod="all")
         #Plot.single(data, args["outdir"]; start=100, number=100, bin_st=30, bin_end=95, name_mod="256")
-        #Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1000, number=512, bin_st=40, bin_end=85, name_mod="1")
+        Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1000, number=512, bin_st=45, bin_end=85, name_mod="1")
         #Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1000, number=512, bin_st=40, bin_end=85, name_mod="2")
         #Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1250, number=512, bin_st=40, bin_end=85, name_mod="3")
-        Plot.p3_evolution(data, args["outdir"]; darkness=0.1, bin_st=40, bin_end=85, name_mod="1", number=128)
+        #Plot.p3_evolution(data, args["outdir"]; darkness=0.1, bin_st=40, bin_end=85, name_mod="1", number=128)
         #Plot.p3_evolution(data, args["outdir"]; darkness=0.1, bin_st=40, bin_end=85, name_mod="2", number=256)
     end
 
