@@ -94,6 +94,7 @@ module Plot
         phase_ = rad2deg.(angle.(view(lrfs, peak, :)))  # fft phase variation  # view used! lrfs[peak, :] -> copies data
         # skip freq = 0 and normalize intensity to 1
         inten = intensity[2:end]
+        inten .-= minimum(inten)
         inten ./= maximum(inten)
         fre = freq[2:end]
         pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak-1])  # skip zero freq
@@ -159,11 +160,10 @@ module Plot
         subplot2grid((5, 3), (1, 0), rowspan=3)
         minorticks_on()
         plot(inten, fre, c="grey")
-        #axhline(y=freq[peak], ls=":", c="red")
         plot(Tools.gauss(fre, pars), fre, c="red", ls=":", lw=0.3)
-        xlim(1.1, -0.1)
         ylim(freq[1], freq[end])
         xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
         xlabel("intensity")
         ylabel("frequancy \$(1/P)\$")
 
