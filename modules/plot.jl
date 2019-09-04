@@ -41,6 +41,9 @@ module Plot
         da = data[start:start+number-1,bin_st:bin_end]
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
+        intensity .-= minimum(intensity)
+        intensity ./= maximum(intensity)
+
         pulses .+= start
 
         # Pulse longitude
@@ -58,10 +61,10 @@ module Plot
         subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
         plot(intensity, pulses, c="grey")
-        xlim(1.1, -0.1)
         ylim(pulses[1], pulses[end])
         xticks([0.5, 1.0])
-        xlabel("intensity")
+        xlim(1.1, -0.1)
+        xlabel("intensityy")
         ylabel("Pulse number")
 
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
