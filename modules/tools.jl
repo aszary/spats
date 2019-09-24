@@ -112,4 +112,77 @@ module Tools
         return p, err
     end
 
+
+    @. twogauss(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2)  + p[4] * exp(-0.5*((x-p[5])/p[6])^2) + p[7]
+
+    function fit_twogaussians(xdata, ydata, a1, a2, μ1, μ2, σ1, σ2; baselevel=nothing)
+        if baselevel == nothing
+            baselevel = median(ydata)
+        end
+
+        p0 = [a1, μ1, σ1, a2, μ2, σ2, baselevel]  # look here
+        fit = curve_fit(twogauss, xdata, ydata, p0)
+        p = coef(fit)
+        err = stderror(fit)
+        #=
+        figure()
+        plot(xdata, ydata, c="black")
+        plot(xdata, twogauss(xdata, p0), c="blue")
+        plot(xdata, twogauss(xdata, p), c="red")
+        savefig("output/test.pdf")
+        close()
+        #println("new")
+        #readline(stdin)
+        =#
+        return p, err
+    end
+
+
+    @. threegauss(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2)  + p[4] * exp(-0.5*((x-p[5])/p[6])^2) + p[7] * exp(-0.5*((x-p[8])/p[9])^2) + p[10]
+
+    function fit_threegaussians(xdata, ydata, a1, a2, a3, μ1, μ2, μ3, σ1, σ2, σ3; baselevel=nothing)
+        if baselevel == nothing
+            baselevel = median(ydata)
+        end
+        p0 = [a1, μ1, σ1, a2, μ2, σ2, a3, μ3, σ3, baselevel]  # look here
+        fit = curve_fit(threegauss, xdata, ydata, p0)
+        p = coef(fit)
+        err = stderror(fit)
+        #=
+        figure()
+        plot(xdata, ydata, c="black")
+        plot(xdata, threegauss(xdata, p0), c="blue")
+        plot(xdata, threegauss(xdata, p), c="red")
+        savefig("output/test.pdf")
+        close()
+        #println("new")
+        #readline(stdin)
+        =#
+        return p, err
+    end
+
+
+    function find_peaks(data)
+        sz = size(data)
+        peaks = []
+        for i in 1:sz[1]
+            signal = data[i, :]
+            xdata = collect(0:length(signal)-1) # from 0 python plotting
+            peak = Tools.peaks(signal)
+            ma, pa = peakprom(signal, Maxima(), 3)
+            inds = sortperm(pa, rev=true)
+            if length(inds) > 2 && (pa[inds[3]] > 0.5 * pa[inds[2]]) # lazy, but works
+                #println("three $i")
+                pa, errs = Tools.fit_threegaussians(xdata, signal, pa[inds[1]], pa[inds[2]], pa[inds[3]], xdata[ma[inds[1]]], xdata[ma[inds[2]]], xdata[ma[inds[3]]], 3, 3, 3)
+                push!(peaks, [i-1, pa[2], pa[5], pa[8]])  # python plotting!
+            elseif length(inds) > 1
+                #println("two $i")
+                pa, errs = Tools.fit_twogaussians(xdata, signal, pa[inds[1]], pa[inds[2]], xdata[ma[inds[1]]], xdata[ma[inds[2]]], 3, 3)
+                push!(peaks, [i-1, pa[2], pa[5]])  # python plotting!
+            end
+        end
+        return peaks
+    end
+
+
 end  # module Tools
