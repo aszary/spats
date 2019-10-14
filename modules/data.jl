@@ -21,7 +21,7 @@ module Data
             inte = parse(Float64, res[4])
             data[pulse, bin] = inte
         end
-        close()
+        close(f)
         return data
     end
 

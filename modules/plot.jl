@@ -2,7 +2,7 @@ module Plot
     using Statistics
     using StatsBase
     using PyPlot
-    PyPlot.matplotlib.use("Agg")
+    PyPlot.matplotlib.use("agg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
     using Peaks
 
     include("tools.jl")
@@ -53,12 +53,11 @@ module Plot
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
-
         rc("font", size=6.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
         subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         subplot2grid((5, 3), (0, 0), rowspan=4)
@@ -83,10 +82,11 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/single_$name_mod.pdf")
         close()
+        #clf()
     end
 
 
-    function lrfs(data, outdir; start=1, number=256, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")
+    function lrfs(data, outdir; start=1, number=nothing, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true)
 
         num, bins = size(data)
         if number == nothing
@@ -119,25 +119,27 @@ module Plot
         dl = longitude[2]-longitude[1]
         dphase = zeros(length(phase_)-1)
         println("Longitude resolution = ", dl, " (deg.)")
-        for i in 1:length(phase_)-1
-            global dp
-            changed = true
-            while changed
-                changed = false
-                dp = abs(phase_[i+1] - phase_[i])
-                dpp = abs(phase_[i+1]+360. - phase_[i])
-                dpm = abs(phase_[i+1]-360. - phase_[i])
-                if dpp < dp
-                    phase_[i+1] += 360
-                    changed = true
+        if change_fftphase == true
+            for i in 1:length(phase_)-1
+                global dp
+                changed = true
+                while changed
+                    changed = false
+                    dp = abs(phase_[i+1] - phase_[i])
+                    dpp = abs(phase_[i+1]+360. - phase_[i])
+                    dpm = abs(phase_[i+1]-360. - phase_[i])
+                    if dpp < dp
+                        phase_[i+1] += 360
+                        changed = true
+                    end
+                    if dpm < dp
+                        phase_[i+1] -= 360
+                        changed = true
+                    end
                 end
-                if dpm < dp
-                    phase_[i+1] -= 360
-                    changed = true
-                end
+                dphase[i] = dp
+                #println("$i $(longitude[i])  $dp")
             end
-            dphase[i] = dp
-            #println("$i $(longitude[i])  $dp")
         end
 
         rc("font", size=6.)
@@ -157,10 +159,12 @@ module Plot
         #xlim(-1, 2)
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
-        ax2 = ax.twinx()
-        minorticks_on()
-        plot(longitude[7:end-9], dphase[6:end-9])
-        ax2.xaxis.set_label_position("top")
+        if change_fftphase == true
+            ax2 = ax.twinx()
+            minorticks_on()
+            plot(longitude[7:end-9], dphase[6:end-9])
+            ax2.xaxis.set_label_position("top")
+        end
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
         subplot2grid((5, 3), (1, 0), rowspan=3)
