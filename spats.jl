@@ -25,9 +25,9 @@ module SpaTs
         data = Data.load_ascii("input/low.p3fold")
         data2 = Data.load_ascii("input/mid.p3fold")
         data3 = Data.load_ascii("input/high4.p3fold")
-        #Plot.offset(data, data2, "output/"; bin_st=50, bin_end=80, name_mod="low_mid", darkness=1.0)
-        #Plot.offset_points(data, data2, "output/"; bin_st=50, bin_end=80, name_mod="low_mid")
-        Plot.offset_points3(data, data2, data3, "output/"; bin_st=50, bin_end=80, name_mod="low_mid_high4")
+        Plot.offset(data, data2, "output/"; bin_st=50, bin_end=80, name_mod="low_mid", darkness=1.0)
+        #Plot.offset_points(data, data2, "output/"; bin_st=50, bin_end=80, name_mod="db_low_mid")
+        #Plot.offset_points3(data, data2, data3, "output/"; bin_st=50, bin_end=80, name_mod="low_mid_high4")
         #Plot.crosscorplot(data, data2, "/home/szary/work/B0320/"; bin_st=50, bin_end=80, name_mod="low_high4")
         #Plot.offset(data, data2, args["outdir"]; bin_st=50, bin_end=80, name_mod="low_high4", darkness=1.0)
 

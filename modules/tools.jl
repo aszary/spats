@@ -171,40 +171,81 @@ module Tools
             peak = Tools.peaks(signal)
             ma, pa = peakprom(signal, Maxima(), 3)
             inds = sortperm(pa, rev=true)
-            if length(inds) > 2 && ( signal[ma[inds[3]]]> 0.7 * signal[ma[inds[2]]]) # lazy, but works
-            #if length(inds) > 2 && (pa[inds[3]] > 0.5 * pa[inds[2]]) # lazy, but works
+            if length(inds) > 2 && (signal[ma[inds[3]]]> 0.5 * signal[ma[inds[2]]])
+            #if length(inds) > 2 && ( signal[ma[inds[3]]]> 0.7 * signal[ma[inds[2]]]) # lazy, but works
                 a1 = signal[ma[inds[1]]]
                 a2 = signal[ma[inds[2]]]
                 a3 = signal[ma[inds[3]]]
+                try
+                    pa, errs = Tools.fit_threegaussians(xdata, signal, a1, a2, a3, xdata[ma[inds[1]]], xdata[ma[inds[2]]], xdata[ma[inds[3]]], 3, 3, 3)
+                    push!(peaks, [i-1, pa[2], pa[5], pa[8]])  # python plotting!
+                catch
+                    pa, errs = Tools.fit_twogaussians(xdata, signal, a1, a2, xdata[ma[inds[1]]], xdata[ma[inds[2]]], 3, 3)
+                    push!(peaks, [i-1, pa[2], pa[5]])  # python plotting!
+                    #=
+                    plot(xdata, signal)
+                    axvline(x=xdata[ma[inds[1]]])
+                    axvline(x=xdata[ma[inds[2]]])
+                    axvline(x=xdata[ma[inds[3]]])
+                    axvline(x=pa[2], c="green")
+                    axvline(x=pa[5], c="green")
+                    axhline(y=a1, c="red")
+                    axhline(y=a2, c="red")
+                    axhline(y=a3, c="red")
+                    savefig("output/test.pdf")
+                    close()
+                    =#
+                end
                 #=
-                println(ma)
-                println(pa)
                 plot(xdata, signal)
-                axvline(x=xdata[ma[inds[1]]])
-                axvline(x=xdata[ma[inds[2]]])
-                axvline(x=xdata[ma[inds[3]]])
-                axhline(y=ma[inds[1]])
-                axhline(y=ma[inds[2]])
-                axhline(y=ma[inds[3]])
+                axvline(x=pa[2])
+                axvline(x=pa[5])
+                axvline(x=pa[8])
                 axhline(y=a1, c="red")
                 axhline(y=a2, c="red")
                 axhline(y=a3, c="red")
                 savefig("output/test.pdf")
                 close()
                 =#
-                #println("three $i")
-                pa, errs = Tools.fit_threegaussians(xdata, signal, a1, a2, a3, xdata[ma[inds[1]]], xdata[ma[inds[2]]], xdata[ma[inds[3]]], 3, 3, 3)
-                push!(peaks, [i-1, pa[2], pa[5], pa[8]])  # python plotting!
             elseif length(inds) > 1
                 a1 = signal[ma[inds[1]]]
                 a2 = signal[ma[inds[2]]]
-                #println("two $i")
                 pa, errs = Tools.fit_twogaussians(xdata, signal, a1, a2, xdata[ma[inds[1]]], xdata[ma[inds[2]]], 3, 3)
                 push!(peaks, [i-1, pa[2], pa[5]])  # python plotting!
+                #=
+                plot(xdata, signal)
+                axvline(x=pa[2])
+                axvline(x=pa[5])
+                axhline(y=a1, c="red")
+                axhline(y=a2, c="red")
+                savefig("output/test.pdf")
+                close()
+                =#
             end
         end
         return peaks
     end
+
+
+    function find_peaks2(data)
+        sz = size(data)
+        peaks = []
+        for i in 1:sz[1]
+            signal = data[i, :]
+            xdata = collect(0:length(signal)-1) # from 0 python plotting
+            peak = Tools.peaks(signal)
+            ma, pa = peakprom(signal, Maxima(), 3)
+            inds = sortperm(pa, rev=true)
+            if length(inds) > 2 && (signal[ma[inds[3]]]> 0.5 * signal[ma[inds[2]]]) # lazy, but works
+                push!(peaks, [i-1, xdata[ma[inds[1]]], xdata[ma[inds[2]]], xdata[ma[inds[3]]]])  # python plotting!
+            elseif length(inds) > 1
+                push!(peaks, [i-1, xdata[ma[inds[1]]], xdata[ma[inds[2]]]])  # python plotting!
+            end
+        end
+        return peaks
+    end
+
+
 
 
 end  # module Tools
