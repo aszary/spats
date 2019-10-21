@@ -381,7 +381,7 @@ module Plot
         peak_data = Tools.find_peaks(da)
         peak_data2 = Tools.find_peaks(da2)
         #println("$val, $ind")
-
+        #=
         for peak in peak_data
             for val in view(peak, 2:length(peak))
                 scatter(val, peak[1], marker="x", c="black")
@@ -395,7 +395,7 @@ module Plot
         end
         savefig("/home/szary/work/B0320/points.pdf")
         close()
-
+        =#
         #return
 
         rc("font", size=6.)
@@ -431,7 +431,8 @@ module Plot
         grid(color="white", lw=0.4)
         grid(color="white", which="minor", lw=0.1, ls=":")
         tick_params(labelleft=false, labelbottom=false)
-        xlabel("174 MHz (BW:29.5 MHz)")
+        #xlabel("174 MHz (BW:29.3 MHz)")
+        xlabel("144 MHz (BW:19.5 MHz)")
 
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/offset_$name_mod.pdf")
@@ -515,6 +516,108 @@ module Plot
         savefig("$outdir/offset_points_$name_mod.pdf")
         close()
     end
+
+
+    function offset_points3(data, data2, data3, outdir; start=1, number=nothing, repeat_num=2, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")
+        num, bins = size(data)
+        if number == nothing
+            number = num - start  # missing one?
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data[start:start+number-1,bin_st:bin_end]
+        da2 = data2[start:start+number-1,bin_st:bin_end]
+        da3 = data3[start:start+number-1,bin_st:bin_end]
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        # repeat data
+        da = repeat(da, repeat_num)
+        da2 = repeat(da2, repeat_num)
+        da3 = repeat(da3, repeat_num)
+
+        peak_data = Tools.find_peaks(da)
+        peak_data2 = Tools.find_peaks(da2)
+        peak_data3 = Tools.find_peaks(da3)
+
+        off = []
+        off_x = []
+        off2 = []
+        for i in 1:size(peak_data)[1]
+            for j in 2:size(peak_data[i])[1]
+                mi = 1e50
+                x1 = peak_data[i][j]
+                y1 = peak_data[i][1]
+                for k in 1:size(peak_data2)[1]
+                    for l in 2:size(peak_data2[k])[1]
+                        #println("$i $j $k $l")
+                        x2 = peak_data2[k][l]
+                        y2 = peak_data2[k][1]
+                        of = sqrt((x2-x1)^2 + (y2-y1)^2)
+                        if of < mi
+                            mi = of
+                        end
+                    end
+                end
+                mi2 = 1e50
+                for k in 1:size(peak_data3)[1]
+                    for l in 2:size(peak_data3[k])[1]
+                        #println("$i $j $k $l")
+                        x3 = peak_data3[k][l]
+                        y3 = peak_data3[k][1]
+                        of = sqrt((x3-x1)^2 + (y3-y1)^2)
+                        if of < mi2
+                            mi2 = of
+                        end
+                    end
+                end
+                push!(off, mi)
+                push!(off2, mi2)
+                push!(off_x, x1)
+            end
+        end
+
+        rc("font", size=6.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        #subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+        subplots_adjust(left=0.15, bottom=0.11, right=0.89, top=0.89, wspace=0., hspace=0.)
+
+        subplot2grid((2, 1), (0, 0))
+        minorticks_on()
+        tick_params(labelleft=true, labelbottom=false, labeltop=true, which="both", top=true)
+        for peak in peak_data
+            for val in view(peak, 2:length(peak))
+                scatter(val, peak[1], marker="x", c="red", s=2.5)
+            end
+        end
+        for peak in peak_data2
+            for val in view(peak, 2:length(peak))
+                scatter(val, peak[1], marker="x", c="green", s=2.5)
+            end
+        end
+        for peak in peak_data3
+            for val in view(peak, 2:length(peak))
+                scatter(val, peak[1], marker="x", c="blue", s=2.5)
+            end
+        end
+        ylabel("y-bin (P_3)" )
+
+        subplot2grid((2, 1), (1, 0))
+        minorticks_on()
+        scatter(off_x, off, marker="x", c="green", s=4)
+        scatter(off_x, off2, marker="x", c="blue", s=4)
+        ylabel("offest (dbin)" )
+        xlabel("x-bin (longitude)" )
+        savefig("$outdir/offset_points3_$name_mod.pdf")
+        close()
+    end
+
 
 
     function crosscorplot(data, data2, outdir; start=1, number=nothing, repeat_num=2, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")

@@ -11,20 +11,23 @@ module SpaTs
         end
 
 
-        data = Data.load_ascii("/fred/oz005/users/aszary/search/J1705-1906/2019-04-03T02:19:47/1444.5/grand.txt")
+        #data = Data.load_ascii("/fred/oz005/users/aszary/search/J1705-1906/2019-04-03T02:19:47/1444.5/grand.txt")
         #Plot.single(data, args["outdir"]; darkness=0.5, number=nothing, name_mod="J1705-1906")
-        Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1,  bin_st=400, bin_end=500, name_mod="J1705-1906", change_fftphase=false)
+        #Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1,  bin_st=400, bin_end=500, name_mod="J1705-1906", change_fftphase=false)
 
-        #Data.convert_psrfit_ascii("/home/szary/work/B0320/add.ar.high4", "input/high4.txt")
-        #Data.convert_psrfit_ascii("/home/szary/work/B0320/add.ar.low", "input/low.txt")
-        #Data.convert_psrfit_ascii("/home/szary/work/B0320/add.ar.pazi", "input/full.txt")
+        #Data.convert_psrfit_ascii("/data/szary/B0320/add.ar.high4", "input/high4.txt")
+        #Data.convert_psrfit_ascii("/data/szary/B0320/add.ar.low", "input/low.txt")
+        #Data.convert_psrfit_ascii("/data/szary/B0320/add.ar.pazi", "input/full_full.txt")
+        #Data.convert_psrfit_ascii("/data/szary/B0320/add.ar.mid", "input/mid.txt")
         #Data.convert_psrfit_ascii("/data/szary/B0320/core/rawvoltages/SAP0/BEAM0/B0320+39_L570031_SAP0_BEAM0.paz.fscr.pdmp.AR", "input/core/")
         #data = Data.load_ascii("input/low.txt")
 
-        #data = Data.load_ascii("/home/szary/work/B0320/low.debase.p3fold")
-        #data2 = Data.load_ascii("/home/szary/work/B0320/high4.debase.p3fold")
-        #Plot.offset(data, data2, "/home/szary/work/B0320/"; bin_st=50, bin_end=80, name_mod="low_high4", darkness=1.0)
-        #Plot.offset_points(data, data2, "/home/szary/work/B0320/"; bin_st=50, bin_end=80, name_mod="low_high4")
+        data = Data.load_ascii("input/low.p3fold")
+        data2 = Data.load_ascii("input/mid.p3fold")
+        data3 = Data.load_ascii("input/high4.p3fold")
+        #Plot.offset(data, data2, "output/"; bin_st=50, bin_end=80, name_mod="low_mid", darkness=1.0)
+        #Plot.offset_points(data, data2, "output/"; bin_st=50, bin_end=80, name_mod="low_mid")
+        Plot.offset_points3(data, data2, data3, "output/"; bin_st=50, bin_end=80, name_mod="low_mid_high4")
         #Plot.crosscorplot(data, data2, "/home/szary/work/B0320/"; bin_st=50, bin_end=80, name_mod="low_high4")
         #Plot.offset(data, data2, args["outdir"]; bin_st=50, bin_end=80, name_mod="low_high4", darkness=1.0)
 

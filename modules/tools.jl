@@ -171,13 +171,35 @@ module Tools
             peak = Tools.peaks(signal)
             ma, pa = peakprom(signal, Maxima(), 3)
             inds = sortperm(pa, rev=true)
-            if length(inds) > 2 && (pa[inds[3]] > 0.5 * pa[inds[2]]) # lazy, but works
+            if length(inds) > 2 && ( signal[ma[inds[3]]]> 0.7 * signal[ma[inds[2]]]) # lazy, but works
+            #if length(inds) > 2 && (pa[inds[3]] > 0.5 * pa[inds[2]]) # lazy, but works
+                a1 = signal[ma[inds[1]]]
+                a2 = signal[ma[inds[2]]]
+                a3 = signal[ma[inds[3]]]
+                #=
+                println(ma)
+                println(pa)
+                plot(xdata, signal)
+                axvline(x=xdata[ma[inds[1]]])
+                axvline(x=xdata[ma[inds[2]]])
+                axvline(x=xdata[ma[inds[3]]])
+                axhline(y=ma[inds[1]])
+                axhline(y=ma[inds[2]])
+                axhline(y=ma[inds[3]])
+                axhline(y=a1, c="red")
+                axhline(y=a2, c="red")
+                axhline(y=a3, c="red")
+                savefig("output/test.pdf")
+                close()
+                =#
                 #println("three $i")
-                pa, errs = Tools.fit_threegaussians(xdata, signal, pa[inds[1]], pa[inds[2]], pa[inds[3]], xdata[ma[inds[1]]], xdata[ma[inds[2]]], xdata[ma[inds[3]]], 3, 3, 3)
+                pa, errs = Tools.fit_threegaussians(xdata, signal, a1, a2, a3, xdata[ma[inds[1]]], xdata[ma[inds[2]]], xdata[ma[inds[3]]], 3, 3, 3)
                 push!(peaks, [i-1, pa[2], pa[5], pa[8]])  # python plotting!
             elseif length(inds) > 1
+                a1 = signal[ma[inds[1]]]
+                a2 = signal[ma[inds[2]]]
                 #println("two $i")
-                pa, errs = Tools.fit_twogaussians(xdata, signal, pa[inds[1]], pa[inds[2]], xdata[ma[inds[1]]], xdata[ma[inds[2]]], 3, 3)
+                pa, errs = Tools.fit_twogaussians(xdata, signal, a1, a2, xdata[ma[inds[1]]], xdata[ma[inds[2]]], 3, 3)
                 push!(peaks, [i-1, pa[2], pa[5]])  # python plotting!
             end
         end
