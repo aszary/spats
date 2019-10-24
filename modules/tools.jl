@@ -24,7 +24,7 @@ module Tools
         pulse_num, bins = size(data)
         intensity = zeros(pulse_num)
         for i in 1:pulse_num
-            intensity[i] = sum(data[i])
+            intensity[i] = sum(data[i, :])
         end
         pulses = collect(1:pulse_num)
         mi = minimum(intensity)
