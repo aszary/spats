@@ -4,12 +4,8 @@ module SpaTs
     include("modules/data.jl")
     include("modules/plot.jl")
 
-    function main()
-        args = parse_commandline()
-        for (arg, val) in args
-            println("  $arg  =>  $val")
-        end
 
+    function mkieth()
 
         data = []
         push!(data, Data.load_ascii("/home/szary/work/J1651-4246/mkieth/c_1.txt"))
@@ -31,6 +27,20 @@ module SpaTs
         println(size(d))
         Plot.single(d, args["outdir"]; darkness=0.5, number=nothing, name_mod="J1651-4246")
         Plot.lrfs(d, args["outdir"]; darkness=0.1, start=1, name_mod="J1651-4246", change_fftphase=false)
+
+    end
+
+
+    function main()
+        args = parse_commandline()
+        for (arg, val) in args
+            println("  $arg  =>  $val")
+        end
+
+
+        data = Data.load_ascii("/home/szary/work/MeerTime/J1651/1700.txt")
+        Plot.single(data, args["outdir"]; start=1, number=nothing, darkness=0.5, name_mod="J1651")
+        Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1,  bin_st=300, bin_end=700, name_mod="J1651", change_fftphase=false)
 
         #data = Data.load_ascii("/fred/oz005/users/aszary/search/J1705-1906/2019-04-03T02:19:47/1444.5/grand.txt")
         #Plot.single(data, args["outdir"]; darkness=0.5, number=nothing, name_mod="J1705-1906")
@@ -85,6 +95,7 @@ module SpaTs
 
 end # module
 
+#SpaTs.mkieth()
 SpaTs.main()
 
 println("Bye")
