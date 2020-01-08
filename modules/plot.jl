@@ -43,6 +43,45 @@ module Plot
     end
 
 
+    function average2(data, data2, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0")
+        num, bins = size(data)
+        if number == nothing
+            number = num - start  # missing one?
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data[start:start+number-1,bin_st:bin_end]
+        da2 = data2[start:start+number-1,bin_st:bin_end]
+        average = Tools.average_profile(da)
+        average2 = Tools.average_profile(da2)
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        rc("font", size=6.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 2.362205), frameon=true)  # 8cm x 6 cm
+        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        minorticks_on()
+        plot(longitude, average, c="C1", label="low")
+        plot(longitude, average2, c="C2", label="high")
+        #yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        xlabel("longitude \$(^\\circ)\$")
+        legend()
+        #tick_params(labeltop=false, labelbottom=true)
+        savefig("$outdir/average2_$name_mod.pdf")
+        close()
+        #clf()
+    end
+
+
+
     function single0(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, norm=2.0)
 
         num, bins = size(data)
