@@ -3,6 +3,7 @@ module Tools
     using Peaks
     using LsqFit
     using Statistics
+    using SmoothingSplines
 
     using PyPlot
 
@@ -66,7 +67,10 @@ module Tools
 
     function peaks(intensity)
         #max = maxima(intensity, 30)
-        ma, pa = peakprom(intensity, Maxima(), floor(Int, length(intensity)/20))
+        ma, pa = peakprom(intensity, Maxima(), 1) #floor(Int, length(intensity)/20))  # works for J1750
+        #ma, pa = peakprom(intensity, Maxima(), floor(Int, length(intensity)/20))
+        #println(ma)
+        #println(pa)
         val , ind = findmax(pa)
         return ma[ind]
     end
@@ -245,6 +249,90 @@ module Tools
         return peaks
     end
 
+
+    function find_peaks3(data)
+        sz = size(data)
+        peaks = []
+        for i in 1:sz[1]
+            signal = data[i, :]
+            xdata = collect(1:length(signal))
+            #println("$i $inds")
+            spl = fit(SmoothingSpline, map(Float64, xdata), signal, 500.0)
+            ysp = SmoothingSplines.predict(spl)
+
+            peak = Tools.peaks(ysp)
+            ma, pa = peakprom(ysp, Maxima(), 3)
+            inds = sortperm(pa, rev=true)
+
+            #push!(peaks, [i, xdata[ma[inds[1]]], xdata[ma[inds[2]]], xdata[ma[inds[3]]]])
+            push!(peaks, [i, xdata[ma[inds[1]]]])
+            #=
+                a1 = signal[ma[inds[1]]]
+
+                figure()
+                axvline(x=xdata[ma[inds[1]]], lw=1, c="black")
+                plot(xdata, signal)
+                plot(xdata, ysp, label="spline")
+                legend()
+                savefig("output/test.pdf")
+                readline(stdin; keep=false)
+                close()
+            =#
+
+            #=
+                a1 = signal[ma[inds[1]]]
+                a2 = signal[ma[inds[2]]]
+                a3 = signal[ma[inds[3]]]
+
+                println(inds[1:3])
+
+                    plot(xdata, signal)
+                    plot(xdata, ysp, label="ysp")
+                    axvline(x=xdata[ma[inds[1]]], lw=3)
+                    axvline(x=xdata[ma[inds[1]]])
+                    axvline(x=xdata[ma[inds[2]]], lw=3)
+                    axvline(x=xdata[ma[inds[3]]])
+                    axvline(x=pa[2], c="green")
+                    axvline(x=pa[5], c="green")
+                    axhline(y=a1, c="red")
+                    axhline(y=a2, c="red")
+                    axhline(y=a3, c="red")
+                    #show()  # does not work
+                    savefig("output/test.pdf")
+                    readline(stdin; keep=false)
+                    close()
+                =#
+                #=
+                plot(xdata, signal)
+                axvline(x=pa[2])
+                axvline(x=pa[5])
+                axvline(x=pa[8])
+                axhline(y=a1, c="red")
+                axhline(y=a2, c="red")
+                axhline(y=a3, c="red")
+                savefig("output/test.pdf")
+                close()
+                =#
+            #=
+            elseif length(inds) > 1
+                a1 = signal[ma[inds[1]]]
+                a2 = signal[ma[inds[2]]]
+                pa, errs = Tools.fit_twogaussians(xdata, signal, a1, a2, xdata[ma[inds[1]]], xdata[ma[inds[2]]], 3, 3)
+                push!(peaks, [i-1, pa[2], pa[5]])  # python plotting!
+                #=
+                plot(xdata, signal)
+                axvline(x=pa[2])
+                axvline(x=pa[5])
+                axhline(y=a1, c="red")
+                axhline(y=a2, c="red")
+                savefig("output/test.pdf")
+                close()
+                =#
+            end
+            =#
+        end
+        return peaks
+    end
 
 
 

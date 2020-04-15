@@ -2,7 +2,8 @@ module Plot
     using Statistics
     using StatsBase
     using PyPlot
-    PyPlot.matplotlib.use("agg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
+    #PyPlot.matplotlib.use("agg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
+    PyPlot.matplotlib.use("qt5agg")
     using Peaks
 
     include("tools.jl")
@@ -30,7 +31,6 @@ module Plot
         figure(figsize=(3.14961, 2.362205), frameon=true)  # 8cm x 6 cm
         subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
-
         minorticks_on()
         plot(longitude, average, c="grey")
         #yticks([0.0, 0.5])
@@ -45,13 +45,18 @@ module Plot
 
     function average2(data, data2, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0")
         num, bins = size(data)
+        num2, bins = size(data2)
         if number == nothing
-            number = num - start  # missing one?
+            number1 = num - start  # missing one?
+            number2 = num2 - start  # missing one?
+        else
+            number1 = number
+            number2 = number
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
-        da = data[start:start+number-1,bin_st:bin_end]
-        da2 = data2[start:start+number-1,bin_st:bin_end]
+        da = data[start:start+number1-1, bin_st:bin_end]
+        da2 = data2[start:start+number2-1, bin_st:bin_end]
         average = Tools.average_profile(da)
         average2 = Tools.average_profile(da2)
 
@@ -65,7 +70,7 @@ module Plot
         rc("lines", linewidth=0.5)
 
         figure(figsize=(3.14961, 2.362205), frameon=true)  # 8cm x 6 cm
-        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+        subplots_adjust(left=0.14, bottom=0.14, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         minorticks_on()
         plot(longitude, average, c="C1", label="low")
@@ -75,7 +80,7 @@ module Plot
         xlabel("longitude \$(^\\circ)\$")
         legend()
         #tick_params(labeltop=false, labelbottom=true)
-        savefig("$outdir/average2_$name_mod.pdf")
+        savefig("$outdir/$(name_mod)_average2.pdf")
         close()
         #clf()
     end
@@ -108,7 +113,7 @@ module Plot
     end
 
 
-    function single(data, outdir; start=1, number=100, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")
+    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
@@ -140,7 +145,7 @@ module Plot
         ylim(pulses[1], pulses[end])
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
-        xlabel("intensityy")
+        xlabel("intensity")
         ylabel("Pulse number")
 
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
@@ -154,13 +159,16 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
-        savefig("$outdir/single_$name_mod.pdf")
+        println("$outdir/$(name_mod)_single.pdf")
+        savefig("$outdir/$(name_mod)_single.pdf")
+        #show()
+        #readline(stdin; keep=false)
         close()
         #clf()
     end
 
 
-    function lrfs(data, outdir; start=1, number=nothing, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true)
+    function lrfs(data, outdir; start=1, number=nothing, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true)
 
         num, bins = size(data)
         if number == nothing
@@ -263,12 +271,12 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
-        savefig("$outdir/lrfs_$name_mod.pdf")
+        savefig("$outdir/$(name_mod)_lrfs.pdf")
         close()
     end
 
 
-    function p3_evolution(data, outdir; start=1, end_=nothing, step=10, number=256, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", verbose=false)
+    function p3_evolution(data, outdir; start=1, end_=nothing, step=10, number=256, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", verbose=false)
         num, bins = size(data)
         if end_ == nothing end_ = num end
         if bin_st == nothing bin_st = 1 end
@@ -295,9 +303,9 @@ module Plot
                 p3err = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
                 if verbose == true println("\tP3 = $p3, P3 error = $p3err") end
             catch exc
-                p3 = nothing
-                p3err = nothing
-                if verbose == true println("\tP3 = nothing, P3 error = nothing") end
+                p3 = 0. #nothing
+                p3err = 0. #nothing
+                if verbose == true println("\t[WARNING! P3 = 0, P3 error = 0]") end
             end
             push!(intensity_, inten)
             push!(p3_, p3)
@@ -358,7 +366,7 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         xlim(frequency[1], frequency[end])
         yticks([])
-        savefig("$outdir/p3_evolution_$name_mod.pdf")
+        savefig("$outdir/$(name_mod)_p3_evolution.pdf")
         close()
 
     end
@@ -422,7 +430,7 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
-        savefig("$outdir/p3fold_$name_mod.pdf")
+        savefig("$outdir/$(name_mod)_p3fold.pdf")
         close()
     end
 
@@ -452,8 +460,10 @@ module Plot
         ti = ["$(fracs[i])\$P_3\$" for i in 1:3]
         =#
 
-        peak_data = Tools.find_peaks(da)
-        peak_data2 = Tools.find_peaks(da2)
+        #peak_data = Tools.find_peaks(da)
+        peak_data = Tools.find_peaks3(da)
+        #peak_data2 = Tools.find_peaks(da2)
+        peak_data2 = Tools.find_peaks3(da2)
         #println("$val, $ind")
         #=
         for peak in peak_data
@@ -483,33 +493,37 @@ module Plot
 
         subplot2grid((5, 4), (0, 0), rowspan=4, colspan=2)
         minorticks_on()
-        imshow(da, origin="lower", cmap=cmap, interpolation="bicubic", aspect="auto",  vmax=darkness*maximum(da))
-        for peak in peak_data
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=[1, bin_end-bin_st, 1, num])
+        ex = [1, bin_end-bin_st, 1, num]
+        for peak in peak_data[2:end-1]
             for val in view(peak, 2:length(peak))
-                scatter(val, peak[1], marker="x", c="white", s=2.5)
+                println("$val $(peak[1])")
+                scatter(val, peak[1], marker="x", c="green", s=2.5)
             end
         end
         grid(color="white", lw=0.4)
         grid(color="white", which="minor", lw=0.1, ls=":")
         tick_params(labelleft=false, labelbottom=false)
-        xlabel("122 MHz (BW:9.77 MHz)")
+        #xlabel("122 MHz (BW: 9.77 MHz)")
+        xlabel("1102 MHz (BW: MHz)")
 
         subplot2grid((5, 4), (0, 2), rowspan=4, colspan=2)
         minorticks_on()
-        imshow(da2, origin="lower", cmap=cmap, interpolation="bicubic", aspect="auto",  vmax=darkness*maximum(da2))
-        for peak in peak_data2
+        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da2), extent=[1, bin_end-bin_st, 1, num])
+        for peak in peak_data2[2:end-1]
             for val in view(peak, 2:length(peak))
-                scatter(val, peak[1], marker="x", c="white", s=2.5)
+                println("$val $(peak[1])")
+                scatter(val, peak[1], marker="x", c="green", s=2.5)
             end
         end
         grid(color="white", lw=0.4)
         grid(color="white", which="minor", lw=0.1, ls=":")
         tick_params(labelleft=false, labelbottom=false)
-        #xlabel("174 MHz (BW:29.3 MHz)")
-        xlabel("144 MHz (BW:19.5 MHz)")
+        #xlabel("174 MHz (BW:29.5 MHz)")
+        xlabel("1462 MHz (BW: MHz)")
 
         #tick_params(labeltop=false, labelbottom=true)
-        savefig("$outdir/offset_$name_mod.pdf")
+        savefig("$outdir/$(name_mod)_offset.pdf")
         close()
     end
 
@@ -533,8 +547,10 @@ module Plot
         da = repeat(da, repeat_num)
         da2 = repeat(da2, repeat_num)
 
-        peak_data = Tools.find_peaks(da)
-        peak_data2 = Tools.find_peaks(da2)
+        #peak_data = Tools.find_peaks(da)
+        peak_data = Tools.find_peaks3(da)
+        #peak_data2 = Tools.find_peaks(da2)
+        peak_data2 = Tools.find_peaks3(da2)
 
         off = []
         off_x = []
@@ -587,7 +603,7 @@ module Plot
         scatter(off_x, off, marker="x", c="black", s=4)
         xlabel("x-bin (longitude)" )
         ylabel("offest (dbin)" )
-        savefig("$outdir/offset_points_$name_mod.pdf")
+        savefig("$outdir/$(name_mod)_offset_points.pdf")
         close()
     end
 
@@ -737,5 +753,83 @@ module Plot
         savefig("$outdir/crosscorr_$name_mod.pdf")
         close()
     end
+
+
+
+    function offset_subtract(data, data2, outdir; start=1, number=nothing, repeat_num=1, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")
+        num, bins = size(data)
+        if number == nothing
+            number = num - start + 1  # missing one? yes! +1
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data[start:start+number-1, bin_st:bin_end]
+        da2 = data2[start:start+number-1, bin_st:bin_end]
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        da3 = Array{Float64}(undef, number, bin_end - bin_st + 1)
+        for i in 1:number
+            one = da[i,:]
+            mi = minimum(one)
+            ma = maximum(one)
+            #println("$i $mi $ma")
+            for j in 1:(bin_end - bin_st + 1)
+                da[i,j] = (da[i,j]- mi) / (ma - mi)
+            end
+
+            two = da2[i,:]
+            mi = minimum(two)
+            ma = maximum(two)
+            for j in 1:(bin_end - bin_st +1)
+                da2[i,j] = (da2[i,j]- mi) / (ma - mi)
+            end
+            for j in 1:(bin_end - bin_st +1)
+                da3[i,j] = da[i,j] - da2[i,j]
+            end
+        end
+        # repeat data
+        da = repeat(da, repeat_num)
+        da2 = repeat(da2, repeat_num)
+        da3 = repeat(da3, repeat_num)
+
+
+        rc("font", size=6.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(6.299213, 8.267717))  # 16cm x 21cm
+        #subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+        subplots_adjust(left=0.01, bottom=0.05, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        subplot2grid((1, 3), (0, 0))
+        minorticks_on()
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=[1, bin_end-bin_st, 1, number*repeat_num])
+        #xlabel("122 MHz (BW: 9.77 MHz)")
+        xlabel("1102 MHz")
+
+        subplot2grid((1, 3), (0, 1))
+        minorticks_on()
+        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da2), extent=[1, bin_end-bin_st, 1, number*repeat_num])
+        #xlabel("174 MHz (BW:29.5 MHz)")
+        xlabel("1462 MHz")
+
+        subplot2grid((1, 3), (0, 2))
+        minorticks_on()
+        #imshow(da3, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da3), extent=[1, bin_end-bin_st, 1, num])
+        imshow(da3, origin="lower", cmap=cmap, aspect="auto",  vmax=darkness*maximum(da3),  extent=[1, bin_end-bin_st, 1, number*repeat_num])
+        #xlabel("122 MHz minus 174 MHz")
+        xlabel("1102 MHz minus 1462 MHz")
+
+        savefig("$outdir/$(name_mod)_offset_subtract.pdf")
+        show()
+        readline(stdin; keep=false)
+        close()
+    end
+
+
 
 end  # modul Plot

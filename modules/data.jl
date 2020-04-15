@@ -3,6 +3,27 @@ module Data
     using FITSIO
     using ProgressMeter
 
+    """
+    Zero selected pulses
+
+    """
+    function zap!(data; ranges=nothing)
+        pulses, bins = size(data)
+        zaps = []
+        for rn in ranges
+            if length(rn) == 1
+                push!(zaps, rn)
+            else
+                zaps = vcat(zaps, collect(rn[1]:rn[2]))
+            end
+            for z in zaps
+                for i in 1:bins
+                    data[z,i] = 0
+                end
+            end
+        end
+    end
+
 
     """
     Loads PSRCHIVE ASCII file
@@ -24,6 +45,28 @@ module Data
         close(f)
         return data
     end
+
+
+
+    """
+    Save PSRCHIVE ASCII file
+    """
+    function save_ascii(data, outfile)
+        f = open(outfile, "w")
+        pulse_num = size(data)[1]
+        bin_num = size(data)[2]
+        header = "File: filename Src: J1750-3503 Nsub: $pulse_num Nch: 1 Npol: 1 Nbin: $bin_num RMS: 0.0\n"
+        write(f, header)
+
+        for i in 1:pulse_num
+            for j in 1:bin_num
+                write(f, "$(i-1) 0 $(j-1) $(data[i,j])\n")
+            end
+        end
+        close(f)
+        return
+    end
+
 
     """
     Loads data in FITS format
