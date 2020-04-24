@@ -7,6 +7,16 @@ module Tools
 
     using PyPlot
 
+
+    function rms(data)
+        s = 0.0
+        for a in data
+            s += a * a
+        end
+        return sqrt(s / length(data))
+    end
+
+
     function average_profile(data)
         pulses, bins = size(data)
         ave = zeros(bins)
@@ -336,18 +346,44 @@ module Tools
 
 
     function p2_estimate(data; on_st=450, on_end=700, off_st=100, off_end=350, thresh=3.3, win=6)
-
         pulses, bins = size(data)
-
+        average = average_profile(data)
         avs = []
         for i in on_st:on_end
-
-            #for j in         
-
+            #av = Array{Float64}(undef, bins)
+            av = zeros(bins)
+            for j in 1:pulses
+                (ma, ind) = findmax(data[j, :])
+                if (ind >= i - win) && (ind <= i + win)
+                    #println("$(length(av))")
+                    #println("$(length(data[j, on_st:on_end]))")
+                    av += data[j, :]
+                end
+            end
+            on_rms = rms(av[on_st:on_end])
+            off_rms = rms(av[off_st:off_end])
+            if on_rms > thresh * off_rms
+                push!(avs, av)
+            end
         end
 
+        # normalise avs
+        for i in 1:length(avs)
+            (mi, ma) = extrema(avs[i])
+            #println(mi)
+            println("$mi $ma")
+            avs[i] .-= mi
+            avs[i] ./= (ma - mi)
+        end
 
+        println("$(length(avs))")
 
+        PyPlot.close()
+        plot(average, c="black", lw=2)
+        for av in avs
+            plot(av, lw=0.3)
+        end
+        show()
 
     end
 
