@@ -335,5 +335,12 @@ module Tools
     end
 
 
+    function p2_estimate(data; on_st=450, on_end=700, off_st=100, off_end=350, thresh=3.3, win=6)
+
+        
+
+
+    end
+
 
 end  # module Tools

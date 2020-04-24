@@ -3,7 +3,7 @@ module SpaTs
 
     include("modules/data.jl")
     include("modules/plot.jl")
-
+    include("modules/tools.jl")
 
     function mkieth()
 
@@ -94,6 +94,7 @@ module SpaTs
         ozdir1 = "/fred/oz005/users/aszary/search_processed/J1750-3503_old/2019-09-29-12:41:18/1284/single/"
         ozdir2 = "/fred/oz005/users/aszary/search_processed/J1750-3503_old/2019-12-14-14:22:12/1284/single/"
         ozdir3 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-02-24-03:46:43/1284/single/"
+        ozdir4 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-03-29-04:11:50/1284/single/"
 
 
         # first session
@@ -124,8 +125,14 @@ module SpaTs
         =#
 
         # third session
-        Data.convert_psrfit_ascii("$(ozdir3)2020-02-24-03:46:43_00000-00255.spCF", "$(ozdir3)2020-02-24-03:46:43_00000-00255.txt")
-        Data.convert_psrfit_ascii("$(ozdir3)2020-02-24-03:46:43_00256-00445.spCF", "$(ozdir3)2020-02-24-03:46:43_00256-00445.txt")
+        #Data.convert_psrfit_ascii("$(ozdir3)2020-02-24-03:46:43_00000-00255.spCF", "$(ozdir3)2020-02-24-03:46:43_00000-00255.txt")
+        #Data.convert_psrfit_ascii("$(ozdir3)2020-02-24-03:46:43_00256-00445.spCF", "$(ozdir3)2020-02-24-03:46:43_00256-00445.txt")
+
+        # fourth session
+        Data.convert_psrfit_ascii("$(ozdir4)2020-03-29-04:11:50_00000-00255.spCF", "$(ozdir4)2020-03-29-04:11:50_00000-00255.txt")
+        Data.convert_psrfit_ascii("$(ozdir4)2020-03-29-04:11:50_00256-00449.spCF", "$(ozdir4)2020-03-29-04:11:50_00256-00449.txt")
+
+
 
     end
 
@@ -147,9 +154,9 @@ module SpaTs
         #Plot.p3fold(data, outdir; start=1, number=46, bin_st=450, bin_end=700, name_mod="J1750_1_refine", darkness=1.0, cmap="viridis")
 
 
-        data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294_low.p3fold")
-        data2 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294_high.p3fold")
-        Plot.offset_subtract(data1, data2, outdir; bin_st=450, bin_end=700, name_mod="J1750_1_p3fold", darkness=1.0, repeat_num=3)  # it may look nice? Nope! but why? try subtract p3folds
+        #data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294_low.p3fold")
+        #data2 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294_high.p3fold")
+        #Plot.offset_subtract(data1, data2, outdir; bin_st=450, bin_end=700, name_mod="J1750_1_p3fold", darkness=1.0, repeat_num=3)  # it may look nice? Nope! but why? try subtract p3folds
 
         # second session
         #data = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
@@ -175,8 +182,9 @@ module SpaTs
         #Data.zap!(data; ranges=[241, 335, 334])
         #Plot.single(data, outdir; start=1, number=nothing, bin_st=415, bin_end=620, name_mod="J1750_3", darkness=0.3)
         #Plot.single(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing, name_mod="J1750_3", darkness=0.7)
-
-
+        #Plot.lrfs(data, outdir; darkness=0.3, start=1, number=256, name_mod="J1750_4_part", bin_st=400, bin_end=700, change_fftphase=false)
+        #Plot.p3_evolution(data, outdir; darkness=0.5, bin_st=400, bin_end=700, name_mod="J1750_3_128", number=128)
+        #Plot.p3_evolution(data, outdir; darkness=0.5, bin_st=400, bin_end=700, name_mod="J1750_3_128", number=128)
 
         # both
         #data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
@@ -192,6 +200,35 @@ module SpaTs
         #Plot.offset(data1, data2, outdir; bin_st=450, bin_end=700, name_mod="J1750_1", darkness=0.7, repeat_num=1)
         #Plot.offset_subtract(data1, data2, outdir; bin_st=450, bin_end=700, name_mod="J1750_1", darkness=0.7, repeat_num=1)
         #Plot.offset_points(data1, data2, outdir; bin_st=450, bin_end=700, name_mod="J1750_1", repeat_num=1)
+
+        # P2 estimate
+        data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
+        data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
+        data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+        #Plot.single(data1, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing, name_mod="J1750_test", darkness=0.3)
+        Tools.p2_estimate(data1; on_st=450, on_end=700, off_st=100, off_end=350, thresh=3.3, win=6)
+        #Tools.p2_estimate(data2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5.5)
+
+        # fourth session
+        #data1 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00255.txt")
+        #data2 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00256-00449.txt")
+        #data = vcat(data1, data2)
+        #Data.save_ascii(data, "$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+
+        #data = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+        #Plot.single(data, outdir; start=1, number=nothing, bin_st=400, bin_end=700, name_mod="J1750_4", darkness=0.3)
+        #Plot.single(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing, name_mod="J1750_4", darkness=0.3)
+        #Plot.p3_evolution(data, outdir; darkness=0.5, bin_st=400, bin_end=700, name_mod="J1750_4", number=128)
+        #Plot.lrfs(data, outdir; darkness=0.3, start=1, number=256, name_mod="J1750_4_part", bin_st=400, bin_end=700, change_fftphase=false)
+
+        # all
+        #data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
+        #data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        #data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
+        #data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+        #Plot.averageX([data1, data2, data3, data4], outdir, bin_st=400, bin_end=700, number=nothing, name_mod="J1750")
+
 
 
     end

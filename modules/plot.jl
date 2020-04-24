@@ -87,6 +87,65 @@ module Plot
 
 
 
+    function averageX(datas, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0")
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        numbers = []
+        if number == nothing
+            for num in nums
+                push!(numbers, num-start)  # missing one?
+            end
+        else
+            for i in 1:length(nums)
+                push!(numbers, number)
+            end
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = []
+        for (i,data) in enumerate(datas)
+            da = data[start:start+numbers[i]-1, bin_st:bin_end]
+            push!(das, da)
+        end
+        avs = []
+        for da in das
+            push!(avs, Tools.average_profile(da))
+        end
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins[1]
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        rc("font", size=6.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 2.362205), frameon=true)  # 8cm x 6 cm
+        subplots_adjust(left=0.14, bottom=0.14, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        minorticks_on()
+        for i in 1:length(avs)
+            plot(longitude, avs[i], c="C$i", label="Obs. num. $i")
+        end
+        #yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        xlabel("longitude \$(^\\circ)\$")
+        legend()
+        #tick_params(labeltop=false, labelbottom=true)
+        savefig("$outdir/$(name_mod)_averageX.pdf")
+        close()
+        #clf()
+    end
+
+
+
+
     function single0(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, norm=2.0)
 
         num, bins = size(data)
