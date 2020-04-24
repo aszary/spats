@@ -337,7 +337,16 @@ module Tools
 
     function p2_estimate(data; on_st=450, on_end=700, off_st=100, off_end=350, thresh=3.3, win=6)
 
-        
+        pulses, bins = size(data)
+
+        avs = []
+        for i in on_st:on_end
+
+            #for j in         
+
+        end
+
+
 
 
     end
