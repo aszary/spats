@@ -379,8 +379,7 @@ module Tools
         average .-= mi
         average ./= (ma - mi)
 
-
-        println("$(length(avs))")
+        println("Avs. num: $(length(avs))")
         dbins = []
         for av in avs
             p0 = [1.0, 0.5, 530.0, 600.0, 15, 15]
@@ -389,8 +388,7 @@ module Tools
             pa, errs = Tools.fit_twogaussians(xdata, av[on_st:on_end], p0[1], p0[2], p0[3], p0[4], p0[5], p0[6])
             dbin = abs(pa[2]-pa[5])
             push!(dbins, dbin)
-
-
+            #=
             ga = twogauss(xdata, pa)
             PyPlot.close()
             plot(average, c="black", lw=2)
@@ -399,13 +397,14 @@ module Tools
             savefig("output/test.pdf")
             #readline(stdin; keep=false)
             #show()
-
+            =#
         end
 
         p2 = median(dbins) / bins * 360
         #p22 = mean(dbins)
-        println("$p2")
+        #println("$p2")
 
+        #=
         PyPlot.close()
         plot(average, c="black", lw=2)
         for av in avs
@@ -413,6 +412,7 @@ module Tools
         end
         savefig("output/test.pdf")
         #readline(stdin; keep=false)
+        =#
         return p2
     end
 
