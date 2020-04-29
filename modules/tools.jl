@@ -381,13 +381,16 @@ module Tools
 
         println("Avs. num: $(length(avs))")
         dbins = []
+        #p2errs = []
+        p2s = []
         for av in avs
             p0 = [1.0, 0.5, 530.0, 600.0, 15, 15]
-            p0 = [1.0, 0.5, 430.0, 500.0, 15, 15]
+            #p0 = [1.0, 0.5, 430.0, 500.0, 15, 15]
             xdata = collect(on_st:on_end)
             pa, errs = Tools.fit_twogaussians(xdata, av[on_st:on_end], p0[1], p0[2], p0[3], p0[4], p0[5], p0[6])
-            dbin = abs(pa[2]-pa[5])
-            push!(dbins, dbin)
+            dbin = abs(pa[2] - pa[5])
+            p2 = dbin / bins * 360
+            push!(p2s, p2)
             #=
             ga = twogauss(xdata, pa)
             PyPlot.close()
@@ -395,15 +398,17 @@ module Tools
             plot(av, lw=0.3)
             plot(xdata, ga, lw=0.6, c="red")
             savefig("output/test.pdf")
-            #readline(stdin; keep=false)
+            readline(stdin; keep=false)
             #show()
             =#
+            #p2err = win * 360 / bins * sqrt(1 + (rms(av[off_st:off_end])/maximum(av))^2)
+            #push!(p2errs, p2err)
         end
 
-        p2 = median(dbins) / bins * 360
-        #p22 = mean(dbins)
-        #println("$p2")
-
+        p2 = median(p2s)
+        println(p2s)
+        p2err = std(p2s)
+        println("$p2 $p2err")
         #=
         PyPlot.close()
         plot(average, c="black", lw=2)
@@ -415,6 +420,5 @@ module Tools
         =#
         return p2
     end
-
 
 end  # module Tools

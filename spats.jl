@@ -171,7 +171,6 @@ module SpaTs
         #data = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.p3fold")
         #Plot.p3fold(data, outdir; start=1, number=nothing, bin_st=450, bin_end=700, name_mod="J1750_2", darkness=1.0, cmap="viridis")
 
-
         # third session
         #data1 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00255.txt")
         #data2 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00256-00445.txt")
@@ -208,7 +207,7 @@ module SpaTs
         data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
         #Plot.single(data1, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing, name_mod="J1750_test", darkness=0.3)
         #Tools.p2_estimate(data1; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5, win=8) # 18
-        #Tools.p2_estimate(data2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5, win=4) # 18
+        Tools.p2_estimate(data2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5, win=4) # 18
         #Tools.p2_estimate(data3; on_st=350, on_end=650, off_st=50, off_end=350, thresh=3.5, win=15) #  no! # to noisy!
         #Tools.p2_estimate(data4; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5, win=12) # 17.6
 
@@ -230,8 +229,6 @@ module SpaTs
         #data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
         #data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
         #Plot.averageX([data1, data2, data3, data4], outdir, bin_st=400, bin_end=700, number=nothing, name_mod="J1750")
-
-
 
     end
 
