@@ -390,7 +390,10 @@ module Tools
             pa, errs = Tools.fit_twogaussians(xdata, av[on_st:on_end], p0[1], p0[2], p0[3], p0[4], p0[5], p0[6])
             dbin = abs(pa[2] - pa[5])
             p2 = dbin / bins * 360
-            push!(p2s, p2)
+            # nesty hack!
+            if (p2 > 16) && p2 < (20)
+                push!(p2s, p2)
+            end
             #=
             ga = twogauss(xdata, pa)
             PyPlot.close()
