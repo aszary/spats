@@ -6,6 +6,7 @@ module Tools
     using SmoothingSplines
 
     using PyPlot
+    using DSP
 
 
     function rms(data)
@@ -408,8 +409,9 @@ module Tools
             #push!(p2errs, p2err)
         end
 
-        p2 = median(p2s)
-        println(p2s)
+        #p2 = median(p2s)
+        p2 = mean(p2s)
+        println(p2)
         p2err = std(p2s)
         println("$p2 $p2err")
         #=
@@ -422,6 +424,31 @@ module Tools
         #readline(stdin; keep=false)
         =#
         return p2
+    end
+
+
+    function track_subpulses(data, p2)
+        pulses, bins = size(data)
+        p2_bins = floor(Int, p2 / 360 * bins)
+        x_ = collect(range(0, 2*pi, length=100))
+
+        y_ = sin.(x_)
+        y2_ = gauss(collect(1:p2_bins), [1, p2_bins/2, p2_bins/5, 0])
+
+        y3_ = conv(y_, y2_)
+
+        println(size(y3_))
+
+        PyPlot.close()
+        #plot(x_, y_)
+        #plot(x_, y2_)
+        plot(y_, c="black")
+        plot(y2_, c="black", ls="--")
+        plot(y3_, c="red")
+        show()
+
+
+
     end
 
 end  # module Tools
