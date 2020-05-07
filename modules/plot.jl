@@ -185,7 +185,7 @@ module Plot
         intensity .-= minimum(intensity)
         intensity ./= maximum(intensity)
 
-        pulses .+= start
+        pulses .+= start - 1  # julia
 
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1
@@ -201,7 +201,7 @@ module Plot
         subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
         plot(intensity, pulses, c="grey")
-        ylim(pulses[1], pulses[end])
+        ylim(pulses[1]-0.5, pulses[end]+0.5)
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
         xlabel("intensity")

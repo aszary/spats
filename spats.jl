@@ -231,7 +231,9 @@ module SpaTs
         #Plot.averageX([data1, data2, data3, data4], outdir, bin_st=400, bin_end=700, number=nothing, name_mod="J1750")
 
         # track subpulses
+        data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
         data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        Plot.single(data1, outdir; start=1, number=10, bin_st=nothing, bin_end=nothing, name_mod="short", darkness=0.6)
         Tools.track_subpulses(data2, 18.0)
 
     end

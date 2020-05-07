@@ -7,6 +7,7 @@ module Tools
 
     using PyPlot
     using DSP
+    using LinearAlgebra
 
 
     function rms(data)
@@ -427,27 +428,48 @@ module Tools
     end
 
 
-    function track_subpulses(data, p2)
+    function track_subpulses(data, p2; on_st=450, on_end=700, off_st=100, off_end=350)
         pulses, bins = size(data)
         p2_bins = floor(Int, p2 / 360 * bins)
-        x_ = collect(range(0, 2*pi, length=100))
 
+
+        #=
+        x_ = collect(range(0, 2*pi, length=100))
         y_ = sin.(x_)
         y2_ = gauss(collect(1:p2_bins), [1, p2_bins/2, p2_bins/5, 0])
-
         y3_ = conv(y_, y2_)
-
         println(size(y3_))
+        =#
+        for i in 1:pulses
+            # no all of them are weak
+            #on_rms = rms(view(data, i, on_st:on_end))
+            #off_rms = rms(view(data, i, off_st:off_end))
+            #println(on_rms / off_rms)
+            σ = p2_bins / 2 / 2.35482
+            kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+            #y = view(data, i, on_st:on_end)
+            y = view(data, i, :)
+            (mi, ma) = extrema(y)
+            y = (y .- mi) / (ma - mi)
 
-        PyPlot.close()
-        #plot(x_, y_)
-        #plot(x_, y2_)
-        plot(y_, c="black")
-        plot(y2_, c="black", ls="--")
-        plot(y3_, c="red")
-        show()
+            res = conv(y, kernel)
+            (mi, ma) = extrema(res)
+            res = (res .- mi) / (ma - mi)
+            re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
 
+            on = rms(re[on_st:on_end])
+            off = rms(re[off_st:off_end])
 
+            println(on/off)
+
+            PyPlot.close()
+            plot(y, c="black")
+            plot(re, c="red")
+            plot(kernel, c="blue")
+            show()
+            readline(stdin; keep=false)
+
+        end
 
     end
 
