@@ -428,23 +428,12 @@ module Tools
     end
 
 
-    function track_subpulses(data, p2; on_st=450, on_end=700, off_st=100, off_end=350)
+    function track_subpulses(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8)
         pulses, bins = size(data)
         p2_bins = floor(Int, p2 / 360 * bins)
-
-
-        #=
-        x_ = collect(range(0, 2*pi, length=100))
-        y_ = sin.(x_)
-        y2_ = gauss(collect(1:p2_bins), [1, p2_bins/2, p2_bins/5, 0])
-        y3_ = conv(y_, y2_)
-        println(size(y3_))
-        =#
+        peaks = [] # [pulse_num, [p1, p2, p3...]]
+        ppeaks = [] # [p1, p2, p3...]
         for i in 1:pulses
-            # no all of them are weak
-            #on_rms = rms(view(data, i, on_st:on_end))
-            #off_rms = rms(view(data, i, off_st:off_end))
-            #println(on_rms / off_rms)
             σ = p2_bins / 2 / 2.35482
             kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
             #y = view(data, i, on_st:on_end)
@@ -457,20 +446,43 @@ module Tools
             res = (res .- mi) / (ma - mi)
             re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
 
-            on = rms(re[on_st:on_end])
-            off = rms(re[off_st:off_end])
-
-            println(on/off)
-
-            PyPlot.close()
-            plot(y, c="black")
-            plot(re, c="red")
-            plot(kernel, c="blue")
-            show()
-            readline(stdin; keep=false)
-
+            on = maximum(re[on_st:on_end])
+            off = rms(y[off_st:off_end])
+            sigma = on / off
+            #println("$i $sigma")
+            if sigma > thresh
+                peak = Tools.peaks(re)
+                ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
+                #ma, pa = peakprom(re, Maxima(), p2_bins/2)
+                inds = sortperm(pa, rev=true)
+                ppeaks = []
+                for ii in inds
+                    if (re[ma[ii]] > thresh2) &&  (ma[ii] > on_st) && (ma[ii] < on_end)
+                        push!(ppeaks, ma[ii])
+                    end
+                end
+                push!(peaks, [i, ppeaks])
+                #println(ppeaks)
+                #=
+                PyPlot.close()
+                plot(y, c="black")
+                plot(re, c="red")
+                plot(kernel, c="blue")
+                for ii in inds
+                    axvline(x=ma[ii]-1, c="pink")
+                end
+                axvline(x=ma[inds[1]]-1, c="green") # TODO plotting starts from 0!
+                axvline(x=ma[inds[2]]-1, c="magenta") # TODO plotting starts from 0!
+                show()
+                st = readline(stdin; keep=false)
+                if st == "q"
+                    break
+                end
+                =#
+            end
         end
 
+        return peaks
     end
 
 end  # module Tools
