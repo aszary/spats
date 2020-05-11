@@ -235,7 +235,7 @@ module SpaTs
         data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
         #Plot.single(data1, outdir; start=1, number=10, bin_st=400, bin_end=700, name_mod="short", darkness=0.6)
         peaks = Tools.track_subpulses(data2, 18.0)
-        #println(peaks)
+        Plot.tracks(data1, outdir, peaks; start=1, number=10, bin_st=400, bin_end=700, name_mod="J1750_1", darkness=0.6)
 
     end
 
