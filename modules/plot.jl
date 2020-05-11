@@ -898,7 +898,7 @@ module Plot
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
-        da = data[start:start+number-1,bin_st:bin_end]
+        da = data[start:start+number-1, bin_st:bin_end]
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
@@ -925,15 +925,16 @@ module Plot
         xlim(1.1, -0.1)
         xlabel("intensity")
         ylabel("Pulse number")
-
+        extent = [bin_st, bin_end, start-0.5, start+number-1+0.5]
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=[bin_st, bin_end, start-0.5, start+number-1+0.5])
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=extent)
+        ylim([extent[3], extent[4]])
         #println([bin_st, bin_end, start-0.5, start+number+0.5])
         for peak in peaks
             if (peak[1] > start) && (peak[1] < start + number)
                 for x in peak[2]
-                    scatter(x, peak[1], marker="x", c="red", s=12.5)
-                    println("$(peak[1]) $x")
+                    scatter(x, peak[1], marker="x", c="red", s=12.5, lw=1)
+                    #println("$(peak[1]) $x")
                 end
             end
         end
@@ -949,7 +950,7 @@ module Plot
         println("$outdir/$(name_mod)_tracks.pdf")
         savefig("$outdir/$(name_mod)_tracks.pdf")
         #show()
-        #readline(stdin; keep=false)
+        st = readline(stdin; keep=false)
         close()
         #clf()
     end

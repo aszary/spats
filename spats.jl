@@ -232,10 +232,11 @@ module SpaTs
 
         # track subpulses
         data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
-        data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        #data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
         #Plot.single(data1, outdir; start=1, number=10, bin_st=400, bin_end=700, name_mod="short", darkness=0.6)
-        peaks = Tools.track_subpulses(data2, 18.0)
-        Plot.tracks(data1, outdir, peaks; start=1, number=10, bin_st=400, bin_end=700, name_mod="J1750_1", darkness=0.6)
+        peaks = Tools.track_subpulses(data1, 18.0, thresh=2.0, on_st=500, on_end=650)
+        Plot.tracks(data1, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_1", darkness=0.6)
+        #Plot.tracks(data1, outdir, peaks; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="J1750_1", darkness=0.5)
 
     end
 

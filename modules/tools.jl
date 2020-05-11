@@ -462,8 +462,8 @@ module Tools
                     end
                 end
                 push!(peaks, [i, ppeaks])
-                #println(ppeaks)
                 #=
+                println("$i $ppeaks")
                 PyPlot.close()
                 plot(y, c="black")
                 plot(re, c="red")
