@@ -347,7 +347,7 @@ module Tools
     end
 
 
-    function p2_estimate(data; on_st=450, on_end=700, off_st=100, off_end=350, thresh=3.3, win=6)
+    function p2_estimate(data; on_st=450, on_end=700, off_st=100, off_end=350, thresh=3.3, win=6, template_num=nothing)
         pulses, bins = size(data)
         average = average_profile(data)
         avs = []
@@ -416,26 +416,40 @@ module Tools
         p2err = std(p2s)
         println("$p2 $p2err")
         #=
-        PyPlot.close()
-        plot(average, c="black", lw=2)
-        for av in avs
-            plot(av, lw=0.3)
+        for (i, av) in enumerate(avs)
+            println("$i")
+            PyPlot.close()
+            plot(average, c="black", lw=2)
+            plot(av, lw=0.7)
+            savefig("output/test.pdf")
+            q = readline(stdin; keep=false)
+            if q == "q"
+                break
+            end
         end
-        savefig("output/test.pdf")
-        #readline(stdin; keep=false)
         =#
-        return p2
+        if template_num == nothing
+            return p2
+        else
+            return p2, avs[template_num][on_st+120:on_end-50] # TODO -50?
+        end
     end
 
 
-    function track_subpulses(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8)
+    function track_subpulses(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8, template=nothing)
         pulses, bins = size(data)
         p2_bins = floor(Int, p2 / 360 * bins)
         peaks = [] # [pulse_num, [p1, p2, p3...]]
         ppeaks = [] # [p1, p2, p3...]
-        for i in 1:pulses
+        if template == nothing
             σ = p2_bins / 2 / 2.35482
             kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+        else
+            kernel = template
+            p2_bins = length(template)
+            println("p2 bins $p2_bins")
+        end
+        for i in 1:pulses
             #y = view(data, i, on_st:on_end)
             y = view(data, i, :)
             (mi, ma) = extrema(y)
@@ -457,12 +471,11 @@ module Tools
                 inds = sortperm(pa, rev=true)
                 ppeaks = []
                 for ii in inds
-                    if (re[ma[ii]] > thresh2) &&  (ma[ii] > on_st) && (ma[ii] < on_end)
+                    if (re[ma[ii]] >= thresh2) &&  (ma[ii] > on_st) && (ma[ii] < on_end)
                         push!(ppeaks, ma[ii])
                     end
                 end
                 push!(peaks, [i, ppeaks])
-                #=
                 println("$i $ppeaks")
                 PyPlot.close()
                 plot(y, c="black")
@@ -478,7 +491,6 @@ module Tools
                 if st == "q"
                     break
                 end
-                =#
             end
         end
 
