@@ -95,6 +95,7 @@ module SpaTs
         ozdir2 = "/fred/oz005/users/aszary/search_processed/J1750-3503_old/2019-12-14-14:22:12/1284/single/"
         ozdir3 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-02-24-03:46:43/1284/single/"
         ozdir4 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-03-29-04:11:50/1284/single/"
+        ozdir5 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-05-07-23:14:22/1284/single/"
 
 
         # first session
@@ -129,9 +130,12 @@ module SpaTs
         #Data.convert_psrfit_ascii("$(ozdir3)2020-02-24-03:46:43_00256-00445.spCF", "$(ozdir3)2020-02-24-03:46:43_00256-00445.txt")
 
         # fourth session
-        Data.convert_psrfit_ascii("$(ozdir4)2020-03-29-04:11:50_00000-00255.spCF", "$(ozdir4)2020-03-29-04:11:50_00000-00255.txt")
-        Data.convert_psrfit_ascii("$(ozdir4)2020-03-29-04:11:50_00256-00449.spCF", "$(ozdir4)2020-03-29-04:11:50_00256-00449.txt")
+        #Data.convert_psrfit_ascii("$(ozdir4)2020-03-29-04:11:50_00000-00255.spCF", "$(ozdir4)2020-03-29-04:11:50_00000-00255.txt")
+        #Data.convert_psrfit_ascii("$(ozdir4)2020-03-29-04:11:50_00256-00449.spCF", "$(ozdir4)2020-03-29-04:11:50_00256-00449.txt")
 
+        # fith session
+        Data.convert_psrfit_ascii("$(ozdir5)2020-05-07-23:14:22_00000-00255.spCF", "$(ozdir5)2020-05-07-23:14:22_00000-00255.txt")
+        Data.convert_psrfit_ascii("$(ozdir5)2020-05-07-23:14:22_00256-00446.spCF", "$(ozdir5)2020-05-07-23:14:22_00256-00446.txt")
 
 
     end
@@ -223,23 +227,38 @@ module SpaTs
         #Plot.p3_evolution(data, outdir; darkness=0.5, bin_st=400, bin_end=700, name_mod="J1750_4", number=128)
         #Plot.lrfs(data, outdir; darkness=0.3, start=1, number=256, name_mod="J1750_4_part", bin_st=400, bin_end=700, change_fftphase=false)
 
+
+        # fifth session
+        #data1 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00255.txt")
+        #data2 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00256-00446.txt")
+        #data = vcat(data1, data2)
+        #Data.save_ascii(data, "$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
+        #data = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
+        #Plot.single(data, outdir; start=1, number=nothing, bin_st=400, bin_end=700, name_mod="J1750_5", darkness=0.3)
+        #Plot.single(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing, name_mod="J1750_5", darkness=0.3)
+        #Plot.p3_evolution(data, outdir; darkness=0.5, bin_st=400, bin_end=700, name_mod="J1750_5", number=128)
+        #Plot.lrfs(data, outdir; darkness=0.3, start=1, number=256, name_mod="J1750_5", bin_st=400, bin_end=700, change_fftphase=false)
+
+
         # average profiles - need to align, check X-ray project
         #data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
         #data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
         #data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
         #data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
-        #Plot.averageX([data1, data2, data3, data4], outdir, bin_st=400, bin_end=700, number=nothing, name_mod="J1750")
+        #data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
+        #Plot.averageX([data1, data2, data3, data4, data5], outdir, bin_st=400, bin_end=700, number=nothing, name_mod="J1750")
 
         # track subpulses
-        data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
-        data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
-        data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
-        data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
-        Data.zap!(data3; ranges=[241, 335, 334])
+        #data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
+        #data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        #data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
+        #data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+        data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
+        #Data.zap!(data3; ranges=[241, 335, 334])
         #Plot.single(data1, outdir; start=1, number=10, bin_st=400, bin_end=700, name_mod="short", darkness=0.6)
 
-        peaks = Tools.track_subpulses(data1, 18.0, thresh=2.1, thresh2=0.7, on_st=500, on_end=650)
-        Plot.tracks(data1, outdir, peaks; start=1, number=294, bin_st=500, bin_end=650, name_mod="J1750_1_new", darkness=0.6)
+        #peaks = Tools.track_subpulses(data1, 18.0, thresh=2.1, thresh2=0.7, on_st=500, on_end=650)
+        #Plot.tracks(data1, outdir, peaks; start=1, number=294, bin_st=500, bin_end=650, name_mod="J1750_1_new", darkness=0.6)
         #peaks = Tools.track_subpulses(data2, 18.0, thresh=2.2, thresh2=0.8, on_st=500, on_end=650)
         #Plot.tracks(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2", darkness=0.6)
         #peaks = Tools.track_subpulses(data3, 18.0, thresh=2.2, thresh2=0.8, on_st=425, on_end=600)
@@ -250,6 +269,11 @@ module SpaTs
         #p2, template = Tools.p2_estimate(data2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5, win=4, template_num=37) # 18
         #peaks = Tools.track_subpulses(data2, p2, thresh=2.1, thresh2=0.7, on_st=500, on_end=650, template=nothing)
         #Plot.tracks(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2_new", darkness=0.6)
+
+        peaks = Tools.track_subpulses(data5, 18, thresh=2.1, thresh2=0.7, on_st=500, on_end=650, template=nothing)
+        Plot.tracks(data5, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_5", darkness=0.6)
+        Plot.tracks(data5, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_5", darkness=0.6)
+
 
     end
 
