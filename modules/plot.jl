@@ -928,6 +928,7 @@ module Plot
         extent = [bin_st, bin_end, start-0.5, start+number-1+0.5]
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
         imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=extent)
+        xlim([extent[1], extent[2]])
         ylim([extent[3], extent[4]])
         #println([bin_st, bin_end, start-0.5, start+number+0.5])
         for peak in peaks

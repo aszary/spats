@@ -431,7 +431,7 @@ module Tools
         if template_num == nothing
             return p2
         else
-            return p2, avs[template_num][on_st+120:on_end-50] # TODO -50?
+            return p2, avs[template_num][on_st+120:on_end-80] # TODO -50?
         end
     end
 
@@ -477,6 +477,7 @@ module Tools
                 end
                 push!(peaks, [i, ppeaks])
                 println("$i $ppeaks")
+                #=
                 PyPlot.close()
                 plot(y, c="black")
                 plot(re, c="red")
@@ -491,6 +492,7 @@ module Tools
                 if st == "q"
                     break
                 end
+                =#
             end
         end
 

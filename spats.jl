@@ -237,8 +237,9 @@ module SpaTs
         data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
         Data.zap!(data3; ranges=[241, 335, 334])
         #Plot.single(data1, outdir; start=1, number=10, bin_st=400, bin_end=700, name_mod="short", darkness=0.6)
-        #peaks = Tools.track_subpulses(data1, 18.0, thresh=2.2, thresh2=0.8, on_st=500, on_end=650)
-        #Plot.tracks(data1, outdir, peaks; start=1, number=294, bin_st=500, bin_end=650, name_mod="J1750_1", darkness=0.6)
+
+        peaks = Tools.track_subpulses(data1, 18.0, thresh=2.1, thresh2=0.7, on_st=500, on_end=650)
+        Plot.tracks(data1, outdir, peaks; start=1, number=294, bin_st=500, bin_end=650, name_mod="J1750_1_new", darkness=0.6)
         #peaks = Tools.track_subpulses(data2, 18.0, thresh=2.2, thresh2=0.8, on_st=500, on_end=650)
         #Plot.tracks(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2", darkness=0.6)
         #peaks = Tools.track_subpulses(data3, 18.0, thresh=2.2, thresh2=0.8, on_st=425, on_end=600)
@@ -246,9 +247,9 @@ module SpaTs
         #peaks = Tools.track_subpulses(data4, 18.0, thresh=2.1, thresh2=0.8, on_st=500, on_end=650)
         #Plot.tracks(data4, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_4", darkness=0.6)
 
-        p2, template = Tools.p2_estimate(data2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5, win=4, template_num=37) # 18
-        peaks = Tools.track_subpulses(data2, p2, thresh=2.2, thresh2=0.8, on_st=500, on_end=650, template=template)
-        Plot.tracks(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2", darkness=0.6)
+        #p2, template = Tools.p2_estimate(data2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5, win=4, template_num=37) # 18
+        #peaks = Tools.track_subpulses(data2, p2, thresh=2.1, thresh2=0.7, on_st=500, on_end=650, template=nothing)
+        #Plot.tracks(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2_new", darkness=0.6)
 
     end
 
