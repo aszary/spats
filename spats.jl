@@ -284,6 +284,8 @@ module SpaTs
         #Plot.tracks(data5, outdir, peaks; start=1, number=256, bin_st=450, bin_end=650, name_mod="J1750_5", darkness=0.6)
         #Plot.tracks(data5, outdir, peaks; start=1, number=256, bin_st=450, bin_end=650, name_mod="J1750_5", darkness=0.6)
 
+
+        # convolution test here
         x = collect(1:100)
         data = Tools.gauss(x, [1, 30, 7, 0])
         template = Tools.gauss(x, [0.5, 60, 3, 0])
