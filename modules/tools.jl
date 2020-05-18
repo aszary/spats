@@ -403,8 +403,11 @@ module Tools
             plot(av, lw=0.3)
             plot(xdata, ga, lw=0.6, c="red")
             savefig("output/test.pdf")
-            readline(stdin; keep=false)
-            #show()
+            show()
+            q = readline(stdin; keep=false)
+            if q == "q"
+                break
+            end
             =#
             #p2err = win * 360 / bins * sqrt(1 + (rms(av[off_st:off_end])/maximum(av))^2)
             #push!(p2errs, p2err)
@@ -429,26 +432,20 @@ module Tools
         end
         =#
         if template_num == nothing
-            return p2
+            return p2, nothing
         else
-            return p2, avs[template_num][on_st+120:on_end-80] # TODO -50?
+            return p2, avs[template_num]#[on_st+120:on_end-80] # TODO -50?
         end
     end
 
 
-    function track_subpulses(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8, template=nothing)
+    function track_subpulses(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8)
         pulses, bins = size(data)
         p2_bins = floor(Int, p2 / 360 * bins)
         peaks = [] # [pulse_num, [p1, p2, p3...]]
         ppeaks = [] # [p1, p2, p3...]
-        if template == nothing
-            σ = p2_bins / 2 / 2.35482
-            kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
-        else
-            kernel = template
-            p2_bins = length(template)
-            println("p2 bins $p2_bins")
-        end
+        σ = p2_bins / 2 / 2.35482
+        kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
         for i in 1:pulses
             #y = view(data, i, on_st:on_end)
             y = view(data, i, :)
@@ -495,8 +492,59 @@ module Tools
                 =#
             end
         end
-
         return peaks
     end
+
+
+    function track_subpulses_template(data, template; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8)
+        #pulses, bins = size(data)
+        pulses = 1
+        peaks = [] # [pulse_num, [p1, p2, p3...]]
+        ppeaks = [] # [p1, p2, p3...]
+        kernel = template
+        for i in 1:pulses
+            #y = view(data, i, on_st:on_end)
+            y = view(data, i, :)
+            y = data
+            (mi, ma) = extrema(y)
+            y = (y .- mi) / (ma - mi)
+
+            res = conv(y, kernel)
+            (mi, ma) = extrema(res)
+            res = (res .- mi) / (ma - mi)
+            re = res # [floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
+
+            peak = Tools.peaks(re)
+            ma, pa = peakprom(re, Maxima(), 10)
+            inds = sortperm(pa, rev=true)
+
+            #on = maximum(re[on_st:on_end])
+            #off = rms(y[off_st:off_end])
+            #sigma = on / off
+            #println("$i $sigma")
+            #if sigma > thresh
+            #end
+            println(length(data))
+            println(length(kernel))
+            println(length(re))
+            println("ind. $(ma[inds[1]])")
+
+            PyPlot.close()
+            plot(y, c="black")
+            plot(re, c="red")
+            plot(kernel, c="blue")
+            axvline(x=ma[inds[1]]-1, c="green") # TODO plotting starts from 0!
+            #axvline(x=ma[inds[3]]-1, c="magenta") # TODO plotting starts from 0!
+            show()
+            st = readline(stdin; keep=false)
+            if st == "q"
+                break
+            end
+
+        end
+        return peaks
+    end
+
+
 
 end  # module Tools
