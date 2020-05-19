@@ -542,10 +542,10 @@ module Tools
         return peaks
     end
 
+    @. fourgauss(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2)  + p[4] * exp(-0.5*((x-p[5])/p[6])^2) + p[7] * exp(-0.5*((x-p[8])/p[9])^2) + p[10] * exp(-0.5*((x-p[11])/p[12])^2) + p[13]
 
     function template(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, dbins=LinRange(-0.55, -0.6, 100))
         pulses, bins = size(data)
-        #te = zeros(pulses, bins)
         te = Array{Float64}(undef, pulses, bins)
         sigma_max = -1e50
         dbin_best = nothing
@@ -576,6 +576,37 @@ module Tools
         end
         println("sigma = $sigma_max dbins = $dbin_best")
         template = average_profile(singlepulses)
+
+        #p0 = [0.5, 510.0, 15, 1.0, 560.0, 15, 0.]
+        #xdata = collect(1:length(template))
+        #pa, errs = Tools.fit_twogaussians(xdata, template, p0[1], p0[2], p0[3], p0[4], p0[5], p0[6])
+        #ga = twogauss(xdata, p0)
+
+        #p0 = [a1, μ1, σ1, a2, μ2, σ2, a3, μ3, σ3, baselevel]  # look here
+        #p0 = [0.5, 510.0, 15, 1.0, 560.0, 15, 0.2, 610., 15, 0, 0]
+        #xdata = collect(1:length(template))
+        #fit = curve_fit(threegauss, xdata, template, p0)
+        #p = coef(fit)
+        #err = stderror(fit)
+        #ga = threegauss(xdata, p0)
+        #=
+        p0 = [0.5, 510.0, 15, 1.0, 560.0, 15, 0.2, 610., 15, 0.1, 450, 15, 0]
+        xdata = collect(1:length(template))
+        fit = curve_fit(fourgauss, xdata, template, p0)
+        p = coef(fit)
+        err = stderror(fit)
+
+        ga = fourgauss(xdata, p)
+
+        println(p)
+        plot(template)
+        plot(ga)
+        show()
+        readline(stdin; keep=false)
+        close()
+
+        template = twogauss(xdata, [1.0, p[2], 17, 1.0, p[5], 17, 0])
+        =#
         return template, singlepulses
     end
 
