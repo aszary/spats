@@ -172,7 +172,7 @@ module Plot
     end
 
 
-    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
@@ -209,6 +209,7 @@ module Plot
 
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
         imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+        #axvline(x=563, lw=2)
         tick_params(labelleft=false, labelbottom=false)
 
         subplot2grid((5, 3), (4, 1), colspan=2)
@@ -220,8 +221,10 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_single.pdf")
         savefig("$outdir/$(name_mod)_single.pdf")
-        #show()
-        #readline(stdin; keep=false)
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
         close()
         #clf()
     end

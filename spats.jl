@@ -249,7 +249,7 @@ module SpaTs
 
         # average profiles - need to align, check X-ray project
         #data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
-        data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        #data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
         #data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
         #data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
         #data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
@@ -286,12 +286,18 @@ module SpaTs
 
 
         # convolution test here
-        x = collect(1:100)
-        data = Tools.gauss(x, [1, 30, 7, 0])
-        template = Tools.gauss(x, [0.5, 60, 3, 0])
+        #x = collect(1:100)
+        #data = Tools.gauss(x, [1, 30, 7, 0])
+        #template = Tools.gauss(x, [0.5, 60, 3, 0])
 
-        peaks = Tools.track_subpulses_template(data, template, thresh=2.1, thresh2=0.7, on_st=500, on_end=650)
+        #peaks = Tools.track_subpulses_template(data, template, thresh=2.1, thresh2=0.7, on_st=500, on_end=650)
         # m1 + m2 - (m3+1) = 0
+
+        # template generation
+        data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.p3fold")
+        template, pulses = Tools.template(data2, 18; on_st=450, on_end=700, off_st=100, off_end=350, dbins=[-0.5727272727272728])
+
+        Plot.single(pulses, outdir; start=1, number=nothing, name_mod="template", darkness=0.6, show_=true)
 
     end
 

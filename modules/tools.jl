@@ -547,4 +547,42 @@ module Tools
 
 
 
+    function template(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, dbins=LinRange(-0.55, -0.6, 100))
+        pulses, bins = size(data)
+        #te = zeros(pulses, bins)
+        te = Array{Float64}(undef, pulses, bins)
+        sigma_max = -1e50
+        dbin_best = nothing
+        singlepulses = nothing
+        for dbin in dbins
+            for i in 1:pulses
+                for j in 1:bins
+                    try
+                        te[i, j] = data[i, j-trunc(Int, i*dbin+0.5)]
+                    catch err
+                        if j-trunc(Int, i*dbin+0.5) <= 0
+                            te[i, j] = data[i, end+j-trunc(Int, i*dbin+0.5)]
+                        else
+                            te[i, j] = data[i, j-trunc(Int, i*dbin+0.5)-bins]
+                        end
+                    end
+                end
+            end
+            on = maximum(te[on_st:on_end])
+            off = rms(te[off_st:off_end])
+            sigma = on / off
+            println("$dbin $sigma")
+            if sigma > sigma_max
+                sigma_max = sigma
+                singlepulses = copy(te)
+                dbin_best = dbin
+            end
+        end
+        println("sigma = $sigma_max dbins = $dbin_best")
+        template =average_profile(singlepulses)
+        return template, singlepulses
+
+    end
+
+
 end  # module Tools
