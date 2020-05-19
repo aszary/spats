@@ -497,15 +497,15 @@ module Tools
 
 
     function track_subpulses_template(data, template; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8)
-        #pulses, bins = size(data)
-        pulses = 1
+        pulses, bins = size(data)
+        #pulses = 1
         peaks = [] # [pulse_num, [p1, p2, p3...]]
         ppeaks = [] # [p1, p2, p3...]
         kernel = template
         for i in 1:pulses
             #y = view(data, i, on_st:on_end)
             y = view(data, i, :)
-            y = data
+            #y = data
             (mi, ma) = extrema(y)
             y = (y .- mi) / (ma - mi)
 
@@ -524,9 +524,6 @@ module Tools
             #println("$i $sigma")
             #if sigma > thresh
             #end
-            println(length(data))
-            println(length(kernel))
-            println(length(re))
             println("ind. $(ma[inds[1]])")
 
             PyPlot.close()
@@ -544,7 +541,6 @@ module Tools
         end
         return peaks
     end
-
 
 
     function template(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, dbins=LinRange(-0.55, -0.6, 100))
@@ -579,9 +575,8 @@ module Tools
             end
         end
         println("sigma = $sigma_max dbins = $dbin_best")
-        template =average_profile(singlepulses)
+        template = average_profile(singlepulses)
         return template, singlepulses
-
     end
 
 
