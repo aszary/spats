@@ -517,7 +517,6 @@ module Tools
             peak = Tools.peaks(re)
             ma, pa = peakprom(re, Maxima(), 10)
             inds = sortperm(pa, rev=true)
-
             #on = maximum(re[on_st:on_end])
             #off = rms(y[off_st:off_end])
             #sigma = on / off
@@ -537,10 +536,97 @@ module Tools
             if st == "q"
                 break
             end
-
         end
         return peaks
     end
+
+
+    "based on find_peaks3"
+    function track_subpulses_smoothing(data; lambda=500)
+        pulses, bins = size(data)
+        peaks = []
+        for i in 1:pulses
+            signal = data[i, :]
+            xdata = collect(1:length(signal))
+            #println("$i $inds")
+            spl = fit(SmoothingSpline, map(Float64, xdata), signal, lambda)
+            ysp = SmoothingSplines.predict(spl)
+
+            peak = Tools.peaks(ysp)
+            ma, pa = peakprom(ysp, Maxima(), 3)
+            inds = sortperm(pa, rev=true)
+
+            #push!(peaks, [i, xdata[ma[inds[1]]], xdata[ma[inds[2]]], xdata[ma[inds[3]]]])
+            push!(peaks, [i, xdata[ma[inds[1]]]])
+            #=
+                a1 = signal[ma[inds[1]]]
+                figure()
+                axvline(x=xdata[ma[inds[1]]], lw=1, c="black")
+                plot(xdata, signal)
+                plot(xdata, ysp, label="spline")
+                legend()
+                savefig("output/test.pdf")
+                readline(stdin; keep=false)
+                if readline(stdin; keep=false) == "q"
+                    break
+                end
+                close()
+            =#
+            #=
+                a1 = signal[ma[inds[1]]]
+                a2 = signal[ma[inds[2]]]
+                a3 = signal[ma[inds[3]]]
+
+                println(inds[1:3])
+
+                    plot(xdata, signal)
+                    plot(xdata, ysp, label="ysp")
+                    axvline(x=xdata[ma[inds[1]]], lw=3)
+                    axvline(x=xdata[ma[inds[1]]])
+                    axvline(x=xdata[ma[inds[2]]], lw=3)
+                    axvline(x=xdata[ma[inds[3]]])
+                    axvline(x=pa[2], c="green")
+                    axvline(x=pa[5], c="green")
+                    axhline(y=a1, c="red")
+                    axhline(y=a2, c="red")
+                    axhline(y=a3, c="red")
+                    #show()  # does not work
+                    savefig("output/test.pdf")
+                    readline(stdin; keep=false)
+                    close()
+                =#
+                #=
+                plot(xdata, signal)
+                axvline(x=pa[2])
+                axvline(x=pa[5])
+                axvline(x=pa[8])
+                axhline(y=a1, c="red")
+                axhline(y=a2, c="red")
+                axhline(y=a3, c="red")
+                savefig("output/test.pdf")
+                close()
+                =#
+            #=
+            elseif length(inds) > 1
+                a1 = signal[ma[inds[1]]]
+                a2 = signal[ma[inds[2]]]
+                pa, errs = Tools.fit_twogaussians(xdata, signal, a1, a2, xdata[ma[inds[1]]], xdata[ma[inds[2]]], 3, 3)
+                push!(peaks, [i-1, pa[2], pa[5]])  # python plotting!
+                #=
+                plot(xdata, signal)
+                axvline(x=pa[2])
+                axvline(x=pa[5])
+                axhline(y=a1, c="red")
+                axhline(y=a2, c="red")
+                savefig("output/test.pdf")
+                close()
+                =#
+            end
+            =#
+        end
+        return peaks
+    end
+
 
     @. fourgauss(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2)  + p[4] * exp(-0.5*((x-p[5])/p[6])^2) + p[7] * exp(-0.5*((x-p[8])/p[9])^2) + p[10] * exp(-0.5*((x-p[11])/p[12])^2) + p[13]
 
