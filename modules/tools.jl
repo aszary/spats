@@ -697,4 +697,35 @@ module Tools
     end
 
 
+    function group_tracks(peaks)
+
+        # peaks [pulse_num, [peak1, peak2, ...]]
+        pulses = size(peaks)[1]
+        # first points
+        #tracks = [[peaks[1][1], peaks[1][2]]]
+        #tracks = [[[peaks[1][1]], [p]] for p in peaks[1][2]]
+        #println(tracks)
+        tracks = []
+        for i in 1:1#pulses
+            for peak in peaks[i][2]
+                track = [[peaks[i][1]], [peak]]
+                for j in i:3 # pulses
+                    x1 = track[2][end]
+                    y1 = track[1][end]
+                    y2 = peaks[j][1]
+                    for peak2 in peaks[j][2]
+                        x2 = peak2
+                        dl = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+                        println("$peak $peak2 $dl")
+                    end
+                end
+            end
+
+
+        end
+        println(pulses)
+
+
+    end
+
 end  # module Tools

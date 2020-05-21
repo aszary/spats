@@ -301,11 +301,10 @@ module SpaTs
 
         #smoothing subpulse tracking
         data = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
-        peaks = Tools.track_subpulses(data, 18, thresh=2.1, thresh2=0.7, on_st=500, on_end=650) # good
+        peaks = Tools.track_subpulses(data, 18, thresh=0.7, thresh2=0.7, on_st=500, on_end=650) # better
         #peaks = Tools.track_subpulses_smoothing(data; lambda=1000.0) # good
-        Plot.tracks(data, outdir, peaks; start=1, number=1030, bin_st=450, bin_end=650, name_mod="tracks", darkness=0.6)
-
-
+        Tools.group_tracks(peaks)
+        #Plot.tracks(data, outdir, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="tracks", darkness=0.6)
     end
 
 
