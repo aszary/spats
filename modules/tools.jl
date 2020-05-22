@@ -473,7 +473,7 @@ module Tools
                     end
                 end
                 push!(peaks, [i, ppeaks])
-                println("$i $ppeaks")
+                #println("$i $ppeaks")
                 #=
                 PyPlot.close()
                 plot(y, c="black")
@@ -697,35 +697,45 @@ module Tools
     end
 
 
-    function group_tracks(peaks)
-
+    function group_tracks_obsolete(peaks, p2; bins=1024)
         # peaks [pulse_num, [peak1, peak2, ...]]
         pulses = size(peaks)[1]
+        p2_bins = floor(Int, p2 / 360 * bins)
         # first points
         #tracks = [[peaks[1][1], peaks[1][2]]]
         #tracks = [[[peaks[1][1]], [p]] for p in peaks[1][2]]
         #println(tracks)
+        println(p2_bins)
         tracks = []
-        for i in 1:1#pulses
-            for peak in peaks[i][2]
+        for i in 1:1
+            for peak in peaks[i][2]#[2] # TODO
                 track = [[peaks[i][1]], [peak]]
-                for j in i:3 # pulses
+                for j in i+1:pulses
                     x1 = track[2][end]
                     y1 = track[1][end]
                     y2 = peaks[j][1]
+                    dls = []
+                    pe = []
                     for peak2 in peaks[j][2]
                         x2 = peak2
                         dl = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
-                        println("$peak $peak2 $dl")
+                        push!(dls, dl)
+                        push!(pe, peak2)
+                        println("$j ($x1, $y1) ($x2, $y2) $dl")
+                    end
+                    dl, ind = findmin(dls)
+                    if dl < p2_bins / 3
+                        push!(track[1], j)
+                        push!(track[2], pe[ind])
+                    elseif dl > 2*p2_bins
+                        break
                     end
                 end
+                #println("$i $track")
+                push!(tracks, copy(track))
             end
-
-
         end
-        println(pulses)
-
-
+        return tracks
     end
 
 end  # module Tools

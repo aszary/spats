@@ -266,23 +266,23 @@ module SpaTs
         #Plot.single(data1, outdir; start=1, number=10, bin_st=400, bin_end=700, name_mod="short", darkness=0.6)
 
         #peaks = Tools.track_subpulses(data1, 18.0, thresh=2.1, thresh2=0.7, on_st=500, on_end=650)
-        #Plot.tracks(data1, outdir, peaks; start=1, number=294, bin_st=500, bin_end=650, name_mod="J1750_1_new", darkness=0.6)
+        #Plot.subpulses(data1, outdir, peaks; start=1, number=294, bin_st=500, bin_end=650, name_mod="J1750_1_new", darkness=0.6)
         #peaks = Tools.track_subpulses(data2, 18.0, thresh=2.2, thresh2=0.8, on_st=500, on_end=650)
-        #Plot.tracks(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2", darkness=0.6)
+        #Plot.subpulses(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2", darkness=0.6)
         #peaks = Tools.track_subpulses(data3, 18.0, thresh=2.2, thresh2=0.8, on_st=425, on_end=600)
-        #Plot.tracks(data3, outdir, peaks; start=1, number=256, bin_st=425, bin_end=600, name_mod="J1750_3", darkness=0.6)
+        #Plot.subpulses(data3, outdir, peaks; start=1, number=256, bin_st=425, bin_end=600, name_mod="J1750_3", darkness=0.6)
         #peaks = Tools.track_subpulses(data4, 18.0, thresh=2.1, thresh2=0.8, on_st=500, on_end=650)
-        #Plot.tracks(data4, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_4", darkness=0.6)
+        #Plot.subpulses(data4, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_4", darkness=0.6)
 
         # HERE
         #p2, template = Tools.p2_estimate(data2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=5, win=4, template_num=37) # 18
         #peaks = Tools.track_subpulses(data2, p2, thresh=2.1, thresh2=0.7, on_st=500, on_end=650)
         #peaks = Tools.track_subpulses_template(data2, template, thresh=2.1, thresh2=0.7, on_st=500, on_end=650)
-        #Plot.tracks(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2_temp", darkness=0.6)
+        #Plot.subpulses(data2, outdir, peaks; start=1, number=256, bin_st=500, bin_end=650, name_mod="J1750_2_temp", darkness=0.6)
 
         #peaks = Tools.track_subpulses(data5, 18, thresh=2.1, thresh2=0.7, on_st=450, on_end=650)
-        #Plot.tracks(data5, outdir, peaks; start=1, number=256, bin_st=450, bin_end=650, name_mod="J1750_5", darkness=0.6)
-        #Plot.tracks(data5, outdir, peaks; start=1, number=256, bin_st=450, bin_end=650, name_mod="J1750_5", darkness=0.6)
+        #Plot.subpulses(data5, outdir, peaks; start=1, number=256, bin_st=450, bin_end=650, name_mod="J1750_5", darkness=0.6)
+        #Plot.subpulses(data5, outdir, peaks; start=1, number=256, bin_st=450, bin_end=650, name_mod="J1750_5", darkness=0.6)
 
         # convolution + template test here
         #x = collect(1:100)
@@ -303,8 +303,10 @@ module SpaTs
         data = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
         peaks = Tools.track_subpulses(data, 18, thresh=0.7, thresh2=0.7, on_st=500, on_end=650) # better
         #peaks = Tools.track_subpulses_smoothing(data; lambda=1000.0) # good
-        Tools.group_tracks(peaks)
-        #Plot.tracks(data, outdir, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="tracks", darkness=0.6)
+        #tracks = Tools.group_tracks_obsolete(peaks, 18.0)
+        #Plot.subpulses(data, outdir, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="subpulses", darkness=0.6)
+        #Plot.tracks(data, outdir, tracks, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="tracks", darkness=0.6)
+        Plot.group_tracks(data, outdir, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="tracks", darkness=0.6)
     end
 
 

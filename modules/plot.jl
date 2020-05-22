@@ -893,8 +893,7 @@ module Plot
     end
 
 
-
-    function tracks(data, outdir, peaks; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+    function subpulses(data, outdir, peaks; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
@@ -935,7 +934,7 @@ module Plot
         ylim([extent[3], extent[4]])
         #println([bin_st, bin_end, start-0.5, start+number+0.5])
         for peak in peaks
-            if (peak[1] > start) && (peak[1] < start + number)
+            if (peak[1] >= start) && (peak[1] <= start + number)
                 for x in peak[2]
                     scatter(x, peak[1], marker="x", c="red", s=12.5, lw=1)
                     #println("$(peak[1]) $x")
@@ -951,8 +950,147 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_subpulses.pdf")
+        savefig("$outdir/$(name_mod)_subpulses.pdf")
+        #show()
+        st = readline(stdin; keep=false)
+        close()
+        #clf()
+    end
+
+
+    function tracks(data, outdir, tracks, peaks; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+        num, bins = size(data)
+        if number == nothing
+            number = num - start  # missing one?
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data[start:start+number-1, bin_st:bin_end]
+        average = Tools.average_profile(da)
+        intensity, pulses = Tools.intensity_pulses(da)
+        intensity .-= minimum(intensity)
+        intensity ./= maximum(intensity)
+
+        pulses .+= start - 1  # julia
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+        rc("font", size=6.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
+        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        subplot2grid((5, 3), (0, 0), rowspan=4)
+        minorticks_on()
+        plot(intensity, pulses, c="grey")
+        ylim(pulses[1]-0.5, pulses[end]+0.5)
+        xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("Pulse number")
+        extent = [bin_st, bin_end, start-0.5, start+number-1+0.5]
+        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=extent)
+        xlim([extent[1], extent[2]])
+        ylim([extent[3], extent[4]])
+        #println([bin_st, bin_end, start-0.5, start+number+0.5])
+        println(length(tracks))
+        for track in tracks
+            if (track[1][1] >= start) && (track[1][1] <= start + number)
+                plot(track[2], track[1], lw=3)
+            end
+        end
+        for peak in peaks
+            if (peak[1] >= start) && (peak[1] <= start + number)
+                for x in peak[2]
+                    scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1)
+                    #println("$(peak[1]) $x")
+                end
+            end
+        end
+        tick_params(labelleft=false, labelbottom=false)
+
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        minorticks_on()
+        plot(longitude, average, c="grey")
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        xlabel("longitude \$(^\\circ)\$")
+        #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_tracks.pdf")
         savefig("$outdir/$(name_mod)_tracks.pdf")
+        #show()
+        st = readline(stdin; keep=false)
+        close()
+        #clf()
+    end
+
+
+    "start here"
+    function group_tracks(data, outdir, peaks; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+        num, bins = size(data)
+        if number == nothing
+            number = num - start  # missing one?
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data[start:start+number-1, bin_st:bin_end]
+        average = Tools.average_profile(da)
+        intensity, pulses = Tools.intensity_pulses(da)
+        intensity .-= minimum(intensity)
+        intensity ./= maximum(intensity)
+
+        pulses .+= start - 1  # julia
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+        rc("font", size=6.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
+        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        subplot2grid((5, 3), (0, 0), rowspan=4)
+        minorticks_on()
+        plot(intensity, pulses, c="grey")
+        ylim(pulses[1]-0.5, pulses[end]+0.5)
+        xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("Pulse number")
+        extent = [bin_st, bin_end, start-0.5, start+number-1+0.5]
+        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=extent)
+        xlim([extent[1], extent[2]])
+        ylim([extent[3], extent[4]])
+        #println([bin_st, bin_end, start-0.5, start+number+0.5])
+        for peak in peaks
+            if (peak[1] >= start) && (peak[1] <= start + number)
+                for x in peak[2]
+                    scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1)
+                    #println("$(peak[1]) $x")
+                end
+            end
+        end
+        tick_params(labelleft=false, labelbottom=false)
+
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        minorticks_on()
+        plot(longitude, average, c="grey")
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        xlabel("longitude \$(^\\circ)\$")
+        #tick_params(labeltop=false, labelbottom=true)
+        #println("$outdir/$(name_mod)_tracks.pdf")
+        #savefig("$outdir/$(name_mod)_tracks.pdf")
         #show()
         st = readline(stdin; keep=false)
         close()
