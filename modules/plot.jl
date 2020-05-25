@@ -1055,7 +1055,39 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
+        picks = []
+        add = true
+        function onkey(event)
+            if add == true
+                add = false
+            else
+                add = true
+            end
+            println("Adding points: ", add)
+        end
+
+        function onclick(event)
+            thisline = event.artist
+            xdata = thisline.get_xdata()
+            ydata = thisline.get_ydata()
+            ind = event.ind
+            for i in ind
+                pi = (xdata[i+1], ydata[i+1])
+                if add == true
+                    push!(picks, pi)
+                    thisline.set_color("green")
+                else
+                    #pop!(picks, pi)  # does not work
+                    filter!(p->p!=pi, picks) # works, but I still not get it
+                    thisline.set_color("red")
+                end
+            end
+            println(picks)
+        end
+
+        f = figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
+        f.canvas.mpl_connect("pick_event", onclick)
+        f.canvas.mpl_connect("key_press_event", onkey)
         subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         subplot2grid((5, 3), (0, 0), rowspan=4)
@@ -1075,7 +1107,8 @@ module Plot
         for peak in peaks
             if (peak[1] >= start) && (peak[1] <= start + number)
                 for x in peak[2]
-                    scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1)
+                    plot(x, peak[1], marker="x", markersize=2.5, c="red", lw=1, picker=10)
+                    #scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1, picker=2)
                     #println("$(peak[1]) $x")
                 end
             end
