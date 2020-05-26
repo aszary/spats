@@ -145,6 +145,7 @@ module SpaTs
         # local data
         data_dir = "/home/szary/work/MeerTime/J1750/data/"
         outdir = "/home/szary/work/MeerTime/J1750/"
+        outdir2 = "/home/szary/work/MeerTime/J1750/tracks/"
 
 
         # first session
@@ -306,7 +307,8 @@ module SpaTs
         #tracks = Tools.group_tracks_obsolete(peaks, 18.0)
         #Plot.subpulses(data, outdir, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="subpulses", darkness=0.6)
         #Plot.tracks(data, outdir, tracks, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="tracks", darkness=0.6)
-        Plot.group_tracks(data, outdir, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="tracks", darkness=0.6)
+        #Plot.group_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
+        Plot.show_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
     end
 
 

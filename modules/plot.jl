@@ -1,10 +1,12 @@
 module Plot
+    using JLD2
     using Statistics
     using StatsBase
     using PyPlot
     #PyPlot.matplotlib.use("agg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
     PyPlot.matplotlib.use("qt5agg")
     using Peaks
+    using Glob
 
     include("tools.jl")
 
@@ -1031,7 +1033,6 @@ module Plot
     end
 
 
-    "start here"
     function group_tracks(data, outdir, peaks; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
         num, bins = size(data)
         if number == nothing
@@ -1058,12 +1059,46 @@ module Plot
         picks = []
         add = true
         function onkey(event)
-            if add == true
-                add = false
-            else
-                add = true
+            if event.key == "a"
+                if add == true
+                    add = false
+                else
+                    add = true
+                end
+                println("Adding points: ", add)
+            elseif event.key == "w"
+                files = Glob.glob("track_*.jld2", outdir)
+                files = sort(files)
+                if length(files) > 0
+                    lastindex = parse(Int, replace(split(split(files[end], "/")[end],
+                     "_")[end], ".jld2"=>"")) # wow
+                else
+                    lastindex = 0
+                end
+                filename = joinpath(outdir, "track_$(lastindex+1).jld2")
+                if length(picks) > 0
+                    # sort and convert to 2D
+                    picks = sort(picks, by=x->x[2])  # nice and easy
+                    sz = size(picks)
+                    track = Array{Float64}(undef, sz[1], 2)
+                    for i in 1:sz[1]
+                        track[i, 1] = picks[i][1]
+                        track[i, 2] = picks[i][2]
+                    end
+                    #println(track[:,1])
+                    @save filename track
+                    # @load "example.jld2" hello foo
+                    println("File $filename saved.")
+                    #println(picks)
+                    picks = []
+                else
+                    println("Nothing to save")
+                end
+            elseif event.key == "d"
+                println("Droping all picks...")
+                picks = []
             end
-            println("Adding points: ", add)
+
         end
 
         function onclick(event)
@@ -1082,7 +1117,7 @@ module Plot
                     thisline.set_color("red")
                 end
             end
-            println(picks)
+            #println(picks)
         end
 
         f = figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
@@ -1122,13 +1157,92 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
-        #println("$outdir/$(name_mod)_tracks.pdf")
-        #savefig("$outdir/$(name_mod)_tracks.pdf")
+        println("$outdir/$(name_mod)_tracks_gruping.pdf")
+        savefig("$outdir/$(name_mod)_tracks_gruping.pdf")
         #show()
         st = readline(stdin; keep=false)
         close()
         #clf()
     end
+
+
+    function show_tracks(data, outdir, peaks; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+        num, bins = size(data)
+        if number == nothing
+            number = num - start  # missing one?
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data[start:start+number-1, bin_st:bin_end]
+        average = Tools.average_profile(da)
+        intensity, pulses = Tools.intensity_pulses(da)
+        intensity .-= minimum(intensity)
+        intensity ./= maximum(intensity)
+
+        pulses .+= start - 1  # julia
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        tracks = []
+        # load tracks
+        files = Glob.glob("track_*.jld2", outdir)
+        for file in files
+            @load file track
+            push!(tracks, track)
+        end
+
+        rc("font", size=6.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        f = figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
+        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        subplot2grid((5, 3), (0, 0), rowspan=4)
+        minorticks_on()
+        plot(intensity, pulses, c="grey")
+        ylim(pulses[1]-0.5, pulses[end]+0.5)
+        xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("Pulse number")
+        extent = [bin_st, bin_end, start-0.5, start+number-1+0.5]
+        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=extent)
+        xlim([extent[1], extent[2]])
+        ylim([extent[3], extent[4]])
+        for track in tracks
+            plot(track[:,1], track[:,2], marker="x", markersize=2.5, c="red", lw=0)
+        end
+        #=
+        for peak in peaks
+            if (peak[1] >= start) && (peak[1] <= start + number)
+                for x in peak[2]
+                    plot(x, peak[1], marker="x", markersize=2.5, c="red", lw=1, picker=10)
+                end
+            end
+        end
+        =#
+        tick_params(labelleft=false, labelbottom=false)
+
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        minorticks_on()
+        plot(longitude, average, c="grey")
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        xlabel("longitude \$(^\\circ)\$")
+        #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_tracks.pdf")
+        savefig("$outdir/$(name_mod)_tracks.pdf")
+        #show()
+        st = readline(stdin; keep=false)
+        close()
+        #clf()
+    end
+
 
 
 
