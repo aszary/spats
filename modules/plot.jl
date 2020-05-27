@@ -1032,6 +1032,17 @@ module Plot
         #clf()
     end
 
+    "start : start character ext: file type"
+    function getlastnumber(files, start="_", ext=".jld2")
+        numbers = []
+        for file in files
+            num = parse(Int, replace(split(split(file, "/")[end], start)[end], ext=>"")) # wow
+            push!(numbers, num)
+        end
+        nrs = sort(numbers)
+        return nrs[end]
+    end
+
 
     function group_tracks(data, outdir, peaks; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
         num, bins = size(data)
@@ -1070,8 +1081,7 @@ module Plot
                 files = Glob.glob("track_*.jld2", outdir)
                 files = sort(files)
                 if length(files) > 0
-                    lastindex = parse(Int, replace(split(split(files[end], "/")[end],
-                     "_")[end], ".jld2"=>"")) # wow
+                   lastindex = getlastnumber(files)
                 else
                     lastindex = 0
                 end
@@ -1142,7 +1152,7 @@ module Plot
         for peak in peaks
             if (peak[1] >= start) && (peak[1] <= start + number)
                 for x in peak[2]
-                    plot(x, peak[1], marker="x", markersize=2.5, c="red", lw=1, picker=10)
+                    plot(x, peak[1], marker="x", markersize=2.5, c="red", lw=1, picker=10, alpha=0.5)
                     #scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1, picker=2)
                     #println("$(peak[1]) $x")
                 end
@@ -1157,8 +1167,8 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
-        println("$outdir/$(name_mod)_tracks_gruping.pdf")
-        savefig("$outdir/$(name_mod)_tracks_gruping.pdf")
+        println("$outdir/$(name_mod)_tracks_grouping.pdf")
+        savefig("$outdir/$(name_mod)_tracks_grouping.pdf")
         #show()
         st = readline(stdin; keep=false)
         close()
