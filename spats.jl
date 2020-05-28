@@ -256,7 +256,6 @@ module SpaTs
         #data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
         #Plot.averageX([data1, data2, data3, data4, data5], outdir, bin_st=400, bin_end=700, number=nothing, name_mod="J1750")
 
-
         # track subpulses
         #data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
         #data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
@@ -307,8 +306,9 @@ module SpaTs
         #tracks = Tools.group_tracks_obsolete(peaks, 18.0)
         #Plot.subpulses(data, outdir, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="subpulses", darkness=0.6)
         #Plot.tracks(data, outdir, tracks, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="tracks", darkness=0.6)
-        Plot.group_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
-        Plot.show_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
+        #Plot.group_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
+        #Plot.show_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
+        Plot.tracks_analysis(outdir2; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
     end
 
 

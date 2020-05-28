@@ -7,6 +7,8 @@ module Plot
     PyPlot.matplotlib.use("qt5agg")
     using Peaks
     using Glob
+    using SmoothingSplines
+    using DataFrames, GLM
 
     include("tools.jl")
 
@@ -1267,6 +1269,45 @@ module Plot
     end
 
 
+    function tracks_analysis(outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+
+        tracks = []
+        # load tracks
+        files = Glob.glob("track_*.jld2", outdir)
+        for file in files
+            @load file track
+            push!(tracks, track)
+        end
+
+        track = tracks[1]
+
+        spl = fit(SmoothingSpline, track[:,2], track[:,1], 12500.0)
+        ysp = SmoothingSplines.predict(spl)
+
+        #data = DataFrame(X=track[:,2], Y=track[:,1])
+        #ols = lm(@formula(Y ~ X), data)
+        #println(ols)
+        #println(coef(ols))
+        #println(stderror(ols))
+        #@. f(x, p) = p[2] * x + p[1]
+        #line = f(track[:, 2], coef(ols))
+        #plot(track[:,2], line, c="black", lw=3) #, marker="x", markersize=2.5, lw=1)
+
+        res = Tools.analyse_track(track[:,2], track[:,1])
+
+
+        for track in [tracks[1]]
+            plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+            plot(track[:,2], ysp, lw=2, alpha=0.4, marker="x")
+        end
+        println("$outdir/$(name_mod)_tracks_analysis.pdf")
+        savefig("$outdir/$(name_mod)_tracks_analysis.pdf")
+        #show()
+        st = readline(stdin; keep=false)
+        close()
+        #clf()
+    end
 
 
 end  # modul Plot

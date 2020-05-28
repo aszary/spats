@@ -8,6 +8,7 @@ module Tools
     using PyPlot
     using DSP
     using LinearAlgebra
+    using DataFrames, GLM
 
 
     function rms(data)
@@ -736,6 +737,22 @@ module Tools
             end
         end
         return tracks
+    end
+
+
+    function analyse_track(x, y, win=10)
+
+        len = length(x)
+
+        println(len)
+
+        println(collect(1:win:len))
+
+
+        data = DataFrame(X=x, Y=y)
+        ols = lm(@formula(Y ~ X), data)
+
+
     end
 
 end  # module Tools
