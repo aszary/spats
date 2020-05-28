@@ -1130,6 +1130,16 @@ module Plot
             #println(picks)
         end
 
+
+        tracks = []
+        # load tracks
+        files = Glob.glob("track_*.jld2", outdir)
+        for file in files
+            @load file track
+            push!(tracks, track)
+        end
+
+
         f = figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
         f.canvas.mpl_connect("pick_event", onclick)
         f.canvas.mpl_connect("key_press_event", onkey)
@@ -1152,11 +1162,14 @@ module Plot
         for peak in peaks
             if (peak[1] >= start) && (peak[1] <= start + number)
                 for x in peak[2]
-                    plot(x, peak[1], marker="x", markersize=2.5, c="red", lw=1, picker=10, alpha=0.5)
+                    plot(x, peak[1], marker="x", markersize=2.5, c="red", lw=0, picker=10, alpha=0.5)
                     #scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1, picker=2)
                     #println("$(peak[1]) $x")
                 end
             end
+        end
+        for track in tracks
+            plot(track[:,1], track[:,2], marker="x", markersize=2.5, c="green", lw=0)
         end
         tick_params(labelleft=false, labelbottom=false)
 
