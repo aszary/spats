@@ -28,7 +28,7 @@ module Plot
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -69,7 +69,7 @@ module Plot
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -126,7 +126,7 @@ module Plot
         dl = 360. * db / bins[1]
         longitude = collect(range(-dl/2., dl/2., length=db))
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -195,7 +195,7 @@ module Plot
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -290,7 +290,7 @@ module Plot
             end
         end
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -407,7 +407,7 @@ module Plot
         #println(x, " ", y)
         #println(size(intensity_))
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -467,7 +467,7 @@ module Plot
         fracs = [repeat_num / 4, repeat_num/2, repeat_num * 3 / 4]
         ti = ["$(fracs[i])\$P_3\$" for i in 1:3]
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -548,7 +548,7 @@ module Plot
         =#
         #return
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -641,7 +641,7 @@ module Plot
             end
         end
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -736,7 +736,7 @@ module Plot
             end
         end
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -801,7 +801,7 @@ module Plot
         #return
 
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -863,7 +863,7 @@ module Plot
         da3 = repeat(da3, repeat_num)
 
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -916,7 +916,7 @@ module Plot
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -982,7 +982,7 @@ module Plot
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -1065,7 +1065,7 @@ module Plot
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -1219,7 +1219,7 @@ module Plot
             push!(tracks, track)
         end
 
-        rc("font", size=6.)
+        rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -1278,32 +1278,55 @@ module Plot
             @load file track
             push!(tracks, track)
         end
+        lines = []
+        inclines = []
+        for track in tracks[1:2]
+            ll, inc = Tools.analyse_track(track[:,2], track[:,1]; win=70)
+            push!(lines, ll)
+            push!(inclines, inc)
+        end
 
-        track = tracks[1]
-
-        spl = fit(SmoothingSpline, track[:,2], track[:,1], 12500.0)
+        spl = fit(SmoothingSpline, tracks[1][:,2], tracks[1][:,1], 12500.0)
         ysp = SmoothingSplines.predict(spl)
 
-        #data = DataFrame(X=track[:,2], Y=track[:,1])
-        #ols = lm(@formula(Y ~ X), data)
-        #println(ols)
-        #println(coef(ols))
-        #println(stderror(ols))
-        #@. f(x, p) = p[2] * x + p[1]
-        #line = f(track[:, 2], coef(ols))
-        #plot(track[:,2], line, c="black", lw=3) #, marker="x", markersize=2.5, lw=1)
 
-        res = Tools.analyse_track(track[:,2], track[:,1])
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
 
+        figure(figsize=(3.14961*2, 2.362205*2), frameon=true)  # 16cm x 12 cm
+        subplots_adjust(left=0.13, bottom=0.08, right=0.99, top=0.90, wspace=0., hspace=0.)
 
-        for track in [tracks[1]]
+        ax = subplot2grid((2, 1), (0, 0))
+        ax.xaxis.set_label_position("top")
+        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+        minorticks_on()
+        xlabel("Pulse number")
+        ylabel("Longitude \$(^\\circ)\$")
+        for track in tracks[1:2]
             plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
-            plot(track[:,2], ysp, lw=2, alpha=0.4, marker="x")
         end
+        #plot(tracks[1][:,2], ysp, lw=2, alpha=0.4, marker="x")
+        for line in lines
+            for ll in line
+                plot(ll[1],  ll[2], lw=0.3)
+            end
+        end
+        subplot2grid((2, 1), (1, 0))
+        minorticks_on()
+        ylabel("Drift rate \$(^\\circ / s)\$")
+        xlabel("Pulse number")
+        for i in 1:length(inclines)
+            for j in 1:length(inclines[i])
+                errorbar(inclines[i][j][1], inclines[i][j][2], yerr=inclines[i][j][3], color="none", lw=1., marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
+            end
+            #scatter(inclines[i][1], inclines[i][2])
+        end
+        axhline(y=0, lw=1, ls="--")
         println("$outdir/$(name_mod)_tracks_analysis.pdf")
         savefig("$outdir/$(name_mod)_tracks_analysis.pdf")
-        #show()
+        show()
         st = readline(stdin; keep=false)
         close()
         #clf()

@@ -740,19 +740,23 @@ module Tools
     end
 
 
-    function analyse_track(x, y, win=10)
-
+    function analyse_track(x, y; win=10)
+        @. f(x, p) = p[2] * x + p[1]
+        lines = []
+        inclines = []
         len = length(x)
-
-        println(len)
-
-        println(collect(1:win:len))
-
-
-        data = DataFrame(X=x, Y=y)
-        ols = lm(@formula(Y ~ X), data)
-
-
+        for i in 1:len-win
+            x_ = x[i:i+win]
+            y_ = y[i:i+win]
+            data = DataFrame(X=x_, Y=y_)
+            ols = lm(@formula(Y ~ X), data)
+            #println(coef(ols))
+            #println(stderror(ols))
+            line = [x_, f(x_, coef(ols))]
+            push!(lines, line)
+            push!(inclines, [mean(x_), coef(ols)[2], stderror(ols)[2]])
+        end
+        return lines, inclines
     end
 
 end  # module Tools
