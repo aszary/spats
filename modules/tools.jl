@@ -754,7 +754,10 @@ module Tools
             #println(stderror(ols))
             line = [x_, f(x_, coef(ols))]
             push!(lines, line)
+            # integer pulse number # no need?
+            #push!(inclines, [trunc(Int, mean(x_)+0.5), coef(ols)[2], stderror(ols)[2]])
             push!(inclines, [mean(x_), coef(ols)[2], stderror(ols)[2]])
+
         end
         return lines, inclines
     end
