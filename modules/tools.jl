@@ -739,7 +739,7 @@ module Tools
         return tracks
     end
 
-
+    "using lines fitting"
     function analyse_track(x, y; win=10)
         @. f(x, p) = p[2] * x + p[1]
         lines = []
@@ -750,16 +750,56 @@ module Tools
             y_ = y[i:i+win]
             data = DataFrame(X=x_, Y=y_)
             ols = lm(@formula(Y ~ X), data)
-            #println(coef(ols))
-            #println(stderror(ols))
             line = [x_, f(x_, coef(ols))]
             push!(lines, line)
-            # integer pulse number # no need?
+            # integer pulse number # no need?!
             #push!(inclines, [trunc(Int, mean(x_)+0.5), coef(ols)[2], stderror(ols)[2]])
             push!(inclines, [mean(x_), coef(ols)[2], stderror(ols)[2]])
 
         end
         return lines, inclines
+    end
+
+    "using Smooth lines"
+    function analyse_track_sl(x, y; lambda=10)
+        spl = fit(SmoothingSpline, x, y, lambda)
+        ysp = SmoothingSplines.predict(spl)
+
+        line = [x, ysp]
+        df = diff(ysp) # this works strange (zeros?), yes does not take into account dx
+        println(df)
+        x2 = Array{Float64}(undef, length(df))
+        for i in 1:length(x)-1
+            x2[i] = (x[i+1] + x[i]) / 2.0
+        end
+        inclines = [x2, df]
+        return line, inclines
+    end
+
+
+    function analyse_track_simple(x, y; lambda=10)
+        spl = fit(SmoothingSpline, x, y, lambda)
+        ysp = SmoothingSplines.predict(spl)
+
+        line = [x, ysp]
+        x2 = Array{Float64}(undef, length(y)-1)
+        dr = Array{Float64}(undef, length(y)-1)
+        for i in 1:length(x)-1
+            dx = x[i+1] - x[i]
+            dy = ysp[i+1] - ysp[i]
+            x2[i] = (x[i+1] + x[i]) / 2.0
+            dr[i] = dy / dx
+        end
+        inclines = [x2, dr]
+        return line, inclines
+    end
+
+
+    "Why there are duplicates in tracks?"
+    function remove_duplicates(track)
+        println(size(track))
+        # TODO
+
     end
 
 end  # module Tools

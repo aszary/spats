@@ -309,9 +309,9 @@ module SpaTs
         #Plot.group_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
         #Plot.show_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
         #Plot.tracks_analysis(outdir2; win=100, start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
-        Plot.tracks_analysis2(outdir2; win=100, start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
+        #Plot.tracks_analysis2(outdir2; win=100, start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
+        Plot.tracks_analysis3(outdir2; lambda=100000.0, start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
     end
-
 
 
     function main()

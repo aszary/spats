@@ -1346,20 +1346,27 @@ module Plot
         lines = []
         inclines = []
         drift_rate = [[], []]
-        for track in tracks[1:2]
+        for track in tracks#[1:3]
             ll, inc = Tools.analyse_track(track[:,2], track[:,1]; win=win)
             push!(lines, ll)
             push!(inclines, inc)
         end
         for inc in inclines
-            println(length(inc))
+            #println(length(inc))
             for pu in inc
                 # start here
-                println(pu[1])
+                push!(drift_rate[1], pu[1])
+                push!(drift_rate[2], pu[2])
             end
         end
+        sp = sortperm(drift_rate[1])
+        drift_rate[1] = view(drift_rate[1], sp)
+        drift_rate[2] = view(drift_rate[2], sp)
+        dr1 = convert(Array{Float64,1}, drift_rate[1])
+        dr2 = convert(Array{Float64,1}, drift_rate[2])
 
-        spl = fit(SmoothingSpline, tracks[1][:,2], tracks[1][:,1], 12500.0)
+        spl = fit(SmoothingSpline, dr1, dr2, 100.0)
+        #spl = fit(SmoothingSpline, tracks[1][:,2], tracks[1][:,1], 12500.0)
         ysp = SmoothingSplines.predict(spl)
 
         rc("font", size=8.)
@@ -1375,11 +1382,10 @@ module Plot
         minorticks_on()
         xlabel("Pulse number")
         ylabel("Longitude \$(^\\circ)\$")
-        for track in tracks[1:2]
+        for track in tracks#[1:3]
             plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
         end
-        #plot(tracks[1][:,2], ysp, lw=2, alpha=0.4, marker="x")
         for line in lines
             for ll in line
                 plot(ll[1],  ll[2], lw=0.3)
@@ -1388,23 +1394,95 @@ module Plot
         xl = xlim()
         subplot2grid((3, 1), (1, 0))
         tick_params(labeltop=true, labelbottom=true, which="both", bottom=true, top=true)
+        ylabel("Drift rate \$(^\\circ / P)\$")
         minorticks_on()
         for i in 1:length(inclines)
             for j in 1:length(inclines[i])
                 errorbar(inclines[i][j][1], inclines[i][j][2], yerr=inclines[i][j][3], color="none", lw=1., marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
             end
-            #scatter(inclines[i][1], inclines[i][2])
         end
         axhline(y=0, lw=1, ls="--")
         xlim(xl)
         subplot2grid((3, 1), (2, 0))
         minorticks_on()
-        #ylabel("Drift rate \$(^\\circ / P)\$")
         xlabel("Pulse number")
-
         xlim(xl)
+        plot(dr1, dr2, lw=0.3)
+        plot(dr1, ysp, lw=2, alpha=0.7)
         println("$outdir/$(name_mod)_tracks_analysis2.pdf")
         savefig("$outdir/$(name_mod)_tracks_analysis2.pdf")
+        show()
+        st = readline(stdin; keep=false)
+        close()
+        #clf()
+    end
+
+
+    function tracks_analysis3(outdir; lambda=100, start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+
+        tracks = []
+        # load tracks
+        files = Glob.glob("track_*.jld2", outdir)
+        for file in files
+            @load file track
+            tr = Tools.remove_duplicates(track)
+            push!(tracks, tr)
+        end
+        return
+        lines = []
+        inclines = []
+        drift_rate = [[], []]
+        for track in tracks[1:3]
+            #ll, inc = Tools.analyse_track_sl(track[:,2], track[:,1]; lambda=lambda)
+            ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
+            push!(lines, ll)
+            push!(inclines, inc)
+        end
+
+        #spl = fit(SmoothingSpline, dr1, dr2, 100.0)
+        #spl = fit(SmoothingSpline, tracks[1][:,2], tracks[1][:,1], 12500.0)
+        #ysp = SmoothingSplines.predict(spl)
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961*2, 2.362205*2), frameon=true)  # 16cm x 12 cm
+        subplots_adjust(left=0.13, bottom=0.08, right=0.99, top=0.90, wspace=0., hspace=0.)
+
+        ax = subplot2grid((3, 1), (0, 0))
+        ax.xaxis.set_label_position("top")
+        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+        minorticks_on()
+        xlabel("Pulse number")
+        ylabel("Longitude \$(^\\circ)\$")
+        for track in tracks[1:3]
+            plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+        end
+        for line in lines
+            plot(line[1], line[2], lw=2, alpha=0.5)
+        end
+        xl = xlim()
+
+        subplot2grid((3, 1), (1, 0))
+        tick_params(labeltop=true, labelbottom=true, which="both", bottom=true, top=true)
+        ylabel("Drift rate \$(^\\circ / P)\$")
+        minorticks_on()
+        for inc in inclines
+            plot(inc[1], inc[2], lw=2, c="black")
+        end
+        axhline(y=0, lw=1, ls="--")
+        xlim(xl)
+
+        subplot2grid((3, 1), (2, 0))
+        minorticks_on()
+        xlabel("Pulse number")
+        xlim(xl)
+
+
+        println("$outdir/$(name_mod)_tracks_analysis3.pdf")
+        savefig("$outdir/$(name_mod)_tracks_analysis3.pdf")
         show()
         st = readline(stdin; keep=false)
         close()
