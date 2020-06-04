@@ -1354,7 +1354,6 @@ module Plot
         for inc in inclines
             #println(length(inc))
             for pu in inc
-                # start here
                 push!(drift_rate[1], pu[1])
                 push!(drift_rate[2], pu[2])
             end
@@ -1428,20 +1427,30 @@ module Plot
             tr = Tools.remove_duplicates(track)
             push!(tracks, tr)
         end
-        return
+
         lines = []
         inclines = []
         drift_rate = [[], []]
-        for track in tracks[1:3]
-            #ll, inc = Tools.analyse_track_sl(track[:,2], track[:,1]; lambda=lambda)
+        for track in tracks#[1:3]
+            #ll, inc = Tools.analyse_track_sl(track[:,3], track[:,1]; lambda=lambda)
             ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
             push!(lines, ll)
             push!(inclines, inc)
         end
+        for inc in inclines
+            for i in 1:length(inc[1])
+                push!(drift_rate[1], inc[1][i])
+                push!(drift_rate[2], inc[2][i])
+            end
+        end
+        sp = sortperm(drift_rate[1])
+        drift_rate[1] = view(drift_rate[1], sp)
+        drift_rate[2] = view(drift_rate[2], sp)
+        dr1 = convert(Array{Float64,1}, drift_rate[1])
+        dr2 = convert(Array{Float64,1}, drift_rate[2])
 
-        #spl = fit(SmoothingSpline, dr1, dr2, 100.0)
-        #spl = fit(SmoothingSpline, tracks[1][:,2], tracks[1][:,1], 12500.0)
-        #ysp = SmoothingSplines.predict(spl)
+        spl = fit(SmoothingSpline, dr1, dr2, 1000.0)
+        ysp = SmoothingSplines.predict(spl)
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
@@ -1456,7 +1465,7 @@ module Plot
         minorticks_on()
         xlabel("Pulse number")
         ylabel("Longitude \$(^\\circ)\$")
-        for track in tracks[1:3]
+        for track in tracks#[1:3]
             plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
         end
@@ -1479,7 +1488,9 @@ module Plot
         minorticks_on()
         xlabel("Pulse number")
         xlim(xl)
-
+        plot(drift_rate[1], drift_rate[2], lw=0.3)
+        plot(dr1, dr2, lw=0.3)
+        plot(dr1, ysp, lw=2, alpha=0.7)
 
         println("$outdir/$(name_mod)_tracks_analysis3.pdf")
         savefig("$outdir/$(name_mod)_tracks_analysis3.pdf")

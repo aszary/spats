@@ -766,8 +766,7 @@ module Tools
         ysp = SmoothingSplines.predict(spl)
 
         line = [x, ysp]
-        df = diff(ysp) # this works strange (zeros?), yes does not take into account dx
-        println(df)
+        df = diff(ysp) # this one works strange (peaks)
         x2 = Array{Float64}(undef, length(df))
         for i in 1:length(x)-1
             x2[i] = (x[i+1] + x[i]) / 2.0
@@ -797,9 +796,23 @@ module Tools
 
     "Why there are duplicates in tracks?"
     function remove_duplicates(track)
-        println(size(track))
-        # TODO
-
+        tr = [[track[1,1], track[1,2]]]
+        s = size(track)
+        for i in 2:s[1]
+            if (track[i, 1] != tr[end][1]) &&  (track[i, 2] != tr[end][2])
+                push!(tr, [track[i, 1], track[i, 2]])
+            end
+        end
+        # there has to be a batter way
+        sz = size(tr)[1]
+        tr_final = Array{Float64}(undef, sz, 2)
+        for i in 1:sz
+            tr_final[i, 1] = tr[i][1]
+            tr_final[i, 2] = tr[i][2]
+        end
+        #println(typeof(tr_final))
+        #println(size(tr_final))
+        return tr_final
     end
 
 end  # module Tools
