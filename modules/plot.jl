@@ -1,4 +1,5 @@
 module Plot
+    using FFTW
     using JLD2
     using Statistics
     using StatsBase
@@ -1367,6 +1368,10 @@ module Plot
         spl = fit(SmoothingSpline, dr1, dr2, 100.0)
         #spl = fit(SmoothingSpline, tracks[1][:,2], tracks[1][:,1], 12500.0)
         ysp = SmoothingSplines.predict(spl)
+        # add fft here
+        half = floor(Int, length(ysp) / 2) # one side frequency range?
+        ff = fft(ysp)[1:half]
+        freq = Tools.fftfreq(length(ysp))
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
@@ -1397,17 +1402,20 @@ module Plot
         minorticks_on()
         for i in 1:length(inclines)
             for j in 1:length(inclines[i])
-                errorbar(inclines[i][j][1], inclines[i][j][2], yerr=inclines[i][j][3], color="none", lw=1., marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
+                errorbar(inclines[i][j][1], inclines[i][j][2], yerr=inclines[i][j][3], color="none", lw=0.5, marker="_", mec="black", ecolor="black", capsize=0, mfc="grey", ms=0.5)
             end
         end
         axhline(y=0, lw=1, ls="--")
+        plot(dr1, ysp, lw=4, alpha=0.5, c="grey")
         xlim(xl)
         subplot2grid((3, 1), (2, 0))
         minorticks_on()
-        xlabel("Pulse number")
-        xlim(xl)
-        plot(dr1, dr2, lw=0.3)
-        plot(dr1, ysp, lw=2, alpha=0.7)
+        #xlabel("Pulse number")
+        #xlim(xl)
+        #plot(dr1, dr2, lw=0.3)
+        #plot(dr1, ysp, lw=2, alpha=0.7)
+        plot(freq, ff)
+
         println("$outdir/$(name_mod)_tracks_analysis2.pdf")
         savefig("$outdir/$(name_mod)_tracks_analysis2.pdf")
         show()
@@ -1449,8 +1457,12 @@ module Plot
         dr1 = convert(Array{Float64,1}, drift_rate[1])
         dr2 = convert(Array{Float64,1}, drift_rate[2])
 
-        spl = fit(SmoothingSpline, dr1, dr2, 1000.0)
+        spl = fit(SmoothingSpline, dr1, dr2, 100.0)
         ysp = SmoothingSplines.predict(spl)
+        # add fft here
+        half = floor(Int, length(ysp) / 2) # one side frequency range?
+        ff = fft(ysp)[1:half]
+        freq = Tools.fftfreq(length(ysp))
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
@@ -1479,18 +1491,19 @@ module Plot
         ylabel("Drift rate \$(^\\circ / P)\$")
         minorticks_on()
         for inc in inclines
-            plot(inc[1], inc[2], lw=2, c="black")
+            plot(inc[1], inc[2], lw=1, c="black")
         end
         axhline(y=0, lw=1, ls="--")
+        plot(dr1, ysp, lw=4, alpha=0.5, c="grey")
         xlim(xl)
 
         subplot2grid((3, 1), (2, 0))
         minorticks_on()
-        xlabel("Pulse number")
-        xlim(xl)
-        plot(drift_rate[1], drift_rate[2], lw=0.3)
-        plot(dr1, dr2, lw=0.3)
-        plot(dr1, ysp, lw=2, alpha=0.7)
+        #xlabel("Pulse number")
+        #xlim(xl)
+        #plot(dr1, dr2, lw=0.3)
+        #plot(dr1, ysp, lw=2, alpha=0.7)
+        plot(freq, ff, lw=1)
 
         println("$outdir/$(name_mod)_tracks_analysis3.pdf")
         savefig("$outdir/$(name_mod)_tracks_analysis3.pdf")
