@@ -96,6 +96,7 @@ module SpaTs
         ozdir3 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-02-24-03:46:43/1284/single/"
         ozdir4 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-03-29-04:11:50/1284/single/"
         ozdir5 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-05-07-23:14:22/1284/single/"
+        ozdir6 = "/fred/oz005/users/aszary/search_processed/J1750-3503/2020-05-30-22:04:58/1284/single/"
 
 
         # first session
@@ -134,8 +135,18 @@ module SpaTs
         #Data.convert_psrfit_ascii("$(ozdir4)2020-03-29-04:11:50_00256-00449.spCF", "$(ozdir4)2020-03-29-04:11:50_00256-00449.txt")
 
         # fith session
-        Data.convert_psrfit_ascii("$(ozdir5)2020-05-07-23:14:22_00000-00255.spCF", "$(ozdir5)2020-05-07-23:14:22_00000-00255.txt")
-        Data.convert_psrfit_ascii("$(ozdir5)2020-05-07-23:14:22_00256-00446.spCF", "$(ozdir5)2020-05-07-23:14:22_00256-00446.txt")
+        #Data.convert_psrfit_ascii("$(ozdir5)2020-05-07-23:14:22_00000-00255.spCF", "$(ozdir5)2020-05-07-23:14:22_00000-00255.txt")
+        #Data.convert_psrfit_ascii("$(ozdir5)2020-05-07-23:14:22_00256-00446.spCF", "$(ozdir5)2020-05-07-23:14:22_00256-00446.txt")
+
+        # sixth session
+        Data.convert_psrfit_ascii("$(ozdir6)2020-05-30-22:04:58_00000-00255.spCF", "$(ozdir6)2020-05-30-22:04:58_00000-00255.txt")
+        Data.convert_psrfit_ascii("$(ozdir6)2020-05-30-22:04:58_00256-00446.spCF", "$(ozdir6)2020-05-30-22:04:58_00256-00446.txt")
+
+
+        # seventh session in the future
+        #Data.convert_psrfit_ascii("$(ozdir7)", "$(ozdir7).txt")
+        #Data.convert_psrfit_ascii("$(ozdir7)", "$(ozdir7).txt")
+
 
 
     end
@@ -320,16 +331,31 @@ module SpaTs
         #Plot.tracks_analysis3("$(outdir)tracks1"; lambda=1000.0, start=1, number=1031, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
 
 
-
         # subpulse tracking (Third Session)
-        data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
-        Data.zap!(data3; ranges=[241, 335, 334])
-        peaks = Tools.track_subpulses(data3, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=650) # better
-        #Plot.group_tracks(data3, "$(outdir)tracks3", peaks; start=1, number=446, bin_st=400, bin_end=650, name_mod="3", darkness=0.6)
-        Plot.tracks_analysis("$(outdir)tracks3"; win=50, start=1, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
-        Plot.tracks_analysis2("$(outdir)tracks3"; win=50, start=1, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
-        Plot.tracks_analysis3("$(outdir)tracks3"; lambda=1000.0, start=1, number=1031, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
+        #data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
+        #Data.zap!(data3; ranges=[241, 335, 334])
+        #peaks = Tools.track_subpulses(data3, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=650) # better
+        ##Plot.group_tracks(data3, "$(outdir)tracks3", peaks; start=1, number=446, bin_st=400, bin_end=650, name_mod="3", darkness=0.6)
+        #Plot.tracks_analysis("$(outdir)tracks3"; win=50, start=1, bin_st=450, bin_end=700, name_mod="3", darkness=0.6)
+        #Plot.tracks_analysis2("$(outdir)tracks3"; win=50, start=1, bin_st=450, bin_end=700, name_mod="3", darkness=0.6)
+        #Plot.tracks_analysis3("$(outdir)tracks3"; lambda=1000.0, start=1, bin_st=450, bin_end=700, name_mod="3", darkness=0.6)
 
+
+        # TODO subpulse tracking (Fourth Session)
+        #data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+        #peaks = Tools.track_subpulses(data4, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=650) # better
+        #Plot.group_tracks(data4, "$(outdir)tracks4", peaks; start=1, bin_st=400, bin_end=650, name_mod="4", darkness=0.6)
+        #Plot.tracks_analysis("$(outdir)tracks4"; win=50, start=1, bin_st=450, bin_end=700, name_mod="4", darkness=0.6)
+        #Plot.tracks_analysis2("$(outdir)tracks4"; win=50, start=1, bin_st=450, bin_end=700, name_mod="4", darkness=0.6)
+        #Plot.tracks_analysis3("$(outdir)tracks4"; lambda=1000.0, start=1, bin_st=450, bin_end=700, name_mod="4", darkness=0.6)
+
+        # sixth session data connection
+        #data1 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00255.txt")
+        #data2 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00256-00446.txt")
+        #data = vcat(data1, data2)
+        #Data.save_ascii(data, "$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
+        data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
+        Plot.single(data6, outdir; start=1, number=nothing, name_mod="6_", darkness=0.6, show_=true)
 
 
 
