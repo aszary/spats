@@ -360,10 +360,70 @@ module SpaTs
     end
 
     function J1750_paper()
+
         data_dir = "/home/szary/work/MeerTime/J1750/new_data/"
+        old_dir = "/home/szary/work/MeerTime/J1750/data/"
         data_remote = "/home/aszary/J1750/new_data/"
 
+        outdir = "/home/szary/work/MeerTime/J1750/"
+
+        # convert to txt
+        #=
         Data.convert_psrfit_ascii("$(data_remote)/2019-09-29-12:41:18_00000-00294.spCF", "$(data_remote)/2019-09-29-12:41:18_00000-00294.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2019-12-14-14:22:12_00000-00255.spCF", "$(data_remote)/2019-12-14-14:22:12_00000-00255.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2019-12-14-14:22:12_00256-00511.spCF", "$(data_remote)/2019-12-14-14:22:12_00256-00511.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2019-12-14-14:22:12_00512-00767.spCF", "$(data_remote)/2019-12-14-14:22:12_00512-00767.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2019-12-14-14:22:12_00768-01030.spCF", "$(data_remote)/2019-12-14-14:22:12_00768-01030.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2020-02-24-03:46:43_00000-00255.spCF", "$(data_remote)/2020-02-24-03:46:43_00000-00255.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2020-02-24-03:46:43_00256-00445.spCF", "$(data_remote)/2020-02-24-03:46:43_00256-00445.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2020-03-29-04:11:50_00000-00255.spCF", "$(data_remote)/2020-03-29-04:11:50_00000-00255.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2020-03-29-04:11:50_00256-00449.spCF", "$(data_remote)/2020-03-29-04:11:50_00256-00449.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2020-05-07-23:14:22_00000-00255.spCF", "$(data_remote)/2020-05-07-23:14:22_00000-00255.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2020-05-07-23:14:22_00256-00446.spCF", "$(data_remote)/2020-05-07-23:14:22_00256-00446.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2020-05-30-22:04:58_00000-00255.spCF", "$(data_remote)/2020-05-30-22:04:58_00000-00255.txt")
+        Data.convert_psrfit_ascii("$(data_remote)/2020-05-30-22:04:58_00256-00446.spCF", "$(data_remote)/2020-05-30-22:04:58_00256-00446.txt")
+        =#
+
+        # connect data
+        #=
+        data1 = Data.load_ascii("$(data_remote)2019-12-14-14:22:12_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_remote)2019-12-14-14:22:12_00256-00511.txt")
+        data3 = Data.load_ascii("$(data_remote)2019-12-14-14:22:12_00512-00767.txt")
+        data4 = Data.load_ascii("$(data_remote)2019-12-14-14:22:12_00768-01030.txt")
+        data = vcat(data1, data2, data3, data4)
+        Data.save_ascii(data, "$(data_remote)2019-12-14-14:22:12_00000-01030.txt")
+        data1 = Data.load_ascii("$(data_remote)2020-02-24-03:46:43_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_remote)2020-02-24-03:46:43_00256-00445.txt")
+        data = vcat(data1, data2)
+        Data.save_ascii(data, "$(data_remote)2020-02-24-03:46:43_00000-00445.txt")
+        data1 = Data.load_ascii("$(data_remote)2020-03-29-04:11:50_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_remote)2020-03-29-04:11:50_00256-00449.txt")
+        data = vcat(data1, data2)
+        Data.save_ascii(data, "$(data_remote)2020-03-29-04:11:50_00000-00449.txt")
+        data1 = Data.load_ascii("$(data_remote)2020-05-07-23:14:22_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_remote)2020-05-07-23:14:22_00256-00446.txt")
+        data = vcat(data1, data2)
+        Data.save_ascii(data, "$(data_remote)2020-05-07-23:14:22_00000-00446.txt")
+        data1 = Data.load_ascii("$(data_remote)2020-05-30-22:04:58_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_remote)2020-05-30-22:04:58_00256-00446.txt")
+        data = vcat(data1, data2)
+        Data.save_ascii(data, "$(data_remote)2020-05-30-22:04:58_00000-00446.txt")
+        =#
+
+        # single pulse plots
+        data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
+        Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1", darkness=0.7, show_=true)
+        data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2", darkness=0.7, show_=true)
+        data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
+        Data.zap!(data3; ranges=[241, 335, 334])
+        Plot.single_J1750(data3, outdir; start=1, number=nothing, name_mod="3", darkness=0.7, show_=true)
+        data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+        Plot.single_J1750(data4, outdir; start=1, number=nothing, name_mod="4", darkness=0.7, show_=true)
+        data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
+        Plot.single_J1750(data5, outdir; start=1, number=nothing, name_mod="5", darkness=0.7, show_=true)
+        data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
+        Plot.single_J1750(data6, outdir; start=1, number=nothing, name_mod="6", darkness=0.7, show_=true)
 
     end
 
