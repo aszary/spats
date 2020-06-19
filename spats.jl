@@ -310,8 +310,8 @@ module SpaTs
         #Plot.single(pulses, outdir; start=1, number=nothing, name_mod="template", darkness=0.6, show_=true)
 
         # subpulse tracking (Second Session)
-        ##data = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
-        ##peaks = Tools.track_subpulses(data, 18, thresh=0.4, thresh2=0.5, on_st=450, on_end=700) # better
+        #data = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        #peaks = Tools.track_subpulses(data, 18, thresh=0.4, thresh2=0.5, on_st=450, on_end=700) # better
         #peaks = Tools.track_subpulses_smoothing(data; lambda=1000.0) # good
         #tracks = Tools.group_tracks_obsolete(peaks, 18.0)
         #Plot.subpulses(data, outdir, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="subpulses", darkness=0.6)
@@ -320,15 +320,16 @@ module SpaTs
         #Plot.show_tracks(data, outdir2, peaks; start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
         #Plot.tracks_analysis(outdir2; win=100, start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
         ##Plot.tracks_analysis2(outdir2; win=30, start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
-        ##Plot.tracks_analysis3(outdir2; lambda=1000.0, start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
+        #Plot.tracks_analysis3(outdir2; lambda=10000.0, start=1, number=1031, bin_st=450, bin_end=700, name_mod="2", darkness=0.6)
 
         # subpulse tracking (First Session)
-        #data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
-        #peaks = Tools.track_subpulses(data1, 18, thresh=0.4, thresh2=0.5, on_st=450, on_end=700) # better
+        data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
+        peaks = Tools.track_subpulses(data1, 18, thresh=0.4, thresh2=0.5, on_st=450, on_end=700) # better
         ##Plot.group_tracks(data1, "$(outdir)tracks1", peaks; start=1, number=295, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
+        #Plot.show_tracks(data1, "$(outdir)tracks1", peaks; start=1, number=295, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
         #Plot.tracks_analysis("$(outdir)tracks1"; win=50, start=1, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
         #Plot.tracks_analysis2("$(outdir)tracks1"; win=50, start=1, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
-        #Plot.tracks_analysis3("$(outdir)tracks1"; lambda=1000.0, start=1, number=1031, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
+        Plot.tracks_analysis3("$(outdir)tracks1"; lambda=10000.0, start=1, number=1031, bin_st=450, bin_end=700, name_mod="1", darkness=0.6)
 
 
         # subpulse tracking (Third Session)
@@ -354,10 +355,15 @@ module SpaTs
         #data2 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00256-00446.txt")
         #data = vcat(data1, data2)
         #Data.save_ascii(data, "$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
-        data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
-        Plot.single(data6, outdir; start=1, number=nothing, name_mod="6_", darkness=0.6, show_=true)
+        #data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
+        #Plot.single(data6, outdir; start=1, number=nothing, name_mod="6_", darkness=0.6, show_=true)
+    end
 
+    function J1750_paper()
+        data_dir = "/home/szary/work/MeerTime/J1750/new_data/"
+        data_remote = "/home/aszary/J1750/new_data/"
 
+        Data.convert_psrfit_ascii("$(data_remote)/2019-09-29-12:41:18_00000-00294.spCF", "$(data_remote)/2019-09-29-12:41:18_00000-00294.txt")
 
     end
 
@@ -373,7 +379,8 @@ module SpaTs
         #J1705()
         #B0320()
         #J1750_remote()
-        J1750_local()
+        #J1750_local()
+        J1750_paper()
 
     end
 

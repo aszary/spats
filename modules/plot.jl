@@ -1225,7 +1225,7 @@ module Plot
         rc("lines", linewidth=0.5)
 
         f = figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
-        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+        subplots_adjust(left=0.19, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
@@ -1241,7 +1241,7 @@ module Plot
         xlim([extent[1], extent[2]])
         ylim([extent[3], extent[4]])
         for track in tracks
-            plot(track[:,1], track[:,2], marker="x", markersize=2.5, c="red", lw=0)
+            plot(track[:,1], track[:,2], marker="x", markersize=1.5, c="red", lw=0, alpha=1.5)
         end
         #=
         for peak in peaks
@@ -1478,7 +1478,7 @@ module Plot
         xlabel("Pulse number")
         ylabel("Longitude \$(^\\circ)\$")
         for track in tracks#[1:3]
-            plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
         end
         for line in lines
