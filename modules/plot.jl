@@ -235,7 +235,7 @@ module Plot
     end
 
 
-    function single_J1750(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
+    function single_J1750(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false, panel="a")
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
@@ -264,6 +264,7 @@ module Plot
         else
             subplots_adjust(left=0.21, bottom=0.115, right=0.99, top=0.99, wspace=0., hspace=0.)
         end
+        figtext(0.01, 0.95, "$panel)", size=10)
         subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
         plot(intensity, pulses, c="grey")

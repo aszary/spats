@@ -1,5 +1,7 @@
 module SpaTs
     using ArgParse
+    using Glob
+    using JSON
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -411,19 +413,40 @@ module SpaTs
         =#
 
         # single pulse plots
+        #=
         data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
-        Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1", darkness=0.7, show_=true)
+        Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1", darkness=0.7, show_=true, panel="a")
         data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
-        Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2", darkness=0.7, show_=true)
+        Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2", darkness=0.7, show_=true, panel="b")
         data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
         Data.zap!(data3; ranges=[241, 335, 334])
-        Plot.single_J1750(data3, outdir; start=1, number=nothing, name_mod="3", darkness=0.7, show_=true)
+        Plot.single_J1750(data3, outdir; start=1, number=nothing, name_mod="3", darkness=0.7, show_=true, panel="c")
         data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
-        Plot.single_J1750(data4, outdir; start=1, number=nothing, name_mod="4", darkness=0.7, show_=true)
+        Plot.single_J1750(data4, outdir; start=1, number=nothing, name_mod="4", darkness=0.7, show_=true, panel="d")
         data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
-        Plot.single_J1750(data5, outdir; start=1, number=nothing, name_mod="5", darkness=0.7, show_=true)
+        Plot.single_J1750(data5, outdir; start=1, number=nothing, name_mod="5", darkness=0.7, show_=true, panel="e")
         data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
-        Plot.single_J1750(data6, outdir; start=1, number=nothing, name_mod="6", darkness=0.7, show_=true)
+        Plot.single_J1750(data6, outdir; start=1, number=nothing, name_mod="6", darkness=0.7, show_=true, panel="f")
+        =#
+
+        # get information
+        #=
+        files = Glob.glob("*_pipeline_info.json", data_dir)
+        for file in files
+            println("\n$file")
+            js = JSON.parsefile(file)
+            #println(js)
+            println(length(split(js["input_data"]["header"]["ANTENNAE"], ",")))
+            println(js["input_data"]["header"]["SCHEDULE_BLOCK_ID"])
+            #println(js["snr_per_pulse"])
+            println(js["snr"])
+            println(js["input_data"]["header"]["TSAMP"])
+            npulses = [294, 1030, 445, 449, 446, 446]
+            period = 0.6840110402274631
+            duration = [period * np for np in npulses]
+            println(duration)
+        end
+        =#
 
     end
 
