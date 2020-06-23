@@ -448,6 +448,28 @@ module SpaTs
         end
         =#
 
+
+        # p3_evolution plots
+        data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
+        Plot.p3_evolution_J1750(data1, outdir; step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="1", number=128, verbose=true)
+        #=
+        Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1", darkness=0.7, show_=true, panel="a")
+        data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2", darkness=0.7, show_=true, panel="b")
+        data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
+        Data.zap!(data3; ranges=[241, 335, 334])
+        Plot.single_J1750(data3, outdir; start=1, number=nothing, name_mod="3", darkness=0.7, show_=true, panel="c")
+        data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+        Plot.single_J1750(data4, outdir; start=1, number=nothing, name_mod="4", darkness=0.7, show_=true, panel="d")
+        data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
+        Plot.single_J1750(data5, outdir; start=1, number=nothing, name_mod="5", darkness=0.7, show_=true, panel="e")
+        data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
+        Plot.single_J1750(data6, outdir; start=1, number=nothing, name_mod="6", darkness=0.7, show_=true, panel="f")
+        =#
+
+
+
+
     end
 
 

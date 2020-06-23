@@ -254,6 +254,7 @@ module Plot
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
+
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -428,7 +429,8 @@ module Plot
             try
                 pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak-1])  # skip zero freq
                 f = pars[2]
-                fer = abs(pars[3])  # errs[2] # yeap
+                #fer = abs(pars[3])  # nope too big
+                fer = abs(errs[2])  # yeap
                 p3 = 1 / f
                 p3err = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
                 if verbose == true println("\tP3 = $p3, P3 error = $p3err") end
@@ -498,8 +500,111 @@ module Plot
         yticks([])
         savefig("$outdir/$(name_mod)_p3_evolution.pdf")
         close()
+    end
+
+
+    function p3_evolution_J1750(data, outdir; start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)
+        num, bins = size(data)
+        if end_ == nothing end_ = num end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        intensity_ = []
+        p3_ = []
+        p3_err_ = []
+        start_period = []
+        for i in start:step:end_-number
+            global p3
+            global p3err
+            global frequency
+            da = data[i:i+number-1,bin_st:bin_end]
+            lrfs, intensity, freq, peak = Tools.lrfs(da)
+            # skip freq = 0 and normalize intensity to 1
+            inten = intensity[2:end]
+            inten ./= maximum(inten)
+            fre = freq[2:end]
+            #inten[1] = inten[2]
+            try
+                pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak-1])  # skip zero freq
+                f = pars[2]
+                #fer = abs(pars[3])   # nope # too big
+                fer = abs(errs[2])  # yeap
+                p3 = 1 / f
+                p3err = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
+                if verbose == true println("\tP3 = $p3, P3 error = $p3err") end
+                #println(p3)
+                #println(errs)
+            catch exc
+                p3 = 0. #nothing
+                p3err = 0. #nothing
+                if verbose == true println("\t[WARNING! P3 = 0, P3 error = 0]") end
+            end
+            push!(intensity_, inten)
+            push!(p3_, p3)
+            push!(p3_err_, p3err)
+            push!(start_period, i)
+            frequency = fre
+        end
+
+        if verbose == true println("P3 std:", std(p3_)) end
+
+        da = data[start:start+end_-1,bin_st:bin_end]
+        average = Tools.average_profile(da)
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        # converting intensity TODO why why why?
+        x, = size(intensity_)
+        y, = size(intensity_[1])
+        intens = zeros((x,y))
+        for i in 1:x
+            for j in 1:y
+                intens[i,j] = intensity_[i][j]
+            end
+        end
+
+        #println(typeof(intensity_))
+        #println(typeof(intens))
+        #return
+
+        #left, skip = Tools.intensity_pulses(intens)
+        bottom, skip = Tools.intensity_pulses(transpose(intens))
+
+        #println(x, " ", y)
+        #println(size(intensity_))
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(2.362205, 3.248031))  # 6cm x 8.25cm
+        subplots_adjust(left=0.21, bottom=0.115, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        subplot2grid((5, 3), (0, 0), rowspan=4)
+        minorticks_on()
+        errorbar(p3_, start_period, xerr=p3_err_, color="none", lw=1., marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
+        #xlim(0.7*minimum(p3_), 1.3*maximum(p3_))
+        ylim(start_period[1], start_period[end])
+        xlabel("\$P_3\$")
+        ylabel("start period num.")
+
+        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        imshow(intens, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(intens))
+        tick_params(labelleft=false, labelbottom=false)
+
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        minorticks_on()
+        plot(frequency, bottom, c="grey")
+        xlabel("frequency \$(1/P)\$")
+        #tick_params(labeltop=false, labelbottom=true)
+        xlim(frequency[1]/2., frequency[end]) # nice trick
+        yticks([])
+        savefig("$outdir/$(name_mod)_p3_evolution.pdf")
+        close()
 
     end
+
 
 
     function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")
