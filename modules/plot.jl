@@ -503,7 +503,7 @@ module Plot
     end
 
 
-    function p3_evolution_J1750(data, outdir; start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)
+    function p3_evolution_J1750(data, outdir; panel="a", start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)
         num, bins = size(data)
         if end_ == nothing end_ = num end
         if bin_st == nothing bin_st = 1 end
@@ -524,27 +524,29 @@ module Plot
             fre = freq[2:end]
             #inten[1] = inten[2]
             try
-                pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak-1])  # skip zero freq
+                pars, errs = Tools.fit_gaussian_J1750(fre, inten) #; μ=freq[peak-1])  # skip zero freq
                 f = pars[2]
                 #fer = abs(pars[3])   # nope # too big
                 fer = abs(errs[2])  # yeap
                 p3 = 1 / f
                 p3err = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
-                if verbose == true println("\tP3 = $p3, P3 error = $p3err") end
+
+                if verbose == true println("\t$i P3 = $p3, P3 error = $p3err") end
                 #println(p3)
                 #println(errs)
             catch exc
-                p3 = 0. #nothing
-                p3err = 0. #nothing
+                p3 = 0 # nothing
+                p3err = 0 # nothing
                 if verbose == true println("\t[WARNING! P3 = 0, P3 error = 0]") end
             end
             push!(intensity_, inten)
-            push!(p3_, p3)
-            push!(p3_err_, p3err)
-            push!(start_period, i)
+            if ((p3 > 20) && (p3 <  100)) && p3err < 10
+                push!(p3_, p3)
+                push!(p3_err_, p3err)
+                push!(start_period, i)
+            end
             frequency = fre
         end
-
         if verbose == true println("P3 std:", std(p3_)) end
 
         da = data[start:start+end_-1,bin_st:bin_end]
@@ -579,19 +581,31 @@ module Plot
         rc("lines", linewidth=0.5)
 
         figure(figsize=(2.362205, 3.248031))  # 6cm x 8.25cm
-        subplots_adjust(left=0.21, bottom=0.115, right=0.99, top=0.99, wspace=0., hspace=0.)
+        if num > 999
+            subplots_adjust(left=0.235, bottom=0.115, right=0.99, top=0.99, wspace=0., hspace=0.)
+        else
+            subplots_adjust(left=0.21, bottom=0.115, right=0.99, top=0.99, wspace=0., hspace=0.)
+        end
+        figtext(0.01, 0.95, "$panel)", size=10)
 
         subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
-        errorbar(p3_, start_period, xerr=p3_err_, color="none", lw=1., marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
-        #xlim(0.7*minimum(p3_), 1.3*maximum(p3_))
-        ylim(start_period[1], start_period[end])
+        locator_params(nbins=5)
+        errorbar(p3_, start_period, xerr=p3_err_, color="none", lw=0.3, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
+        #ylim(start_period[1], start_period[end])
+        ylim(start, start+end_-number)
+        #xlim(31, 55)
+        if panel != "a"
+            xticks([30, 80])
+        end
         xlabel("\$P_3\$")
         ylabel("start period num.")
 
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        minorticks_on()
         imshow(intens, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(intens))
         tick_params(labelleft=false, labelbottom=false)
+        println(size(intens))
 
         subplot2grid((5, 3), (4, 1), colspan=2)
         minorticks_on()

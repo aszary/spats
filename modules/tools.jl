@@ -98,8 +98,11 @@ module Tools
     @. gauss(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2) + p[4]
 
     function fit_gaussian(xdata, ydata; a=nothing, μ=nothing, σ=nothing, baselevel=nothing)
+        if baselevel == nothing
+            baselevel = mean(ydata)
+        end
         if a == nothing
-            a = maximum(ydata)
+            a = maximum(ydata) - baselevel
         end
         if μ == nothing
             ind = trunc(Int, length(xdata) / 2)
@@ -107,9 +110,6 @@ module Tools
         end
         if σ == nothing
             σ = xdata[20] - xdata[1]
-        end
-        if baselevel == nothing
-            baselevel = mean(ydata)
         end
         # how to use gauss here? done!
         #@. model(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2) + p[4]
@@ -128,6 +128,44 @@ module Tools
         =#
         return p, err
     end
+
+
+    function fit_gaussian_J1750(xdata, ydata; a=nothing, μ=nothing, σ=nothing, baselevel=nothing)
+        if baselevel == nothing
+            baselevel = mean(ydata)
+        end
+        if a == nothing
+            a = maximum(ydata) - baselevel
+        end
+        if μ == nothing
+            val , ind = findmax(ydata) # what?
+            μ = xdata[ind]
+        end
+        if σ == nothing
+            σ = xdata[2] - xdata[1]
+        end
+        # how to use gauss here? done!
+        #@. model(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2) + p[4]
+
+        p0 = [a, μ, σ, baselevel]  # look here
+        fit = curve_fit(gauss, xdata, ydata, p0)
+        p = coef(fit)
+        err = stderror(fit)
+        #=
+        figure()
+        plot(xdata, ydata, c="black")
+        plot(xdata, gauss(xdata, p0), c="blue")
+        plot(xdata, gauss(xdata, p), c="red")
+        q = readline(stdin)
+        if q == "q"
+            throw(DivideError())
+        end
+        close()
+        =#
+        return p, err
+    end
+
+
 
 
     @. twogauss(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2)  + p[4] * exp(-0.5*((x-p[5])/p[6])^2) + p[7]
