@@ -448,24 +448,34 @@ module SpaTs
         end
         =#
 
-
         # p3_evolution plots
         #=
         data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
         Plot.p3_evolution_J1750(data1, outdir; panel="a", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="1", number=128, verbose=true)
+        readline(stdin)
         data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
-        Plot.p3_evolution_J1750(data2, outdir; panel="b", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="2", number=128, verbose=false)
-        =#
+        Plot.p3_evolution_J1750(data2, outdir; panel="b", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="2", number=128, verbose=true)
+        readline(stdin)
         data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
         Data.zap!(data3; ranges=[241, 335, 334])
-        Plot.p3_evolution_J1750(data3, outdir; panel="c", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="3", number=128, verbose=false)
+        Plot.p3_evolution_J1750(data3, outdir; panel="c", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="3", number=128, verbose=true)
+        readline(stdin)
         data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
-        Plot.p3_evolution_J1750(data4, outdir; panel="d", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="4", number=128, verbose=false)
+        Plot.p3_evolution_J1750(data4, outdir; panel="d", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="4", number=128, verbose=true)
+        readline(stdin)
         data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
-        Plot.p3_evolution_J1750(data5, outdir; panel="e", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="5", number=128, verbose=false)
+        Plot.p3_evolution_J1750(data5, outdir; panel="e", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="5", number=128, verbose=true)
+        readline(stdin)
         data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
-        Plot.p3_evolution_J1750(data6, outdir; panel="f", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="6", number=128, verbose=false)
+        Plot.p3_evolution_J1750(data6, outdir; panel="f", step=1, darkness=1.0, bin_st=450, bin_end=700, name_mod="6", number=128, verbose=true)
+        =#
 
+        #p3fold plots
+        p3data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294_norefine.p3fold")
+        p3data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.p3fold")
+        #Plot.p3fold(p3data1, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="1", darkness=1.0, cmap="viridis")
+        #Plot.p3fold(p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="2", darkness=1.0, cmap="viridis")
+        Plot.p3fold_two(p3data1, p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
     end
 
 

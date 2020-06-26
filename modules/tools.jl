@@ -130,7 +130,7 @@ module Tools
     end
 
 
-    function fit_gaussian_J1750(xdata, ydata; a=nothing, μ=nothing, σ=nothing, baselevel=nothing)
+    function fit_gaussian_J1750(xdata, ydata, start_pulse; a=nothing, μ=nothing, σ=nothing, baselevel=nothing)
         if baselevel == nothing
             baselevel = mean(ydata)
         end
@@ -151,17 +151,18 @@ module Tools
         fit = curve_fit(gauss, xdata, ydata, p0)
         p = coef(fit)
         err = stderror(fit)
-        #=
-        figure()
-        plot(xdata, ydata, c="black")
-        plot(xdata, gauss(xdata, p0), c="blue")
-        plot(xdata, gauss(xdata, p), c="red")
-        q = readline(stdin)
-        if q == "q"
-            throw(DivideError())
+        if start_pulse >= 17900
+            println(start_pulse)
+            figure()
+            plot(xdata, ydata, c="black")
+            plot(xdata, gauss(xdata, p0), c="blue")
+            plot(xdata, gauss(xdata, p), c="red")
+            q = readline(stdin)
+            if q == "q"
+                throw(DivideError())
+            end
+            close()
         end
-        close()
-        =#
         return p, err
     end
 

@@ -524,30 +524,39 @@ module Plot
             fre = freq[2:end]
             #inten[1] = inten[2]
             try
-                pars, errs = Tools.fit_gaussian_J1750(fre, inten) #; μ=freq[peak-1])  # skip zero freq
+                pars, errs = Tools.fit_gaussian_J1750(fre, inten, i) #; μ=freq[peak-1])  # skip zero freq
                 f = pars[2]
-                #fer = abs(pars[3])   # nope # too big
-                fer = abs(errs[2])  # yeap
                 p3 = 1 / f
+                #fer = abs(pars[3])   # nope # too big?
+                fer = abs(errs[2])  # yeap
                 p3err = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
-
+                # try other approach to estimate error
+                if p3err > 30
+                    fer = abs(pars[3])
+                    p3err2 = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
+                    if p3err2 < p3err
+                        p3err = p3err2
+                    end
+                    #println("new $p3err $p3err2")
+                end
                 if verbose == true println("\t$i P3 = $p3, P3 error = $p3err") end
-                #println(p3)
-                #println(errs)
             catch exc
+                if typeof(exc) == DivideError
+                    break  # good job
+                end
                 p3 = 0 # nothing
                 p3err = 0 # nothing
                 if verbose == true println("\t[WARNING! P3 = 0, P3 error = 0]") end
             end
             push!(intensity_, inten)
-            if ((p3 > 20) && (p3 <  100)) && p3err < 10
+            if ((p3 > 20) && (p3 <  200)) && p3err < 30
                 push!(p3_, p3)
                 push!(p3_err_, p3err)
                 push!(start_period, i)
             end
             frequency = fre
         end
-        if verbose == true println("P3 std:", std(p3_)) end
+        if verbose == true println("P3 mean: $(mean(p3_))  P3 std: $(std(p3_))") end
 
         da = data[start:start+end_-1,bin_st:bin_end]
         average = Tools.average_profile(da)
@@ -591,11 +600,11 @@ module Plot
         subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
         locator_params(nbins=5)
-        errorbar(p3_, start_period, xerr=p3_err_, color="none", lw=0.3, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
+        errorbar(p3_, start_period, xerr=p3_err_, color="none", lw=0.3, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
         #ylim(start_period[1], start_period[end])
         ylim(start, start+end_-number)
         #xlim(31, 55)
-        if panel != "a"
+        if (panel != "a") && (panel != "d")
             xticks([30, 80])
         end
         xlabel("\$P_3\$")
@@ -680,6 +689,95 @@ module Plot
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/$(name_mod)_p3fold.pdf")
+        close()
+    end
+
+
+    function p3fold_two(data1, data2, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=11)
+        num, bins = size(data1)
+        if number == nothing
+            number = num - start  # missing one?
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data1[start:start+number-1,bin_st:bin_end]
+        da2 = data2[start:start+number-1,bin_st:bin_end]
+        average = Tools.average_profile(da)
+        average2 = Tools.average_profile(da2)
+        intensity, pulses = Tools.intensity_pulses(da)
+        intensity2, pulses2 = Tools.intensity_pulses(da2)
+        intensity .-= minimum(intensity)
+        intensity ./= maximum(intensity)
+        intensity2 .-= minimum(intensity2)
+        intensity2 ./= maximum(intensity2)
+
+        pulses .+= start
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        # repeat data
+        da = repeat(da, repeat_num)
+        da2 = repeat(da2, repeat_num)
+        # shift the data
+        one = da2[1+shift:end, :]
+        two = da2[1:shift, :]
+        da2 = vcat(one, two)
+        intensity = repeat(intensity, repeat_num)
+        intensity2 = repeat(intensity2, repeat_num)
+        pulses = collect(1:length(intensity))
+        le = length(pulses)
+        ticks = [floor(Int, le /4), floor(Int, le /2), floor(Int, le *3 / 4)]
+        fracs = [repeat_num / 4, repeat_num/2, repeat_num * 3 / 4]
+        ti = ["$(fracs[i])\$P_3\$" for i in 1:3]
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        #left
+        subplot2grid((5, 2), (0, 0), rowspan=4)
+        minorticks_on()
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+        tick_params(labelleft=true, labelbottom=false)
+        yticks(ticks, ti)
+
+
+        # right
+        subplot2grid((5, 2), (0, 1), rowspan=4)
+        minorticks_on()
+        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da2))
+        tick_params(labelleft=false, labelbottom=false)
+        yticks(ticks, ti)
+
+        # bottom left
+        subplot2grid((5, 2), (4, 0))
+        minorticks_on()
+        plot(longitude, average, c="grey")
+        xticks([-40, 0, 40])
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        ylabel("intensity (a. u.)")
+
+        # bottom right
+        subplot2grid((5, 2), (4, 1), colspan=3)
+        minorticks_on()
+        tick_params(labelleft=false)
+        plot(longitude, average2, c="grey")
+        xticks([-40, 0, 40])
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+
+        figtext(0.45, 0.01, "longitude (deg.)", size=8)
+
+
+        #tick_params(labeltop=false, labelbottom=true)
+        savefig("$outdir/$(name_mod)_p3fold_two.pdf")
         close()
     end
 
