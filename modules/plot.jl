@@ -696,7 +696,7 @@ module Plot
     function p3fold_two(data1, data2, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=11)
         num, bins = size(data1)
         if number == nothing
-            number = num - start  # missing one?
+            number = num - start + 1  # missing one? # test it!
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
@@ -739,21 +739,170 @@ module Plot
 
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
-
         #left
         subplot2grid((5, 2), (0, 0), rowspan=4)
         minorticks_on()
         imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
         tick_params(labelleft=true, labelbottom=false)
         yticks(ticks, ti)
-
-
         # right
         subplot2grid((5, 2), (0, 1), rowspan=4)
         minorticks_on()
         imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da2))
         tick_params(labelleft=false, labelbottom=false)
         yticks(ticks, ti)
+        # bottom left
+        subplot2grid((5, 2), (4, 0))
+        minorticks_on()
+        plot(longitude, average, c="grey")
+        xticks([-40, 0, 40])
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        ylabel("intensity (a. u.)")
+        # bottom right
+        subplot2grid((5, 2), (4, 1), colspan=3)
+        minorticks_on()
+        tick_params(labelleft=false)
+        plot(longitude, average2, c="grey")
+        xticks([-40, 0, 40])
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        figtext(0.45, 0.01, "longitude (deg.)", size=8)
+        #tick_params(labeltop=false, labelbottom=true)
+        savefig("$outdir/$(name_mod)_p3fold_two.pdf")
+        close()
+    end
+
+
+    function p3fold_twotracks(data1, data2, data_dir, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=7)
+        num, bins = size(data1)
+        if number == nothing
+            number = num - start + 1 # missing one?
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data1[start:start+number-1,bin_st:bin_end]
+        da2 = data2[start:start+number-1,bin_st:bin_end]
+        average = Tools.average_profile(da)
+        average2 = Tools.average_profile(da2)
+        intensity, pulses = Tools.intensity_pulses(da)
+        intensity2, pulses2 = Tools.intensity_pulses(da2)
+        intensity .-= minimum(intensity)
+        intensity ./= maximum(intensity)
+        intensity2 .-= minimum(intensity2)
+        intensity2 ./= maximum(intensity2)
+
+        pulses .+= start
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        # repeat data
+        da = repeat(da, repeat_num)
+        da2 = repeat(da2, repeat_num)
+        # shift the data
+        one = da2[1+shift:end, :]
+        two = da2[1:shift, :]
+        da2 = vcat(one, two)
+        intensity = repeat(intensity, repeat_num)
+        intensity2 = repeat(intensity2, repeat_num)
+        pulses = collect(1:length(intensity))
+        le = length(pulses)
+        ticks = [floor(Int, le /4), floor(Int, le /2), floor(Int, le *3 / 4)]
+        fracs = [repeat_num / 4, repeat_num/2, repeat_num * 3 / 4]
+        ti = ["$(fracs[i])\$P_3\$" for i in 1:3]
+
+        tracks = []
+        for i in 1:2
+            push!(tracks, [])
+            files = Glob.glob("track_*.jld2", "$(data_dir)$i")
+            # load tracks
+            for file in files
+                @load file track
+                tr = Tools.remove_duplicates(track)
+                # add repeat_num data
+                tr2 = [[], []]
+                #println(size(tr))
+                for j in 1:size(tr)[1]
+                    x = tr[j,1]
+                    if i == 1
+                        y = tr[j,2]
+                    else
+                        y = tr[j,2] - shift
+                    end
+                    #println(num)
+                    if (y >= 1)
+                        push!(tr2[1], x)
+                        push!(tr2[2], y)
+                    end
+                    for k in 1:repeat_num
+                        if y + k*num < num * repeat_num
+                            push!(tr2[1], x)
+                            push!(tr2[2], y + k*num)
+                        end
+                    end
+                end
+                # sort
+                sp = sortperm(tr2[2])
+                tr2[1] = collect(view(tr2[1], sp))
+                tr2[2] = collect(view(tr2[2], sp))
+                push!(tracks[end], tr2)
+            end
+        end
+
+        p2s = [[], []]
+
+        for i in 1:2  # two sessions
+            # two tracks
+            first = tracks[i][1]
+            second = tracks[i][2]
+            for (ii,y) in enumerate(first[2])
+                for (jj,y2) in enumerate(second[2])
+                    if y2-y == 0
+                        dbin = abs(first[1][ii]-second[1][jj])
+                        p2 = dbin / bins * 360
+                        push!(p2s[i], p2)
+                        #println("$i $y $p2")
+                    end
+
+                end
+            end
+        end
+        println(mean(p2s[1]))
+        println(std(p2s[1]))
+        println(mean(p2s[2]))
+        println(std(p2s[2]))
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        #left
+        subplot2grid((5, 2), (0, 0), rowspan=4)
+        minorticks_on()
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=[bin_st, bin_end, 1, num*repeat_num])
+        tick_params(labelleft=true, labelbottom=false)
+        yticks(ticks, ti)
+        for tr in tracks[1]
+            scatter(tr[1], tr[2], marker="o", c="none", ec="black", lw=0.3, s=2, alpha=0.7)
+        end
+        ylim([1, num*repeat_num])
+
+        # right
+        subplot2grid((5, 2), (0, 1), rowspan=4)
+        minorticks_on()
+        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da2), extent=[bin_st, bin_end, 1, num*repeat_num])
+        tick_params(labelleft=false, labelbottom=false)
+        yticks(ticks, ti)
+        for tr in tracks[2]
+            scatter(tr[1], tr[2], marker="o", c="none", ec="black", lw=0.3, s=2, alpha=0.7)
+        end
+        ylim([1, num*repeat_num])
 
         # bottom left
         subplot2grid((5, 2), (4, 0))
@@ -775,11 +924,11 @@ module Plot
 
         figtext(0.45, 0.01, "longitude (deg.)", size=8)
 
-
         #tick_params(labeltop=false, labelbottom=true)
-        savefig("$outdir/$(name_mod)_p3fold_two.pdf")
+        savefig("$outdir/$(name_mod)_p3fold_twotracks.pdf")
         close()
     end
+
 
 
     function offset(data, data2, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")

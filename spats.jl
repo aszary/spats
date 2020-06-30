@@ -475,7 +475,18 @@ module SpaTs
         p3data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.p3fold")
         #Plot.p3fold(p3data1, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="1", darkness=1.0, cmap="viridis")
         #Plot.p3fold(p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="2", darkness=1.0, cmap="viridis")
-        Plot.p3fold_two(p3data1, p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
+        #Plot.p3fold_two(p3data1, p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
+        # test
+        #p3data3 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030_b.p3fold")
+        #Plot.p3fold_two(p3data1, p3data3, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12b", darkness=1.0, cmap="viridis")
+        # peaks detection
+        #peaks = Tools.track_subpulses(p3data1, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=674)
+        #Plot.group_tracks(p3data1, "$(data_dir)tracks1", peaks; start=1, number=22, bin_st=350, bin_end=674, name_mod="1p3_", darkness=0.6)
+        #peaks2 = Tools.track_subpulses(p3data2, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=674)
+        #Plot.group_tracks(p3data2, "$(data_dir)tracks2", peaks2; start=1, number=22, bin_st=350, bin_end=674, name_mod="2p3_", darkness=0.6)
+        Plot.p3fold_twotracks(p3data1, p3data2, "$(data_dir)tracks", outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
+
+
     end
 
 
