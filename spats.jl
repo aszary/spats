@@ -412,6 +412,15 @@ module SpaTs
         Data.save_ascii(data, "$(data_remote)2020-05-30-22:04:58_00000-00446.txt")
         =#
 
+        # Loading data
+        data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
+        data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt")
+        data3 = Data.load_ascii("$(data_dir)2020-02-24-03:46:43_00000-00445.txt")
+        Data.zap!(data3; ranges=[241, 335, 334])
+        data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
+        data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
+        data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
+
         # single pulse plots
         #=
         data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294.txt")
@@ -471,8 +480,8 @@ module SpaTs
         =#
 
         #p3fold plots
-        p3data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294_norefine.p3fold")
-        p3data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.p3fold")
+        #p3data1 = Data.load_ascii("$(data_dir)2019-09-29-12:41:18_00000-00294_norefine.p3fold")
+        #p3data2 = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.p3fold")
         #Plot.p3fold(p3data1, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="1", darkness=1.0, cmap="viridis")
         #Plot.p3fold(p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="2", darkness=1.0, cmap="viridis")
         #Plot.p3fold_two(p3data1, p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
@@ -484,7 +493,42 @@ module SpaTs
         #Plot.group_tracks(p3data1, "$(data_dir)tracks1", peaks; start=1, number=22, bin_st=350, bin_end=674, name_mod="1p3_", darkness=0.6)
         #peaks2 = Tools.track_subpulses(p3data2, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=674)
         #Plot.group_tracks(p3data2, "$(data_dir)tracks2", peaks2; start=1, number=22, bin_st=350, bin_end=674, name_mod="2p3_", darkness=0.6)
-        Plot.p3fold_twotracks(p3data1, p3data2, "$(data_dir)tracks", outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
+        #Plot.p3fold_twotracks(p3data1, p3data2, "$(data_dir)tracks", outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
+
+        # P2 estimate
+        #win = 12
+        #Tools.p2_estimate(data1; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        #Tools.p2_estimate(data2; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        #Tools.p2_estimate(data3; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win) #  no! # too noisy!
+        #Tools.p2_estimate(data4; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        #Tools.p2_estimate(data5; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win) # too noisy!
+        #Tools.p2_estimate(data6; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+
+        # average profiles not used!
+        #Plot.averageX([data1, data2, data3, data4, data5, data6], outdir, bin_st=350, bin_end=675, number=nothing, name_mod="123456")
+
+
+        # track subpulses
+        #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data1, "$(outdir)tracks1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
+        #Plot.tracks_analysis3("$(outdir)tracks1"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
+        #peaks = Tools.track_subpulses(data2, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data2, "$(outdir)tracks2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        #Plot.tracks_analysis3("$(outdir)tracks2"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        #peaks = Tools.track_subpulses(data3, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data3, "$(outdir)tracks3", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.5)
+        #Plot.tracks_analysis3("$(outdir)tracks3"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.6)
+        #peaks = Tools.track_subpulses(data4, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data4, "$(outdir)tracks4", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="4", darkness=0.5)
+        #Plot.tracks_analysis3("$(outdir)tracks4"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="4", darkness=0.6)
+
+        peaks = Tools.track_subpulses(data5, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        Plot.group_tracks(data5, "$(outdir)tracks5", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="5", darkness=0.5)
+
+
+        #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
+
+
 
 
     end

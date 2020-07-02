@@ -426,20 +426,20 @@ module Tools
         #p2errs = []
         p2s = []
         for av in avs
-            p0 = [1.0, 0.5, 530.0, 600.0, 15, 15]
+            p0 = [1.0, 0.5, 460.0, 510.0, 15, 15]
             #p0 = [1.0, 0.5, 430.0, 500.0, 15, 15]
             xdata = collect(on_st:on_end)
             pa, errs = Tools.fit_twogaussians(xdata, av[on_st:on_end], p0[1], p0[2], p0[3], p0[4], p0[5], p0[6])
             dbin = abs(pa[2] - pa[5])
             p2 = dbin / bins * 360
             # nesty hack!
-            if (p2 > 16) && p2 < (20)
+            if (p2 > 16) && p2 < (20) && (pa[1] > 0) && (pa[2] > 0)
                 push!(p2s, p2)
             end
             #=
             ga = twogauss(xdata, pa)
             PyPlot.close()
-            plot(average, c="black", lw=2)
+            plot(average, c="grey", lw=0.5)
             plot(av, lw=0.3)
             plot(xdata, ga, lw=0.6, c="red")
             savefig("output/test.pdf")
@@ -449,6 +449,8 @@ module Tools
                 break
             end
             =#
+
+
             #p2err = win * 360 / bins * sqrt(1 + (rms(av[off_st:off_end])/maximum(av))^2)
             #push!(p2errs, p2err)
         end

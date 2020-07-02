@@ -1553,10 +1553,12 @@ module Plot
                 if add == true
                     push!(picks, pi)
                     thisline.set_color("green")
+                    thisline.set_alpha(0.1)
                 else
                     #pop!(picks, pi)  # does not work
                     filter!(p->p!=pi, picks) # works, but I still not get it
                     thisline.set_color("red")
+                    thisline.set_alpha(0.3)
                 end
             end
             #println(picks)
@@ -1594,14 +1596,14 @@ module Plot
         for peak in peaks
             if (peak[1] >= start) && (peak[1] <= start + number)
                 for x in peak[2]
-                    plot(x, peak[1], marker="x", markersize=2.5, c="red", lw=0, picker=10, alpha=0.5)
+                    plot(x, peak[1], marker="x", markersize=2.5, c="red", lw=0, picker=10, alpha=0.3)
                     #scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1, picker=2)
                     #println("$(peak[1]) $x")
                 end
             end
         end
         for track in tracks
-            plot(track[:,1], track[:,2], marker="x", markersize=2.5, c="green", lw=0)
+            plot(track[:,1], track[:,2], marker="x", markersize=2.5, c="green", lw=0, alpha=1.0)
         end
         tick_params(labelleft=false, labelbottom=false)
 
