@@ -1946,4 +1946,178 @@ module Plot
 
 
 
+    function driftrate_J1750(outdir; lambda=100, name_mod="123456", show_=false)
+
+        tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks1", lambda)
+        tracks2, lines2, inclines2, dr2, ysp2 = Tools.get_driftrate("$outdir/tracks2", lambda)
+        tracks3, lines3, inclines3, dr3, ysp3 = Tools.get_driftrate("$outdir/tracks3", lambda)
+        tracks4, lines4, inclines4, dr4, ysp4 = Tools.get_driftrate("$outdir/tracks4", lambda)
+        tracks5, lines5, inclines5, dr5, ysp5 = Tools.get_driftrate("$outdir/tracks5", lambda)
+        tracks6, lines6, inclines6, dr6, ysp6 = Tools.get_driftrate("$outdir/tracks6", lambda)
+
+        y0 = 401
+        y1 = 599
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
+        subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9, wspace=0.0, hspace=0.0)
+        #figtext(0.01, 0.95, "$panel)", size=10)
+
+        # first session
+        subplot2grid((34, 1800), (0, 0), colspan=294, rowspan=8)  # row column
+        minorticks_on()
+        for track in tracks1#[1:3]
+            #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+        end
+        for line in lines1
+            plot(line[1], line[2], lw=2, alpha=0.5, c="C2")
+        end
+        xl = xlim()
+        ylim([y0, y1])
+        # first session
+        subplot2grid((34, 1800), (8, 0), colspan=294, rowspan=8)  # row column
+        minorticks_on()
+        for inc in inclines1
+            plot(inc[1], inc[2], lw=0.4, c="black")
+        end
+        axhline(y=0, lw=1, ls="--")
+        plot(dr1, ysp1, lw=3, alpha=0.8, c="grey")
+        xlim(xl)
+        ylim([-2.3, 2.3])
+
+        # second session
+        subplot2grid((34, 1800), (0, 310), colspan=1030, rowspan=8)  # row column
+        minorticks_on()
+        for track in tracks2#[1:3]
+            #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+        end
+        for line in lines2
+            plot(line[1], line[2], lw=2, alpha=0.5, c="C2")
+        end
+        xl = xlim()
+        ylim([y0, y1])
+        # second session
+        subplot2grid((34, 1800), (8, 310), colspan=1030, rowspan=8)  # row column
+        minorticks_on()
+        for inc in inclines2
+            plot(inc[1], inc[2], lw=1, c="black")
+        end
+        axhline(y=0, lw=1, ls="--")
+        plot(dr2, ysp2, lw=4, alpha=0.5, c="grey")
+        xlim(xl)
+        ylim([-2.3, 2.3])
+
+        # third session
+        subplot2grid((34, 1800), (0, 1355), colspan=445, rowspan=8)  # row column
+        minorticks_on()
+        for track in tracks3#[1:3]
+            #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+        end
+        for line in lines3
+            plot(line[1], line[2], lw=2, alpha=0.5, c="C2")
+        end
+        xl = xlim()
+        ylim([y0, y1])
+        # third session
+        subplot2grid((34, 1800), (8, 1355), colspan=445, rowspan=8)  # row column
+        minorticks_on()
+        for inc in inclines3
+            plot(inc[1], inc[2], lw=1, c="black")
+        end
+        axhline(y=0, lw=1, ls="--")
+        plot(dr3, ysp3, lw=4, alpha=0.5, c="grey")
+        xlim(xl)
+        ylim([-2.3, 2.3])
+
+        # fourth session
+        subplot2grid((34, 1800), (18, 0), colspan=449, rowspan=8)  # row column
+        minorticks_on()
+        for track in tracks4#[1:3]
+            #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+        end
+        for line in lines4
+            plot(line[1], line[2], lw=2, alpha=0.5, c="C2")
+        end
+        xl = xlim()
+        ylim([y0, y1])
+        # fourth session
+        subplot2grid((34, 1800), (26, 0), colspan=449, rowspan=8)  # row column
+        minorticks_on()
+        for inc in inclines4
+            plot(inc[1], inc[2], lw=1, c="black")
+        end
+        axhline(y=0, lw=1, ls="--")
+        plot(dr4, ysp4, lw=4, alpha=0.5, c="grey")
+        xlim(xl)
+        ylim([-2.3, 2.3])
+
+        # fifth session
+        subplot2grid((34, 1800), (18, 700), colspan=446, rowspan=8)  # row column
+        minorticks_on()
+        for track in tracks5#[1:3]
+            #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+        end
+        for line in lines5
+            plot(line[1], line[2], lw=2, alpha=0.5, c="C2")
+        end
+        xl = xlim()
+        ylim([y0, y1])
+        # fifth session
+        subplot2grid((34, 1800), (26, 700), colspan=446, rowspan=8)  # row column
+        minorticks_on()
+        for inc in inclines5
+            plot(inc[1], inc[2], lw=1, c="black")
+        end
+        axhline(y=0, lw=1, ls="--")
+        plot(dr5, ysp5, lw=4, alpha=0.5, c="grey")
+        xlim(xl)
+        ylim([-2.3, 2.3])
+
+        # sixth session
+        subplot2grid((34, 1800), (18, 1350), colspan=446, rowspan=8)  # row column
+        minorticks_on()
+        for track in tracks6#[1:3]
+            #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+        end
+        for line in lines6
+            plot(line[1], line[2], lw=2, alpha=0.5, c="C2")
+        end
+        xl = xlim()
+        ylim([y0, y1])
+        # sixth session
+        subplot2grid((34, 1800), (26, 1350), colspan=446, rowspan=8)  # row column
+        minorticks_on()
+        for inc in inclines6
+            plot(inc[1], inc[2], lw=1, c="black")
+        end
+        axhline(y=0, lw=1, ls="--")
+        plot(dr6, ysp6, lw=4, alpha=0.5, c="grey")
+        xlim(xl)
+        ylim([-2.3, 2.3])
+
+
+        println("$outdir/$(name_mod)_driftrate.pdf")
+        savefig("$outdir/$(name_mod)_driftrate.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+        #clf()
+    end
+
+
+
+
+
+
 end  # modul Plot

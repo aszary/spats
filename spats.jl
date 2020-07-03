@@ -521,14 +521,15 @@ module SpaTs
         #peaks = Tools.track_subpulses(data4, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data4, "$(outdir)tracks4", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="4", darkness=0.5)
         #Plot.tracks_analysis3("$(outdir)tracks4"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="4", darkness=0.6)
-
-        peaks = Tools.track_subpulses(data5, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
-        Plot.group_tracks(data5, "$(outdir)tracks5", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="5", darkness=0.5)
-
-
+        #peaks = Tools.track_subpulses(data5, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data5, "$(outdir)tracks5", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="5", darkness=0.5)
+        #Plot.tracks_analysis3("$(outdir)tracks5"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="5", darkness=0.6)
+        #peaks = Tools.track_subpulses(data6, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data6, "$(outdir)tracks6", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.5)
+        #Plot.tracks_analysis3("$(outdir)tracks6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
         #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
 
-
+        Plot.driftrate_J1750(outdir; lambda=2000.0, show_=false)
 
 
     end

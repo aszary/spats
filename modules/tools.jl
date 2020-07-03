@@ -1,4 +1,6 @@
 module Tools
+    using Glob
+    using JLD2
     using FFTW
     using Peaks
     using LsqFit
@@ -854,6 +856,45 @@ module Tools
         #println(typeof(tr_final))
         #println(size(tr_final))
         return tr_final
+    end
+
+
+    function get_driftrate(trackdir, lambda)
+        tracks = []
+        # load tracks
+        files = Glob.glob("track_*.jld2", trackdir)
+        for file in files
+            @load file track
+            tr = Tools.remove_duplicates(track)
+            push!(tracks, tr)
+        end
+
+        lines = []
+        inclines = []
+        drift_rate = [[], []]
+        for track in tracks#[1:3]
+            #ll, inc = Tools.analyse_track_sl(track[:,3], track[:,1]; lambda=lambda)
+            ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
+            push!(lines, ll)
+            push!(inclines, inc)
+        end
+        for inc in inclines
+            for i in 1:length(inc[1])
+                push!(drift_rate[1], inc[1][i])
+                push!(drift_rate[2], inc[2][i])
+            end
+        end
+        sp = sortperm(drift_rate[1])
+        drift_rate[1] = view(drift_rate[1], sp)
+        drift_rate[2] = view(drift_rate[2], sp)
+        dr1 = convert(Array{Float64,1}, drift_rate[1])
+        dr2 = convert(Array{Float64,1}, drift_rate[2])
+        spl = fit(SmoothingSpline, dr1, dr2, 100.0)
+        ysp = SmoothingSplines.predict(spl)
+
+        return tracks, lines, inclines, dr1, ysp
+
+
     end
 
 end  # module Tools
