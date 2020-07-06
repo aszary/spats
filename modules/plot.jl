@@ -1963,34 +1963,44 @@ module Plot
         rc("lines", linewidth=0.5)
 
         figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
-        subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9, wspace=0.0, hspace=0.0)
-        #figtext(0.01, 0.95, "$panel)", size=10)
+        subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
+        figtext(0.09, 0.9, "a)", size=10)
+        figtext(0.239, 0.9, "b)", size=10)
+        figtext(0.74, 0.9, "c)", size=10)
+        figtext(0.09, 0.44, "d)", size=10)
+        figtext(0.43, 0.44, "e)", size=10)
+        figtext(0.74, 0.44, "f)", size=10)
 
         # first session
-        subplot2grid((34, 1800), (0, 0), colspan=294, rowspan=8)  # row column
+        ax = subplot2grid((34, 1800), (0, 0), colspan=294, rowspan=8)  # row column
         minorticks_on()
         for track in tracks1#[1:3]
             #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
         end
         for line in lines1
-            plot(line[1], line[2], lw=2, alpha=0.5, c="C2")
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
         xl = xlim()
         ylim([y0, y1])
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        ylabel("Longitude (\$ ^{\\circ}\$)")
         # first session
         subplot2grid((34, 1800), (8, 0), colspan=294, rowspan=8)  # row column
         minorticks_on()
-        for inc in inclines1
-            plot(inc[1], inc[2], lw=0.4, c="black")
-        end
         axhline(y=0, lw=1, ls="--")
-        plot(dr1, ysp1, lw=3, alpha=0.8, c="grey")
+        plot(dr1, ysp1, lw=3, alpha=1.0, c="grey")
+        for inc in inclines1
+            plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
+        end
         xlim(xl)
+        ylabel("Drift rate \$(^\\circ / P)\$")
         ylim([-2.3, 2.3])
+        tick_params(axis="x", which="both", direction="out", labelbottom=false)
 
         # second session
-        subplot2grid((34, 1800), (0, 310), colspan=1030, rowspan=8)  # row column
+        ax = subplot2grid((34, 1800), (0, 310), colspan=1030, rowspan=8)  # row column
         minorticks_on()
         for track in tracks2#[1:3]
             #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
@@ -2001,19 +2011,25 @@ module Plot
         end
         xl = xlim()
         ylim([y0, y1])
+        xlabel("Pulse number")
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true)
         # second session
         subplot2grid((34, 1800), (8, 310), colspan=1030, rowspan=8)  # row column
         minorticks_on()
-        for inc in inclines2
-            plot(inc[1], inc[2], lw=1, c="black")
-        end
         axhline(y=0, lw=1, ls="--")
-        plot(dr2, ysp2, lw=4, alpha=0.5, c="grey")
+        plot(dr2, ysp2, lw=4, alpha=1.0, c="grey")
+        for inc in inclines2
+            plot(inc[1], inc[2], lw=0.5, alpha=0.5, c="black")
+        end
         xlim(xl)
         ylim([-2.3, 2.3])
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true)
+        tick_params(axis="x", which="both", direction="out", labelbottom=false)
 
         # third session
-        subplot2grid((34, 1800), (0, 1355), colspan=445, rowspan=8)  # row column
+        ax = subplot2grid((34, 1800), (0, 1355), colspan=445, rowspan=8)  # row column
         minorticks_on()
         for track in tracks3#[1:3]
             #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
@@ -2024,19 +2040,26 @@ module Plot
         end
         xl = xlim()
         ylim([y0, y1])
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        ax.yaxis.set_label_position("right")
+        ax.yaxis.set_ticks_position("right")
         # third session
-        subplot2grid((34, 1800), (8, 1355), colspan=445, rowspan=8)  # row column
+        ax = subplot2grid((34, 1800), (8, 1355), colspan=445, rowspan=8)  # row column
         minorticks_on()
-        for inc in inclines3
-            plot(inc[1], inc[2], lw=1, c="black")
-        end
         axhline(y=0, lw=1, ls="--")
-        plot(dr3, ysp3, lw=4, alpha=0.5, c="grey")
+        plot(dr3, ysp3, lw=4, alpha=1.0, c="grey")
+        for inc in inclines3
+            plot(inc[1], inc[2], lw=0.5, alpha=0.5, c="black")
+        end
         xlim(xl)
         ylim([-2.3, 2.3])
+        ax.yaxis.set_label_position("right")
+        ax.yaxis.set_ticks_position("right")
+        tick_params(axis="x", which="both", direction="out", labelbottom=false)
 
         # fourth session
-        subplot2grid((34, 1800), (18, 0), colspan=449, rowspan=8)  # row column
+        ax = subplot2grid((34, 1800), (18, 0), colspan=449, rowspan=8)  # row column
         minorticks_on()
         for track in tracks4#[1:3]
             #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
@@ -2047,19 +2070,22 @@ module Plot
         end
         xl = xlim()
         ylim([y0, y1])
+        ylabel("Longitude (\$ ^{\\circ}\$)")
+        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         # fourth session
         subplot2grid((34, 1800), (26, 0), colspan=449, rowspan=8)  # row column
         minorticks_on()
-        for inc in inclines4
-            plot(inc[1], inc[2], lw=1, c="black")
-        end
         axhline(y=0, lw=1, ls="--")
-        plot(dr4, ysp4, lw=4, alpha=0.5, c="grey")
+        plot(dr4, ysp4, lw=4, alpha=1.0, c="grey")
+        for inc in inclines4
+            plot(inc[1], inc[2], lw=0.5, alpha=0.5, c="black")
+        end
+        ylabel("Drift rate \$(^\\circ / P)\$")
         xlim(xl)
         ylim([-2.3, 2.3])
 
         # fifth session
-        subplot2grid((34, 1800), (18, 700), colspan=446, rowspan=8)  # row column
+        ax = subplot2grid((34, 1800), (18, 700), colspan=446, rowspan=8)  # row column
         minorticks_on()
         for track in tracks5#[1:3]
             #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
@@ -2070,19 +2096,21 @@ module Plot
         end
         xl = xlim()
         ylim([y0, y1])
+        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         # fifth session
         subplot2grid((34, 1800), (26, 700), colspan=446, rowspan=8)  # row column
         minorticks_on()
-        for inc in inclines5
-            plot(inc[1], inc[2], lw=1, c="black")
-        end
         axhline(y=0, lw=1, ls="--")
-        plot(dr5, ysp5, lw=4, alpha=0.5, c="grey")
+        plot(dr5, ysp5, lw=4, alpha=1.0, c="grey")
+        for inc in inclines5
+            plot(inc[1], inc[2], lw=0.5, alpha=0.5, c="black")
+        end
         xlim(xl)
         ylim([-2.3, 2.3])
+        xlabel("Pulse number")
 
         # sixth session
-        subplot2grid((34, 1800), (18, 1350), colspan=446, rowspan=8)  # row column
+        ax = subplot2grid((34, 1800), (18, 1350), colspan=446, rowspan=8)  # row column
         minorticks_on()
         for track in tracks6#[1:3]
             #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
@@ -2093,14 +2121,15 @@ module Plot
         end
         xl = xlim()
         ylim([y0, y1])
+        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         # sixth session
         subplot2grid((34, 1800), (26, 1350), colspan=446, rowspan=8)  # row column
         minorticks_on()
-        for inc in inclines6
-            plot(inc[1], inc[2], lw=1, c="black")
-        end
         axhline(y=0, lw=1, ls="--")
-        plot(dr6, ysp6, lw=4, alpha=0.5, c="grey")
+        plot(dr6, ysp6, lw=4, alpha=1.0, c="grey")
+        for inc in inclines6
+            plot(inc[1], inc[2], lw=0.5, alpha=0.5, c="black")
+        end
         xlim(xl)
         ylim([-2.3, 2.3])
 
