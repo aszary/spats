@@ -2133,7 +2133,6 @@ module Plot
         xlim(xl)
         ylim([-2.3, 2.3])
 
-
         println("$outdir/$(name_mod)_driftrate.pdf")
         savefig("$outdir/$(name_mod)_driftrate.pdf")
         if show_ == true
@@ -2145,7 +2144,38 @@ module Plot
     end
 
 
+    function driftrate_analysis_J1750(outdir; lambda=100, name_mod="123456", show_=false)
 
+        nd, pd = Tools.driftrate_analysis_J1750(outdir, lambda)
+
+        println("Negative mean: ", mean(nd))
+        println("Negative median: ", median(nd))
+        println("Negative std: ", std(nd))
+
+        println("Positive mean: ", mean(pd))
+        println("Positive median: ", median(pd))
+        println("Positive std: ", std(pd))
+
+        println("Negative sum: ", sum(nd))
+        println("Positive sum: ", sum(pd))
+
+        #figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
+        hist(nd, alpha=0.7)
+        hist(pd, alpha=0.7)
+
+        println("$outdir/$(name_mod)_ratehist.pdf")
+        savefig("$outdir/$(name_mod)_ratehist.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
+    function average_J1750(datas, outdir; bin_st=nothing, bin_end=nothing, name_mod="0")
+
+    end
 
 
 

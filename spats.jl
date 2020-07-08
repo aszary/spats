@@ -504,9 +504,6 @@ module SpaTs
         #Tools.p2_estimate(data5; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win) # too noisy!
         #Tools.p2_estimate(data6; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
 
-        # average profiles not used!
-        #Plot.averageX([data1, data2, data3, data4, data5, data6], outdir, bin_st=350, bin_end=675, number=nothing, name_mod="123456")
-
 
         # track subpulses
         #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
@@ -530,11 +527,16 @@ module SpaTs
         #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
 
 
+        # some checks
+        #Plot.tracks_analysis("$outdir/tracks2"; win=40, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        #Plot.tracks_analysis2("$outdir/tracks2"; win=40, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
 
-        #Plot.tracks_analysis("$outdir/tracks2"; win=20, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
-        #Plot.tracks_analysis2("$outdir/tracks2"; win=20, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        # the Plot
+        #Plot.driftrate_J1750(outdir; lambda=1000.0, show_=false)
+        #Plot.driftrate_analysis_J1750(outdir; lambda=1000.0, show_=true)
 
-        Plot.driftrate_J1750(outdir; lambda=1000.0, show_=false)
+        # average profiles
+        Plot.average_J1750([data1, data2, data3, data4, data5, data6], outdir; bin_st=350, bin_end=650, name_mod="123456")
 
 
     end

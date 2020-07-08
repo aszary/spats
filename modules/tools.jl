@@ -893,8 +893,115 @@ module Tools
         ysp = SmoothingSplines.predict(spl)
 
         return tracks, lines, inclines, dr1, ysp
+    end
 
+    function driftrate_analysis_J1750(outdir, lambda)
+
+        tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks1", lambda)
+        tracks2, lines2, inclines2, dr2, ysp2 = Tools.get_driftrate("$outdir/tracks2", lambda)
+        tracks3, lines3, inclines3, dr3, ysp3 = Tools.get_driftrate("$outdir/tracks3", lambda)
+        tracks4, lines4, inclines4, dr4, ysp4 = Tools.get_driftrate("$outdir/tracks4", lambda)
+        tracks5, lines5, inclines5, dr5, ysp5 = Tools.get_driftrate("$outdir/tracks5", lambda)
+        tracks6, lines6, inclines6, dr6, ysp6 = Tools.get_driftrate("$outdir/tracks6", lambda)
+
+        tracks = []
+        lines = []
+        inclines = []
+        pulses = []
+        ysps = []
+
+        for i in 1:6
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
+            push!(tracks, tracks1)
+            push!(lines, lines1)
+            push!(inclines, inclines1)
+            push!(pulses, dr1)
+            push!(ysps, ysp1)
+        end
+
+        min_length = 3
+        neg_duration = []
+        pos_duration = []
+        drn_ = []
+        drp_ = []
+        for i in 1:6
+            negative = []
+            positive = []
+            push!(neg_duration,[])
+            push!(pos_duration,[])
+            for (j, ysp) in enumerate(ysps[i])
+                if signbit(ysp)
+                    push!(negative, pulses[i][j])
+                    push!(drn_, ysp)
+                else
+                    push!(positive, pulses[i][j])
+                    push!(drp_, ysp)
+                end
+            end
+            # negative duration
+            if length(negative) >= 1
+                st = negative[1]
+                en = negative[end]
+            end
+            for j in 1:length(negative)-1
+                if (negative[j+1] - negative[j] > min_length)
+                    push!(neg_duration[end], Dict(trunc(st)=>trunc((negative[j]-st))))
+                    st = negative[j+1]
+                end
+            end
+            if length(negative) >= 1
+                push!(neg_duration[end], Dict(trunc(st)=>trunc(en-st)))
+            end
+            # positive duration
+            if length(positive) >= 1
+                stp = positive[1]
+                enp = positive[end]
+            end
+            for j in 1:length(positive)-1
+                if (positive[j+1] - positive[j] > min_length)
+                    push!(pos_duration[end], Dict(trunc(stp)=>trunc((positive[j]-stp))))
+                    stp = positive[j+1]
+                end
+            end
+            if length(positive) >= 1
+                push!(pos_duration[end], Dict(trunc(stp)=>trunc(enp-stp)))
+            end
+        end
+
+        # negatives
+        #println(neg_duration)
+        nnum = 0
+        ndurations = []
+        for (i, neg) in enumerate(neg_duration)
+            nnum += length(neg)
+            for n in neg
+                push!(ndurations, collect(values(n))[1])
+            end
+        end
+
+        # positives
+        println(pos_duration)
+        pnum = 0
+        pdurations = []
+        for (i, pos) in enumerate(pos_duration)
+            pnum += length(pos)
+            for p in pos
+                push!(pdurations, collect(values(p))[1])
+            end
+        end
+
+        println("Negative instances: ", nnum)
+        println("Longest negative: ", maximum(ndurations))
+        println("Smallest negative: ", minimum(drn_))
+
+        println("Positive instences: ", pnum)
+        println("Positive longest: ", maximum(pdurations))
+        println("Biggest positive: ", maximum(drp_))
+
+
+        return ndurations, pdurations
 
     end
+
 
 end  # module Tools
