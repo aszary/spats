@@ -2173,7 +2173,109 @@ module Plot
     end
 
 
-    function average_J1750(datas, outdir; bin_st=nothing, bin_end=nothing, name_mod="0")
+    function average_J1750(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0")
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st:bin_end]
+            push!(das, da)
+        end
+
+        # drift rate data
+        pulses = []
+        ysps = []  # drift rate
+
+        for i in 1:6
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
+            (ysp, dr) = Tools.remove_duplicates_ysp(ysp1, dr1)
+            push!(pulses, dr)
+            push!(ysps, ysp)
+        end
+
+        ranges = [(3, 0), (0, -3), (3, 1), (1, 0), (0, -1), (-1, -3)]
+        profiles = []
+        averages = []
+
+        for r in ranges
+            push!(profiles, [])
+            for i in 1:6
+                for (j, driftrate) in enumerate(ysps[i])
+                    if (driftrate < r[1]) && (driftrate > r[2])
+                        push!(profiles[end], das[i][pulses[i][j], :] )
+                    end
+                end
+            end
+        end
+
+        # converting profiles TODO why why why?
+        for ii in 1:length(profiles)
+            x, = size(profiles[ii])
+            y, = size(profiles[ii][1]) # bins
+            profs = zeros((x,y))
+            for i in 1:x
+                for j in 1:y
+                    profs[i,j] = profiles[ii][i][j]
+                end
+            end
+            profiles[ii] = profs
+        end
+
+
+        nums = []
+        for profile in profiles
+            push!(nums, size(profile)[1])
+            push!(averages, Tools.average_profile(profile; norm=true))
+            #println(size(profile)[1])
+        end
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins[1]
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$", "\$\\qquad \\;\\; {\\rm D} < 0 \$", "\$2.15 > {\\rm D} > \\quad \\; 1 \$", "\$\\quad 1\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-1 \$", "\$\\!-1 \\;\\; > {\\rm D} > -1.88 \$"]
+
+
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        minorticks_on()
+        plot(longitude, averages[1] * sqrt(nums[1]), c="black", label=labels[1], lw=0.3, zorder=200)
+        plot(longitude, averages[3] * sqrt(nums[3]), c="C1", label=labels[3], lw=0.7, alpha=0.7, ls=(0, (1, 1)))
+        plot(longitude, averages[4] * sqrt(nums[4]), c="C2", label=labels[4], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
+        plot(longitude, averages[2] * sqrt(nums[2]), c="black", label=labels[2], lw=0.3, zorder=201)
+        plot(longitude, averages[5] * sqrt(nums[5]), c="C3", label=labels[5], lw=0.7,alpha=0.7, ls=(0, (1, 1)))
+        plot(longitude, averages[6] * sqrt(nums[6]), c="C4", label=labels[6], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
+
+        #for i in 1:length(averages)
+        #    plot(longitude, averages[i] * sqrt(nums[i]), c="C$i", label=labels[i])
+            #plot(longitude, averages[i], c="C$i", label=labels[i])
+        #end
+        #yticks([0.0, 0.5])
+        #xlim(longitude[1], longitude[end])
+        xlabel("longitude (deg.)")
+        ylabel("\$\\sqrt{\\rm Number \\; of \\; pulses}\$")
+        legend(prop=Dict("size"=> 5.1))
+        #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_averages.pdf")
+        savefig("$outdir/$(name_mod)_averages.pdf")
+        close()
+
+
 
     end
 

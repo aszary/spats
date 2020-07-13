@@ -22,7 +22,7 @@ module Tools
     end
 
 
-    function average_profile(data)
+    function average_profile(data; norm=true)
         pulses, bins = size(data)
         ave = zeros(bins)
         for i in 1:pulses
@@ -30,8 +30,10 @@ module Tools
                 ave[j] += data[i,j]
             end
         end
-        ma = maximum(ave)
-        ave = ave / ma
+        if norm == true
+            ma = maximum(ave)
+            ave = ave / ma
+        end
         return ave
     end
 
@@ -856,6 +858,30 @@ module Tools
         #println(typeof(tr_final))
         #println(size(tr_final))
         return tr_final
+    end
+
+
+
+    "Why there are duplicates in in ysp and dr?"
+    function remove_duplicates_ysp(ysp, dr)
+        ysp_ = []
+        dr_ = []
+
+        for (i, pulse) in enumerate(dr)
+            try
+                prev = dr_[end]
+                if trunc(Int64, pulse) != prev
+                    push!(ysp_, ysp[i])
+                    push!(dr_, trunc(Int64, pulse))
+                end
+            catch ex
+                if typeof(ex) == BoundsError
+                    push!(ysp_, ysp[i])
+                    push!(dr_, trunc(Int64, pulse))
+                end
+            end
+        end
+        return ysp_, dr_
     end
 
 

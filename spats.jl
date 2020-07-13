@@ -526,7 +526,6 @@ module SpaTs
         #Plot.tracks_analysis3("$(outdir)tracks6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
         #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
 
-
         # some checks
         #Plot.tracks_analysis("$outdir/tracks2"; win=40, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
         #Plot.tracks_analysis2("$outdir/tracks2"; win=40, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
@@ -536,7 +535,7 @@ module SpaTs
         #Plot.driftrate_analysis_J1750(outdir; lambda=1000.0, show_=true)
 
         # average profiles
-        Plot.average_J1750([data1, data2, data3, data4, data5, data6], outdir; bin_st=350, bin_end=650, name_mod="123456")
+        Plot.average_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456")
 
 
     end
