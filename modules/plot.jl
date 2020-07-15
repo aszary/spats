@@ -2173,7 +2173,7 @@ module Plot
     end
 
 
-    function average_J1750(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0")
+    function average_J1750(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
 
         nums = []
         bins = []
@@ -2237,11 +2237,30 @@ module Plot
             #println(size(profile)[1])
         end
 
+
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins[1]
         longitude = collect(range(-dl/2., dl/2., length=db))
 
+        (p1, err1) = Tools.fit_twogaussians(longitude, averages[1], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p2, err2) = Tools.fit_twogaussians(longitude, averages[2], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p3, err3) = Tools.fit_twogaussians(longitude, averages[3], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p4, err4) = Tools.fit_twogaussians(longitude, averages[4], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        ga = Tools.twogauss(longitude, p4)
+
+
+        p0 = [0.6, -13.0, 5.0, 0.9, 3.0, 5.0, 0.03]
+        (p5, err5) = Tools.fit_twogaussians(longitude, averages[5], 0.6, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p6, err6) = Tools.fit_gaussian(longitude, averages[6], a=1.0, μ=-4.0, σ=15.0)
+        println("1: ", p1)
+        println("3: ", p3)
+        println("4: ", p4)
+        #println("err1: ", err1)
+        println("2: ", p2)
+        println("5: ", p5)
+        println("6: ", p6)
+        #println(err2)
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
@@ -2254,6 +2273,7 @@ module Plot
         subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         minorticks_on()
+        plot(longitude, ga * sqrt(nums[4]), c="green", lw=1.3, zorder=1200)
         plot(longitude, averages[1] * sqrt(nums[1]), c="black", label=labels[1], lw=0.3, zorder=200)
         plot(longitude, averages[3] * sqrt(nums[3]), c="C1", label=labels[3], lw=0.7, alpha=0.7, ls=(0, (1, 1)))
         plot(longitude, averages[4] * sqrt(nums[4]), c="C2", label=labels[4], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
@@ -2273,9 +2293,11 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_averages.pdf")
         savefig("$outdir/$(name_mod)_averages.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
         close()
-
-
 
     end
 

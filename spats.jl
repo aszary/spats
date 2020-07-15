@@ -535,7 +535,7 @@ module SpaTs
         #Plot.driftrate_analysis_J1750(outdir; lambda=1000.0, show_=true)
 
         # average profiles
-        Plot.average_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456")
+        Plot.average_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=true)
 
 
     end
