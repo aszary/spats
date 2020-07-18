@@ -2216,6 +2216,24 @@ module Plot
             end
         end
 
+        #=
+        # make profiles equal
+        le = 210
+        for i in 1:length(profiles)
+            indx = []
+            num = 0
+            while num < le
+                ind = rand(1:length(profiles[i]))
+                if ~(ind in indx)
+                    push!(indx, ind)
+                    num += 1
+                end
+            end
+            pr = [profiles[i][x] for x in indx]
+            profiles[i] = pr
+        end
+        =#
+
         # converting profiles TODO why why why?
         for ii in 1:length(profiles)
             x, = size(profiles[ii])
@@ -2229,14 +2247,12 @@ module Plot
             profiles[ii] = profs
         end
 
-
         nums = []
         for profile in profiles
             push!(nums, size(profile)[1])
             push!(averages, Tools.average_profile(profile; norm=true))
             #println(size(profile)[1])
         end
-
 
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1
@@ -2248,9 +2264,6 @@ module Plot
         (p3, err3) = Tools.fit_twogaussians(longitude, averages[3], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
         (p4, err4) = Tools.fit_twogaussians(longitude, averages[4], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
         ga = Tools.twogauss(longitude, p4)
-
-
-        p0 = [0.6, -13.0, 5.0, 0.9, 3.0, 5.0, 0.03]
         (p5, err5) = Tools.fit_twogaussians(longitude, averages[5], 0.6, 0.9, -13.0, 3.0, 5.0, 5.0)
         (p6, err6) = Tools.fit_gaussian(longitude, averages[6], a=1.0, μ=-4.0, σ=15.0)
         println("1: ", p1)
@@ -2273,14 +2286,13 @@ module Plot
         subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         minorticks_on()
-        plot(longitude, ga * sqrt(nums[4]), c="green", lw=1.3, zorder=1200)
+        #plot(longitude, ga * sqrt(nums[4]), c="green", lw=1.3, zorder=1200)
         plot(longitude, averages[1] * sqrt(nums[1]), c="black", label=labels[1], lw=0.3, zorder=200)
         plot(longitude, averages[3] * sqrt(nums[3]), c="C1", label=labels[3], lw=0.7, alpha=0.7, ls=(0, (1, 1)))
         plot(longitude, averages[4] * sqrt(nums[4]), c="C2", label=labels[4], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
         plot(longitude, averages[2] * sqrt(nums[2]), c="black", label=labels[2], lw=0.3, zorder=201)
         plot(longitude, averages[5] * sqrt(nums[5]), c="C3", label=labels[5], lw=0.7,alpha=0.7, ls=(0, (1, 1)))
         plot(longitude, averages[6] * sqrt(nums[6]), c="C4", label=labels[6], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
-
         #for i in 1:length(averages)
         #    plot(longitude, averages[i] * sqrt(nums[i]), c="C$i", label=labels[i])
             #plot(longitude, averages[i], c="C$i", label=labels[i])
@@ -2301,6 +2313,87 @@ module Plot
 
     end
 
+
+    function driftdirection_J1750(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st:bin_end]
+            push!(das, da)
+        end
+
+        tracks = []
+        for i in 1:6
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
+            push!(tracks, tracks1)
+            #push!(pulses, dr)
+            #push!(ysps, ysp)
+        end
+
+        ranges = Dict(2=>(500, 590), 3=>(50, 150), 3=>(375, 425), 4=>(100, 150), 5=>(250, 300), 6=>(200, 400))
+
+        selected_tracks = [[] for i in 1:6] # all six slots (first will be empty)
+
+        #println(tracks[1][1][:, 2])  # pulse number
+        for (k, v) in ranges
+            println("Session: ", k)
+            for i in 1:length(tracks[k])
+                create_new = true
+                for (ii, pulse) in enumerate(tracks[k][i][:, 2])
+                    if (pulse > v[1]) && (pulse < v[2])
+                        if create_new
+                            push!(selected_tracks[k], [[], []])
+                            create_new = false
+                        end
+                        push!(selected_tracks[k][end][1], pulse) # x - pulse number
+                        push!(selected_tracks[k][end][2], tracks[k][i][ii, 1]) # location
+                        #println("\t $v $pulse ", tracks[k][i][ii, 1])
+                    end
+
+                end
+
+            end
+
+        end
+        println(length(selected_tracks[2][1])) # x and y
+        println(selected_tracks[2][1][1])
+        return
+
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins[1]
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        minorticks_on()
+        xlabel("longitude (deg.)")
+        println("$outdir/$(name_mod)_driftdirection.pdf")
+        savefig("$outdir/$(name_mod)_driftdirection.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+
+    end
 
 
 end  # modul Plot
