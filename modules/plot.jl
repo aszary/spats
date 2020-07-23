@@ -1,4 +1,5 @@
 module Plot
+    using LsqFit
     using FFTW
     using JLD2
     using Statistics
@@ -11,7 +12,10 @@ module Plot
     using SmoothingSplines
     using DataFrames, GLM
 
+    using RCall
+
     include("tools.jl")
+    include("pyrmodule.jl")
 
 
     function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0")
@@ -2339,10 +2343,20 @@ module Plot
             #push!(ysps, ysp)
         end
 
-        ranges = Dict(2=>(500, 590), 3=>(50, 150), 3=>(375, 425), 4=>(100, 150), 5=>(250, 300), 6=>(200, 400))
+        # fine
+        #=
+        for i in 1:length(tracks)
+            for j in 1:length(tracks[i])
+                println("$i $j $(tracks[i][j][1,2]) $(tracks[i][j][end,2])")
+            end
+        end
+        return
+        =#
+
+        ranges = Dict(2=>(500, 590), 3=>(50, 150), 3=>(375, 425), 4=>(100, 150), 5=>(250, 350), 6=>(200, 400))
+        #ranges = Dict(2=>(500, 590))
 
         selected_tracks = [[] for i in 1:6] # all six slots (first will be empty)
-
         #println(tracks[1][1][:, 2])  # pulse number
         for (k, v) in ranges
             println("Session: ", k)
@@ -2353,27 +2367,64 @@ module Plot
                         if create_new
                             push!(selected_tracks[k], [[], []])
                             create_new = false
+                            println("\tNew track session:$k track:$i pulse:$pulse loc:", tracks[k][i][ii, 1])
                         end
                         push!(selected_tracks[k][end][1], pulse) # x - pulse number
                         push!(selected_tracks[k][end][2], tracks[k][i][ii, 1]) # location
                         #println("\t $v $pulse ", tracks[k][i][ii, 1])
                     end
-
                 end
-
             end
-
         end
-        println(length(selected_tracks[2][1])) # x and y
-        println(selected_tracks[2][1][1])
-        return
 
+        # ok?
+        #=
+        for i in 1:length(selected_tracks)
+            for j in 1:length(selected_tracks[i])
+                println("$i $j $(selected_tracks[i][j][1][1]) -- $(selected_tracks[i][j][1][end]) ")
+            end
+        end
+        =#
 
         # Pulse longitude
-        db = (bin_end + 1) - bin_st  # yes +1
+        db = (bin_end + 1) - bin_st  # yes + 1
         dl = 360. * db / bins[1]
         longitude = collect(range(-dl/2., dl/2., length=db))
 
+        x = convert(Array{Float64,1}, selected_tracks[2][1][1])
+        y = convert(Array{Float64,1}, selected_tracks[2][1][2])
+
+        npsi = [4, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] # TODO start here
+        nn = 1
+        fitted_lines = [[] for i in 1:6] # all six slots (first will be empty)
+        for i in 1:length(selected_tracks)
+            push!(fitted_lines[i], [[], []])
+            for j in 1:length(selected_tracks[i])
+                println("$i $j")
+                x = convert(Array{Float64,1}, selected_tracks[i][j][1])
+                y = convert(Array{Float64,1}, selected_tracks[i][j][2])
+                push!(fitted_lines[i][end][1], x)
+                x, y2 = PyRModule.segmented(x, y, npsi[nn])
+                nn += 1
+                push!(fitted_lines[i][end][2], y2)
+            end
+        end
+
+        #=
+        p0 = [510, 530, 550, 570, 500, 1, 500, -1, 500, 1, 500, -1]
+        println(PyModule.least_sq(x, y, p0; num=1, show_=true))
+        @. model(x, p) = p[1] + p[2] * x
+        fi = curve_fit(model, x, y, p0)
+        #	dof(fit): degrees of freedom
+        #	coef(fit): best fit parameters
+        #	fit.resid: residuals = vector of residuals
+        #	fit.jacobian: estimated Jacobian at solution
+        p = coef(fi)
+        err = stderror(fi)
+        =#
+
+        sl = fit(SmoothingSpline, x, y, 1000.0)
+        ysl = SmoothingSplines.predict(sl)
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
@@ -2382,11 +2433,17 @@ module Plot
 
         figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
         subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
-
         minorticks_on()
-        xlabel("longitude (deg.)")
-        println("$outdir/$(name_mod)_driftdirection.pdf")
+
+        #plot(selected_tracks[2][1][1], selected_tracks[2][1][2])
+        scatter(x, y)
+        plot(x, ysl)
+        #plot(x, y2)
+        #scatter(selected_tracks[2][2][1], selected_tracks[2][2][2])
+
+        #xlabel("longitude (deg.)")
         savefig("$outdir/$(name_mod)_driftdirection.pdf")
+        println("$outdir/$(name_mod)_driftdirection.pdf")
         if show_ == true
             show()
             readline(stdin; keep=false)
@@ -2394,6 +2451,7 @@ module Plot
         close()
 
     end
+
 
 
 end  # modul Plot

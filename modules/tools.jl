@@ -917,7 +917,6 @@ module Tools
         dr2 = convert(Array{Float64,1}, drift_rate[2])
         spl = fit(SmoothingSpline, dr1, dr2, 100.0)
         ysp = SmoothingSplines.predict(spl)
-
         return tracks, lines, inclines, dr1, ysp
     end
 
