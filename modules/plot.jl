@@ -2353,7 +2353,7 @@ module Plot
         return
         =#
 
-        ranges = Dict(2=>(500, 590), 3=>(50, 150), 3=>(375, 425), 4=>(100, 150), 5=>(250, 350), 6=>(200, 400))
+        ranges = Dict(2=>(510, 590), 3=>(50, 150), 3=>(375, 445), 4=>(100, 150), 5=>(250, 350), 6=>(200, 365))
         #ranges = Dict(2=>(500, 590))
 
         selected_tracks = [[] for i in 1:6] # all six slots (first will be empty)
@@ -2377,7 +2377,7 @@ module Plot
             end
         end
 
-        # ok?
+        # ok? OK
         #=
         for i in 1:length(selected_tracks)
             for j in 1:length(selected_tracks[i])
@@ -2386,30 +2386,24 @@ module Plot
         end
         =#
 
-        # Pulse longitude
-        db = (bin_end + 1) - bin_st  # yes + 1
-        dl = 360. * db / bins[1]
-        longitude = collect(range(-dl/2., dl/2., length=db))
-
-        x = convert(Array{Float64,1}, selected_tracks[2][1][1])
-        y = convert(Array{Float64,1}, selected_tracks[2][1][2])
-
-        npsi = [4, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] # TODO start here
+        npsi = [3, 3, 2, 2, 1, 2, 1, 1, 2, 2, 1, 4, 1, 4]
         nn = 1
         fitted_lines = [[] for i in 1:6] # all six slots (first will be empty)
         for i in 1:length(selected_tracks)
-            push!(fitted_lines[i], [[], []])
             for j in 1:length(selected_tracks[i])
-                println("$i $j")
+                push!(fitted_lines[i], [[], [], []])
+                println("$i $j nn:$nn")
                 x = convert(Array{Float64,1}, selected_tracks[i][j][1])
                 y = convert(Array{Float64,1}, selected_tracks[i][j][2])
                 push!(fitted_lines[i][end][1], x)
-                x, y2 = PyRModule.segmented(x, y, npsi[nn])
+                x, y2, ysl = PyRModule.segmented(x, y, npsi[nn])
                 nn += 1
                 push!(fitted_lines[i][end][2], y2)
+                push!(fitted_lines[i][end][3], ysl)
             end
         end
 
+        # NOPE
         #=
         p0 = [510, 530, 550, 570, 500, 1, 500, -1, 500, 1, 500, -1]
         println(PyModule.least_sq(x, y, p0; num=1, show_=true))
@@ -2423,25 +2417,50 @@ module Plot
         err = stderror(fi)
         =#
 
-        sl = fit(SmoothingSpline, x, y, 1000.0)
-        ysl = SmoothingSplines.predict(sl)
+        ii = [2, 2]
+        jj = [1, 2]
+        x_ = []
+        y_ = []
+        ysl_ = []
+        y2_ = []
+        for i in ii
+            for j in jj
+                push!(x_, selected_tracks[i][j][1])
+                push!(y_, selected_tracks[i][j][2])
+                #println("ysl (fl)", size(fitted_lines[i][j][3][1]))
+                push!(ysl_, fitted_lines[i][j][3][1]) # WHY [1]?
+                push!(y2_, fitted_lines[i][j][2][1]) # WHY [1]?
+            end
+        end
+
+        name_mod = "$(ii[1])"
+
+        #x = convert(Array{Float64,1}, selected_tracks[2][1][1])
+        #y = convert(Array{Float64,1}, selected_tracks[2][1][2])
+
+
+
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-
         figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
         subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
-        minorticks_on()
 
-        #plot(selected_tracks[2][1][1], selected_tracks[2][1][2])
-        scatter(x, y)
-        plot(x, ysl)
+        ax = subplot2grid((2, 1), (0, 0))
+        minorticks_on()
+        for i in 1:length(x_)
+            #scatter(x_[i], y_[i])
+            plot(x_[i], y_[i], marker="x", color="red", markersize=2.5, lw=0)
+            plot(x_[i], ysl_[i], lw=1.5, alpha=0.7, c="C2")
+            plot(x_[i], y2_[i], lw=1.0, alpha=0.7, c="C1")
+        end
         #plot(x, y2)
         #scatter(selected_tracks[2][2][1], selected_tracks[2][2][2])
+        ax = subplot2grid((2, 1), (1, 0))
+        # TODO start here
 
-        #xlabel("longitude (deg.)")
         savefig("$outdir/$(name_mod)_driftdirection.pdf")
         println("$outdir/$(name_mod)_driftdirection.pdf")
         if show_ == true

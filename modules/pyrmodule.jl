@@ -51,20 +51,19 @@ module PyRModule
         return py"least_sq"(x, y, py"fun_vec", v0, num=num, show_=show_)
     end
 
-    function segmented(x, y, npsi)
+    function segmented(x, y, npsi; preview=false)
         # splines fitting to estimate number of extrema
         sl = fit(SmoothingSpline, x, y, 1000.0)
         ysl = SmoothingSplines.predict(sl)
 
-        ma, pa = peakprom(ysl, Maxima(), 3)
-        inds = sortperm(pa, rev=true)
+        if preview
+            scatter(x, y)
+            plot(x, ysl)
+            savefig("test.pdf")
+            close()
+        end
 
-        scatter(x, y)
-        plot(x, ysl)
-        savefig("test.pdf")
-        close()
-
-        # lines fitting
+        # broken-lines fitting
         @rput x
         @rput y
         @rput npsi
@@ -76,7 +75,7 @@ module PyRModule
             R"line <- broken.line(segmod)"
         catch
             println("BBBB")
-            return x, y
+            return x, y, ysl
         end
         @rget line
         #show(R"summary(segmod)")
@@ -87,15 +86,16 @@ module PyRModule
         #show(R"print(segmod)")
         #show(R"lines.segmented(segmod)")
         y2 = line[:fit]
+        if preview
+            plot(x, y2, lw=3)
+            scatter(x, y)
+            plot(x, ysl)
+            show()
+            readline(stdin; keep=false)
+            close()
+        end
 
-        plot(x, y2, lw=3)
-        scatter(x, y)
-        plot(x, ysl)
-        show()
-        readline(stdin; keep=false)
-        close()
-
-        return x, y2
+        return x, y2, ysl
 
 
     end
