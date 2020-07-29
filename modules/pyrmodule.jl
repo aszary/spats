@@ -71,21 +71,41 @@ module PyRModule
         #R"summary(linmod)"
         R"library(segmented)"
         R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi)"
+        # lines
         try
             R"line <- broken.line(segmod)"
         catch
             println("BBBB")
-            return x, y, ysl
+            return x, y, ysl, nothing, nothing, nothing, nothing, nothing
         end
         @rget line
+        y2 = line[:fit]
+        # slopes
+        R"slo <- slope(segmod)"
+        @rget slo
+        slopes = []
+        eslopes = []
+        for i in 1:size(slo[:x])[1]
+            push!(slopes, slo[:x][i,1])
+            push!(eslopes, slo[:x][i,2])
+        end
+        # break points one sigma
+        R"con <- confint(segmod, level=0.68)"
+        @rget con
+        bp = []
+        ebp = []
+        for i in 1:size(con)[1]
+            push!(bp, con[i, 1])
+            push!(ebp, con[i, 1] - con[i, 2]) # it is fine
+            #println(con[i, 2] - con[i, 2], " ", con[i, 3] - con[i, 1])
+        end
         #show(R"summary(segmod)")
         #show(R"print(segmod)")
-        #show(R"slope(segmod)")
         #show(R"plot(segmod)")
         #show(R"points(segmod)")
         #show(R"print(segmod)")
         #show(R"lines.segmented(segmod)")
-        y2 = line[:fit]
+        #show(R"confint(segmod, level=0.95)")
         if preview
             plot(x, y2, lw=3)
             scatter(x, y)
@@ -95,9 +115,18 @@ module PyRModule
             close()
         end
 
-        return x, y2, ysl
-
-
+        # get lines means (for slopes plotting)
+        xl = []
+        #println("mean ", x[1] + (bp[1] - x[1]) / 2)
+        #println("bp ", bp)
+        push!(xl, x[1] + (bp[1] - x[1]) / 2) # first point
+        for i in 1:npsi-1
+            push!(xl, bp[i] + (bp[i+1] - bp[i]) / 2) # first point
+        end
+        push!(xl, bp[npsi] + (x[end] - bp[npsi]) / 2) # last point
+        #println("xl ", xl)
+        #println("slopes ", slopes)
+        return x, y2, ysl, slopes, eslopes, bp, ebp, xl
     end
 
 

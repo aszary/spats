@@ -2336,9 +2336,11 @@ module Plot
         end
 
         tracks = []
+        inclines = []
         for i in 1:6
             tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
             push!(tracks, tracks1)
+            push!(inclines, inclines1)
             #push!(pulses, dr)
             #push!(ysps, ysp)
         end
@@ -2391,17 +2393,23 @@ module Plot
         fitted_lines = [[] for i in 1:6] # all six slots (first will be empty)
         for i in 1:length(selected_tracks)
             for j in 1:length(selected_tracks[i])
-                push!(fitted_lines[i], [[], [], []])
+                push!(fitted_lines[i], [[], [], [], [], [], [], [], []])
                 println("$i $j nn:$nn")
                 x = convert(Array{Float64,1}, selected_tracks[i][j][1])
                 y = convert(Array{Float64,1}, selected_tracks[i][j][2])
                 push!(fitted_lines[i][end][1], x)
-                x, y2, ysl = PyRModule.segmented(x, y, npsi[nn])
+                x, y2, ysl, slopes, eslopes, bp, ebp, xl = PyRModule.segmented(x, y, npsi[nn])
                 nn += 1
                 push!(fitted_lines[i][end][2], y2)
                 push!(fitted_lines[i][end][3], ysl)
+                push!(fitted_lines[i][end][4], slopes)
+                push!(fitted_lines[i][end][5], eslopes)
+                push!(fitted_lines[i][end][6], bp)
+                push!(fitted_lines[i][end][7], ebp)
+                push!(fitted_lines[i][end][8], xl)
             end
         end
+
 
         # NOPE
         #=
@@ -2423,23 +2431,29 @@ module Plot
         y_ = []
         ysl_ = []
         y2_ = []
+        slopes = []
+        eslopes = []
+        xl = []
         for i in ii
             for j in jj
                 push!(x_, selected_tracks[i][j][1])
                 push!(y_, selected_tracks[i][j][2])
                 #println("ysl (fl)", size(fitted_lines[i][j][3][1]))
-                push!(ysl_, fitted_lines[i][j][3][1]) # WHY [1]?
                 push!(y2_, fitted_lines[i][j][2][1]) # WHY [1]?
+                push!(ysl_, fitted_lines[i][j][3][1]) # WHY [1]?
+                push!(slopes, fitted_lines[i][j][4][1]) # WHY [1]?
+                push!(eslopes, fitted_lines[i][j][5][1]) # WHY [1]?
+                push!(eslopes, fitted_lines[i][j][5][1]) # WHY [1]?
+                push!(xl, fitted_lines[i][j][8][1]) # WHY [1]?
             end
         end
+        #println(y2_)
+        #println(size(y2_))
 
         name_mod = "$(ii[1])"
 
         #x = convert(Array{Float64,1}, selected_tracks[2][1][1])
         #y = convert(Array{Float64,1}, selected_tracks[2][1][2])
-
-
-
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
@@ -2460,6 +2474,8 @@ module Plot
         #scatter(selected_tracks[2][2][1], selected_tracks[2][2][2])
         ax = subplot2grid((2, 1), (1, 0))
         # TODO start here
+        scatter(xl, slopes)
+        println(size(inclines[ii[1]]))
 
         savefig("$outdir/$(name_mod)_driftdirection.pdf")
         println("$outdir/$(name_mod)_driftdirection.pdf")
