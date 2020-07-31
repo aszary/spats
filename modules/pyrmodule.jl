@@ -76,7 +76,7 @@ module PyRModule
             R"line <- broken.line(segmod)"
         catch
             println("BBBB")
-            return x, y, ysl, nothing, nothing, nothing, nothing, nothing
+            return x, y, ysl, nothing, nothing, nothing, nothing, nothing, nothing
         end
         @rget line
         y2 = line[:fit]
@@ -117,16 +117,20 @@ module PyRModule
 
         # get lines means (for slopes plotting)
         xl = []
+        exl = []
         #println("mean ", x[1] + (bp[1] - x[1]) / 2)
         #println("bp ", bp)
         push!(xl, x[1] + (bp[1] - x[1]) / 2) # first point
+        push!(exl, (bp[1] - x[1]) / 2) # first point
         for i in 1:npsi-1
             push!(xl, bp[i] + (bp[i+1] - bp[i]) / 2) # first point
+            push!(exl, (bp[i+1] -bp[i]) / 2) # first point
         end
         push!(xl, bp[npsi] + (x[end] - bp[npsi]) / 2) # last point
+        push!(exl, (x[end] - bp[npsi]) / 2) # last point
         #println("xl ", xl)
         #println("slopes ", slopes)
-        return x, y2, ysl, slopes, eslopes, bp, ebp, xl
+        return x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl
     end
 
 

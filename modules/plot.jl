@@ -5,6 +5,9 @@ module Plot
     using Statistics
     using StatsBase
     using PyPlot
+    using PyCall
+    @pyimport matplotlib.patches as patch
+
     #PyPlot.matplotlib.use("agg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
     PyPlot.matplotlib.use("qt5agg")
     using Peaks
@@ -2337,12 +2340,14 @@ module Plot
 
         tracks = []
         inclines = []
+        dr_x = []
+        dr_y = []
         for i in 1:6
             tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
             push!(tracks, tracks1)
             push!(inclines, inclines1)
-            #push!(pulses, dr)
-            #push!(ysps, ysp)
+            push!(dr_x, dr1)
+            push!(dr_y, ysp1)
         end
 
         # fine
@@ -2393,20 +2398,21 @@ module Plot
         fitted_lines = [[] for i in 1:6] # all six slots (first will be empty)
         for i in 1:length(selected_tracks)
             for j in 1:length(selected_tracks[i])
-                push!(fitted_lines[i], [[], [], [], [], [], [], [], []])
+                push!(fitted_lines[i], [[], [], [], [], [], [], [], [], []])
                 println("$i $j nn:$nn")
                 x = convert(Array{Float64,1}, selected_tracks[i][j][1])
                 y = convert(Array{Float64,1}, selected_tracks[i][j][2])
                 push!(fitted_lines[i][end][1], x)
-                x, y2, ysl, slopes, eslopes, bp, ebp, xl = PyRModule.segmented(x, y, npsi[nn])
+                x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[nn])
                 nn += 1
                 push!(fitted_lines[i][end][2], y2)
-                push!(fitted_lines[i][end][3], ysl)
+                push!(fitted_lines[i][end][3], ysl)  # for tracks
                 push!(fitted_lines[i][end][4], slopes)
                 push!(fitted_lines[i][end][5], eslopes)
                 push!(fitted_lines[i][end][6], bp)
                 push!(fitted_lines[i][end][7], ebp)
-                push!(fitted_lines[i][end][8], xl)
+                push!(fitted_lines[i][end][8], xl) # xlin later on
+                push!(fitted_lines[i][end][9], exl) # exlin later on
             end
         end
 
@@ -2433,7 +2439,8 @@ module Plot
         y2_ = []
         slopes = []
         eslopes = []
-        xl = []
+        xlin = []
+        exlin = []
         for i in ii
             for j in jj
                 push!(x_, selected_tracks[i][j][1])
@@ -2443,10 +2450,18 @@ module Plot
                 push!(ysl_, fitted_lines[i][j][3][1]) # WHY [1]?
                 push!(slopes, fitted_lines[i][j][4][1]) # WHY [1]?
                 push!(eslopes, fitted_lines[i][j][5][1]) # WHY [1]?
-                push!(eslopes, fitted_lines[i][j][5][1]) # WHY [1]?
-                push!(xl, fitted_lines[i][j][8][1]) # WHY [1]?
+                push!(xlin, fitted_lines[i][j][8][1]) # WHY [1]?
+                push!(exlin, fitted_lines[i][j][9][1]) # WHY [1]?
             end
         end
+        bps = []
+        ebps = []
+        # add only once
+        for j in jj
+            push!(bps, fitted_lines[ii[1]][j][6][1]) # WHY [1]?
+            push!(ebps, fitted_lines[ii[1]][j][7][1]) # WHY [1]?
+        end
+
         #println(y2_)
         #println(size(y2_))
 
@@ -2470,13 +2485,29 @@ module Plot
             plot(x_[i], ysl_[i], lw=1.5, alpha=0.7, c="C2")
             plot(x_[i], y2_[i], lw=1.0, alpha=0.7, c="C1")
         end
-        #plot(x, y2)
-        #scatter(selected_tracks[2][2][1], selected_tracks[2][2][2])
+        yl = ylim()
+        println(bps)
+        for i in 1:length(bps)
+            for j in 1:length(bps[1])
+                if i == 1
+                    color = "red"
+                else
+                    color = "blue"
+                end
+                axvline(x=bps[i][j], ls="--", c=color, lw=0.3)
+                rectangle = patch.Rectangle((bps[i][j]-ebps[i][j], yl[1]), width=2*ebps[i][j], height=yl[2]-yl[1], fc=color, alpha=0.5)
+                println((yl[1], bps[i][j]-ebps[i][j])," ",  2*ebps[i][j], " ", yl[2]-yl[1])
+                ax.add_patch(rectangle)
+            end
+        end
+        xl = xlim()
         ax = subplot2grid((2, 1), (1, 0))
-        # TODO start here
-        scatter(xl, slopes)
-        println(size(inclines[ii[1]]))
-
+        for i in 1:length(slopes)
+            errorbar(xlin[i], slopes[i], yerr=eslopes[i], xerr=exlin[i], color="none", lw=0.5, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
+        end
+        plot(dr_x[ii[1]], dr_y[ii[1]])  # smoothed drift rate
+        xlim(xl)
+        ylim([-2.3, 2.3])
         savefig("$outdir/$(name_mod)_driftdirection.pdf")
         println("$outdir/$(name_mod)_driftdirection.pdf")
         if show_ == true
