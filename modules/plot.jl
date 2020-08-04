@@ -2320,6 +2320,42 @@ module Plot
 
     end
 
+    """
+    get data for driftdirection_J1750 plot
+    """
+    function getdata_driftdirection(ii, jj, selected_tracks, fitted_lines)
+        x_ = []
+        y_ = []
+        ysl_ = []
+        y2_ = []
+        slopes = []
+        eslopes = []
+        xlin = []
+        exlin = []
+        for i in ii
+            for j in jj
+                push!(x_, selected_tracks[i][j][1])
+                push!(y_, selected_tracks[i][j][2])
+                #println("ysl (fl)", size(fitted_lines[i][j][3][1]))
+                push!(y2_, fitted_lines[i][j][2][1]) # WHY [1]?
+                push!(ysl_, fitted_lines[i][j][3][1]) # WHY [1]?
+                push!(slopes, fitted_lines[i][j][4][1]) # WHY [1]?
+                push!(eslopes, fitted_lines[i][j][5][1]) # WHY [1]?
+                push!(xlin, fitted_lines[i][j][8][1]) # WHY [1]?
+                push!(exlin, fitted_lines[i][j][9][1]) # WHY [1]?
+            end
+        end
+        bps = []
+        ebps = []
+        # add only once
+        for j in jj
+            push!(bps, fitted_lines[ii[1]][j][6][1]) # WHY [1]?
+            push!(ebps, fitted_lines[ii[1]][j][7][1]) # WHY [1]?
+        end
+
+        return x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps
+    end
+
 
     function driftdirection_J1750(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
 
@@ -2350,16 +2386,6 @@ module Plot
             push!(dr_y, ysp1)
         end
 
-        # fine
-        #=
-        for i in 1:length(tracks)
-            for j in 1:length(tracks[i])
-                println("$i $j $(tracks[i][j][1,2]) $(tracks[i][j][end,2])")
-            end
-        end
-        return
-        =#
-
         ranges = Dict(2=>(510, 590), 3=>(50, 150), 3=>(375, 445), 4=>(100, 150), 5=>(250, 350), 6=>(200, 365))
         #ranges = Dict(2=>(500, 590))
 
@@ -2383,15 +2409,6 @@ module Plot
                 end
             end
         end
-
-        # ok? OK
-        #=
-        for i in 1:length(selected_tracks)
-            for j in 1:length(selected_tracks[i])
-                println("$i $j $(selected_tracks[i][j][1][1]) -- $(selected_tracks[i][j][1][end]) ")
-            end
-        end
-        =#
 
         npsi = [3, 3, 2, 2, 1, 2, 1, 1, 2, 2, 1, 4, 1, 4]
         nn = 1
@@ -2431,44 +2448,18 @@ module Plot
         err = stderror(fi)
         =#
 
-        ii = [2, 2]
-        jj = [1, 2]
-        x_ = []
-        y_ = []
-        ysl_ = []
-        y2_ = []
-        slopes = []
-        eslopes = []
-        xlin = []
-        exlin = []
-        for i in ii
-            for j in jj
-                push!(x_, selected_tracks[i][j][1])
-                push!(y_, selected_tracks[i][j][2])
-                #println("ysl (fl)", size(fitted_lines[i][j][3][1]))
-                push!(y2_, fitted_lines[i][j][2][1]) # WHY [1]?
-                push!(ysl_, fitted_lines[i][j][3][1]) # WHY [1]?
-                push!(slopes, fitted_lines[i][j][4][1]) # WHY [1]?
-                push!(eslopes, fitted_lines[i][j][5][1]) # WHY [1]?
-                push!(xlin, fitted_lines[i][j][8][1]) # WHY [1]?
-                push!(exlin, fitted_lines[i][j][9][1]) # WHY [1]?
-            end
-        end
-        bps = []
-        ebps = []
-        # add only once
-        for j in jj
-            push!(bps, fitted_lines[ii[1]][j][6][1]) # WHY [1]?
-            push!(ebps, fitted_lines[ii[1]][j][7][1]) # WHY [1]?
-        end
+        iis = [[2, 2], [3, 3], [4, 4], [5, 5, 5], [6, 6]]  # obs. session
+        jjs = [[1, 2], [1, 2], [1, 2], [1, 3, 4], [2, 4]]  # tracks
 
+        which = 4
+
+
+        x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps = getdata_driftdirection(iis[which], jjs[which], selected_tracks, fitted_lines)
         #println(y2_)
         #println(size(y2_))
 
-        name_mod = "$(ii[1])"
+        name_mod = "$(iis[1][1])"
 
-        #x = convert(Array{Float64,1}, selected_tracks[2][1][1])
-        #y = convert(Array{Float64,1}, selected_tracks[2][1][2])
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
@@ -2486,7 +2477,7 @@ module Plot
             plot(x_[i], y2_[i], lw=1.0, alpha=0.7, c="C1")
         end
         yl = ylim()
-        println(bps)
+        #println(bps)
         for i in 1:length(bps)
             for j in 1:length(bps[1])
                 if i == 1
@@ -2496,16 +2487,17 @@ module Plot
                 end
                 axvline(x=bps[i][j], ls="--", c=color, lw=0.3)
                 rectangle = patch.Rectangle((bps[i][j]-ebps[i][j], yl[1]), width=2*ebps[i][j], height=yl[2]-yl[1], fc=color, alpha=0.5)
-                println((yl[1], bps[i][j]-ebps[i][j])," ",  2*ebps[i][j], " ", yl[2]-yl[1])
+                #println((yl[1], bps[i][j]-ebps[i][j])," ",  2*ebps[i][j], " ", yl[2]-yl[1])
                 ax.add_patch(rectangle)
             end
         end
         xl = xlim()
         ax = subplot2grid((2, 1), (1, 0))
+        minorticks_on()
         for i in 1:length(slopes)
             errorbar(xlin[i], slopes[i], yerr=eslopes[i], xerr=exlin[i], color="none", lw=0.5, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
         end
-        plot(dr_x[ii[1]], dr_y[ii[1]])  # smoothed drift rate
+        plot(dr_x[iis[which][1]], dr_y[iis[which][1]])  # smoothed drift rate
         xlim(xl)
         ylim([-2.3, 2.3])
         savefig("$outdir/$(name_mod)_driftdirection.pdf")

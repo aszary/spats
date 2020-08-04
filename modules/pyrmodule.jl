@@ -71,6 +71,13 @@ module PyRModule
         #R"summary(linmod)"
         R"library(segmented)"
         R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi)"
+        #=
+        if npsi == 3
+            R"segmod <- segmented(linmod, seg.Z = ~x, psi=c(520, 542, 565))"
+        else
+            R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi)"
+        end
+        =#
         # lines
         try
             R"line <- broken.line(segmod)"
@@ -99,7 +106,7 @@ module PyRModule
             push!(ebp, con[i, 1] - con[i, 2]) # it is fine
             #println(con[i, 2] - con[i, 2], " ", con[i, 3] - con[i, 1])
         end
-        #show(R"summary(segmod)")
+        show(R"summary(segmod)")
         #show(R"print(segmod)")
         #show(R"plot(segmod)")
         #show(R"points(segmod)")
@@ -118,8 +125,6 @@ module PyRModule
         # get lines means (for slopes plotting)
         xl = []
         exl = []
-        #println("mean ", x[1] + (bp[1] - x[1]) / 2)
-        #println("bp ", bp)
         push!(xl, x[1] + (bp[1] - x[1]) / 2) # first point
         push!(exl, (bp[1] - x[1]) / 2) # first point
         for i in 1:npsi-1
