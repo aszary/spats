@@ -51,9 +51,9 @@ module PyRModule
         return py"least_sq"(x, y, py"fun_vec", v0, num=num, show_=show_)
     end
 
-    function segmented(x, y, npsi; preview=false)
+    function segmented(x, y, npsi; lambda=1000.0, preview=false)
         # splines fitting to estimate number of extrema
-        sl = fit(SmoothingSpline, x, y, 1000.0)
+        sl = fit(SmoothingSpline, x, y, lambda)
         ysl = SmoothingSplines.predict(sl)
 
         if preview
@@ -106,7 +106,7 @@ module PyRModule
             push!(ebp, con[i, 1] - con[i, 2]) # it is fine
             #println(con[i, 2] - con[i, 2], " ", con[i, 3] - con[i, 1])
         end
-        show(R"summary(segmod)")
+        #show(R"summary(segmod)")
         #show(R"print(segmod)")
         #show(R"plot(segmod)")
         #show(R"points(segmod)")

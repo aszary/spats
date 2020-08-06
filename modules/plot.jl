@@ -16,6 +16,9 @@ module Plot
     using DataFrames, GLM
 
     using RCall
+    using HypothesisTests
+    using LinearAlgebra
+    using Distances
 
     include("tools.jl")
     include("pyrmodule.jl")
@@ -2420,7 +2423,7 @@ module Plot
                 x = convert(Array{Float64,1}, selected_tracks[i][j][1])
                 y = convert(Array{Float64,1}, selected_tracks[i][j][2])
                 push!(fitted_lines[i][end][1], x)
-                x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[nn])
+                x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[nn]; lambda=lambda)
                 nn += 1
                 push!(fitted_lines[i][end][2], y2)
                 push!(fitted_lines[i][end][3], ysl)  # for tracks
@@ -2432,7 +2435,6 @@ module Plot
                 push!(fitted_lines[i][end][9], exl) # exlin later on
             end
         end
-
 
         # NOPE
         #=
@@ -2451,7 +2453,7 @@ module Plot
         iis = [[2, 2], [3, 3], [4, 4], [5, 5, 5], [6, 6]]  # obs. session
         jjs = [[1, 2], [1, 2], [1, 2], [1, 3, 4], [2, 4]]  # tracks
 
-        which = 4
+        which = 1
 
 
         x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps = getdata_driftdirection(iis[which], jjs[which], selected_tracks, fitted_lines)
@@ -2468,7 +2470,7 @@ module Plot
         figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
         subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
 
-        ax = subplot2grid((2, 1), (0, 0))
+        ax = subplot2grid((3, 1), (0, 0))
         minorticks_on()
         for i in 1:length(x_)
             #scatter(x_[i], y_[i])
@@ -2492,7 +2494,8 @@ module Plot
             end
         end
         xl = xlim()
-        ax = subplot2grid((2, 1), (1, 0))
+
+        ax = subplot2grid((3, 1), (1, 0))
         minorticks_on()
         for i in 1:length(slopes)
             errorbar(xlin[i], slopes[i], yerr=eslopes[i], xerr=exlin[i], color="none", lw=0.5, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
@@ -2500,6 +2503,39 @@ module Plot
         plot(dr_x[iis[which][1]], dr_y[iis[which][1]])  # smoothed drift rate
         xlim(xl)
         ylim([-2.3, 2.3])
+
+
+        ax = subplot2grid((3, 1), (2, 0))
+        minorticks_on()
+        for i in 1:length(x_)
+            residuals1 = Tools.residuals(y_[i], ysl_[i])
+            residuals2 = Tools.residuals(y_[i], y2_[i])
+            scatter(x_[i], residuals1, marker="+", color="C2", s=4, lw=0.5, alpha=0.5) # green
+            scatter(x_[i], residuals2, marker="o", color="C1", fc="none", s=4, lw=0.5, alpha=0.5) # yellow
+
+            # TODO fix it!
+            # to integer magic
+            #mi = minimum(ysl_[i]) # all values positive
+            #println(mi)
+            #ysl_[i] = ysl_[i] .* 1e1 # not needed?
+            #te = [trunc(Int, t) for t in ysl_[i]]
+            #show(ChisqTest(te, normalize(y_[i], 1)))
+            #show(ChisqTest(te, normalize(te, 1)))
+            chi1 = Tools.chisquare(y_[i], ysl_[i])
+            chi2 = Tools.chisquare(y_[i], y2_[i])
+            rs = Tools.rsquared(y_[i], ysl_[i])
+            rs2 = Tools.rsquared(y_[i], y2_[i])
+            println("chi1 ", chi1)
+            println("chi2 ", chi2)
+            println("rs ", rs)
+            println("rs2 ", rs2)
+            println("AAA")
+        end
+
+
+
+
+
         savefig("$outdir/$(name_mod)_driftdirection.pdf")
         println("$outdir/$(name_mod)_driftdirection.pdf")
         if show_ == true

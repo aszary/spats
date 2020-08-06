@@ -1029,4 +1029,28 @@ module Tools
     end
 
 
+    function squared_error(ydata, yfit)
+        return sum((yfit .- ydata) .* (yfit .- ydata))
+    end
+
+
+    """ https://pythonprogramming.net/how-to-program-r-squared-machine-learning-tutorial/ """
+    function rsquared(ydata, yfit)
+        mean_line = [mean(ydata) for y in ydata]
+        squared_error_fit = squared_error(ydata, yfit)
+        squared_error_mean = squared_error(ydata, mean_line)
+        return 1 - (squared_error_fit / squared_error_mean)
+    end
+
+
+    function chisquare(ydata, yfit)
+        return sum((ydata .- yfit) .* (ydata .- yfit) ./ ydata)  # there may be some dot problem?
+    end
+
+
+    function residuals(ydata, yfit)
+        return ydata .- yfit
+
+    end
+
 end  # module Tools
