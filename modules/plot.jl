@@ -2453,24 +2453,70 @@ module Plot
         iis = [[2, 2], [3, 3], [4, 4], [5, 5, 5], [6, 6]]  # obs. session
         jjs = [[1, 2], [1, 2], [1, 2], [1, 3, 4], [2, 4]]  # tracks
 
-        which = 1
+        #=
+        ddx = 0
+        for wh in 1:length(iis)
+            x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps = getdata_driftdirection(iis[wh], jjs[wh], selected_tracks, fitted_lines)
 
+            mx = 0
+            for i in 1:length(x_)
+                dx = maximum(x_[i]) - minimum(x_[i])
+                if dx > mx
+                    mx = dx
+                end
+            end
+            ddx += mx
+            println(wh, " dx: ", mx)
 
-        x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps = getdata_driftdirection(iis[which], jjs[which], selected_tracks, fitted_lines)
+            #println(minimum(x_), " ", maximum(x_))
+        end
+        println(" ddx: ", ddx)
+        println(" ddx/2: ", ddx/2)
+        return
+        =#
+
         #println(y2_)
         #println(size(y2_))
 
-        name_mod = "$(iis[1][1])"
-
+        #name_mod = "$(iis[1][1])"
+        name_mod = "23456"
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
-        subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
+        figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
 
-        ax = subplot2grid((3, 1), (0, 0))
+        subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
+        figtext(0.09, 0.9, "a)", size=10)
+        figtext(0.239, 0.9, "b)", size=10)
+        figtext(0.74, 0.9, "c)", size=10)
+        figtext(0.09, 0.44, "d)", size=10)
+        figtext(0.43, 0.44, "e)", size=10)
+        figtext(0.74, 0.44, "f)", size=10)
+
+        driftdirection_J1750_subplot(1, 0, 0, 77, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(2, 0, 90, 68, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(3, 0, 190, 48, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(4, 35, 0, 98, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(5, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+
+        savefig("$outdir/$(name_mod)_driftdirection.pdf")
+        println("$outdir/$(name_mod)_driftdirection.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+
+    end
+
+
+    function driftdirection_J1750_subplot(which, row, col, colspan, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+
+        x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps = getdata_driftdirection(iis[which], jjs[which], selected_tracks, fitted_lines)
+
+        ax = subplot2grid((65, 270), (row, col), colspan=colspan, rowspan=10)  # row column
         minorticks_on()
         for i in 1:length(x_)
             #scatter(x_[i], y_[i])
@@ -2495,7 +2541,7 @@ module Plot
         end
         xl = xlim()
 
-        ax = subplot2grid((3, 1), (1, 0))
+        ax = subplot2grid((65, 270), (row+10, col), colspan=colspan, rowspan=10)  # row column
         minorticks_on()
         for i in 1:length(slopes)
             errorbar(xlin[i], slopes[i], yerr=eslopes[i], xerr=exlin[i], color="none", lw=0.5, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=1.0)
@@ -2504,23 +2550,13 @@ module Plot
         xlim(xl)
         ylim([-2.3, 2.3])
 
-
-        ax = subplot2grid((3, 1), (2, 0))
+        ax = subplot2grid((65, 270), (row+20, col), colspan=colspan, rowspan=10)  # row column
         minorticks_on()
         for i in 1:length(x_)
             residuals1 = Tools.residuals(y_[i], ysl_[i])
             residuals2 = Tools.residuals(y_[i], y2_[i])
             scatter(x_[i], residuals1, marker="+", color="C2", s=4, lw=0.5, alpha=0.5) # green
             scatter(x_[i], residuals2, marker="o", color="C1", fc="none", s=4, lw=0.5, alpha=0.5) # yellow
-
-            # TODO fix it!
-            # to integer magic
-            #mi = minimum(ysl_[i]) # all values positive
-            #println(mi)
-            #ysl_[i] = ysl_[i] .* 1e1 # not needed?
-            #te = [trunc(Int, t) for t in ysl_[i]]
-            #show(ChisqTest(te, normalize(y_[i], 1)))
-            #show(ChisqTest(te, normalize(te, 1)))
             chi1 = Tools.chisquare(y_[i], ysl_[i])
             chi2 = Tools.chisquare(y_[i], y2_[i])
             rs = Tools.rsquared(y_[i], ysl_[i])
@@ -2531,21 +2567,6 @@ module Plot
             println("rs2 ", rs2)
             println("AAA")
         end
-
-
-
-
-
-        savefig("$outdir/$(name_mod)_driftdirection.pdf")
-        println("$outdir/$(name_mod)_driftdirection.pdf")
-        if show_ == true
-            show()
-            readline(stdin; keep=false)
-        end
-        close()
-
     end
-
-
 
 end  # modul Plot
