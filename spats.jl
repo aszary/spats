@@ -366,9 +366,11 @@ module SpaTs
         data_dir = "/home/szary/work/MeerTime/J1750/new_data/"
         old_dir = "/home/szary/work/MeerTime/J1750/data/"
         data_remote = "/home/aszary/J1750/new_data/"
+        data_patrick = "/home/szary/work/MeerTime/J1750/data_patrick/"
 
         outdir = "/home/szary/work/MeerTime/J1750/"
 
+        #Data.convert_psrfit_ascii("$(data_patrick)/20190929_124118.debase.hp", "$(data_patrick)/2019-09-29-12:41:18_00000-00294.txt")
         # convert to txt
         #=
         Data.convert_psrfit_ascii("$(data_remote)/2019-09-29-12:41:18_00000-00294.spCF", "$(data_remote)/2019-09-29-12:41:18_00000-00294.txt")
@@ -420,6 +422,9 @@ module SpaTs
         data4 = Data.load_ascii("$(data_dir)2020-03-29-04:11:50_00000-00449.txt")
         data5 = Data.load_ascii("$(data_dir)2020-05-07-23:14:22_00000-00446.txt")
         data6 = Data.load_ascii("$(data_dir)2020-05-30-22:04:58_00000-00446.txt")
+
+        #data1p = Data.load_ascii("$(data_patrick)2019-09-29-12:41:18_00000-00294.txt")
+        #Plot.single_J1750(data1p, outdir; start=1, number=nothing, name_mod="1p", darkness=0.7, show_=true, panel="a")
 
         # single pulse plots
         #=
@@ -529,6 +534,7 @@ module SpaTs
         # some checks
         #Plot.tracks_analysis("$outdir/tracks2"; win=40, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
         #Plot.tracks_analysis2("$outdir/tracks2"; win=40, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        Plot.tracks_analysis3("$outdir/tracks2"; lambda=1000.0, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
 
         # the Plot
         #Plot.driftrate_J1750(outdir; lambda=1000.0, show_=false)
@@ -537,10 +543,85 @@ module SpaTs
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=true)
 
-        Plot.driftdirection_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=false)
+        #Plot.driftdirection_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=false)
 
     end
 
+
+    function J1750_paper2()
+        data_patrick = "/home/szary/work/MeerTime/J1750/data_patrick/"
+        outdir = "/home/szary/work/MeerTime/J1750/"
+
+        # convert to txt
+        #=
+        Data.convert_psrfit_ascii("$(data_patrick)/20190929_124118.debase.hp", "$(data_patrick)/20190929_124118.debase.hp.txt")
+        Data.convert_psrfit_ascii("$(data_patrick)/20191214_142212.debase.hp", "$(data_patrick)/20191214_142212.debase.hp.txt")
+        Data.convert_psrfit_ascii("$(data_patrick)/20200224_034643.debase.hp", "$(data_patrick)/20200224_034643.debase.hp.txt")
+        Data.convert_psrfit_ascii("$(data_patrick)/20200329_041150.debase.hp", "$(data_patrick)/20200329_041150.debase.hp.txt")
+        Data.convert_psrfit_ascii("$(data_patrick)/20200507_231422.debase.hp", "$(data_patrick)/20200507_231422.debase.hp.txt")
+        Data.convert_psrfit_ascii("$(data_patrick)/20200530_220458.debase.hp", "$(data_patrick)/20200530_220458.debase.hp.txt")
+        Data.convert_psrfit_ascii("$(data_patrick)/20200625_212452.debase.hp", "$(data_patrick)/20200625_212452.debase.hp.txt")
+        =#
+
+        data1 = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.txt")
+        data2 = Data.load_ascii("$(data_patrick)20191214_142212.debase.hp.txt")
+        data3 = Data.load_ascii("$(data_patrick)20200224_034643.debase.hp.txt")
+        Data.zap!(data3; ranges=[241, 335, 334])
+        data4 = Data.load_ascii("$(data_patrick)20200329_041150.debase.hp.txt")
+        data5 = Data.load_ascii("$(data_patrick)20200507_231422.debase.hp.txt")
+        data6 = Data.load_ascii("$(data_patrick)20200530_220458.debase.hp.txt")
+        data7 = Data.load_ascii("$(data_patrick)20200625_212452.debase.hp.txt")
+
+        # single pulse plots
+        #=
+        Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1p", darkness=0.7, show_=true, panel="a")
+        Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2p", darkness=0.7, show_=true, panel="b")
+        Plot.single_J1750(data3, outdir; start=1, number=nothing, name_mod="3p", darkness=0.7, show_=true, panel="c")
+        Plot.single_J1750(data4, outdir; start=1, number=nothing, name_mod="4p", darkness=0.7, show_=true, panel="d")
+        Plot.single_J1750(data5, outdir; start=1, number=nothing, name_mod="5p", darkness=0.7, show_=true, panel="e")
+        Plot.single_J1750(data6, outdir; start=1, number=nothing, name_mod="6p", darkness=0.7, show_=true, panel="f")
+        Plot.single_J1750(data7, outdir; start=1, number=nothing, name_mod="7p", darkness=0.7, show_=true, panel="g")
+        =#
+
+
+        # P2 estimate
+        #=
+        win = 12
+        Tools.p2_estimate(data1; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        Tools.p2_estimate(data2; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        #Tools.p2_estimate(data3; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win) #  no! # too noisy!
+        Tools.p2_estimate(data4; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        #Tools.p2_estimate(data5; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win) # too noisy!
+        Tools.p2_estimate(data6; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        Tools.p2_estimate(data7; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        =#
+
+
+
+        # track subpulses
+        peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
+        #Plot.tracks_analysis3("$(outdir)tracks1"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
+        #peaks = Tools.track_subpulses(data2, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data2, "$(outdir)tracks2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        #Plot.tracks_analysis3("$(outdir)tracks2"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        #peaks = Tools.track_subpulses(data3, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data3, "$(outdir)tracks3", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.5)
+        #Plot.tracks_analysis3("$(outdir)tracks3"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.6)
+        #peaks = Tools.track_subpulses(data4, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data4, "$(outdir)tracks4", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="4", darkness=0.5)
+        #Plot.tracks_analysis3("$(outdir)tracks4"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="4", darkness=0.6)
+        #peaks = Tools.track_subpulses(data5, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data5, "$(outdir)tracks5", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="5", darkness=0.5)
+        #Plot.tracks_analysis3("$(outdir)tracks5"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="5", darkness=0.6)
+        #peaks = Tools.track_subpulses(data6, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data6, "$(outdir)tracks6", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.5)
+        #Plot.tracks_analysis3("$(outdir)tracks6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
+        #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
+
+
+
+    end
 
     function main()
         args = parse_commandline()
@@ -554,7 +635,8 @@ module SpaTs
         #B0320()
         #J1750_remote()
         #J1750_local()
-        J1750_paper()
+        #J1750_paper()
+        J1750_paper2()
 
     end
 

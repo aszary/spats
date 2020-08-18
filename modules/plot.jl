@@ -1866,7 +1866,7 @@ module Plot
     end
 
 
-    function tracks_analysis3(outdir; lambda=100, start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+    function tracks_analysis3(outdir; lambda=100.0, start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
 
         tracks = []
         # load tracks
