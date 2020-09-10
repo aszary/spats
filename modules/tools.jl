@@ -12,6 +12,8 @@ module Tools
     using LinearAlgebra
     using DataFrames, GLM
 
+    include("pyrmodule.jl")
+
 
     function rms(data)
         s = 0.0
@@ -840,6 +842,25 @@ module Tools
     end
 
 
+    function analyse_track_simple_dof(x, y; lambda=10)
+        #spl = fit(SmoothingSpline, x, y, lambda)
+        #ysp = SmoothingSplines.predict(spl)
+        #ysp, dof = PyRModule.smooth_spline(x, y; df_start=trunc(Int, length(x)*0.3))
+        ysp, dof = PyRModule.smooth_spline(x, y; lambda=lambda)
+        line = [x, ysp]
+        x2 = Array{Float64}(undef, length(y)-1)
+        dr = Array{Float64}(undef, length(y)-1)
+        for i in 1:length(x)-1
+            dx = x[i+1] - x[i]
+            dy = ysp[i+1] - ysp[i]
+            x2[i] = (x[i+1] + x[i]) / 2.0
+            dr[i] = dy / dx
+        end
+        inclines = [x2, dr]
+        return line, inclines, dof
+    end
+
+
     "Why there are duplicates in tracks?"
     function remove_duplicates(track)
         tr = [[track[1,1], track[1,2]]]
@@ -897,13 +918,17 @@ module Tools
         end
 
         lines = []
+        dofs = []
         inclines = []
         drift_rate = [[], []]
         for track in tracks#[1:3]
             #ll, inc = Tools.analyse_track_sl(track[:,3], track[:,1]; lambda=lambda)
             ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
+            # ll, inc, dof = Tools.analyse_track_simple_dof(track[:,2], track[:,1]; lambda=lambda) # do not use it yet!
+            dof = 1  # do not use it yet
             push!(lines, ll)
             push!(inclines, inc)
+            push!(dofs, dof)
         end
         for inc in inclines
             for i in 1:length(inc[1])
@@ -916,9 +941,11 @@ module Tools
         drift_rate[2] = view(drift_rate[2], sp)
         dr1 = convert(Array{Float64,1}, drift_rate[1])
         dr2 = convert(Array{Float64,1}, drift_rate[2])
-        spl = fit(SmoothingSpline, dr1, dr2, 100.0)
+        #spl = SmoothingSplines.fit(SmoothingSpline, dr1, dr2, lambda)
+        spl = SmoothingSplines.fit(SmoothingSpline, dr1, dr2, 1000.0)
         ysp = SmoothingSplines.predict(spl)
-        return tracks, lines, inclines, dr1, ysp
+        #println(length(spl.g), " ", length(ysp), " ", length(dr1), " ", spl.Xcount) # works here? does not change with lambda (100)?
+        return tracks, lines, inclines, dr1, ysp, dofs
     end
 
     function driftrate_analysis_J1750(outdir, lambda)
@@ -1046,6 +1073,12 @@ module Tools
 
     function chisquare(ydata, yfit)
         return sum((ydata .- yfit) .* (ydata .- yfit) ./ ydata)  # there may be some dot problem?
+    end
+
+
+    # https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
+    function chisquare_reduced(o, c, dof)
+        return sum((o .- c) .^ 2 ./ var(o)) / dof
     end
 
 

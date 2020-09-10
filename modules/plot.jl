@@ -1955,15 +1955,112 @@ module Plot
     end
 
 
+    function tracks_analysis4(outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME")
+
+        tracks = []
+        # load tracks
+        files = Glob.glob("track_*.jld2", outdir)
+        for file in files
+            @load file track
+            tr = Tools.remove_duplicates(track)
+            push!(tracks, tr)
+        end
+
+        lines = []
+        inclines = []
+        drift_rate = [[], []]
+        for track in tracks#[1:3]
+            #ll, inc = Tools.analyse_track_sl(track[:,3], track[:,1]; lambda=lambda)
+            ll, inc = PyRModule.cubic_spline(track[:,2], track[:,1])
+            push!(lines, ll)
+            push!(inclines, inc)
+        end
+        for inc in inclines
+            for i in 1:length(inc[1])
+                push!(drift_rate[1], inc[1][i])
+                push!(drift_rate[2], inc[2][i])
+            end
+        end
+        sp = sortperm(drift_rate[1])
+        drift_rate[1] = view(drift_rate[1], sp)
+        drift_rate[2] = view(drift_rate[2], sp)
+        dr1 = convert(Array{Float64,1}, drift_rate[1])
+        dr2 = convert(Array{Float64,1}, drift_rate[2])
+
+        spl = fit(SmoothingSpline, dr1, dr2, 100.0)
+        ysp = SmoothingSplines.predict(spl)
+        # add fft here
+        half = floor(Int, length(ysp) / 2) # one side frequency range?
+        ff = fft(ysp)[1:half]
+        freq = Tools.fftfreq(length(ysp))
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961*2, 2.362205*2), frameon=true)  # 16cm x 12 cm
+        subplots_adjust(left=0.13, bottom=0.08, right=0.99, top=0.90, wspace=0., hspace=0.)
+
+        ax = subplot2grid((3, 1), (0, 0))
+        ax.xaxis.set_label_position("top")
+        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+        minorticks_on()
+        xlabel("Pulse number")
+        ylabel("Longitude \$(^\\circ)\$")
+        for track in tracks#[1:3]
+            #plot(track[:,2], track[:,1]) #, marker="x", markersize=2.5, lw=1)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=2.5, lw=0)
+        end
+        for line in lines
+            plot(line[1], line[2], lw=2, alpha=0.5)
+        end
+        xl = xlim()
+
+        subplot2grid((3, 1), (1, 0))
+        tick_params(labeltop=true, labelbottom=true, which="both", bottom=true, top=true)
+        ylabel("Drift rate \$(^\\circ / P)\$")
+        minorticks_on()
+        for inc in inclines
+            plot(inc[1], inc[2], lw=1, c="black")
+        end
+        axhline(y=0, lw=1, ls="--")
+        plot(dr1, ysp, lw=4, alpha=0.5, c="grey")
+        xlim(xl)
+
+        subplot2grid((3, 1), (2, 0))
+        minorticks_on()
+        #xlabel("Pulse number")
+        #xlim(xl)
+        #plot(dr1, dr2, lw=0.3)
+        #plot(dr1, ysp, lw=2, alpha=0.7)
+        plot(freq, ff, lw=1)
+
+        println("$outdir/$(name_mod)_tracks_analysis4.pdf")
+        savefig("$outdir/$(name_mod)_tracks_analysis4.pdf")
+        show()
+        st = readline(stdin; keep=false)
+        close()
+        #clf()
+    end
+
 
     function driftrate_J1750(outdir; lambda=100, name_mod="123456", show_=false)
 
-        tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks1", lambda)
-        tracks2, lines2, inclines2, dr2, ysp2 = Tools.get_driftrate("$outdir/tracks2", lambda)
-        tracks3, lines3, inclines3, dr3, ysp3 = Tools.get_driftrate("$outdir/tracks3", lambda)
-        tracks4, lines4, inclines4, dr4, ysp4 = Tools.get_driftrate("$outdir/tracks4", lambda)
-        tracks5, lines5, inclines5, dr5, ysp5 = Tools.get_driftrate("$outdir/tracks5", lambda)
-        tracks6, lines6, inclines6, dr6, ysp6 = Tools.get_driftrate("$outdir/tracks6", lambda)
+        tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks1", lambda)
+        tracks2, lines2, inclines2, dr2, ysp2, dof2 = Tools.get_driftrate("$outdir/tracks2", lambda)
+        tracks3, lines3, inclines3, dr3, ysp3, dof3 = Tools.get_driftrate("$outdir/tracks3", lambda)
+        tracks4, lines4, inclines4, dr4, ysp4, dof4 = Tools.get_driftrate("$outdir/tracks4", lambda)
+        tracks5, lines5, inclines5, dr5, ysp5, dof5 = Tools.get_driftrate("$outdir/tracks5", lambda)
+        tracks6, lines6, inclines6, dr6, ysp6, dof6 = Tools.get_driftrate("$outdir/tracks6", lambda)
+
+        # check all tracks in second session
+        for i in 1:length(tracks2)
+            y_ = tracks2[i][:,1]
+            y_fit = lines2[i][2]
+            chisq = Tools.chisquare_reduced(y_, y_fit, dof2[i])
+            rsq = Tools.rsquared(y_, y_fit)
+            println("Track: $i Chi^2_ν: ", chisq, " R^2: ", rsq)
+        end
 
         y0 = 401
         y1 = 599
@@ -2205,7 +2302,7 @@ module Plot
         ysps = []  # drift rate
 
         for i in 1:6
-            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
+            tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
             (ysp, dr) = Tools.remove_duplicates_ysp(ysp1, dr1)
             push!(pulses, dr)
             push!(ysps, ysp)
@@ -2382,7 +2479,7 @@ module Plot
         dr_x = []
         dr_y = []
         for i in 1:6
-            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
+            tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
             push!(tracks, tracks1)
             push!(inclines, inclines1)
             push!(dr_x, dr1)
@@ -2489,15 +2586,15 @@ module Plot
 
         subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
         figtext(0.09, 0.9, "a)", size=10)
-        figtext(0.239, 0.9, "b)", size=10)
-        figtext(0.74, 0.9, "c)", size=10)
+        figtext(0.5, 0.9, "b)", size=10)
+        figtext(0.84, 0.9, "c)", size=10)
         figtext(0.09, 0.44, "d)", size=10)
         figtext(0.43, 0.44, "e)", size=10)
         figtext(0.74, 0.44, "f)", size=10)
 
         driftdirection_J1750_subplot(1, 0, 0, 77, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot(2, 0, 90, 68, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot(3, 0, 190, 48, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(2, 0, 120, 68, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(3, 0, 210, 48, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
         driftdirection_J1750_subplot(4, 35, 0, 98, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
         driftdirection_J1750_subplot(5, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
 
@@ -2508,7 +2605,6 @@ module Plot
             readline(stdin; keep=false)
         end
         close()
-
     end
 
 

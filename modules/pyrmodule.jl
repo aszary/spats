@@ -5,6 +5,8 @@ module PyRModule
     using Peaks
     using SmoothingSplines
     using PyPlot
+    using Statistics
+
 
     function __init__()
         py"""
@@ -47,9 +49,11 @@ module PyRModule
         """
     end
 
+
     function least_sq(x, y, v0; num=1, show_=false)
         return py"least_sq"(x, y, py"fun_vec", v0, num=num, show_=show_)
     end
+
 
     function segmented(x, y, npsi; lambda=1000.0, preview=false)
         # splines fitting to estimate number of extrema
@@ -127,7 +131,7 @@ module PyRModule
         exl = []
         push!(xl, x[1] + (bp[1] - x[1]) / 2) # first point
         push!(exl, (bp[1] - x[1]) / 2) # first point
-        for i in 1:npsi-1
+        for i in 1:npsi - 1
             push!(xl, bp[i] + (bp[i+1] - bp[i]) / 2) # first point
             push!(exl, (bp[i+1] -bp[i]) / 2) # first point
         end
@@ -136,6 +140,110 @@ module PyRModule
         #println("xl ", xl)
         #println("slopes ", slopes)
         return x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl
+    end
+
+
+    """ overfits """
+    function cubic_spline(x, y)
+        interpolate =  pyimport("scipy.interpolate")
+        #cs = interpolate.CubicSpline(x, y)
+        spl = interpolate.UnivariateSpline(x, y)
+        #spl.set_smoothing_factor(5000.0)  # the idea was not to use any smoothing factor
+        line = [x, spl(x)]
+        ysp = spl(x)
+        x2 = Array{Float64}(undef, length(y)-1)
+        dr = Array{Float64}(undef, length(y)-1)
+        for i in 1:length(x)-1
+            dx = x[i+1] - x[i]
+            dy = ysp[i+1] - ysp[i]
+            x2[i] = (x[i+1] + x[i]) / 2.0
+            dr[i] = dy / dx
+        end
+        inclines = [x2, dr]
+        return line, inclines
+    end
+
+
+    function smooth_spline(x, y; lambda=0.001, df_start=nothing)
+        #println(x)
+        #println(y)
+        @rput x
+        @rput y
+        #@rput lambda
+        R"spl <- smooth.spline(x, y, lambda=$lambda)"
+        #R"spl <- smooth.spline(x, y)" #GCV
+        #R"spl <- smooth.spline(x, y, df=$df_start)"
+        R"yspp <- predict(spl, x)"
+        @rget spl
+        @rget yspp
+        ysp = yspp[:y]
+        dof = spl[:df]
+        #println()
+        #println(spl[:lambda])
+        #println(ysp)
+        #println("dof ", dof)
+        #=
+        rep = 0
+        r2 = rsquared(y, ysp)
+        while (r2 < 0.9) || (r2 > 0.96)
+            rep += 1
+            if r2 < 0.9
+                dof += 1
+            else
+                dof -= 1
+            end
+            R"spl <- smooth.spline(x, y, df=$dof)"
+            R"yspp <- predict(spl, x)"
+            @rget spl
+            @rget yspp
+            ysp = yspp[:y]
+            dof = spl[:df]
+            r2 = rsquared(y, ysp)
+            chisq_red = chisquare_reduced(y, ysp, dof)
+            println("$rep Chi^2_red $dof ", chisq_red)
+            println("$rep R^2 ", r2)
+        end
+        =#
+        #=
+        chisq_red = chisquare_reduced(y, ysp, dof)
+        while (chisq_red > 1.2)||(chisq_red < 0.8)
+            rep += 1
+            if chisq_red > 1.1
+                dof += 1
+            else
+                dof -= 1
+            end
+            R"spl <- smooth.spline(x, y, df=$dof)"
+            R"yspp <- predict(spl, x)"
+            @rget spl
+            @rget yspp
+            ysp = yspp[:y]
+            dof = spl[:df]
+            chisq_red = chisquare_reduced(y, ysp, dof)
+            println("$rep Chi^2_red $dof", chisq_red)
+        end
+        =#
+        return ysp, dof
+    end
+
+
+    """ lazy  """
+    function chisquare_reduced(o, c, dof)
+        return sum((o .- c) .^ 2 ./ var(o)) / dof
+    end
+
+
+    """ https://pythonprogramming.net/how-to-program-r-squared-machine-learning-tutorial/ """
+    function rsquared(o, c)
+        mean_line = [mean(o) for y in o]
+        squared_error_fit = squared_error(o, c)
+        squared_error_mean = squared_error(o, mean_line)
+        return 1 - (squared_error_fit / squared_error_mean)
+    end
+
+
+    function squared_error(o, c)
+        return sum((c .- o) .* (c .- o))
     end
 
 
