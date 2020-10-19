@@ -572,6 +572,8 @@ module SpaTs
         data5 = Data.load_ascii("$(data_patrick)20200507_231422.debase.hp.txt")
         data6 = Data.load_ascii("$(data_patrick)20200530_220458.debase.hp.txt")
         data7 = Data.load_ascii("$(data_patrick)20200625_212452.debase.hp.txt")
+        datas = [data1, data2, data3, data4, data5, data6, data7]
+
 
         # single pulse plots
         #=
@@ -600,8 +602,8 @@ module SpaTs
 
 
         # track subpulses
-        peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
-        Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
+        #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
         #Plot.tracks_analysis3("$(outdir)tracks/1"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
         #peaks = Tools.track_subpulses(data2, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data2, "$(outdir)tracks/2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
@@ -620,8 +622,51 @@ module SpaTs
         #Plot.tracks_analysis3("$(outdir)tracks/6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
         #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
 
+        # P3 grand-average
+        slices, pulses = random_slices(datas, 256)
+        Plot.lrfs_average_J1750(slices, pulses, outdir; darkness=1.0, bin_st=450, bin_end=700, name_mod="1234567", number=128, verbose=true)
+        #=
+        println(size(slices))
+        println(typeof(pulses[1]))
+        for (i, k) in pulses[1]
+            println("$i $k")
+        end
+        =#
 
     end
+
+
+    function random_slices(datas, len)
+        slices = []
+        pulses = []
+        for i in 1:size(datas)[1]
+            #println(size(datas[i]))
+            indexes = collect(1:size(datas[i])[1]) # pulses
+            trys = 0
+            max_try = 100
+            while (length(indexes) > len) && (trys < max_try)
+                mx_ind = length(indexes) - len
+                ind = rand(1:mx_ind, 1)[1]
+                j = indexes[ind]
+                k = indexes[ind+len]
+                #println(abs(k-j))
+                if abs(k-j) == len
+                    splice!(indexes, ind:ind+len-1) #  remove pulses
+                    #println("$j, $k, $(j-k)")
+                    #println(indexes)
+                    push!(slices, datas[i][j:k-1, :]) # collect data
+                    push!(pulses, Dict(i=>(j, k-1))) # collect data
+                    #println(size(slices[1]))
+                end
+                #return
+                trys += 1
+                #println(trys)
+            end
+            #println(indexes)
+        end
+        return slices, pulses
+    end
+
 
     function main()
         args = parse_commandline()
@@ -635,8 +680,8 @@ module SpaTs
         #B0320()
         #J1750_remote()
         #J1750_local()
-        J1750_paper()
-        #J1750_paper2()
+        #J1750_paper()
+        J1750_paper2()
 
     end
 

@@ -2665,4 +2665,104 @@ module Plot
         end
     end
 
+
+
+
+    function lrfs_average_J1750(slices, pulses, outdir; start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)
+        num, bins = size(slices[1])
+        if end_ == nothing end_ = num end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+
+        for (i, sl) in enumerate(slices)
+            da = sl[:, bin_st:bin_end]
+            lrfs, intensity, freq, peak = Tools.lrfs(da)
+            #println(i)
+            println(size(lrfs))
+            println(size(intensity))
+            println(size(freq))
+
+
+            imshow(abs.(lrfs), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(abs.(lrfs)))
+
+            savefig("$outdir/$(name_mod)_lrfs_average_J1750.pdf")
+            close()
+
+            return
+        end
+        return
+
+        average = Tools.average_profile(da)
+        lrfs, intensity, freq, peak = Tools.lrfs(da)
+        phase_ = rad2deg.(angle.(view(lrfs, peak, :)))  # fft phase variation  # view used! lrfs[peak, :] -> copies data
+        # skip freq = 0 and normalize intensity to 1
+        inten = intensity[2:end]
+        inten .-= minimum(inten)
+        inten ./= maximum(inten)
+        fre = freq[2:end]
+        pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak-1])  # skip zero freq
+        fr = pars[2]
+        frer = pars[3]  # errs[2] # yeap
+
+        println("\tFrequancy: $fr, P3: $(1/fr)")
+        println("\tFrequancy error: $frer, P3 error: $(1/fr - 1/(fr +frer))")  # TODO err ok?
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        subplots_adjust(left=0.13, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
+
+        ax = subplot2grid((5, 3), (0, 1), colspan=2)
+        minorticks_on()
+        #plot(longitude, phase_, c="grey")
+        scatter(longitude, phase_, marker=".", c="grey", s=3.)
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        #ylim(-500, 0)
+        #xlim(-1, 2)
+        xlabel("longitude \$(^\\circ)\$")
+        ylabel("FFT phase \$(^\\circ)\$")
+        if change_fftphase == true
+            ax2 = ax.twinx()
+            minorticks_on()
+            plot(longitude[7:end-9], dphase[6:end-9])
+            ax2.xaxis.set_label_position("top")
+        end
+        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+
+        subplot2grid((5, 3), (1, 0), rowspan=3)
+        minorticks_on()
+        plot(inten, fre, c="grey")
+        plot(Tools.gauss(fre, pars), fre, c="red", ls=":", lw=0.3)
+        ylim(freq[1], freq[end])
+        xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("frequancy \$(1/P)\$")
+
+        subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
+        imshow(abs.(lrfs), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(abs.(lrfs)))
+        tick_params(labelleft=false, labelbottom=false)
+
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        minorticks_on()
+        plot(longitude, average, c="grey")
+        axvline(x=0., ls=":", c="black")
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        xlabel("longitude \$(^\\circ)\$")
+        #tick_params(labeltop=false, labelbottom=true)
+        savefig("$outdir/$(name_mod)_lrfs_average_J1750.pdf")
+        close()
+
+    end
+
 end  # modul Plot
