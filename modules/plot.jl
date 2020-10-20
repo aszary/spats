@@ -2811,34 +2811,37 @@ module Plot
 
         figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
         subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
-        figtext(0.09, 0.9, "a)", size=10)
-        figtext(0.239, 0.9, "b)", size=10)
-        figtext(0.74, 0.9, "c)", size=10)
+        figtext(0.09, 0.89, "a)", size=10)
+        figtext(0.25, 0.89, "b)", size=10)
+        figtext(0.76, 0.89, "c)", size=10)
         figtext(0.09, 0.44, "d)", size=10)
-        figtext(0.43, 0.44, "e)", size=10)
-        figtext(0.74, 0.44, "f)", size=10)
-        figtext(0.84, 0.44, "g)", size=10)
+        figtext(0.32, 0.44, "e)", size=10)
+        figtext(0.54, 0.44, "f)", size=10)
+        figtext(0.76, 0.44, "g)", size=10)
 
         # first session
         ax = subplot2grid((32, 1900), (0, 0), colspan=295, rowspan=10)  # row column
-        minorticks_on()
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
+        minorticks_on()
         imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[1])
         ylim(y1, y2)
         ylabel("Longitude (\$ ^{\\circ}\$)")
         # first session
         subplot2grid((32, 1900), (10, 0), colspan=295, rowspan=5)  # row column
         tick_params(axis="x", which="both", direction="out", labelbottom=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
         plot(intens[1][1], intens[1][2], c="grey")
         xlim(intens[1][1][1]-0.5, intens[1][1][end]+0.5)
+        ylim(-0.2, 1.2)
         #xticks([0.5, 1.0])
         ylabel("Intensity (a. u.)")
 
         # second session
         ax = subplot2grid((32, 1900), (0, 359), colspan=1031, rowspan=10)  # row column
-        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[2])
         ylim(y1, y2)
@@ -2847,90 +2850,100 @@ module Plot
         ax.xaxis.set_ticks_position("top")
         # second session
         subplot2grid((32, 1900), (10, 359), colspan=1031, rowspan=5)  # row column
-        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true)
         tick_params(axis="x", which="both", direction="out", labelbottom=false)
-
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
+        minorticks_on()
         plot(intens[2][1], intens[2][2], c="grey")
         xlim(intens[2][1][1]-0.5, intens[2][1][end]+0.5)
-        minorticks_on()
+        ylim(-0.2, 1.2)
 
         # third session
         ax = subplot2grid((32, 1900), (0, 1454), colspan=446, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
-        ax.yaxis.set_label_position("right")
-        ax.yaxis.set_ticks_position("right")
+        #ax.yaxis.set_label_position("right")
+        #ax.yaxis.set_ticks_position("right")
         minorticks_on()
         imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[3])
         ylim(y1, y2)
         # third session
         ax = subplot2grid((32, 1900), (10, 1454), colspan=446, rowspan=5)  # row column
         tick_params(axis="x", which="both", direction="out", labelbottom=false)
-        ax.yaxis.set_label_position("right")
-        ax.yaxis.set_ticks_position("right")
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        minorticks_on()
+        #ax.yaxis.set_label_position("right")
+        #ax.yaxis.set_ticks_position("right")
         plot(intens[3][1], intens[3][2], c="grey")
         xlim(intens[3][1][1]-0.5, intens[3][1][end]+0.5)
-        minorticks_on()
+        ylim(-0.2, 1.2)
 
         # fourth session
         ax = subplot2grid((32, 1900), (17, 0), colspan=450, rowspan=10)  # row column
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
         imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[4])
         ylim(y1, y2)
         ylabel("Longitude (\$ ^{\\circ}\$)")
         # fourth session
         subplot2grid((32, 1900), (27, 0), colspan=450, rowspan=5)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
         plot(intens[4][1], intens[4][2], c="grey")
         xlim(intens[4][1][1]-0.5, intens[4][1][end]+0.5)
+        ylim(-0.2, 1.2)
         ylabel("Intensity (a. u.)")
 
         # fifth session
         ax = subplot2grid((32, 1900), (17, 487), colspan=447, rowspan=10)  # row column
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
-        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[5])
         ylim(y1, y2)
         # fifth session
         subplot2grid((32, 1900), (27, 487), colspan=447, rowspan=5)  # row column
-        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         plot(intens[5][1], intens[5][2], c="grey")
         xlim(intens[5][1][1]-0.5, intens[5][1][end]+0.5)
-        xlabel("Pulse number")
+        ylim(-0.2, 1.2)
+        #xlabel("Pulse number")
 
         # sixth session
         ax = subplot2grid((32, 1900), (17, 971), colspan=447, rowspan=10)  # row column
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
-        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[6])
         ylim(y1, y2)
         # sixth session
         subplot2grid((32, 1900), (27, 971), colspan=447, rowspan=5)  # row column
-        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         plot(intens[6][1], intens[6][2], c="grey")
         xlim(intens[6][1][1]-0.5, intens[6][1][end]+0.5)
-        xlabel("Pulse number")
+        ylim(-0.2, 1.2)
+        #xlabel("Pulse number")
+        figtext(0.5, 0.01, "Pulse number", size=8, ha="center")
 
 
         # seventh session
         ax = subplot2grid((32, 1900), (17, 1454), colspan=446, rowspan=10)  # row column
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         #tick_params(axis="x", which="both", direction="in", labeltop=false, labelbottom=true, top=false)
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         minorticks_on()
         imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[7])
         ylim(y1, y2)
         # seventh session
         subplot2grid((32, 1900), (27, 1454), colspan=446, rowspan=5)  # row column
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         minorticks_on()
         plot(intens[7][1], intens[7][2], c="grey")
         xlim(intens[7][1][1]-0.5, intens[7][1][end]+0.5)
+        ylim(-0.2, 1.2)
 
         println("$outdir/$(name_mod)_singlepulses.pdf")
         savefig("$outdir/$(name_mod)_singlepulses.pdf")
