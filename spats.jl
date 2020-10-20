@@ -576,6 +576,7 @@ module SpaTs
 
 
         # single pulse plots
+        Plot.singlepulses_J1750(datas, outdir; name_mod="1234567", darkness=0.5, show_=true)
         #=
         Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1p", darkness=0.7, show_=true, panel="a")
         Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2p", darkness=0.7, show_=true, panel="b")
@@ -600,7 +601,6 @@ module SpaTs
         =#
 
 
-
         # track subpulses
         #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
@@ -622,10 +622,11 @@ module SpaTs
         #Plot.tracks_analysis3("$(outdir)tracks/6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
         #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
 
-        # P3 grand-average
-        slices, pulses = random_slices(datas, 256)
-        Plot.lrfs_average_J1750(slices, pulses, outdir; darkness=1.0, bin_st=450, bin_end=700, name_mod="1234567", number=128, verbose=true)
+        # P3 grand-average TODO
         #=
+        Plot.lrfs(data3, outdir; darkness=0.3, start=1, number=256, name_mod="J1750_2", bin_st=350, bin_end=650, change_fftphase=false)
+        slices, pulses = random_slices(datas, 256)
+        Plot.lrfs_average_J1750(slices, pulses, outdir; darkness=1.0, bin_st=350, bin_end=650, name_mod="1234567", number=128, verbose=true)
         println(size(slices))
         println(typeof(pulses[1]))
         for (i, k) in pulses[1]
