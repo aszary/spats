@@ -1087,4 +1087,53 @@ module Tools
 
     end
 
+    function p3evolution(data, step, number, bin_st, bin_end; verbose=false)
+        num, bins = size(data)
+        intensity_ = []
+        p3_ = []
+        p3_err_ = []
+        start_period = []
+        for i in 1:step:(num-number)
+            global p3
+            global p3err
+            global frequency
+            da = data[i:i+number-1,bin_st:bin_end]
+            lrfs, intensity, freq, peak = Tools.lrfs(da)
+            # skip freq = 0 and normalize intensity to 1
+            inten = intensity[2:end]
+            inten ./= maximum(inten)
+            fre = freq[2:end]
+            try
+                pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak-1])  # skip zero freq
+                f = pars[2]
+                #fer = abs(pars[3])  # nope too big
+                fer = abs(errs[2])  # yeap
+                p3 = 1 / f
+                p3err = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
+                if verbose == true println("\tP3 = $p3, P3 error = $p3err") end
+            catch exc
+                p3 = 0. #nothing
+                p3err = 0. #nothing
+                if verbose == true println("\t[WARNING! P3 = 0, P3 error = 0]") end
+            end
+            push!(intensity_, inten)
+            push!(p3_, p3)
+            push!(p3_err_, p3err)
+            push!(start_period, i)
+            frequency = fre
+        end
+
+        # converting intensity why why why?
+        x, = size(intensity_)
+        y, = size(intensity_[1])
+        intens = zeros((x,y))
+        for i in 1:x
+            for j in 1:y
+                intens[i,j] = intensity_[i][j]
+            end
+        end
+
+        return intens, p3_, p3_err_
+    end
+
 end  # module Tools

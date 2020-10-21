@@ -444,7 +444,6 @@ module SpaTs
         =#
 
         # get information
-        #=
         files = Glob.glob("*_pipeline_info.json", data_dir)
         for file in files
             println("\n$file")
@@ -455,12 +454,11 @@ module SpaTs
             #println(js["snr_per_pulse"])
             println(js["snr"])
             println(js["input_data"]["header"]["TSAMP"])
-            npulses = [294, 1030, 445, 449, 446, 446]
+            npulses = [295, 1031, 446, 450, 447, 447, 446]
             period = 0.6840110402274631
             duration = [period * np for np in npulses]
             println(duration)
         end
-        =#
 
         # p3_evolution plots
         #=
@@ -544,7 +542,7 @@ module SpaTs
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=true)
 
-        Plot.driftdirection_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=false)
+        #Plot.driftdirection_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=false)
 
     end
 
@@ -576,7 +574,6 @@ module SpaTs
 
 
         # single pulse plots
-        Plot.singlepulses_J1750(datas, outdir; name_mod="1234567", darkness=0.5, show_=true)
         #=
         Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1p", darkness=0.7, show_=true, panel="a")
         Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2p", darkness=0.7, show_=true, panel="b")
@@ -633,6 +630,10 @@ module SpaTs
             println("$i $k")
         end
         =#
+
+        # New single pulses plot
+        #Plot.singlepulses_J1750(datas, outdir; name_mod="1234567", darkness=0.5, show_=true)
+        Plot.p3evolutions_J1750(datas, outdir, 1, 128; name_mod="1234567", darkness=0.5, show_=true)
 
     end
 
