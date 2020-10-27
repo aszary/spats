@@ -1104,12 +1104,21 @@ module Tools
             inten ./= maximum(inten)
             fre = freq[2:end]
             try
-                pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak-1])  # skip zero freq
+                pars, errs = Tools.fit_gaussian_J1750(fre, inten, 12345) #; μ=freq[peak-1])   # 12345 wtf?!
                 f = pars[2]
                 #fer = abs(pars[3])  # nope too big
                 fer = abs(errs[2])  # yeap
                 p3 = 1 / f
                 p3err = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
+                # try other approach to estimate error if too big
+                if p3err > 30
+                    fer = abs(pars[3])
+                    p3err2 = maximum([1 / f - 1 / (f +fer), 1 / (f - fer) - 1 / f])
+                    if p3err2 < p3err
+                        p3err = p3err2
+                    end
+                    #println("new $p3err $p3err2")
+                end
                 if verbose == true println("\tP3 = $p3, P3 error = $p3err") end
             catch exc
                 p3 = 0. #nothing
@@ -1133,7 +1142,7 @@ module Tools
             end
         end
 
-        return intens, p3_, p3_err_
+        return intens, p3_, p3_err_, frequency
     end
 
 end  # module Tools

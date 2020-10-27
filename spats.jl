@@ -548,6 +548,7 @@ module SpaTs
 
 
     function J1750_paper2()
+        data_dir = "/home/szary/work/MeerTime/J1750/new_data/"
         data_patrick = "/home/szary/work/MeerTime/J1750/data_patrick/"
         outdir = "/home/szary/work/MeerTime/J1750/"
 
@@ -564,6 +565,7 @@ module SpaTs
 
         data1 = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.txt")
         data2 = Data.load_ascii("$(data_patrick)20191214_142212.debase.hp.txt")
+        #data3b = Data.load_ascii("$(data_dir)2019-12-14-14:22:12_00000-01030.txt") # old for tests
         data3 = Data.load_ascii("$(data_patrick)20200224_034643.debase.hp.txt")
         Data.zap!(data3; ranges=[241, 335, 334])
         data4 = Data.load_ascii("$(data_patrick)20200329_041150.debase.hp.txt")
@@ -571,7 +573,6 @@ module SpaTs
         data6 = Data.load_ascii("$(data_patrick)20200530_220458.debase.hp.txt")
         data7 = Data.load_ascii("$(data_patrick)20200625_212452.debase.hp.txt")
         datas = [data1, data2, data3, data4, data5, data6, data7]
-
 
         # single pulse plots
         #=
@@ -584,7 +585,6 @@ module SpaTs
         Plot.single_J1750(data7, outdir; start=1, number=nothing, name_mod="7p", darkness=0.7, show_=true, panel="g")
         =#
 
-
         # P2 estimate
         #=
         win = 12
@@ -596,7 +596,6 @@ module SpaTs
         Tools.p2_estimate(data6; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
         Tools.p2_estimate(data7; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
         =#
-
 
         # track subpulses
         #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
@@ -633,7 +632,23 @@ module SpaTs
 
         # New single pulses plot
         #Plot.singlepulses_J1750(datas, outdir; name_mod="1234567", darkness=0.5, show_=true)
-        Plot.p3evolutions_J1750(datas, outdir, 1, 128; name_mod="1234567", darkness=0.5, show_=true)
+
+        # New P3 evolution plot
+        #Plot.p3evolutions_J1750(datas, outdir, 1, 128; name_mod="1234567", darkness=0.7, show_=true)
+
+        # get P3 values
+        # Plot.p3_evolution_J1750(data7, outdir; panel="g", step=1, darkness=1.0, bin_st=350, bin_end=650, name_mod="7", number=128, verbose=true)
+
+        #p3fold plots
+        p3data1 = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.refine.p3fold")
+        p3data1b = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.norefine.p3fold")
+        p3data2 = Data.load_ascii("$(data_patrick)20191214_142212.debase.hp.p3fold")
+        #Plot.p3fold(p3data1, outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=1.0, cmap="viridis")
+        #Plot.p3fold(p3data1b, outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1no", darkness=1.0, cmap="viridis")
+        Plot.p3fold(p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=1.0, cmap="viridis")
+        #Plot.p3fold_two(p3data1, p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
+
+
 
     end
 

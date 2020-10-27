@@ -398,7 +398,7 @@ module Plot
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
         xlabel("intensity")
-        ylabel("frequancy \$(1/P)\$")
+        ylabel("frequency \$(1/P)\$")
 
         subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
         imshow(abs.(lrfs), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(abs.(lrfs)))
@@ -633,6 +633,7 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         xlim(frequency[1]/2., frequency[end]) # nice trick
         yticks([])
+        println("$outdir/$(name_mod)_p3_evolution.pdf")
         savefig("$outdir/$(name_mod)_p3_evolution.pdf")
         close()
 
@@ -699,6 +700,7 @@ module Plot
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/$(name_mod)_p3fold.pdf")
+        println("$outdir/$(name_mod)_p3fold.pdf")
         close()
     end
 
@@ -2712,8 +2714,8 @@ module Plot
         fr = pars[2]
         frer = pars[3]  # errs[2] # yeap
 
-        println("\tFrequancy: $fr, P3: $(1/fr)")
-        println("\tFrequancy error: $frer, P3 error: $(1/fr - 1/(fr +frer))")  # TODO err ok?
+        println("\tFrequency: $fr, P3: $(1/fr)")
+        println("\tFrequency error: $frer, P3 error: $(1/fr - 1/(fr +frer))")  # TODO err ok?
 
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1
@@ -2754,7 +2756,7 @@ module Plot
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
         xlabel("intensity")
-        ylabel("frequancy \$(1/P)\$")
+        ylabel("frequency \$(1/P)\$")
 
         subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
         imshow(abs.(lrfs), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(abs.(lrfs)))
@@ -2968,26 +2970,32 @@ module Plot
         p3s = []
         p3errs = []
         freqs = []
-        #=
+        inten_freqs = []
+
         for data in datas
-            (intens, p3, p3err) = Tools.p3evolution(data, step, number, bin_st, bin_end)
+        #for i in 1:3 #datas
+        #    data = datas[i]
+            (intens, p3, p3err, freq) = Tools.p3evolution(data, step, number, bin_st, bin_end)
             push!(intensities, intens)
             push!(p3s, p3)
             push!(p3errs, p3err)
-            freq, skip = Tools.intensity_pulses(transpose(intens))
             push!(freqs, freq)
+            inten_freq, skip = Tools.intensity_pulses(transpose(intens))
+            push!(inten_freqs, inten_freq)
             println(size(intens))
             pulses += size(intens)[1]
         end
-        println(pulses/2)
-        =#
-
+        #println(minimum(intensities[1]))
+        #println(maximum(intensities[1]))
 
         #bottom, skip = Tools.intensity_pulses(transpose(intens))
 
         # bin range
         y1 = 360 / 1024 * 360.0
         y2 = 650 /1024 *360.0
+
+        p3_min = 20
+        p3_max = 95
 
         rc("font", size=7.)
         rc("axes", linewidth=0.5)
@@ -2996,144 +3004,194 @@ module Plot
         #figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
         figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
         subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
-        figtext(0.09, 0.89, "a)", size=10)
-        figtext(0.25, 0.89, "b)", size=10)
-        figtext(0.76, 0.89, "c)", size=10)
-        figtext(0.09, 0.44, "d)", size=10)
-        figtext(0.32, 0.44, "e)", size=10)
-        figtext(0.54, 0.44, "f)", size=10)
-        figtext(0.76, 0.44, "g)", size=10)
+        figtext(0.083, 0.89, "a)", size=10)
+        figtext(0.22, 0.89, "b)", size=10)
+        figtext(0.75, 0.89, "c)", size=10)
+        figtext(0.083, 0.44, "d)", size=10)
+        figtext(0.31, 0.44, "e)", size=10)
+        figtext(0.535, 0.44, "f)", size=10)
+        figtext(0.755, 0.44, "g)", size=10)
+        figtext(0.5, 0.01, "start period num.", size=7, ha="center")
 
         # first session
         subplot2grid((32, 1600), (0, 0), colspan=60, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, top=false, bottom=false, labelbottom=false)
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
-        ylabel("frequancy (1/P)")
+        plot(inten_freqs[1], freqs[1], c="grey")
+        ylabel("frequency (1/P)")
+        xl = xlim()
+        xlim(xl[2], xl[1])
+        ylim(freqs[1][1]-(freqs[1][2]-freqs[1][1])/2.0, freqs[1][end]+(freqs[1][end]- freqs[1][end-1])/2.0) # WOW
         # first session
         ax = subplot2grid((32, 1600), (0, 60), colspan=167, rowspan=10)  # row column
         tick_params(axis="y", which="both", direction="in", labelleft=false, right=true, left=true)
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         minorticks_on()
-        ylim(y1, y2)
+        imshow(transpose(intensities[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto")
+        #imshow(transpose(intensities[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(intensities[1]), vmin=darkness*minimum(intensities[1]))
+        #imshow(intensities[1], origin="lower", cmap=cmap, interpolation="none", aspect="auto", , vmax=darkness*maximum(intensities[1]))
+        #ylim(y1, y2)
         # first session
         subplot2grid((32, 1600), (10, 60), colspan=167, rowspan=5)  # row column
         tick_params(axis="x", which="both", direction="out", labelbottom=false)
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
-        ylim(-0.2, 1.2)
+        errorbar(collect(1:length(p3s[1])), p3s[1], yerr=p3errs[1], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        xlim(1, length(p3s[1]))
+        ylim(p3_min, p3_max)
         #xticks([0.5, 1.0])
         ylabel("\$P_{3}\$")
 
-
         # second session
-        subplot2grid((32, 1600), (0, 238), colspan=60, rowspan=10)  # row column
+        subplot2grid((32, 1600), (0, 243), colspan=60, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, top=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false, left=true)
+        minorticks_on()
+        plot(inten_freqs[2], freqs[2], c="grey")
+        xl = xlim()
+        xlim(xl[2], xl[1])
+        ylim(freqs[2][1]-(freqs[2][2]-freqs[2][1])/2.0, freqs[2][end]+(freqs[2][end]- freqs[2][end-1])/2.0) # WOW
+        # second session
+        ax = subplot2grid((32, 1600), (0, 303), colspan=903, rowspan=10)  # row column
         tick_params(axis="y", which="both", direction="in", labelleft=false, right=true, left=true)
         minorticks_on()
-        # second session
-        ax = subplot2grid((32, 1600), (0, 298), colspan=903, rowspan=10)  # row column
-        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true, left=true)
-        minorticks_on()
-        ylim(y1, y2)
-        xlabel("Pulse number")
+        imshow(transpose(intensities[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto")
+        xlabel("start period num.")
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         # second session
-        subplot2grid((32, 1600), (10, 298), colspan=903, rowspan=5)  # row column
+        subplot2grid((32, 1600), (10, 303), colspan=903, rowspan=5)  # row column
         tick_params(axis="x", which="both", direction="out", labelbottom=false)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
         minorticks_on()
+        errorbar(collect(1:length(p3s[2])), p3s[2], yerr=p3errs[2], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        xlim(1, length(p3s[2]))
+        ylim(p3_min, p3_max)
 
-        #=
         # third session
-        ax = subplot2grid((32, 1900), (0, 1454), colspan=446, rowspan=10)  # row column
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        subplot2grid((32, 1600), (0, 1222), colspan=60, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, top=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false, left=true)
+        minorticks_on()
+        plot(inten_freqs[3], freqs[3], c="grey")
+        xl = xlim()
+        xlim(xl[2], xl[1])
+        ylim(freqs[3][1]-(freqs[3][2]-freqs[3][1])/2.0, freqs[3][end]+(freqs[3][end]- freqs[3][end-1])/2.0) # WOW
+        # third session
+        ax = subplot2grid((32, 1600), (0, 1282), colspan=318, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true, left=true)
+        minorticks_on()
+        imshow(transpose(intensities[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto")
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
-        #ax.yaxis.set_label_position("right")
-        #ax.yaxis.set_ticks_position("right")
-        minorticks_on()
-        imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[3])
-        ylim(y1, y2)
         # third session
-        ax = subplot2grid((32, 1900), (10, 1454), colspan=446, rowspan=5)  # row column
+        subplot2grid((32, 1600), (10, 1282), colspan=318, rowspan=5)  # row column
         tick_params(axis="x", which="both", direction="out", labelbottom=false)
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
         minorticks_on()
-        #ax.yaxis.set_label_position("right")
-        #ax.yaxis.set_ticks_position("right")
-        plot(intens[3][1], intens[3][2], c="grey")
-        xlim(intens[3][1][1]-0.5, intens[3][1][end]+0.5)
-        ylim(-0.2, 1.2)
+        errorbar(collect(1:length(p3s[3])), p3s[3], yerr=p3errs[3], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        xlim(1, length(p3s[3]))
+        ylim(p3_min, p3_max)
 
         # fourth session
-        ax = subplot2grid((32, 1900), (17, 0), colspan=450, rowspan=10)  # row column
-        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
-        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
+        subplot2grid((32, 1600), (17, 0), colspan=60, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, top=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=false, left=true)
         minorticks_on()
-        imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[4])
-        ylim(y1, y2)
-        ylabel("Longitude (\$ ^{\\circ}\$)")
+        plot(inten_freqs[4], freqs[4], c="grey")
+        xl = xlim()
+        xlim(xl[2], xl[1])
+        ylim(freqs[4][1]-(freqs[4][2]-freqs[4][1])/2.0, freqs[4][end]+(freqs[4][end]- freqs[4][end-1])/2.0) # WOW
+        ylabel("frequency (1/P)")
         # fourth session
-        subplot2grid((32, 1900), (27, 0), colspan=450, rowspan=5)  # row column
-        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
+        ax = subplot2grid((32, 1600), (17, 60), colspan=322, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="in", top=true, labeltop=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true, left=true)
         minorticks_on()
-        plot(intens[4][1], intens[4][2], c="grey")
-        xlim(intens[4][1][1]-0.5, intens[4][1][end]+0.5)
-        ylim(-0.2, 1.2)
-        ylabel("Intensity (a. u.)")
+        imshow(transpose(intensities[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto")
+        # fourth session
+        subplot2grid((32, 1600), (27, 60), colspan=322, rowspan=5)  # row column
+        tick_params(axis="x", which="both", direction="out", labelbottom=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true)
+        minorticks_on()
+        errorbar(collect(1:length(p3s[4])), p3s[4], yerr=p3errs[4], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        xlim(1, length(p3s[4]))
+        ylim(p3_min, p3_max)
+        ylabel("\$P_{3}\$")
 
         # fifth session
-        ax = subplot2grid((32, 1900), (17, 487), colspan=447, rowspan=10)  # row column
-        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        subplot2grid((32, 1600), (17, 409), colspan=60, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, top=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false, left=true)
         minorticks_on()
-        imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[5])
-        ylim(y1, y2)
+        plot(inten_freqs[5], freqs[5], c="grey")
+        xl = xlim()
+        xlim(xl[2], xl[1])
+        ylim(freqs[5][1]-(freqs[5][2]-freqs[5][1])/2.0, freqs[5][end]+(freqs[5][end]- freqs[5][end-1])/2.0) # WOW
         # fifth session
-        subplot2grid((32, 1900), (27, 487), colspan=447, rowspan=5)  # row column
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        ax = subplot2grid((32, 1600), (17, 469), colspan=319, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="in", top=true, labeltop=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true, left=true)
         minorticks_on()
-        plot(intens[5][1], intens[5][2], c="grey")
-        xlim(intens[5][1][1]-0.5, intens[5][1][end]+0.5)
-        ylim(-0.2, 1.2)
-        #xlabel("Pulse number")
+        imshow(transpose(intensities[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto")
+        # fifth session
+        subplot2grid((32, 1600), (27, 469), colspan=319, rowspan=5)  # row column
+        tick_params(axis="x", which="both", direction="out", labelbottom=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
+        minorticks_on()
+        errorbar(collect(1:length(p3s[5])), p3s[5], yerr=p3errs[5], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        xlim(1, length(p3s[5]))
+        ylim(p3_min, p3_max)
 
         # sixth session
-        ax = subplot2grid((32, 1900), (17, 971), colspan=447, rowspan=10)  # row column
-        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        subplot2grid((32, 1600), (17, 815), colspan=60, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, top=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false, left=true)
         minorticks_on()
-        imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[6])
-        ylim(y1, y2)
+        plot(inten_freqs[6], freqs[6], c="grey")
+        xl = xlim()
+        xlim(xl[2], xl[1])
+        ylim(freqs[6][1]-(freqs[6][2]-freqs[6][1])/2.0, freqs[6][end]+(freqs[6][end]- freqs[6][end-1])/2.0) # WOW
         # sixth session
-        subplot2grid((32, 1900), (27, 971), colspan=447, rowspan=5)  # row column
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        ax = subplot2grid((32, 1600), (17, 875), colspan=319, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="in", top=true, labeltop=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true, left=true)
         minorticks_on()
-        plot(intens[6][1], intens[6][2], c="grey")
-        xlim(intens[6][1][1]-0.5, intens[6][1][end]+0.5)
-        ylim(-0.2, 1.2)
-        #xlabel("Pulse number")
-        figtext(0.5, 0.01, "Pulse number", size=7, ha="center")
+        imshow(transpose(intensities[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto")
+        # sixth session
+        subplot2grid((32, 1600), (27, 875), colspan=319, rowspan=5)  # row column
+        tick_params(axis="x", which="both", direction="out", labelbottom=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
+        minorticks_on()
+        errorbar(collect(1:length(p3s[6])), p3s[6], yerr=p3errs[6], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        xlim(1, length(p3s[6]))
+        ylim(p3_min, p3_max)
 
         # seventh session
-        ax = subplot2grid((32, 1900), (17, 1454), colspan=446, rowspan=10)  # row column
-        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
-        #tick_params(axis="x", which="both", direction="in", labeltop=false, labelbottom=true, top=false)
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        subplot2grid((32, 1600), (17, 1221), colspan=60, rowspan=10)  # row column
         minorticks_on()
-        imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[7])
-        ylim(y1, y2)
+        plot(inten_freqs[7], freqs[7], c="grey")
+        xl = xlim()
+        xlim(xl[2], xl[1])
+        ylim(freqs[7][1]-(freqs[7][2]-freqs[7][1])/2.0, freqs[7][end]+(freqs[7][end]- freqs[7][end-1])/2.0) # WOW
+        tick_params(axis="x", which="both", direction="out", labeltop=false, top=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=false, left=true)
         # seventh session
-        subplot2grid((32, 1900), (27, 1454), colspan=446, rowspan=5)  # row column
-        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        ax = subplot2grid((32, 1600), (17, 1281), colspan=318, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="in", top=true, labeltop=false, bottom=false, labelbottom=false)
+        tick_params(axis="y", which="both", direction="in", labelleft=false, right=true, left=true)
         minorticks_on()
-        plot(intens[7][1], intens[7][2], c="grey")
-        xlim(intens[7][1][1]-0.5, intens[7][1][end]+0.5)
-        ylim(-0.2, 1.2)
-
-        =#
-
+        imshow(transpose(intensities[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto")
+        # seventh session
+        subplot2grid((32, 1600), (27, 1281), colspan=318, rowspan=5)  # row column
+        tick_params(axis="x", which="both", direction="out", labelbottom=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
+        minorticks_on()
+        errorbar(collect(1:length(p3s[7])), p3s[7], yerr=p3errs[7], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        xlim(1, length(p3s[7]))
+        ylim(p3_min, p3_max)
 
         println("$outdir/$(name_mod)_p3evolutions.pdf")
         savefig("$outdir/$(name_mod)_p3evolutions.pdf")
