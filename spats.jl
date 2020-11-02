@@ -586,7 +586,6 @@ module SpaTs
         =#
 
         # P2 estimate
-        #=
         win = 12
         Tools.p2_estimate(data1; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
         Tools.p2_estimate(data2; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
@@ -595,7 +594,6 @@ module SpaTs
         #Tools.p2_estimate(data5; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win) # too noisy!
         Tools.p2_estimate(data6; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
         Tools.p2_estimate(data7; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
-        =#
 
         # track subpulses
         #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
@@ -618,7 +616,7 @@ module SpaTs
         #Plot.tracks_analysis3("$(outdir)tracks/6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
         #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
 
-        # P3 grand-average TODO
+        # P3 grand-average TODO nope! check Figure 2
         #=
         Plot.lrfs(data3, outdir; darkness=0.3, start=1, number=256, name_mod="J1750_2", bin_st=350, bin_end=650, change_fftphase=false)
         slices, pulses = random_slices(datas, 256)
@@ -635,18 +633,22 @@ module SpaTs
 
         # New P3 evolution plot
         #Plot.p3evolutions_J1750(datas, outdir, 1, 128; name_mod="1234567", darkness=0.7, show_=true)
-
         # get P3 values
         # Plot.p3_evolution_J1750(data7, outdir; panel="g", step=1, darkness=1.0, bin_st=350, bin_end=650, name_mod="7", number=128, verbose=true)
 
-        #p3fold plots
-        p3data1 = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.refine.p3fold")
-        p3data1b = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.norefine.p3fold")
-        p3data2 = Data.load_ascii("$(data_patrick)20191214_142212.debase.hp.p3fold")
+        #The P3-folded plot
+        #p3data1 = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.p3fold")
+        #p3data1a = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.norefine.p3fold")
+        #p3data1b = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.refine.p3fold")
+        #p3data2 = Data.load_ascii("$(data_patrick)20191214_142212.debase.hp.p3fold")
         #Plot.p3fold(p3data1, outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=1.0, cmap="viridis")
-        #Plot.p3fold(p3data1b, outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1no", darkness=1.0, cmap="viridis")
-        Plot.p3fold(p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=1.0, cmap="viridis")
-        #Plot.p3fold_two(p3data1, p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=674, name_mod="12", darkness=1.0, cmap="viridis")
+        #Plot.p3fold_two(p3data1, p3data2, outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="12", darkness=0.7, cmap="viridis")
+        #peaks = Tools.track_subpulses(p3data1, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(p3data1, "$(data_patrick)tracks/1", peaks; start=1, number=44, bin_st=350, bin_end=650, name_mod="1p3_", darkness=0.7)
+        #peaks = Tools.track_subpulses(p3data2, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(p3data2, "$(data_patrick)tracks/2", peaks; start=1, number=44, bin_st=350, bin_end=650, name_mod="2p3_", darkness=0.7)
+        #Plot.p3fold_twotracks(p3data1, p3data2, "$(data_patrick)tracks", outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="12", darkness=0.7, cmap="viridis")
+
 
 
 

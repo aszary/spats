@@ -705,7 +705,7 @@ module Plot
     end
 
 
-    function p3fold_two(data1, data2, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=11)
+    function p3fold_two(data1, data2, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=7)
         num, bins = size(data1)
         if number == nothing
             number = num - start + 1  # missing one? # test it!
@@ -728,7 +728,8 @@ module Plot
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
-        longitude = collect(range(-dl/2., dl/2., length=db))
+        #longitude = collect(range(-dl/2., dl/2., length=db)) # zero in the middle
+        longitude = collect(range(bin_st/bins*360, bin_end/bins*360, length=db))# raw longitude
 
         # repeat data
         da = repeat(da, repeat_num)
@@ -760,14 +761,14 @@ module Plot
         # right
         subplot2grid((5, 2), (0, 1), rowspan=4)
         minorticks_on()
-        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da2))
+        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=0.7*darkness*maximum(da2))
         tick_params(labelleft=false, labelbottom=false)
         yticks(ticks, ti)
         # bottom left
         subplot2grid((5, 2), (4, 0))
         minorticks_on()
         plot(longitude, average, c="grey")
-        xticks([-40, 0, 40])
+        #xticks([-40, 0, 40])
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         ylabel("intensity (a. u.)")
@@ -776,17 +777,18 @@ module Plot
         minorticks_on()
         tick_params(labelleft=false)
         plot(longitude, average2, c="grey")
-        xticks([-40, 0, 40])
+        #xticks([-40, 0, 40])
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         figtext(0.45, 0.01, "longitude (deg.)", size=8)
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/$(name_mod)_p3fold_two.pdf")
+        println("$outdir/$(name_mod)_p3fold_two.pdf")
         close()
     end
 
 
-    function p3fold_twotracks(data1, data2, data_dir, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=7)
+    function p3fold_twotracks(data1, data2, data_dir, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=14)
         num, bins = size(data1)
         if number == nothing
             number = num - start + 1 # missing one?
@@ -809,7 +811,8 @@ module Plot
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
-        longitude = collect(range(-dl/2., dl/2., length=db))
+        #longitude = collect(range(-dl/2., dl/2., length=db))
+        longitude = collect(range(bin_st/bins*360, bin_end/bins*360, length=db))# raw longitude
 
         # repeat data
         da = repeat(da, repeat_num)
@@ -829,7 +832,8 @@ module Plot
         tracks = []
         for i in 1:2
             push!(tracks, [])
-            files = Glob.glob("track_*.jld2", "$(data_dir)$i")
+            files = Glob.glob("track_*.jld2", "$(data_dir)/$i")  # no tracks? change here
+            println(files)
             # load tracks
             for file in files
                 @load file track
@@ -867,7 +871,7 @@ module Plot
         p2s = [[], []]
 
         for i in 1:2  # two sessions
-            # two tracks
+            # two tracks? ok
             first = tracks[i][1]
             second = tracks[i][2]
             for (ii,y) in enumerate(first[2])
@@ -908,7 +912,7 @@ module Plot
         # right
         subplot2grid((5, 2), (0, 1), rowspan=4)
         minorticks_on()
-        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da2), extent=[bin_st, bin_end, 1, num*repeat_num])
+        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=0.7*darkness*maximum(da2), extent=[bin_st, bin_end, 1, num*repeat_num])
         tick_params(labelleft=false, labelbottom=false)
         yticks(ticks, ti)
         for tr in tracks[2]
@@ -937,6 +941,7 @@ module Plot
         figtext(0.45, 0.01, "longitude (deg.)", size=8)
 
         #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_p3fold_twotracks.pdf")
         savefig("$outdir/$(name_mod)_p3fold_twotracks.pdf")
         close()
     end
