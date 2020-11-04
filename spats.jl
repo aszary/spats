@@ -535,7 +535,7 @@ module SpaTs
         #Plot.tracks_analysis3("$outdir/tracks2"; lambda=1000.0, start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
         #Plot.tracks_analysis4("$outdir/tracks2"; start=1, number=1031, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
 
-        # the Plot
+        # the Plot - old version
         #Plot.driftrate_J1750(outdir; lambda=0.0003, show_=true)
         #Plot.driftrate_analysis_J1750(outdir; lambda=1000.0, show_=true)
 
@@ -586,7 +586,8 @@ module SpaTs
         =#
 
         # P2 estimate
-        win = 12
+        #=
+        win = 8
         Tools.p2_estimate(data1; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
         Tools.p2_estimate(data2; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
         #Tools.p2_estimate(data3; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win) #  no! # too noisy!
@@ -594,13 +595,14 @@ module SpaTs
         #Tools.p2_estimate(data5; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win) # too noisy!
         Tools.p2_estimate(data6; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
         Tools.p2_estimate(data7; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
+        =#
 
         # track subpulses
         #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
         #Plot.tracks_analysis3("$(outdir)tracks/1"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
-        #peaks = Tools.track_subpulses(data2, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
-        #Plot.group_tracks(data2, "$(outdir)tracks/2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        peaks = Tools.track_subpulses(data2, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        Plot.group_tracks(data2, "$(outdir)tracks/2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
         #Plot.tracks_analysis3("$(outdir)tracks/2"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
         #peaks = Tools.track_subpulses(data3, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data3, "$(outdir)tracks/3", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.5)
@@ -614,7 +616,13 @@ module SpaTs
         #peaks = Tools.track_subpulses(data6, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data6, "$(outdir)tracks/6", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.5)
         #Plot.tracks_analysis3("$(outdir)tracks/6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
-        #Plot.single_J1750(data3, outdir; start=100, number=200, bin_st=350, bin_end=650, name_mod="3test", darkness=0.4, show_=true, panel="tt")
+        #peaks = Tools.track_subpulses(data7, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #Plot.group_tracks(data7, "$(outdir)tracks/7", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="7", darkness=0.5)
+
+        #Plot.driftrate_J1750_2(outdir; lambda=0.0003, show_=true)
+        #Plot.driftrate_J1750_2(outdir; lambda=1000.0, show_=true)
+        #Plot.driftrate_analysis_J1750_2(outdir; lambda=1000.0, show_=true)
+
 
         # P3 grand-average TODO nope! check Figure 2
         #=
@@ -648,9 +656,6 @@ module SpaTs
         #peaks = Tools.track_subpulses(p3data2, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(p3data2, "$(data_patrick)tracks/2", peaks; start=1, number=44, bin_st=350, bin_end=650, name_mod="2p3_", darkness=0.7)
         #Plot.p3fold_twotracks(p3data1, p3data2, "$(data_patrick)tracks", outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="12", darkness=0.7, cmap="viridis")
-
-
-
 
     end
 
