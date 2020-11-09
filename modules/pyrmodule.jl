@@ -170,7 +170,8 @@ module PyRModule
         @rput x
         @rput y
         #@rput lambda
-        R"spl <- smooth.spline(x, y, lambda=$lambda)"
+        #R"spl <- smooth.spline(x, y, lambda=$lambda)" # TODO revert this
+        R"spl <- smooth.spline(x, y, spar=0.7)"
         #R"spl <- smooth.spline(x, y)" #GCV
         #R"spl <- smooth.spline(x, y, df=$df_start)"
         R"yspp <- predict(spl, x)"

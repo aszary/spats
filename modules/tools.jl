@@ -923,8 +923,8 @@ module Tools
         drift_rate = [[], []]
         for track in tracks#[1:3]
             #ll, inc = Tools.analyse_track_sl(track[:,3], track[:,1]; lambda=lambda)
-            ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
-            # ll, inc, dof = Tools.analyse_track_simple_dof(track[:,2], track[:,1]; lambda=lambda) # do not use it yet!
+            #ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
+            ll, inc, dof = Tools.analyse_track_simple_dof(track[:,2], track[:,1]; lambda=lambda) # do not use it yet!
             dof = 1  # do not use it yet
             push!(lines, ll)
             push!(inclines, inc)
