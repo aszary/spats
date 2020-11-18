@@ -368,7 +368,8 @@ module SpaTs
         data_remote = "/home/aszary/J1750/new_data/"
         data_patrick = "/home/szary/work/MeerTime/J1750/data_patrick/"
 
-        outdir = "/home/szary/work/MeerTime/J1750/"
+        #outdir = "/home/szary/work/MeerTime/J1750/"
+        outdir = "/home/szary/work/MeerTime/J1750/old_plots/"
 
         #Data.convert_psrfit_ascii("$(data_patrick)/20190929_124118.debase.hp", "$(data_patrick)/2019-09-29-12:41:18_00000-00294.txt")
         # convert to txt
@@ -444,6 +445,7 @@ module SpaTs
         =#
 
         # get information
+        #=
         files = Glob.glob("*_pipeline_info.json", data_dir)
         for file in files
             println("\n$file")
@@ -459,6 +461,7 @@ module SpaTs
             duration = [period * np for np in npulses]
             println(duration)
         end
+        =#
 
         # p3_evolution plots
         #=
@@ -542,7 +545,7 @@ module SpaTs
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=true)
 
-        #Plot.driftdirection_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=false)
+        Plot.driftdirection_J1750([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="123456", show_=false)
 
     end
 
@@ -574,7 +577,7 @@ module SpaTs
         data7 = Data.load_ascii("$(data_patrick)20200625_212452.debase.hp.txt")
         datas = [data1, data2, data3, data4, data5, data6, data7]
 
-        # single pulse plots
+        # single pulse plots # not used!
         #=
         Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1p", darkness=0.7, show_=true, panel="a")
         Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2p", darkness=0.7, show_=true, panel="b")
@@ -604,7 +607,7 @@ module SpaTs
         #peaks = Tools.track_subpulses(data2, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data2, "$(outdir)tracks/2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
         #Plot.tracks_analysis3("$(outdir)tracks/2"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
-        #peaks = Tools.track_subpulses(data3, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        #peaks = Tools.track_subpulses(data3, 15, thresh=0.3, thresh2=0.4, on_st=350, on_end=650)
         #Plot.group_tracks(data3, "$(outdir)tracks/3", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.5)
         #Plot.tracks_analysis3("$(outdir)tracks/3"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.6)
         #peaks = Tools.track_subpulses(data4, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
@@ -618,13 +621,9 @@ module SpaTs
         #Plot.tracks_analysis3("$(outdir)tracks/6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
         #peaks = Tools.track_subpulses(data7, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data7, "$(outdir)tracks/7", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="7", darkness=0.5)
+        #Tools.convert_tracks("$outdir/tracks/") # TODO # converts from bins to longitude! # IMPORTANT # do it once
 
-        Plot.driftrate_J1750_2(outdir; lambda=0.0001, show_=true)
-        #Plot.driftrate_J1750_2(outdir; lambda=1000.0, show_=true)
-        #Plot.driftrate_analysis_J1750_2(outdir; lambda=1000.0, show_=true)
-
-
-        # P3 grand-average TODO nope! check Figure 2
+        # P3 grand-average NOPE! check Figure 2
         #=
         Plot.lrfs(data3, outdir; darkness=0.3, start=1, number=256, name_mod="J1750_2", bin_st=350, bin_end=650, change_fftphase=false)
         slices, pulses = random_slices(datas, 256)
@@ -656,6 +655,16 @@ module SpaTs
         #peaks = Tools.track_subpulses(p3data2, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(p3data2, "$(data_patrick)tracks/2", peaks; start=1, number=44, bin_st=350, bin_end=650, name_mod="2p3_", darkness=0.7)
         #Plot.p3fold_twotracks(p3data1, p3data2, "$(data_patrick)tracks", outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="12", darkness=0.7, cmap="viridis")
+
+        # The Plot
+        #Plot.driftrate_J1750_2(outdir; spar=0.6, show_=true) # not too good, but I tried...
+        #Plot.driftrate_J1750_2(outdir; lambda=1000.0, show_=true)
+        #Plot.driftrate_analysis_J1750_2(outdir; lambda=1000.0, show_=true)
+        Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=true)
+
+        # Timescales # too messy switch to drift rate?
+        #Plot.driftdirection_J1750_2([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="1234567", show_=false)
+
 
     end
 

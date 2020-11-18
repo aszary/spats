@@ -1541,7 +1541,7 @@ module Plot
                     sz = size(picks)
                     track = Array{Float64}(undef, sz[1], 2)
                     for i in 1:sz[1]
-                        track[i, 1] = picks[i][1]
+                        track[i, 1] = picks[i][1] / bins * 360 # IMPORTANT chenged do not use convert_tracks anymore!
                         track[i, 2] = picks[i][2]
                     end
                     #println(track[:,1])
@@ -1613,7 +1613,7 @@ module Plot
         for peak in peaks
             if (peak[1] >= start) && (peak[1] <= start + number)
                 for x in peak[2]
-                    plot(x, peak[1], marker="x", markersize=10, c="red", fillstyle="full", mfc="red", lw=0, picker=10, alpha=0.5)
+                    plot(x, peak[1], marker="x", markersize=5, markeredgewidth=2.2, c="red", fillstyle="full", mfc="red", lw=0, picker=10, alpha=0.5)
                     #scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1, picker=2)
                     #println("$(peak[1]) $x")
                 end
@@ -2273,7 +2273,17 @@ module Plot
     end
 
 
-    function driftrate_J1750_2(outdir; lambda=100, name_mod="123456", bin=1024, show_=false)
+    function driftrate_J1750_2(outdir; spar=0.6, lambda=1000, name_mod="1234567", show_=false)
+
+        #=
+        tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate2("$outdir/tracks/1", spar)
+        tracks2, lines2, inclines2, dr2, ysp2, dof2 = Tools.get_driftrate2("$outdir/tracks/2", spar)
+        tracks3, lines3, inclines3, dr3, ysp3, dof3 = Tools.get_driftrate2("$outdir/tracks/3", spar)
+        tracks4, lines4, inclines4, dr4, ysp4, dof4 = Tools.get_driftrate2("$outdir/tracks/4", spar)
+        tracks5, lines5, inclines5, dr5, ysp5, dof5 = Tools.get_driftrate2("$outdir/tracks/5", spar)
+        tracks6, lines6, inclines6, dr6, ysp6, dof6 = Tools.get_driftrate2("$outdir/tracks/6", spar)
+        tracks7, lines7, inclines7, dr7, ysp7, dof7 = Tools.get_driftrate2("$outdir/tracks/7", spar)
+        =#
 
         tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks/1", lambda)
         tracks2, lines2, inclines2, dr2, ysp2, dof2 = Tools.get_driftrate("$outdir/tracks/2", lambda)
@@ -2283,9 +2293,7 @@ module Plot
         tracks6, lines6, inclines6, dr6, ysp6, dof6 = Tools.get_driftrate("$outdir/tracks/6", lambda)
         tracks7, lines7, inclines7, dr7, ysp7, dof7 = Tools.get_driftrate("$outdir/tracks/7", lambda)
 
-
         # check all tracks in second session
-        #=
         for i in 1:length(tracks2)
             y_ = tracks2[i][:,1]
             y_fit = lines2[i][2]
@@ -2293,8 +2301,8 @@ module Plot
             rsq = Tools.rsquared(y_, y_fit)
             println("Track: $i Chi^2_ν: ", chisq, " R^2: ", rsq)
         end
-        =#
 
+        #=
         println(get_length(tracks1))
         println(get_length(tracks2))
         println(get_length(tracks3))
@@ -2302,17 +2310,21 @@ module Plot
         println(get_length(tracks5))
         println(get_length(tracks6))
         println(get_length(tracks7))
-
+        =#
 
         a = get_length(tracks1) + get_length(tracks2) + get_length(tracks3) # 1900 is fine
         b = get_length(tracks4) + get_length(tracks5) + get_length(tracks6) + get_length(tracks7) # 1900 is fine
         println("$a $((1900-a)/2) ")
         println("$b $((1900-b)/3)")
 
-
-        yl = (140, 210)
+        yl = (141, 210)
         #yl = (135, 215)
         #yl = (125, 225)
+        yl2 = (-0.9, 0.9)
+
+        rc("font", size=7.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
 
         #figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
         #figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
@@ -2334,10 +2346,10 @@ module Plot
         minorticks_on()
         ylabel("Longitude (\$ ^{\\circ}\$)")
         for track in tracks1#[1:3]
-            plot(track[:,2], track[:,1]/bin*360, marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.0, lw=0, markeredgewidth=0.2)
         end
         for line in lines1
-            plot(line[1], line[2]/bin*360, lw=1.5, alpha=0.7, c="C2")
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
         xl = xlim()
         ylim(yl)
@@ -2353,7 +2365,7 @@ module Plot
         end
         xlim(xl)
         ylabel("Drift rate \$(^\\circ / P)\$")
-        ylim([-2.7, 2.7])
+        ylim(yl2)
 
         # second session
         ax = subplot2grid((43, 1900), (0, 359), colspan=1031, rowspan=10)  # row column
@@ -2363,10 +2375,10 @@ module Plot
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         for track in tracks2
-            plot(track[:,2], track[:,1]/bin*360, marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
         for line in lines2
-            plot(line[1], line[2]/bin*360, lw=1.5, alpha=0.7, c="C2")
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
         xl = xlim()
         ylim(yl)
@@ -2381,7 +2393,7 @@ module Plot
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
         xlim(xl)
-        ylim([-2.7, 2.7])
+        ylim(yl2)
 
         # third session
         ax = subplot2grid((43, 1900), (0, 1454), colspan=446, rowspan=10)  # row column
@@ -2392,10 +2404,10 @@ module Plot
         #ax.yaxis.set_ticks_position("right")
         minorticks_on()
         for track in tracks3
-            plot(track[:,2], track[:,1]/bin*360, marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
         for line in lines3
-            plot(line[1], line[2]/bin*360, lw=1.5, alpha=0.7, c="C2")
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
         xl = xlim()
         ylim(yl)
@@ -2410,7 +2422,7 @@ module Plot
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
         xlim(xl)
-        ylim([-2.7, 2.7])
+        ylim(yl2)
         #ax.yaxis.set_label_position("right")
         #ax.yaxis.set_ticks_position("right")
 
@@ -2420,10 +2432,10 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
         for track in tracks4
-            plot(track[:,2], track[:,1]/bin*360, marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
         for line in lines4
-            plot(line[1], line[2]/bin*360, lw=1.5, alpha=0.7, c="C2")
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
         xl = xlim()
         ylim(yl)
@@ -2438,8 +2450,9 @@ module Plot
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
         xlim(xl)
-        ylim([-2.7, 2.7])
+        ylim(yl2)
         ylabel("Drift rate \$(^\\circ / P)\$")
+        locator_params(nbins=3)
 
         # fifth session
         ax = subplot2grid((43, 1900), (23, 487), colspan=447, rowspan=10)  # row column
@@ -2447,10 +2460,10 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         for track in tracks5
-            plot(track[:,2], track[:,1]/bin*360, marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
         for line in lines5
-            plot(line[1], line[2]/bin*360, lw=1.5, alpha=0.7, c="C2")
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
         xl = xlim()
         ylim(yl)
@@ -2464,7 +2477,7 @@ module Plot
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
         xlim(xl)
-        ylim([-2.7, 2.7])
+        ylim(yl2)
         #xlabel("Pulse number")
 
         # sixth session
@@ -2473,10 +2486,10 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         for track in tracks6
-            plot(track[:,2], track[:,1]/bin*360, marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
         for line in lines6
-            plot(line[1], line[2]/bin*360, lw=1.5, alpha=0.7, c="C2")
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
         xl = xlim()
         ylim(yl)
@@ -2490,7 +2503,7 @@ module Plot
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
         xlim(xl)
-        ylim([-2.7, 2.7])
+        ylim(yl2)
         figtext(0.5, 0.01, "Pulse number", size=7, ha="center")
 
         # seventh session
@@ -2500,10 +2513,10 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         minorticks_on()
         for track in tracks7
-            plot(track[:,2], track[:,1]/bin*360, marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
         for line in lines7
-            plot(line[1], line[2]/bin*360, lw=1.5, alpha=0.7, c="C2")
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
         xl = xlim()
         ylim(yl)
@@ -2517,7 +2530,7 @@ module Plot
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
         xlim(xl)
-        ylim([-2.7, 2.7])
+        ylim(yl2)
 
         println("$outdir/$(name_mod)_driftrate_2.pdf")
         savefig("$outdir/$(name_mod)_driftrate_2.pdf")
@@ -2529,6 +2542,304 @@ module Plot
         #clf()
 
     end
+
+
+    function get_slopes_breakpoints(tracks, lambda; npsi=nothing, preview=false)
+        if npsi == nothing
+            npsi = zeros(length(tracks))
+        end
+        slopes_= []
+        eslopes_ = []
+        bps_ = []
+        ebps_ = []
+        xs_ = []
+        exs_ = []
+
+        # fit broken lines to get slopes and breakpoints
+        for (i,track) in enumerate(tracks)
+            println(i)
+            x = track[:, 2] # pulse number
+            y = track[:, 1] # longitude
+            x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[i]; lambda=lambda, preview=preview)
+            #=
+            push!(slopes_, slopes)
+            push!(eslopes_, eslopes)
+            push!(bps_, bp)
+            push!(ebps_, ebp)
+            push!(xs_, xl)
+            push!(exs_, exl)
+            =#
+            slopes_ = vcat(slopes_, slopes)
+            eslopes_ = vcat(eslopes_, eslopes)
+            bps_ = vcat(bps_, bp)
+            ebps_ = vcat(ebps_, ebp)
+            xs_ = vcat(xs_, xl)
+            exs_ = vcat(exs_, exl)
+        end
+        #println(xs_)
+        #println(length(slopes_))
+        #println(slopes_)
+        return slopes_, eslopes_, bps_, ebps_, xs_, exs_
+
+    end
+
+    function driftrate_J1750_3(outdir; spar=0.6, lambda=1000, name_mod="1234567", bin=1024, show_=false)
+
+        tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks/1", lambda)
+        tracks2, lines2, inclines2, dr2, ysp2, dof2 = Tools.get_driftrate("$outdir/tracks/2", lambda)
+        tracks3, lines3, inclines3, dr3, ysp3, dof3 = Tools.get_driftrate("$outdir/tracks/3", lambda)
+        tracks4, lines4, inclines4, dr4, ysp4, dof4 = Tools.get_driftrate("$outdir/tracks/4", lambda)
+        tracks5, lines5, inclines5, dr5, ysp5, dof5 = Tools.get_driftrate("$outdir/tracks/5", lambda)
+        tracks6, lines6, inclines6, dr6, ysp6, dof6 = Tools.get_driftrate("$outdir/tracks/6", lambda)
+        tracks7, lines7, inclines7, dr7, ysp7, dof7 = Tools.get_driftrate("$outdir/tracks/7", lambda)
+
+        slopes1_, eslopes1_, bps1_, ebps1_, xs1_, exs1_ = get_slopes_breakpoints(tracks1, lambda, preview=false)
+        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 5, 1, 3, 1, 5, 6, 3, 2, 3, 1, 0, 0, 5, 9, 4, 2])
+        slopes3_, eslopes3_, bps3_, ebps3_, xs3_, exs3_ = get_slopes_breakpoints(tracks3, lambda; npsi=[0, 2, 4, 3, 1, 2, 2])
+        slopes4_, eslopes4_, bps4_, ebps4_, xs4_, exs4_ = get_slopes_breakpoints(tracks4, lambda; npsi=[0, 0, 0, 3, 2, 1, 1, 2, 2, 1])
+        slopes5_, eslopes5_, bps5_, ebps5_, xs5_, exs5_ = get_slopes_breakpoints(tracks5, lambda; npsi=[0, 0, 2, 1, 5, 3, 3, 1, 0])
+        slopes6_, eslopes6_, bps6_, ebps6_, xs6_, exs6_ = get_slopes_breakpoints(tracks6, lambda; npsi=[4, 2, 2, 3, 6, 6, 0])
+        slopes7_, eslopes7_, bps7_, ebps7_, xs7_, exs7_ = get_slopes_breakpoints(tracks7, lambda; npsi=[2, 4, 2, 3, 1, 1, 1, 2, 2])
+
+        a = get_length(tracks1) + get_length(tracks2) + get_length(tracks3) # 1900 is fine
+        b = get_length(tracks4) + get_length(tracks5) + get_length(tracks6) + get_length(tracks7) # 1900 is fine
+        println("$a $((1900-a)/2) ")
+        println("$b $((1900-b)/3)")
+
+        yl = (141, 210)
+        #yl = (135, 215)
+        #yl = (125, 225)
+
+        yl2 = [-0.9, 0.9]
+
+        rc("font", size=7.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        #figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
+        #figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
+        figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
+        subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
+        figtext(0.09, 0.89, "a)", size=10)
+        figtext(0.25, 0.89, "b)", size=10)
+        figtext(0.75, 0.89, "c)", size=10)
+        figtext(0.09, 0.43, "d)", size=10)
+        figtext(0.31, 0.43, "e)", size=10)
+        figtext(0.54, 0.43, "f)", size=10)
+        figtext(0.76, 0.43, "g)", size=10)
+
+        # first session
+        ax = subplot2grid((43, 1900), (0, 0), colspan=295, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        minorticks_on()
+        ylabel("Longitude (\$ ^{\\circ}\$)")
+        for track in tracks1#[1:3]
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.0, lw=0, markeredgewidth=0.2)
+        end
+        for line in lines1
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        end
+        xl = xlim()
+        ylim(yl)
+        # first session
+        subplot2grid((43, 1900), (10, 0), colspan=295, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labelbottom=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
+        minorticks_on()
+        axhline(y=0, lw=1, ls="--")
+        plot(dr1, ysp1, lw=3, alpha=0.5, c="grey")
+        for inc in inclines1
+            plot(inc[1], inc[2], lw=0.2, c="black", alpha=1.0)
+        end
+        errorbar(xs1_, slopes1_, yerr=eslopes1_, xerr=exs1_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
+        xlim(xl)
+        ylabel("Drift rate \$(^\\circ / P)\$")
+        ylim(yl2)
+
+        # second session
+        ax = subplot2grid((43, 1900), (0, 359), colspan=1031, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        minorticks_on()
+        xlabel("Pulse number")
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        for track in tracks2
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+        end
+        for line in lines2
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        end
+        xl = xlim()
+        ylim(yl)
+        # second session
+        subplot2grid((43, 1900), (10, 359), colspan=1031, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labelbottom=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
+        minorticks_on()
+        axhline(y=0, lw=1, ls="--")
+        plot(dr2, ysp2, lw=3, alpha=1.0, c="grey")
+        for inc in inclines2
+            plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
+        end
+        errorbar(xs2_, slopes2_, yerr=eslopes2_, xerr=exs2_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
+        xlim(xl)
+        ylim(yl2)
+
+        # third session
+        ax = subplot2grid((43, 1900), (0, 1454), colspan=446, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        #ax.yaxis.set_label_position("right")
+        #ax.yaxis.set_ticks_position("right")
+        minorticks_on()
+        for track in tracks3
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+        end
+        for line in lines3
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        end
+        xl = xlim()
+        ylim(yl)
+        # third session
+        ax = subplot2grid((43, 1900), (10, 1454), colspan=446, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labelbottom=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        minorticks_on()
+        axhline(y=0, lw=1, ls="--")
+        plot(dr3, ysp3, lw=3, alpha=1.0, c="grey")
+        for inc in inclines3
+            plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
+        end
+        errorbar(xs3_, slopes3_, yerr=eslopes3_, xerr=exs3_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
+        xlim(xl)
+        ylim(yl2)
+        #ax.yaxis.set_label_position("right")
+        #ax.yaxis.set_ticks_position("right")
+
+        # fourth session
+        ax = subplot2grid((43, 1900), (23, 0), colspan=450, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
+        minorticks_on()
+        for track in tracks4
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+        end
+        for line in lines4
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        end
+        xl = xlim()
+        ylim(yl)
+        ylabel("Longitude (\$ ^{\\circ}\$)")
+        # fourth session
+        subplot2grid((43, 1900), (33, 0), colspan=450, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
+        minorticks_on()
+        axhline(y=0, lw=1, ls="--")
+        plot(dr4, ysp4, lw=3, alpha=1.0, c="grey")
+        for inc in inclines4
+            plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
+        end
+        errorbar(xs4_, slopes4_, yerr=eslopes4_, xerr=exs4_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
+        xlim(xl)
+        ylim(yl2)
+        ylabel("Drift rate \$(^\\circ / P)\$")
+        locator_params(nbins=3)
+
+        # fifth session
+        ax = subplot2grid((43, 1900), (23, 487), colspan=447, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        minorticks_on()
+        for track in tracks5
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+        end
+        for line in lines5
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        end
+        xl = xlim()
+        ylim(yl)
+        # fifth session
+        subplot2grid((43, 1900), (33, 487), colspan=447, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        minorticks_on()
+        axhline(y=0, lw=1, ls="--")
+        plot(dr5, ysp5, lw=3, alpha=1.0, c="grey")
+        for inc in inclines5
+            plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
+        end
+        errorbar(xs5_, slopes5_, yerr=eslopes5_, xerr=exs5_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
+        xlim(xl)
+        ylim(yl2)
+        #xlabel("Pulse number")
+
+        # sixth session
+        ax = subplot2grid((43, 1900), (23, 971), colspan=447, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        minorticks_on()
+        for track in tracks6
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+        end
+        for line in lines6
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        end
+        xl = xlim()
+        ylim(yl)
+        # sixth session
+        subplot2grid((43, 1900), (33, 971), colspan=447, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        minorticks_on()
+        axhline(y=0, lw=1, ls="--")
+        plot(dr6, ysp6, lw=3, alpha=1.0, c="grey")
+        for inc in inclines6
+            plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
+        end
+        errorbar(xs6_, slopes6_, yerr=eslopes6_, xerr=exs6_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
+        xlim(xl)
+        ylim(yl2)
+        figtext(0.5, 0.01, "Pulse number", size=7, ha="center")
+
+        # seventh session
+        ax = subplot2grid((43, 1900), (23, 1454), colspan=443, rowspan=10)  # row column
+        tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
+        #tick_params(axis="x", which="both", direction="in", labeltop=false, labelbottom=true, top=false)
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        minorticks_on()
+        for track in tracks7
+            plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+        end
+        for line in lines7
+            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        end
+        xl = xlim()
+        ylim(yl)
+        # seventh session
+        subplot2grid((43, 1900), (33, 1454), colspan=443, rowspan=10)  # row column
+        tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
+        minorticks_on()
+        axhline(y=0, lw=1, ls="--")
+        plot(dr7, ysp7, lw=3, alpha=1.0, c="grey")
+        for inc in inclines7
+            plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
+        end
+        errorbar(xs7_, slopes7_, yerr=eslopes7_, xerr=exs7_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
+        xlim(xl)
+        ylim(yl2)
+
+        println("$outdir/$(name_mod)_driftrate_3.pdf")
+        savefig("$outdir/$(name_mod)_driftrate_3.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+        #clf()
+
+    end
+
 
 
     function driftrate_analysis_J1750(outdir; lambda=100, name_mod="123456", show_=false)
@@ -2795,7 +3106,8 @@ module Plot
             push!(dr_y, ysp1)
         end
 
-        ranges = Dict(2=>(510, 590), 3=>(50, 150), 3=>(375, 445), 4=>(100, 150), 5=>(250, 350), 6=>(200, 365))
+        ranges = Dict(2=>(510, 589), 3=>(50, 150), 3=>(375, 445), 4=>(100, 150), 5=>(250, 350), 6=>(200, 365))
+        #ranges = Dict(2=>(510, 589), 3=>(50, 150), 3=>(375, 445), 4=>(85, 150), 5=>(250, 350), 6=>(200, 365))
         #ranges = Dict(2=>(500, 590))
 
         selected_tracks = [[] for i in 1:6] # all six slots (first will be empty)
@@ -2819,6 +3131,7 @@ module Plot
             end
         end
 
+        #npsi = [3, 3, 2, 2, 1, 2, 1, 1, 2, 2, 1, 4, 1, 4]
         npsi = [3, 3, 2, 2, 1, 2, 1, 1, 2, 2, 1, 4, 1, 4]
         nn = 1
         fitted_lines = [[] for i in 1:6] # all six slots (first will be empty)
@@ -2829,6 +3142,7 @@ module Plot
                 x = convert(Array{Float64,1}, selected_tracks[i][j][1])
                 y = convert(Array{Float64,1}, selected_tracks[i][j][2])
                 push!(fitted_lines[i][end][1], x)
+                println("nn $nn")
                 x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[nn]; lambda=lambda)
                 nn += 1
                 push!(fitted_lines[i][end][2], y2)
@@ -2932,7 +3246,7 @@ module Plot
         yl = ylim()
         #println(bps)
         for i in 1:length(bps)
-            for j in 1:length(bps[1])
+            for j in 1:length(bps[i])
                 if i == 1
                     color = "red"
                 else
@@ -2974,6 +3288,122 @@ module Plot
         end
     end
 
+
+    function driftdirection_J1750_2(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st:bin_end]
+            push!(das, da)
+        end
+
+        tracks = []
+        inclines = []
+        dr_x = []
+        dr_y = []
+        for i in 1:7
+            tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            push!(tracks, tracks1)
+            push!(inclines, inclines1)
+            push!(dr_x, dr1)
+            push!(dr_y, ysp1)
+        end
+
+        ranges = [[2, (300, 350)], [2, (375, 420)], [2, (485, 595)], [2, (955, 1040)], [3, (50, 350)], [4, (1, 450)]]#, [4, (100, 150)], [5, (250, 350)], [6, (200, 365)]]
+
+        selected_tracks = [[] for i in 1:7] # all seven slots (first will be empty)
+        #println(tracks[1][1][:, 2])  # pulse number
+
+        for ra in ranges
+            k = ra[1]
+            v = ra[2]
+            println("Session: ", k)
+            for i in 1:length(tracks[k])
+                create_new = true
+                for (ii, pulse) in enumerate(tracks[k][i][:, 2])
+                    if (pulse > v[1]) && (pulse < v[2])
+                        if create_new
+                            push!(selected_tracks[k], [[], []])
+                            create_new = false
+                            println("\tNew track session:$k track:$i pulse:$pulse loc:", tracks[k][i][ii, 1])
+                        end
+                        push!(selected_tracks[k][end][1], pulse) # x - pulse number
+                        push!(selected_tracks[k][end][2], tracks[k][i][ii, 1]) # location
+                        #println("\t $v $pulse ", tracks[k][i][ii, 1])
+                    end
+                end
+            end
+        end
+
+
+        #npsi = [3, 3, 2, 2, 1, 2, 1, 1, 2, 2, 1, 4, 1, 4]
+        npsi = [1, 1,   1, 1, 1,   0,4, 4,   2, 2,   2, 4, 4, 1,    2, 2, 2, 2,   0, 0, 0, 0, 0, 0, 0] # 0 is for skipped track
+        # bad fit for 2 4 3 1 (4th)
+        nn = 1
+        fitted_lines = [[] for i in 1:7] # all seven slots (first will be empty)
+        for i in 1:length(selected_tracks)
+            for j in 1:length(selected_tracks[i])
+                push!(fitted_lines[i], [[], [], [], [], [], [], [], [], []])
+                println("$i $j nn:$nn")
+                x = convert(Array{Float64,1}, selected_tracks[i][j][1])
+                y = convert(Array{Float64,1}, selected_tracks[i][j][2])
+                push!(fitted_lines[i][end][1], x)
+                println("nn $nn")
+                println("npsi $(npsi[nn])")
+                x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[nn]; lambda=lambda, preview=false)
+                nn += 1
+                push!(fitted_lines[i][end][2], y2)
+                push!(fitted_lines[i][end][3], ysl)  # for tracks
+                push!(fitted_lines[i][end][4], slopes)
+                push!(fitted_lines[i][end][5], eslopes)
+                push!(fitted_lines[i][end][6], bp)
+                push!(fitted_lines[i][end][7], ebp)
+                push!(fitted_lines[i][end][8], xl) # xlin later on
+                push!(fitted_lines[i][end][9], exl) # exlin later on
+            end
+        end
+
+        iis = [[2, 2], [2, 2, 2], [2, 2], [2, 2], [3, 3, 3, 3], [4, 4, 4],    [5, 5], [6, 6]]  # obs. session why iis?
+        jjs = [[1, 2], [3, 4, 5], [7, 8], [9, 10], [1, 2, 3, 4], [1, 2, 3],    [1, 2], [1, 3, 4], [2, 4]]  # tracks
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
+
+        subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
+        figtext(0.09, 0.9, "a)", size=10)
+        figtext(0.5, 0.9, "b)", size=10)
+        figtext(0.84, 0.9, "c)", size=10)
+        figtext(0.09, 0.44, "d)", size=10)
+        figtext(0.43, 0.44, "e)", size=10)
+        figtext(0.74, 0.44, "f)", size=10)
+
+        driftdirection_J1750_subplot(1, 0, 0, 77, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(2, 0, 120, 68, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(3, 0, 210, 48, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(4, 35, 0, 98, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        #driftdirection_J1750_subplot(5, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(6, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+
+        savefig("$outdir/$(name_mod)_driftdirection_2.pdf")
+        println("$outdir/$(name_mod)_driftdirection_2.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+    end
 
 
     function lrfs_average_J1750(slices, pulses, outdir; start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)

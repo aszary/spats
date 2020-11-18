@@ -6,6 +6,7 @@ module PyRModule
     using SmoothingSplines
     using PyPlot
     using Statistics
+    using DataFrames, GLM
 
 
     function __init__()
@@ -56,16 +57,11 @@ module PyRModule
 
 
     function segmented(x, y, npsi; lambda=1000.0, preview=false)
+        @. f(x, p) = p[2] * x + p[1]
+
         # splines fitting to estimate number of extrema
         sl = fit(SmoothingSpline, x, y, lambda)
         ysl = SmoothingSplines.predict(sl)
-
-        if preview
-            scatter(x, y)
-            plot(x, ysl)
-            savefig("test.pdf")
-            close()
-        end
 
         # broken-lines fitting
         @rput x
@@ -74,7 +70,6 @@ module PyRModule
         R"linmod <- lm(y ~ x)"
         #R"summary(linmod)"
         R"library(segmented)"
-        R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi)"
         #=
         if npsi == 3
             R"segmod <- segmented(linmod, seg.Z = ~x, psi=c(520, 542, 565))"
@@ -83,11 +78,44 @@ module PyRModule
         end
         =#
         # lines
+
         try
+            R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi)"
             R"line <- broken.line(segmod)"
         catch
+            R"con <- confint(linmod, level=0.68)"
+            @rget con
+            bp = []
+            ebp = []
+            for i in 1:size(con)[1]
+                push!(bp, con[i, 1])
+                push!(ebp, con[i, 1] - con[i, 2]) # it is fine
+                #println(con[i, 2] - con[i, 2], " ", con[i, 3] - con[i, 1])
+            end
+            #R"lnn <- line(x, y)"
+            #R"y2 <- fitted(lnn)"
+            #R"co <- coef(lnn)"
+            data = DataFrame(X=x, Y=y)
+            ols = lm(@formula(Y ~ X), data)
+            y2 = f(x, coef(ols))
+            slopes = [coef(ols)[2]]
+            eslopes = [stderror(ols)[2]]
+            # get lines means (for slopes plotting)
+            xl = []
+            exl = []
+            push!(xl, x[1] + (x[end] - x[1]) / 2) # first point # is it enougth?
+            push!(exl, (x[end] - x[1]) / 2) # first point
+            #push!(inclines, [mean(x_), coef(ols)[2], stderror(ols)[2]])
             println("BBBB")
-            return x, y, ysl, nothing, nothing, nothing, nothing, nothing, nothing
+            if preview
+                plot(x, y2, lw=3)
+                scatter(x, y)
+                plot(x, ysl)
+                show()
+                readline(stdin; keep=false)
+                close()
+            end
+            return x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl
         end
         @rget line
         y2 = line[:fit]
@@ -164,15 +192,16 @@ module PyRModule
     end
 
 
-    function smooth_spline(x, y; lambda=0.001, df_start=nothing)
+    function smooth_spline(x, y, spar; lambda=0.001, df_start=nothing)
         #println(x)
         #println(y)
+        #df_start = length(x) - 50
         @rput x
         @rput y
         #@rput lambda
-        #R"spl <- smooth.spline(x, y, lambda=$lambda)" # TODO revert this
-        R"spl <- smooth.spline(x, y, spar=0.7)"
-        #R"spl <- smooth.spline(x, y)" #GCV
+        #R"spl <- smooth.spline(x, y, lambda=$lambda)"
+        R"spl <- smooth.spline(x, y, spar=$spar)"
+        #R"spl <- smooth.spline(x, y, cv=FALSE)" #GCV
         #R"spl <- smooth.spline(x, y, df=$df_start)"
         R"yspp <- predict(spl, x)"
         @rget spl

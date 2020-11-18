@@ -842,11 +842,11 @@ module Tools
     end
 
 
-    function analyse_track_simple_dof(x, y; lambda=10)
+    function analyse_track_simple_dof(x, y, spar)
         #spl = fit(SmoothingSpline, x, y, lambda)
         #ysp = SmoothingSplines.predict(spl)
         #ysp, dof = PyRModule.smooth_spline(x, y; df_start=trunc(Int, length(x)*0.3))
-        ysp, dof = PyRModule.smooth_spline(x, y; lambda=lambda)
+        ysp, dof = PyRModule.smooth_spline(x, y, spar)
         line = [x, ysp]
         x2 = Array{Float64}(undef, length(y)-1)
         dr = Array{Float64}(undef, length(y)-1)
@@ -923,8 +923,8 @@ module Tools
         drift_rate = [[], []]
         for track in tracks#[1:3]
             #ll, inc = Tools.analyse_track_sl(track[:,3], track[:,1]; lambda=lambda)
-            #ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
-            ll, inc, dof = Tools.analyse_track_simple_dof(track[:,2], track[:,1]; lambda=lambda) # do not use it yet!
+            ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
+            #ll, inc, dof = Tools.analyse_track_simple_dof(track[:,2], track[:,1]; lambda=lambda) # do not use it yet!
             dof = 1  # do not use it yet
             push!(lines, ll)
             push!(inclines, inc)
@@ -941,12 +941,53 @@ module Tools
         drift_rate[2] = view(drift_rate[2], sp)
         dr1 = convert(Array{Float64,1}, drift_rate[1])
         dr2 = convert(Array{Float64,1}, drift_rate[2])
-        #spl = SmoothingSplines.fit(SmoothingSpline, dr1, dr2, lambda)
-        spl = SmoothingSplines.fit(SmoothingSpline, dr1, dr2, 1000.0)
+        spl = SmoothingSplines.fit(SmoothingSpline, dr1, dr2, lambda)
+        #spl = SmoothingSplines.fit(SmoothingSpline, dr1, dr2, 1000.0)
         ysp = SmoothingSplines.predict(spl)
         #println(length(spl.g), " ", length(ysp), " ", length(dr1), " ", spl.Xcount) # works here? does not change with lambda (100)?
         return tracks, lines, inclines, dr1, ysp, dofs
     end
+
+
+    function get_driftrate2(trackdir, spar)
+        tracks = []
+        # load tracks
+        files = Glob.glob("track_*.jld2", trackdir)
+        for file in files
+            @load file track
+            tr = Tools.remove_duplicates(track)
+            push!(tracks, tr)
+        end
+
+        lines = []
+        dofs = []
+        inclines = []
+        drift_rate = [[], []]
+        for track in tracks#[1:3]
+            #ll, inc = Tools.analyse_track_sl(track[:,3], track[:,1]; lambda=lambda)
+            #ll, inc = Tools.analyse_track_simple(track[:,2], track[:,1]; lambda=lambda)
+            ll, inc, dof = Tools.analyse_track_simple_dof(track[:,2], track[:,1], spar)
+            dof = 1  # do not use it yet
+            push!(lines, ll)
+            push!(inclines, inc)
+            push!(dofs, dof)
+        end
+        for inc in inclines
+            for i in 1:length(inc[1])
+                push!(drift_rate[1], inc[1][i])
+                push!(drift_rate[2], inc[2][i])
+            end
+        end
+        sp = sortperm(drift_rate[1])
+        drift_rate[1] = view(drift_rate[1], sp)
+        drift_rate[2] = view(drift_rate[2], sp)
+        dr1 = convert(Array{Float64,1}, drift_rate[1])
+        dr2 = convert(Array{Float64,1}, drift_rate[2])
+        ysp, dof_ = PyRModule.smooth_spline(dr1, dr2, spar)
+        return tracks, lines, inclines, dr1, ysp, dofs
+    end
+
+
 
     function driftrate_analysis_J1750(outdir, lambda)
 
@@ -1253,6 +1294,22 @@ module Tools
         end
 
         return intens, p3_, p3_err_, frequency
+    end
+
+
+    function convert_tracks(tracks_dir; bin=1024)
+        for i in 1:7
+            dir_ = "$tracks_dir/$i/"
+            files = Glob.glob("track_*.jld2", dir_)
+            for file in files
+                @load file track
+                #println(track)
+                for i in 1:size(track)[1]
+                    track[i, 1] = track[i, 1] / bin * 360
+                end
+                #@save file track # just to be safe
+            end
+        end
     end
 
 end  # module Tools
