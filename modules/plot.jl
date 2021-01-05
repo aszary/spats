@@ -2598,8 +2598,8 @@ module Plot
         tracks7, lines7, inclines7, dr7, ysp7, dof7 = Tools.get_driftrate("$outdir/tracks/7", lambda)
 
         slopes1_, eslopes1_, bps1_, ebps1_, xs1_, exs1_, x1_, y1_ = get_slopes_breakpoints(tracks1, lambda, preview=false)
-        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_, x2_, y2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 5, 1, 3, 1, 5, 6, 3, 2, 3, 1, 0, 0, 5, 9, 4, 2])
-        slopes3_, eslopes3_, bps3_, ebps3_, xs3_, exs3_, x3_, y3_ = get_slopes_breakpoints(tracks3, lambda; npsi=[0, 2, 4, 2, 1, 2, 2, 2])
+        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_, x2_, y2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 5, 1, 1, 1, 4, 7, 3, 2, 4, 1, 0, 0, 4, 9, 5, 1], preview=false)
+        slopes3_, eslopes3_, bps3_, ebps3_, xs3_, exs3_, x3_, y3_ = get_slopes_breakpoints(tracks3, lambda; npsi=[0, 2, 4, 1, 1, 2, 2, 2])
         slopes4_, eslopes4_, bps4_, ebps4_, xs4_, exs4_, x4_, y4_ = get_slopes_breakpoints(tracks4, lambda; npsi=[0, 0, 0, 3, 2, 1, 1, 2, 2, 1])
         slopes5_, eslopes5_, bps5_, ebps5_, xs5_, exs5_, x5_, y5_ = get_slopes_breakpoints(tracks5, lambda; npsi=[0, 0, 2, 1, 5, 3, 3, 1, 0])
         slopes6_, eslopes6_, bps6_, ebps6_, xs6_, exs6_, x6_, y6_ = get_slopes_breakpoints(tracks6, lambda; npsi=[4, 2, 2, 3, 6, 6, 0])
@@ -2676,8 +2676,10 @@ module Plot
         xlabel("Pulse number")
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
-        for track in tracks2
+        for (i, track) in enumerate(tracks2)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            text(track[:,2][1], track[:,1][1], "$i")
+
         end
         for i in 1:length(x2_)
             plot(x2_[i], y2_[i], lw=1.5, alpha=0.7, c="C2")
