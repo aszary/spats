@@ -2599,7 +2599,7 @@ module Plot
         tracks7, lines7, inclines7, dr7, ysp7, dof7 = Tools.get_driftrate("$outdir/tracks/7", lambda)
 
         slopes1_, eslopes1_, bps1_, ebps1_, xs1_, exs1_, x1_, y1_ = get_slopes_breakpoints(tracks1, lambda, preview=false)
-        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_, x2_, y2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 5, 1, 1, 1, 4, 7, 3, 2, 4, 1, 0, 0, 4, 9, 4, 1], preview=false)
+        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_, x2_, y2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 5, 1, 1, 1, 4, 7, 3, 2, 4, 1, 0, 4, 9, 4, 1], preview=false)
         slopes3_, eslopes3_, bps3_, ebps3_, xs3_, exs3_, x3_, y3_ = get_slopes_breakpoints(tracks3, lambda; npsi=[0, 2, 4, 1, 1, 2, 2, 2])
         slopes4_, eslopes4_, bps4_, ebps4_, xs4_, exs4_, x4_, y4_ = get_slopes_breakpoints(tracks4, lambda; npsi=[0, 0, 0, 3, 2, 1, 1, 2, 2, 1])
         slopes5_, eslopes5_, bps5_, ebps5_, xs5_, exs5_, x5_, y5_ = get_slopes_breakpoints(tracks5, lambda; npsi=[0, 0, 2, 1, 5, 3, 3, 1, 0])
