@@ -607,7 +607,7 @@ module SpaTs
         #peaks = Tools.track_subpulses(data2, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data2, "$(outdir)tracks/2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
         #Plot.tracks_analysis3("$(outdir)tracks/2"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
-        #peaks = Tools.track_subpulses(data3, 15, thresh=0.3, thresh2=0.4, on_st=350, on_end=650)
+        #peaks = Tools.track_subpulses(data3, 15, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data3, "$(outdir)tracks/3", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.5)
         #Plot.tracks_analysis3("$(outdir)tracks/3"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.6)
         #peaks = Tools.track_subpulses(data4, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
@@ -621,7 +621,7 @@ module SpaTs
         #Plot.tracks_analysis3("$(outdir)tracks/6"; lambda=1000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
         #peaks = Tools.track_subpulses(data7, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data7, "$(outdir)tracks/7", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="7", darkness=0.5)
-        #Tools.convert_tracks("$outdir/tracks/") # TODO # converts from bins to longitude! # IMPORTANT # do it once
+        #Tools.convert_tracks("$outdir/tracks/") # converts from bins to longitude! # IMPORTANT # do it once # do not use it anymore! group_tracks improved
 
         # P3 grand-average NOPE! check Figure 2
         #=
@@ -660,7 +660,7 @@ module SpaTs
         #Plot.driftrate_J1750_2(outdir; spar=0.6, show_=true) # not too good, but I tried...
         #Plot.driftrate_J1750_2(outdir; lambda=1000.0, show_=true)
         #Plot.driftrate_analysis_J1750_2(outdir; lambda=1000.0, show_=true)
-        Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=true)
+        Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=false)
 
         # Timescales # too messy switch to drift rate?
         #Plot.driftdirection_J1750_2([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="1234567", show_=false)

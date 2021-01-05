@@ -1541,7 +1541,7 @@ module Plot
                     sz = size(picks)
                     track = Array{Float64}(undef, sz[1], 2)
                     for i in 1:sz[1]
-                        track[i, 1] = picks[i][1] / bins * 360 # IMPORTANT chenged do not use convert_tracks anymore!
+                        track[i, 1] = picks[i][1] # IMPORTANT do not use convert_tracks anymore! extent changed
                         track[i, 2] = picks[i][2]
                     end
                     #println(track[:,1])
@@ -1604,7 +1604,7 @@ module Plot
         xlim(1.1, -0.1)
         xlabel("intensity")
         ylabel("Pulse number")
-        extent = [bin_st, bin_end, start-0.5, start+number-1+0.5]
+        extent = [bin_st/bins*360, bin_end/bins*360, start-0.5, start+number-1+0.5]
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
         imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=extent)
         xlim([extent[1], extent[2]])
@@ -1613,7 +1613,7 @@ module Plot
         for peak in peaks
             if (peak[1] >= start) && (peak[1] <= start + number)
                 for x in peak[2]
-                    plot(x, peak[1], marker="x", markersize=5, markeredgewidth=2.2, c="red", fillstyle="full", mfc="red", lw=0, picker=10, alpha=0.5)
+                    plot(x/bins*360, peak[1], marker="x", markersize=5, markeredgewidth=2.2, c="red", fillstyle="full", mfc="red", lw=0, picker=10, alpha=0.5)
                     #scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1, picker=2)
                     #println("$(peak[1]) $x")
                 end
@@ -2554,6 +2554,8 @@ module Plot
         ebps_ = []
         xs_ = []
         exs_ = []
+        x_ = []
+        y_ = []
 
         # fit broken lines to get slopes and breakpoints
         for (i,track) in enumerate(tracks)
@@ -2575,11 +2577,13 @@ module Plot
             ebps_ = vcat(ebps_, ebp)
             xs_ = vcat(xs_, xl)
             exs_ = vcat(exs_, exl)
+            push!(x_, x)
+            push!(y_, y2)
         end
         #println(xs_)
         #println(length(slopes_))
         #println(slopes_)
-        return slopes_, eslopes_, bps_, ebps_, xs_, exs_
+        return slopes_, eslopes_, bps_, ebps_, xs_, exs_, x_, y_
 
     end
 
@@ -2593,13 +2597,13 @@ module Plot
         tracks6, lines6, inclines6, dr6, ysp6, dof6 = Tools.get_driftrate("$outdir/tracks/6", lambda)
         tracks7, lines7, inclines7, dr7, ysp7, dof7 = Tools.get_driftrate("$outdir/tracks/7", lambda)
 
-        slopes1_, eslopes1_, bps1_, ebps1_, xs1_, exs1_ = get_slopes_breakpoints(tracks1, lambda, preview=false)
-        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 5, 1, 3, 1, 5, 6, 3, 2, 3, 1, 0, 0, 5, 9, 4, 2])
-        slopes3_, eslopes3_, bps3_, ebps3_, xs3_, exs3_ = get_slopes_breakpoints(tracks3, lambda; npsi=[0, 2, 4, 3, 1, 2, 2])
-        slopes4_, eslopes4_, bps4_, ebps4_, xs4_, exs4_ = get_slopes_breakpoints(tracks4, lambda; npsi=[0, 0, 0, 3, 2, 1, 1, 2, 2, 1])
-        slopes5_, eslopes5_, bps5_, ebps5_, xs5_, exs5_ = get_slopes_breakpoints(tracks5, lambda; npsi=[0, 0, 2, 1, 5, 3, 3, 1, 0])
-        slopes6_, eslopes6_, bps6_, ebps6_, xs6_, exs6_ = get_slopes_breakpoints(tracks6, lambda; npsi=[4, 2, 2, 3, 6, 6, 0])
-        slopes7_, eslopes7_, bps7_, ebps7_, xs7_, exs7_ = get_slopes_breakpoints(tracks7, lambda; npsi=[2, 4, 2, 3, 1, 1, 1, 2, 2])
+        slopes1_, eslopes1_, bps1_, ebps1_, xs1_, exs1_, x1_, y1_ = get_slopes_breakpoints(tracks1, lambda, preview=false)
+        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_, x2_, y2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 5, 1, 3, 1, 5, 6, 3, 2, 3, 1, 0, 0, 5, 9, 4, 2])
+        slopes3_, eslopes3_, bps3_, ebps3_, xs3_, exs3_, x3_, y3_ = get_slopes_breakpoints(tracks3, lambda; npsi=[0, 2, 4, 2, 1, 2, 2, 2])
+        slopes4_, eslopes4_, bps4_, ebps4_, xs4_, exs4_, x4_, y4_ = get_slopes_breakpoints(tracks4, lambda; npsi=[0, 0, 0, 3, 2, 1, 1, 2, 2, 1])
+        slopes5_, eslopes5_, bps5_, ebps5_, xs5_, exs5_, x5_, y5_ = get_slopes_breakpoints(tracks5, lambda; npsi=[0, 0, 2, 1, 5, 3, 3, 1, 0])
+        slopes6_, eslopes6_, bps6_, ebps6_, xs6_, exs6_, x6_, y6_ = get_slopes_breakpoints(tracks6, lambda; npsi=[4, 2, 2, 3, 6, 6, 0])
+        slopes7_, eslopes7_, bps7_, ebps7_, xs7_, exs7_, x7_, y7_ = get_slopes_breakpoints(tracks7, lambda; npsi=[2, 4, 2, 3, 1, 1, 1, 2, 2])
 
         a = get_length(tracks1) + get_length(tracks2) + get_length(tracks3) # 1900 is fine
         b = get_length(tracks4) + get_length(tracks5) + get_length(tracks6) + get_length(tracks7) # 1900 is fine
@@ -2638,9 +2642,14 @@ module Plot
         for track in tracks1#[1:3]
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.0, lw=0, markeredgewidth=0.2)
         end
-        for line in lines1
-            plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        for i in 1:length(x1_)
+            plot(x1_[i], y1_[i], lw=1.5, alpha=0.7, c="C2")
         end
+        #=
+        for line in lines1
+            #plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
+        end
+        =#
         xl = xlim()
         ylim(yl)
         # first session
@@ -2649,10 +2658,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
         axhline(y=0, lw=1, ls="--")
-        plot(dr1, ysp1, lw=3, alpha=0.5, c="grey")
+        plot(dr1, ysp1, lw=1, alpha=1.0, c="grey")
+        #=
         for inc in inclines1
             plot(inc[1], inc[2], lw=0.2, c="black", alpha=1.0)
         end
+        =#
         errorbar(xs1_, slopes1_, yerr=eslopes1_, xerr=exs1_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
         xlim(xl)
         ylabel("Drift rate \$(^\\circ / P)\$")
@@ -2668,9 +2679,14 @@ module Plot
         for track in tracks2
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
+        for i in 1:length(x2_)
+            plot(x2_[i], y2_[i], lw=1.5, alpha=0.7, c="C2")
+        end
+        #=
         for line in lines2
             plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
+        =#
         xl = xlim()
         ylim(yl)
         # second session
@@ -2679,10 +2695,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
         minorticks_on()
         axhline(y=0, lw=1, ls="--")
-        plot(dr2, ysp2, lw=3, alpha=1.0, c="grey")
+        plot(dr2, ysp2, lw=1, alpha=1.0, c="grey")
+        #=
         for inc in inclines2
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
+        =#
         errorbar(xs2_, slopes2_, yerr=eslopes2_, xerr=exs2_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
         xlim(xl)
         ylim(yl2)
@@ -2698,9 +2716,14 @@ module Plot
         for track in tracks3
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
+        for i in 1:length(x3_)
+            plot(x3_[i], y3_[i], lw=1.5, alpha=0.7, c="C2")
+        end
+        #=
         for line in lines3
             plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
+        =#
         xl = xlim()
         ylim(yl)
         # third session
@@ -2709,10 +2732,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         minorticks_on()
         axhline(y=0, lw=1, ls="--")
-        plot(dr3, ysp3, lw=3, alpha=1.0, c="grey")
+        plot(dr3, ysp3, lw=1, alpha=1.0, c="grey")
+        #=
         for inc in inclines3
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
+        =#
         errorbar(xs3_, slopes3_, yerr=eslopes3_, xerr=exs3_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
         xlim(xl)
         ylim(yl2)
@@ -2727,9 +2752,14 @@ module Plot
         for track in tracks4
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
+        for i in 1:length(x4_)
+            plot(x4_[i], y4_[i], lw=1.5, alpha=0.7, c="C2")
+        end
+        #=
         for line in lines4
             plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
+        =#
         xl = xlim()
         ylim(yl)
         ylabel("Longitude (\$ ^{\\circ}\$)")
@@ -2738,10 +2768,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
         axhline(y=0, lw=1, ls="--")
-        plot(dr4, ysp4, lw=3, alpha=1.0, c="grey")
+        plot(dr4, ysp4, lw=1, alpha=1.0, c="grey")
+        #=
         for inc in inclines4
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
+        =#
         errorbar(xs4_, slopes4_, yerr=eslopes4_, xerr=exs4_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
         xlim(xl)
         ylim(yl2)
@@ -2756,9 +2788,14 @@ module Plot
         for track in tracks5
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
+        for i in 1:length(x5_)
+            plot(x5_[i], y5_[i], lw=1.5, alpha=0.7, c="C2")
+        end
+        #=
         for line in lines5
             plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
+        =#
         xl = xlim()
         ylim(yl)
         # fifth session
@@ -2766,10 +2803,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         axhline(y=0, lw=1, ls="--")
-        plot(dr5, ysp5, lw=3, alpha=1.0, c="grey")
+        plot(dr5, ysp5, lw=1, alpha=1.0, c="grey")
+        #=
         for inc in inclines5
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
+        =#
         errorbar(xs5_, slopes5_, yerr=eslopes5_, xerr=exs5_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
         xlim(xl)
         ylim(yl2)
@@ -2783,9 +2822,14 @@ module Plot
         for track in tracks6
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
+        for i in 1:length(x6_)
+            plot(x6_[i], y6_[i], lw=1.5, alpha=0.7, c="C2")
+        end
+        #=
         for line in lines6
             plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
+        =#
         xl = xlim()
         ylim(yl)
         # sixth session
@@ -2793,10 +2837,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
         axhline(y=0, lw=1, ls="--")
-        plot(dr6, ysp6, lw=3, alpha=1.0, c="grey")
+        plot(dr6, ysp6, lw=1, alpha=1.0, c="grey")
+        #=
         for inc in inclines6
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
+        =#
         errorbar(xs6_, slopes6_, yerr=eslopes6_, xerr=exs6_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
         xlim(xl)
         ylim(yl2)
@@ -2811,9 +2857,14 @@ module Plot
         for track in tracks7
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
         end
+        for i in 1:length(x7_)
+            plot(x7_[i], y7_[i], lw=1.5, alpha=0.7, c="C2")
+        end
+        #=
         for line in lines7
             plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
         end
+        =#
         xl = xlim()
         ylim(yl)
         # seventh session
@@ -2821,10 +2872,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         minorticks_on()
         axhline(y=0, lw=1, ls="--")
-        plot(dr7, ysp7, lw=3, alpha=1.0, c="grey")
+        plot(dr7, ysp7, lw=1, alpha=1.0, c="grey")
+        #=
         for inc in inclines7
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
+        =#
         errorbar(xs7_, slopes7_, yerr=eslopes7_, xerr=exs7_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
         xlim(xl)
         ylim(yl2)

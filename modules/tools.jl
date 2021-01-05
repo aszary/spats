@@ -1307,7 +1307,7 @@ module Tools
                 for i in 1:size(track)[1]
                     track[i, 1] = track[i, 1] / bin * 360
                 end
-                #@save file track # just to be safe
+                #@save file track # disabled just to be safe
             end
         end
     end
