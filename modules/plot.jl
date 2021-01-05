@@ -2558,8 +2558,8 @@ module Plot
         y_ = []
 
         # fit broken lines to get slopes and breakpoints
-        for (i,track) in enumerate(tracks)
-            println(i)
+        for (i, track) in enumerate(tracks)
+            println(i, " ", npsi[i])
             x = track[:, 2] # pulse number
             y = track[:, 1] # longitude
             x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[i]; lambda=lambda, preview=preview)
