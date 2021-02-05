@@ -1100,14 +1100,6 @@ module Tools
 
     function driftrate_analysis_J1750_2(outdir, lambda)
 
-        tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/1", lambda)
-        tracks2, lines2, inclines2, dr2, ysp2 = Tools.get_driftrate("$outdir/tracks/2", lambda)
-        tracks3, lines3, inclines3, dr3, ysp3 = Tools.get_driftrate("$outdir/tracks/3", lambda)
-        tracks4, lines4, inclines4, dr4, ysp4 = Tools.get_driftrate("$outdir/tracks/4", lambda)
-        tracks5, lines5, inclines5, dr5, ysp5 = Tools.get_driftrate("$outdir/tracks/5", lambda)
-        tracks6, lines6, inclines6, dr6, ysp6 = Tools.get_driftrate("$outdir/tracks/6", lambda)
-        tracks7, lines7, inclines7, dr7, ysp7 = Tools.get_driftrate("$outdir/tracks/7", lambda)
-
         tracks = []
         lines = []
         inclines = []
@@ -1123,12 +1115,12 @@ module Tools
             push!(ysps, ysp1)
         end
 
-        min_length = 3
+        min_length = 3 # minimum mode length in periods
         neg_duration = []
         pos_duration = []
         drn_ = []
         drp_ = []
-        for i in 1:6
+        for i in 1:length(tracks)
             negative = []
             positive = []
             push!(neg_duration,[])
@@ -1148,13 +1140,16 @@ module Tools
                 en = negative[end]
             end
             for j in 1:length(negative)-1
+                # if no continuity in pulse number
                 if (negative[j+1] - negative[j] > min_length)
                     push!(neg_duration[end], Dict(trunc(st)=>trunc((negative[j]-st))))
+                    #println("$i ", neg_duration[end][end])
                     st = negative[j+1]
                 end
             end
-            if length(negative) >= 1
+            if (length(negative) >= 1) && (en-st > 0)
                 push!(neg_duration[end], Dict(trunc(st)=>trunc(en-st)))
+                #println("$i ", neg_duration[end][end])
             end
             # positive duration
             if length(positive) >= 1
@@ -1164,45 +1159,114 @@ module Tools
             for j in 1:length(positive)-1
                 if (positive[j+1] - positive[j] > min_length)
                     push!(pos_duration[end], Dict(trunc(stp)=>trunc((positive[j]-stp))))
+                    #println("$i ", pos_duration[end][end])
                     stp = positive[j+1]
                 end
             end
-            if length(positive) >= 1
+            if (length(positive)) >= 1 && (enp-stp > 0)
                 push!(pos_duration[end], Dict(trunc(stp)=>trunc(enp-stp)))
             end
         end
 
         # negatives
-        #println(neg_duration)
         nnum = 0
         ndurations = []
+        mimi = 1e50
+        mama = -1e50
+        nsession = nothing
+        nsession2 = nothing
+        npulse = nothing
+        npulse2 = nothing
         for (i, neg) in enumerate(neg_duration)
             nnum += length(neg)
             for n in neg
-                push!(ndurations, collect(values(n))[1])
+                #println(n)
+                val = collect(values(n))[1]
+                if val < mimi
+                    nsession = i
+                    #println("$i ", n)
+                    npulse = collect(keys(n))[1]
+                    mimi = val
+                end
+                if val > mama
+                    nsession2 = i
+                    #println("$i ", n)
+                    npulse2 = collect(keys(n))[1]
+                    mama = val
+                end
+                push!(ndurations, val)
             end
         end
+        #println(ndurations)
 
         # positives
-        println(pos_duration)
         pnum = 0
         pdurations = []
+        mama = -1e50
+        psession = nothing
+        ppulse = nothing
         for (i, pos) in enumerate(pos_duration)
             pnum += length(pos)
             for p in pos
-                push!(pdurations, collect(values(p))[1])
+                val = collect(values(p))[1]
+                if val > mama
+                    psession = i
+                    ppulse = collect(keys(p))[1]
+                    mama = val
+                end
+                push!(pdurations, val)
             end
         end
 
         println("Negative instances: ", nnum)
-        println("Longest negative: ", maximum(ndurations))
+        println("Longest negative: ", maximum(ndurations), " for session ", nsession2, " pulse ", npulse2)
+        println("shortest negative: ", minimum(ndurations), " for session ", nsession, " pulse ", npulse)
         println("Smallest negative: ", minimum(drn_))
 
         println("Positive instences: ", pnum)
-        println("Positive longest: ", maximum(pdurations))
+        println("Positive longest: ", maximum(pdurations), " for session ", psession, " pulse ", ppulse)
+        println("shortest positive: ", minimum(pdurations))
         println("Biggest positive: ", maximum(drp_))
 
         return ndurations, pdurations
+
+    end
+
+
+    function driftrate_analysis_J1750_3(slopes, eslopes, bps, ebps, xs, exs, set)
+
+        positive = []
+        negative = []
+
+        for i in 1:length(xs[set])
+            if slopes[set][i] > 0
+                for pulse in trunc(Int, xs[set][i]-exs[set][i]):1:trunc(Int,xs[set][i] + exs[set][i])
+                    if ~(pulse in positive)
+                        push!(positive, pulse)
+                    end
+                end
+            else
+                for pulse in trunc(Int, xs[set][i]-exs[set][i]):1:trunc(Int,xs[set][i] + exs[set][i])
+                    if ~(pulse in negative)
+                        push!(negative, pulse)
+                    end
+                end
+            end
+        end
+
+        sort!(positive)
+        sort!(negative)
+
+        rejected = []
+
+        for pulse in positive
+            if pulse in negative
+                push!(rejected, pulse)
+                println("Set: ", set, " pulse: ", pulse, " pos./neg.")
+            end
+        end
+
+        println("Pos: ", length(positive), " Neg: ", length(negative), " Rej: ",length(rejected))
 
     end
 
@@ -1310,6 +1374,14 @@ module Tools
                 #@save file track # disabled just to be safe
             end
         end
+    end
+
+
+    """ analyses profile stability using
+        https://ui.adsabs.harvard.edu/abs/1975ApJ...198..661H/abstract """
+    function analyse_profile_stability(pulses)
+        
+
     end
 
 end  # module Tools

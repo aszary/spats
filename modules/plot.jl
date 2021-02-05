@@ -2544,9 +2544,16 @@ module Plot
     end
 
 
-    function get_slopes_breakpoints(tracks, lambda; npsi=nothing, preview=false)
+    function get_slopes_breakpoints(tracks, lambda; npsi=nothing, fixedpsi=nothing, preview=false)
         if npsi == nothing
             npsi = zeros(length(tracks))
+        end
+
+        if fixedpsi == nothing
+            fixedpsi = []
+            for i in 1:length(tracks)
+                push!(fixedpsi, nothing)
+            end
         end
 
         slopes_= []
@@ -2563,15 +2570,7 @@ module Plot
             println(i, " ", npsi[i])
             x = track[:, 2] # pulse number
             y = track[:, 1] # longitude
-            x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[i]; lambda=lambda, preview=preview)
-            #=
-            push!(slopes_, slopes)
-            push!(eslopes_, eslopes)
-            push!(bps_, bp)
-            push!(ebps_, ebp)
-            push!(xs_, xl)
-            push!(exs_, exl)
-            =#
+            x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[i]; lambda=lambda, fixedpsi=fixedpsi[i], preview=preview)
             slopes_ = vcat(slopes_, slopes)
             eslopes_ = vcat(eslopes_, eslopes)
             bps_ = vcat(bps_, bp)
@@ -2581,9 +2580,6 @@ module Plot
             push!(x_, x)
             push!(y_, y2)
         end
-        #println(xs_)
-        #println(length(slopes_))
-        #println(slopes_)
         return slopes_, eslopes_, bps_, ebps_, xs_, exs_, x_, y_
 
     end
@@ -2599,12 +2595,14 @@ module Plot
         tracks7, lines7, inclines7, dr7, ysp7, dof7 = Tools.get_driftrate("$outdir/tracks/7", lambda)
 
         slopes1_, eslopes1_, bps1_, ebps1_, xs1_, exs1_, x1_, y1_ = get_slopes_breakpoints(tracks1, lambda, preview=false)
-        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_, x2_, y2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 5, 1, 1, 1, 4, 7, 3, 2, 4, 1, 0, 4, 9, 4, 1], preview=false)
+        slopes2_, eslopes2_, bps2_, ebps2_, xs2_, exs2_, x2_, y2_ = get_slopes_breakpoints(tracks2, lambda; npsi=[1, 4, 1, 0, 1, 5, 7, 3, 2, 4, 1, 0, 6, 12, 3, 1], fixedpsi=[nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, [496, 510, 530], nothing], preview=false)
+        # 13 - 4,6, 14 - 9,12
+        # 7 - [889, 895, 909]
         slopes3_, eslopes3_, bps3_, ebps3_, xs3_, exs3_, x3_, y3_ = get_slopes_breakpoints(tracks3, lambda; npsi=[0, 2, 4, 1, 1, 2, 2, 2])
-        slopes4_, eslopes4_, bps4_, ebps4_, xs4_, exs4_, x4_, y4_ = get_slopes_breakpoints(tracks4, lambda; npsi=[0, 0, 0, 3, 2, 1, 1, 2, 2, 1])
-        slopes5_, eslopes5_, bps5_, ebps5_, xs5_, exs5_, x5_, y5_ = get_slopes_breakpoints(tracks5, lambda; npsi=[0, 0, 2, 1, 5, 3, 3, 1, 0])
-        slopes6_, eslopes6_, bps6_, ebps6_, xs6_, exs6_, x6_, y6_ = get_slopes_breakpoints(tracks6, lambda; npsi=[4, 2, 2, 3, 6, 6, 0])
-        slopes7_, eslopes7_, bps7_, ebps7_, xs7_, exs7_, x7_, y7_ = get_slopes_breakpoints(tracks7, lambda; npsi=[2, 4, 2, 3, 1, 1, 1, 2, 2])
+        slopes4_, eslopes4_, bps4_, ebps4_, xs4_, exs4_, x4_, y4_ = get_slopes_breakpoints(tracks4, lambda; npsi=[0, 0, 0, 2, 2, 0, 1, 3, 4, 2])
+        slopes5_, eslopes5_, bps5_, ebps5_, xs5_, exs5_, x5_, y5_ = get_slopes_breakpoints(tracks5, lambda; npsi=[0, 0, 1, 1, 3, 2, 3, 1, 0])
+        slopes6_, eslopes6_, bps6_, ebps6_, xs6_, exs6_, x6_, y6_ = get_slopes_breakpoints(tracks6, lambda; npsi=[3, 2, 1, 3, 6, 8, 0])
+        slopes7_, eslopes7_, bps7_, ebps7_, xs7_, exs7_, x7_, y7_ = get_slopes_breakpoints(tracks7, lambda; npsi=[2, 4, 2, 5, 1, 1, 1, 2, 1])
 
         a = get_length(tracks1) + get_length(tracks2) + get_length(tracks3) # 1900 is fine
         b = get_length(tracks4) + get_length(tracks5) + get_length(tracks6) + get_length(tracks7) # 1900 is fine
@@ -2679,8 +2677,7 @@ module Plot
         ax.xaxis.set_ticks_position("top")
         for (i, track) in enumerate(tracks2)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
-            text(track[:,2][1], track[:,1][1], "$i")
-
+            #text(track[:,2][1], track[:,1][1], "$i")
         end
         for i in 1:length(x2_)
             plot(x2_[i], y2_[i], lw=1.5, alpha=0.7, c="C2")
@@ -2704,7 +2701,12 @@ module Plot
             plot(inc[1], inc[2], lw=0.4, c="black", alpha=0.6)
         end
         =#
-        errorbar(xs2_, slopes2_, yerr=eslopes2_, xerr=exs2_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
+        # TODO what is wrong here?
+        println(length(xs2_))
+        println(length(exs2_))
+        println(length(slopes2_))
+        println(length(eslopes2_))
+        errorbar(xs2_, slopes2_[1:length(xs2_)], yerr=eslopes2_[1:length(xs2_)], xerr=exs2_, color="none", lw=0.5, marker="_", mec="blue", ecolor="blue", capsize=0, mfc="blue", ms=0.0, zorder=999)
         xlim(xl)
         ylim(yl2)
 
@@ -2716,8 +2718,9 @@ module Plot
         #ax.yaxis.set_label_position("right")
         #ax.yaxis.set_ticks_position("right")
         minorticks_on()
-        for track in tracks3
+        for (i, track) in enumerate(tracks3)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            #text(track[:,2][1], track[:,1][1], "$i")
         end
         for i in 1:length(x3_)
             plot(x3_[i], y3_[i], lw=1.5, alpha=0.7, c="C2")
@@ -2752,8 +2755,9 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
-        for track in tracks4
+        for (i, track) in enumerate(tracks4)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            #text(track[:,2][1], track[:,1][1], "$i")
         end
         for i in 1:length(x4_)
             plot(x4_[i], y4_[i], lw=1.5, alpha=0.7, c="C2")
@@ -2788,8 +2792,9 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
-        for track in tracks5
+        for (i, track) in enumerate(tracks5)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            #text(track[:,2][1], track[:,1][1], "$i")
         end
         for i in 1:length(x5_)
             plot(x5_[i], y5_[i], lw=1.5, alpha=0.7, c="C2")
@@ -2822,8 +2827,9 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
-        for track in tracks6
+        for (i, track) in enumerate(tracks6)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            #text(track[:,2][1], track[:,1][1], "$i")
         end
         for i in 1:length(x6_)
             plot(x6_[i], y6_[i], lw=1.5, alpha=0.7, c="C2")
@@ -2857,8 +2863,9 @@ module Plot
         #tick_params(axis="x", which="both", direction="in", labeltop=false, labelbottom=true, top=false)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         minorticks_on()
-        for track in tracks7
+        for (i, track) in enumerate(tracks7)
             plot(track[:,2], track[:,1], marker="x", color="red", markersize=1.5, lw=0, markeredgewidth=0.3)
+            #text(track[:,2][1], track[:,1][1], "$i")
         end
         for i in 1:length(x7_)
             plot(x7_[i], y7_[i], lw=1.5, alpha=0.7, c="C2")
@@ -2927,7 +2934,7 @@ module Plot
     end
 
 
-    function driftrate_analysis_J1750_2(outdir; lambda=100, name_mod="123456", show_=false)
+    function driftrate_analysis_J1750_2(outdir; lambda=100, name_mod="1234567", show_=false)
 
         nd, pd = Tools.driftrate_analysis_J1750_2(outdir, lambda)
 
@@ -2941,6 +2948,7 @@ module Plot
 
         println("Negative sum: ", sum(nd))
         println("Positive sum: ", sum(pd))
+        println("Positive coverage: ",  sum(pd)/ (sum(pd) + sum(nd)))
 
         #figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
         hist(nd, alpha=0.7)
@@ -2956,6 +2964,55 @@ module Plot
     end
 
 
+    function driftrate_analysis_J1750_3(outdir; lambda=200, name_mod="1234567", show_=false)
+
+        tracks = []
+        lines = []
+        inclines = []
+        pulses = []
+        ysps = []
+
+        for i in 1:7
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            push!(tracks, tracks1)
+            push!(lines, lines1)
+            push!(inclines, inclines1)
+            push!(pulses, dr1)
+            push!(ysps, ysp1)
+        end
+
+        npsis = [nothing,
+            [1, 4, 1, 0, 1, 5, 7, 3, 2, 4, 1, 0, 6, 12, 3, 1],
+            [0, 2, 4, 1, 1, 2, 2, 2],
+            [0, 0, 0, 2, 2, 0, 1, 3, 4, 2],
+            [0, 0, 1, 1, 3, 2, 3, 1, 0],
+            [3, 2, 1, 3, 6, 8, 0],
+            [2, 4, 2, 5, 1, 1, 1, 2, 1]
+        ]
+        fixedpsis = [nothing,
+            [nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, [496, 510, 530], nothing],
+            nothing, nothing, nothing, nothing, nothing
+        ]
+        slopes, eslopes, bps, ebps, xs, exs = [], [], [], [], [], []
+
+        for i in 1:7
+            slopesi_, eslopesi_, bpsi_, ebpsi_, xsi_, exsi_, xi_, yi_ = get_slopes_breakpoints(tracks[i], lambda; npsi=npsis[i], fixedpsi=fixedpsis[i], preview=false)
+            push!(slopes, slopesi_)
+            push!(eslopes, eslopesi_)
+            push!(bps, bpsi_)
+            push!(ebps, ebpsi_)
+            push!(xs, xsi_)
+            push!(exs, exsi_)
+        end
+
+        println("\n\n")
+
+        Tools.driftrate_analysis_J1750_3(slopes, eslopes, bps, ebps, xs, exs, 7)
+
+    end
+
+
+    """ calculates average profiels in four ranges (too much, check _2) """
     function average_J1750(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
 
         nums = []
@@ -2977,20 +3034,20 @@ module Plot
         pulses = []
         ysps = []  # drift rate
 
-        for i in 1:6
-            tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks$i", lambda)
+        for i in 1:length(das)
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
             (ysp, dr) = Tools.remove_duplicates_ysp(ysp1, dr1)
             push!(pulses, dr)
             push!(ysps, ysp)
         end
 
-        ranges = [(3, 0), (0, -3), (3, 1), (1, 0), (0, -1), (-1, -3)]
+        ranges = [(1, 0), (0, -1), (1, 0.455), (0.455, 0), (0, -0.365), (-0.365, -1)]
         profiles = []
         averages = []
 
         for r in ranges
             push!(profiles, [])
-            for i in 1:6
+            for i in 1:length(das)
                 for (j, driftrate) in enumerate(ysps[i])
                     if (driftrate < r[1]) && (driftrate > r[2])
                         push!(profiles[end], das[i][pulses[i][j], :] )
@@ -2999,9 +3056,9 @@ module Plot
             end
         end
 
-        #=
+        ##=
         # make profiles equal
-        le = 210
+        le = 270
         for i in 1:length(profiles)
             indx = []
             num = 0
@@ -3015,10 +3072,11 @@ module Plot
             pr = [profiles[i][x] for x in indx]
             profiles[i] = pr
         end
-        =#
+        #
 
         # converting profiles TODO why why why?
         for ii in 1:length(profiles)
+            println(ii)
             x, = size(profiles[ii])
             y, = size(profiles[ii][1]) # bins
             profs = zeros((x,y))
@@ -3062,7 +3120,7 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$", "\$\\qquad \\;\\; {\\rm D} < 0 \$", "\$2.15 > {\\rm D} > \\quad \\; 1 \$", "\$\\quad 1\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-1 \$", "\$\\!-1 \\;\\; > {\\rm D} > -1.88 \$"]
+        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$", "\$\\qquad \\;\\; {\\rm D} < 0 \$", "\$0.91 > {\\rm D} > \\quad \\; 0.5 \$", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
 
 
         figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
@@ -3095,6 +3153,164 @@ module Plot
         close()
 
     end
+
+
+    """ calculates average profiels in two ranges """
+    function average_J1750_2(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st:bin_end]
+            push!(das, da)
+        end
+
+        # drift rate data
+        pulses = []
+        ysps = []  # drift rate
+
+        for i in 1:length(das)
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            (ysp, dr) = Tools.remove_duplicates_ysp(ysp1, dr1)
+            push!(pulses, dr)
+            push!(ysps, ysp)
+        end
+
+        ranges = [(1, 0), (0, -1), (2, -2)]
+        profiles = []
+        averages = []
+
+        for r in ranges
+            push!(profiles, [])
+            for i in 1:length(das)
+                for (j, driftrate) in enumerate(ysps[i])
+                    if (driftrate < r[1]) && (driftrate > r[2])
+                        push!(profiles[end], das[i][pulses[i][j], :] )
+                    end
+                end
+            end
+        end
+
+        #println(length(profiles[3]))
+        #return
+
+        #=
+        # make profiles from equal number of pulses
+        le = 730
+        for i in 1:length(profiles)
+            indx = []
+            num = 0
+            while num < le
+                ind = rand(1:length(profiles[i]))
+                if ~(ind in indx)
+                    push!(indx, ind)
+                    num += 1
+                end
+            end
+            pr = [profiles[i][x] for x in indx]
+            profiles[i] = pr
+        end
+        =#
+
+
+        # converting profiles TODO why why why?
+        for ii in 1:length(profiles)
+            println(ii)
+            x, = size(profiles[ii])
+            y, = size(profiles[ii][1]) # bins
+            profs = zeros((x,y))
+            for i in 1:x
+                for j in 1:y
+                    profs[i,j] = profiles[ii][i][j]
+                end
+            end
+            profiles[ii] = profs
+        end
+
+        nums = []
+        for profile in profiles
+            push!(nums, size(profile)[1])
+            push!(averages, Tools.average_profile(profile; norm=true))
+            #println(size(profile)[1])
+        end
+
+        # Pulse longitude around 0
+        #db = (bin_end + 1) - bin_st  # yes +1
+        #dl = 360. * db / bins[1]
+        #longitude = collect(range(-dl/2., dl/2., length=db))
+
+        # Pulse longitude (raw)
+        longitude = collect(range(bin_st/bins[1] * 360, bin_end/bins[1] * 360, length=bin_end - bin_st + 1))
+
+        #=
+        (p1, err1) = Tools.fit_twogaussians(longitude, averages[1], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p2, err2) = Tools.fit_twogaussians(longitude, averages[2], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p3, err3) = Tools.fit_twogaussians(longitude, averages[3], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p4, err4) = Tools.fit_twogaussians(longitude, averages[4], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        ga = Tools.twogauss(longitude, p4)
+        (p5, err5) = Tools.fit_twogaussians(longitude, averages[5], 0.6, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p6, err6) = Tools.fit_gaussian(longitude, averages[6], a=1.0, μ=-4.0, σ=15.0)
+        println("1: ", p1)
+        println("3: ", p3)
+        println("4: ", p4)
+        #println("err1: ", err1)
+        println("2: ", p2)
+        println("5: ", p5)
+        println("6: ", p6)
+        #println(err2)
+        =#
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$ (N=$(size(profiles[1])[1]))", "\$\\qquad \\;\\; {\\rm D} < 0 \$ (N=$(size(profiles[2])[1]))", "\$0.91 > {\\rm D} > -0.73 \$ (N=$(size(profiles[3])[1]))", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
+
+
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        minorticks_on()
+        plot(longitude, averages[1], c="C1", label=labels[1], lw=0.3, zorder=200)
+        plot(longitude, averages[2], c="C2", label=labels[2], lw=0.3, zorder=201)
+        plot(longitude, averages[3], c="black", label=labels[3], lw=0.5, zorder=199, alpha=0.9)
+        #plot(longitude, ga * sqrt(nums[4]), c="green", lw=1.3, zorder=1200)
+        #plot(longitude, averages[1] * sqrt(nums[1]), c="C1", label=labels[1], lw=0.3, zorder=200)
+        #plot(longitude, averages[3] * sqrt(nums[3]), c="C1", label=labels[3], lw=0.7, alpha=0.7, ls=(0, (1, 1)))
+        #plot(longitude, averages[4] * sqrt(nums[4]), c="C2", label=labels[4], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
+        #plot(longitude, averages[2] * sqrt(nums[2]), c="C2", label=labels[2], lw=0.3, zorder=201)
+        #plot(longitude, averages[5] * sqrt(nums[5]), c="C3", label=labels[5], lw=0.7,alpha=0.7, ls=(0, (1, 1)))
+        #plot(longitude, averages[6] * sqrt(nums[6]), c="C4", label=labels[6], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
+        #for i in 1:length(averages)
+        #    plot(longitude, averages[i] * sqrt(nums[i]), c="C$i", label=labels[i])
+            #plot(longitude, averages[i], c="C$i", label=labels[i])
+        #end
+        #yticks([0.0, 0.5])
+        #xlim(longitude[1], longitude[end])
+        xlabel("longitude (deg.)")
+        #ylabel("\$\\sqrt{\\rm Number \\; of \\; pulses}\$")
+        #ylabel("Intensity (arbitrary units)")
+        ylabel("Intensity (a. u.)")
+        legend(prop=Dict("size"=> 4.1))
+        #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_averages2.pdf")
+        savefig("$outdir/$(name_mod)_averages2.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+
+    end
+
+
 
     """
     get data for driftdirection_J1750 plot

@@ -56,7 +56,7 @@ module PyRModule
     end
 
 
-    function segmented(x, y, npsi; lambda=1000.0, preview=false)
+    function segmented(x, y, npsi; lambda=1000.0, fixedpsi=nothing, preview=false)
         @. f(x, p) = p[2] * x + p[1]
 
         # splines fitting to estimate number of extrema
@@ -78,9 +78,13 @@ module PyRModule
         end
         =#
         # lines
-
         try
-            R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi)"
+            if fixedpsi != nothing
+                R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi, fixed.psi=$fixedpsi)"
+                #R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi)"
+            else
+                R"segmod <- segmented(linmod, seg.Z = ~x, npsi=npsi)"
+            end
             R"line <- broken.line(segmod)"
         catch
             R"con <- confint(linmod, level=0.68)"

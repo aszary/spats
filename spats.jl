@@ -658,12 +658,32 @@ module SpaTs
 
         # The Plot
         #Plot.driftrate_J1750_2(outdir; spar=0.6, show_=true) # not too good, but I tried...
-        #Plot.driftrate_J1750_2(outdir; lambda=1000.0, show_=true)
-        #Plot.driftrate_analysis_J1750_2(outdir; lambda=1000.0, show_=true)
-        Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=false)
+        #Plot.driftrate_J1750_2(outdir; lambda=200.0, show_=true)
+        #Plot.driftrate_analysis_J1750_2(outdir; lambda=200.0, show_=false)
+        #Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=true)
+        #Plot.driftrate_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
 
         # Timescales # too messy switch to drift rate?
         #Plot.driftdirection_J1750_2([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="1234567", show_=false)
+
+        # average profiles
+        #Plot.average_J1750([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # old too many ranges
+        Plot.average_J1750_2([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
+
+
+    end
+
+
+    function J1750_modeled()
+
+        data_patrick = "/home/szary/work/MeerTime/J1750/modeled/"
+        outdir = "/home/szary/work/MeerTime/J1750/modeled/"
+
+        data1 = Data.load_ascii("$(data_patrick)single_pulses.ascii")
+        data2 = Data.load_ascii("$(data_patrick)single_pulses_noiseless.ascii")
+
+        peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=25, on_end=75, off_st=1, off_end=24)
+        Plot.group_tracks(data1, "$(outdir)tracks/", peaks; start=1, number=nothing, bin_st=1, bin_end=100, name_mod="1", darkness=0.6)
 
 
     end
@@ -714,7 +734,8 @@ module SpaTs
         #J1750_remote()
         #J1750_local()
         #J1750_paper()
-        J1750_paper2()
+        #J1750_paper2()
+        J1750_modeled()
 
     end
 
