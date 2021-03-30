@@ -658,17 +658,17 @@ module SpaTs
 
         # The Plot
         #Plot.driftrate_J1750_2(outdir; spar=0.6, show_=true) # not too good, but I tried...
-        #Plot.driftrate_J1750_2(outdir; lambda=200.0, show_=true)
+        #Plot.driftrate_J1750_2(outdir; lambda=200.0, show_=true) # in the paper
         #Plot.driftrate_analysis_J1750_2(outdir; lambda=200.0, show_=false)
-        #Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=true)
-        #Plot.driftrate_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
+        Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=true) # segmented fits
+        Plot.driftrate_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
 
         # Timescales # too messy switch to drift rate?
         #Plot.driftdirection_J1750_2([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="1234567", show_=false)
 
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # old too many ranges
-        Plot.average_J1750_2([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
+        #Plot.average_J1750_2([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
 
 
     end
@@ -676,15 +676,39 @@ module SpaTs
 
     function J1750_modeled()
 
-        data_patrick = "/home/szary/work/MeerTime/J1750/modeled/"
+        data_patrick = "/home/szary/work/MeerTime/J1750/data_patrick/"
+        data_modeled= "/home/szary/work/MeerTime/J1750/modeled/"
         outdir = "/home/szary/work/MeerTime/J1750/modeled/"
 
-        data1 = Data.load_ascii("$(data_patrick)single_pulses.ascii")
-        data2 = Data.load_ascii("$(data_patrick)single_pulses_noiseless.ascii")
+        nsp = 6
 
-        peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=25, on_end=75, off_st=1, off_end=24)
-        Plot.group_tracks(data1, "$(outdir)tracks/", peaks; start=1, number=nothing, bin_st=1, bin_end=100, name_mod="1", darkness=0.6)
+        data1 = Data.load_ascii("$(data_modeled)single_pulses_6_212.ascii")
+        data1m = Data.load_ascii("$(data_modeled)single_pulses_218.ascii")
+        #data2 = Data.load_ascii("$(data_modeled)single_pulses_noiseless.ascii")
+        data1p = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.txt")
+        data2p = Data.load_ascii("$(data_patrick)20191214_142212.debase.hp.txt")
 
+        #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=600, on_end=900, off_st=200, off_end=500)
+        #Plot.group_tracks(data1, "$(outdir)tracks/", peaks; start=1, number=nothing, bin_st=600, bin_end=900, name_mod="1", darkness=0.6)
+        #Plot.driftrate_J1750_2(outdir; lambda=200.0, show_=true)
+
+        #Plot.single(data1, outdir; darkness=0.5, bin_st=330, bin_end=400, start=1, number=size(data1p)[1], name_mod="model_$(nsp)_", show_=false)
+        #Plot.single(data1, outdir; darkness=0.5, bin_st=285, bin_end=320, start=1, number=size(data1p)[1], name_mod="model_$(nsp)_", show_=false)
+        #Plot.lrfs(data1, outdir; darkness=0.5, bin_st=330, bin_end=400, start=1, name_mod="model_$(nsp)_", change_fftphase=false)
+
+        #Plot.single(data1, outdir; darkness=0.8, bin_st=600, bin_end=680, start=1, number=size(data1p)[1], name_mod="model_$(nsp)_", show_=false)
+        #Plot.lrfs(data1, outdir; darkness=0.5, bin_st=600, bin_end=680, start=1, name_mod="model_$(nsp)_", change_fftphase=false)
+
+        #Plot.single(data1p, outdir; darkness=0.5, bin_st=425, bin_end=565, start=1, number=nothing, name_mod="obs")
+        #Plot.lrfs(data1p, outdir; darkness=0.5, bin_st=445, bin_end=545, start=1, name_mod="obs", change_fftphase=false)
+
+        #Plot.lrfses([data1p, data1], outdir; darkness=[0.5, 0.87], bin_st=[400, 270], bin_end=[600, 470], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)")
+
+        # in the paper!
+        #Plot.singles([data1p, data1], outdir; darkness=[0.5, 0.87], bin_st=[400, 270], bin_end=[600, 470], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)", show_=false)
+        #Plot.lrfses([data1p, data1], outdir; darkness=[0.5, 0.3], bin_st=[420, 290], bin_end=[570, 440], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)")
+
+        Plot.modeledpulses_J1750([data2p, data1m], outdir; darkness=[0.7, 1.0], name_mod="obs_model_218", show_=false)
 
     end
 
@@ -734,8 +758,8 @@ module SpaTs
         #J1750_remote()
         #J1750_local()
         #J1750_paper()
-        #J1750_paper2()
-        J1750_modeled()
+        J1750_paper2()
+        #J1750_modeled()
 
     end
 

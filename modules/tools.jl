@@ -808,6 +808,96 @@ module Tools
         return lines, inclines
     end
 
+    """ fit line and get inclinations for data in range i:j - used by find_inclination"""
+    function fit_line(x, y, i, j)
+        @. f(x, p) = p[2] * x + p[1]
+        lines = []
+        inclines = []
+        x_ = x[i:j]
+        y_ = y[i:j]
+        data = DataFrame(X=x_, Y=y_)
+        ols = lm(@formula(Y ~ X), data)
+        line = [x_, f(x_, coef(ols))]
+        push!(lines, line)
+        push!(inclines, [mean(x_), coef(ols)[2], stderror(ols)[2]])
+        return lines, inclines
+    end
+
+
+    function find_inclination(x, y; )
+        lines = []
+        inclines = []
+        len = size(x)[1]
+
+        # find breakpoints
+        break_inds = []
+        for i in 1 : len-1
+            dy = abs(y[i+1] - y[i])
+            if dy > 200
+                push!(break_inds, i)
+                #println(dy, i+1)
+            end
+        end
+
+        # so lazy
+        if length(break_inds) == 0
+            li, inc = fit_line(x, y, 1, len)
+            lines = vcat(lines, li)
+            inclines = vcat(inclines, inc)
+        end
+
+        if length(break_inds) == 1
+            li, inc = fit_line(x, y, 1, break_inds[1])
+            lines = vcat(lines, li)
+            inclines = vcat(inclines, inc)
+
+            li, inc = fit_line(x, y, break_inds[1]+1, len)
+            lines = vcat(lines, li)
+            inclines = vcat(inclines, inc)
+        end
+
+        if length(break_inds) > 1
+            li, inc = fit_line(x, y, 1, break_inds[1])
+            lines = vcat(lines, li)
+            inclines = vcat(inclines, inc)
+            # Not tested yet
+            for j in 1:length(break_inds)-1
+                li, inc = fit_line(x, y, break_inds[j], break_inds[j+1])
+                lines = vcat(lines, li)
+                inclines = vcat(inclines, inc)
+            end
+            li, inc = fit_line(x, y, break_inds[end]+1, len)
+            lines = vcat(lines, li)
+            inclines = vcat(inclines, inc)
+        end
+        return lines, inclines
+    end
+
+
+    """ connects phase first then makes a fit"""
+    function find_inclination2(x, y; )
+        len = size(x)[1]
+
+        # continuous phase change
+        for i in 1 : len-1
+            dy = y[i+1] - y[i]
+            while abs(dy) > 200
+                if dy > 0
+                    y[i+1] -= 360
+                else
+                    y[i+1] += 360
+                end
+                dy = y[i+1] - y[i]
+            end
+        end
+        #println(y)
+        line, incline = fit_line(x, y, 1, len)
+        return line, incline
+    end
+
+
+
+
     "using Smooth lines"
     function analyse_track_sl(x, y; lambda=10)
         spl = fit(SmoothingSpline, x, y, lambda)
@@ -1258,15 +1348,47 @@ module Tools
         sort!(negative)
 
         rejected = []
+        pos = [] # only positive
+        neg = [] # only negative
 
+        # add pos and mark rejections
         for pulse in positive
             if pulse in negative
                 push!(rejected, pulse)
-                println("Set: ", set, " pulse: ", pulse, " pos./neg.")
+                #println("Set: ", set, " pulse: ", pulse, " pos./neg.")
+            else
+                push!(pos, pulse)
             end
         end
 
-        println("Pos: ", length(positive), " Neg: ", length(negative), " Rej: ",length(rejected))
+        # add neg
+        for pulse in negative
+            if ~(pulse in rejected)
+                push!(neg, pulse)
+            end
+        end
+
+        breaks = []
+        lengths = []
+        # shortest positive
+        start_pulse = pos[1]
+        for i in 1:(length(pos)-1)
+            if pos[i+1]-pos[i] != 1
+                push!(lengths, pos[i]-start_pulse + 1) # yes +1 here
+                start_pulse = pos[i+1]
+                push!(breaks, i)
+            end
+        end
+
+        println("\n$set")
+        println("\tpositive lengths: ", lengths)
+        println("\tpositive breaks: ", pos[breaks])
+        println("\tPositive: ", length(positive), " Negative: ", length(negative), " Rejected: ",length(rejected))
+        println("Breakpoints\n")
+        for i in 1:length(bps[set])
+            println("\t\t$i ", bps[set][i])
+        end
+        return lengths
 
     end
 
@@ -1380,7 +1502,7 @@ module Tools
     """ analyses profile stability using
         https://ui.adsabs.harvard.edu/abs/1975ApJ...198..661H/abstract """
     function analyse_profile_stability(pulses)
-        
+
 
     end
 

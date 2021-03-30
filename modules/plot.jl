@@ -22,6 +22,7 @@ module Plot
 
     include("tools.jl")
     include("pyrmodule.jl")
+    include("functions.jl")
 
 
     function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0")
@@ -245,6 +246,91 @@ module Plot
     end
 
 
+    function singles(datas, outdir; start=1, number=nothing, cmap="viridis", bin_st=[nothing, nothing], bin_end=[nothing, nothing], darkness=[0.5, 0.7], name_mod="PSR_NAME", show_=false)
+        num, bins1 = size(datas[1])
+        num2, bins2 = size(datas[2])
+        if number == nothing
+            number = num - start  # missing one?
+        end
+
+        if bin_st[1] == nothing bin_st[1] = 1 end
+        if bin_st[2] == nothing bin_st[2] = 1 end
+        if bin_end[1] == nothing bin_end[1] = bins end
+        if bin_end[2] == nothing bin_end[2] = bins end
+        da1 = datas[1][start:start+number-1,bin_st[1]:bin_end[1]]
+        average1 = Tools.average_profile(da1)
+        intensity1, pulses1 = Tools.intensity_pulses(da1)
+        intensity1 .-= minimum(intensity1)
+        intensity1 ./= maximum(intensity1)
+        average1 .-= minimum(average1)
+        average1 ./= maximum(average1)
+
+        da2 = datas[2][start:start+number-1,bin_st[2]:bin_end[2]]
+        average2 = Tools.average_profile(da2)
+        intensity2, pulses2 = Tools.intensity_pulses(da2)
+        intensity2 .-= minimum(intensity2)
+        intensity2 ./= maximum(intensity2)
+        average2 .-= minimum(average2)
+        average2 ./= maximum(average2)
+
+        pulses1 .+= start - 1  # julia
+        pulses2 .+= start - 1  # julia
+
+        # Pulse longitude
+        db1 = (bin_end[1] + 1) - bin_st[1]  # yes +1
+        dl1 = 360. * db1 / bins1
+        longitude1 = collect(range(-dl1/2., dl1/2., length=db1))
+
+        db2 = (bin_end[2] + 1) - bin_st[2]  # yes +1
+        dl2 = 360. * db2 / bins2
+        longitude2 = collect(range(-dl2/2., dl2/2., length=db2))
+
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
+        subplots_adjust(left=0.13, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        subplot2grid((5, 2), (0, 0), rowspan=4)
+        imshow(da1, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[1]*maximum(da1))
+        minorticks_on()
+        tick_params(labelleft=true, labelbottom=false)
+
+        subplot2grid((5, 2), (0, 1), rowspan=4)
+        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[2]*maximum(da2))
+        tick_params(labelleft=false, labelbottom=false)
+
+        subplot2grid((5, 2), (4, 0))
+        minorticks_on()
+        plot(longitude1, average1, c="grey")
+        yticks([0.0, 0.5])
+        xlim(longitude1[1], longitude1[end])
+        xlabel("longitude \$(^\\circ)\$")
+
+        subplot2grid((5, 2), (4, 1))
+        minorticks_on()
+        plot(longitude2, average2, c="grey")
+        yticks([0.0, 0.5])
+        xlim(longitude2[1], longitude2[end])
+        tick_params(labelleft=false)
+        xlabel("longitude \$(^\\circ)\$")
+
+
+        #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_singles.pdf")
+        savefig("$outdir/$(name_mod)_singles.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+        #clf()
+    end
+
+
+
     function single_J1750(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false, panel="a")
         num, bins = size(data)
         if number == nothing
@@ -320,6 +406,8 @@ module Plot
         da = data[start:start+number-1,bin_st:bin_end]
         average = Tools.average_profile(da)
         lrfs, intensity, freq, peak = Tools.lrfs(da)
+        println("\tpeak freq $(freq[peak]) ")
+        println("\tpeak P3 $(1/freq[peak])")
         phase_ = rad2deg.(angle.(view(lrfs, peak, :)))  # fft phase variation  # view used! lrfs[peak, :] -> copies data
         # skip freq = 0 and normalize intensity to 1
         inten = intensity[2:end]
@@ -330,8 +418,8 @@ module Plot
         fr = pars[2]
         frer = pars[3]  # errs[2] # yeap
 
-        println("\tFrequancy: $fr, P3: $(1/fr)")
-        println("\tFrequancy error: $frer, P3 error: $(1/fr - 1/(fr +frer))")  # TODO err ok?
+        println("\tFrequency (gaussian fit): $fr, P3: $(1/fr)")
+        println("\tFrequency error (gaussian fit): $frer, P3 error: $(1/fr - 1/(fr +frer))")  # TODO err ok?
 
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1
@@ -364,13 +452,26 @@ module Plot
                 #println("$i $(longitude[i])  $dp")
             end
         end
+        # longitude vs. FFT phase analysis
+
+        #=
+        lin, incs = Tools.find_inclination(longitude, phase_)
+        for (i,inc) in enumerate(incs)
+            println("($i) Δ FFT phase / Δ longitude ", round(inc[2], digits=2))
+            println("($i) sigma Δ FFT phase / Δ longitude ", round(inc[3], digits=2))
+        end
+        =#
+
+        lin, inc = Tools.find_inclination2(longitude, phase_)
+        println(" Δ FFT phase / Δ longitude ", round(inc[1][2], digits=2))
+        println("sigma Δ FFT phase / Δ longitude ", round(inc[1][3], digits=2))
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
-        subplots_adjust(left=0.13, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
+        subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
@@ -378,6 +479,9 @@ module Plot
         scatter(longitude, phase_, marker=".", c="grey", s=3.)
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
+        for l in lin
+            plot(l[1], l[2])
+        end
         #ylim(-500, 0)
         #xlim(-1, 2)
         xlabel("longitude \$(^\\circ)\$")
@@ -415,6 +519,166 @@ module Plot
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         close()
     end
+
+
+    function lrfses(datas, outdir; start=1, number=nothing, cmap="viridis", bin_st=[nothing, nothing], bin_end=[nothing, nothing], darkness=0.5, name_mod="0")
+
+        num, bins1 = size(datas[1])
+        num, bins2 = size(datas[2])
+        if number == nothing
+            number = num - start  # missing one?
+        end
+        if bin_st[1] == nothing bin_st[1] = 1 end
+        if bin_st[2] == nothing bin_st[2] = 1 end
+        if bin_end[1] == nothing bin_end[1] = bins end
+        if bin_end[2] == nothing bin_end[2] = bins end
+
+        da1 = datas[1][start:start+number-1,bin_st[1]:bin_end[1]]
+        average1 = Tools.average_profile(da1)
+        lrfs1, intensity1, freq1, peak1 = Tools.lrfs(da1)
+        println("\tpeak freq [1] $(freq1[peak1]) ")
+        println("\tpeak P3 [1] $(1/freq1[peak1])")
+        phase1_ = rad2deg.(angle.(view(lrfs1, peak1, :)))  # fft phase variation  # view used! lrfs[peak, :] -> copies data
+
+        da2 = datas[2][start:start+number-1,bin_st[2]:bin_end[2]]
+        average2 = Tools.average_profile(da2)
+        lrfs2, intensity2, freq2, peak2 = Tools.lrfs(da2)
+        println("\tpeak freq [2] $(freq2[peak2]) ")
+        println("\tpeak P3 [2] $(1/freq2[peak2])")
+        phase2_ = rad2deg.(angle.(view(lrfs2, peak2, :)))  # fft phase variation  # view used! lrfs[peak, :] -> copies data
+        # skip freq = 0 and normalize intensity to 1
+        inten1 = intensity1[2:end]
+        inten1 .-= minimum(inten1)
+        inten1 ./= maximum(inten1)
+        fre1 = freq1[2:end]
+
+        inten2 = intensity2[2:end]
+        inten2 .-= minimum(inten2)
+        inten2 ./= maximum(inten2)
+        fre2 = freq2[2:end]
+
+        pars1, errs1 = Tools.fit_gaussian(fre1, inten1; μ=freq1[peak1-1])  # skip zero freq
+        fr1 = pars1[2]
+        frer1 = pars1[3]  # errs[2] # yeap
+        println("\tFrequency [1](gaussian fit): $fr1, P3: $(1/fr1)")
+        println("\tFrequency error [1] (gaussian fit): $frer1, P3 error: $(1/fr1 - 1/(fr1 +frer1))")
+
+        pars2, errs2 = Tools.fit_gaussian(fre2, inten2; μ=freq2[peak2-1])  # skip zero freq
+        fr2 = pars2[2]
+        frer2 = pars2[3]  # errs[2] # yeap
+        println("\tFrequency [2](gaussian fit): $fr2, P3: $(1/fr2)")
+        println("\tFrequency error [2] (gaussian fit): $frer2, P3 error: $(1/fr2 - 1/(fr2 +frer2))")
+
+        # Pulse longitude
+        db1 = (bin_end[1] + 1) - bin_st[1]  # yes +1
+        dl1 = 360. * db1 / bins1
+        longitude1 = collect(range(-dl1/2., dl1/2., length=db1))
+
+        db2 = (bin_end[2] + 1) - bin_st[2]  # yes +1
+        dl2 = 360. * db2 / bins2
+        longitude2 = collect(range(-dl2 / 2., dl2 / 2., length=db2))
+
+        # longitude vs. FFT phase analysis
+        #=
+        lin, incs = Tools.find_inclination(longitude, phase_)
+        for (i,inc) in enumerate(incs)
+            println("($i) Δ FFT phase / Δ longitude ", round(inc[2], digits=2))
+            println("($i) sigma Δ FFT phase / Δ longitude ", round(inc[3], digits=2))
+        end
+        =#
+
+        lin1, inc1 = Tools.find_inclination2(longitude1, phase1_)
+        println(" Δ FFT phase / Δ longitude [1] ", round(inc1[1][2], digits=2))
+        println("sigma Δ FFT phase / Δ longitude [1] ", round(inc1[1][3], digits=2))
+
+        lin2, inc2 = Tools.find_inclination2(longitude2, phase2_)
+        println(" Δ FFT phase / Δ longitude [2] ", round(inc2[1][2], digits=2))
+        println("sigma Δ FFT phase / Δ longitude [2] ", round(inc2[1][3], digits=2))
+
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961*2, 4.33071))  # 8cm x 11cm
+        subplots_adjust(left=0.08, bottom=0.1, right=0.92, top=0.9, wspace=0., hspace=0.)
+
+        # phase vs longitude [1]
+        ax = subplot2grid((4, 6), (0, 1), colspan=2)
+        minorticks_on()
+        scatter(longitude1, phase1_, marker=".", c="grey", s=3.)
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        for l in lin1
+            plot(l[1], l[2], c="blue")
+        end
+        text(-27, -1000, string("\$\\frac{\\Delta {\\rm FFT\\, ph.}}{\\Delta {\\rm lon.}} =", round(inc1[1][2], digits=1), " \\pm ", round(inc1[1][3], digits=1), "\$"))
+        ylim(-1200, 200)
+        xlabel("longitude \$(^\\circ)\$")
+        ylabel("FFT phase \$(^\\circ)\$")
+        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+
+        # frequency [1]
+        ax = subplot2grid((4, 6), (1, 0), rowspan=3)
+        minorticks_on()
+        plot(inten1, fre1, c="grey")
+        #plot(Tools.gauss(fre1, pars1), fre1, c="red", ls=":", lw=0.3)
+        axhline(y=freq1[peak1], c="red", ls="--")
+        ylim(freq1[2], freq1[end])
+        xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("frequency \$(1/P)\$")
+
+        # lrfs [1]
+        ax = subplot2grid((4, 6), (1, 1), rowspan=3, colspan=2)
+        minorticks_on()
+        imshow(abs.(lrfs1[2:end,1:end]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness[1]*maximum(abs.(lrfs1[2:end,1:end])), extent=[longitude1[1], longitude1[end], freq1[1], freq1[end]])
+        xlabel("longitude \$(^\\circ)\$")
+        tick_params(labelleft=false, labelbottom=true)
+
+        # phase vs longitude [2]
+        off = -100
+        ax = subplot2grid((4, 6), (0, 3), colspan=2)
+        minorticks_on()
+        scatter(longitude2, phase2_.-off, marker=".", c="grey", s=3.)
+        for l in lin2
+            plot(l[1], l[2].-off, c="blue")
+        end
+        text(-27, -1000, string("\$\\frac{\\Delta {\\rm FFT\\, ph.}}{\\Delta {\\rm lon.}} =", round(inc2[1][2], digits=1), " \\pm ", round(inc2[1][3], digits=1), "\$"))
+        ylim(-1200, 200)
+        xlabel("longitude \$(^\\circ)\$")
+        ylabel("FFT phase \$(^\\circ)\$")
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        ax.yaxis.set_label_position("right")
+        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+        tick_params(labelright=true, labelleft=false, which="both", right=true, left=false)
+
+        # frequency [2]
+        ax = subplot2grid((4, 6), (1, 5), rowspan=3)
+        minorticks_on()
+        plot(inten2, fre2, c="grey")
+        #plot(Tools.gauss(fre2, pars2), fre2, c="red", ls=":", lw=0.3)
+        axhline(y=freq2[peak2], c="red", ls="--")
+        ylim(freq2[2], freq2[end])
+        xticks([0.5, 1.0])
+        xlim(-0.1, 1.1)
+        xlabel("intensity")
+        ylabel("frequency \$(1/P)\$")
+        ax.yaxis.set_label_position("right")
+        tick_params(labelbottom=true, which="both", right=true, labelleft=false, labelright=true)
+
+        # lrfs [2]
+        ax = subplot2grid((4, 6), (1, 3), rowspan=3, colspan=2)
+        minorticks_on()
+        imshow(abs.(lrfs2[2:end,1:end]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness[2]*maximum(abs.(lrfs2[2:end,1:end])), extent=[longitude1[1], longitude1[end], freq1[1], freq1[end]])
+        xlabel("longitude \$(^\\circ)\$")
+        tick_params(labelleft=false, labelbottom=true)
+        savefig("$outdir/$(name_mod)_lrfses.pdf")
+        close()
+    end
+
 
 
     function p3_evolution(data, outdir; start=1, end_=nothing, step=10, number=256, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", verbose=false)
@@ -2317,7 +2581,8 @@ module Plot
         println("$a $((1900-a)/2) ")
         println("$b $((1900-b)/3)")
 
-        yl = (141, 210)
+        #yl = (141, 210)
+        yl = (210, 131)
         #yl = (135, 215)
         #yl = (125, 225)
         yl2 = (-0.9, 0.9)
@@ -2394,6 +2659,14 @@ module Plot
         end
         xlim(xl)
         ylim(yl2)
+        # save driftrate for modeling
+        #=
+        f = open("$outdir/$(name_mod)_driftrate.txt", "w")
+        for i in 1:length(dr2)
+            write(f, "$(dr2[i]) $(ysp2[i])\n")
+        end
+        close(f)
+        =#
 
         # third session
         ax = subplot2grid((43, 1900), (0, 1454), colspan=446, rowspan=10)  # row column
@@ -2609,7 +2882,8 @@ module Plot
         println("$a $((1900-a)/2) ")
         println("$b $((1900-b)/3)")
 
-        yl = (141, 210)
+        #yl = (141, 210)
+        yl = (210, 131)
         #yl = (135, 215)
         #yl = (125, 225)
 
@@ -2643,6 +2917,9 @@ module Plot
         end
         for i in 1:length(x1_)
             plot(x1_[i], y1_[i], lw=1.5, alpha=0.7, c="C2")
+        end
+        for bp in bps1_
+            axvline(x=bp)
         end
         #=
         for line in lines1
@@ -2681,6 +2958,9 @@ module Plot
         end
         for i in 1:length(x2_)
             plot(x2_[i], y2_[i], lw=1.5, alpha=0.7, c="C2")
+        end
+        for bp in bps2_
+            axvline(x=bp)
         end
         #=
         for line in lines2
@@ -3007,7 +3287,11 @@ module Plot
 
         println("\n\n")
 
-        Tools.driftrate_analysis_J1750_3(slopes, eslopes, bps, ebps, xs, exs, 7)
+        lens = []
+        for i in 1:7
+            push!(lens, Tools.driftrate_analysis_J1750_3(slopes, eslopes, bps, ebps, xs, exs, i))
+        end
+        println(lens)
 
     end
 
@@ -3811,8 +4095,8 @@ module Plot
         #return
 
         # bin range
-        y1 = 360 / 1024 * 360.0 # to avoid fix_ticsks!
-        y2 = 650 /1024 *360.0
+        y1 = 600 /1024 *360.0
+        y2 = 360 / 1024 * 360.0 # to avoid fix_ticsks!
 
         rc("font", size=7.)
         rc("axes", linewidth=0.5)
@@ -3958,6 +4242,98 @@ module Plot
 
         println("$outdir/$(name_mod)_singlepulses.pdf")
         savefig("$outdir/$(name_mod)_singlepulses.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+        #clf()
+    end
+
+
+    function modeledpulses_J1750(datas, outdir; name_mod="123456", darkness=[1.0, 1.0], cmap="viridis", show_=false)
+
+        pulses = 0
+        extents = [] # x - npulses, y - bins
+        intens = []
+        for data in datas
+            pulse_num = size(data)[1]
+            pulses += pulse_num
+            println(pulse_num)
+            intensity, pulsess = Tools.intensity_pulses(data)
+            intensity .-= minimum(intensity)
+            intensity ./= maximum(intensity)
+            push!(extents, [1, pulse_num, 0.0, 360.0])
+            push!(intens, [pulsess, intensity])
+        end
+
+        # read p3
+        f = open("/home/szary/work/MeerTime/J1750/1234567_p3.txt")
+        pul = []
+        p3s = []
+        p3obs = []
+        p3max = 150
+        for (i, line) in enumerate(readlines(f))
+            res = split(line)
+            push!(pul, parse(Int, res[1]))
+            push!(p3s, parse(Float64, res[2]))
+            #if (p3s[end] > 0.99) &&  (p3s[end] < 1.01)
+            push!(p3obs, Functions.p3_obs(p3s[end], 1))
+            if p3obs[end] > p3max
+                p3obs[end] = p3max
+            end
+            if p3obs[end] < -p3max
+                p3obs[end] = -p3max
+            end
+        end
+        close(f)
+
+        mi = minimum(p3s)
+        ma = maximum(p3s)
+        println("P3 min: ", mi, " max ", ma)
+
+
+        rc("font", size=7.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        #figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
+        figure(figsize=(6.299213, 3.8931373288047713))  # 16 cm x # golden ratio
+        subplots_adjust(left=0.09, bottom=0.1, right=0.91, top=0.92, wspace=0.0, hspace=0.0)
+
+        # first session
+        ax = subplot2grid((3, 1), (0, 0))
+        tick_params(axis="y", which="both", direction="out", labelleft=true, right=false, left=true)
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        minorticks_on()
+        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[1]*maximum(datas[1]), extent=extents[1])
+        ylim(210, 131)
+        ylabel("Longitude (\$ ^{\\circ}\$)")
+
+        ax = subplot2grid((3, 1), (1, 0))
+        imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[2]*maximum(datas[2]), extent=extents[1])
+        ylim(165, 85)
+        ylabel("Longitude (\$ ^{\\circ}\$)")
+
+        ax = subplot2grid((3, 1), (2, 0))
+        minorticks_on()
+        col1 = "C1" # "tab:blue"
+        col2 = "C2" # "tab:red"
+        plot(pul, p3s, lw=1.5, color=col1)
+        ax.tick_params(axis="y", labelcolor=col1)
+        xlim(pul[1], pul[end])
+        xlabel("pulse number")
+        ylabel("\$P_3\$", color=col1)
+        ax2 = ax.twinx()
+        minorticks_on()
+        plot(pul, p3obs, color=col2, alpha=0.7, ls="--")
+        ax2.tick_params(axis="y", labelcolor=col2)
+        ylabel("\$P_3^{\\rm obs}\$", color=col2)
+
+
+        println("$outdir/$(name_mod)_modeledpulses.pdf")
+        savefig("$outdir/$(name_mod)_modeledpulses.pdf")
         if show_ == true
             show()
             readline(stdin; keep=false)
