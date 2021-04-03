@@ -2918,9 +2918,9 @@ module Plot
         for i in 1:length(x1_)
             plot(x1_[i], y1_[i], lw=1.5, alpha=0.7, c="C2")
         end
-        for bp in bps1_
-            axvline(x=bp)
-        end
+        #for bp in bps1_
+        #    axvline(x=bp)
+        #end
         #=
         for line in lines1
             #plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
@@ -2959,9 +2959,9 @@ module Plot
         for i in 1:length(x2_)
             plot(x2_[i], y2_[i], lw=1.5, alpha=0.7, c="C2")
         end
-        for bp in bps2_
-            axvline(x=bp)
-        end
+        #for bp in bps2_
+        #    axvline(x=bp)
+        #end
         #=
         for line in lines2
             plot(line[1], line[2], lw=1.5, alpha=0.7, c="C2")
@@ -3902,7 +3902,7 @@ module Plot
 
 
         #npsi = [3, 3, 2, 2, 1, 2, 1, 1, 2, 2, 1, 4, 1, 4]
-        npsi = [1, 1,   1, 1, 1,   0,4, 4,   2, 2,   2, 4, 4, 1,    2, 2, 2, 2,   0, 0, 0, 0, 0, 0, 0] # 0 is for skipped track
+        npsi = [1, 1,   1, 1, 1,   0,4, 4,   2, 2,   2, 4, 4, 1,    2, 2, 2, 2,   0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0] # 0 is for skipped track
         # bad fit for 2 4 3 1 (4th)
         nn = 1
         fitted_lines = [[] for i in 1:7] # all seven slots (first will be empty)
@@ -3949,7 +3949,7 @@ module Plot
         driftdirection_J1750_subplot(2, 0, 120, 68, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
         driftdirection_J1750_subplot(3, 0, 210, 48, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
         driftdirection_J1750_subplot(4, 35, 0, 98, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        #driftdirection_J1750_subplot(5, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot(5, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
         driftdirection_J1750_subplot(6, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
 
         savefig("$outdir/$(name_mod)_driftdirection_2.pdf")
@@ -3960,6 +3960,188 @@ module Plot
         end
         close()
     end
+
+
+
+    function driftdirection_J1750_subplot3(which, row, col, colspan, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+
+        x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps = getdata_driftdirection(iis[which], jjs[which], selected_tracks, fitted_lines)
+
+        colors = ["tab:orange", "tab:green"]
+        tracks_num = length(jjs[which])
+
+        ax = subplot2grid((65, 270), (row, col), colspan=colspan, rowspan=20)  # row column
+        minorticks_on()
+        for i in 1:length(x_)
+            #scatter(x_[i], y_[i])
+            plot(x_[i], y_[i], marker="x", color="tab:red", markersize=2.5, lw=0)
+            plot(x_[i], ysl_[i], lw=1.3, alpha=0.7, c="tab:blue")
+            #plot(x_[i], y2_[i], lw=2.0, alpha=0.7, c=colors[i]) # why?
+        end
+        for i in 1:tracks_num # length(x_) = 4!
+            plot(x_[i], y2_[i], lw=1.7, alpha=0.7, c=colors[i])
+        end
+            #plot(x_[4], y2_[4], lw=2.0, alpha=0.7, c=colors[1])
+        yl = (210, 131)
+        yl = ylim() # TODO just for now
+        for i in 1:length(bps)
+            for j in 1:length(bps[i])
+                if ebps[i][j] < 10 # do not plot wrong estimates
+                    axvline(x=bps[i][j], ls="--", c=colors[i], lw=0.3)
+                    rectangle = patch.Rectangle((bps[i][j]-ebps[i][j], yl[1]), width=2*ebps[i][j], height=yl[2]-yl[1], fc=colors[i], alpha=0.1)
+                    #println("ERR ", ebps[i][j])
+                    #println((yl[1], bps[i][j]-ebps[i][j])," ",  2*ebps[i][j], " ", yl[2]-yl[1])
+                    ax.add_patch(rectangle)
+                end
+            end
+        end
+        ylim(yl)
+        xl = xlim()
+
+        ax = subplot2grid((65, 270), (row+20, col), colspan=colspan, rowspan=10)  # row column
+        minorticks_on()
+        #println(size(slopes))
+        for i in 1:tracks_num # length(slopes)
+            errorbar(xlin[i], slopes[i], yerr=eslopes[i], xerr=exlin[i], color="none", lw=0.5, marker="_", mec=colors[i], ecolor=colors[i], capsize=0, mfc=colors[i], ms=1.0)
+        end
+        plot(dr_x[iis[which][1]], dr_y[iis[which][1]], color="tab:blue")  # smoothed drift rate
+        xlim(xl)
+        ylim([-0.9, 0.9])
+
+        # report on fitting, plotting turned off
+        #ax = subplot2grid((65, 270), (row+20, col), colspan=colspan, rowspan=10)  # row column
+        #minorticks_on()
+        for i in 1:length(x_)
+            residuals1 = Tools.residuals(y_[i], ysl_[i])
+            residuals2 = Tools.residuals(y_[i], y2_[i])
+            #scatter(x_[i], residuals1, marker="+", color="C2", s=4, lw=0.5, alpha=0.5) # green
+            #scatter(x_[i], residuals2, marker="o", color="C1", fc="none", s=4, lw=0.5, alpha=0.5) # yellow
+            chi1 = Tools.chisquare(y_[i], ysl_[i])
+            chi2 = Tools.chisquare(y_[i], y2_[i])
+            rs = Tools.rsquared(y_[i], ysl_[i])
+            rs2 = Tools.rsquared(y_[i], y2_[i])
+            println("chi1 ", chi1)
+            println("chi2 ", chi2)
+            println("rs ", rs)
+            println("rs2 ", rs2)
+            println("AAA")
+        end
+    end
+
+
+    function driftdirection_J1750_3(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st:bin_end]
+            push!(das, da)
+        end
+
+        tracks = []
+        inclines = []
+        dr_x = []
+        dr_y = []
+        for i in 1:7
+            tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            push!(tracks, tracks1)
+            push!(inclines, inclines1)
+            push!(dr_x, dr1)
+            push!(dr_y, ysp1)
+        end
+
+        ranges = [[2, (477, 600)], [2, (825, 922)]]#, [2, (375, 420)], [2, (485, 595)], [2, (955, 1040)], [3, (50, 350)], [4, (1, 450)]]#, [4, (100, 150)], [5, (250, 350)], [6, (200, 365)]]
+
+        selected_tracks = [[] for i in 1:7] # all seven slots (first will be empty)
+        #println(tracks[1][1][:, 2])  # pulse number
+
+        for ra in ranges
+            k = ra[1]
+            v = ra[2]
+            println("Session: ", k)
+            for i in 1:length(tracks[k])
+                create_new = true
+                for (ii, pulse) in enumerate(tracks[k][i][:, 2])
+                    if (pulse > v[1]) && (pulse < v[2])
+                        if create_new
+                            push!(selected_tracks[k], [[], []])
+                            create_new = false
+                            println("\tNew track session:$k track:$i pulse:$pulse loc:", tracks[k][i][ii, 1])
+                        end
+                        push!(selected_tracks[k][end][1], pulse) # x - pulse number
+                        push!(selected_tracks[k][end][2], tracks[k][i][ii, 1]) # location
+                        #println("\t $v $pulse ", tracks[k][i][ii, 1])
+                    end
+                end
+            end
+        end
+
+        npsi = [0, 6, 6,   0, 3, 4,  ] # 0 is for skipped track
+        nn = 1
+        fitted_lines = [[] for i in 1:7] # all seven slots (first will be empty)
+        for i in 1:length(selected_tracks)
+            println("\nSession: $i")
+            for j in 1:length(selected_tracks[i])
+                push!(fitted_lines[i], [[], [], [], [], [], [], [], [], []])
+                println("\tTrack: $j nn:$nn npsi $(npsi[nn])")
+                x = convert(Array{Float64,1}, selected_tracks[i][j][1])
+                y = convert(Array{Float64,1}, selected_tracks[i][j][2])
+                push!(fitted_lines[i][end][1], x)
+                x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[nn]; lambda=lambda, preview=false)
+                nn += 1
+                push!(fitted_lines[i][end][2], y2)
+                push!(fitted_lines[i][end][3], ysl)  # for tracks
+                push!(fitted_lines[i][end][4], slopes)
+                push!(fitted_lines[i][end][5], eslopes)
+                push!(fitted_lines[i][end][6], bp)
+                push!(fitted_lines[i][end][7], ebp)
+                push!(fitted_lines[i][end][8], xl) # xlin later on
+                push!(fitted_lines[i][end][9], exl) # exlin later on
+            end
+        end
+
+
+        iis = [[2], [2]]  # obs. session why iis?
+        jjs = [[2, 3], [5, 6], ]  # tracks
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
+
+        subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
+        figtext(0.09, 0.9, "a)", size=10)
+        figtext(0.5, 0.9, "b)", size=10)
+        figtext(0.84, 0.9, "c)", size=10)
+        figtext(0.09, 0.44, "d)", size=10)
+        figtext(0.43, 0.44, "e)", size=10)
+        figtext(0.74, 0.44, "f)", size=10)
+
+        driftdirection_J1750_subplot3(1, 0, 0, 77, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(2, 0, 120, 68, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        #driftdirection_J1750_subplot3(3, 0, 210, 48, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        #driftdirection_J1750_subplot3(4, 35, 0, 98, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        #driftdirection_J1750_subplot3(5, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        #driftdirection_J1750_subplot3(6, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+
+        savefig("$outdir/$(name_mod)_driftdirection_3.pdf")
+        println("$outdir/$(name_mod)_driftdirection_3.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
 
 
     function lrfs_average_J1750(slices, pulses, outdir; start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)
