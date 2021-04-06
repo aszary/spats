@@ -3967,10 +3967,10 @@ module Plot
 
         x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps = getdata_driftdirection(iis[which], jjs[which], selected_tracks, fitted_lines)
 
-        colors = ["tab:orange", "tab:green"]
+        colors = ["tab:orange", "tab:green", "tab:purple", "tab:brown"]
         tracks_num = length(jjs[which])
 
-        ax = subplot2grid((65, 270), (row, col), colspan=colspan, rowspan=20)  # row column
+        ax = subplot2grid((65, 600), (row, col), colspan=colspan, rowspan=20)  # row column
         minorticks_on()
         for i in 1:length(x_)
             #scatter(x_[i], y_[i])
@@ -3978,8 +3978,8 @@ module Plot
             plot(x_[i], ysl_[i], lw=1.3, alpha=0.7, c="tab:blue")
             #plot(x_[i], y2_[i], lw=2.0, alpha=0.7, c=colors[i]) # why?
         end
-        for i in 1:tracks_num # length(x_) = 4!
-            plot(x_[i], y2_[i], lw=1.7, alpha=0.7, c=colors[i])
+        for i in 1:tracks_num #length(x_)
+                plot(x_[i], y2_[i], lw=1.7, alpha=0.7, c=colors[i])
         end
             #plot(x_[4], y2_[4], lw=2.0, alpha=0.7, c=colors[1])
         yl = (210, 131)
@@ -3998,7 +3998,7 @@ module Plot
         ylim(yl)
         xl = xlim()
 
-        ax = subplot2grid((65, 270), (row+20, col), colspan=colspan, rowspan=10)  # row column
+        ax = subplot2grid((65, 600), (row+20, col), colspan=colspan, rowspan=10)  # row column
         minorticks_on()
         #println(size(slopes))
         for i in 1:tracks_num # length(slopes)
@@ -4058,7 +4058,19 @@ module Plot
             push!(dr_y, ysp1)
         end
 
-        ranges = [[2, (477, 600)], [2, (825, 922)]]#, [2, (375, 420)], [2, (485, 595)], [2, (955, 1040)], [3, (50, 350)], [4, (1, 450)]]#, [4, (100, 150)], [5, (250, 350)], [6, (200, 365)]]
+        ranges = [[2, (477, 600)], [2, (955, 1050)], [3, (50, 170)], [3, (380, 470)], [4, (85, 144)], [5, (240, 350)], [6, (200, 400)], [7, (0, 80)], [7, (125, 275)]]
+        # rejected [2, (825, 922)] (npsi, 0, 8, 4)
+
+        sum = 0
+        i = 0
+        for r in ranges
+            i += 1
+            pulses = r[2][2] - r[2][1]
+            sum += pulses
+            println("$i $pulses")
+        end
+        println("Sum: $sum")
+
 
         selected_tracks = [[] for i in 1:7] # all seven slots (first will be empty)
         #println(tracks[1][1][:, 2])  # pulse number
@@ -4084,7 +4096,7 @@ module Plot
             end
         end
 
-        npsi = [0, 6, 6,   0, 3, 4,  ] # 0 is for skipped track
+        npsi = [0, 6, 6,   3, 3,   2, 2, 1,   2, 2,   2, 2,   2, 2, 2,    2, 6, 6,   2, 2,    0, 2, 2, 1, 0 ] # 0 is for skipped track
         nn = 1
         fitted_lines = [[] for i in 1:7] # all seven slots (first will be empty)
         for i in 1:length(selected_tracks)
@@ -4109,29 +4121,34 @@ module Plot
         end
 
 
-        iis = [[2], [2]]  # obs. session why iis?
-        jjs = [[2, 3], [5, 6], ]  # tracks
+        iis = [[2], [2], [3], [3], [4], [5], [6], [7], [7]]  # obs. session why iis?
+        jjs = [[2, 3], [4, 5],   [1, 2, 3], [4, 5],   [1, 2],   [1, 2, 3],   [1, 2, 3],    [1, 2],   [4, 5, 6]]  # tracks
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
 
+        figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
         subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
-        figtext(0.09, 0.9, "a)", size=10)
-        figtext(0.5, 0.9, "b)", size=10)
-        figtext(0.84, 0.9, "c)", size=10)
-        figtext(0.09, 0.44, "d)", size=10)
-        figtext(0.43, 0.44, "e)", size=10)
-        figtext(0.74, 0.44, "f)", size=10)
+        figtext(0.09, 0.89, "a)", size=10)
+        figtext(0.25, 0.89, "b)", size=10)
+        figtext(0.75, 0.89, "c)", size=10)
+        figtext(0.09, 0.43, "d)", size=10)
+        figtext(0.31, 0.43, "e)", size=10)
+        figtext(0.54, 0.43, "f)", size=10)
+        figtext(0.76, 0.43, "g)", size=10)
 
-        driftdirection_J1750_subplot3(1, 0, 0, 77, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(2, 0, 120, 68, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        #driftdirection_J1750_subplot3(3, 0, 210, 48, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        #driftdirection_J1750_subplot3(4, 35, 0, 98, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        #driftdirection_J1750_subplot3(5, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        #driftdirection_J1750_subplot3(6, 35, 100, 163, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+
+        driftdirection_J1750_subplot3(1, 0, 0, 123, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(2, 0, 151, 95, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(3, 0, 274, 120, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(4, 0, 422, 90, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(5, 0, 540, 59, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(6, 35, 0, 110, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(7, 35, 130, 200, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(8, 35, 350, 80, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        driftdirection_J1750_subplot3(9, 35, 450, 150, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
 
         savefig("$outdir/$(name_mod)_driftdirection_3.pdf")
         println("$outdir/$(name_mod)_driftdirection_3.pdf")
