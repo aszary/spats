@@ -661,12 +661,12 @@ module SpaTs
         #Plot.driftrate_J1750_2(outdir; lambda=200.0, show_=true) # in the paper
         #Plot.driftrate_analysis_J1750_2(outdir; lambda=200.0, show_=false)
         #Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=true) # segmented fits # not used?
-        #Plot.driftrate_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
 
-        # Timescales # too messy switch to drift rate?
+        # Timescales 
         #Plot.driftdirection_J1750_2([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
         # Timescales - new
-        Plot.driftdirection_J1750_3([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=false)
+        #Plot.driftdirection_J1750_3([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper
+        Plot.driftdirection_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
 
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # old too many ranges

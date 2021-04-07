@@ -1312,33 +1312,40 @@ module Tools
         println("Longest negative: ", maximum(ndurations), " for session ", nsession2, " pulse ", npulse2)
         println("shortest negative: ", minimum(ndurations), " for session ", nsession, " pulse ", npulse)
         println("Smallest negative: ", minimum(drn_))
+        println("findmin: ", findmin(drn_))
+        println("mean neg.: ", mean(drn_))
 
         println("Positive instences: ", pnum)
         println("Positive longest: ", maximum(pdurations), " for session ", psession, " pulse ", ppulse)
         println("shortest positive: ", minimum(pdurations))
         println("Biggest positive: ", maximum(drp_))
+        println("mean pos.: ", mean(drp_))
 
         return ndurations, pdurations
 
     end
 
 
-    function driftrate_analysis_J1750_3(slopes, eslopes, bps, ebps, xs, exs, set)
+    function driftdirection_analysis_J1750_3(slopes, eslopes, bps, ebps, xs, exs, set)
 
         positive = []
         negative = []
+        pdrate = []
+        ndrate = []
 
         for i in 1:length(xs[set])
             if slopes[set][i] > 0
                 for pulse in trunc(Int, xs[set][i]-exs[set][i]):1:trunc(Int,xs[set][i] + exs[set][i])
                     if ~(pulse in positive)
                         push!(positive, pulse)
+                        push!(pdrate, slopes[set][i])
                     end
                 end
             else
                 for pulse in trunc(Int, xs[set][i]-exs[set][i]):1:trunc(Int,xs[set][i] + exs[set][i])
                     if ~(pulse in negative)
                         push!(negative, pulse)
+                        push!(ndrate, slopes[set][i])
                     end
                 end
             end
@@ -1350,34 +1357,45 @@ module Tools
         rejected = []
         pos = [] # only positive
         neg = [] # only negative
+        pdr = [] # only negative
+        ndr = [] # only negative
 
         # add pos and mark rejections
-        for pulse in positive
+        for (i, pulse) in enumerate(positive)
             if pulse in negative
                 push!(rejected, pulse)
                 #println("Set: ", set, " pulse: ", pulse, " pos./neg.")
             else
                 push!(pos, pulse)
+                push!(pdr, pdrate[i])
             end
         end
 
         # add neg
-        for pulse in negative
+        for (i, pulse) in enumerate(negative)
             if ~(pulse in rejected)
                 push!(neg, pulse)
+                push!(ndr, ndrate[i])
             end
         end
 
+        # POSITIVE
         breaks = []
         lengths = []
+
         # shortest positive
         start_pulse = pos[1]
+        added = 0
         for i in 1:(length(pos)-1)
             if pos[i+1]-pos[i] != 1
+                added += 1
                 push!(lengths, pos[i]-start_pulse + 1) # yes +1 here
                 start_pulse = pos[i+1]
                 push!(breaks, i)
             end
+        end
+        if added == 0 # first observing session
+            push!(lengths, pos[end]-pos[1] + 1) # yes +1 here
         end
 
         println("\n$set")
@@ -1388,7 +1406,32 @@ module Tools
         for i in 1:length(bps[set])
             println("\t\t$i ", bps[set][i])
         end
-        return lengths
+        println("positive drift rate for $set session: ", mean(pdr), " +/- ", std(pdr))
+
+        # NEGATIVE
+        nbreaks = []
+        nlengths = []
+        # shortest positive
+        if length(neg) > 0
+            start_pulse = neg[1]
+            for i in 1:(length(neg)-1)
+                if neg[i+1]-neg[i] != 1
+                    push!(nlengths, neg[i]-start_pulse + 1) # yes +1 here
+                    start_pulse = neg[i+1]
+                    push!(nbreaks, i)
+                end
+            end
+        end
+
+        println("\n$set")
+        println("\tnegative lengths: ", nlengths)
+        println("\tnegative breaks: ", neg[nbreaks])
+        println("\tPositive: ", length(positive), " Negative: ", length(negative), " Rejected: ",length(rejected))
+        println("Breakpoints\n")
+        for i in 1:length(bps[set])
+            println("\t\t$i ", bps[set][i])
+        end
+        return nlengths, ndr, lengths, pdr
 
     end
 

@@ -3184,7 +3184,6 @@ module Plot
     end
 
 
-
     function driftrate_analysis_J1750(outdir; lambda=100, name_mod="123456", show_=false)
 
         nd, pd = Tools.driftrate_analysis_J1750(outdir, lambda)
@@ -3244,7 +3243,7 @@ module Plot
     end
 
 
-    function driftrate_analysis_J1750_3(outdir; lambda=200, name_mod="1234567", show_=false)
+    function driftdirection_analysis_J1750_3(outdir; lambda=200, name_mod="1234567", show_=false)
 
         tracks = []
         lines = []
@@ -3287,11 +3286,26 @@ module Plot
 
         println("\n\n")
 
-        lens = []
+        ndur = []
+        pdur = []
+        ndrate = []
+        pdrate = []
         for i in 1:7
-            push!(lens, Tools.driftrate_analysis_J1750_3(slopes, eslopes, bps, ebps, xs, exs, i))
+            (nd,ndr, pd, pdr) = Tools.driftdirection_analysis_J1750_3(slopes, eslopes, bps, ebps, xs, exs, i)
+            pdur = vcat(pdur, pd)
+            ndur = vcat(ndur, nd)
+            ndrate = vcat(ndrate, ndr)
+            pdrate = vcat(pdrate, pdr)
         end
-        println(lens)
+        println("Positive:")
+        #println(pdur)
+        println("Duration: ", mean(pdur), " +/- ", std(pdur))
+        println("Drift rate: ", mean(pdrate), " +/- ", std(pdrate), "max. ", maximum(pdrate))
+
+        println("Negative:")
+        #println(ndur)
+        println("Duration: ", mean(ndur), " +/- ", std(ndur))
+        println("Drift rate: ", mean(ndrate), " +/- ", std(ndrate), "min. ", minimum(ndrate))
 
     end
 
@@ -3971,19 +3985,28 @@ module Plot
         tracks_num = length(jjs[which])
 
         ax = subplot2grid((65, 600), (row, col), colspan=colspan, rowspan=20)  # row column
+        #tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
+        if which in (2, 3, 4, 5, 7, 8, 9)
+            tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        end
+        if which < 6
+            ax.xaxis.set_label_position("top")
+            ax.xaxis.set_ticks_position("top")
+        else
+            tick_params(axis="x", which="both", direction="out", labelbottom=false)
+        end
         minorticks_on()
         for i in 1:length(x_)
             #scatter(x_[i], y_[i])
             plot(x_[i], y_[i], marker="x", color="tab:red", markersize=2.5, lw=0)
-            plot(x_[i], ysl_[i], lw=1.3, alpha=0.7, c="tab:blue")
+            # plot(x_[i], ysl_[i], lw=1.3, alpha=0.7, c="tab:blue") # not visible
             #plot(x_[i], y2_[i], lw=2.0, alpha=0.7, c=colors[i]) # why?
         end
         for i in 1:tracks_num #length(x_)
                 plot(x_[i], y2_[i], lw=1.7, alpha=0.7, c=colors[i])
         end
-            #plot(x_[4], y2_[4], lw=2.0, alpha=0.7, c=colors[1])
-        yl = (210, 131)
-        yl = ylim() # TODO just for now
+        yl = (210, 141)
+        #yl = ylim() # TODO just for now
         for i in 1:length(bps)
             for j in 1:length(bps[i])
                 if ebps[i][j] < 10 # do not plot wrong estimates
@@ -3997,8 +4020,17 @@ module Plot
         end
         ylim(yl)
         xl = xlim()
+        if (which == 1) || (which == 6)
+            ylabel("Longitude (\$ ^{\\circ}\$)")
+        end
 
         ax = subplot2grid((65, 600), (row+20, col), colspan=colspan, rowspan=10)  # row column
+        if which in (2, 3, 4, 5, 7, 8, 9)
+            tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
+        end
+        if which < 6
+            tick_params(axis="x", which="both", direction="out", labelbottom=false)
+        end
         minorticks_on()
         #println(size(slopes))
         for i in 1:tracks_num # length(slopes)
@@ -4007,25 +4039,33 @@ module Plot
         plot(dr_x[iis[which][1]], dr_y[iis[which][1]], color="tab:blue")  # smoothed drift rate
         xlim(xl)
         ylim([-0.9, 0.9])
+        if (which == 1) || (which == 6)
+            ylabel("Drift rate \$(^\\circ / P)\$")
+        end
 
         # report on fitting, plotting turned off
         #ax = subplot2grid((65, 270), (row+20, col), colspan=colspan, rowspan=10)  # row column
         #minorticks_on()
+        rs_ = []
+        rs2_ = []
         for i in 1:length(x_)
-            residuals1 = Tools.residuals(y_[i], ysl_[i])
-            residuals2 = Tools.residuals(y_[i], y2_[i])
+            #residuals1 = Tools.residuals(y_[i], ysl_[i])
+            #residuals2 = Tools.residuals(y_[i], y2_[i])
             #scatter(x_[i], residuals1, marker="+", color="C2", s=4, lw=0.5, alpha=0.5) # green
             #scatter(x_[i], residuals2, marker="o", color="C1", fc="none", s=4, lw=0.5, alpha=0.5) # yellow
             chi1 = Tools.chisquare(y_[i], ysl_[i])
             chi2 = Tools.chisquare(y_[i], y2_[i])
             rs = Tools.rsquared(y_[i], ysl_[i])
             rs2 = Tools.rsquared(y_[i], y2_[i])
-            println("chi1 ", chi1)
-            println("chi2 ", chi2)
-            println("rs ", rs)
-            println("rs2 ", rs2)
-            println("AAA")
+            #println("chi1 ", chi1)
+            #println("chi2 ", chi2)
+            push!(rs_, rs)
+            push!(rs2_, rs2)
+            println("Panel: $which")
+            println("\tSpline: r^2 ", rs)
+            println("\tLinear reg.: r^2 ", rs2)
         end
+        return rs_, rs2_
     end
 
 
@@ -4059,7 +4099,7 @@ module Plot
         end
 
         ranges = [[2, (477, 600)], [2, (955, 1050)], [3, (50, 170)], [3, (380, 470)], [4, (85, 144)], [5, (240, 350)], [6, (200, 400)], [7, (0, 80)], [7, (125, 275)]]
-        # rejected [2, (825, 922)] (npsi, 0, 8, 4)
+        # rejected [2, (825, 922)] (npsi, 0, 2, 2)
 
         sum = 0
         i = 0
@@ -4096,7 +4136,7 @@ module Plot
             end
         end
 
-        npsi = [0, 6, 6,   3, 3,   2, 2, 1,   2, 2,   2, 2,   2, 2, 2,    2, 6, 6,   2, 2,    0, 2, 2, 1, 0 ] # 0 is for skipped track
+        npsi = [0, 6, 6,   3, 3,   2, 2, 1,   2, 2,   2, 2,   2, 2, 2,    2, 6, 7,   2, 2,    0, 2, 2, 1, 0 ] # 0 is for skipped track
         nn = 1
         fitted_lines = [[] for i in 1:7] # all seven slots (first will be empty)
         for i in 1:length(selected_tracks)
@@ -4128,37 +4168,43 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-
         figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
-        subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
+        subplots_adjust(left=0.08, bottom=0.09, right=0.99, top=0.92, wspace=0.0, hspace=0.0)
         figtext(0.09, 0.89, "a)", size=10)
-        figtext(0.25, 0.89, "b)", size=10)
-        figtext(0.75, 0.89, "c)", size=10)
-        figtext(0.09, 0.43, "d)", size=10)
-        figtext(0.31, 0.43, "e)", size=10)
-        figtext(0.54, 0.43, "f)", size=10)
-        figtext(0.76, 0.43, "g)", size=10)
+        figtext(0.32, 0.89, "b)", size=10)
+        figtext(0.51, 0.89, "c)", size=10)
+        figtext(0.73, 0.89, "d)", size=10)
+        figtext(0.905, 0.89, "e)", size=10)
+        figtext(0.085, 0.425, "f)", size=10)
+        figtext(0.55, 0.43, "g)", size=10)
+        figtext(0.615, 0.43, "h)", size=10)
+        figtext(0.97, 0.43, "i)", size=10)
 
-
-        driftdirection_J1750_subplot3(1, 0, 0, 123, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(2, 0, 151, 95, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(3, 0, 274, 120, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(4, 0, 422, 90, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(5, 0, 540, 59, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(6, 35, 0, 110, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(7, 35, 130, 200, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(8, 35, 350, 80, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
-        driftdirection_J1750_subplot3(9, 35, 450, 150, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r1,r11) = driftdirection_J1750_subplot3(1, 0, 0, 123, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r2, r22) = driftdirection_J1750_subplot3(2, 0, 151, 95, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r3, r33) = driftdirection_J1750_subplot3(3, 0, 274, 120, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r4, r44) = driftdirection_J1750_subplot3(4, 0, 422, 90, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r5, r55) = driftdirection_J1750_subplot3(5, 0, 540, 59, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r6, r66) = driftdirection_J1750_subplot3(6, 35, 0, 110, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r7, r77) = driftdirection_J1750_subplot3(7, 35, 130, 200, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r8, r88) = driftdirection_J1750_subplot3(8, 35, 350, 80, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        (r9, r99) = driftdirection_J1750_subplot3(9, 35, 450, 150, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+        figtext(0.5, 0.97, "Pulse number", size=7, ha="center")
+        figtext(0.5, 0.01, "Pulse number", size=7, ha="center")
 
         savefig("$outdir/$(name_mod)_driftdirection_3.pdf")
         println("$outdir/$(name_mod)_driftdirection_3.pdf")
+
+        r = vcat(r1, r2, r3, r4, r5, r6, r7, r8, r9)
+        rr = vcat(r11, r22, r33, r44, r55, r66, r77, r88, r99)
+        println("Spline R^2: ", mean(r), " ", std(r))
+        println("Linear reg. R^2: ", mean(rr), " ", std(rr))
         if show_ == true
             show()
             readline(stdin; keep=false)
         end
         close()
     end
-
 
 
     function lrfs_average_J1750(slices, pulses, outdir; start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)
