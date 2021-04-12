@@ -3610,6 +3610,222 @@ module Plot
 
 
 
+    """ checks average profiels stability """
+    function average_J1750_stability(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st:bin_end]
+            push!(das, da)
+        end
+
+        # drift rate data
+        pulses = []
+        ysps = []  # drift rate
+
+        for i in 1:length(das)
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            (ysp, dr) = Tools.remove_duplicates_ysp(ysp1, dr1)
+            push!(pulses, dr)
+            push!(ysps, ysp)
+        end
+
+        ranges = [(1, 0), (0, -1), (2, -2)]
+        profiles = []
+        averages = []
+
+        for r in ranges
+            push!(profiles, [])
+            for i in 1:length(das)
+                for (j, driftrate) in enumerate(ysps[i])
+                    if (driftrate < r[1]) && (driftrate > r[2])
+                        push!(profiles[end], das[i][pulses[i][j], :] )
+                        #println(pulses[i][j])
+                    end
+                end
+            end
+        end
+
+        # converting profiles TODO why why why?
+        for ii in 1:length(profiles)
+            x, = size(profiles[ii])
+            y, = size(profiles[ii][1]) # bins
+            profs = zeros((x,y))
+            for i in 1:x
+                for j in 1:y
+                    profs[i,j] = profiles[ii][i][j]
+                end
+            end
+            profiles[ii] = profs
+        end
+
+        binoff_st = 10
+        binoff_end = 310
+        binon_st = 350
+        binon_end = 650
+
+        nums = []
+        for profile in profiles
+            push!(nums, size(profile)[1])
+            #push!(averages, Tools.average_profile(profile; norm=true))
+            push!(averages, Tools.average_profile(profile; norm=[binoff_st, binoff_end]))
+            #println(size(profile)[1])
+        end
+
+        # Pulse longitude (raw)
+        longitude = collect(range(bin_st/bins[1] * 360, bin_end/bins[1] * 360, length=bin_end - bin_st + 1))
+
+        bin_num = bins[1]
+        # calculate stability for the whole observation
+        onemrhos, onemrhose, npulses = Tools.analyse_profile_stability(profiles[3], averages[3], bin_num, binoff_st, binoff_end, binon_st, binon_end, longitude)
+        onemrhos1, onemrhose1, npulses1 = Tools.analyse_profile_stability(profiles[1], averages[1], bin_num, binoff_st, binoff_end, binon_st, binon_end, longitude)
+        onemrhos2, onemrhose2, npulses2 = Tools.analyse_profile_stability(profiles[2], averages[2], bin_num, binoff_st, binoff_end, binon_st, binon_end, longitude)
+
+        #=
+        pulse_num = size(profiles[3])[1]
+        bin_num = bins[1]
+        m = trunc(Int, log2(pulse_num / 2))
+        m += 1
+        #avers = Array{Float64}(undef, m, bins[1])
+        avers = []
+        for i in 0:m
+            push!(avers, [])
+        end
+        for i in 0:m
+            mm = 2^i
+            av = zeros(bin_num)
+            for j in 1:pulse_num
+                for k in 1:bin_num
+                    av[k] += profiles[3][j, k]
+                end
+                if j % mm == 0
+                    # normalizes here
+                    #m1 = mean(averages[3][binoff_st:binoff_end])
+                    m2 = mean(av[binoff_st:binoff_end])
+                    av .-= m2
+                    # same maximum
+                    #maa = maximum(av)
+                    #av = av ./ maa
+                    # not the maximum, but mean
+                    m3 = mean(averages[3][binon_st:binon_end])
+                    m4 = mean(av[binon_st:binon_end])
+                    av = av .* (m3 / m4)
+                    push!(avers[i+1], av)
+                    #println("$i $j $(m+1)")
+                    av = zeros(bin_num)
+
+                end
+            end
+        end
+
+        onemrhos = []
+        onemrhose = []
+        npulses = []
+        for i in 1:size(avers)[1]
+            push!(npulses, 2^(i-1))
+            omrhos = []
+            for j in 1:size(avers[i])[1]
+                rho = cor(avers[i][j], averages[3])
+                push!(omrhos, 1 - rho)
+            end
+            push!(onemrhos, mean(omrhos))
+            push!(onemrhose, std(omrhos))
+        end
+        =#
+
+        errorbar(npulses, onemrhos, yerr=onemrhose, color="tab:red")
+        errorbar(npulses1, onemrhos1, yerr=onemrhose1, color="tab:blue")
+        errorbar(npulses2, onemrhos2, yerr=onemrhose2, color="tab:green")
+        #semilogx()
+        loglog()
+        xlabel("Number of pulses")
+        ylabel("\$1-\\rho\$")
+        show()
+        readline(stdin; keep=false)
+        close()
+
+
+        return
+
+        # Pulse longitude around 0
+        #db = (bin_end + 1) - bin_st  # yes +1
+        #dl = 360. * db / bins[1]
+        #longitude = collect(range(-dl/2., dl/2., length=db))
+
+        #=
+        (p1, err1) = Tools.fit_twogaussians(longitude, averages[1], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p2, err2) = Tools.fit_twogaussians(longitude, averages[2], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p3, err3) = Tools.fit_twogaussians(longitude, averages[3], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p4, err4) = Tools.fit_twogaussians(longitude, averages[4], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
+        ga = Tools.twogauss(longitude, p4)
+        (p5, err5) = Tools.fit_twogaussians(longitude, averages[5], 0.6, 0.9, -13.0, 3.0, 5.0, 5.0)
+        (p6, err6) = Tools.fit_gaussian(longitude, averages[6], a=1.0, μ=-4.0, σ=15.0)
+        println("1: ", p1)
+        println("3: ", p3)
+        println("4: ", p4)
+        #println("err1: ", err1)
+        println("2: ", p2)
+        println("5: ", p5)
+        println("6: ", p6)
+        #println(err2)
+        =#
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$ (N=$(size(profiles[1])[1]))", "\$\\qquad \\;\\; {\\rm D} < 0 \$ (N=$(size(profiles[2])[1]))", "\$0.91 > {\\rm D} > -0.73 \$ (N=$(size(profiles[3])[1]))", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
+
+
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        minorticks_on()
+        plot(longitude, averages[1], c="C1", label=labels[1], lw=0.3, zorder=200)
+        plot(longitude, averages[2], c="C2", label=labels[2], lw=0.3, zorder=201)
+        plot(longitude, averages[3], c="black", label=labels[3], lw=0.5, zorder=199, alpha=0.9)
+        #plot(longitude, ga * sqrt(nums[4]), c="green", lw=1.3, zorder=1200)
+        #plot(longitude, averages[1] * sqrt(nums[1]), c="C1", label=labels[1], lw=0.3, zorder=200)
+        #plot(longitude, averages[3] * sqrt(nums[3]), c="C1", label=labels[3], lw=0.7, alpha=0.7, ls=(0, (1, 1)))
+        #plot(longitude, averages[4] * sqrt(nums[4]), c="C2", label=labels[4], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
+        #plot(longitude, averages[2] * sqrt(nums[2]), c="C2", label=labels[2], lw=0.3, zorder=201)
+        #plot(longitude, averages[5] * sqrt(nums[5]), c="C3", label=labels[5], lw=0.7,alpha=0.7, ls=(0, (1, 1)))
+        #plot(longitude, averages[6] * sqrt(nums[6]), c="C4", label=labels[6], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
+        #for i in 1:length(averages)
+        #    plot(longitude, averages[i] * sqrt(nums[i]), c="C$i", label=labels[i])
+            #plot(longitude, averages[i], c="C$i", label=labels[i])
+        #end
+        #yticks([0.0, 0.5])
+        #xlim(longitude[1], longitude[end])
+        xlabel("longitude (deg.)")
+        #ylabel("\$\\sqrt{\\rm Number \\; of \\; pulses}\$")
+        #ylabel("Intensity (arbitrary units)")
+        ylabel("Intensity (a. u.)")
+        legend(prop=Dict("size"=> 4.1))
+        #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_averages_stability.pdf")
+        savefig("$outdir/$(name_mod)_averages_stability.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+
+    end
+
+
+
+
+
     """
     get data for driftdirection_J1750 plot
     """

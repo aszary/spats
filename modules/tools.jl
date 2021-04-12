@@ -35,6 +35,11 @@ module Tools
         if norm == true
             ma = maximum(ave)
             ave = ave / ma
+        elseif length(norm) == 2
+            me = mean(ave[norm[1]:norm[2]])
+            ave .-= me
+            ma = maximum(ave)
+            ave = ave ./ ma
         end
         return ave
     end
@@ -1544,8 +1549,74 @@ module Tools
 
     """ analyses profile stability using
         https://ui.adsabs.harvard.edu/abs/1975ApJ...198..661H/abstract """
-    function analyse_profile_stability(pulses)
+    function analyse_profile_stability(pulses, average, bin_num, binoff_st, binoff_end, binon_st, binon_end, longitude)
+        # pulses = profiles[3]
+        #average = averages[3]
 
+        # calculate stability for the whole observation
+        pulse_num = size(pulses)[1]
+        m = trunc(Int, log2(pulse_num / 2))
+        #m += 1 # nope
+        #avers = Array{Float64}(undef, m, bins[1])
+        avers = []
+        for i in 0:m
+            push!(avers, [])
+        end
+        for i in 0:m
+            mm = 2^i
+            av = zeros(bin_num)
+            for j in 1:pulse_num
+                for k in 1:bin_num
+                    av[k] += pulses[j, k]
+                end
+                if j % mm == 0
+                    # normalizes here
+                    #m1 = mean(averages[3][binoff_st:binoff_end])
+                    m2 = mean(av[binoff_st:binoff_end])
+                    av .-= m2
+                    # same maximum
+                    #maa = maximum(av)
+                    #av = av ./ maa
+                    # not the maximum, but mean
+                    m3 = mean(average[binon_st:binon_end])
+                    m4 = mean(av[binon_st:binon_end])
+                    av = av .* (m3 / m4)
+                    #=
+                    m5 = mean(av[binon_st:binon_end])
+                    m6 = mean(av[binoff_st:binoff_end])
+                    println("$m3 $m4 $m5 $m6")
+                    plot(longitude, average, c="tab:blue", lw=0.7)
+                    plot(longitude, av, c="tab:red", lw=0.7)
+                    show()
+                    r = readline(stdin; keep=false)
+                    close()
+                    if r == "q"
+                        return
+                    end
+                    =#
+                    push!(avers[i+1], av)
+                    #println("$i $j $(m+1)")
+                    av = zeros(bin_num)
+
+                end
+            end
+        end
+
+        onemrhos = []
+        onemrhose = []
+        npulses = []
+        for i in 1:size(avers)[1]
+            push!(npulses, 2^(i-1))
+            omrhos = []
+            for j in 1:size(avers[i])[1]
+                rho = cor(avers[i][j], average)
+                push!(omrhos, 1 - rho)
+            end
+            push!(onemrhos, mean(omrhos))
+            push!(onemrhose, std(omrhos))
+        end
+
+        return onemrhos, onemrhose, npulses
 
     end
 

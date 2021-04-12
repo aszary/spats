@@ -662,17 +662,85 @@ module SpaTs
         #Plot.driftrate_analysis_J1750_2(outdir; lambda=200.0, show_=false)
         #Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=true) # segmented fits # not used?
 
-        # Timescales 
+        # Timescales
         #Plot.driftdirection_J1750_2([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
         # Timescales - new
         #Plot.driftdirection_J1750_3([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper
-        Plot.driftdirection_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
+        #Plot.driftdirection_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
 
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # old too many ranges
         #Plot.average_J1750_2([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
+        Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="1234567", show_=true) # 350 650
+    end
 
 
+    function J1750_average()
+
+        outdir = "/home/szary/work/MeerTime/J1750/"
+        data_dir2 = "/home/szary/work/MeerTime/J1750/new_data2/"
+
+        # connect data
+        #=
+        data1 = Data.load_ascii("$(data_dir2)2019-12-14-14:22:12_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2019-12-14-14:22:12_00256-00511.txt")
+        data3 = Data.load_ascii("$(data_dir2)2019-12-14-14:22:12_00512-00767.txt")
+        data4 = Data.load_ascii("$(data_dir2)2019-12-14-14:22:12_00768-01030.txt")
+        data = vcat(data1, data2, data3, data4)
+        Data.save_ascii(data, "$(data_dir2)2019-12-14-14:22:12_00000-01030.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-02-24-03:46:43_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-02-24-03:46:43_00256-00445.txt")
+        data = vcat(data1, data2)
+        Data.save_ascii(data, "$(data_dir2)2020-02-24-03:46:43_00000-00445.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-03-29-04:11:50_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-03-29-04:11:50_00256-00449.txt")
+        data = vcat(data1, data2)
+        Data.save_ascii(data, "$(data_dir2)2020-03-29-04:11:50_00000-00449.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-05-07-23:14:22_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-05-07-23:14:22_00256-00446.txt")
+        data = vcat(data1, data2)
+        Data.save_ascii(data, "$(data_dir2)2020-05-07-23:14:22_00000-00446.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-05-30-22:04:58_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-05-30-22:04:58_00256-00446.txt")
+        data = vcat(data1, data2)
+        Data.save_ascii(data, "$(data_dir2)2020-05-30-22:04:58_00000-00446.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-06-25-21:24:52_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-06-25-21:24:52_00256-00445.txt")
+        Data.save_ascii(data, "$(data_dir2)2020-06-25-21:24:52_00000-00445.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-07-25-17:53:20_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-07-25-17:53:20_00256-00441.txt")
+        Data.save_ascii(data, "$(data_dir2)2020-07-25-17:53:20_00000-00441.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-08-23-16:06:06_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-08-23-16:06:06_00256-00444.txt")
+        Data.save_ascii(data, "$(data_dir2)2020-08-23-16:06:06_00000-00444.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-09-19-14:14:25_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-09-19-14:14:25_00256-00445.txt")
+        Data.save_ascii(data, "$(data_dir2)2020-09-19-14:14:25_00000-00445.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-11-16-12:47:10_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-11-16-12:47:10_00256-00445.txt")
+        Data.save_ascii(data, "$(data_dir2)2020-11-16-12:47:10_00000-00445.txt")
+        data1 = Data.load_ascii("$(data_dir2)2020-12-12-08:36:03_00000-00255.txt")
+        data2 = Data.load_ascii("$(data_dir2)2020-12-12-08:36:03_00256-00445.txt")
+        Data.save_ascii(data, "$(data_dir2)2020-12-12-08:36:03_00000-00445.txt")
+        =#
+
+        data1 = Data.load_ascii("$(data_dir2)2019-09-29-12:41:18_00000-00294.txt")
+        data2 = Data.load_ascii("$(data_dir2)2019-12-14-14:22:12_00000-01030.txt")
+        data3 = Data.load_ascii("$(data_dir2)2020-02-24-03:46:43_00000-00445.txt")
+        data4 = Data.load_ascii("$(data_dir2)2020-03-29-04:11:50_00000-00449.txt")
+        data5 = Data.load_ascii("$(data_dir2)2020-05-07-23:14:22_00000-00446.txt")
+        data6 = Data.load_ascii("$(data_dir2)2020-05-30-22:04:58_00000-00446.txt")
+        data7 = Data.load_ascii("$(data_dir2)2020-06-25-21:24:52_00000-00445.txt")
+        data8 = Data.load_ascii("$(data_dir2)2020-07-25-17:53:20_00000-00441.txt")
+        data9 = Data.load_ascii("$(data_dir2)2020-08-23-16:06:06_00000-00444.txt")
+        data10 = Data.load_ascii("$(data_dir2)2020-09-19-14:14:25_00000-00445.txt")
+        data11 = Data.load_ascii("$(data_dir2)2020-11-16-12:47:10_00000-00445.txt")
+        data12 = Data.load_ascii("$(data_dir2)2020-12-12-08:36:03_00000-00445.txt")
+
+        datas = [data1, data2, data3, data4, data5, data6, data7, data8, data9, data10, data11, data12]
+        # average profile for almost whole data
+        # TODO need to detect tracks first... maybe someday
+        #Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
     end
 
 
@@ -761,6 +829,7 @@ module SpaTs
         #J1750_local()
         #J1750_paper()
         J1750_paper2()
+        #J1750_average()
         #J1750_modeled()
 
     end
