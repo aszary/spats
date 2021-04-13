@@ -671,7 +671,7 @@ module SpaTs
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # old too many ranges
         #Plot.average_J1750_2([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
-        Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="1234567", show_=true) # 350 650
+        #Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="1234567", show_=true) # 350 650
     end
 
 
@@ -706,21 +706,27 @@ module SpaTs
         Data.save_ascii(data, "$(data_dir2)2020-05-30-22:04:58_00000-00446.txt")
         data1 = Data.load_ascii("$(data_dir2)2020-06-25-21:24:52_00000-00255.txt")
         data2 = Data.load_ascii("$(data_dir2)2020-06-25-21:24:52_00256-00445.txt")
+        data = vcat(data1, data2)
         Data.save_ascii(data, "$(data_dir2)2020-06-25-21:24:52_00000-00445.txt")
         data1 = Data.load_ascii("$(data_dir2)2020-07-25-17:53:20_00000-00255.txt")
         data2 = Data.load_ascii("$(data_dir2)2020-07-25-17:53:20_00256-00441.txt")
+        data = vcat(data1, data2)
         Data.save_ascii(data, "$(data_dir2)2020-07-25-17:53:20_00000-00441.txt")
         data1 = Data.load_ascii("$(data_dir2)2020-08-23-16:06:06_00000-00255.txt")
         data2 = Data.load_ascii("$(data_dir2)2020-08-23-16:06:06_00256-00444.txt")
+        data = vcat(data1, data2)
         Data.save_ascii(data, "$(data_dir2)2020-08-23-16:06:06_00000-00444.txt")
         data1 = Data.load_ascii("$(data_dir2)2020-09-19-14:14:25_00000-00255.txt")
         data2 = Data.load_ascii("$(data_dir2)2020-09-19-14:14:25_00256-00445.txt")
+        data = vcat(data1, data2)
         Data.save_ascii(data, "$(data_dir2)2020-09-19-14:14:25_00000-00445.txt")
         data1 = Data.load_ascii("$(data_dir2)2020-11-16-12:47:10_00000-00255.txt")
         data2 = Data.load_ascii("$(data_dir2)2020-11-16-12:47:10_00256-00445.txt")
+        data = vcat(data1, data2)
         Data.save_ascii(data, "$(data_dir2)2020-11-16-12:47:10_00000-00445.txt")
         data1 = Data.load_ascii("$(data_dir2)2020-12-12-08:36:03_00000-00255.txt")
         data2 = Data.load_ascii("$(data_dir2)2020-12-12-08:36:03_00256-00445.txt")
+        data = vcat(data1, data2)
         Data.save_ascii(data, "$(data_dir2)2020-12-12-08:36:03_00000-00445.txt")
         =#
 
@@ -738,9 +744,25 @@ module SpaTs
         data12 = Data.load_ascii("$(data_dir2)2020-12-12-08:36:03_00000-00445.txt")
 
         datas = [data1, data2, data3, data4, data5, data6, data7, data8, data9, data10, data11, data12]
+        #datas = [data1, data2, data3, data4, data5, data6, data7, data8, data9, data10, data12]
         # average profile for almost whole data
-        # TODO need to detect tracks first... maybe someday
-        #Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
+        # peaks detection
+        #=
+        peaks = Tools.track_subpulses(data8, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        Plot.group_tracks(data8, "$(outdir)tracks/8", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="8", darkness=0.6)
+        peaks = Tools.track_subpulses(data9, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        Plot.group_tracks(data9, "$(outdir)tracks/9", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="9", darkness=0.6)
+        peaks = Tools.track_subpulses(data10, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        Plot.group_tracks(data10, "$(outdir)tracks/10", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="10", darkness=0.6)
+        peaks = Tools.track_subpulses(data11, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        Plot.group_tracks(data11, "$(outdir)tracks/11", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="11", darkness=0.6)
+        peaks = Tools.track_subpulses(data12, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
+        Plot.group_tracks(data12, "$(outdir)tracks/12", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="12", darkness=0.6)
+        =#
+
+
+        #Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="12", show_=true) # 350 650
+        Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
     end
 
 
@@ -828,8 +850,8 @@ module SpaTs
         #J1750_remote()
         #J1750_local()
         #J1750_paper()
-        J1750_paper2()
-        #J1750_average()
+        #J1750_paper2()
+        J1750_average()
         #J1750_modeled()
 
     end

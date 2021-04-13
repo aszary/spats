@@ -91,7 +91,9 @@ module Tools
 
     function peaks(intensity)
         #max = maxima(intensity, 30)
-        ma, pa = peakprom(intensity, Maxima(), 1) #floor(Int, length(intensity)/20))  # works for J1750
+        # new syntax?
+        ma, pa = peakprom(Maxima(), intensity) #floor(Int, length(intensity)/20))  # works for J1750
+        #ma, pa = peakprom(intensity, Maxima(), 1) #floor(Int, length(intensity)/20))  # works for J1750
         #ma, pa = peakprom(intensity, Maxima(), floor(Int, length(intensity)/20))
         #println(ma)
         #println(pa)
@@ -516,7 +518,9 @@ module Tools
             #println("$i $sigma")
             if sigma > thresh
                 peak = Tools.peaks(re)
-                ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
+                # new syntax?
+                ma, pa = peakprom(Maxima(), re, floor(Int, p2_bins/4))
+                #ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
                 #ma, pa = peakprom(re, Maxima(), p2_bins/2)
                 inds = sortperm(pa, rev=true)
                 ppeaks = []
