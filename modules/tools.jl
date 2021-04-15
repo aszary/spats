@@ -1560,7 +1560,7 @@ module Tools
         # calculate stability for the whole observation
         pulse_num = size(pulses)[1]
         m = trunc(Int, log2(pulse_num / 2))
-        #m += 1 # nope
+        m += 1 # nope
         #avers = Array{Float64}(undef, m, bins[1])
         avers = []
         for i in 0:m

@@ -3463,11 +3463,12 @@ module Plot
             push!(nums, nu)
             push!(bins, bi)
         end
-        if bin_st == nothing bin_st = 1 end
-        if bin_end == nothing bin_end = bins[1] end
+        # take full but plot only part
+        bin_st0 = 1
+        bin_end0 = bins[1]
         das = [] # single pulse data
         for data in datas
-            da = data[:, bin_st:bin_end]
+            da = data[:, bin_st0:bin_end0]
             push!(das, da)
         end
 
@@ -3536,9 +3537,26 @@ module Plot
         nums = []
         for profile in profiles
             push!(nums, size(profile)[1])
-            push!(averages, Tools.average_profile(profile; norm=true))
+            push!(averages, Tools.average_profile(profile; norm=false))
             #println(size(profile)[1])
         end
+
+        # normalize profiles here
+        for i in 1:3
+            me = mean(averages[i][700:1000])
+            averages[i] .-= me
+        end
+        ma = maximum(averages[3])
+        averages[3] ./= ma
+        ma1 = maximum(averages[1])
+        ma2 = maximum(averages[2])
+        m1 = mean(averages[1][350:650])
+        m2 = mean(averages[2][350:650])
+        m3 = mean(averages[3][350:650])
+        #averages[1] ./= ma1
+        #averages[2] ./= ma2
+        averages[1] .*= m3 / m1
+        averages[2] .*= m3 / m2
 
         # Pulse longitude around 0
         #db = (bin_end + 1) - bin_st  # yes +1
@@ -3576,9 +3594,9 @@ module Plot
         subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         minorticks_on()
-        plot(longitude, averages[1], c="C1", label=labels[1], lw=0.3, zorder=200)
-        plot(longitude, averages[2], c="C2", label=labels[2], lw=0.3, zorder=201)
-        plot(longitude, averages[3], c="black", label=labels[3], lw=0.5, zorder=199, alpha=0.9)
+        plot(longitude, averages[1][bin_st:bin_end], c="C1", label=labels[1], lw=0.3, zorder=200)
+        plot(longitude, averages[2][bin_st:bin_end], c="C2", label=labels[2], lw=0.3, zorder=201)
+        plot(longitude, averages[3][bin_st:bin_end], c="black", label=labels[3], lw=0.5, zorder=199, alpha=0.9)
         #plot(longitude, ga * sqrt(nums[4]), c="green", lw=1.3, zorder=1200)
         #plot(longitude, averages[1] * sqrt(nums[1]), c="C1", label=labels[1], lw=0.3, zorder=200)
         #plot(longitude, averages[3] * sqrt(nums[3]), c="C1", label=labels[3], lw=0.7, alpha=0.7, ls=(0, (1, 1)))
@@ -3590,7 +3608,7 @@ module Plot
         #    plot(longitude, averages[i] * sqrt(nums[i]), c="C$i", label=labels[i])
             #plot(longitude, averages[i], c="C$i", label=labels[i])
         #end
-        #yticks([0.0, 0.5])
+        yticks(collect(0.0:0.2:1))
         #xlim(longitude[1], longitude[end])
         xlabel("longitude (deg.)")
         #ylabel("\$\\sqrt{\\rm Number \\; of \\; pulses}\$")
@@ -3690,61 +3708,66 @@ module Plot
         onemrhos1, onemrhose1, npulses1 = Tools.analyse_profile_stability(profiles[1], averages[1], bin_num, binoff_st, binoff_end, binon_st, binon_end, longitude)
         onemrhos2, onemrhose2, npulses2 = Tools.analyse_profile_stability(profiles[2], averages[2], bin_num, binoff_st, binoff_end, binon_st, binon_end, longitude)
 
+
+        lines = []
+        stabilization_time = 1
+
+
+
+        @. f(x, p) = p[1] * x ^ 2 + p[2] * x + p[3]
+        #p0 = [-0.5, 0, 1]
+        p0 = [-0.23506367429667388, 0.12580584169631978, -0.14562974681462082]
+        onemrhos_ = convert(Array{Float64,1}, onemrhos[2:end]) # skipping first
+        npulses_ = convert(Array{Float64,1}, npulses[2:end])
+        x_ = log10.(npulses_)
+        y_ = log10.(onemrhos_)
+
+        fit = curve_fit(f, x_, y_, p0)
+        p = coef(fit)
+        err = stderror(fit)
+        x_ = collect(0:0.1:4.3)
+        line = [10 .^ x_, 10 .^ f(x_, p)]
+        push!(lines, line)
+        println(p)
+        for i in 1:size(line[1])[1]
+            #println(line[2][i], " $i")
+            if line[2][i] < 0.001
+                stabilization_time = line[1][i]
+                println("Stabilization time: $stabilization_time")
+                break
+            end
+        end
+
+
+
         #=
-        pulse_num = size(profiles[3])[1]
-        bin_num = bins[1]
-        m = trunc(Int, log2(pulse_num / 2))
-        m += 1
-        #avers = Array{Float64}(undef, m, bins[1])
-        avers = []
-        for i in 0:m
-            push!(avers, [])
-        end
-        for i in 0:m
-            mm = 2^i
-            av = zeros(bin_num)
-            for j in 1:pulse_num
-                for k in 1:bin_num
-                    av[k] += profiles[3][j, k]
-                end
-                if j % mm == 0
-                    # normalizes here
-                    #m1 = mean(averages[3][binoff_st:binoff_end])
-                    m2 = mean(av[binoff_st:binoff_end])
-                    av .-= m2
-                    # same maximum
-                    #maa = maximum(av)
-                    #av = av ./ maa
-                    # not the maximum, but mean
-                    m3 = mean(averages[3][binon_st:binon_end])
-                    m4 = mean(av[binon_st:binon_end])
-                    av = av .* (m3 / m4)
-                    push!(avers[i+1], av)
-                    #println("$i $j $(m+1)")
-                    av = zeros(bin_num)
-
-                end
+        # line fitting (not so good)
+        @. f(x, p) = p[2] * x + p[1]
+        # why why why?
+        onemrhos_ = convert(Array{Float64,1}, onemrhos[9:end]) # skipping some
+        npulses_ = convert(Array{Float64,1}, npulses[9:end])
+        x_ = log10.(npulses_)
+        y_ = log10.(onemrhos_)
+        data = DataFrame(X=x_, Y=y_)
+        ols = lm(@formula(Y ~ X), data)
+        x_ = collect(2.2:0.1:4.3)
+        line = [10 .^ x_, 10 .^ f(x_, coef(ols))]
+        push!(lines, line)
+        for i in 1:size(line[1])[1]
+            println(line[2][i], " $i")
+            if line[2][i] < 0.0005
+                stabilization_time = line[1][i]
+                println("Stabilization time: $stabilization_time")
+                break
             end
-        end
-
-        onemrhos = []
-        onemrhose = []
-        npulses = []
-        for i in 1:size(avers)[1]
-            push!(npulses, 2^(i-1))
-            omrhos = []
-            for j in 1:size(avers[i])[1]
-                rho = cor(avers[i][j], averages[3])
-                push!(omrhos, 1 - rho)
-            end
-            push!(onemrhos, mean(omrhos))
-            push!(onemrhose, std(omrhos))
         end
         =#
 
         errorbar(npulses, onemrhos, yerr=onemrhose, color="tab:red")
         errorbar(npulses1, onemrhos1, yerr=onemrhose1, color="tab:blue")
         errorbar(npulses2, onemrhos2, yerr=onemrhose2, color="tab:green")
+        plot(lines[1][1], lines[1][2], lw=0.7, color="black", ls="--")
+        axvline(x = stabilization_time)
         #semilogx()
         loglog()
         xlabel("Number of pulses")
@@ -3752,7 +3775,6 @@ module Plot
         show()
         readline(stdin; keep=false)
         close()
-
 
         return
 

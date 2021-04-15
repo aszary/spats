@@ -671,7 +671,7 @@ module SpaTs
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # old too many ranges
         #Plot.average_J1750_2([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
-        #Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="1234567", show_=true) # 350 650
+        Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="1234567", show_=true) # 350 650
     end
 
 
@@ -762,6 +762,7 @@ module SpaTs
 
 
         #Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="12", show_=true) # 350 650
+        #Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
         Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
     end
 
@@ -850,8 +851,8 @@ module SpaTs
         #J1750_remote()
         #J1750_local()
         #J1750_paper()
-        #J1750_paper2()
-        J1750_average()
+        J1750_paper2()
+        #J1750_average()
         #J1750_modeled()
 
     end
