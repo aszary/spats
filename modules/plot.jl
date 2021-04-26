@@ -1052,7 +1052,7 @@ module Plot
     end
 
 
-    function p3fold_twotracks(data1, data2, data_dir, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=14)
+    function p3fold_twotracks(data1, data2, data_dir, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=14, show_=false)
         num, bins = size(data1)
         if number == nothing
             number = num - start + 1 # missing one?
@@ -1188,7 +1188,7 @@ module Plot
         subplot2grid((5, 2), (4, 0))
         minorticks_on()
         plot(longitude, average, c="grey")
-        xticks([-40, 0, 40])
+        #xticks([-40, 0, 40])
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         ylabel("intensity (a. u.)")
@@ -1198,7 +1198,7 @@ module Plot
         minorticks_on()
         tick_params(labelleft=false)
         plot(longitude, average2, c="grey")
-        xticks([-40, 0, 40])
+        #xticks([-40, 0, 40])
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
 
@@ -1207,6 +1207,10 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_p3fold_twotracks.pdf")
         savefig("$outdir/$(name_mod)_p3fold_twotracks.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
         close()
     end
 
@@ -3243,6 +3247,113 @@ module Plot
     end
 
 
+
+    function driftdirection_analysis_J1750_4(outdir; lambda=200, name_mod="1234567", show_=false)
+
+        tracks = []
+        lines = []
+        inclines = []
+        pulses = []
+        ysps = []
+
+        for i in 1:7
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            push!(tracks, tracks1)
+            push!(lines, lines1)
+            push!(inclines, inclines1)
+            push!(pulses, dr1)
+            push!(ysps, ysp1)
+        end
+
+        breaks_longitude = []
+
+
+        for i in 1:length(tracks)
+            negative = []
+            positive = []
+            for (j, ysp) in enumerate(ysps[i])
+                if signbit(ysp)
+                    push!(negative, pulses[i][j])
+                else
+                    push!(positive, pulses[i][j])
+                end
+            end
+
+            #if i == 2
+            for j in 1:size(positive)[1]-1
+                dpulse = positive[j+1] - positive[j]
+                if dpulse > 2
+                    break_pulse = trunc(positive[j])
+                    #println("Break pulse: $break_pulse")
+                    #ff = findfirst(x->x==positive[j], pulses[i])
+                    for k in 1:size(tracks[i])[1]
+                        #println("$k", size(tracks[i][k]))
+                        #println("$k ", pulses[i])
+                        for l in 1:size(tracks[i][k])[1]
+                            pulse_number = tracks[i][k][l,2]
+                            lon = tracks[i][k][l,1]
+                            #println(pulse_number, " ", break_pulse)
+                            if pulse_number == break_pulse
+                                #println(lon)
+                                push!(breaks_longitude, lon)
+                            end
+                        end
+                    end
+                end
+                #end
+                #println(positive)
+                #println(negative)
+            end
+        end
+
+
+        mi = minimum(breaks_longitude)
+        ma = maximum(breaks_longitude)
+        println(length(breaks_longitude))
+
+
+        rc("font", size=7.5)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.14, bottom=0.20, right=0.99, top=0.99, wspace=0., hspace=0.)
+        minorticks_on()
+
+        res = hist(breaks_longitude, bins=12, color="tab:blue", edgecolor="black", lw=0.5)
+        #xlim([mi, ma])
+        xlim([147, 207])
+
+        #y_ = res[1]
+        y_ = vcat([0,0], res[1], [0, 0])
+        x_ = []
+        for i in 1:size(res[2])[1]-1
+            push!(x_, res[2][i] + (res[2][i+1]-res[2][i]) / 2)
+        end
+        x_ = vcat([x_[1]-(x_[2]-x_[1])], x_, [x_[end]+(x_[end]-x_[end-1])])
+        x_ = vcat([x_[1]-(x_[2]-x_[1])], x_, [x_[end]+(x_[end]-x_[end-1])])
+
+        p, err = Tools.fit_twogaussians(x_, y_, 5.0, 8.0, 162.0, 180.0, 10.0, 10.0; baselevel=0.0)
+        #p, err = Tools.fit_gaussian(x_, y_; a=8.0, μ=180.0, σ=5.0, baselevel=0.0)
+        println(p)
+        println(err)
+        xx = collect(x_[1]:0.1:x_[end])
+        ga = Tools.twogauss(xx, p)
+        plot(xx, ga, lw=1, c="tab:red")
+        xlabel("longitude (deg.)")
+        ylabel("Number of direction changes")
+
+        savefig("$outdir/$(name_mod)_driftdirection_4.pdf")
+        println("$outdir/$(name_mod)_driftdirection_4.pdf")
+
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
     function driftdirection_analysis_J1750_3(outdir; lambda=200, name_mod="1234567", show_=false)
 
         tracks = []
@@ -3711,34 +3822,60 @@ module Plot
 
         lines = []
         stabilization_time = 1
+        stabilization_time2 = 1
+        thresh = 0.0005
 
-
-
-        @. f(x, p) = p[1] * x ^ 2 + p[2] * x + p[3]
+        # positive
+        @. f(x, p) = p[4] * x^3 + p[1] * x ^ 2 + p[2] * x + p[3]
         #p0 = [-0.5, 0, 1]
-        p0 = [-0.23506367429667388, 0.12580584169631978, -0.14562974681462082]
-        onemrhos_ = convert(Array{Float64,1}, onemrhos[2:end]) # skipping first
-        npulses_ = convert(Array{Float64,1}, npulses[2:end])
+        p0 = [-0.23506367429667388, 0.12580584169631978, -0.14562974681462082, -0.1330915339905905]
+        onemrhos_ = convert(Array{Float64,1}, onemrhos1[2:end]) # skipping first
+        npulses_ = convert(Array{Float64,1}, npulses1[2:end])
         x_ = log10.(npulses_)
         y_ = log10.(onemrhos_)
 
         fit = curve_fit(f, x_, y_, p0)
         p = coef(fit)
         err = stderror(fit)
-        x_ = collect(0:0.1:4.3)
+        x_ = collect(0:0.01:4.3)
         line = [10 .^ x_, 10 .^ f(x_, p)]
         push!(lines, line)
-        println(p)
+        #println(p)
+        #println(err)
         for i in 1:size(line[1])[1]
             #println(line[2][i], " $i")
-            if line[2][i] < 0.001
+            if line[2][i] < thresh
                 stabilization_time = line[1][i]
                 println("Stabilization time: $stabilization_time")
                 break
             end
         end
 
+        # negative
+        @. f(x, p) = p[4] * x^3 + p[1] * x ^ 2 + p[2] * x + p[3]
+        #p0 = [-0.5, 0, 1]
+        p0 = [-0.23506367429667388, 0.12580584169631978, -0.14562974681462082, -0.1330915339905905]
+        onemrhos_ = convert(Array{Float64,1}, onemrhos2[1:end]) # skipping first
+        npulses_ = convert(Array{Float64,1}, npulses2[1:end])
+        x_ = log10.(npulses_)
+        y_ = log10.(onemrhos_)
 
+        fit = curve_fit(f, x_, y_, p0)
+        p = coef(fit)
+        err = stderror(fit)
+        x_ = collect(0:0.01:4.3)
+        line2 = [10 .^ x_, 10 .^ f(x_, p)]
+        push!(lines, line2)
+        #println(p)
+        #println(err)
+        for i in 1:size(line2[1])[1]
+            #println(line[2][i], " $i")
+            if line2[2][i] < thresh
+                stabilization_time2 = line2[1][i]
+                println("Stabilization time 2: $stabilization_time2")
+                break
+            end
+        end
 
         #=
         # line fitting (not so good)
@@ -3763,77 +3900,31 @@ module Plot
         end
         =#
 
-        errorbar(npulses, onemrhos, yerr=onemrhose, color="tab:red")
-        errorbar(npulses1, onemrhos1, yerr=onemrhose1, color="tab:blue")
-        errorbar(npulses2, onemrhos2, yerr=onemrhose2, color="tab:green")
-        plot(lines[1][1], lines[1][2], lw=0.7, color="black", ls="--")
-        axvline(x = stabilization_time)
-        #semilogx()
-        loglog()
-        xlabel("Number of pulses")
-        ylabel("\$1-\\rho\$")
-        show()
-        readline(stdin; keep=false)
-        close()
-
-        return
-
-        # Pulse longitude around 0
-        #db = (bin_end + 1) - bin_st  # yes +1
-        #dl = 360. * db / bins[1]
-        #longitude = collect(range(-dl/2., dl/2., length=db))
-
-        #=
-        (p1, err1) = Tools.fit_twogaussians(longitude, averages[1], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
-        (p2, err2) = Tools.fit_twogaussians(longitude, averages[2], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
-        (p3, err3) = Tools.fit_twogaussians(longitude, averages[3], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
-        (p4, err4) = Tools.fit_twogaussians(longitude, averages[4], 0.5, 0.9, -13.0, 3.0, 5.0, 5.0)
-        ga = Tools.twogauss(longitude, p4)
-        (p5, err5) = Tools.fit_twogaussians(longitude, averages[5], 0.6, 0.9, -13.0, 3.0, 5.0, 5.0)
-        (p6, err6) = Tools.fit_gaussian(longitude, averages[6], a=1.0, μ=-4.0, σ=15.0)
-        println("1: ", p1)
-        println("3: ", p3)
-        println("4: ", p4)
-        #println("err1: ", err1)
-        println("2: ", p2)
-        println("5: ", p5)
-        println("6: ", p6)
-        #println(err2)
-        =#
+        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$ (N=$(size(profiles[1])[1]))", "\$\\qquad \\;\\; {\\rm D} < 0 \$ (N=$(size(profiles[2])[1]))", "\$0.91 > {\\rm D} > -0.73 \$ (N=$(size(profiles[3])[1]))", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$ (N=$(size(profiles[1])[1]))", "\$\\qquad \\;\\; {\\rm D} < 0 \$ (N=$(size(profiles[2])[1]))", "\$0.91 > {\\rm D} > -0.73 \$ (N=$(size(profiles[3])[1]))", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
-
-
         figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
-        subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
-
+        subplots_adjust(left=0.19, bottom=0.21, right=0.99, top=0.99, wspace=0., hspace=0.)
         minorticks_on()
-        plot(longitude, averages[1], c="C1", label=labels[1], lw=0.3, zorder=200)
-        plot(longitude, averages[2], c="C2", label=labels[2], lw=0.3, zorder=201)
-        plot(longitude, averages[3], c="black", label=labels[3], lw=0.5, zorder=199, alpha=0.9)
-        #plot(longitude, ga * sqrt(nums[4]), c="green", lw=1.3, zorder=1200)
-        #plot(longitude, averages[1] * sqrt(nums[1]), c="C1", label=labels[1], lw=0.3, zorder=200)
-        #plot(longitude, averages[3] * sqrt(nums[3]), c="C1", label=labels[3], lw=0.7, alpha=0.7, ls=(0, (1, 1)))
-        #plot(longitude, averages[4] * sqrt(nums[4]), c="C2", label=labels[4], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
-        #plot(longitude, averages[2] * sqrt(nums[2]), c="C2", label=labels[2], lw=0.3, zorder=201)
-        #plot(longitude, averages[5] * sqrt(nums[5]), c="C3", label=labels[5], lw=0.7,alpha=0.7, ls=(0, (1, 1)))
-        #plot(longitude, averages[6] * sqrt(nums[6]), c="C4", label=labels[6], lw=0.7, alpha=0.7, ls=(0, (5, 1)))
-        #for i in 1:length(averages)
-        #    plot(longitude, averages[i] * sqrt(nums[i]), c="C$i", label=labels[i])
-            #plot(longitude, averages[i], c="C$i", label=labels[i])
-        #end
-        #yticks([0.0, 0.5])
-        #xlim(longitude[1], longitude[end])
-        xlabel("longitude (deg.)")
-        #ylabel("\$\\sqrt{\\rm Number \\; of \\; pulses}\$")
-        #ylabel("Intensity (arbitrary units)")
-        ylabel("Intensity (a. u.)")
+
+        errorbar(npulses, onemrhos, yerr=onemrhose, color="black", lw=1.5, alpha=0.79, label=labels[3])
+        errorbar(npulses1, onemrhos1, yerr=onemrhose1, color="tab:orange", lw=1.5, alpha=0.79, label=labels[1])
+        errorbar(npulses2, onemrhos2, yerr=onemrhose2, color="tab:green", lw=1.5, alpha=0.79, label=labels[2])
+        plot(lines[1][1], lines[1][2], lw=0.7, color="tab:orange", ls="--")
+        plot(lines[2][1], lines[2][2], lw=0.7, color="tab:green", ls="--")
+        #axvline(x = stabilization_time)
+        axhline(y = thresh, ls="--", color="black")
+        #semilogx()
+
         legend(prop=Dict("size"=> 4.1))
-        #tick_params(labeltop=false, labelbottom=true)
+        loglog()
+        xlim([0.7, 9e3])
+        ylim([9e-5, 1.4])
+        xlabel("Number of pulses")
+        ylabel("\$1-\\rho\$")
         println("$outdir/$(name_mod)_averages_stability.pdf")
         savefig("$outdir/$(name_mod)_averages_stability.pdf")
         if show_ == true

@@ -654,7 +654,7 @@ module SpaTs
         #Plot.group_tracks(p3data1, "$(data_patrick)tracks/1", peaks; start=1, number=44, bin_st=350, bin_end=650, name_mod="1p3_", darkness=0.7)
         #peaks = Tools.track_subpulses(p3data2, 18, thresh=0.4, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(p3data2, "$(data_patrick)tracks/2", peaks; start=1, number=44, bin_st=350, bin_end=650, name_mod="2p3_", darkness=0.7)
-        #Plot.p3fold_twotracks(p3data1, p3data2, "$(data_patrick)tracks", outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="12", darkness=0.7, cmap="viridis")
+        #Plot.p3fold_twotracks(p3data1, p3data2, "$(data_patrick)tracks", outdir; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="12", darkness=0.7, cmap="viridis", show_=true)
 
         # The Plot
         #Plot.driftrate_J1750_2(outdir; spar=0.6, show_=true) # not too good, but I tried...
@@ -667,11 +667,12 @@ module SpaTs
         # Timescales - new
         #Plot.driftdirection_J1750_3([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper
         #Plot.driftdirection_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
+        Plot.driftdirection_analysis_J1750_4(outdir; lambda=200.0, show_=true) # TODO changes vs longitude, P2 stability
 
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # old too many ranges
         #Plot.average_J1750_2([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
-        Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="1234567", show_=true) # 350 650
+        #Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="1234567", show_=true) # 350 650
     end
 
 
@@ -761,9 +762,9 @@ module SpaTs
         =#
 
 
-        #Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="12", show_=true) # 350 650
+        Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7, data8, data9, data10, data11, data12], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="12", show_=true) # 350 650
         #Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
-        Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
+        #Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
     end
 
 
