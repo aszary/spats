@@ -6,6 +6,7 @@ module Plot
     using StatsBase
     using PyPlot
     using PyCall
+    using Printf
     @pyimport matplotlib.patches as patch
 
     #PyPlot.matplotlib.use("agg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
@@ -14,6 +15,7 @@ module Plot
     using Glob
     using SmoothingSplines
     using DataFrames, GLM
+    using Distributions
 
     using RCall
     using HypothesisTests
@@ -253,28 +255,67 @@ module Plot
             number = num - start  # missing one?
         end
 
+        noise_start = 100
+
         if bin_st[1] == nothing bin_st[1] = 1 end
         if bin_st[2] == nothing bin_st[2] = 1 end
         if bin_end[1] == nothing bin_end[1] = bins end
         if bin_end[2] == nothing bin_end[2] = bins end
         da1 = datas[1][start:start+number-1,bin_st[1]:bin_end[1]]
+        da1full = datas[1][start:start+number-1,1:end]
         average1 = Tools.average_profile(da1)
         intensity1, pulses1 = Tools.intensity_pulses(da1)
         intensity1 .-= minimum(intensity1)
         intensity1 ./= maximum(intensity1)
-        average1 .-= minimum(average1)
+        std1 = std(da1full[noise_start:noise_start + (bin_end[1]-bin_st[1])])
+        println("std1 ", std1)
+        average1 .-= mean(da1full[noise_start:noise_start + (bin_end[1]-bin_st[1])]) # minimum(average1) # not 0
+        #average1 .-= minimum(average1)
         average1 ./= maximum(average1)
 
         da2 = datas[2][start:start+number-1,bin_st[2]:bin_end[2]]
+        da2full = datas[2][start:start+number-1,1:end]
         average2 = Tools.average_profile(da2)
         intensity2, pulses2 = Tools.intensity_pulses(da2)
         intensity2 .-= minimum(intensity2)
         intensity2 ./= maximum(intensity2)
-        average2 .-= minimum(average2)
+        std2 = std(da2full[noise_start:noise_start + (bin_end[2]-bin_st[2])])
+        average2 .-= mean(da2full[noise_start:noise_start+(bin_end[2]-bin_st[2])]) # minimum(average2) # not 0
+        #average2 .-= minimum(average2)
         average2 ./= maximum(average2)
 
         pulses1 .+= start - 1  # julia
         pulses2 .+= start - 1  # julia
+
+        # a bad W_10 estimate with some profile smoothing (average)
+        bi = []
+        bi2 = []
+        for i in 1:length(average1)-1
+            if (average1[i] + average1[i+1])/2 > 0.1 +std1
+                push!(bi, i)
+            end
+            if (average1[i] + average1[i+1])/2 > 0.1 - std1
+                push!(bi2, i)
+            end
+        end
+        println("W_10 Obs. min. ", (maximum(bi) - minimum(bi)) / bins1 * 360)
+        println("W_10 Obs. max. ", (maximum(bi2) - minimum(bi2)) / bins1 * 360)
+        #println(maximum(average1), " ", minimum(average1))
+        #println(maximum(bi), " ", minimum(bi))
+
+        bi = []
+        bi2 = []
+        for i in 1:length(average2)-1
+            if (average2[i] + average2[i+1]) / 2 > 0.1 + std1
+                push!(bi, i)
+            end
+            if (average2[i] + average2[i+1]) / 2 > 0.1 - std1
+                push!(bi2, i)
+            end
+        end
+        println("W_10 Mod. min. ", (maximum(bi) - minimum(bi)) / bins2 * 360)
+        println("W_10 Mod. max. ", (maximum(bi2) - minimum(bi2)) / bins2 * 360)
+
 
         # Pulse longitude
         db1 = (bin_end[1] + 1) - bin_st[1]  # yes +1
@@ -638,14 +679,14 @@ module Plot
         tick_params(labelleft=false, labelbottom=true)
 
         # phase vs longitude [2]
-        off = -100
+        off = 100
         ax = subplot2grid((4, 6), (0, 3), colspan=2)
         minorticks_on()
         scatter(longitude2, phase2_.-off, marker=".", c="grey", s=3.)
         for l in lin2
             plot(l[1], l[2].-off, c="blue")
         end
-        text(-27, -1000, string("\$\\frac{\\Delta {\\rm FFT\\, ph.}}{\\Delta {\\rm lon.}} =", round(inc2[1][2], digits=1), " \\pm ", round(inc2[1][3], digits=1), "\$"))
+        text(-20, -1000, string("\$\\frac{\\Delta {\\rm FFT\\, ph.}}{\\Delta {\\rm lon.}} =", round(inc2[1][2], digits=1), " \\pm ", round(inc2[1][3], digits=1), "\$"))
         ylim(-1200, 200)
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
@@ -1838,7 +1879,7 @@ module Plot
                 if add == true
                     push!(picks, pi)
                     thisline.set_color("green")
-                    thisline.set_alpha(0.1)
+                    thisline.set_alpha(0.0) # transparent!
                 else
                     #pop!(picks, pi)  # does not work
                     filter!(p->p!=pi, picks) # works, but I still not get it
@@ -1881,7 +1922,7 @@ module Plot
         for peak in peaks
             if (peak[1] >= start) && (peak[1] <= start + number)
                 for x in peak[2]
-                    plot(x/bins*360, peak[1], marker="x", markersize=5, markeredgewidth=2.2, c="red", fillstyle="full", mfc="red", lw=0, picker=10, alpha=0.5)
+                    plot(x/bins*360, peak[1], marker="x", markersize=3, markeredgewidth=2.2, c="red", fillstyle="full", mfc="red", lw=0, picker=10, alpha=0.5)
                     #scatter(x, peak[1], marker="x", c="red", s=9.5, lw=1, picker=2)
                     #println("$(peak[1]) $x")
                 end
@@ -2591,6 +2632,11 @@ module Plot
         #yl = (125, 225)
         yl2 = (-0.9, 0.9)
 
+        # CHECKING periodicity here
+        ys_ = convert(Array{Float64,1}, ysp2)
+        Tools.periodicity(ys_)
+        return
+
         rc("font", size=7.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -3217,21 +3263,41 @@ module Plot
     end
 
 
-    function driftrate_analysis_J1750_2(outdir; lambda=100, name_mod="1234567", show_=false)
+    function driftrate_analysis_J1750_2(outdir; lambda=100, name_mod="1234567", show_=false, datas=nothing)
 
-        nd, pd = Tools.driftrate_analysis_J1750_2(outdir, lambda)
+        nd, pd, null_pulses = Tools.driftrate_analysis_J1750_2(outdir, lambda)
 
-        println("Negative mean: ", mean(nd))
+        println()
+        println("(in p.) OLD Negative mean: ", mean(nd))
         println("Negative median: ", median(nd))
         println("Negative std: ", std(nd))
-
-        println("Positive mean: ", mean(pd))
+        println("(in p.) OLD Neg. Standard error of the mean: ", std(nd) / sqrt(length(nd)))
+        println()
+        println("(in p.) OLD Positive mean: ", mean(pd))
         println("Positive median: ", median(pd))
         println("Positive std: ", std(pd))
-
+        println("(in p.) OLD Pos. Standard error of the mean: ", std(pd) / sqrt(length(pd)))
+        println()
         println("Negative sum: ", sum(nd))
         println("Positive sum: ", sum(pd))
-        println("Positive coverage: ",  sum(pd)/ (sum(pd) + sum(nd)))
+        println("(in p.) OLD Positive coverage: ",  sum(pd)/ (sum(pd) + sum(nd)))
+
+        # not very useful
+        #=
+        if datas != nothing
+            for i in 1:size(datas)[1]
+                for j in 1:size(null_pulses[i])[1]
+                    println(null_pulses[i][j])
+                    single(datas[i], outdir; darkness=1.0, start=trunc(Int, null_pulses[i][j])-2, number=5, show_=true)
+                    q = readline(stdin; keep=false)
+                    if q == "q"
+                        return
+                    end
+                end
+            end
+
+        end
+        =#
 
         #figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
         hist(nd, alpha=0.7)
@@ -3245,7 +3311,6 @@ module Plot
         end
         close()
     end
-
 
 
     function driftdirection_analysis_J1750_4(outdir; lambda=200, name_mod="1234567", show_=false)
@@ -3345,6 +3410,139 @@ module Plot
 
         savefig("$outdir/$(name_mod)_driftdirection_4.pdf")
         println("$outdir/$(name_mod)_driftdirection_4.pdf")
+
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
+
+    function p2_analysis_J1750(outdir; lambda=200, name_mod="1234567", show_=false)
+
+        tracks = []
+        lines = []
+        inclines = []
+        pulses = []
+        ysps = []
+
+        for i in 1:7
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            push!(tracks, tracks1)
+            push!(lines, lines1)
+            push!(inclines, inclines1)
+            push!(pulses, dr1)
+            push!(ysps, ysp1)
+        end
+
+        lons = []
+        lonsp = []
+        lonsn = []
+        # i - session
+        added_pulses = []
+        for i in 1:length(tracks)
+            push!(added_pulses, [])
+            for j in 1:length(tracks[i])
+                for k in 1:length(tracks[i])
+                    for l in 1:size(tracks[i][j])[1]
+                        for m in 1:size(tracks[i][k])[1]
+                            dpulse = abs(tracks[i][j][l, 2] - tracks[i][k][m, 2])
+                            pulse = trunc(tracks[i][j][l, 2])
+                            if (dpulse == 0) && ~(pulse in added_pulses[end])
+                                dlon = abs(tracks[i][j][l, 1] - tracks[i][k][m, 1])
+                                if (dlon != 0) && (dlon < 30)
+                                    push!(lons, dlon)
+                                    push!(added_pulses[end], pulse)
+                                    # check drift rate
+                                    for n in 1:size(pulses[i])[1]
+                                        p = trunc(pulses[i][n])
+                                        if pulse == p
+                                            if ysps[i][n] > 0
+                                                push!(lonsp, dlon)
+                                            else
+                                                push!(lonsn, dlon)
+                                            end
+                                            break
+                                        end
+                                    end
+                                    #println(dlon)
+                                end
+                                #println(j, " ", k)
+                            end
+
+                        end
+                    end
+                end
+            end
+        end
+
+        #=
+        # Nope use gaussian fitting instead
+        println(round(median(lons), digits=2), " +- ", round(std(lons), digits=2))
+        println("\t pos:", round(median(lonsp), digits=2), " +- ", round(std(lonsp), digits=2))
+        if length(lonsn) > 0
+            println("\t neg:", round(median(lonsn), digits=2), " +- ", round(std(lonsn), digits=2))
+        end=#
+
+        rc("font", size=7.5)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.15, bottom=0.20, right=0.99, top=0.99, wspace=0., hspace=0.)
+        minorticks_on()
+        bins = 15
+        res = hist(lons, color="black", bins=bins, lw=0.5, alpha=0.5, edgecolor="black", label="All pulses", ls="--")
+        res2 = hist(lonsp, color="tab:red", bins=res[2], lw=0.5, alpha=0.5, edgecolor="black", label="Positive drift", ls="--")
+        res3 = hist(lonsn, color="tab:blue", bins=res[2], lw=0.5, alpha=0.5, edgecolor="black", label="Negative drift", ls="--")
+
+        y_ = res[1]
+        #y_ = vcat([0,0], res[1], [0, 0])
+        x_ = []
+        for i in 1:size(res[2])[1]-1
+            push!(x_, res[2][i] + (res[2][i+1]-res[2][i]) / 2)
+        end
+        p, err = Tools.fit_gaussian(x_, y_; a=1700.0, μ=20.0, σ=3.0, baselevel=0.0)
+        println(round(p[2], digits=1), " +- ", round(err[2], digits=1))
+        xx = collect(x_[1]:0.1:x_[end])
+        ga = Tools.gauss(xx, p)
+
+        plot(xx, ga, lw=1, c="black")
+
+        y_ = res2[1]
+        #y_ = vcat([0,0], res[1], [0, 0])
+        x_ = []
+        for i in 1:size(res2[2])[1]-1
+            push!(x_, res2[2][i] + (res2[2][i+1]-res2[2][i]) / 2)
+        end
+        p, err = Tools.fit_gaussian(x_, y_; a=1700.0, μ=20.0, σ=3.0, baselevel=0.0)
+        println("pos. :", round(p[2], digits=1), " +- ", round(err[2], digits=1))
+        xx = collect(x_[1]:0.1:x_[end])
+        ga = Tools.gauss(xx, p)
+
+        plot(xx, ga, lw=1, c="tab:red")
+
+        y_ = res3[1]
+        #y_ = vcat([0,0], res[1], [0, 0])
+        x_ = []
+        for i in 1:size(res3[2])[1]-1
+            push!(x_, res3[2][i] + (res3[2][i+1]-res3[2][i]) / 2)
+        end
+        p, err = Tools.fit_gaussian(x_, y_; a=1000.0, μ=20.0, σ=3.0, baselevel=0.0)
+        println("neg. :", round(p[2], digits=1), " +- ", round(err[2], digits=1))
+        xx = collect(x_[1]:0.1:x_[end])
+        ga = Tools.gauss(xx, p)
+
+        plot(xx, ga, lw=1, c="tab:blue")
+        legend(prop=Dict("size"=> 6.7))
+
+        xlabel("\$P_{2}\$ (deg.)")
+        ylabel("Number of pulses")
+
+        savefig("$outdir/$(name_mod)_p2_analysis.pdf")
+        println("$outdir/$(name_mod)_p2_analysis.pdf")
 
         if show_ == true
             show()
@@ -3738,6 +3936,377 @@ module Plot
     end
 
 
+    """ calculates average profiels in two ranges - different normalization"""
+    function average_J1750_3(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        # take full but plot only part
+        bin_st0 = 1
+        bin_end0 = bins[1]
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st0:bin_end0]
+            push!(das, da)
+        end
+
+        # drift rate data
+        pulses = []
+        ysps = []  # drift rate
+
+        for i in 1:length(das)
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            (ysp, dr) = Tools.remove_duplicates_ysp(ysp1, dr1)
+            push!(pulses, dr)
+            push!(ysps, ysp)
+        end
+
+        ranges = [(2, 0), (0, -2), (2, -2)]
+        profiles = []
+        averages = []
+
+        for r in ranges
+            push!(profiles, [])
+            for i in 1:length(das)
+                for (j, driftrate) in enumerate(ysps[i])
+                    if (driftrate < r[1]) && (driftrate > r[2])
+                        push!(profiles[end], das[i][pulses[i][j], :] )
+                    end
+                end
+            end
+        end
+
+        # converting profiles TODO why why why?
+        for ii in 1:length(profiles)
+            println(ii)
+            x, = size(profiles[ii])
+            y, = size(profiles[ii][1]) # bins
+            profs = zeros((x,y))
+            for i in 1:x
+                for j in 1:y
+                    profs[i,j] = profiles[ii][i][j]
+                end
+            end
+            profiles[ii] = profs
+        end
+
+        nums = []
+        for profile in profiles
+            push!(nums, size(profile)[1])
+            push!(averages, Tools.average_profile(profile; norm=false))
+            #println(size(profile)[1])
+        end
+
+        # normalize profiles here
+        # OLD
+        #=
+        for i in 1:3
+            me = mean(averages[i][700:1000])
+            averages[i] .-= me
+        end
+        ma = maximum(averages[3])
+        averages[3] ./= ma
+        ma1 = maximum(averages[1])
+        ma2 = maximum(averages[2])
+        m1 = mean(averages[1][350:650])
+        m2 = mean(averages[2][350:650])
+        m3 = mean(averages[3][350:650])
+        #averages[1] ./= ma1
+        #averages[2] ./= ma2
+        averages[1] .*= m3 / m1
+        averages[2] .*= m3 / m2
+        =#
+        # NEW
+        # around zero
+        for i in 1:3
+            me = mean(averages[i][700:1000])
+            averages[i] .-= me
+            averages[i] ./= size(profiles[i])[1] # multiply based on number of pulses
+        end
+
+        # Pulse longitude (raw)
+        longitude = collect(range(bin_st/bins[1] * 360, bin_end/bins[1] * 360, length=bin_end - bin_st + 1))
+
+        stds = []
+
+        ma = maximum(averages[3]) # normalize to profile for all single pulses
+        for i in 1:3
+            averages[i] ./= ma
+            #println("mean ", mean(averages[i][350:650]))
+            #me = mean(averages[i][700:1000])
+            st = std(averages[i][700:1000])
+            push!(stds, st)
+            #rms = sqrt(mean(averages[i][700:1000].^2))
+            #rms2 = norm(averages[i][700:1000]) / sqrt(length(averages[i][700:1000]))
+            #println("me ", me)
+            #println("st ", st)
+            #println("rms ", rms)
+            #println("rms2 ", rms2)
+            #auc = PyRModule.auc(longitude, averages[i][700:1000])
+            #auc2 = PyRModule.auc(longitude, averages[i][bin_st:bin_end])
+            #println("auc ", auc)
+            #println("auc2 ", auc2)
+        end
+
+        # normalize to one
+        no = mean(averages[3][bin_st:bin_end])
+        for i in 1:3
+            av = averages[i][bin_st:bin_end]
+            println("Mean: ", mean(av) / no)
+            println("std prof.: ", std(av) / no)
+            println("SE: ", std(av) / sqrt(bin_end-bin_st) /no)
+            println("std baseline: ", stds[i] / no)
+        end
+        println("CONSIDER ABOVE!")
+
+        # random area calculations
+        repeat = 10000
+        areas = []
+
+        for i in 1:3
+            push!(areas, [])
+            for j in 1:repeat
+                # randomize signal based on std/rms
+                av = averages[i][bin_st:bin_end]
+                for k in 1:size(av)[1]
+                    d = Normal(av[k], stds[i])
+                    av[k] = rand(d)
+                end
+                auc = PyRModule.auc(longitude, av)
+                push!(areas[end], auc)
+            end
+        end
+        # normalize areas
+        meme = mean(areas[3])
+        areas ./= meme
+        for i in 1:3
+            println("Area = ", mean(areas[i]), " ± ", std(areas[i]), "underestimated errors!")
+        end
+
+        # simple error calculation (overestimate?)
+        areas = []
+        for i in 1:3
+            push!(areas, [])
+            # randomize signal based on std/rms
+            av = averages[i][bin_st:bin_end]
+            auc1 = PyRModule.auc(longitude, av.-stds[i])
+            auc2 = PyRModule.auc(longitude, av)
+            auc3 = PyRModule.auc(longitude, av.+stds[i])
+            push!(areas[end], auc1)
+            push!(areas[end], auc2)
+            push!(areas[end], auc3)
+        end
+
+        areas ./= areas[3][2]
+
+        for i in 1:3
+            println("Area Simple... (min., mean, max.) = ", areas[i])
+        end
+
+        #auc = PyRModule.auc_r(longitude, averages[1][bin_st:bin_end])
+        #auc = PyRModule.auc_r(longitude, averages[2][bin_st:bin_end])
+        #auc = PyRModule.auc_r(longitude, averages[3][bin_st:bin_end])
+        #return
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$ (N=$(size(profiles[1])[1]))", "\$\\qquad \\;\\; {\\rm D} < 0 \$ (N=$(size(profiles[2])[1]))", "\$1.00 > {\\rm D} > -0.79 \$ (N=$(size(profiles[3])[1]))", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
+
+
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        minorticks_on()
+        plot(longitude, averages[1][bin_st:bin_end], c="C1", label=labels[1], lw=0.3, zorder=200)
+        plot(longitude, averages[2][bin_st:bin_end], c="C2", label=labels[2], lw=0.3, zorder=201)
+        plot(longitude, averages[3][bin_st:bin_end], c="black", label=labels[3], lw=0.5, zorder=199, alpha=0.9)
+        #yticks(collect(0.0:0.2:1)) # TODO
+        #xlim(longitude[1], longitude[end])
+        xlabel("longitude (deg.)")
+        #ylabel("\$\\sqrt{\\rm Number \\; of \\; pulses}\$")
+        #ylabel("Intensity (arbitrary units)")
+        ylabel("Intensity (a. u.)")
+        legend(prop=Dict("size"=> 4.1))
+        #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_averages3.pdf")
+        savefig("$outdir/$(name_mod)_averages3.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+
+    end
+
+
+    """ calculates average profiels in two ranges - for different ranges tests"""
+    function average_J1750_4(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        # take full but plot only part
+        bin_st0 = 1
+        bin_end0 = bins[1]
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st0:bin_end0]
+            push!(das, da)
+        end
+
+        # drift rate data
+        pulses = []
+        ysps = []  # drift rate
+
+        for i in 1:length(das)
+            tracks1, lines1, inclines1, dr1, ysp1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            (ysp, dr) = Tools.remove_duplicates_ysp(ysp1, dr1)
+            push!(pulses, dr)
+            push!(ysps, ysp)
+        end
+
+        ranges = [(2, 0.2), (-0.0, -1), (2, -2)]
+        profiles = []
+        averages = []
+
+        for r in ranges
+            push!(profiles, [])
+            for i in 1:length(das)
+                for (j, driftrate) in enumerate(ysps[i])
+                    if (driftrate < r[1]) && (driftrate > r[2])
+                        push!(profiles[end], das[i][pulses[i][j], :] )
+                    end
+                end
+            end
+        end
+
+        # converting profiles TODO why why why?
+        for ii in 1:length(profiles)
+            println(ii)
+            x, = size(profiles[ii])
+            y, = size(profiles[ii][1]) # bins
+            profs = zeros((x,y))
+            for i in 1:x
+                for j in 1:y
+                    profs[i,j] = profiles[ii][i][j]
+                end
+            end
+            profiles[ii] = profs
+        end
+
+        nums = []
+        for profile in profiles
+            push!(nums, size(profile)[1])
+            push!(averages, Tools.average_profile(profile; norm=false))
+            #println(size(profile)[1])
+        end
+
+        # around zero
+        for i in 1:3
+            me = mean(averages[i][700:1000])
+            averages[i] .-= me
+            averages[i] ./= size(profiles[i])[1] # multiply based on number of pulses
+        end
+
+        # Pulse longitude (raw)
+        longitude = collect(range(bin_st/bins[1] * 360, bin_end/bins[1] * 360, length=bin_end - bin_st + 1))
+
+        stds = []
+        ma = maximum(averages[3])
+        for i in 1:3
+            averages[i] ./= ma
+            st = std(averages[i][700:1000])
+            push!(stds, st)
+        end
+
+        # random area calculations
+        repeat = 10000
+        areas = []
+
+        for i in 1:3
+            push!(areas, [])
+            for j in 1:repeat
+                # randomize signal based on std/rms
+                av = averages[i][bin_st:bin_end]
+                for k in 1:size(av)[1]
+                    d = Normal(av[k], stds[i])
+                    av[k] = rand(d)
+                end
+                auc = PyRModule.auc(longitude, av)
+                push!(areas[end], auc)
+            end
+        end
+        # normalize areas
+        meme = mean(areas[3])
+        areas ./= meme
+        for i in 1:3
+            println("Area = ", mean(areas[i]), " ± ", std(areas[i]))
+        end
+
+        # simple error calculation (overestimate?)
+        areas = []
+        for i in 1:3
+            push!(areas, [])
+            # randomize signal based on std/rms
+            av = averages[i][bin_st:bin_end]
+            auc1 = PyRModule.auc(longitude, av.-stds[i])
+            auc2 = PyRModule.auc(longitude, av)
+            auc3 = PyRModule.auc(longitude, av.+stds[i])
+            push!(areas[end], auc1)
+            push!(areas[end], auc2)
+            push!(areas[end], auc3)
+        end
+
+        areas ./= areas[3][2]
+
+        for i in 1:3
+            println("Area Simple... (min., mean, max.) = ", areas[i])
+        end
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$ (N=$(size(profiles[1])[1]))", "\$\\qquad \\;\\; {\\rm D} < 0 \$ (N=$(size(profiles[2])[1]))", "\$0.91 > {\\rm D} > -0.73 \$ (N=$(size(profiles[3])[1]))", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
+
+
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.17, bottom=0.19, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        minorticks_on()
+        plot(longitude, averages[1][bin_st:bin_end], c="C1", label=labels[1], lw=0.3, zorder=200)
+        plot(longitude, averages[2][bin_st:bin_end], c="C2", label=labels[2], lw=0.3, zorder=201)
+        plot(longitude, averages[3][bin_st:bin_end], c="black", label=labels[3], lw=0.5, zorder=199, alpha=0.9)
+        #yticks(collect(0.0:0.2:1)) # TODO
+        #xlim(longitude[1], longitude[end])
+        xlabel("longitude (deg.)")
+        #ylabel("\$\\sqrt{\\rm Number \\; of \\; pulses}\$")
+        #ylabel("Intensity (arbitrary units)")
+        ylabel("Intensity (a. u.)")
+        legend(prop=Dict("size"=> 4.1))
+        #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_averages4.pdf")
+        savefig("$outdir/$(name_mod)_averages4.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+
+    end
+
+
 
     """ checks average profiels stability """
     function average_J1750_stability(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
@@ -3881,6 +4450,17 @@ module Plot
         # line fitting (not so good)
         @. f(x, p) = p[2] * x + p[1]
         # why why why?
+        onemrhos_ = convert(Array{Float64,1}, onemrhos[9:end]) # skipping some
+        npulses_ = convert(Array{Float64,1}, npulses[9:end])
+        x_ = log10.(npulses_)
+        y_ = log10.(onemrhos_)
+        data = DataFrame(X=x_, Y=y_)
+        ols = lm(@formula(Y ~ X), data)
+        x_ = collect(2.2:0.1:4.3)
+        line = [10 .^ x_, 10 .^ f(x_, coef(ols))]
+        push!(lines, line)
+        for i in 1:size(line[1])[1]
+            println(line[2][i], " $i")
         onemrhos_ = convert(Array{Float64,1}, onemrhos[9:end]) # skipping some
         npulses_ = convert(Array{Float64,1}, npulses[9:end])
         x_ = log10.(npulses_)
@@ -4306,14 +4886,14 @@ module Plot
 
 
 
-    function driftdirection_J1750_subplot3(which, row, col, colspan, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y)
+    function driftdirection_J1750_subplot3(which, row, col, colspan, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=600)
 
         x_, y_, ysl_, y2_, slopes, eslopes, xlin, exlin, bps, ebps = getdata_driftdirection(iis[which], jjs[which], selected_tracks, fitted_lines)
 
         colors = ["tab:orange", "tab:green", "tab:purple", "tab:brown"]
         tracks_num = length(jjs[which])
 
-        ax = subplot2grid((65, 600), (row, col), colspan=colspan, rowspan=20)  # row column
+        ax = subplot2grid((65, colnum), (row, col), colspan=colspan, rowspan=20)  # row column
         #tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         if which in (2, 3, 4, 5, 7, 8, 9)
             tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
@@ -4334,7 +4914,7 @@ module Plot
         for i in 1:tracks_num #length(x_)
                 plot(x_[i], y2_[i], lw=1.7, alpha=0.7, c=colors[i])
         end
-        yl = (210, 141)
+        yl = (210, 131)
         #yl = ylim() # TODO just for now
         for i in 1:length(bps)
             for j in 1:length(bps[i])
@@ -4353,7 +4933,7 @@ module Plot
             ylabel("Longitude (\$ ^{\\circ}\$)")
         end
 
-        ax = subplot2grid((65, 600), (row+20, col), colspan=colspan, rowspan=10)  # row column
+        ax = subplot2grid((65, colnum), (row+20, col), colspan=colspan, rowspan=10)  # row column
         if which in (2, 3, 4, 5, 7, 8, 9)
             tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         end
@@ -4367,7 +4947,7 @@ module Plot
         end
         plot(dr_x[iis[which][1]], dr_y[iis[which][1]], color="tab:blue")  # smoothed drift rate
         xlim(xl)
-        ylim([-0.9, 0.9])
+        ylim([-0.999, 0.999])
         if (which == 1) || (which == 6)
             ylabel("Drift rate \$(^\\circ / P)\$")
         end
@@ -4536,6 +5116,148 @@ module Plot
     end
 
 
+    function driftdirection_J1750_3b(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st:bin_end]
+            push!(das, da)
+        end
+
+        tracks = []
+        inclines = []
+        dr_x = []
+        dr_y = []
+        for i in 1:7
+            tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            push!(tracks, tracks1)
+            push!(inclines, inclines1)
+            push!(dr_x, dr1)
+            push!(dr_y, ysp1)
+        end
+
+        #ranges = [[2, (477, 600)], [2, (955, 1050)], [3, (50, 170)], [3, (380, 470)], [4, (85, 144)], [5, (240, 350)], [6, (200, 400)], [7, (0, 80)], [7, (125, 275)]]
+        ranges = [[2, (0, 70)], [2, (500, 610)], [2, (630, 700)], [2, (960, 1020)], [4, (85, 140)], [5, (295, 355)], [6, (200, 350)], [7, (0, 90)], [7, (190, 270)]]
+        # rejected [2, (825, 922)] (npsi, 0, 2, 2)
+
+        sum = 0
+        i = 0
+        for r in ranges
+            i += 1
+            pulses = r[2][2] - r[2][1]
+            sum += pulses
+            println("$i $pulses")
+        end
+        println("Sum: $sum")
+
+        selected_tracks = [[] for i in 1:7] # all seven slots (first will be empty)
+        #println(tracks[1][1][:, 2])  # pulse number
+
+        for ra in ranges
+            k = ra[1]
+            v = ra[2]
+            println("Session: ", k)
+            for i in 1:length(tracks[k])
+                create_new = true
+                for (ii, pulse) in enumerate(tracks[k][i][:, 2])
+                    if (pulse > v[1]) && (pulse < v[2])
+                        if create_new
+                            push!(selected_tracks[k], [[], []])
+                            create_new = false
+                            println("\tNew track session:$k track:$i pulse:$pulse loc:", tracks[k][i][ii, 1])
+                        end
+                        push!(selected_tracks[k][end][1], pulse) # x - pulse number
+                        push!(selected_tracks[k][end][2], tracks[k][i][ii, 1]) # location
+                        #println("\t $v $pulse ", tracks[k][i][ii, 1])
+                    end
+                end
+            end
+        end
+
+        #npsi = [0, 6, 6,   3, 3,   2, 2, 1,   2, 2,   2, 2,   2, 2, 2,    2, 6, 7,   2, 2,    0, 2, 2, 1, 0 ] # 0 is for skipped track
+        npsi = [0, 0, 2, 2,   3, 6, 0,   3, 3,   2, 2,   0, 2, 2,   1, 1, 0,   0, 4, 1, 4,   2, 2, 0,   1, 1, 1, 0, 0, 0] # 0 is for skipped track
+        nn = 1
+        fitted_lines = [[] for i in 1:7] # all seven slots (first will be empty)
+        for i in 1:length(selected_tracks)
+            println("\nSession: $i")
+            for j in 1:length(selected_tracks[i])
+                push!(fitted_lines[i], [[], [], [], [], [], [], [], [], []])
+                println("\tTrack: $j nn:$nn npsi $(npsi[nn])")
+                x = convert(Array{Float64,1}, selected_tracks[i][j][1])
+                y = convert(Array{Float64,1}, selected_tracks[i][j][2])
+                push!(fitted_lines[i][end][1], x)
+                x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[nn]; lambda=lambda, preview=false)
+                nn += 1
+                push!(fitted_lines[i][end][2], y2)
+                push!(fitted_lines[i][end][3], ysl)  # for tracks
+                push!(fitted_lines[i][end][4], slopes)
+                push!(fitted_lines[i][end][5], eslopes)
+                push!(fitted_lines[i][end][6], bp)
+                push!(fitted_lines[i][end][7], ebp)
+                push!(fitted_lines[i][end][8], xl) # xlin later on
+                push!(fitted_lines[i][end][9], exl) # exlin later on
+            end
+        end
+
+
+        #iis = [[2], [2], [3], [3], [4], [5], [6], [7], [7]]  # obs. session why iis?
+        #jjs = [[2, 3], [4, 5],   [1, 2, 3], [4, 5],   [1, 2],   [1, 2, 3],   [1, 2, 3],    [1, 2],   [4, 5, 6]]  # tracks
+        iis = [[2], [2], [2], [2], [4], [5], [6], [7], [7]]  # obs. session why iis?
+        jjs = [[3, 4], [5, 6], [8, 9], [10,11], [2, 3], [1, 2], [2, 3, 4], [1, 2], [4, 5, 6]]  # tracks
+
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
+        subplots_adjust(left=0.08, bottom=0.09, right=0.99, top=0.92, wspace=0.0, hspace=0.0)
+        figtext(0.09, 0.89, "a)", size=10)
+        figtext(0.27, 0.89, "b)", size=10)
+        figtext(0.53, 0.89, "c)", size=10)
+        figtext(0.71, 0.89, "d)", size=10)
+        figtext(0.865, 0.89, "e)", size=10)
+        figtext(0.09, 0.425, "f)", size=10)
+        figtext(0.24, 0.43, "g)", size=10)
+        figtext(0.60, 0.43, "h)", size=10)
+        figtext(0.82, 0.43, "i)", size=10)
+        colnum = 800
+        (r1,r11) = driftdirection_J1750_subplot3(1, 0, 0, 140, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r2, r22) = driftdirection_J1750_subplot3(2, 0, 159, 210, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r3, r33) = driftdirection_J1750_subplot3(3, 0, 388, 140, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r4, r44) = driftdirection_J1750_subplot3(4, 0, 547, 120, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r5, r55) = driftdirection_J1750_subplot3(5, 0, 686, 110, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r6, r66) = driftdirection_J1750_subplot3(6, 35, 0, 120, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r7, r77) = driftdirection_J1750_subplot3(7, 35, 133, 300, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r8, r88) = driftdirection_J1750_subplot3(8, 35, 447, 180, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r9, r99) = driftdirection_J1750_subplot3(9, 35, 641, 160, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        figtext(0.5, 0.97, "Pulse number", size=7, ha="center")
+        figtext(0.5, 0.01, "Pulse number", size=7, ha="center")
+
+        savefig("$outdir/$(name_mod)_driftdirection_3b.pdf")
+        println("$outdir/$(name_mod)_driftdirection_3b.pdf")
+
+        r = vcat(r1, r2, r3, r4, r5, r6, r7, r8, r9)
+        rr = vcat(r11, r22, r33, r44, r55, r66, r77, r88, r99)
+        println("Spline R^2: ", mean(r), " ", std(r))
+        println("Linear reg. R^2: ", mean(rr), " ", std(rr))
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
     function lrfs_average_J1750(slices, pulses, outdir; start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)
         num, bins = size(slices[1])
         if end_ == nothing end_ = num end
@@ -4671,6 +5393,17 @@ module Plot
         # bin range
         y1 = 600 /1024 *360.0
         y2 = 360 / 1024 * 360.0 # to avoid fix_ticsks!
+        #cmap = "binary"
+
+        #=
+        # HERE
+        fl = Base.Iterators.flatten(datas[2])
+        PyPlot.hist(collect(fl), bins=100)
+        show()
+        #println(size(vcat(transpose(datas[1]))))
+        readline(stdin; keep=false)
+        #return
+        =#
 
         rc("font", size=7.)
         rc("axes", linewidth=0.5)
@@ -4693,7 +5426,10 @@ module Plot
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         minorticks_on()
-        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[1])
+        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[1]), extent=extents[1])
+        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[1]), vmin=0, extent=extents[1], alpha=0.7)
+        println("max ", maximum(datas[1]))
+        println("min ", minimum(datas[1]))
         ylim(y1, y2)
         ylabel("Longitude (\$ ^{\\circ}\$)")
         # first session
@@ -4711,7 +5447,8 @@ module Plot
         ax = subplot2grid((32, 1900), (0, 359), colspan=1031, rowspan=10)  # row column
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
-        imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[2])
+        imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[2]), extent=extents[2])
+        imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[2]), vmin=0.0, extent=extents[2], alpha=0.7)
         ylim(y1, y2)
         xlabel("Pulse number")
         ax.xaxis.set_label_position("top")
@@ -4733,7 +5470,8 @@ module Plot
         #ax.yaxis.set_label_position("right")
         #ax.yaxis.set_ticks_position("right")
         minorticks_on()
-        imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[3])
+        imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[3]), extent=extents[3])
+        imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[3]), vmin=0.0, extent=extents[3], alpha=0.7)
         ylim(y1, y2)
         # third session
         ax = subplot2grid((32, 1900), (10, 1454), colspan=446, rowspan=5)  # row column
@@ -4751,7 +5489,8 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
-        imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[4])
+        imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[4]), extent=extents[4])
+        imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[4]), vmin=0.0, extent=extents[4], alpha=0.7)
         ylim(y1, y2)
         ylabel("Longitude (\$ ^{\\circ}\$)")
         # fourth session
@@ -4769,7 +5508,8 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
-        imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[5])
+        imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[5]), extent=extents[5])
+        imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[5]), vmin=0.0, extent=extents[5], alpha=0.7)
         ylim(y1, y2)
         # fifth session
         subplot2grid((32, 1900), (27, 487), colspan=447, rowspan=5)  # row column
@@ -4785,7 +5525,8 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
-        imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[6])
+        imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[6]), extent=extents[6])
+        imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[6]), vmin=0.0, extent=extents[6], alpha=0.7)
         ylim(y1, y2)
         # sixth session
         subplot2grid((32, 1900), (27, 971), colspan=447, rowspan=5)  # row column
@@ -4804,7 +5545,8 @@ module Plot
         #tick_params(axis="x", which="both", direction="in", labeltop=false, labelbottom=true, top=false)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         minorticks_on()
-        imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[1]), extent=extents[7])
+        imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[7]), extent=extents[7])
+        imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[7]), vmin=0.0, extent=extents[7], alpha=0.7)
         ylim(y1, y2)
         # seventh session
         subplot2grid((32, 1900), (27, 1454), colspan=446, rowspan=5)  # row column
@@ -4887,7 +5629,8 @@ module Plot
 
         ax = subplot2grid((3, 1), (1, 0))
         imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[2]*maximum(datas[2]), extent=extents[1])
-        ylim(165, 85)
+        #ylim(165, 85)
+        ylim(210-15, 131-15)
         ylabel("Longitude (\$ ^{\\circ}\$)")
 
         ax = subplot2grid((3, 1), (2, 0))
@@ -4917,7 +5660,8 @@ module Plot
     end
 
 
-    function p3evolutions_J1750(datas, outdir, step, number;bin_st=nothing, bin_end=nothing, name_mod="1234567", darkness=1.0, cmap="viridis", show_=false)
+    function p3evolutions_J1750(datas, outdir, step, number; bin_st=nothing, bin_end=nothing, name_mod="1234567", darkness=1.0, cmap="viridis", show_=false)
+
         none, bins = size(datas[1])
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
@@ -4949,9 +5693,46 @@ module Plot
 
         #bottom, skip = Tools.intensity_pulses(transpose(intens))
 
-        # bin range
-        y1 = 360 / 1024 * 360.0
-        y2 = 650 /1024 *360.0
+        # bin range why? remove
+        #y1 = 360 / 1024 * 360.0
+        #y2 = 650 /1024 *360.0
+
+        stable_indexes = [[1, 167]], [[660, 773], [852, 903]], [#= 3 =#], [ #= 4 =#],  [[1, 88]], [[8, 73]], [[20, 103], [228, 318]]
+
+        change_indx = [[#=1=#],  [#=2=#[131, 165], [463, 534]], [#=3=#], [#=4=#[64, 158]], [#=5=#], [#=6=#[74, 115], [135, 156]], [#=7=#]]
+
+        dps = []
+        println("Stable P3:")
+        for (i, rngs) in enumerate(stable_indexes)
+            for rng in rngs
+                p3 = mean(p3s[i][rng[1]:rng[2]])
+                err = std(p3s[i][rng[1]:rng[2]])
+                push!(dps, rng[2]-rng[1] )
+                @printf "%d P3: %.1f Err: %.1f %d %d dpulse = %d\n" i p3 err rng[1] rng[2] dps[end]
+            end
+        end
+        println("\t Mean length: $(mean(dps)) std:$(std(dps))")
+
+        dps = []
+        println("Increasing/decreesing P3:")
+        for (i, rngs) in enumerate(change_indx)
+            for rng in rngs
+                p3_1 = p3s[i][rng[1]]
+                p3_2 = p3s[i][rng[2]]
+                ep3_1 = p3errs[i][rng[1]]
+                ep3_2 = p3errs[i][rng[2]]
+                push!(dps, rng[2]-rng[1] )
+                @printf "%d P3[1]: %.1f +/- %.1f f P3[2]: %.1f +/- %.1f %d %d dpulse=%d\n" i p3_1 ep3_1 p3_2 ep3_2 rng[1] rng[2] dps[end]
+            end
+        end
+        println("\t Mean length: $(mean(dps)) std:$(std(dps))")
+        # CHECKING periodicity here
+        #=
+        for set in 1:size(p3s, 1)
+            p3s_ = convert(Array{Float64,1}, p3s[set])
+            Tools.periodicity(p3s_)
+        end
+        =#
 
         p3_min = 20
         p3_max = 95
@@ -4998,6 +5779,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
         errorbar(collect(1:length(p3s[1])), p3s[1], yerr=p3errs[1], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        for rng in stable_indexes[1]
+            errorbar(collect(rng[1]:rng[2]), p3s[1][rng[1]:rng[2]], yerr=p3errs[1][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:blue", ecolor="tab:blue", capsize=0, mfc="tab:blue", ms=0.7)
+        end
+        for rng in change_indx[1]
+            errorbar(collect(rng[1]:rng[2]), p3s[1][rng[1]:rng[2]], yerr=p3errs[1][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:red", ecolor="tab:red", capsize=0, mfc="tab:red", ms=0.7)
+        end
         xlim(1, length(p3s[1]))
         ylim(p3_min, p3_max)
         #xticks([0.5, 1.0])
@@ -5026,6 +5813,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
         minorticks_on()
         errorbar(collect(1:length(p3s[2])), p3s[2], yerr=p3errs[2], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        for rng in stable_indexes[2]
+            errorbar(collect(rng[1]:rng[2]), p3s[2][rng[1]:rng[2]], yerr=p3errs[2][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:blue", ecolor="tab:blue", capsize=0, mfc="tab:blue", ms=0.7)
+        end
+        for rng in change_indx[2]
+            errorbar(collect(rng[1]:rng[2]), p3s[2][rng[1]:rng[2]], yerr=p3errs[2][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:red", ecolor="tab:red", capsize=0, mfc="tab:red", ms=0.7)
+        end
         xlim(1, length(p3s[2]))
         ylim(p3_min, p3_max)
 
@@ -5051,6 +5844,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
         minorticks_on()
         errorbar(collect(1:length(p3s[3])), p3s[3], yerr=p3errs[3], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        for rng in stable_indexes[3]
+            errorbar(collect(rng[1]:rng[2]), p3s[3][rng[1]:rng[2]], yerr=p3errs[3][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:blue", ecolor="tab:blue", capsize=0, mfc="tab:blue", ms=0.7)
+        end
+        for rng in change_indx[3]
+            errorbar(collect(rng[1]:rng[2]), p3s[3][rng[1]:rng[2]], yerr=p3errs[3][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:red", ecolor="tab:red", capsize=0, mfc="tab:red", ms=0.7)
+        end
         xlim(1, length(p3s[3]))
         ylim(p3_min, p3_max)
 
@@ -5076,6 +5875,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true)
         minorticks_on()
         errorbar(collect(1:length(p3s[4])), p3s[4], yerr=p3errs[4], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        for rng in stable_indexes[4]
+            errorbar(collect(rng[1]:rng[2]), p3s[4][rng[1]:rng[2]], yerr=p3errs[4][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:blue", ecolor="tab:blue", capsize=0, mfc="tab:blue", ms=0.7)
+        end
+        for rng in change_indx[4]
+            errorbar(collect(rng[1]:rng[2]), p3s[4][rng[1]:rng[2]], yerr=p3errs[4][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:red", ecolor="tab:red", capsize=0, mfc="tab:red", ms=0.7)
+        end
         xlim(1, length(p3s[4]))
         ylim(p3_min, p3_max)
         ylabel("\$P_{3}\$")
@@ -5101,6 +5906,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
         minorticks_on()
         errorbar(collect(1:length(p3s[5])), p3s[5], yerr=p3errs[5], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        for rng in stable_indexes[5]
+            errorbar(collect(rng[1]:rng[2]), p3s[5][rng[1]:rng[2]], yerr=p3errs[5][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:blue", ecolor="tab:blue", capsize=0, mfc="tab:blue", ms=0.7)
+        end
+        for rng in change_indx[5]
+            errorbar(collect(rng[1]:rng[2]), p3s[5][rng[1]:rng[2]], yerr=p3errs[5][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:red", ecolor="tab:red", capsize=0, mfc="tab:red", ms=0.7)
+        end
         xlim(1, length(p3s[5]))
         ylim(p3_min, p3_max)
 
@@ -5125,6 +5936,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
         minorticks_on()
         errorbar(collect(1:length(p3s[6])), p3s[6], yerr=p3errs[6], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        for rng in stable_indexes[6]
+            errorbar(collect(rng[1]:rng[2]), p3s[6][rng[1]:rng[2]], yerr=p3errs[6][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:blue", ecolor="tab:blue", capsize=0, mfc="tab:blue", ms=0.7)
+        end
+        for rng in change_indx[6]
+            errorbar(collect(rng[1]:rng[2]), p3s[6][rng[1]:rng[2]], yerr=p3errs[6][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:red", ecolor="tab:red", capsize=0, mfc="tab:red", ms=0.7)
+        end
         xlim(1, length(p3s[6]))
         ylim(p3_min, p3_max)
 
@@ -5149,6 +5966,12 @@ module Plot
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true)
         minorticks_on()
         errorbar(collect(1:length(p3s[7])), p3s[7], yerr=p3errs[7], color="none", lw=0.1, marker="_", mec="grey", ecolor="grey", capsize=0, mfc="grey", ms=0.7)
+        for rng in stable_indexes[7]
+            errorbar(collect(rng[1]:rng[2]), p3s[7][rng[1]:rng[2]], yerr=p3errs[7][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:blue", ecolor="tab:blue", capsize=0, mfc="tab:blue", ms=0.7)
+        end
+        for rng in change_indx[7]
+            errorbar(collect(rng[1]:rng[2]), p3s[7][rng[1]:rng[2]], yerr=p3errs[7][rng[1]:rng[2]], color="none", lw=0.1, marker="_", mec="tab:red", ecolor="tab:red", capsize=0, mfc="tab:red", ms=0.7)
+        end
         xlim(1, length(p3s[7]))
         ylim(p3_min, p3_max)
 
@@ -5163,4 +5986,197 @@ module Plot
     end
 
 
-end  # modul Plot
+    function test_track_subpulses_snr(data, outdir, p2, snrfile; threshs=(7, 5), thresh2=0.6, bin_st=350, bin_end=650, name_mod="X", show_=true)
+
+        thresh2_old = thresh2
+        thresh2 = []
+        pulse_num, bins = size(data)
+
+
+        f = open(snrfile)
+        snrs = []
+        for line in readlines(f)
+            push!(snrs, parse(Float64, line))
+        end
+
+        # pick random pulses with thresh tolerance tol
+        tol = 0.2
+        pulses = []
+        for th in threshs
+            pulse = nothing
+            while pulse == nothing
+                    pu = rand(1:pulse_num)
+                    #println(snrs[pu])
+                    if (snrs[pu] > th - tol) && (snrs[pu] < th + tol)
+                        pulse = pu
+                    end
+            end
+            push!(pulses, pulse)
+        end
+
+        #pulses = [544, 725]
+        pulses = [38, 725]
+
+        # detect peaks (copied from Tools.track_subpulses_snr)
+        p2_bins = floor(Int, p2 / 360 * bins)
+        peaks = [] # [pulse_num, [p1, p2, p3...]]
+        ppeaks = [] # [p1, p2, p3...]
+        σ = p2_bins / 2 / 2.35482
+        kernel = Tools.gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+        ress = []
+        ress_acorr = []
+        for (kk, i) in enumerate(pulses)
+            #y = view(data, i, on_st:on_end)
+            y = view(data, i, :)
+            (mi, ma) = extrema(y)
+            #y = (y .- mi) / (ma - mi)
+            y = y ./ ma # this is much much better!
+
+            # convolution with Gaussian
+            res = Tools.conv(y, kernel)
+            (mi, ma) = extrema(res)
+            res = (res .- mi) / (ma - mi)
+            re = res[floor(Int,p2_bins/2)+1:end-floor(Int,p2_bins/2)]
+            #println(floor(Int,p2_bins/2), " ", floor(Int,p2_bins/2))
+            #println(length(y))
+            #println(length(re))
+
+            #println(length(y))
+            #println(length(kernel))
+            #println(length(res))
+
+            # auto correlation # just for some tests..
+            resa = crosscor(y, y, collect(floor(Int,-length(y)/2):floor(Int,length(y)/2)))
+            (mi, ma) = extrema(resa)
+            resa = (resa .- mi) / (ma - mi)
+            rea = resa[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
+
+            peak = Tools.peaks(re)
+            # new syntax?
+            ma, pa = peakprom(Maxima(), re, floor(Int, p2_bins/4))
+            #ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
+            #ma, pa = peakprom(re, Maxima(), p2_bins/2)
+            inds = sortperm(pa, rev=true)
+            # get new thresh2 (maximum in off pulse region)
+            new_thresh = 0.
+            for ii in inds
+                if ((ma[ii] < bin_st) || (ma[ii] > bin_end)) && (new_thresh < re[ma[ii]])
+                    new_thresh = re[ma[ii]]
+                end
+            end
+            push!(thresh2, maximum([new_thresh, thresh2_old]))
+            ppeaks = []
+            for ii in inds
+                if (re[ma[ii]] >= thresh2[kk]) &&  (ma[ii] > bin_st) && (ma[ii] < bin_end)
+                    push!(ppeaks, ma[ii])
+                end
+            end
+
+            #println(length(ppeaks))
+            comps = length(ppeaks)
+            if (comps == 1)
+                cen = ppeaks[end]
+                x_ = collect(cen-p2_bins:cen+p2_bins)
+                pars, errs = Tools.fit_gaussian(x_, y[cen-p2_bins:cen+p2_bins]; μ=ppeaks[end])  # skip zero freq
+                #println(pars)
+                #println(errs)
+                println(cen)
+                println(round(pars[2]), " ± ", round(errs[2]), "(bins) ± ", round(errs[2]/bins*360.0, digits=1), "(deg)")
+                g = Tools.gauss(x_, pars)
+            elseif (comps == 2)
+                m1 = minimum(ppeaks)
+                m2 = maximum(ppeaks)
+                x_ = collect(m1-p2_bins:m2+p2_bins)
+                y_ = y[m1-p2_bins:m2+p2_bins]
+                pars, errs = Tools.fit_twogaussians(x_, y_, re[m1], re[m2], m1, m2,p2_bins/2, p2_bins/2)
+                #println(pars)
+                println(m1)
+                println(round(pars[2]), " ± ", round(errs[2]), "(bins) ± ", round(errs[2]/bins*360.0, digits=1), "(deg)")
+                println(m2)
+                println(round(pars[5]), " ± ", round(errs[5]), "(bins) ± ", round(errs[5]/bins*360.0, digits=1), "(deg)")
+                g = Tools.twogauss(x_, pars)
+            else
+                println("Not implemented...")
+                x_ = []
+                g = []
+            end
+
+            axhline(y=thresh2[end], c="black", lw=2)
+            plot(y)
+            plot(re)
+            plot(x_, g)
+            show()
+            xlim((bin_st, bin_end))
+            readline(stdin; keep=false)
+            PyPlot.close()
+
+            push!(ress, re)
+            push!(ress_acorr, rea)
+            push!(peaks, [i, ppeaks])
+        end
+
+
+
+        #return
+
+        # Pulse longitude
+        longitude = collect(range(bin_st/bins * 360, bin_end/bins*360, length=bin_end+1-bin_st))
+
+        println(pulses)
+
+        rc("font", size=7.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 2.362205), frameon=true)  # 8cm x 6 cm
+        #figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.17, bottom=0.15, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
+
+        subplot2grid((2, 1), (0, 0))  # row column
+        tick_params(labelbottom=true)
+        minorticks_on()
+        y = view(data, pulses[1], bin_st:bin_end)
+        (mi, ma) = extrema(y)
+        y = y ./ ma # this is much much better!
+        plot(longitude, y, c="black", lw=0.5)
+        plot(longitude, ress[1][bin_st:bin_end], c="tab:red")
+        #plot(longitude, ress_acorr[1][bin_st:bin_end], c="tab:blue") # for tests only
+        axhline(y=thresh2[1], ls=":", lw=0.7, c="tab:green")
+        for p in peaks[1][2]
+            axvline(x=p / bins * 360, c="tab:blue", ls="--")
+        end
+        xlim(longitude[1], longitude[end])
+        yticks([-0.5, 0.0, 0.5])
+        text(205, 0.65, "S/N \$\\approx\$ 3", size=7)
+        ylabel("intensity (a. u.)")
+
+        subplot2grid((2, 1), (1, 0))  # row column
+        minorticks_on()
+        y = view(data, pulses[2], bin_st:bin_end)
+        (mi, ma) = extrema(y)
+        y = y ./ ma # this is much much better!
+        plot(longitude, y, c="black", lw=0.5)
+        plot(longitude, ress[2][bin_st:bin_end], c="tab:red")
+        #plot(longitude, ress_acorr[2][bin_st:bin_end], c="tab:blue") # for tests only
+        axhline(y=thresh2[2], ls=":", lw=0.7, c="tab:green")
+        for p in peaks[2][2]
+            axvline(x=p / bins * 360, c="tab:blue", ls="--")
+        end
+        xlim(longitude[1], longitude[end])
+        yticks([-0.5, 0.0, 0.5])
+        text(205, 0.77, "S/N \$\\approx\$ 5", size=7)
+        ylabel("intensity (a. u.)")
+        xlabel("longitude \$(^\\circ)\$")
+
+        filename = "$outdir/$(name_mod)_track_subpulses.pdf"
+        println(filename)
+        savefig(filename)
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        PyPlot.close()
+
+    end
+
+end  # module Plot

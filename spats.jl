@@ -149,8 +149,6 @@ module SpaTs
         #Data.convert_psrfit_ascii("$(ozdir7)", "$(ozdir7).txt")
         #Data.convert_psrfit_ascii("$(ozdir7)", "$(ozdir7).txt")
 
-
-
     end
 
 
@@ -577,6 +575,9 @@ module SpaTs
         data7 = Data.load_ascii("$(data_patrick)20200625_212452.debase.hp.txt")
         datas = [data1, data2, data3, data4, data5, data6, data7]
 
+
+        #Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2p", darkness=0.7, show_=true, panel="b")
+
         # single pulse plots # not used!
         #=
         Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1p", darkness=0.7, show_=true, panel="a")
@@ -600,7 +601,38 @@ module SpaTs
         Tools.p2_estimate(data7; on_st=350, on_end=675, off_st=25, off_end=350, thresh=3, win=win)
         =#
 
-        # track subpulses
+        # calculate SNR files
+        data_files = ["$(data_patrick)20190929_124118.debase.hp", "$(data_patrick)20191214_142212.debase.hp", "$(data_patrick)20200224_034643.debase.hp", "$(data_patrick)20200329_041150.debase.hp", "$(data_patrick)20200507_231422.debase.hp", "$(data_patrick)20200530_220458.debase.hp", "$(data_patrick)20200625_212452.debase.hp"]
+
+        #Tools.generate_snr("input/single_pulses.gg") # for the modeled data
+        #=
+        for f in data_files
+            Tools.generate_snr(f)
+        end
+        =#
+        thresh, thresh2 = 3, 0.1
+        #Tools.generate_snr(data_files[3])
+        #peaks = Tools.track_subpulses_snr(data3, 18, data_files[3]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
+        #=
+        peaks = Tools.track_subpulses_snr(data1, 18, data_files[1]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
+        Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
+        peaks = Tools.track_subpulses_snr(data2, 18, data_files[2]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
+        Plot.group_tracks(data2, "$(outdir)tracks/2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        peaks = Tools.track_subpulses_snr(data3, 18, data_files[3]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
+        Plot.group_tracks(data3, "$(outdir)tracks/3", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.6)
+        peaks = Tools.track_subpulses_snr(data4, 18, data_files[4]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
+        Plot.group_tracks(data4, "$(outdir)tracks/4", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="4", darkness=0.6)
+        peaks = Tools.track_subpulses_snr(data5, 18, data_files[5]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
+        Plot.group_tracks(data5, "$(outdir)tracks/5", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="5", darkness=0.6)
+        peaks = Tools.track_subpulses_snr(data6, 18, data_files[6]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
+        Plot.group_tracks(data6, "$(outdir)tracks/6", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="6", darkness=0.6)
+        peaks = Tools.track_subpulses_snr(data7, 18, data_files[7]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
+        Plot.group_tracks(data7, "$(outdir)tracks/7", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="7", darkness=0.6)
+        =#
+
+        #Plot.test_track_subpulses_snr(data2, outdir, 18, data_files[2]*".snr.txt", thresh2=thresh2, bin_st=350, bin_end=650, name_mod="2")
+
+        # track subpulses # OLD # OBSOLOTE
         #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
         #Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
         #Plot.tracks_analysis3("$(outdir)tracks/1"; lambda=10000.0, start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
@@ -636,12 +668,13 @@ module SpaTs
         =#
 
         # New single pulses plot
-        #Plot.singlepulses_J1750(datas, outdir; name_mod="1234567", darkness=0.5, show_=true)
+        Plot.singlepulses_J1750(datas, outdir; name_mod="1234567", darkness=0.5, show_=false)
 
         # New P3 evolution plot
-        #Plot.p3evolutions_J1750(datas, outdir, 1, 128; name_mod="1234567", darkness=0.7, show_=true)
+        #Plot.p3evolutions_J1750(datas, outdir, 1, 128; bin_st=350, bin_end=650, name_mod="1234567", darkness=0.7, show_=true)
         # get P3 values
-        # Plot.p3_evolution_J1750(data7, outdir; panel="g", step=1, darkness=1.0, bin_st=350, bin_end=650, name_mod="7", number=128, verbose=true)
+         #Plot.p3_evolution_J1750(data7, outdir; panel="g", step=1, darkness=1.0, bin_st=350, bin_end=650, name_mod="7", number=128, verbose=true)
+         #Plot.p3_evolution_J1750(data2, outdir; panel="b", step=1, darkness=1.0, bin_st=350, bin_end=650, name_mod="2", number=128, verbose=true)
 
         #The P3-folded plot
         #p3data1 = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.p3fold")
@@ -659,19 +692,27 @@ module SpaTs
         # The Plot
         #Plot.driftrate_J1750_2(outdir; spar=0.6, show_=true) # not too good, but I tried...
         #Plot.driftrate_J1750_2(outdir; lambda=200.0, show_=true) # in the paper
-        #Plot.driftrate_analysis_J1750_2(outdir; lambda=200.0, show_=false)
+        #Plot.driftrate_J1750_2(outdir; lambda=100.0, show_=true) # tests
+        #Plot.driftrate_analysis_J1750_2(outdir; lambda=200.0, show_=false, datas=[data1, data2, data3, data4, data5, data6, data7]) # values in the paper
         #Plot.driftrate_J1750_3(outdir; lambda=200.0, show_=true) # segmented fits # not used?
 
         # Timescales
         #Plot.driftdirection_J1750_2([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
         # Timescales - new
-        #Plot.driftdirection_J1750_3([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper
+        #Plot.driftdirection_J1750_3([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in paper up to version 2
+        #Plot.driftdirection_J1750_3b([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper
+
         #Plot.driftdirection_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
-        Plot.driftdirection_analysis_J1750_4(outdir; lambda=200.0, show_=true) # TODO changes vs longitude, P2 stability
+        #Plot.driftdirection_analysis_J1750_4(outdir; lambda=200.0, show_=true) # changes vs longitude
+        #Plot.p2_analysis_J1750(outdir; lambda=200.0, show_=true) # p2 stability
 
         # average profiles
         #Plot.average_J1750([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # old too many ranges
         #Plot.average_J1750_2([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
+        #Plot.average_J1750_3([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper
+
+        # DO NOT USE THESE
+        #Plot.average_J1750_4([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
         #Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="1234567", show_=true) # 350 650
     end
 
@@ -761,10 +802,11 @@ module SpaTs
         Plot.group_tracks(data12, "$(outdir)tracks/12", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="12", darkness=0.6)
         =#
 
-
-        Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7, data8, data9, data10, data11, data12], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="12", show_=true) # 350 650
+        #Plot.average_J1750_stability([data1, data2, data3, data4, data5, data6, data7, data8, data9, data10, data11, data12], outdir; lambda=200.0, bin_st=nothing, bin_end=nothing, name_mod="12", show_=true) # 350 650
         #Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
         #Plot.average_J1750_2(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
+        #Plot.average_J1750_3(datas, outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="12", show_=true)
+        Plot.average_J1750_3(datas, outdir; lambda=200.0, bin_st=390, bin_end=600, name_mod="12", show_=true)
     end
 
 
@@ -774,10 +816,12 @@ module SpaTs
         data_modeled= "/home/szary/work/MeerTime/J1750/modeled/"
         outdir = "/home/szary/work/MeerTime/J1750/modeled/"
 
-        nsp = 6
+        nsp = 13
 
         data1 = Data.load_ascii("$(data_modeled)single_pulses_6_212.ascii")
         data1m = Data.load_ascii("$(data_modeled)single_pulses_218.ascii")
+        data1mnew = Data.load_ascii("$(data_modeled)single_pulses_13_247.ascii")
+        data1new = Data.load_ascii("$(data_modeled)single_pulses_13_245.ascii") # Łokej
         #data2 = Data.load_ascii("$(data_modeled)single_pulses_noiseless.ascii")
         data1p = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.txt")
         data2p = Data.load_ascii("$(data_patrick)20191214_142212.debase.hp.txt")
@@ -798,11 +842,19 @@ module SpaTs
 
         #Plot.lrfses([data1p, data1], outdir; darkness=[0.5, 0.87], bin_st=[400, 270], bin_end=[600, 470], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)")
 
-        # in the paper!
+        # not anymore in the paper alpha > 90
+        #nsp = 6
         #Plot.singles([data1p, data1], outdir; darkness=[0.5, 0.87], bin_st=[400, 270], bin_end=[600, 470], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)", show_=false)
         #Plot.lrfses([data1p, data1], outdir; darkness=[0.5, 0.3], bin_st=[420, 290], bin_end=[570, 440], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)")
+        #Plot.modeledpulses_J1750([data2p, data1m], outdir; darkness=[0.7, 1.0], name_mod="obs_model_218", show_=false)
 
-        Plot.modeledpulses_J1750([data2p, data1m], outdir; darkness=[0.7, 1.0], name_mod="obs_model_218", show_=false)
+        # in the paper! # alpha < 90
+        #nsp = 13
+        #Plot.singles([data1p, data1new], outdir; darkness=[0.5, 0.87], bin_st=[300, 245], bin_end=[700, 645], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)", show_=false)
+        Plot.singles([data1p, data1new], outdir; darkness=[0.5, 0.87], bin_st=[400, 345], bin_end=[600, 545], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)", show_=false)
+        #Plot.lrfses([data1p, data1new], outdir; darkness=[0.5, 0.3], bin_st=[420, 380], bin_end=[570, 510], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)")
+
+        #Plot.modeledpulses_J1750([data2p, data1mnew], outdir; darkness=[0.7, 1.0], name_mod="obs_model_247", show_=false)
 
     end
 
@@ -838,6 +890,27 @@ module SpaTs
         return slices, pulses
     end
 
+    function J1750_calculations()
+        # P3 Rahul
+        edot0 = (2.3 + 0.2) * 1e32 # err 0.2
+        edot = 4.7e30
+        p3 = (edot / edot0) ^ (-0.6 - 0.1) # err 0.1
+        println("Rahul P3: ", p3)
+
+        # RS1975
+        edot1 = 4e31
+        nsp = 13
+        p3_rs = (5.6 / nsp) * (edot / edot1) ^ 0.5
+        println("RS 1975 P3: ", p3_rs)
+
+        # aliasing
+        n = 7
+        p3_obs = 43.5 # err 0.4
+        p3_tr = 1 / (n + 1 / (p3_obs))  # Gupta formula p3_obs in P_3
+        println("True P3: ", p3_tr)
+
+    end
+
 
     function main()
         args = parse_commandline()
@@ -855,6 +928,7 @@ module SpaTs
         J1750_paper2()
         #J1750_average()
         #J1750_modeled()
+        #J1750_calculations()
 
     end
 

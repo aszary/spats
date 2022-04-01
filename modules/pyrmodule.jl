@@ -56,6 +56,35 @@ module PyRModule
     end
 
 
+    function auc(x, y)
+        #au =  pyimport("sklearn.metrics")
+        #return au.auc(x, y)
+        np = pyimport("numpy")
+        return np.trapz(y, dx=x[2]-x[1])
+
+    end
+
+    function auc_r(x, y)
+        # https://www.rdocumentation.org/packages/flux/versions/0.3-0/topics/auc
+        #R"install.packages('flux')"
+        @rput x
+        @rput y
+        R"library('flux')"
+        #R"ghg <- ts(c(12.3, 14.7, 17.3, 13.2, 8.5, 7.7, 6.4, 3.2, 19.8, 22.3, 24.7, 15.6, 17.4), start=0, end=24, frequency=0.5)"
+        #R"plot(x, y)"
+        R"a <- auc(x, y)"
+        R"rep <- auc.mc(x, y)"
+        #R"rep <- auc.mc(x, y, \"jack-val\", lo=3)"
+        R"summary(rep)" # does not show...
+        #R"s <- summary(rep)"
+        @rget a
+        #@rget s
+        println(a)
+        #println(s)
+
+    end
+
+
     function segmented(x, y, npsi; lambda=1000.0, fixedpsi=nothing, preview=false)
         @. f(x, p) = p[2] * x + p[1]
 
@@ -89,12 +118,18 @@ module PyRModule
         catch
             R"con <- confint(linmod, level=0.68)"
             @rget con
+            #println("CON", con)
             bp = []
             ebp = []
             for i in 1:size(con)[1]
                 push!(bp, con[i, 1])
-                push!(ebp, con[i, 1] - con[i, 2]) # it is fine
+                push!(ebp, abs(con[i, 1] - con[i, 2])) # it is fine? hopefully
                 #println(con[i, 2] - con[i, 2], " ", con[i, 3] - con[i, 1])
+                #println("con")
+                #println(con)
+                #println("c1 c2 ", con[i, 1], " ", con[i, 2])
+                #println("bp ", bp)
+                #println("ebp ", ebp)
             end
             #R"lnn <- line(x, y)"
             #R"y2 <- fitted(lnn)"

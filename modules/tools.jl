@@ -7,6 +7,7 @@ module Tools
     using Statistics
     using SmoothingSplines
     using StatsBase
+    using CubicSplines
 
     using PyPlot
     using DSP
@@ -14,7 +15,6 @@ module Tools
     using DataFrames, GLM
 
     include("pyrmodule.jl")
-
 
     function rms(data)
         s = 0.0
@@ -87,6 +87,35 @@ module Tools
         end
         pk = peaks(intensity)
         return lrfs, intensity, freq, pk
+    end
+
+
+    function periodicity(ydata)
+        si = size(ydata, 1)
+        # one side (positive) frequancy range
+        if iseven(si)
+            rf = range(0, convert(Int, si/2 - 1), step=1)
+        else
+            rf = range(0, convert(Int, (si-1)/2 - 1), step=1)  # -1 added to match size
+        end
+        freq = collect(rf) ./ si
+
+        half = floor(Int, si / 2)
+        ff = fft(ydata)[1:half]
+        pk = peaks(abs.(ff))
+        #println(freq[pk])
+
+        subplot2grid((2, 1), (0, 0))  # row column
+        plot(ydata)
+        axvline(x=1/freq[pk], c="red")
+
+        subplot2grid((2, 1), (1, 0))  # row column
+        plot(freq, ff)
+        #plot([1])
+        show()
+        readline(stdin; keep=false)
+        close()
+        return
     end
 
 
@@ -179,8 +208,6 @@ module Tools
         end
         return p, err
     end
-
-
 
 
     @. twogauss(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2)  + p[4] * exp(-0.5*((x-p[5])/p[6])^2) + p[7]
@@ -495,7 +522,7 @@ module Tools
     end
 
 
-    function track_subpulses(data, p2; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8)
+    function track_subpulses(data, p2; on_st=350, on_end=650, off_st=20, off_end=320, thresh=2.1, thresh2=0.8)
         pulses, bins = size(data)
         p2_bins = floor(Int, p2 / 360 * bins)
         peaks = [] # [pulse_num, [p1, p2, p3...]]
@@ -542,17 +569,114 @@ module Tools
                 end
                 axvline(x=ma[inds[1]]-1, c="green") # TODO plotting starts from 0!
                 axvline(x=ma[inds[2]]-1, c="magenta") # TODO plotting starts from 0!
+                #axvline(x=ma[inds[3]]-1, c="brown") # TODO plotting starts from 0!
                 show()
                 st = readline(stdin; keep=false)
                 if st == "q"
                     break
                 end
                 =#
-
             end
         end
         return peaks
     end
+
+
+    function track_subpulses_snr(data, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=2.1, thresh2=0.8)
+
+        thresh2_old = thresh2
+
+        f = open(snrfile)
+        snrs = []
+        for line in readlines(f)
+            push!(snrs, parse(Float64, line))
+        end
+
+        println("obs. SNR (no?): ", round(sum(snrs) / sqrt(size(snrs)[1])))
+        println("mean SNR: ", mean(snrs))
+        println("median SNR: ", median(snrs))
+
+        pulses, bins = size(data)
+        p2_bins = floor(Int, p2 / 360 * bins)
+        peaks = [] # [pulse_num, [p1, p2, p3...]]
+        ppeaks = [] # [p1, p2, p3...]
+        σ = p2_bins / 2 / 2.35482
+        kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+        detected_pulses = 0
+        located_subpulses = 0
+        for i in 1:pulses
+            #y = view(data, i, on_st:on_end)
+            y = view(data, i, :)
+            (mi, ma) = extrema(y)
+            #y = (y .- mi) / (ma - mi)
+            y = y ./ ma # this is much much better!
+
+            res = conv(y, kernel)
+            (mi, ma) = extrema(res)
+            res = (res .- mi) / (ma - mi)
+            re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
+
+            #on = maximum(re[on_st:on_end])
+            #off = rms(y[off_st:off_end])
+            #sigma = on / off
+            #println("$i $sigma")
+            #println("$i $(snrs[i])")
+            snr = snrs[i]
+
+            if (snr > thresh) && ~isnan(re[1])  # why re is sometimes NaN?
+                peak = Tools.peaks(re)
+                # new syntax?
+                ma, pa = peakprom(Maxima(), re, floor(Int, p2_bins/4))
+                #ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
+                #ma, pa = peakprom(re, Maxima(), p2_bins/2)
+                inds = sortperm(pa, rev=true)
+                ppeaks = []
+                # get new thresh2 (maximum in off pulse region)
+                new_thresh = 0.
+                for ii in inds
+                    if ((ma[ii] < on_st) || (ma[ii] > on_end)) && (new_thresh < re[ma[ii]])
+                        new_thresh = re[ma[ii]]
+                    end
+                end
+                thresh2 = maximum([new_thresh, thresh2_old])
+                #println(thresh2)
+                for ii in inds
+                    if (re[ma[ii]] >= thresh2) &&  (ma[ii] > on_st) && (ma[ii] < on_end)
+                        push!(ppeaks, ma[ii])
+                    end
+                end
+                if length(ppeaks) > 0
+                    located_subpulses += 1
+                end
+                push!(peaks, [i, ppeaks])
+                detected_pulses += 1
+                #println("$i $ppeaks")
+                #=
+                PyPlot.close()
+                plot(y, c="black")
+                plot(re, c="red")
+                plot(kernel, c="blue")
+                #for ii in inds
+                for p in ppeaks
+                    axvline(x=p-1, c="pink")
+                end
+                #axvline(x=ma[inds[1]]-1, c="green") # TODO plotting starts from 0!
+                #axvline(x=ma[inds[2]]-1, c="magenta") # TODO plotting starts from 0!
+                #axvline(x=ma[inds[3]]-1, c="brown") # TODO plotting starts from 0!
+                show()
+                st = readline(stdin; keep=false)
+                if st == "q"
+                    break
+                end
+                =#
+            end
+        end
+        println("Number of pulses: $pulses  Included pulses : $detected_pulses  Pulses with located subpulses: $located_subpulses")
+        frac = located_subpulses / pulses * 100
+        println("Fraction of pulses used: $(round(frac)) (before grouping (overestimated!))")
+        return peaks
+    end
+
 
 
     function track_subpulses_template(data, template; on_st=450, on_end=700, off_st=100, off_end=350, thresh=2.1, thresh2=0.8)
@@ -1220,6 +1344,8 @@ module Tools
         pos_duration = []
         drn_ = []
         drp_ = []
+
+        null_pulses = []
         for i in 1:length(tracks)
             negative = []
             positive = []
@@ -1266,9 +1392,23 @@ module Tools
             if (length(positive)) >= 1 && (enp-stp > 0)
                 push!(pos_duration[end], Dict(trunc(stp)=>trunc(enp-stp)))
             end
+            # check pulse continuity (nulls?)
+            push!(null_pulses, [])
+            all = vcat(negative, positive)
+            sort!(all)
+            nos = 0
+            for j in 1:length(all)-1
+                if all[j+1] - all[j] > 1
+                    push!(null_pulses[end], all[j+1])
+                    nos += 1
+                    println("Session: $i " ," pulse: ", all[j], " dp: ", all[j+1] - all[j])
+                end
+            end
+            println("\n Session: $i Coverage: ", (1- nos/all[end]) * 100, " Pulses: ", all[end]-nos, " Null fraction: ", nos / all[end], "\n")
+
         end
 
-        # negatives
+        # negatives # based on single pulses information (problem with continuity for low detections!)
         nnum = 0
         ndurations = []
         mimi = 1e50
@@ -1299,7 +1439,7 @@ module Tools
         end
         #println(ndurations)
 
-        # positives
+        # positives  # based on single pulses information (problem with continuity for low detections!)
         pnum = 0
         pdurations = []
         mama = -1e50
@@ -1318,21 +1458,133 @@ module Tools
             end
         end
 
-        println("Negative instances: ", nnum)
-        println("Longest negative: ", maximum(ndurations), " for session ", nsession2, " pulse ", npulse2)
-        println("shortest negative: ", minimum(ndurations), " for session ", nsession, " pulse ", npulse)
-        println("Smallest negative: ", minimum(drn_))
-        println("findmin: ", findmin(drn_))
-        println("mean neg.: ", mean(drn_))
+        # negative / positive - based on ysps
+        fix_driftrates!(pulses, ysps)
 
-        println("Positive instences: ", pnum)
-        println("Positive longest: ", maximum(pdurations), " for session ", psession, " pulse ", ppulse)
-        println("shortest positive: ", minimum(pdurations))
-        println("Biggest positive: ", maximum(drp_))
-        println("mean pos.: ", mean(drp_))
+        directions = []
+        for i in 1:size(pulses)[1]
+            push!(directions, [])
+            for j in 1:size(pulses[i])[1]
+                if ysps[i][j] > 0
+                    push!(directions[end], 1)
+                else
+                    push!(directions[end], -1)
+                end
+            end
+        end
 
-        return ndurations, pdurations
+        pdur = []
+        ndur = []
+        ptime = [] # [session, start, end]
+        ntime = [] # [session, start, end]
+        for i in 1:size(directions)[1]
+            #push!(pdur, [])
+            #push!(ndur, [])
+            start = pulses[i][1]
+            dir = directions[i][1]
+            for j in 2:size(directions[i])[1]
+                if dir != directions[i][j]
+                    ln = pulses[i][j] - start
+                    if dir < 0
+                        push!(ndur, ln)
+                        push!(ntime, [i, start, pulses[i][j]])
+                    else
+                        push!(pdur, ln)
+                        push!(ptime, [i, start, pulses[i][j]])
+                    end
+                    dir = directions[i][j]
+                    start = pulses[i][j]
+                end
+             end
+            # solve all positive / negative sessions
+            if (start == pulses[i][1])
+                #println([i, start, pulses[i][end]])
+                if directions[i][1] > 0
+                    push!(ptime, [i, start, pulses[i][end]])
+                    push!(pdur, pulses[i][end]-start)
+                else
+                    push!(ntime, [i, start, pulses[i][end]])
+                    push!(ndur, pulses[i][end]-start)
+                end
+            end
+        end
 
+        #=
+        set = 1
+        plot(pulses[set], ysps[set], lw=4)
+        plot(pulses[set], directions[set], lw=3)
+        show()
+        readline(stdin; keep=false)
+        close()
+
+
+        hist(ndur, alpha=0.7)
+        hist(pdur, alpha=0.7)
+        show()
+        readline(stdin; keep=false)
+        close()
+        =#
+        ysps_flat = Base.Iterators.flatten(ysps)
+        ysps_neg = []
+        ysps_pos = []
+        for ys in ysps_flat
+            if ys < 0
+                push!(ysps_neg, ys)
+            else
+                push!(ysps_pos, ys)
+            end
+        end
+
+        #println("(in p.) OLD Negative instances: ", nnum)
+        println("Negative instances: ", length(ndur))
+        #println("(in p.) OLD Longest negative: ", maximum(ndurations), " for session ", nsession2, " pulse ", npulse2)
+        println("Longest negative: ", maximum(ndur), " for session ", ntime[findmax(ndur)[2]][1], " pulse ", ntime[findmax(ndur)[2]][2])
+        #println("(in p.) OLD shortest negative: ", minimum(ndurations), " for session ", nsession, " pulse ", npulse)
+        println("Shortest negative: ", minimum(ndur), " for session ", ntime[findmin(ndur)[2]][1], " pulse ", ntime[findmin(ndur)[2]][2])
+        println("(in p.) Smallest negative: ", minimum(drn_))
+        #println("Smallest negative: ", minimum(ysps_flat))
+        println("(in p.) mean neg.: ", mean(drn_))
+        #println("mean neg: ", mean(ysps_neg))
+        println("std neg.: ", std(drn_))
+        println("(in p.) Neg. Standard error of the mean: ", std(drn_) / sqrt(length(drn_)))
+        println()
+
+        #println("(in p.) OLD Positive instences: ", pnum)
+        println("Positive instances: ", length(pdur))
+        #println("(in p.) OLD Positive longest: ", maximum(pdurations), " for session ", psession, " pulse ", ppulse)
+        println("Longest positive: ", maximum(pdur), " for session ", ptime[findmax(pdur)[2]][1], " pulse ", ptime[findmax(pdur)[2]][2])
+        #println("(in p.) OLD shortest positive: ", minimum(pdurations))
+        println("Shortest positive: ", minimum(pdur), " for session ", ptime[findmin(pdur)[2]][1], " pulse ", ptime[findmin(pdur)[2]][2])
+        println("(in p.) Biggest positive: ", maximum(drp_))
+        #println("Biggest positive: ", maximum(ysps_flat))
+        println("(in p.) mean pos.: ", mean(drp_))
+        #println("mean pos.: ", mean(ysps_pos))
+        println("std pos.: ", std(drp_))
+        println("(in p.) Pos. Standard error of the mean: ", std(drp_) / sqrt(length(drp_)))
+
+        #return ndurations, pdurations, null_pulses
+        return ndur, pdur, nothing
+
+    end
+
+    "fixes driftrates arrays to be continuous, changes both pulses and ysps"
+    function fix_driftrates!(pulses, ysps)
+        for j in 1:size(pulses)[1]
+            ysps_ = [ysps[j][1]]
+            pulses_ = [pulses[j][1]]
+
+            for i in 2:(size(pulses[j])[1]-1)
+                if pulses[j][i] != pulses_[end]
+                    push!(pulses_, pulses[j][i])
+                    push!(ysps_, ysps[j][i])
+                end
+            end
+            splines = CubicSpline(pulses_, ysps_)
+            xs = range(pulses_[1], length=trunc(Int, pulses_[end]-pulses_[1]))
+            ys = splines[xs]
+            pulses[j] = xs
+            ysps[j] = ys
+        end
     end
 
 
@@ -1606,7 +1858,6 @@ module Tools
                 end
             end
         end
-
         onemrhos = []
         onemrhose = []
         npulses = []
@@ -1621,9 +1872,40 @@ module Tools
             push!(onemrhos, mean(omrhos))
             push!(onemrhose, std(omrhos))
         end
-
         return onemrhos, onemrhose, npulses
+    end
 
+    """ SNR calculation using psrchive """
+    function generate_snr(filename)
+        #println(filename)
+        # get pulse number
+        cmd = `psrstat -c nsubint $filename`
+        res = read(pipeline(cmd), String)
+        #f = findfirst("nsubint=", res)
+        #nsubint = parse(res[f[end]+1:end])
+        nsubint = parse(Int, split(split(res)[2], "=")[2])
+        # generate file SNR file
+        #cmd = `psrstat -l subint=0-$(nsubint-1) -qc snr $filename`
+        cmd = `psrstat -l subint=0-$(nsubint-1) -c snr=pdmp -qc snr $filename` # use it in the future
+        #run(pipeline(cmd, stdout="$filename.snr.txt"))
+        res = split(read(pipeline(cmd), String), "\n")
+        f = open("$filename.snr.txt", "w")
+        snrs = []
+        for i in 1:nsubint
+            snr = parse(Float64, split(res[i], "=")[2])
+            push!(snrs, snr)
+            write(f, "$snr\n")
+            #println("$i $snr")
+        end
+        close(f)
+        println("SNR (old): ", round(sum(snrs) / sqrt(nsubint))) # why it is different?
+        # psrstat -j FTp -c snr=pdmp -c snr filename
+        #cmd = `psrstat -j FTp -c snr $filename`
+        cmd = `psrstat -j FTp -c snr=pdmp -c snr $filename` # use it in the future
+        #cmd = `psrstat -j FTp -c on=set -c on:range=350:650%bin -c off=set -c off:range=700:1000%bin -c snr=modular -c snr -c snr:on:found -c snr:off:found $filename`
+        res = read(pipeline(cmd), String)
+        snr = parse(Float64, split(res, "=")[2])
+        println("SNR: ", round(snr))
     end
 
 end  # module Tools
