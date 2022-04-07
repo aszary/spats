@@ -1915,7 +1915,8 @@ module Plot
         ylabel("Pulse number")
         extent = [bin_st/bins*360, bin_end/bins*360, start-0.5, start+number-1+0.5]
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=extent)
+        #imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), extent=extent)
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(da), vmin=0, extent=extent, alpha=1.0)
         xlim([extent[1], extent[2]])
         ylim([extent[3], extent[4]])
         #println([bin_st, bin_end, start-0.5, start+number+0.5])
@@ -2633,9 +2634,9 @@ module Plot
         yl2 = (-0.9, 0.9)
 
         # CHECKING periodicity here
-        ys_ = convert(Array{Float64,1}, ysp2)
-        Tools.periodicity(ys_)
-        return
+        #ys_ = convert(Array{Float64,1}, ysp2)
+        #Tools.periodicity(ys_)
+        #return
 
         rc("font", size=7.)
         rc("axes", linewidth=0.5)
@@ -3493,7 +3494,7 @@ module Plot
         figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
         subplots_adjust(left=0.15, bottom=0.20, right=0.99, top=0.99, wspace=0., hspace=0.)
         minorticks_on()
-        bins = 15
+        bins = 18
         res = hist(lons, color="black", bins=bins, lw=0.5, alpha=0.5, edgecolor="black", label="All pulses", ls="--")
         res2 = hist(lonsp, color="tab:red", bins=res[2], lw=0.5, alpha=0.5, edgecolor="black", label="Positive drift", ls="--")
         res3 = hist(lonsn, color="tab:blue", bins=res[2], lw=0.5, alpha=0.5, edgecolor="black", label="Negative drift", ls="--")
@@ -3505,7 +3506,7 @@ module Plot
             push!(x_, res[2][i] + (res[2][i+1]-res[2][i]) / 2)
         end
         p, err = Tools.fit_gaussian(x_, y_; a=1700.0, μ=20.0, σ=3.0, baselevel=0.0)
-        println(round(p[2], digits=1), " +- ", round(err[2], digits=1))
+        println(round(p[2], digits=2), " +- ", round(err[2], digits=2))
         xx = collect(x_[1]:0.1:x_[end])
         ga = Tools.gauss(xx, p)
 
@@ -3518,7 +3519,7 @@ module Plot
             push!(x_, res2[2][i] + (res2[2][i+1]-res2[2][i]) / 2)
         end
         p, err = Tools.fit_gaussian(x_, y_; a=1700.0, μ=20.0, σ=3.0, baselevel=0.0)
-        println("pos. :", round(p[2], digits=1), " +- ", round(err[2], digits=1))
+        println("pos. :", round(p[2], digits=2), " +- ", round(err[2], digits=2))
         xx = collect(x_[1]:0.1:x_[end])
         ga = Tools.gauss(xx, p)
 
@@ -3531,7 +3532,7 @@ module Plot
             push!(x_, res3[2][i] + (res3[2][i+1]-res3[2][i]) / 2)
         end
         p, err = Tools.fit_gaussian(x_, y_; a=1000.0, μ=20.0, σ=3.0, baselevel=0.0)
-        println("neg. :", round(p[2], digits=1), " +- ", round(err[2], digits=1))
+        println("neg. :", round(p[2], digits=2), " +- ", round(err[2], digits=2))
         xx = collect(x_[1]:0.1:x_[end])
         ga = Tools.gauss(xx, p)
 
@@ -5412,13 +5413,13 @@ module Plot
         #figure(figsize=(7.086614, 6.299213))  # 18 cm x 16 cm
         figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
         subplots_adjust(left=0.08, bottom=0.07, right=0.95, top=0.92, wspace=0.0, hspace=0.0)
-        figtext(0.09, 0.89, "a)", size=10)
-        figtext(0.25, 0.89, "b)", size=10)
-        figtext(0.76, 0.89, "c)", size=10)
-        figtext(0.09, 0.44, "d)", size=10)
-        figtext(0.32, 0.44, "e)", size=10)
-        figtext(0.54, 0.44, "f)", size=10)
-        figtext(0.76, 0.44, "g)", size=10)
+        figtext(0.09, 0.89, "a)", size=10, c="white")
+        figtext(0.25, 0.89, "b)", size=10, c="white")
+        figtext(0.76, 0.89, "c)", size=10, c="white")
+        figtext(0.09, 0.44, "d)", size=10, c="white")
+        figtext(0.32, 0.44, "e)", size=10, c="white")
+        figtext(0.54, 0.44, "f)", size=10, c="white")
+        figtext(0.76, 0.44, "g)", size=10, c="white")
 
         # first session
         ax = subplot2grid((32, 1900), (0, 0), colspan=295, rowspan=10)  # row column
@@ -5426,8 +5427,8 @@ module Plot
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         minorticks_on()
-        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[1]), extent=extents[1])
-        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[1]), vmin=0, extent=extents[1], alpha=0.7)
+        #imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[1]), extent=extents[1])
+        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[1]), vmin=0, extent=extents[1], alpha=1.0)
         println("max ", maximum(datas[1]))
         println("min ", minimum(datas[1]))
         ylim(y1, y2)
@@ -5447,8 +5448,8 @@ module Plot
         ax = subplot2grid((32, 1900), (0, 359), colspan=1031, rowspan=10)  # row column
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
-        imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[2]), extent=extents[2])
-        imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[2]), vmin=0.0, extent=extents[2], alpha=0.7)
+        #imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[2]), extent=extents[2])
+        imshow(transpose(datas[2]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[2]), vmin=0.0, extent=extents[2], alpha=1.0)
         ylim(y1, y2)
         xlabel("Pulse number")
         ax.xaxis.set_label_position("top")
@@ -5470,8 +5471,8 @@ module Plot
         #ax.yaxis.set_label_position("right")
         #ax.yaxis.set_ticks_position("right")
         minorticks_on()
-        imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[3]), extent=extents[3])
-        imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[3]), vmin=0.0, extent=extents[3], alpha=0.7)
+        #imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[3]), extent=extents[3])
+        imshow(transpose(datas[3]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[3]), vmin=0.0, extent=extents[3], alpha=1.0)
         ylim(y1, y2)
         # third session
         ax = subplot2grid((32, 1900), (10, 1454), colspan=446, rowspan=5)  # row column
@@ -5489,8 +5490,8 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=true, right=true, left=true)
         minorticks_on()
-        imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[4]), extent=extents[4])
-        imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[4]), vmin=0.0, extent=extents[4], alpha=0.7)
+        #imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[4]), extent=extents[4])
+        imshow(transpose(datas[4]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[4]), vmin=0.0, extent=extents[4], alpha=1.0)
         ylim(y1, y2)
         ylabel("Longitude (\$ ^{\\circ}\$)")
         # fourth session
@@ -5508,8 +5509,8 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
-        imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[5]), extent=extents[5])
-        imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[5]), vmin=0.0, extent=extents[5], alpha=0.7)
+        #imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[5]), extent=extents[5])
+        imshow(transpose(datas[5]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[5]), vmin=0.0, extent=extents[5], alpha=1.0)
         ylim(y1, y2)
         # fifth session
         subplot2grid((32, 1900), (27, 487), colspan=447, rowspan=5)  # row column
@@ -5525,8 +5526,8 @@ module Plot
         tick_params(axis="x", which="both", direction="out", labeltop=false, labelbottom=false, top=true)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true)
         minorticks_on()
-        imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[6]), extent=extents[6])
-        imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[6]), vmin=0.0, extent=extents[6], alpha=0.7)
+        #imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[6]), extent=extents[6])
+        imshow(transpose(datas[6]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[6]), vmin=0.0, extent=extents[6], alpha=1.0)
         ylim(y1, y2)
         # sixth session
         subplot2grid((32, 1900), (27, 971), colspan=447, rowspan=5)  # row column
@@ -5545,8 +5546,8 @@ module Plot
         #tick_params(axis="x", which="both", direction="in", labeltop=false, labelbottom=true, top=false)
         tick_params(axis="y", which="both", direction="out", labelleft=false, right=true, left=true, labelright=true)
         minorticks_on()
-        imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[7]), extent=extents[7])
-        imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[7]), vmin=0.0, extent=extents[7], alpha=0.7)
+        #imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(datas[7]), extent=extents[7])
+        imshow(transpose(datas[7]), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(datas[7]), vmin=0.0, extent=extents[7], alpha=1.0)
         ylim(y1, y2)
         # seventh session
         subplot2grid((32, 1900), (27, 1454), colspan=446, rowspan=5)  # row column
@@ -6115,8 +6116,6 @@ module Plot
             push!(peaks, [i, ppeaks])
         end
 
-
-
         #return
 
         # Pulse longitude
@@ -6178,5 +6177,158 @@ module Plot
         PyPlot.close()
 
     end
+
+
+    function test_track_subpulses_snr_new(data, outdir, p2, snrfile; pulse_snr=7, thresh=5, bin_st=350, bin_end=650, off_st=20, off_end=320, name_mod="X", show_=true)
+        """ New approch based on S/N of the pulse"""
+        pulse_num, bins = size(data)
+
+        f = open(snrfile)
+        snrs = []
+        for line in readlines(f)
+            push!(snrs, parse(Float64, line))
+        end
+
+        # pick random pulse with thresh tolerance tol
+        tol = 0.1
+        pulse = nothing
+        while pulse == nothing
+                pu = rand(1:pulse_num)
+                #println(snrs[pu])
+                if (snrs[pu] > pulse_snr - tol) && (snrs[pu] < pulse_snr + tol)
+                    pulse = pu
+                end
+        end
+        #pulse = rand(1:pulse_num)
+        pulse = 1012 # looks good
+        println("pulse S/N: ", snrs[pulse])
+        # olds
+        #pulses = [544, 725]
+        #pulses = [38, 725]
+
+        # detect peaks (copied from Tools.track_subpulses_snr)
+        p2_bins = floor(Int, p2 / 360 * bins)
+        peaks = [] # [p1, p2, p3...]
+        σ = p2_bins / 2 / 2.35482
+        kernel = Tools.gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+
+        #i = pulse # kk - index
+        #y = view(data, i, on_st:on_end)
+
+        y = view(data, pulse, :)
+        (mi, ma) = extrema(y)
+        #y = (y .- mi) / (ma - mi)
+        y = y ./ ma # this is much much better!
+
+        # convolution with Gaussian
+        res = Tools.conv(y, kernel)
+        (mi, ma) = extrema(res)
+        res = (res .- mi) / (ma - mi)
+        re = res[floor(Int,p2_bins/2)+1:end-floor(Int, p2_bins/2)]
+
+        # auto correlation # just for some tests..
+        #=
+        resa = crosscor(y, y, collect(floor(Int,-length(y)/2):floor(Int,length(y)/2)))
+        (mi, ma) = extrema(resa)
+        resa = (resa .- mi) / (ma - mi)
+        rea = resa[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
+        =#
+
+        peak = Tools.peaks(re)
+        # new syntax?
+        ma, pa = peakprom(Maxima(), re, floor(Int, p2_bins/4))
+        #ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
+        #ma, pa = peakprom(re, Maxima(), p2_bins/2)
+        inds = sortperm(pa, rev=true)
+
+        peaks = []
+        yys = []
+        xyys = []
+        psnrs = []
+        for ii in inds
+            st = floor(Int, ma[ii] - p2_bins / 2)
+            en = ceil(Int, ma[ii] + p2_bins / 2)
+            if (st >= bin_st) && (en <= bin_end)
+                #println(y)
+                yy = y[st:en]
+                signal = Tools.simps(yy , collect(st:en))
+                #signal2 = trapz(collect(st:en), yy) # should work
+                #yy3 = y[st:en] .- minimum(y[st:en]) # nope
+                #signal3 = Tools.simps(yy3 , collect(st:en))
+
+                #nn = y[off_st:off_st+(en-st)]
+                nn = y[off_st:off_end]
+                noise = std(nn) * (en-st)^0.5
+                #nn2 = y[off_st:off_st+(en-st)]
+                #noise2 = std(nn2) * (en-st)^0.5
+                #nn3 = y[off_st:off_end] .- minimum(y[off_st:off_end]) # nope
+                #noise3 = std(nn3) * (en-st)^0.5
+
+                #println("S/N (3)", signal3 / noise3) # nope
+                println("S/N ", signal / noise)
+
+                if signal / noise > thresh
+                    push!(peaks, ma[ii])
+                    push!(psnrs, signal/noise)
+                    push!(yys, yy)
+                    push!(xyys, collect(range(st/bins*360, en/bins*360, length=length(yy))))
+                end
+            #if (re[ma[ii]] >= 0.5) &&  (ma[ii] > bin_st) && (ma[ii] < bin_end)
+            #    push!(peaks, ma[ii])
+            end
+        end
+
+
+        # Pulse longitude
+        longitude = collect(range(bin_st/bins * 360, bin_end/bins*360, length=bin_end+1-bin_st))
+
+        println("pulse: ", pulse)
+        println("peaks: ", peaks)
+
+        rc("font", size=7.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        #figure(figsize=(3.14961, 2.362205), frameon=true)  # 8cm x 6 cm
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.165, bottom=0.19, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
+
+        minorticks_on()
+        y = view(data, pulse, bin_st:bin_end)
+        (mi, ma) = extrema(y)
+        y = y ./ ma # this is much much better!
+        plot(longitude, y, c="black", lw=0.5)
+        plot(longitude, re[bin_st:bin_end], c="tab:red")
+        for i in 1:length(yys)
+            plot(xyys[i], yys[i], c="tab:green", lw=2, alpha=0.5)
+        end
+        #plot(longitude, ress_acorr[2][bin_st:bin_end], c="tab:blue") # for tests only
+        #axhline(y=thresh2[2], ls=":", lw=0.7, c="tab:green")
+        for p in peaks
+            axvline(x=p / bins * 360, c="tab:blue", ls="--")
+        end
+        xlim(longitude[1], longitude[end])
+        yticks([-0.5, 0.0, 0.5])
+        text(195, 0.87, "pulse S/N \$\\approx\$ $(round(Int, snrs[pulse]))", size=7)
+        for i in 1:length(psnrs)
+            text(peaks[i]/bins*360+2, -0.5, "S/N = $(round(psnrs[i], digits=1))", ha="center", size=6)
+        end
+
+
+
+        ylabel("intensity (a. u.)")
+        xlabel("longitude \$(^\\circ)\$")
+
+        filename = "$outdir/$(name_mod)_track_subpulses_new.pdf"
+        println(filename)
+        savefig(filename)
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        PyPlot.close()
+
+    end
+
 
 end  # module Plot

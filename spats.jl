@@ -610,14 +610,14 @@ module SpaTs
             Tools.generate_snr(f)
         end
         =#
-        thresh, thresh2 = 3, 0.1
+        thresh, thresh2 = 5, 0.1
         #Tools.generate_snr(data_files[3])
         #peaks = Tools.track_subpulses_snr(data3, 18, data_files[3]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
         #=
-        peaks = Tools.track_subpulses_snr(data1, 18, data_files[1]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
-        Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.6)
+        peaks = Tools.track_subpulses_snr2(data1, 18, data_files[1]*".snr.txt", thresh=thresh, on_st=350, on_end=650)
+        Plot.group_tracks(data1, "$(outdir)tracks/1", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="1", darkness=0.5)
         peaks = Tools.track_subpulses_snr(data2, 18, data_files[2]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
-        Plot.group_tracks(data2, "$(outdir)tracks/2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.6)
+        Plot.group_tracks(data2, "$(outdir)tracks/2", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="2", darkness=0.5)
         peaks = Tools.track_subpulses_snr(data3, 18, data_files[3]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
         Plot.group_tracks(data3, "$(outdir)tracks/3", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="3", darkness=0.6)
         peaks = Tools.track_subpulses_snr(data4, 18, data_files[4]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
@@ -629,8 +629,11 @@ module SpaTs
         peaks = Tools.track_subpulses_snr(data7, 18, data_files[7]*".snr.txt", thresh=thresh, thresh2=thresh2, on_st=350, on_end=650)
         Plot.group_tracks(data7, "$(outdir)tracks/7", peaks; start=1, number=nothing, bin_st=350, bin_end=650, name_mod="7", darkness=0.6)
         =#
+        #=
+        =#
 
-        #Plot.test_track_subpulses_snr(data2, outdir, 18, data_files[2]*".snr.txt", thresh2=thresh2, bin_st=350, bin_end=650, name_mod="2")
+        #Plot.test_track_subpulses_snr(data2, outdir, 18, data_files[2]*".snr.txt", thresh2=thresh2, bin_st=350, bin_end=650, name_mod="2") # OLD OBSOLETE
+        Plot.test_track_subpulses_snr_new(data2, outdir, 18, data_files[2]*".snr.txt", bin_st=350, bin_end=650, name_mod="2") # in the paper - version 3
 
         # track subpulses # OLD # OBSOLOTE
         #peaks = Tools.track_subpulses(data1, 18, thresh=0.5, thresh2=0.5, on_st=350, on_end=650)
@@ -668,7 +671,7 @@ module SpaTs
         =#
 
         # New single pulses plot
-        Plot.singlepulses_J1750(datas, outdir; name_mod="1234567", darkness=0.5, show_=false)
+        #Plot.singlepulses_J1750(datas, outdir; name_mod="1234567", darkness=0.5, show_=false)
 
         # New P3 evolution plot
         #Plot.p3evolutions_J1750(datas, outdir, 1, 128; bin_st=350, bin_end=650, name_mod="1234567", darkness=0.7, show_=true)
