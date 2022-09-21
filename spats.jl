@@ -579,8 +579,10 @@ module SpaTs
         #Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2p", darkness=0.7, show_=true, panel="b")
 
         # single pulse plots # not used!
+        Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1p", darkness=0.5, show_=true, panel="")
+        Plot.lrfs(data1, outdir; darkness=0.3, start=1, number=256, name_mod="J1750_1", bin_st=350, bin_end=650, change_fftphase=false)
+        return
         #=
-        Plot.single_J1750(data1, outdir; start=1, number=nothing, name_mod="1p", darkness=0.7, show_=true, panel="a")
         Plot.single_J1750(data2, outdir; start=1, number=nothing, name_mod="2p", darkness=0.7, show_=true, panel="b")
         Plot.single_J1750(data3, outdir; start=1, number=nothing, name_mod="3p", darkness=0.7, show_=true, panel="c")
         Plot.single_J1750(data4, outdir; start=1, number=nothing, name_mod="4p", darkness=0.7, show_=true, panel="d")
@@ -703,7 +705,8 @@ module SpaTs
         #Plot.driftdirection_J1750_2([data1, data2, data3, data4, data5, data6], outdir; lambda=1000.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true)
         # Timescales - new
         #Plot.driftdirection_J1750_3([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in paper up to version 2
-        #Plot.driftdirection_J1750_3b([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper
+        #Plot.driftdirection_J1750_3b([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper version 3
+        #Plot.driftdirection_J1750_4([data1, data2, data3, data4, data5, data6], outdir; lambda=200.0, bin_st=350, bin_end=650, name_mod="1234567", show_=true) # in the paper version 4
 
         #Plot.driftdirection_analysis_J1750_3(outdir; lambda=200.0, show_=false) # TODO
         #Plot.driftdirection_analysis_J1750_4(outdir; lambda=200.0, show_=true) # changes vs longitude
@@ -824,6 +827,7 @@ module SpaTs
         data1 = Data.load_ascii("$(data_modeled)single_pulses_6_212.ascii")
         data1m = Data.load_ascii("$(data_modeled)single_pulses_218.ascii")
         data1mnew = Data.load_ascii("$(data_modeled)single_pulses_13_247.ascii")
+        data1mnewv3 = Data.load_ascii("$(data_modeled)single_pulses_13_257.ascii")
         data1new = Data.load_ascii("$(data_modeled)single_pulses_13_245.ascii") # Łokej
         #data2 = Data.load_ascii("$(data_modeled)single_pulses_noiseless.ascii")
         data1p = Data.load_ascii("$(data_patrick)20190929_124118.debase.hp.txt")
@@ -854,10 +858,11 @@ module SpaTs
         # in the paper! # alpha < 90
         #nsp = 13
         #Plot.singles([data1p, data1new], outdir; darkness=[0.5, 0.87], bin_st=[300, 245], bin_end=[700, 645], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)", show_=false)
-        Plot.singles([data1p, data1new], outdir; darkness=[0.5, 0.87], bin_st=[400, 345], bin_end=[600, 545], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)", show_=false)
+        #Plot.singles([data1p, data1new], outdir; darkness=[0.5, 0.87], bin_st=[400, 345], bin_end=[600, 545], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)", show_=false) # this one (f10.pdf)
         #Plot.lrfses([data1p, data1new], outdir; darkness=[0.5, 0.3], bin_st=[420, 380], bin_end=[570, 510], start=1, number=size(data1p)[1], name_mod="obs_model_$(nsp)")
 
-        #Plot.modeledpulses_J1750([data2p, data1mnew], outdir; darkness=[0.7, 1.0], name_mod="obs_model_247", show_=false)
+        #Plot.modeledpulses_J1750([data2p, data1mnew], outdir; darkness=[0.7, 1.0], name_mod="obs_model_247", show_=false) # f11.pdf v.1-2
+        Plot.modeledpulses_J1750([data2p, data1mnewv3], outdir; darkness=[0.7, 1.0], name_mod="obs_model_257", show_=false) # f11.pdf v.3
 
     end
 

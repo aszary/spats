@@ -335,12 +335,12 @@ module Plot
         subplots_adjust(left=0.13, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         subplot2grid((5, 2), (0, 0), rowspan=4)
-        imshow(da1, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[1]*maximum(da1))
+        imshow(da1, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[1]*maximum(da1), vmin=0.0)
         minorticks_on()
         tick_params(labelleft=true, labelbottom=false)
 
         subplot2grid((5, 2), (0, 1), rowspan=4)
-        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[2]*maximum(da2))
+        imshow(da2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[2]*maximum(da2), vmin=0.0)
         tick_params(labelleft=false, labelbottom=false)
 
         subplot2grid((5, 2), (4, 0))
@@ -392,17 +392,18 @@ module Plot
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
 
-        rc("font", size=8.)
+        rc("font", size=7.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(2.362205, 3.248031), frameon=true)  # 6cm x 8.25cm
+        #figure(figsize=(2.362205, 3.248031), frameon=true)  # 6cm x 8.25cm
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         if number > 999
             subplots_adjust(left=0.235, bottom=0.115, right=0.99, top=0.99, wspace=0., hspace=0.)
         else
             subplots_adjust(left=0.21, bottom=0.115, right=0.99, top=0.99, wspace=0., hspace=0.)
         end
-        figtext(0.01, 0.95, "$panel)", size=10)
+        #figtext(0.01, 0.95, "$panel)", size=10)
         subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
         plot(intensity, pulses, c="grey")
@@ -413,7 +414,7 @@ module Plot
         ylabel("Pulse number")
 
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da), vmin=0)
         #axvline(x=563, lw=2)
         tick_params(labelleft=false, labelbottom=false)
 
@@ -422,10 +423,11 @@ module Plot
         plot(longitude, average, c="grey")
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
-        xlabel("longitude (deg.)")
+        xlabel("longitude (\$^{\\circ}\$)")
         #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_single.pdf")
         savefig("$outdir/$(name_mod)_single.pdf")
+        savefig("$outdir/$(name_mod)_single.svg")
         if show_ == true
             show()
             readline(stdin; keep=false)
@@ -507,7 +509,7 @@ module Plot
         println(" Δ FFT phase / Δ longitude ", round(inc[1][2], digits=2))
         println("sigma Δ FFT phase / Δ longitude ", round(inc[1][3], digits=2))
 
-        rc("font", size=8.)
+        rc("font", size=7.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
@@ -557,7 +559,9 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
+        println("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.pdf")
+        savefig("$outdir/$(name_mod)_lrfs.svg")
         close()
     end
 
@@ -3487,6 +3491,31 @@ module Plot
             println("\t neg:", round(median(lonsn), digits=2), " +- ", round(std(lonsn), digits=2))
         end=#
 
+        # save data
+        #=
+        f = open("all.txt", "w")
+        write(f, "# P2\n")
+        for (i,l) in enumerate(lons)
+            write(f, "$l\n")
+        end
+        close(f)
+
+        f = open("pos.txt", "w")
+        write(f, "# P2\n")
+        for (i,l) in enumerate(lonsp)
+            write(f, "$l\n")
+        end
+        close(f)
+
+        f = open("neg.txt", "w")
+        write(f, "# P2\n")
+        for (i,l) in enumerate(lonsn)
+            write(f, "$l\n")
+        end
+        close(f)
+        =#
+
+
         rc("font", size=7.5)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -4118,7 +4147,7 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$ (N=$(size(profiles[1])[1]))", "\$\\qquad \\;\\; {\\rm D} < 0 \$ (N=$(size(profiles[2])[1]))", "\$1.00 > {\\rm D} > -0.79 \$ (N=$(size(profiles[3])[1]))", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
+        labels = ["\$ \\qquad \\;\\; {\\rm D} > 0\$ (N=$(size(profiles[1])[1]))", "\$\\qquad \\;\\; {\\rm D} < 0 \$ (N=$(size(profiles[2])[1]))", "\$0.83 > {\\rm D} > -0.80 \$ (N=$(size(profiles[3])[1]))", "\$\\quad 0.5\\;\\; > {\\rm D} > \\quad \\; 0 \$", "\$ \\quad 0 \\;\\;  > {\\rm D} > \\;-0.5 \$", "\$\\!-0.5 \\;\\; > {\\rm D} > --0.73 \$"]
 
 
         figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
@@ -4915,7 +4944,7 @@ module Plot
         for i in 1:tracks_num #length(x_)
                 plot(x_[i], y2_[i], lw=1.7, alpha=0.7, c=colors[i])
         end
-        yl = (210, 131)
+        yl = (195, 146)
         #yl = ylim() # TODO just for now
         for i in 1:length(bps)
             for j in 1:length(bps[i])
@@ -5257,6 +5286,154 @@ module Plot
         end
         close()
     end
+
+
+    function driftdirection_J1750_4(datas, outdir; lambda=1000.0, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
+
+        nums = []
+        bins = []
+        for data in datas
+            nu, bi = size(data)
+            push!(nums, nu)
+            push!(bins, bi)
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins[1] end
+        das = [] # single pulse data
+        for data in datas
+            da = data[:, bin_st:bin_end]
+            push!(das, da)
+        end
+
+        tracks = []
+        inclines = []
+        dr_x = []
+        dr_y = []
+        for i in 1:7
+            tracks1, lines1, inclines1, dr1, ysp1, dof1 = Tools.get_driftrate("$outdir/tracks/$i", lambda)
+            push!(tracks, tracks1)
+            push!(inclines, inclines1)
+            push!(dr_x, dr1)
+            push!(dr_y, ysp1)
+        end
+
+        #ranges = [[2, (0, 70)], [2, (500, 610)], [2, (630, 700)], [2, (960, 1020)], [4, (85, 140)], [5, (295, 355)], [6, (200, 350)], [7, (0, 90)], [7, (190, 270)]]
+        #ranges = [[2, (0, 30)], [2, (290, 350)], [2, (500, 600)], [2, (630, 700)], [2, (960, 1020)], [4, (85, 140)], [5, (295, 355)], [6, (200, 350)], [7, (0, 90)]]
+        ranges = [[2, (290, 350)], [2, (500, 600)], [2, (630, 700)], [2, (960, 1020)], [4, (85, 140)], [5, (295, 355)], [6, (200, 350)], [7, (0, 90)], [7, (190, 270)]]
+
+        # rejected [2, (825, 922)] (npsi, 0, 2, 2)
+
+        sum = 0
+        i = 0
+        for r in ranges
+            i += 1
+            pulses = r[2][2] - r[2][1]
+            sum += pulses
+            println("$i $pulses")
+        end
+        println("Sum: $sum")
+
+        selected_tracks = [[] for i in 1:7] # all seven slots (first will be empty)
+        #println(tracks[1][1][:, 2])  # pulse number
+
+        for ra in ranges
+            k = ra[1]
+            v = ra[2]
+            println("Session: ", k)
+            for i in 1:length(tracks[k])
+                create_new = true
+                for (ii, pulse) in enumerate(tracks[k][i][:, 2])
+                    if (pulse > v[1]) && (pulse < v[2])
+                        if create_new
+                            push!(selected_tracks[k], [[], []])
+                            create_new = false
+                            println("\tNew track session:$k track:$i pulse:$pulse loc:", tracks[k][i][ii, 1])
+                        end
+                        push!(selected_tracks[k][end][1], pulse) # x - pulse number
+                        push!(selected_tracks[k][end][2], tracks[k][i][ii, 1]) # location
+                        #println("\t $v $pulse ", tracks[k][i][ii, 1])
+                    end
+                end
+            end
+        end
+
+        #npsi = [0, 0, 2, 2,   3, 6, 0,   3, 3,   2, 2,   0, 2, 2,   1, 1, 0,   0, 4, 1, 4,   2, 2, 0,   1, 1, 1, 0, 0, 0] # 0 is for skipped track
+        #npsi = [1, 1,   1, 1,   3, 3,   3, 3,   2, 2,   0, 2, 2,   1, 1, 0,   0, 4, 4, 0,   2, 2, 0 ] # 0 is for skipped track
+        npsi = [1, 1,   3, 3,   3, 3,   2, 2,   0, 2, 2,   1, 1, 0,   0, 4, 4, 0,   2, 2, 0,   1, 1] # 0 is for skipped track
+
+        nn = 1
+        fitted_lines = [[] for i in 1:7] # all seven slots (first will be empty)
+        for i in 1:length(selected_tracks)
+            println("\nSession: $i")
+            for j in 1:length(selected_tracks[i])
+                push!(fitted_lines[i], [[], [], [], [], [], [], [], [], []])
+                println("\tTrack: $j nn:$nn npsi $(npsi[nn])")
+                x = convert(Array{Float64,1}, selected_tracks[i][j][1])
+                y = convert(Array{Float64,1}, selected_tracks[i][j][2])
+                push!(fitted_lines[i][end][1], x)
+                x, y2, ysl, slopes, eslopes, bp, ebp, xl, exl = PyRModule.segmented(x, y, npsi[nn]; lambda=lambda, preview=false)
+                nn += 1
+                push!(fitted_lines[i][end][2], y2)
+                push!(fitted_lines[i][end][3], ysl)  # for tracks
+                push!(fitted_lines[i][end][4], slopes)
+                push!(fitted_lines[i][end][5], eslopes)
+                push!(fitted_lines[i][end][6], bp)
+                push!(fitted_lines[i][end][7], ebp)
+                push!(fitted_lines[i][end][8], xl) # xlin later on
+                push!(fitted_lines[i][end][9], exl) # exlin later on
+            end
+        end
+
+        #iis = [[2], [2], [2], [2], [4], [5], [6], [7], [7]]  # obs. session why iis?
+        #jjs = [[3, 4], [5, 6], [8, 9], [10,11], [2, 3], [1, 2], [2, 3, 4], [1, 2], [4, 5, 6]]  # tracks
+        #iis = [[2], [2], [2], [2], [2], [4], [5], [6], [7]]  # obs. session why iis?
+        #jjs = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [2, 3], [1, 2], [2, 3], [1, 2]]  # tracks
+        iis = [[2], [2], [2], [2], [4], [5], [6], [7], [7]]  # obs. session why iis?
+        jjs = [[1, 2], [3, 4], [5, 6], [7, 8], [2, 3], [1, 2], [2, 3], [1, 2], [4, 5]]  # tracks
+
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(7.086614, 4.38189))  # 18 cm x 11.13 cm # golden ratio
+        subplots_adjust(left=0.08, bottom=0.09, right=0.99, top=0.92, wspace=0.0, hspace=0.0)
+        figtext(0.09, 0.89, "a)", size=10)
+        figtext(0.25, 0.89, "b)", size=10)
+        figtext(0.51, 0.89, "c)", size=10)
+        figtext(0.70, 0.89, "d)", size=10)
+        figtext(0.865, 0.89, "e)", size=10)
+        figtext(0.09, 0.425, "f)", size=10)
+        figtext(0.24, 0.43, "g)", size=10)
+        figtext(0.60, 0.43, "h)", size=10)
+        figtext(0.81, 0.43, "i)", size=10)
+        colnum = 400
+        (r1,r11) = driftdirection_J1750_subplot3(1, 0, 0, 60, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r2, r22) = driftdirection_J1750_subplot3(2, 0, 73, 100, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r3, r33) = driftdirection_J1750_subplot3(3, 0, 186, 70, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r4, r44) = driftdirection_J1750_subplot3(4, 0, 269, 60, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r5, r55) = driftdirection_J1750_subplot3(5, 0, 342, 55, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r6, r66) = driftdirection_J1750_subplot3(6, 35, 0, 60, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r7, r77) = driftdirection_J1750_subplot3(7, 35, 66, 150, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r8, r88) = driftdirection_J1750_subplot3(8, 35, 222, 90, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        (r9, r99) = driftdirection_J1750_subplot3(9, 35, 318, 80, selected_tracks, fitted_lines, iis, jjs, dr_x, dr_y; colnum=colnum)
+        figtext(0.5, 0.97, "Pulse number", size=7, ha="center")
+        figtext(0.5, 0.01, "Pulse number", size=7, ha="center")
+
+        savefig("$outdir/$(name_mod)_driftdirection_4.pdf")
+        println("$outdir/$(name_mod)_driftdirection_4.pdf")
+
+        r = vcat(r1, r2, r3, r4, r5, r6, r7, r8, r9)
+        rr = vcat(r11, r22, r33, r44, r55, r66, r77, r88, r99)
+        println("Spline R^2: ", mean(r), " ", std(r))
+        println("Linear reg. R^2: ", mean(rr), " ", std(rr))
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
 
 
     function lrfs_average_J1750(slices, pulses, outdir; start=1, end_=nothing, step=10, number=128, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="1", verbose=false)
@@ -5624,7 +5801,7 @@ module Plot
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         minorticks_on()
-        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[1]*maximum(datas[1]), extent=extents[1])
+        imshow(transpose(datas[1]), origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness[1]*maximum(datas[1]), vmin=-0.03,  extent=extents[1])
         ylim(210, 131)
         ylabel("Longitude (\$ ^{\\circ}\$)")
 
@@ -6282,6 +6459,39 @@ module Plot
         # Pulse longitude
         longitude = collect(range(bin_st/bins * 360, bin_end/bins*360, length=bin_end+1-bin_st))
 
+        # save data for classes
+        y = view(data, pulse, bin_st:bin_end)
+        (mi, ma) = extrema(y)
+        y = y ./ ma # this is much much better!
+        f = open("output/pulse.txt", "w")
+        write(f, "# longitude, intensity\n")
+        for i in 1:length(longitude)
+            write(f, "$(longitude[i]) $(y[i])\n")
+        end
+        close(f)
+        ko = re[bin_st:bin_end]
+        f = open("output/convolution.txt", "w")
+        write(f, "# longitude, intensity\n")
+        for i in 1:length(longitude)
+            write(f, "$(longitude[i]) $(ko[i])\n")
+        end
+        close(f)
+        f = open("output/data.txt", "w")
+        write(f, "Pulse S/N: $(round(Int, snrs[pulse]))\n")
+        write(f, "Peaks: [$(peaks[1]/bins*360), $(peaks[2]/bins*360)]\n")
+        write(f, "S/Ns: [$(round(psnrs[1], digits=1)), $(round(psnrs[2], digits=1))] ")
+        close(f)
+        for i in 1:length(yys)
+            f = open("output/subpulse_$i.txt", "w")
+            write(f, "# longitude, intensity")
+            for j in 1:length(xyys[i])
+                write(f, "$(xyys[i][j]) $(yys[i][j])\n")
+                #plot(xyys[i], yys[i], c="tab:green", lw=2, alpha=0.5)
+            end
+            close(f)
+        end
+
+
         println("pulse: ", pulse)
         println("peaks: ", peaks)
 
@@ -6313,8 +6523,6 @@ module Plot
         for i in 1:length(psnrs)
             text(peaks[i]/bins*360+2, -0.5, "S/N = $(round(psnrs[i], digits=1))", ha="center", size=6)
         end
-
-
 
         ylabel("intensity (a. u.)")
         xlabel("longitude \$(^\\circ)\$")
