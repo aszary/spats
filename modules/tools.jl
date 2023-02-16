@@ -121,6 +121,19 @@ module Tools
 
 
     function peaks(intensity)
+        y = intensity
+        pks, vals = findmaxima(y)
+        pks, proms = peakproms(pks, y)
+        maxprom , ind = findmax(proms)
+        return pks[ind] # index of peak with maximum prominence
+    end
+
+
+    """
+    module Peaks changed? No Maxima()?
+    """
+    function peaks_old(intensity)
+
         #max = maxima(intensity, 30)
         # new syntax?
         ma, pa = peakprom(Maxima(), intensity) #floor(Int, length(intensity)/20))  # works for J1750

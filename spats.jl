@@ -7,6 +7,59 @@ module SpaTs
     include("modules/plot.jl")
     include("modules/tools.jl")
 
+
+    function J0820(args)
+        # J0820
+        #Data.convert_psrfit_ascii("input/J0820.high", "input/high.txt") # does not work without TEMPO?
+        #Data.convert_psrfit_ascii("input/J0820.low", "input/low.txt")
+
+        data = Data.load_ascii("input/low.txt")
+        data2 = Data.load_ascii("input/high.txt")
+
+        Plot.single0(data, args["outdir"]; bin_st=400, bin_end=600)
+
+        Plot.single(data, args["outdir"]; bin_st=400, bin_end=600, name_mod="low")
+        Plot.single(data2, args["outdir"]; bin_st=400, bin_end=600, name_mod="high")
+
+        Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1, bin_st=400, bin_end=600, name_mod="low")
+        Plot.lrfs(data2, args["outdir"]; darkness=0.1, start=1, bin_st=400, bin_end=600, name_mod="high")
+
+        p3data = Data.load_ascii("input/low.debase.p3fold")
+        Plot.p3fold(data, args["outdir"]; start=1, bin_st=400, bin_end=600, name_mod="low", darkness=1.0)
+
+        # OLD
+        #Plot.offset_subtract(data, data2, "output"; bin_st=400, bin_end=600, name_mod="sub", darkness=1.0, repeat_num=1)  # it may look nice? Nope! but why? try subtract p3folds
+
+        #Plot.average(data, args["outdir"]; bin_st=40, bin_end=90, number=nothing, name_mod="low")
+        #Plot.average(data3, args["outdir"]; bin_st=40, bin_end=90, number=nothing, name_mod="high4")
+        #Plot.average2(data, data3, args["outdir"]; bin_st=40, bin_end=90, number=nothing, name_mod="lowhigh4")
+        #Plot.offset_subtract(data, data3, "output"; bin_st=40, bin_end=90, name_mod="B0320_p3fold", darkness=1.0, repeat_num=4)  # it may look nice? Nope! but why? try subtract p3folds
+
+
+        #data = Data.load_ascii("input/low.p3fold")
+        #data2 = Data.load_ascii("input/mid.p3fold")
+        #data3 = Data.load_ascii("input/high4.p3fold")
+        #Plot.offset(data, data3, "output/"; bin_st=50, bin_end=80, name_mod="low_high", darkness=1.0)
+        #Plot.offset_points(data, data3, "output/"; bin_st=50, bin_end=80, name_mod="db_low_high")
+        #Plot.offset_points3(data, data2, data3, "output/"; bin_st=50, bin_end=80, name_mod="low_mid_high4")
+        #Plot.crosscorplot(data, data2, "/home/szary/work/B0320/"; bin_st=50, bin_end=80, name_mod="low_high4")
+        #Plot.offset(data, data2, args["outdir"]; bin_st=50, bin_end=80, name_mod="low_high4", darkness=1.0)
+
+        #Plot.single0(data, args["outdir"]; number=250, bin_st=50, bin_end=100)
+        #Plot.single0(data, args["outdir"])
+        #Plot.single(data, args["outdir"]; darkness=0.5, number=nothing, name_mod="all")
+        #Plot.single(data, args["outdir"]; start=1, number=17, bin_st=50, bin_end=80, name_mod="low_p3fold", darkness=1.0)
+        #Plot.p3fold(data, args["outdir"]; start=1, bin_st=50, bin_end=80, name_mod="high4", darkness=1.0)
+        #Plot.single(data, args["outdir"]; start=1, number=512, bin_st=30, bin_end=95, name_mod="p3fold")
+        #Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1, number=512, bin_st=50, bin_end=80, name_mod="low")
+        #Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1000, number=512, bin_st=40, bin_end=85, name_mod="2")
+        #Plot.lrfs(data, args["outdir"]; darkness=0.1, start=1250, number=512, bin_st=40, bin_end=85, name_mod="3")
+        #Plot.p3_evolution(data, args["outdir"]; darkness=0.1, bin_st=40, bin_end=85, name_mod="1", number=128)
+        #Plot.p3_evolution(data, args["outdir"]; darkness=0.1, bin_st=40, bin_end=85, name_mod="2", number=256)
+    end
+
+
+
     function mkieth()
 
         data = []
@@ -926,6 +979,7 @@ module SpaTs
             println("  $arg  =>  $val")
         end
 
+        J0820(args)
         #mkieth()
         #J1651()
         #J1705()
@@ -933,7 +987,7 @@ module SpaTs
         #J1750_remote()
         #J1750_local()
         #J1750_paper()
-        J1750_paper2()
+        #J1750_paper2()
         #J1750_average()
         #J1750_modeled()
         #J1750_calculations()
