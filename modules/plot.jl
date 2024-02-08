@@ -549,6 +549,9 @@ module Plot
 
         subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
         imshow(abs.(lrfs), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(abs.(lrfs)))
+        #println(size(lrfs))
+        #return
+
         tick_params(labelleft=false, labelbottom=false)
 
         subplot2grid((5, 3), (4, 1), colspan=2)

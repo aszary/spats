@@ -972,6 +972,14 @@ module SpaTs
 
     end
 
+    function test()
+
+        d = Data.load_ascii("input/1.txt")
+        #Plot.single(d, "output"; darkness=0.5, number=256, bin_st=300, bin_end=700, start=1, name_mod="1", show_=false)
+        Plot.lrfs(d, "output"; darkness=0.1, start=1, name_mod="1", bin_st=500, bin_end=530)
+
+    end
+
 
     function main()
         args = parse_commandline()
@@ -979,7 +987,8 @@ module SpaTs
             println("  $arg  =>  $val")
         end
 
-        J0820(args)
+        test()
+        #J0820(args)
         #mkieth()
         #J1651()
         #J1705()
