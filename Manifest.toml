@@ -2,7 +2,7 @@
 
 julia_version = "1.8.3"
 manifest_format = "2.0"
-project_hash = "3ba9d442c698d17f01999117d82c08a03681231b"
+project_hash = "5b2d0b3638c9e61f966e7d9c9c6e7cdeaec53bd2"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -109,9 +109,9 @@ version = "0.5.2+0"
 
 [[deps.Conda]]
 deps = ["Downloads", "JSON", "VersionParsing"]
-git-tree-sha1 = "e32a90da027ca45d84678b826fffd3110bb3fc90"
+git-tree-sha1 = "b19db3927f0db4151cb86d073689f2428e524576"
 uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
-version = "1.8.0"
+version = "1.10.2"
 
 [[deps.ConstructionBase]]
 deps = ["LinearAlgebra"]
@@ -221,9 +221,9 @@ version = "1.5.0"
 
 [[deps.FFTW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
+git-tree-sha1 = "4d81ed14783ec49ce9f2e168208a12ce1815aa25"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
-version = "3.3.10+0"
+version = "3.3.10+1"
 
 [[deps.FITSIO]]
 deps = ["CFITSIO", "Printf", "Reexport", "Tables"]

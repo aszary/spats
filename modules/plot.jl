@@ -8,22 +8,22 @@ module Plot
     using PyCall
     using Printf
     @pyimport matplotlib.patches as patch
-
-    #PyPlot.matplotlib.use("agg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
-    PyPlot.matplotlib.use("qt5agg")
+    
+    PyPlot.matplotlib.use("Tkagg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
+    #PyPlot.matplotlib.use("qt5agg")
     using Peaks
     using Glob
     using SmoothingSplines
     using DataFrames, GLM
     using Distributions
 
-    using RCall
+    #using RCall
     using HypothesisTests
     using LinearAlgebra
     using Distances
 
     include("tools.jl")
-    include("pyrmodule.jl")
+    #include("pyrmodule.jl")
     include("functions.jl")
 
 

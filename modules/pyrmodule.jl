@@ -1,6 +1,6 @@
 module PyRModule
     using PyCall
-    using RCall
+    #using RCall
 
     using Peaks
     using SmoothingSplines
