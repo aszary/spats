@@ -981,14 +981,24 @@ module SpaTs
 
     end
 
+    function karolina()
+        d = Data.load_ascii("input/1.txt")
+        Plot.single0(d, "output"; start=20, number=100, bin_st=400, bin_end=600, norm=2.0)
+
+
+    end
+
 
     function main()
+        #=
         args = parse_commandline()
         for (arg, val) in args
             println("  $arg  =>  $val")
         end
+        =#
 
-        test()
+        karolina()
+        #test()
         #J0820(args)
         #mkieth()
         #J1651()

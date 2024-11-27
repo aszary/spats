@@ -185,7 +185,9 @@ module Plot
         ylim(start, start+number)
         xlabel("bin number")
         ylabel("Pulse number")
-        savefig("$outdir/single0.pdf")
+        filename = "$outdir/single0.pdf"
+        println(filename)
+        savefig(filename)
         close()
     end
 
