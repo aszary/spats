@@ -972,24 +972,22 @@ module SpaTs
 
     end
 
-    function test()
+    function test(outdir)
 
         d = Data.load_ascii("input/1.txt")
-        Plot.single(d, "output"; darkness=0.3, number=256, bin_st=400, bin_end=600, start=1, name_mod="1", show_=true)
-        Plot.average(d, "output"; number=256, bin_st=400, bin_end=600, start=1, name_mod="1")
-        Plot.lrfs(d, "output"; darkness=0.1, start=1, name_mod="1", bin_st=500, bin_end=530)
-
-    end
-
-    function karolina()
-        d = Data.load_ascii("input/1.txt")
-        Plot.single0(d, "output"; start=20, number=100, bin_st=400, bin_end=600, norm=2.0)
-
+        Plot.single(d, outdir; darkness=0.3, number=256, bin_st=400, bin_end=600, start=1, name_mod="1", show_=true)
+        Plot.average(d, outdir; number=256, bin_st=400, bin_end=600, start=1, name_mod="1")
+        Plot.lrfs(d, outdir; darkness=0.1, start=1, name_mod="1", bin_st=500, bin_end=530)
 
     end
 
 
     function main()
+        # output directory for local run
+        localout = "output"
+        # output directory for VPM
+        vpmout = "/home/psr/output/"
+
         #=
         args = parse_commandline()
         for (arg, val) in args
@@ -997,8 +995,7 @@ module SpaTs
         end
         =#
 
-        #karolina()
-        test()
+        test(vpmout)
         #J0820(args)
         #mkieth()
         #J1651()
