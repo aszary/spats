@@ -985,7 +985,7 @@ module SpaTs
         data = Data.load_ascii("/home/psr/output/.txt")
         Plot.single(data, outdir, darkness=0.5, bin_st=1 , bin_end=1024, number=nothing, name_mod="J0820Mac", show_=true)
         Plot.lrfs(data, outdir, darkness=0.1, start=1,  bin_st=1, bin_end=1024, name_mod="J0820Mac", change_fftphase=false, show_=true)
-        Plot.average(data, outdir, bin_st=1, bin_end=1024, number=nothing, name_mod="low", show_=true)
+        Plot.average(data, outdir, bin_st=1, bin_end=1024, number=nothing, name_mod="J0820Mac", show_=true)
     end
 
     function main()
