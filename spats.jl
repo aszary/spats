@@ -981,6 +981,13 @@ module SpaTs
 
     end
 
+    function J1319(outdir)    
+        Data.convert_psrfit_ascii("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/2019-12-15-03:19:04_00000-00255.spCF", vpmout*"1.txt")  
+        data = Data.load_ascii(vpmout*"1.txt")
+        Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=1, bin_end=1024, start=1, name_mod="J1319", show_=true)
+        Plot.average(data, outdir; number=nothing, bin_st=1, bin_end=1024, start=1, name_mod="J1319")
+        Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=1, bin_end=1024)
+    end
 
     function main()
         # output directory for local run
@@ -995,7 +1002,8 @@ module SpaTs
         end
         =#
 
-        test(vpmout)
+        J1319(vpmout)
+        #test(vpmout)
         #J0820(args)
         #mkieth()
         #J1651()
