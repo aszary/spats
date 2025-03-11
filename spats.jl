@@ -980,7 +980,12 @@ module SpaTs
         Plot.lrfs(d, outdir; darkness=0.1, start=1, name_mod="1", bin_st=500, bin_end=530)
 
     end
-
+    function J0820Mac()
+        convert_psrfit_ascii("/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF")
+        data = Data.load_ascii("/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF ")
+        Plot.single(data, outdir, darkness=0.5, bin_st=1 , bin_end=1024, number=nothing, name_mod="J0820Mac")
+        Plot.lrfs(data, outdir, darkness=0.1, start=1,  bin_st=1, bin_end=1024, name_mod="J0820Mac", change_fftphase=false)
+    end
 
     function main()
         # output directory for local run
@@ -995,8 +1000,8 @@ module SpaTs
         end
         =#
 
-        test(vpmout)
-        #J0820(args)
+        #test(vpmout)
+        J0820Mac()
         #mkieth()
         #J1651()
         #J1705()
