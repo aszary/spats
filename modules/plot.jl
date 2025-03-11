@@ -27,7 +27,7 @@ module Plot
     include("functions.jl")
 
 
-    function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0")
+    function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0",show_=false)
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
@@ -56,6 +56,10 @@ module Plot
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/average_$name_mod.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
         close()
         #clf()
     end
@@ -440,7 +444,7 @@ module Plot
 
 
 
-    function lrfs(data, outdir; start=1, number=nothing, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true)
+    function lrfs(data, outdir; start=1, number=nothing, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true, show_=false)
 
         num, bins = size(data)
         if number == nothing
@@ -567,6 +571,10 @@ module Plot
         println("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
         close()
     end
 
