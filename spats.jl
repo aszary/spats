@@ -981,8 +981,8 @@ module SpaTs
 
     end
     function J0820Mac()
-        convert_psrfit_ascii("/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF")
-        data = Data.load_ascii("/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF ")
+        Data.convert_psrfit_ascii("/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF /home/psr/output/2.txt")
+        data = Data.load_ascii("/home/psr/output/2.txt")
         Plot.single(data, outdir, darkness=0.5, bin_st=1 , bin_end=1024, number=nothing, name_mod="J0820Mac")
         Plot.lrfs(data, outdir, darkness=0.1, start=1,  bin_st=1, bin_end=1024, name_mod="J0820Mac", change_fftphase=false)
     end
