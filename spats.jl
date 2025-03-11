@@ -989,8 +989,8 @@ module SpaTs
     end
 
     function J9040(outdir)
-        Data.convert_psrfit_ascii("/home/psr/data/new/J0904-4246/2019-12-15-01:07:34/2019-12-15-01:07:34_00000-00255.spCF " , "/home/psr/output/J0904.txt")
-        data = Data.load_ascii("/home/psr/output/J0904.txt")
+        Data.convert_psrfit_ascii("/home/psr/data/new/J0904-4246/2019-12-15-01:07:34/2019-12-15-01:07:34_00000-00255.spCF " , "/home/psr/output/1.txt")
+        data = Data.load_ascii("/home/psr/output/1.txt")
         Plot.single(data, outdir, darkness=0.5, bin_st=1 , bin_end=1024, number=nothing, name_mod="J0904", show_=true)
         Plot.lrfs(data, outdir, darkness=0.1, start=1,  bin_st=1, bin_end=1024, name_mod="J0904", change_fftphase=false, show_=true)
         Plot.average(data, outdir, bin_st=1, bin_end=1024, number=nothing, name_mod="J0904", show_=true)
