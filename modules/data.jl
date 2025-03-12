@@ -92,14 +92,12 @@ module Data
     """
     Process data with PSRCHIVE
     """
-    function process_psrchive(indir, outdir, files, outfile)
+    function process_psrchive(indir, outdir, files, outfile, bin_st, bin_end)
         file_names = [joinpath(indir, file) for file in files]
         outfile = joinpath(outdir, outfile)
-
-        println(file_names)
-        println(outfile)
-        run(pipeline(`psradd $file_names -o $outfile`, stdout=outfile, stderr="errs.txt"))
-
+        # connecting all files
+        run(pipeline(`psradd $file_names -o $outfile`, stdout="", stderr="errs.txt"))
+        run(pipeline(`pmod -debase -onpulse '$bin_st $bin_end' $outfile`, stdout="", stderr="errs.txt"))
     end
 
 end # module
