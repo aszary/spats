@@ -996,6 +996,10 @@ module SpaTs
         Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
     end
 
+    function J1319_psrchive(indir, outdir)
+        Data.process_psrchive(indir, outdir, ["2019-12-15-03:19:04_00000-00255.spCF", "2019-12-15-03:19:04_00256-00511.spCF", "2019-12-15-03:19:04_00512-00767.spCF", "2019-12-15-03:19:04_00768-01029.spCF"], "J1319-6105.spCF")
+    end
+
     function main()
         # output directory for local run
         localout = "output"
@@ -1009,7 +1013,8 @@ module SpaTs
         end
         =#
 
-        J1319(vpmout)
+        #J1319(vpmout)
+        J1319_psrchive("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
         #test(vpmout)
         #J0820(args)
         #mkieth()

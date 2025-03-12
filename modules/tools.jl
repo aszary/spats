@@ -90,6 +90,10 @@ module Tools
         return lrfs, intensity, freq, pk
     end
 
+    function lrfs_salsa(data)
+        # TODO...
+        run(pipeline(`pmod -debase -onpulse '473 556'`, stdout="$outfile", stderr="errs.txt"))
+    end
 
     function periodicity(ydata)
         si = size(ydata, 1)

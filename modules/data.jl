@@ -89,4 +89,17 @@ module Data
         #end
     end
 
+    """
+    Process data with PSRCHIVE
+    """
+    function process_psrchive(indir, outdir, files, outfile)
+        file_names = [joinpath(indir, file) for file in files]
+        outfile = joinpath(outdir, outfile)
+
+        println(file_names)
+        println(outfile)
+        run(pipeline(`psradd $file_names -o $outfile`, stdout=outfile, stderr="errs.txt"))
+
+    end
+
 end # module
