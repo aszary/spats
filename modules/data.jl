@@ -92,7 +92,7 @@ module Data
     """
     Process data with PSRCHIVE
     """
-    function process_psrchive(indir, outdir, files, outfile, bin_st, bin_end)
+    function process_psrchive(indir, outdir, files, outfile)
         file_names = [joinpath(indir, file) for file in files]
         outfile = joinpath(outdir, outfile)
         # connecting all files
