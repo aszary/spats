@@ -27,7 +27,7 @@ module Plot
     include("functions.jl")
 
 
-    function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0")
+    function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
