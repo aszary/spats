@@ -96,8 +96,9 @@ module Data
         file_names = [joinpath(indir, file) for file in files]
         outfile = joinpath(outdir, outfile)
         # connecting all files
-        run(pipeline(`psradd $file_names -o $outfile`, stdout="", stderr="errs.txt"))
-        run(pipeline(`pmod -debase -onpulse '$bin_st $bin_end' $outfile`, stdout="", stderr="errs.txt"))
+        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))
+        #run(pipeline(`pmod -debase -onpulse '$bin_st $bin_end' $outfile`,  stderr="errs.txt"))
+        run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt"))
     end
 
 end # module
