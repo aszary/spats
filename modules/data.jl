@@ -100,7 +100,7 @@ module Data
         #run(pipeline(`pmod -debase -onpulse '$bin_st $bin_end' $outfile`,  stderr="errs.txt"))
         # debase the data
         run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt"))
-        debased_file = outdir * "/" * replace(outfile, ".spCF" => ".debase.gg")
+        debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 $debased_file`,  stderr="errs.txt"))
 
     end
