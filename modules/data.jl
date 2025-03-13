@@ -98,7 +98,11 @@ module Data
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))
         #run(pipeline(`pmod -debase -onpulse '$bin_st $bin_end' $outfile`,  stderr="errs.txt"))
+        # debase the data
         run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt"))
+        debased_file = outdir * "/" * replace(outfile, ".spCF" => ".debase.gg")
+        run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 $debased_file`,  stderr="errs.txt"))
+
     end
 
 end # module
