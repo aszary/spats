@@ -102,6 +102,9 @@ module Data
         run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt"))
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pspecDetect -v $debased_file`,  stderr="errs.txt"))
+        # TODO read P3 from pspecDetect output  
+        run(pipeline(`pfold -p3fold "30.95 62" -p3fold_nritt 50 -p3fold_cpb 50 -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
     end
 
