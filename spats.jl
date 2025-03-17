@@ -21,6 +21,7 @@ module SpaTs
         Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
         Plot.average(data, outdir; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
         Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
+        #Plot.p3fold(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
     end
 
     function J1319_psrchive(indir, outdir)
@@ -34,23 +35,6 @@ module SpaTs
         J1319(vpmout)
         #J1319_psrchive("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
 
-    end
-
-    function parse_commandline()
-        s = ArgParseSettings()
-        @add_arg_table! s begin
-            "--indir", "-i"
-                help = "input directory"
-                default = "input"
-            "--outdir", "-o"
-                help = "output directory"
-                default = "output"
-            "--plot", "-p"
-                help = "plots to create"
-                default = []
-                nargs = '*'
-        end
-        return parse_args(s)
     end
 
 end # module
