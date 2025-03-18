@@ -988,6 +988,58 @@ module SpaTs
         Plot.average(data, outdir, bin_st=1, bin_end=1024, number=nothing, name_mod="J0820Mac", show_=true)
     end
 
+
+
+# Generalized function for processing any catalogue
+function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
+    # Step 1: Extract base directory name
+    base_name = basename(base_dir)
+    
+    # Step 2: Auto-generate name_mod if not provided
+    name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
+
+    # Step 3: Create corresponding output subdirectory inside output_dir
+    output_subdir = joinpath(output_dir, base_name)
+    if !isdir(output_subdir)
+        mkpath(output_subdir)
+        println("Created output directory: ", output_subdir)
+    end
+
+    # Step 4: Find the first inner catalogue
+    inner_catalogue = joinpath(base_dir, readdir(base_dir)[1])
+
+    # Step 5: Get all files containing "spCF"
+    spcf_files = filter(f -> occursin("spCF", f), readdir(inner_catalogue, join=true))
+
+    # Step 6: Process each file
+    for file in spcf_files
+        println("Processing: ", file)
+
+        # Output file path for the converted .txt file (inside the output subfolder)
+        output_file = joinpath(output_subdir, "converted_" * splitext(basename(file))[1] * ".txt")
+        
+        # --- Convert the file to .txt ---
+        Data.convert_psrfit_ascii(file, output_file)
+        println("Converted to: ", output_file)
+
+        # Load converted data
+        data = Data.load_ascii(output_file)
+        
+        # Plotting functions
+        Plot.single(data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+        Plot.lrfs(data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=true)
+        Plot.average(data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+    end
+end
+
+# Specific function for J0034-0721
+function J0034Mac(outdir, base_dir="/home/psr/data/J0034-0721")
+    # Pass the base directory as a parameter and output directory
+    process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
+end
+
+
+
     function J9040(outdir)
         Data.convert_psrfit_ascii("/home/psr/data/new/J1720+2150/2020-08-20-19:12:27/2020-08-20-19:12:27_00000-00255.spCF" , "/home/psr/output/J1720+2150.txt")
         data = Data.load_ascii("/home/psr/output/J1720+2150.txt")
@@ -1010,7 +1062,7 @@ module SpaTs
 
         #test(vpmout)
         #J0820Mac(vpmout)
-        J9040(vpmout)
+        J0034Mac(vpmout)
         #mkieth()
         #J1651()
         #J1705()
