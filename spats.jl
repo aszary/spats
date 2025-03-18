@@ -1007,67 +1007,24 @@ module SpaTs
      # Step 4: Find the second-level catalogue (e.g., '2020-01-11-01:05:56_00768-01055')
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])  # Assuming the first subdir is the second-level catalogue
         println("Second catalogue found: ", second_catalogue)
-
-       
-            # Step 5: Get all .spCF files
-       spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
-
-    # Store paths of converted txt files
-      converted_txt_files = String[]
-
-    # Step 6: Convert each .spCF file to .txt
-      for file in spcf_files
-        println("Converting: ", file)
-
-        # Output .txt file path
-        txt_output_file = joinpath(output_subdir, "converted_" * splitext(basename(file))[1] * ".txt")
-        
-        # Convert to .txt
-        Data.convert_psrfit_ascii(file, txt_output_file)
-        println("Converted to: ", txt_output_file)
-        push!(converted_txt_files, txt_output_file)
-    end
-
-    # Step 7: Combine all converted txt files into one
-       combined_output_file = joinpath(output_subdir, base_name * ".txt")
-       open(combined_output_file, "w") do combined_file
-          for txt_file in converted_txt_files
-              open(txt_file, "r") do input_file
-                  for line in eachline(input_file)
-                        println(combined_file, line)
-                    end
-                end
-                println(combined_file, "\n")  # Optional: Add a separator newline
-                println("Added: ", txt_file)
-           end
-      end
-        println("Combined all .txt files into: ", combined_output_file)
-
-    # Step 8: Load combined data
-         combined_data = Data.load_ascii(combined_output_file)
-
-
-
-
-
         
         # Step 5: Get all .spCF files in the second catalogue
-      #  spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
+        spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
 
     # Step 6: Process each file separately
-       # for file in spcf_files
-        #    println("Processing: ", file)
+        for file in spcf_files
+            println("Processing: ", file)
 
         # Define the output path for the converted .txt file
         # Use the original filename (without extension) to create a unique name for the output .txt file
-         #   output_file = joinpath(output_subdir, "converted_" * splitext(basename)[1] * ".txt")
+            output_file = joinpath(output_subdir, "converted_" * splitext(basename)[1] * ".txt")
         
         # --- Convert the file to .txt ---
-          #  Data.convert_psrfit_ascii(file, output_file)
-           # println("Converted to: ", output_file)
+            Data.convert_psrfit_ascii(file, output_file)
+            println("Converted to: ", output_file)
 
         # Load converted data
-           # data = Data.load_ascii(output_file)
+            data = Data.load_ascii(output_file)
         
         # Plotting functions
            Plot.single(data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
