@@ -2065,5 +2065,30 @@ module Tools
         return h / 3 * s
     end
 
+    function fold_single(single_, p3, ybins=10, start_ind=nothing)
+        """
+        Creates folded profile
+        :param single_: single pulses
+        :param p3: P_3 periodicity
+        :return: folded profile
+        """
+        if isnothing(start_ind)
+            start_ind = Int(floor(p3 / 2))
+        end
+    
+        single_ = single_[start_ind+1:end]
+    
+        folded_ = zeros(Float64, ybins, size(single_, 2))
+    
+        dp3 = p3 / ybins
+    
+        for i in 1:size(single_, 1)
+            new_ind = i / dp3
+            j = Int(mod(new_ind, ybins))
+            folded_[j+1, :] += single_[i, :]
+        end
+    
+        return folded_
+    end
 
 end  # module Tools
