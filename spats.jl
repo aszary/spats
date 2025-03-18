@@ -1007,7 +1007,7 @@ module SpaTs
      # Step 4: Find the second-level catalogue (e.g., '2020-01-11-01:05:56_00768-01055')
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])  # Assuming the first subdir is the second-level catalogue
         println("Second catalogue found: ", second_catalogue)
-        
+
         # Step 5: Get all .spCF files in the second catalogue
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
 
@@ -1017,7 +1017,7 @@ module SpaTs
 
         # Define the output path for the converted .txt file
         # Use the original filename (without extension) to create a unique name for the output .txt file
-            output_file = joinpath(output_subdir, "converted_" * splitext(basename)[1] * ".txt")
+            output_file = joinpath(output_subdir, "converted_" * splitext(basename(file))[1] * ".txt")
         
         # --- Convert the file to .txt ---
             Data.convert_psrfit_ascii(file, output_file)
