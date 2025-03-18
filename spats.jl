@@ -996,7 +996,7 @@ function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Un
     base_name = basename(base_dir)
     
     # Step 2: Auto-generate name_mod if not provided
-    name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
+    #name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
 
     # Step 3: Create corresponding output subdirectory inside output_dir
     output_subdir = joinpath(output_dir, base_name)
@@ -1033,7 +1033,7 @@ function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Un
 end
 
 # Specific function for J0034-0721
-function J0034Mac(outdir, base_dir="/home/psr/data/new/J0034-0721/")
+function J0034Mac(outdir, base_dir="/home/psr/data/new/J0034-0721")
     # Pass the base directory as a parameter and output directory
     process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
 end
