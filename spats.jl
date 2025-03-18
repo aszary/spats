@@ -1027,9 +1027,9 @@ module SpaTs
             data = Data.load_ascii(output_file)
         
         # Plotting functions
-           Plot.single(data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
-           Plot.lrfs(data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=true)
-            Plot.average(data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+           Plot.single(data, output_subdir, darkness=0.5, bin_st=200, bin_end=300, number=nothing, name_mod=name_mod, show_=true)
+           Plot.lrfs(data, output_subdir, darkness=0.1, start=1, bin_st=200, bin_end=300, name_mod=name_mod, change_fftphase=false, show_=true)
+           # Plot.average(data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
         end
     end
 
