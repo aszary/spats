@@ -989,54 +989,55 @@ module SpaTs
     end
 
 
-
-# Generalized function for processing any catalogue
-function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
-    # Step 1: Extract base directory name
-    base_name = basename(base_dir)
+    # Generalized function for processing any catalogue
+    function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
+        # Step 1: Extract base directory name
+        base_name = basename(base_dir)
     
-    # Step 2: Auto-generate name_mod if not provided
-    #name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
+        # Step 2: Auto-generate name_mod if not provided
+        name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
 
-    # Step 3: Create corresponding output subdirectory inside output_dir
-    output_subdir = joinpath(output_dir, base_name)
-    if !isdir(output_subdir)
-        mkpath(output_subdir)
-        println("Created output directory: ", output_subdir)
-    end
+       # Step 3: Create corresponding output subdirectory inside output_dir
+       output_subdir = joinpath(output_dir, base_name)
+       if !isdir(output_subdir)
+           mkpath(output_subdir)
+           println("Created output directory: ", output_subdir)
+       end
 
-    # Step 4: Find the first inner catalogue
-    inner_catalogue = joinpath(base_dir, readdir(base_dir)[1])
+     # Step 4: Find the second-level catalogue (e.g., '2020-01-11-01:05:56_00768-01055')
+        second_catalogue = joinpath(base_dir, readdir(base_dir)[1])  # Assuming the first subdir is the second-level catalogue
+        println("Second catalogue found: ", second_catalogue)
 
-    # Step 5: Get all files containing "spCF"
-    spcf_files = filter(f -> occursin("spCF", f), readdir(inner_catalogue, join=true))
+        # Step 5: Get all .spCF files in the second catalogue
+        spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
 
-    # Step 6: Process each file
-    for file in spcf_files
-        println("Processing: ", file)
+    # Step 6: Process each file separately
+        for file in spcf_files
+            println("Processing: ", file)
 
-        # Output file path for the converted .txt file (inside the output subfolder)
-        output_file = joinpath(output_subdir, "converted_" * splitext(basename(file))[1] * ".txt")
+        # Define the output path for the converted .txt file
+        # Use the original filename (without extension) to create a unique name for the output .txt file
+            output_file = joinpath(output_subdir, "converted_" * splitext(basename(file))[1] * ".txt")
         
         # --- Convert the file to .txt ---
-        Data.convert_psrfit_ascii(file, output_file)
-        println("Converted to: ", output_file)
+            Data.convert_psrfit_ascii(file, output_file)
+            println("Converted to: ", output_file)
 
         # Load converted data
-        data = Data.load_ascii(output_file)
+            data = Data.load_ascii(output_file)
         
         # Plotting functions
-        Plot.single(data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
-        Plot.lrfs(data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=true)
-        Plot.average(data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+           Plot.single(data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+           Plot.lrfs(data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=true)
+            Plot.average(data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+        end
     end
-end
 
-# Specific function for J0034-0721
-function J0034Mac(outdir, base_dir="/home/psr/data/new/J0034-0721")
+    # Specific function for J0034-0721
+    function J0034Mac(outdir, base_dir="/home/psr/data/new/J0034-0721")
     # Pass the base directory as a parameter and output directory
-    process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
-end
+        process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
+    end
 
 
 
