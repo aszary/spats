@@ -991,9 +991,9 @@ module SpaTs
         data3 = Data.load_ascii(outdir*"3.txt")
         data4 = Data.load_ascii(outdir*"4.txt")
         data = vcat(data1, data2, data3, data4)
-        #Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
-        #Plot.average(data, outdir; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
-        #Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
+        Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
+        Plot.average(data, outdir; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
+        Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
         folded = Tools.fold_single(data, 20, 40)
         Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
     end
@@ -1006,20 +1006,22 @@ module SpaTs
         Data.process_psrchive(indir, outdir, ["J1750-3503_MeerKAT_2019-09-29.debase.hp"], "J1750-3503.spCF")
     end
 
+    function fold_test(outdir)
+        data = Data.load_ascii("input/1.txt")
+        Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="test", show_=true)
+        Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=400, bin_end=600, show_=true)
+        folded = Tools.fold_single(data, 20, 40)
+        #Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="test", show_=true)
+    end
+
     function main()
         # output directory for local run
         localout = "output"
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        #=
-        args = parse_commandline()
-        for (arg, val) in args
-            println("  $arg  =>  $val")
-        end
-        =#
-
-        J1319(vpmout)
+        fold_test(vpmout)
+        #J1319(vpmout)
         #J1319_psrchive("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
         #J1750_psrchive("/home/psr/data/", vpmout)
         #test(vpmout)
