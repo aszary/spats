@@ -1033,7 +1033,7 @@ function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Un
 end
 
 # Specific function for J0034-0721
-function J0034Mac(outdir, base_dir="/home/psr/data/J0034-0721/")
+function J0034Mac(outdir, base_dir="/home/psr/data/new/J0034-0721/")
     # Pass the base directory as a parameter and output directory
     process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
 end
