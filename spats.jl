@@ -1006,8 +1006,8 @@ module SpaTs
         data3 = Data.load_ascii(outdir*"3.txt")
         data4 = Data.load_ascii(outdir*"4.txt")
         data = vcat(data1, data2, data3, data4)
-        Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=200, bin_end=800, start=1, name_mod="J0151", show_=true)
-        Plot.average(data, outdir; number=nothing, bin_st=200, bin_end=800, start=1, name_mod="J0151", show_=true)
+        Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J0151", show_=true)
+        Plot.average(data, outdir; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J0151", show_=true)
         Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J0151", bin_st=400, bin_end=600, show_=true)
     end
 
