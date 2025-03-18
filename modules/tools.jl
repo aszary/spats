@@ -2079,6 +2079,9 @@ module Tools
         single_ = single_[start_ind+1:end]
     
         folded_ = zeros(Float64, ybins, size(single_, 2))
+        println(size(folded_))
+        println(size(folded_, 1))
+        println(size(folded_, 2))
     
         dp3 = p3 / ybins
     
