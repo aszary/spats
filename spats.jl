@@ -1022,32 +1022,35 @@ module SpaTs
         # --- Convert the file to .txt ---
             Data.convert_psrfit_ascii(file, output_file)
             println("Converted to: ", output_file)
+            println("Converted to: ", txt_output_file)
+        push!(converted_txt_files, txt_output_file)
+    end
 
-        # Load converted data
-            data = Data.load_ascii(output_file)
-        
-        # Plotting functions
-           Plot.single(data, output_subdir, darkness=0.5, bin_st=1, bin_end=200, number=nothing, name_mod=name_mod, show_=true)
-           Plot.lrfs(data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=200, name_mod=name_mod, change_fftphase=false, show_=true)
-           # Plot.average(data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+    # Step 7: Combine all converted txt files into one
+    combined_output_file = joinpath(output_subdir, base_name * ".txt")
+    open(combined_output_file, "w") do combined_file
+        for txt_file in converted_txt_files
+            open(txt_file, "r") do input_file
+                for line in eachline(input_file)
+                    println(combined_file, line)
+                end
+            end
+            println(combined_file, "\n")  # Optional: Add a separator newline
+            println("Added: ", txt_file)
         end
     end
+    println("Combined all .txt files into: ", combined_output_file)
 
-    # Specific function for J0034-0721
-    function J0034Mac(outdir, base_dir="/home/psr/data/new/J0034-0721")
-    # Pass the base directory as a parameter and output directory
-        process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
-    end
+    # Step 8: Load combined data
+    combined_data = Data.load_ascii(combined_output_file)
+
+    # Step 9: Plot ONCE based on combined data
+    Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+    Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=true)
+    Plot.average(combined_data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+end
 
 
-
-    function J9040(outdir)
-        Data.convert_psrfit_ascii("/home/psr/data/new/J1720+2150/2020-08-20-19:12:27/2020-08-20-19:12:27_00000-00255.spCF" , "/home/psr/output/J1720+2150.txt")
-        data = Data.load_ascii("/home/psr/output/J1720+2150.txt")
-        Plot.single(data, outdir, darkness=0.5, bin_st=1 , bin_end=250, number=nothing, name_mod="J1720+2150", show_=true)
-        Plot.lrfs(data, outdir, darkness=0.1, start=1,  bin_st=1, bin_end=250, name_mod="J1720+2150", change_fftphase=false, show_=true)
-        Plot.average(data, outdir, bin_st=1, bin_end=250, number=nothing, name_mod="J1720+2150", show_=true)
-    end
     function main()
         # output directory for local run
         localout = "output"
