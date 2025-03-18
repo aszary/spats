@@ -2084,7 +2084,7 @@ module Tools
     
         for i in 1:size(single_, 1)
             new_ind = i / dp3
-            j = Int(mod(new_ind, ybins))
+            j = Int(floor(mod(new_ind, ybins)))
             folded_[j+1, :] += single_[i, :]
         end
     
