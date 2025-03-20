@@ -1026,20 +1026,19 @@ module SpaTs
     end
    
 
-    # Step 7: Combine all converted txt files into one
-    combined_output_file = joinpath(output_subdir, base_name * ".txt")
     open(combined_output_file, "w") do combined_file
         for txt_file in converted_txt_files
             open(txt_file, "r") do input_file
                 for line in eachline(input_file)
-                    println(combined_file, line)
+                    if !isempty(strip(line))  # Skip empty lines
+                        println(combined_file, line)
+                    end
                 end
             end
-            println(combined_file, "\n")  # Optional: Add a separator newline
             println("Added: ", txt_file)
         end
     end
-    println("Combined all .txt files into: ", combined_output_file)
+    
 
     # Step 8: Load combined data
     combined_data = Data.load_ascii(combined_output_file)
