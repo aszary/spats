@@ -1024,6 +1024,7 @@ module SpaTs
             println("Converted to: ", output_file)
         push!(converted_txt_files, output_file)
     end
+    converted_txt_files = String[]
 
     # Step 7: Combine all converted txt files into one
     combined_output_file = joinpath(output_subdir, base_name * ".txt")
