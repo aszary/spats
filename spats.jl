@@ -1010,7 +1010,7 @@ module SpaTs
 
         # Step 5: Get all .spCF files in the second catalogue
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
-
+        converted_txt_files = String[] 
     # Step 6: Process each file separately
         for file in spcf_files
             println("Processing: ", file)
@@ -1024,7 +1024,7 @@ module SpaTs
             println("Converted to: ", output_file)
         push!(converted_txt_files, output_file)
     end
-    converted_txt_files = String[]
+   
 
     # Step 7: Combine all converted txt files into one
     combined_output_file = joinpath(output_subdir, base_name * ".txt")
