@@ -993,7 +993,7 @@ module SpaTs
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory name
         base_name = basename(base_dir)
-    
+        
         # Step 2: Auto-generate name_mod if not provided
         name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
 
@@ -1007,6 +1007,7 @@ module SpaTs
      # Step 4: Find the second-level catalogue (e.g., '2020-01-11-01:05:56_00768-01055')
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])  # Assuming the first subdir is the second-level catalogue
         println("Second catalogue found: ", second_catalogue)
+
 
         # Step 5: Get all .spCF files in the second catalogue
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
@@ -1025,6 +1026,7 @@ module SpaTs
         push!(converted_txt_files, output_file)
     end
    
+    combined_output_file = joinpath(output_subdir, base_name * ".txt")
 
     open(combined_output_file, "w") do combined_file
         for txt_file in converted_txt_files
