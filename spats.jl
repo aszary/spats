@@ -1050,6 +1050,13 @@ module SpaTs
     Plot.average(combined_data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
 end
 
+    function J0034Mac(outdir, base_dir="/home/psr/data/new/J0034-0721")
+    # Pass the base directory as a parameter and output directory
+            process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
+    end
+
+
+
 
     function main()
         # output directory for local run
