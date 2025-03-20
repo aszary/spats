@@ -993,67 +993,74 @@ module SpaTs
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory name
         base_name = basename(base_dir)
-        
+    
         # Step 2: Auto-generate name_mod if not provided
         name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
-
-       # Step 3: Create corresponding output subdirectory inside output_dir
-       output_subdir = joinpath(output_dir, base_name)
-       if !isdir(output_subdir)
-           mkpath(output_subdir)
-           println("Created output directory: ", output_subdir)
-       end
-
-     # Step 4: Find the second-level catalogue (e.g., '2020-01-11-01:05:56_00768-01055')
-        second_catalogue = joinpath(base_dir, readdir(base_dir)[1])  # Assuming the first subdir is the second-level catalogue
+    
+        # Step 3: Create corresponding output subdirectory inside output_dir
+        output_subdir = joinpath(output_dir, base_name)
+        if !isdir(output_subdir)
+            mkpath(output_subdir)
+            println("Created output directory: ", output_subdir)
+        end
+    
+        # Step 4: Identify second-level catalogue
+        second_catalogue = joinpath(base_dir, readdir(base_dir)[1])  # Assumes the first subdir is the target
         println("Second catalogue found: ", second_catalogue)
-
-
-        # Step 5: Get all .spCF files in the second catalogue
+    
+        # Step 5: Retrieve all .spCF files in the second catalogue
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
-        converted_txt_files = String[] 
-    # Step 6: Process each file separately
+        if isempty(spcf_files)
+            println("No .spCF files found in: ", second_catalogue)
+            return  # Exit if no files found
+        end
+    
+        converted_txt_files = String[]
+    
+        # Step 6: Process each .spCF file
         for file in spcf_files
             println("Processing: ", file)
-
-        # Define the output path for the converted .txt file
-        # Use the original filename (without extension) to create a unique name for the output .txt file
+    
+            # Define the output path for the converted .txt file
             output_file = joinpath(output_subdir, "converted_" * splitext(basename(file))[1] * ".txt")
-        
-        # --- Convert the file to .txt ---
+    
+            # Convert the .spCF file to .txt
             Data.convert_psrfit_ascii(file, output_file)
             println("Converted to: ", output_file)
-        push!(converted_txt_files, output_file)
-    end
-   
-    combined_output_file = joinpath(output_subdir, base_name * ".txt")
-
-    open(combined_output_file, "w") do combined_file
-        for txt_file in converted_txt_files
-            open(txt_file, "r") do input_file
-                for line in eachline(input_file)
-                    if !isempty(strip(line))  # Skip empty lines
-                        println(combined_file, line)
+            push!(converted_txt_files, output_file)
+        end
+    
+        # Step 7: Combine all converted .txt files into one
+        combined_output_file = joinpath(output_subdir, base_name * ".txt")
+        open(combined_output_file, "w") do combined_file
+            for txt_file in converted_txt_files
+                open(txt_file, "r") do input_file
+                    for line in eachline(input_file)
+                        clean_line = strip(line)
+                        # Skip non-data lines (headers, empty lines, etc.)
+                        if isempty(clean_line) || startswith(clean_line, "Src:") || startswith(clean_line, "#")
+                            continue
+                        end
+                        println(combined_file, clean_line)
                     end
                 end
+                println("Added: ", txt_file)
             end
-            println("Added: ", txt_file)
         end
+        println("Combined all .txt files into: ", combined_output_file)
+    
+        # Step 8: Load combined data
+        combined_data = Data.load_ascii(combined_output_file)
+    
+        # Step 9: Generate plots based on combined data
+        Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
+        Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=true)
+        Plot.average(combined_data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
     end
     
-
-    # Step 8: Load combined data
-    combined_data = Data.load_ascii(combined_output_file)
-
-    # Step 9: Plot ONCE based on combined data
-    Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
-    Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=true)
-    Plot.average(combined_data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
-end
-
-    function J0034Mac(outdir, base_dir="/home/psr/data/new/J0034-0721")
-    # Pass the base directory as a parameter and output directory
-            process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
+    # Specific function for processing J0034-0721 data
+    function J0034Mac(outdir::String, base_dir::String="/home/psr/data/new/J0034-0721")
+        process_psrfit_files(base_dir, outdir, name_mod="J0034Mac")
     end
 
 
