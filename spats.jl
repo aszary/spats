@@ -1022,8 +1022,7 @@ module SpaTs
         # --- Convert the file to .txt ---
             Data.convert_psrfit_ascii(file, output_file)
             println("Converted to: ", output_file)
-            println("Converted to: ", txt_output_file)
-        push!(converted_txt_files, txt_output_file)
+        push!(converted_txt_files, output_file)
     end
 
     # Step 7: Combine all converted txt files into one
