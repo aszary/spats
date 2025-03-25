@@ -994,7 +994,7 @@ module SpaTs
         #Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
         #Plot.average(data, outdir; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
         #Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
-        Plot.p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")
+        #Plot.p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0")
     end
 
     function J0151(outdir)
@@ -1032,7 +1032,7 @@ module SpaTs
         =#
 
         #test(vpmout)
-        J1319(vpmout)
+        #J1319(vpmout)
         J0151(vpmout)
         #J0820(args)
         #mkieth()
