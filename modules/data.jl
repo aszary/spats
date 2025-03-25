@@ -96,18 +96,25 @@ module Data
     function process_psrchive(indir, outdir, files, outfile)
         file_names = [joinpath(indir, file) for file in files]
         outfile = joinpath(outdir, outfile)
-        # connecting all files
-        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
-        #run(pipeline(`pmod -debase -onpulse '$bin_st $bin_end' $outfile`,  stderr="errs.txt"))
-        # debase the data
-        run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt")) # PSRSALSA
+        
+        # Merging all files
+        run(pipeline(`psradd $(join(file_names, " ")) -o $outfile`, stderr="errs.txt")) # PSRCHIVE
+        
+        # Removing the baseline (debase the data)
+        run(pipeline(`pmod -debase $outfile`, stderr="errs.txt")) # PSRSALSA
+        
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
-        run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 $debased_file`,  stderr="errs.txt"))
-        run(pipeline(`pspecDetect -v $debased_file`,  stderr="errs.txt"))
-        # TODO read P3 from pspecDetect output  
-        #run(pipeline(`pfold -p3fold "43.5 87" -p3fold_nritt 50 -p3fold_cpb 50 -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-        run(pipeline(`pfold -p3fold "41 82" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-
+        
+        if isfile(debased_file)
+            # Time-frequency analysis
+            run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 $debased_file`, stderr="errs.txt"))
+            run(pipeline(`pspecDetect -v $debased_file`, stderr="errs.txt"))
+            
+            # Folding the pulsar signal
+            run(pipeline(`pfold -p3fold "41 82" -w -oformat ascii $debased_file`, stderr="errs.txt"))
+        else
+            println("Error: File $debased_file does not exist!")
+        end
     end
 
 end # module
