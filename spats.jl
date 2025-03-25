@@ -1012,34 +1012,24 @@ module SpaTs
         converted_txt_files = String[]
     
         # Step 6: Convert each spCF file
-        for file in spcf_files
+        #=for file in spcf_files
             println("Processing: ", file)
-            output_file = joinpath(output_subdir, "converted_" * splitext(basename(file))[1] * ".txt")
             Data.convert_psrfit_ascii(file, output_file)
             push!(converted_txt_files, output_file)
             println("Converted: ", output_file)
+            
         end
-    
-        # Step 7: Combine files safely
-        combined_output_file = joinpath(output_subdir, base_name * ".txt")
-        first_file = true
-        open(combined_output_file, "w") do combined
-            for txt_file in converted_txt_files
-                open(txt_file, "r") do input
-                    for (i, line) in enumerate(eachline(input))
-                        # Skip headers in subsequent files (assume header in first few lines, e.g., first 5 lines)
-                        if first_file || i > 1
-                            println(combined, line)
-                        end
-                    end
-                end
-                first_file = false
-            end
-        end
-        println("Combined all .txt files into: ", combined_output_file)
-    
+        =#
+
+        output_file = joinpath(output_subdir, "converted_" * splitext(basename(file))[1] * ".spCF")
+        file_names = [joinpath(base_name, file) for file in spcf_files]
+        run(pipeline('psradd file_names -o $output_file, stderr="errs.txt"'))
+        out_txt=replace(output_file ,".spCF" => ".txt")
+        Data.convert_psrfit_ascii(output_file, out_txt)
+
+
         # Step 8: Load combined data
-        combined_data = Data.load_ascii(combined_output_file)
+        combined_data = Data.load_ascii(out_txt)
     
         # Step 9: Plot
         Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=true)
