@@ -965,6 +965,9 @@ module Plot
 
     function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=true)
         num, bins = size(data)
+        if isnothing(show_)
+            show_ = true
+        end
         if number == nothing
             number = num - start  # missing one?
         end
