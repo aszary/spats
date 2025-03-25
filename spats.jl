@@ -1047,7 +1047,7 @@ module SpaTs
     end
     
     # Run processing for all catalogues
-    function J0034AMac(output_dir)
+    function J0034Mac(output_dir)
         process_all_catalogues(output_dir, "/home/psr/data/new")
     end
 
