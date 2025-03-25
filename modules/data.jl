@@ -92,12 +92,11 @@ module Data
     """
     Process data with PSRCHIVE
     """
-    function process_psrchive(indir, outdir, files, outfile)
+    function process_psrchive(indir, outdir, files; outfile="pulsar.spCF")
         file_names = [joinpath(indir, file) for file in files]
         outfile = joinpath(outdir, outfile)
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
-        #run(pipeline(`pmod -debase -onpulse '$bin_st $bin_end' $outfile`,  stderr="errs.txt"))
         # debase the data
         run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt")) # PSRSALSA
         debased_file = replace(outfile, ".spCF" => ".debase.gg")

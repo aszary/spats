@@ -999,11 +999,11 @@ module SpaTs
     end
 
     function J1319_psrchive(indir, outdir)
-        Data.process_psrchive(indir, outdir, ["2019-12-15-03:19:04_00000-00255.spCF", "2019-12-15-03:19:04_00256-00511.spCF", "2019-12-15-03:19:04_00512-00767.spCF", "2019-12-15-03:19:04_00768-01029.spCF"], "J1319-6105.spCF")
+        Data.process_psrchive(indir, outdir, ["2019-12-15-03:19:04_00000-00255.spCF", "2019-12-15-03:19:04_00256-00511.spCF", "2019-12-15-03:19:04_00512-00767.spCF", "2019-12-15-03:19:04_00768-01029.spCF"])
     end
 
-    function J1750_psrchive(indir, outdir)
-        Data.process_psrchive(indir, outdir, ["J1750-3503_MeerKAT_2019-09-29.debase.hp"], "J1750-3503.spCF")
+    function J1750_psrchive(indir, outdir, files=["J1750-3503_MeerKAT_2019-09-29.debase.hp"])
+        Data.process_psrchive(indir, outdir, files)
     end
 
     function fold_test(outdir)
@@ -1025,8 +1025,8 @@ module SpaTs
 
         #fold_test(vpmout)
         #J1319(vpmout)
-        #J1319_psrchive("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
-        J1750_psrchive("/home/psr/data/", vpmout)
+        J1319_psrchive("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
+        #J1750_psrchive("/home/psr/data/", vpmout)
         #test(vpmout)
         #J0820(args)
         #mkieth()
