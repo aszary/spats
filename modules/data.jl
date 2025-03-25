@@ -98,7 +98,10 @@ module Data
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
         # debase the data
-        run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt")) # PSRSALSA
+        #run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt")) # PSRSALSA
+        output = read(pipeline(`pmod -debase $outfile`, stderr=stdout), String)
+        println(output)
+        return
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 $debased_file`,  stderr="errs.txt"))
         run(pipeline(`pspecDetect -v $debased_file`,  stderr="errs.txt"))
