@@ -1033,7 +1033,7 @@ module SpaTs
 
         #test(vpmout)
         J1319(vpmout)
-        #J0151(vpmout)
+        J0151(vpmout)
         #J0820(args)
         #mkieth()
         #J1651()
