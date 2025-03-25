@@ -2076,19 +2076,16 @@ module Tools
             start_ind = Int(floor(p3 / 2))
         end
     
-        single_ = single_[start_ind+1:end]
+        data = data[start_ind+1:end, :]
     
-        folded_ = zeros(Float64, ybins, size(single_, 2))
-        println(size(folded_))
-        println(size(folded_, 1))
-        println(size(folded_, 2))
+        folded_ = zeros(Float64, ybins, size(data, 2))
     
         dp3 = p3 / ybins
     
-        for i in 1:size(single_, 1)
+        for i in 1:size(data, 1)
             new_ind = i / dp3
             j = Int(floor(mod(new_ind, ybins)))
-            folded_[j+1, :] += single_[i, :]
+            folded_[j+1, :] += data[i, :]
         end
     
         return folded_
