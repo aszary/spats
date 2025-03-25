@@ -2068,7 +2068,7 @@ module Tools
     function p3fold(data, p3, ybins=10, start_ind=nothing)
         """
         Creates folded profile
-        :param single_: single pulses
+        :param data: single pulses
         :param p3: P_3 periodicity
         :return: folded profile
         """
