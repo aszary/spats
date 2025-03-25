@@ -97,8 +97,11 @@ module Data
         outfile = joinpath(outdir, outfile)
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
+        
         # debase the data
-        #run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt")) # PSRSALSA
+        println("""Press Enter to display window
+Mark signal with two mouse clicks and press S
+        """)
         buffer = IOBuffer()
         run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr=buffer))
         seekstart(buffer)
