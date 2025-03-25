@@ -1023,6 +1023,10 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/$(name_mod)_p3fold.pdf")
         println("$outdir/$(name_mod)_p3fold.pdf")
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
         close()
     end
 
