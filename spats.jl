@@ -1015,7 +1015,7 @@ module SpaTs
         println(size(data,2))
         folded = Tools.p3fold(data, 4.81, 24)
         #println(size(folded))
-        Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
+        Plot.single(data, outdir; darkness=0.5, number=100, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
         Plot.p3fold(folded, outdir; start=1, bin_st=470, bin_end=550, name_mod="test", show_=true)
     end
 
