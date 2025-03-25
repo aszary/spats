@@ -2065,7 +2065,7 @@ module Tools
         return h / 3 * s
     end
 
-    function fold_single(single_, p3, ybins=10, start_ind=nothing)
+    function p3fold(data, p3, ybins=10, start_ind=nothing)
         """
         Creates folded profile
         :param single_: single pulses

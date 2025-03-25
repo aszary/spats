@@ -1010,7 +1010,10 @@ module SpaTs
         data = Data.load_ascii("input/1.txt")
         #Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
         #Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
-        folded = Tools.fold_single(data, 4.81, 24)
+        println(size(data))
+        println(size(data,1))
+        println(size(data,2))
+        folded = Tools.p3fold(data, 4.81, 24)
         println(folded)
         #Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="test", show_=true)
     end
