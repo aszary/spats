@@ -1013,6 +1013,7 @@ module SpaTs
         folded = Tools.p3fold(data, 4.81, 24)
         #println(size(folded))
         Plot.single(data, outdir; darkness=0.5, number=100, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
+        Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
         Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="test", show_=true, repeat_num=4)
     end
 
