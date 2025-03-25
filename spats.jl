@@ -1014,9 +1014,24 @@ module SpaTs
     end
 
 
-    
+    function J1319_psrchive(indir, outdir)
+        Data.process_psrchive(indir, outdir, ["2019-12-15-03:19:04_00000-00255.spCF", "2019-12-15-03:19:04_00256-00511.spCF", "2019-12-15-03:19:04_00512-00767.spCF", "2019-12-15-03:19:04_00768-01029.spCF"], "J1319-6105.spCF")
+    end
 
+    function J1750_psrchive(indir, outdir)
+        Data.process_psrchive(indir, outdir, ["J1750-3503_MeerKAT_2019-09-29.debase.hp"], "J1750-3503.spCF")
+    end
 
+    function fold_test(outdir)
+        data = Data.load_ascii("input/1.txt")
+        #Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
+        #Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
+        folded = Tools.p3fold(data, 4.81, 24)
+        #println(size(folded))
+        Plot.single(data, outdir; darkness=0.5, number=100, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
+        Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
+        Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="test", show_=true, repeat_num=4)
+    end
 
     function main()
         # output directory for local run
@@ -1024,16 +1039,11 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        #=
-        args = parse_commandline()
-        for (arg, val) in args
-            println("  $arg  =>  $val")
-        end
-        =#
-
-        #test(vpmout)
+        #fold_test(vpmout)
         #J1319(vpmout)
-        J0151(vpmout)
+        #J1319_psrchive("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
+        J1750_psrchive("/home/psr/data/", vpmout)
+        #test(vpmout)
         #J0820(args)
         #mkieth()
         #J1651()
