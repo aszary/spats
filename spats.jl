@@ -1023,10 +1023,10 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        fold_test(vpmout)
+        #fold_test(vpmout)
         #J1319(vpmout)
         #J1319_psrchive("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
-        #J1750_psrchive("/home/psr/data/", vpmout)
+        J1750_psrchive("/home/psr/data/", vpmout)
         #test(vpmout)
         #J0820(args)
         #mkieth()
