@@ -100,13 +100,19 @@ module Data
         
         # debase the data
         println("""Press Enter to display window
-Mark signal with two mouse clicks and press S
-        """)
+Mark signal with two mouse clicks and press S""")
         buffer = IOBuffer()
         run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr=buffer))
         seekstart(buffer)
         output = String(read(buffer))
-        println(output)
+
+        # Extract onpulse values
+        m = match(r"-onpulse '(\d+) (\d+)'", output)
+        if !isnothing(m)
+            bin_st, bin_end = parse.(Int, m.captures)
+            println("Found onpulse range: $bin_st to $bin_end")
+        end
+        println(bin_st, " ", bin_end)
         return
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 $debased_file`,  stderr="errs.txt"))
