@@ -99,7 +99,7 @@ module Data
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
         # debase the data
         #run(pipeline(`pmod -debase $outfile`,  stderr="errs.txt")) # PSRSALSA
-        output = read(pipeline(`pmod -debase $outfile`, stderr=stdout), String)
+        output = read(pipeline(`pmod -debase $outfile`, `tee /dev/tty`), String)
         println(output)
         return
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
