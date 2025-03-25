@@ -1021,9 +1021,9 @@ module SpaTs
         end
         =#
 
-        output_file = joinpath(output_subdir, "converted_" * splitext(basename(spcf_files[1]))[1] * ".spCF")
+        output_file = joinpath(output_subdir, "converted.spCF")
         file_names = [joinpath(base_name, file) for file in spcf_files]
-        run(pipeline(`psradd file_names -o $output_file, stderr="errs.txt"`))
+        run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
         out_txt=replace(output_file ,".spCF" => ".txt")
         Data.convert_psrfit_ascii(output_file, out_txt)
 
