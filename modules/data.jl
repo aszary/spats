@@ -90,9 +90,9 @@ module Data
     end
 
     """
-    Process data with PSRCHIVE
+    Process data with PSRCHIVE and PSRSALSA
     """
-    function process_psrchive(indir, outdir, files; outfile="pulsar.spCF")
+    function process_psrdata(indir, outdir, files; outfile="pulsar.spCF")
         file_names = [joinpath(indir, file) for file in files]
         outfile = joinpath(outdir, outfile)
         # connecting all files
@@ -130,12 +130,8 @@ Mark signal with two mouse clicks and press S""")
             p3_error = parse(Float64, last_match.captures[2])
             println("Found P3 = $p3_value ± $p3_error P0")
         end
-
-        return
-        # TODO read P3 from pspecDetect output  
-        #run(pipeline(`pfold -p3fold "43.5 87" -p3fold_nritt 50 -p3fold_cpb 50 -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-        run(pipeline(`pfold -p3fold "41 82" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-
+        ybins = Functions.find_ybins(p3_value)
+        run(pipeline(`pfold -p3fold "$p3_value $ybins" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
     end
 
 end # module
