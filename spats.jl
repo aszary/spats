@@ -999,11 +999,14 @@ module SpaTs
     end
 
     function J1319_psrdata(indir, outdir)
-        Data.process_psrdata(indir, outdir, ["2019-12-15-03:19:04_00000-00255.spCF", "2019-12-15-03:19:04_00256-00511.spCF", "2019-12-15-03:19:04_00512-00767.spCF", "2019-12-15-03:19:04_00768-01029.spCF"])
+        #Data.process_psrdata(indir, outdir, ["2019-12-15-03:19:04_00000-00255.spCF", "2019-12-15-03:19:04_00256-00511.spCF", "2019-12-15-03:19:04_00512-00767.spCF", "2019-12-15-03:19:04_00768-01029.spCF"])
+        folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
+        Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="test", show_=true, repeat_num=4)
+        
     end
 
-    function J1750_psrdata(indir, outdir, files=["J1750-3503_MeerKAT_2019-09-29.debase.hp"])
-        Data.process_psrdata(indir, outdir, files)
+    function J1750_psrdata(indir, outdir)
+        Data.process_psrdata(indir, outdir, ["J1750-3503_MeerKAT_2019-09-29.debase.hp"])
     end
 
     function fold_test(outdir)
