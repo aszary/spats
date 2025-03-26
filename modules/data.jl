@@ -94,8 +94,35 @@ module Data
     """
     Process data with PSRCHIVE and PSRSALSA
     """
-    function process_psrdata(indir, outdir, files; outfile="pulsar.spCF")
+    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
+
+        if files === nothing
+            # Find all .spCF files in the input directory
+            files = filter(f -> endswith(f, ".spCF"), readdir(indir))
+        end
+        
+        # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
+        sort!(files, by = f -> begin
+            # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
+            m = match(r"_(\d+)-(\d+)\.spCF$", f)
+            if isnothing(m)
+                return typemax(Int)  # Files without proper format go to the end
+            else
+                return parse(Int, m.captures[1])  # Sort by the starting pulse number
+            end
+        end)
+    
+        if isempty(files)
+            error("No .spCF files found in directory: $indir")
+        end
+    
+        println("Processing files in order:")
+        for (i, f) in enumerate(files)
+            println("$i. $f")
+        end
+    
         file_names = [joinpath(indir, file) for file in files]
+
         outfile = joinpath(outdir, outfile)
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
