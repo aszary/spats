@@ -162,6 +162,8 @@ Mark signal with two mouse clicks and press S""")
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
         run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
+
+        return bin_st-20, bin_end+20
     end
 
 end # module
