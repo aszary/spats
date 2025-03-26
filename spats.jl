@@ -1013,7 +1013,8 @@ module SpaTs
     end
 
     function fold_test(outdir)
-        data = Data.load_ascii("input/1.txt")
+        Data.convert_psrfit_ascii("J1750-3503_MeerKAT_2019-09-29.debase.hp", outdir*"1.txt")
+        data = Data.load_ascii(outdir*"1.txt")
         #Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
         #Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
         folded = Tools.p3fold(data, 4.81, 24)
@@ -1029,10 +1030,10 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        #fold_test(vpmout)
         #J1319(vpmout)
         #J1319_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
-        J1750_psrdata("/home/psr/data/", vpmout)
+        #J1750_psrdata("/home/psr/data/", vpmout)
+        fold_test(vpmout)
         #test(vpmout)
         #J0820(args)
         #mkieth()
