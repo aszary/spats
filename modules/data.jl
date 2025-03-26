@@ -3,6 +3,8 @@ module Data
     using FITSIO
     using ProgressMeter
 
+    include("functions.jl")
+
     """
     Zero selected pulses
 
