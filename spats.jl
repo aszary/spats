@@ -1028,8 +1028,8 @@ module SpaTs
 
         #fold_test(vpmout)
         #J1319(vpmout)
-        J1319_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
-        #J1750_psrdata("/home/psr/data/", vpmout)
+        #J1319_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
+        J1750_psrdata("/home/psr/data/", vpmout)
         #test(vpmout)
         #J0820(args)
         #mkieth()
