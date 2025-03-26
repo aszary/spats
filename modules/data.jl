@@ -133,6 +133,7 @@ Mark signal with two mouse clicks and press S""")
             println("Found P3 = $p3_value ± $p3_error P0")
         end
         ybins = Functions.find_ybins(p3_value)
+        println("Number of bins: $ybins")
         run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
     end
 
