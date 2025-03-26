@@ -99,8 +99,9 @@ module Data
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
         
         # debase the data
-        println("""Press Enter to display window
+        println("""\nPress Enter to display window
 Mark signal with two mouse clicks and press S""")
+
         buffer = IOBuffer()
         run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr=buffer))
         seekstart(buffer)
@@ -112,9 +113,38 @@ Mark signal with two mouse clicks and press S""")
             bin_st, bin_end = parse.(Int, m.captures)
             println("Found onpulse range: $bin_st to $bin_end")
         end
+
+        # Find P3
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 -onpulse '$bin_st $bin_end' $debased_file`,  stderr="errs.txt"))
-        run(pipeline(`pspecDetect -v $debased_file`,  stderr="errs.txt"))
+        # Run pspecDetect with real-time output and capture
+        output_pipe = Pipe()
+        err_pipe = Pipe()
+        process = run(pipeline(`pspecDetect -v $debased_file`, stdout=output_pipe, stderr=err_pipe), wait=false)
+        close(output_pipe.in)
+        close(err_pipe.in)
+        # Task for displaying output in real-time
+        output = ""
+        @async begin
+            while !eof(output_pipe)
+                line = readline(output_pipe)
+                println(line)
+                output *= line * "\n"
+            end
+        end
+        # Wait for the process to finish
+        wait(process)
+
+        # Extract P3 value from the last occurrence
+        p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
+        if !isempty(p3_matches)
+            last_match = p3_matches[end]
+            p3_value = parse(Float64, last_match.captures[1])
+            p3_error = parse(Float64, last_match.captures[2])
+            println("Found P3 = $p3_value ± $p3_error P0")
+        end
+
+
         return
         # TODO read P3 from pspecDetect output  
         #run(pipeline(`pfold -p3fold "43.5 87" -p3fold_nritt 50 -p3fold_cpb 50 -w -oformat ascii $debased_file`,  stderr="errs.txt"))
