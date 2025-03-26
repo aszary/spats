@@ -117,24 +117,11 @@ Mark signal with two mouse clicks and press S""")
         # Find P3
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 -onpulse '$bin_st $bin_end' $debased_file`,  stderr="errs.txt"))
-        # Run pspecDetect with real-time output and capture
-        output_pipe = Pipe()
-        err_pipe = Pipe()
-        process = run(pipeline(`pspecDetect -v $debased_file`, stdout=output_pipe, stderr=err_pipe), wait=false)
-        close(output_pipe.in)
-        close(err_pipe.in)
-        # Task for displaying output in real-time
-        output = ""
-        @async begin
-            while !eof(output_pipe)
-                line = readline(output_pipe)
-                println(line)
-                output *= line * "\n"
-            end
-        end
-        # Wait for the process to finish
-        wait(process)
 
+        run(pipeline(`pspecDetect -v $debased_file`, `tee pspecDetect_output.txt`))
+        # Read captured output
+        output = read("pspecDetect_output.txt", String)
+        rm("pspecDetect_output.txt")  # cleanup
         # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
@@ -143,7 +130,6 @@ Mark signal with two mouse clicks and press S""")
             p3_error = parse(Float64, last_match.captures[2])
             println("Found P3 = $p3_value ± $p3_error P0")
         end
-
 
         return
         # TODO read P3 from pspecDetect output  
