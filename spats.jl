@@ -1033,8 +1033,8 @@ module SpaTs
         indir = "/home/psr/data/"
 
         #J1319(vpmout)
-        process_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
-        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        #process_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
+        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
         #test(vpmout)
