@@ -998,7 +998,7 @@ module SpaTs
         Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
     end
 
-    function J1319_psrdata(indir, outdir)
+    function process_psrdata(indir, outdir)
         bin_st, bin_end = Data.process_psrdata(indir, outdir)
         folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
         Plot.p3fold(folded, outdir; start=3, bin_st=bin_st, bin_end=bin_end, name_mod="test", show_=true, repeat_num=4)
@@ -1033,7 +1033,8 @@ module SpaTs
         indir = "/home/psr/data/"
 
         #J1319(vpmout)
-        J1319_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
+        #process_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
+        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
         #test(vpmout)
