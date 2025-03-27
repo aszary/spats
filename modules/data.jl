@@ -147,8 +147,8 @@ Mark signal with two mouse clicks and press S""")
         # Find P3
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         println("debased_file: $debased_file")
-        return
         run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 -onpulse '$bin_st $bin_end' $debased_file`,  stderr="errs.txt"))
+        return
 
         run(pipeline(`pspecDetect -v $debased_file`, `tee pspecDetect_output.txt`))
         # Read captured output
