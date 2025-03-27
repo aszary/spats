@@ -133,7 +133,6 @@ Mark signal with two mouse clicks and press S""")
 
         buffer = IOBuffer()
         println("outfile: $outfile")
-        return
         run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr=buffer))
         seekstart(buffer)
         output = String(read(buffer))
