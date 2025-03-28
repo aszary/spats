@@ -128,11 +128,11 @@ module Data
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
         
         # debase the data
-        println("""\nMark signal with two mouse clicks and press S""")
+        println("""\nPress Enter to display window\nMark signal with two mouse clicks and press S""")
 
         buffer = IOBuffer()
-        #run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr="errs.txt"))
-        run(pipeline(`pmod -debase -device "\xw" $outfile`, stdout=buffer, stderr="errs.txt"))
+        run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr="errs.txt"))
+        #run(pipeline(`pmod -debase -device "\xw" $outfile`, stdout=buffer, stderr="errs.txt")) # does not work
         seekstart(buffer)
         output = String(read(buffer))
 
