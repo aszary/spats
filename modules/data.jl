@@ -158,8 +158,7 @@ module Data
         io = Base.open(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`), "w+")
         write(io, "\n")  # Wysyłamy Enter
         flush(io)
-
-        wait(proc)
+        wait(io)
         # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # cleanup
