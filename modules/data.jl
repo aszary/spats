@@ -156,6 +156,7 @@ module Data
 
 # Create a buffer to store output
 output_buffer = IOBuffer()
+output = ""
 
 # Open the process with both read and write access
 io = open(pipeline(`pspecDetect -v $debased_file`), "w+")
@@ -166,7 +167,7 @@ io = open(pipeline(`pspecDetect -v $debased_file`), "w+")
         data = readavailable(io)  # Read available output
         if !isempty(data)
             print(String(data))  # Print to console
-            write(output_buffer, data)  # Save to buffer
+            output *= String(data)
         end
         sleep(0.1)  # Prevent CPU overuse
     end
@@ -179,9 +180,6 @@ flush(io)
 # Wait for the process to finish
 wait(io)
 close(io)  # Close the stream
-
-# Retrieve the entire captured output
-output = String(take!(output_buffer))
 
 # Print the captured output
 println("OUTPUT: $output")        
