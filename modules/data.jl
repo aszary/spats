@@ -2,6 +2,7 @@ module Data
     using Glob
     using FITSIO
     using ProgressMeter
+    using Base
 
     include("functions.jl")
 
