@@ -153,7 +153,14 @@ module Data
         # Find P3
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "\NULL"-2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
-        run(pipeline(`pspecDetect -v -device "\NULL" $debased_file`, `tee pspecDetect_output.txt`), stdin=IOBuffer("\n"))
+
+        pty = Base.PTY()
+        proc = run(pipeline(`pspecDetect -v -device "\NULL" $debased_file`, `tee pspecDetect_output.txt`); stdin=pty, stdout=pty, stderr=pty, wait=false)
+        # Wysyłanie Entera do procesu
+        write(pty, "\n")
+        flush(pty)
+
+        wait(proc)
         # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # cleanup
