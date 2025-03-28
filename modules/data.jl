@@ -2,7 +2,6 @@ module Data
     using Glob
     using FITSIO
     using ProgressMeter
-    using Base
 
     include("functions.jl")
 
@@ -155,11 +154,10 @@ module Data
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "\NULL"-2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
-        pty = Base.PTY()
-        proc = run(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`); stdin=pty, stdout=pty, stderr=pty, wait=false)
-        # Wysyłanie Entera do procesu
-        write(pty, "\n")
-        flush(pty)
+        #proc = run(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`); stdin=pty, stdout=pty, stderr=pty, wait=false)
+        io = Base.open(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`), "w+")
+        write(io, "\n")  # Wysyłamy Enter
+        flush(io)
 
         wait(proc)
         # Read captured output
