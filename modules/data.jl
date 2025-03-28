@@ -129,13 +129,13 @@ module Data
         
 
         # debase the data
-        io = Base.open(pipeline(`pmod -debase $outfile`, `tee pmod_output.txt`), "w+")
+        io = Base.open(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`), "w+")
         @async while !eof(io)
             println(String(readavailable(io)))  # Read available output and print it
             sleep(0.1)  # Prevent CPU overuse by waiting briefly
         end
-        write(io, "\n")  # Send Enter (automatic display)
-        flush(io)
+        #write(io, "\n")  # Send Enter (automatic display)
+        #flush(io)
         wait(io)
         # Read captured output
         output = read("pmod_output.txt", String)
@@ -183,7 +183,7 @@ module Data
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
 
-        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -p3foldd "\NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
         return bin_st-20, bin_end+20
     end
