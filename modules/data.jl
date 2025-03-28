@@ -149,7 +149,7 @@ module Data
 
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
 
-        # Find P3
+        # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "/NULL"-2dfsd "/NULL"  -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
         # Find P3
