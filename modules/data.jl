@@ -131,8 +131,8 @@ module Data
         println("""\nMark signal with two mouse clicks and press S""")
 
         buffer = IOBuffer()
-        run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr="errs.txt"))
-        #run(pipeline(`pmod -debase -device "\xwin" $outfile`, stdout=buffer, stderr="errs.txt"))
+        #run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr="errs.txt"))
+        run(pipeline(`pmod -debase -device "\XWINDOW" $outfile`, stdout=buffer, stderr="errs.txt"))
         seekstart(buffer)
         output = String(read(buffer))
 
