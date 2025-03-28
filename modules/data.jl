@@ -156,7 +156,7 @@ module Data
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "\NULL"-2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
         pty = Base.PTY()
-        proc = run(pipeline(`pspecDetect -v -device "\NULL" $debased_file`, `tee pspecDetect_output.txt`); stdin=pty, stdout=pty, stderr=pty, wait=false)
+        proc = run(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`); stdin=pty, stdout=pty, stderr=pty, wait=false)
         # Wysyłanie Entera do procesu
         write(pty, "\n")
         flush(pty)
