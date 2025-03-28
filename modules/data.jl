@@ -129,18 +129,10 @@ module Data
         
 
         # debase the data
-        io = Base.open(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`), "w+")
-        @async while !eof(io)
-            println(String(readavailable(io)))  # Read available output and print it
-            sleep(0.1)  # Prevent CPU overuse by waiting briefly
-        end
-        #write(io, "\n")  # Send Enter (automatic display)
-        #flush(io)
-        wait(io)
+        run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
         # Read captured output
         output = read("pmod_output.txt", String)
         rm("pmod_output.txt")  # cleanup
-
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
@@ -160,15 +152,8 @@ module Data
         # Find P3
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "/NULL"-2dfsd "/NULL"  -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
-        io = Base.open(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`), "w+")
-        # Start an asynchronous task to continuously read and print stdout
-        @async while !eof(io)
-            println(String(readavailable(io)))  # Read available output and print it
-            sleep(0.1)  # Prevent CPU overuse by waiting briefly
-        end
-        write(io, "\n")  # Wysyłamy Enter
-        flush(io)
-        wait(io)
+        # Find P3
+        run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
         # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # cleanup
