@@ -128,11 +128,10 @@ module Data
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
         
         # debase the data
-        println("""\nPress Enter to display window
-Mark signal with two mouse clicks and press S""")
+        println("""\nMark signal with two mouse clicks and press S""")
 
         buffer = IOBuffer()
-        run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr=buffer))
+        run(pipeline(`pmod -debase -device "\XWIN" $outfile`, stdout=buffer, stderr=buffer))
         seekstart(buffer)
         output = String(read(buffer))
 
@@ -152,7 +151,7 @@ Mark signal with two mouse clicks and press S""")
 
         # Find P3
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
-        run(pipeline(`pspec -w -2dfs -lrfs -2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "\NULL"-2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
         run(pipeline(`pspecDetect -v $debased_file`, `tee pspecDetect_output.txt`))
         # Read captured output
         output = read("pspecDetect_output.txt", String)
