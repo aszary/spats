@@ -132,7 +132,6 @@ module Data
 Mark signal with two mouse clicks and press S""")
 
         buffer = IOBuffer()
-        println("outfile: $outfile")
         run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr=buffer))
         seekstart(buffer)
         output = String(read(buffer))
@@ -141,14 +140,19 @@ Mark signal with two mouse clicks and press S""")
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
+            # Check if onpulse region length is even
+            region_length = bin_end - bin_st + 1
+            if region_length % 2 != 0
+                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                bin_end -= 1
+                println("Adjusted onpulse range: $bin_st to $bin_end")
+            end
             println("Found onpulse range: $bin_st to $bin_end")
         end
 
         # Find P3
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
-        println("debased_file: $debased_file")
         run(pipeline(`pspec -w -2dfs -lrfs -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
-        return
         run(pipeline(`pspecDetect -v $debased_file`, `tee pspecDetect_output.txt`))
         # Read captured output
         output = read("pspecDetect_output.txt", String)
