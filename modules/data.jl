@@ -154,29 +154,38 @@ module Data
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "\NULL"-2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
-        # Create a buffer to store output
-        output_buffer = IOBuffer()
+# Create a buffer to store output
+output_buffer = IOBuffer()
 
-        # Open the process with both read and write access
-        io = Base.open(`pspecDetect -v $debased_file`, "w+")
-        # Start an asynchronous task to read and print stdout while saving it to the buffer
-        @async while !eof(io)
-            data = readavailable(io)  # Read available output
-            if !isempty(data)
-                print(String(data))  # Print to console
-                write(output_buffer, data)  # Save to buffer
-            end
-            sleep(0.1)  # Prevent CPU overuse
+# Open the process with both read and write access
+io = open(pipeline(`pspecDetect -v $debased_file`), "w+")
+
+# Start an asynchronous task to read and print stdout while saving it to the buffer
+@async begin
+    while !eof(io)
+        data = readavailable(io)  # Read available output
+        if !isempty(data)
+            print(String(data))  # Print to console
+            write(output_buffer, data)  # Save to buffer
         end
-        # Interact with the process
-        write(io, "\n")  # Send Enter key
-        flush(io)
-        # Wait for the process to complete
-        wait(io)
-        close(io)  # Close the stream
-        # Retrieve the entire captured output
-        output = String(take!(output_buffer))
-        println("OUTPUT: $output")
+        sleep(0.1)  # Prevent CPU overuse
+    end
+end
+
+# Interact with the process
+write(io, "\n")  # Send Enter key
+flush(io)
+
+# Wait for the process to finish
+wait(io)
+close(io)  # Close the stream
+
+# Retrieve the entire captured output
+output = String(take!(output_buffer))
+
+# Print the captured output
+println("OUTPUT: $output")        
+
         # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
