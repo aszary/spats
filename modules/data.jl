@@ -156,6 +156,11 @@ module Data
 
         #proc = run(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`); stdin=pty, stdout=pty, stderr=pty, wait=false)
         io = Base.open(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`), "w+")
+        # Start an asynchronous task to continuously read and print stdout
+        @async while !eof(io)
+            println(String(readavailable(io)))  # Read available output and print it
+            sleep(0.1)  # Prevent CPU overuse by waiting briefly
+        end
         write(io, "\n")  # Wysyłamy Enter
         flush(io)
         wait(io)
