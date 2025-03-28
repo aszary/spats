@@ -155,14 +155,13 @@ module Data
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "\NULL"-2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
 # Create a buffer to store output
-output_buffer = IOBuffer()
 output = ""
 
 # Open the process with both read and write access
 io = open(pipeline(`pspecDetect -v $debased_file`), "w+")
 
 # Start an asynchronous task to read and print stdout while saving it to the buffer
-@async begin
+task = @async begin
     while !eof(io)
         data = readavailable(io)  # Read available output
         if !isempty(data)
@@ -179,6 +178,7 @@ flush(io)
 
 # Wait for the process to finish
 wait(io)
+wait(task)
 close(io)  # Close the stream
 
 # Print the captured output
