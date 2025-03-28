@@ -35,7 +35,7 @@ module Functions
     """
     Find the best number of bins for a given P3 value
     """
-    function find_ybins(p3; max_bins=100)
+    function find_ybins(p3; max_bins=30)
         best_diff = Inf  # Initialize the best difference with a large number
         best_ybins = 0   # Initialize the best number of bins
         
