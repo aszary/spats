@@ -154,36 +154,19 @@ module Data
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "\NULL"-2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
-# Create a buffer to store output
-output = ""
-
-# Open the process with both read and write access
-io = open(pipeline(`pspecDetect -v $debased_file`), "w+")
-
-# Start an asynchronous task to read and print stdout while saving it to the buffer
-task = @async begin
-    while !eof(io)
-        data = readavailable(io)  # Read available output
-        if !isempty(data)
-            print(String(data))  # Print to console
-            output *= String(data)
+        #proc = run(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`); stdin=pty, stdout=pty, stderr=pty, wait=false)
+        io = Base.open(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`), "w+")
+        # Start an asynchronous task to continuously read and print stdout
+        @async while !eof(io)
+            println(String(readavailable(io)))  # Read available output and print it
+            sleep(0.1)  # Prevent CPU overuse by waiting briefly
         end
-        sleep(0.1)  # Prevent CPU overuse
-    end
-end
-
-# Interact with the process
-write(io, "\n")  # Send Enter key
-flush(io)
-
-# Wait for the process to finish
-wait(io)
-wait(task)
-close(io)  # Close the stream
-
-# Print the captured output
-println("OUTPUT: $output")        
-
+        write(io, "\n")  # Wysyłamy Enter
+        flush(io)
+        wait(io)
+        # Read captured output
+        output = read("pspecDetect_output.txt", String)
+        rm("pspecDetect_output.txt")  # cleanup
         # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
