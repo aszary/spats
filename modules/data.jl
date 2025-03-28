@@ -127,14 +127,19 @@ module Data
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
         
-        # debase the data
-        println("""\nPress Enter to display window\nMark signal with two mouse clicks and press S""")
 
-        buffer = IOBuffer()
-        run(pipeline(`pmod -debase $outfile`, stdout=buffer, stderr="errs.txt"))
-        #run(pipeline(`pmod -debase -device "\xw" $outfile`, stdout=buffer, stderr="errs.txt")) # does not work
-        seekstart(buffer)
-        output = String(read(buffer))
+        # debase the data
+        io = Base.open(pipeline(`pmod -debase $outfile`, `tee pmod_output.txt`), "w+")
+        @async while !eof(io)
+            println(String(readavailable(io)))  # Read available output and print it
+            sleep(0.1)  # Prevent CPU overuse by waiting briefly
+        end
+        write(io, "\n")  # Send Enter (automatic display)
+        flush(io)
+        wait(io)
+        # Read captured output
+        output = read("pmod_output.txt", String)
+        rm("pmod_output.txt")  # cleanup
 
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
@@ -150,8 +155,9 @@ module Data
             println("Found onpulse range: $bin_st to $bin_end")
         end
 
-        # Find P3
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
+
+        # Find P3
         run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "\NULL"-2dfsd "\NULL"  -lrfsd "\NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
         io = Base.open(pipeline(`pspecDetect -v  $debased_file`, `tee pspecDetect_output.txt`), "w+")
