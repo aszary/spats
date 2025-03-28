@@ -176,6 +176,7 @@ module Data
         close(io)  # Close the stream
         # Retrieve the entire captured output
         output = String(take!(output_buffer))
+        println("OUTPUT: $output")
         # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
