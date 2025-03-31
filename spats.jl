@@ -1033,6 +1033,72 @@ module SpaTs
         Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="test", show_=true, repeat_num=4)
     end
 
+
+    function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
+        # Step 1: Extract base directory name
+        base_name = basename(base_dir)
+    
+        # Step 2: Auto-generate name_mod if not provided
+        name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
+    
+        # Step 3: Create output subdirectory
+        output_subdir = joinpath(output_dir, base_name)
+        if !isdir(output_subdir)
+            mkpath(output_subdir)
+            println("Created output directory: ", output_subdir)
+        end
+    
+        # Step 4: Find second-level catalogue
+        second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
+        println("Second catalogue found: ", second_catalogue)
+    
+        # Step 5: Find .spCF files
+        spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
+        converted_txt_files = String[]
+
+        #step 6: combining .spCF into one 
+        output_file = joinpath(output_subdir, "converted.spCF")
+        file_names = [joinpath(base_name, file) for file in spcf_files]
+        run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
+        out_txt=replace(output_file ,".spCF" => ".txt")
+
+        # Step 7: Convert spCF -> ascii
+        Data.convert_psrfit_ascii(output_file, out_txt)
+
+        # Step 8: Load combined data
+        combined_data = Data.load_ascii(out_txt)
+    
+
+        # Step 9: Plot
+        Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=false)
+        Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=false)
+        Plot.average(combined_data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=false)
+    end
+    
+    function process_all_catalogues(output_dir::String, base_root::String="/home/psr/data/new")
+        # Get all subdirectories in base_root
+        catalogues = filter(isdir, readdir(base_root, join=true))
+    
+        if isempty(catalogues)
+            println("No catalogues found in $base_root. Exiting...")
+            return
+        end
+    
+        for catalogue in catalogues
+            base_name = basename(catalogue)  # Extract directory name
+            println("Processing catalogue: ", base_name)
+            process_psrfit_files(catalogue, output_dir, name_mod=base_name * "Mac")
+        end
+    end
+    
+    # Run processing for all catalogues
+    function J0034Mac(output_dir)
+        process_all_catalogues(output_dir, "/home/psr/data/new")
+    end
+
+
+
+
     function main()
         # output directory for local run
         localout = "output"
