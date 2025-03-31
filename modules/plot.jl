@@ -961,7 +961,7 @@ module Plot
 
     end
 
-    function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=true)
+    function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=false)
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
@@ -1027,9 +1027,6 @@ module Plot
         end
         close()
     end
-
-
-
    
 
     function p3fold_two(data1, data2, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", shift=7)
