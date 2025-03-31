@@ -2071,22 +2071,21 @@ module Tools
         if isnothing(start_ind)
             start_ind = Int(floor(p3 / 2))
         end
-    
+   
         data = data[start_ind+1:end, :]
-    
+   
         folded_ = zeros(Float64, ybins, size(data, 2))
-    
+   
         dp3 = p3 / ybins
-    
+   
         for i in 1:size(data, 1)
             new_ind = i / dp3
             j = Int(floor(mod(new_ind, ybins)))
             folded_[j+1, :] += data[i, :]
         end
-    
+   
         return folded_
     end
-
 
 
 end  # module Tools
