@@ -89,7 +89,6 @@ module Data
         #end
     end
 
-    
     """
     Process data with PSRCHIVE
     """
@@ -111,4 +110,3 @@ module Data
     end
 
 end # module
-
