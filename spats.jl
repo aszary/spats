@@ -990,10 +990,10 @@ module SpaTs
 
 
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
-        # Step 1: Extract base directory name
+        # Step 1: Extract base directory 
         base_name = basename(base_dir)
     
-        # Step 2: Auto-generate name_mod if not provided
+        # Step 2: Auto-generate name_mod
         name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
     
         # Step 3: Create output subdirectory
@@ -1014,20 +1014,45 @@ module SpaTs
         #step 6: combining .spCF into one 
         output_file = joinpath(output_subdir, "converted.spCF")
         file_names = [joinpath(base_name, file) for file in spcf_files]
+        sorted_files = sort_spcf_files(file_names)
         run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
         out_txt=replace(output_file ,".spCF" => ".txt")
 
         # Step 7: Convert spCF -> ascii
         Data.convert_psrfit_ascii(output_file, out_txt)
+        rm(output_file)
 
-        # Step 8: Load combined data
-        combined_data = Data.load_ascii(out_txt)
+        # Step 8: Debase the combined ASCII file using pmod
+        debased_file = replace(out_txt, ".txt" => ".debase.gg")
+        run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
     
+        # Read captured output and cleanup
+        output = read("pmod_output.txt", String)
+        rm("pmod_output.txt")  # Cleanup temp file
 
-        # Step 9: Plot
-        #Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=false)
-        #Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=false)
-        #Plot.average(combined_data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=false)
+        # Step 9: Load combined data
+        combined_data = Data.load_ascii(out_txt)
+
+        output = read(debased_file, String)
+
+        # Extract onpulse values
+        m = match(r"-onpulse '(\d+) (\d+)'", output)
+        if !isnothing(m)
+            bin_st, bin_end = parse.(Int, m.captures)
+            # Ensure onpulse region length is even
+            region_length = bin_end - bin_st + 1
+            if region_length % 2 != 0
+                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                bin_end -= 1
+                println("Adjusted onpulse range: $bin_st to $bin_end")
+            end
+            println("Found onpulse range: $bin_st to $bin_end")
+        end
+    
+        # Step 10: Plot
+        #Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
+        #Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod=name_mod, change_fftphase=false, show_=false)
+        #Plot.average(combined_data, output_subdir,bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
     end
     
     function process_all_catalogues(output_dir::String, base_root::String="/home/psr/data/new")
