@@ -1019,8 +1019,6 @@ function J0820Mac(outdir)
 # Extract on-pulse range from the debased output
 output = read(debased_file, String)
 
-# Default values in case no match is found
-bin_st, bin_end = 0 , 0  
 
 # Extract onpulse values dynamically
 m = match(r"-onpulse '(\d+) (\d+)'", output)
