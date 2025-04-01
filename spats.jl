@@ -1025,9 +1025,9 @@ module SpaTs
     
 
         # Step 9: Plot
-        Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=false)
-        Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=false)
-        Plot.average(combined_data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=false)
+        #Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=false)
+        #Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=1, bin_end=1024, name_mod=name_mod, change_fftphase=false, show_=false)
+        #Plot.average(combined_data, output_subdir, bin_st=1, bin_end=1024, number=nothing, name_mod=name_mod, show_=false)
     end
     
     function process_all_catalogues(output_dir::String, base_root::String="/home/psr/data/new")
