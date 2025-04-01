@@ -95,7 +95,8 @@ module Data
     Process data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
-        # Base.open
+        # Ensure output directory exists
+        mkpath(outdir)
     
         if files === nothing
             # Find all .spCF files in the input directory
@@ -105,7 +106,11 @@ module Data
         # Sort files based on pulse numbers
         sort!(files, by = f -> begin
             m = match(r"_(\d+)-(\d+)\.spCF$", f)
-            isnothing(m) ? typemax(Int) : parse(Int, m.captures[1])
+            if isnothing(m)
+                return typemax(Int)
+            else
+                return parse(Int, m.captures[1])
+            end
         end)
     
         if isempty(files)
@@ -118,19 +123,27 @@ module Data
         end
     
         file_names = [joinpath(indir, file) for file in files]
-        outfile_path = joinpath(outdir, outfile)
-        
-        # Ensure output directory exists
-        mkpath(outdir)
+    
+        # Extract pulsar name from the first file
+        first_file = files[1]
+        pulsar_match = match(r"(J\d+\+\d+)", first_file)
+        if pulsar_match === nothing
+            error("Could not determine pulsar name from filename: $first_file")
+        end
+        pulsar_name = pulsar_match.captures[1]
+        pulsar_outdir = joinpath(outdir, pulsar_name)
+        mkpath(pulsar_outdir)  # Ensure pulsar-specific directory exists
+    
+        outfile_path = joinpath(pulsar_outdir, outfile)
     
         # Connecting all files
-        run(pipeline(`psradd $file_names -o $outfile_path`, stderr="errs.txt")) # PSRCHIVE
-    
+        run(pipeline(`psradd $file_names -o $outfile_path`, stderr="errs.txt"))
+        
         # Debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile_path`, `tee pmod_output.txt`))
         output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")  # Cleanup
-    
+        rm("pmod_output.txt")
+        
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
@@ -139,21 +152,20 @@ module Data
             if region_length % 2 != 0
                 println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
                 bin_end -= 1
-                println("Adjusted onpulse range: $bin_st to $bin_end")
             end
             println("Found onpulse range: $bin_st to $bin_end")
         end
     
-        debased_file = joinpath(outdir, replace(outfile, ".spCF" => ".debase.gg"))
-    
+        debased_file = joinpath(pulsar_outdir, replace(outfile, ".spCF" => ".debase.gg"))
+        
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs -onpulsed "/NULL" -nfft 256 -onpulse "$bin_st $bin_end" $debased_file`, stderr="errs.txt"))
-    
+        
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
         output = read("pspecDetect_output.txt", String)
-        rm("pspecDetect_output.txt")  # Cleanup
-    
+        rm("pspecDetect_output.txt")
+        
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
             last_match = p3_matches[end]
@@ -161,12 +173,12 @@ module Data
             p3_error = parse(Float64, last_match.captures[2])
             println("Found P3 = $p3_value ± $p3_error P0")
         end
-    
-        ybins = Functions.find_ybins(p3_value)
+        
+        ybins = round(Int, p3_value * 10)  # Generate ybins dynamically based on P3 value
         println("Number of ybins: $ybins")
-    
+        
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
-    
+        
         return bin_st-20, bin_end+20
     end
     
