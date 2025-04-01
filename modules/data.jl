@@ -2,7 +2,8 @@ module Data
     using Glob
     using FITSIO
     using ProgressMeter
-
+    using Base.Filesystem
+    using Functions
     include("functions.jl")
 
     """
@@ -94,15 +95,40 @@ module Data
     """
     Process data with PSRCHIVE and PSRSALSA
     """
-    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
-        # Base.open
 
+    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
+        # Extract pulsar name from the input directory path
+        pulsar_name = basename(indir)
+    
+        # Create a directory for the pulsar within the output directory
+        pulsar_outdir = joinpath(outdir, pulsar_name)
+        
+        # Check if pulsar directory exists, create it if not
+        if !isdir(pulsar_outdir)
+            mkpath(pulsar_outdir)
+            println("Created new directory for pulsar: $pulsar_outdir")
+        else
+            println("Directory for pulsar already exists: $pulsar_outdir")
+        end
+    
+        # Check if the necessary files for this pulsar already exist
+        output_files = [
+            joinpath(pulsar_outdir, "pulsar.debase.p3fold"),
+            joinpath(pulsar_outdir, "pulsar.debase.gg"),
+            joinpath(pulsar_outdir, "pulsar.spCF"),
+        ]
+    
+        if all(isfile, output_files)
+            println("All necessary files already exist for pulsar $pulsar_name. Skipping processing.")
+            return
+        end
+    
+        # If no files are provided, find all .spCF files in the input directory
         if files === nothing
-            # Find all .spCF files in the input directory
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
-        
-        # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
+    
+        # Sort files based on pulse numbers (e.g., "00000-00255", "00256-00511", etc.)
         sort!(files, by = f -> begin
             # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
             m = match(r"_(\d+)-(\d+)\.spCF$", f)
@@ -123,17 +149,19 @@ module Data
         end
     
         file_names = [joinpath(indir, file) for file in files]
-
-        outfile = joinpath(outdir, outfile)
-        # connecting all files
-        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
+    
+        outfile = joinpath(pulsar_outdir, outfile)
         
-
-        # debase the data
+        # Connecting all files using psradd
+        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))  # PSRCHIVE
+    
+        # Debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+        
         # Read captured output
         output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")  # cleanup
+        rm("pmod_output.txt")  # Cleanup
+        
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
@@ -147,17 +175,19 @@ module Data
             end
             println("Found onpulse range: $bin_st to $bin_end")
         end
-
+    
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
-
+    
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
-
+        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr="errs.txt"))
+    
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
+        
         # Read captured output
         output = read("pspecDetect_output.txt", String)
-        rm("pspecDetect_output.txt")  # cleanup
+        rm("pspecDetect_output.txt")  # Cleanup
+        
         # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
@@ -166,12 +196,16 @@ module Data
             p3_error = parse(Float64, last_match.captures[2])
             println("Found P3 = $p3_value ± $p3_error P0")
         end
+        
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
-
-        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-
-        return bin_st-20, bin_end+20
+    
+        # Run pfold to generate the folded profile
+        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
+    
+        return bin_st - 20, bin_end + 20
     end
+    
+
 
 end # module
