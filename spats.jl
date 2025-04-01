@@ -1015,23 +1015,34 @@ function J0820Mac(outdir)
     # Perform debasing on the ASCII file
     run(pipeline(`pmod -device "/xw" -debase $output_txt`))
 
-    # Extract on-pulse range from the debased output
-    output = read(debased_file, String)
 
-    # Extract onpulse values dynamically
-    bin_st, bin_end = 1, 1024  # Default values
-    m = match(r"-onpulse '(\d+) (\d+)'", output)
-    if !isnothing(m)
-        bin_st, bin_end = parse.(Int, m.captures)
+# Extract on-pulse range from the debased output
+output = read(debased_file, String)
 
-        # Ensure onpulse range length is even
-        region_length = bin_end - bin_st + 1
-        if region_length % 2 != 0
-            println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end.")
-            bin_end -= 1
-        end
-        println("Found onpulse range: $bin_st to $bin_end")
+# Default values in case no match is found
+bin_st, bin_end = 1, 1024  
+
+# Extract onpulse values dynamically
+m = match(r"-onpulse '(\d+) (\d+)'", output)
+if !isnothing(m)
+    bin_st, bin_end = parse.(Int, m.captures)
+
+    # Ensure onpulse range length is even
+    region_length = bin_end - bin_st + 1
+    if region_length % 2 != 0
+        println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end.")
+        bin_end -= 1
     end
+    println("Found onpulse range: $bin_st to $bin_end")
+end
+
+# Save bin start and bin end values for later use
+open(bin_range_file, "w") do f
+    write(f, "$bin_st $bin_end\n")
+end
+println("Saved on-pulse range to $bin_range_file")
+
+
 
     # Load the ASCII data after conversion
     data = Data.load_ascii(output_txt)
@@ -1043,9 +1054,6 @@ function J0820Mac(outdir)
     Plot.average(data, outdir, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
     #Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="J0820Mac", show_=true, repeat_num=4)
 end
-
-
-
 
 
 
