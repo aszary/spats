@@ -84,22 +84,12 @@ module Data
     """
     Converts PSRFIT file to ASCII (using PSRCHIVE tools)
     """
-    function convert_psrfit_ascii(infile, outfile)
-        run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
-        # change -t to -A to get frequancy information
-        #@showprogress 1 for i in 1:pn  # psrchive indexing
-        #end
-    end
-
-    """
-    Process data with PSRCHIVE and PSRSALSA
-    """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
         # Ensure output directory exists
         mkpath(outdir)
-    
+        
+        # Find all .spCF files in the input directory if not provided
         if files === nothing
-            # Find all .spCF files in the input directory
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
     
@@ -117,85 +107,84 @@ module Data
             error("No .spCF files found in directory: $indir")
         end
     
+        # Print out the files that are going to be processed
         println("Processing files in order:")
         for (i, f) in enumerate(files)
             println("$i. $f")
         end
     
         file_names = [joinpath(indir, file) for file in files]
-    
-        # Extract pulsar name dynamically from the directory structure
-        pulsar_name_match = match(r"J\d{4}\+\d{4}", indir)
-        if isnothing(pulsar_name_match)
-            error("Could not extract pulsar name from directory path: $indir")
-        end
-        pulsar_name = pulsar_name_match.match
-    
-        # Create pulsar-specific output directory
-        pulsar_outdir = joinpath(outdir, pulsar_name)
-        mkpath(pulsar_outdir)
-        println("Created new directory: $pulsar_outdir")
-    
-        # Define file paths inside the pulsar-specific directory
-        outfile = joinpath(pulsar_outdir, "$pulsar_name.spCF")
-        debased_file = joinpath(pulsar_outdir, "$pulsar_name.debase.gg")
-    
+        
+        # Output path for the final file
+        outfile = joinpath(outdir, outfile)
+        
         # Combine all files using psradd
+        println("Running psradd to combine files...")
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))
     
-        # Debase the data
+        # Debase the data using pmod
+        println("Debasing the data with pmod...")
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
-    
-        # Read captured output
+        
+        # Read captured output from pmod
         output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")  # cleanup
-    
+        rm("pmod_output.txt")  # cleanup after reading the file
+        
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
-        if isnothing(m)
-            error("Failed to extract onpulse range from pmod output")
+        if !isnothing(m)
+            bin_st, bin_end = parse.(Int, m.captures)
+            
+            # Ensure the onpulse region length is even
+            region_length = bin_end - bin_st + 1
+            if region_length % 2 != 0
+                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                bin_end -= 1
+                println("Adjusted onpulse range: $bin_st to $bin_end")
+            end
+            println("Found onpulse range: $bin_st to $bin_end")
         end
-        bin_st, bin_end = parse.(Int, m.captures)
     
-        println("Found onpulse range: $bin_st to $bin_end")
-    
-        # Move the debased file into the pulsar directory (force overwrite if needed)
-        mv(outfile, debased_file; force=true)
+        # Set the debased output filename
+        debased_file = replace(outfile, ".spCF" => ".debase.gg")
     
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$bin_st $bin_end" $debased_file`, stderr="errs.txt"))
+        println("Running pspec to calculate 2dfs and lrfs...")
+        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr="errs.txt"))
     
-        # Find P3
+        # Find P3 value using pspecDetect
+        println("Running pspecDetect to find P3 value...")
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
+        
+        # Read captured output from pspecDetect
         output = read("pspecDetect_output.txt", String)
-        rm("pspecDetect_output.txt")  # cleanup
-    
+        rm("pspecDetect_output.txt")  # cleanup after reading the file
+        
         # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
-        if isempty(p3_matches)
-            error("Failed to extract P3 value from pspecDetect output")
+        if !isempty(p3_matches)
+            last_match = p3_matches[end]
+            p3_value = parse(Float64, last_match.captures[1])
+            p3_error = parse(Float64, last_match.captures[2])
+            println("Found P3 = $p3_value ± $p3_error P0")
         end
-        last_match = p3_matches[end]
-        p3_value = parse(Float64, last_match.captures[1])
-        p3_error = parse(Float64, last_match.captures[2])
-        println("Found P3 = $p3_value ± $p3_error P0")
     
+        # Find the number of ybins (required for pfold)
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
     
-        # Compute pfold and save results in the pulsar-specific directory
-        pfold_file = joinpath(pulsar_outdir, "$pulsar_name.debase.p3fold")
-        println("Running pfold command...")
-        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file -o $pfold_file`, stderr="errs.txt"))
-        println("pfold command finished")
+        # Running pfold to generate the folded profile
+        println("Running pfold to generate the folded profile...")
+        pfold_file = joinpath(outdir, "J1919+0134.debase.p3fold")  # Output file name for pfold
+        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
     
-        # Check if the pfold file was created
+        # Check if pfold output was created
         if !isfile(pfold_file)
-            error("ERROR: pfold output file was not created: $pfold_file")
+            error("pfold output file was not created: $pfold_file")
         end
     
-        println("All files are stored in: $pulsar_outdir")
-        return bin_st - 20, bin_end + 20
+        println("All files are stored in: $outdir")
+        return bin_st-20, bin_end+20
     end
     
 end # module
