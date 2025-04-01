@@ -102,7 +102,7 @@ module Data
             # Find all .spCF files in the input directory
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
-        
+    
         # Sort files based on pulse numbers
         sort!(files, by = f -> begin
             m = match(r"_(\d+)-(\d+)\.spCF$", f)
@@ -122,21 +122,18 @@ module Data
             println("$i. $f")
         end
     
+        # Create a list of full file paths
         file_names = [joinpath(indir, file) for file in files]
     
-        # Extract pulsar name from the first file
+        # Extract pulsar name from the first file by removing the extension (.spCF)
         first_file = files[1]
-        pulsar_match = match(r"(J\d+\+\d+)", first_file)
-        if pulsar_match === nothing
-            error("Could not determine pulsar name from filename: $first_file")
-        end
-        pulsar_name = pulsar_match.captures[1]
+        pulsar_name = basename(first_file, ".spCF")  # Get the base name without extension
         pulsar_outdir = joinpath(outdir, pulsar_name)
         mkpath(pulsar_outdir)  # Ensure pulsar-specific directory exists
     
         outfile_path = joinpath(pulsar_outdir, outfile)
     
-        # Connecting all files
+        # Combine all .spCF files into one using psradd
         run(pipeline(`psradd $file_names -o $outfile_path`, stderr="errs.txt"))
         
         # Debase the data
@@ -144,7 +141,7 @@ module Data
         output = read("pmod_output.txt", String)
         rm("pmod_output.txt")
         
-        # Extract onpulse values
+        # Extract onpulse values from the output
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
@@ -156,16 +153,18 @@ module Data
             println("Found onpulse range: $bin_st to $bin_end")
         end
     
+        # Set the debased file path
         debased_file = joinpath(pulsar_outdir, replace(outfile, ".spCF" => ".debase.gg"))
         
-        # Calculate 2dfs and lrfs
+        # Calculate 2DFS and LRFS
         run(pipeline(`pspec -w -2dfs -lrfs -onpulsed "/NULL" -nfft 256 -onpulse "$bin_st $bin_end" $debased_file`, stderr="errs.txt"))
         
-        # Find P3
+        # Find P3 using pspecDetect
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")
         
+        # Extract P3 value and error from the output
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
             last_match = p3_matches[end]
@@ -174,12 +173,14 @@ module Data
             println("Found P3 = $p3_value ± $p3_error P0")
         end
         
-        ybins = round(Int, p3_value * 10)  # Generate ybins dynamically based on P3 value
+        # Dynamically calculate ybins based on P3 value
+        ybins = round(Int, p3_value * 10)
         println("Number of ybins: $ybins")
         
+        # Run pfold with the calculated P3 value and ybins
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
         
-        return bin_st-20, bin_end+20
+        return bin_st-20, bin_end+20  # Return adjusted bin range for further processing
     end
     
 
