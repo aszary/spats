@@ -1035,7 +1035,7 @@ function J0820Mac(outdir)
 
     # Load the ASCII data after conversion
     data = Data.load_ascii(output_txt)
-    folded = Tools.p3fold(data, 4.81, 24)
+    #folded = Tools.p3fold(data, 4.81, 24)
 
     # Plot with dynamically adjusted bin range
     Plot.single(data, outdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
