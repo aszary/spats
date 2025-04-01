@@ -84,6 +84,16 @@ module Data
     """
     Converts PSRFIT file to ASCII (using PSRCHIVE tools)
     """
+    function convert_psrfit_ascii(infile, outfile)
+        run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
+        # change -t to -A to get frequancy information
+        #@showprogress 1 for i in 1:pn  # psrchive indexing
+        #end
+    end
+
+    """
+    Process data with PSRCHIVE and PSRSALSA
+    """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
         # Ensure output directory exists
         mkpath(outdir)
@@ -114,19 +124,21 @@ module Data
     
         file_names = [joinpath(indir, file) for file in files]
     
-        # Extract pulsar name dynamically from the input directory path
-        pulsar_name_match = match(r".*/([^/]+)/\d{4}-\d{2}-\d{2}-\d{2}:\d{2}:\d{2}/?$", indir)
+        # Extract pulsar name dynamically from the input files
+        pulsar_name_match = match(r"^([A-Za-z0-9\+\-]+)", files[1]) # regex to capture pulsar name
         if isnothing(pulsar_name_match)
-            error("Could not extract pulsar name from input directory path: $indir")
+            error("Could not extract pulsar name from the input file.")
         end
-        pulsar_name = pulsar_name_match.captures[1]  # Extracted pulsar name
+        pulsar_name = pulsar_name_match.captures[1]  # The first capture group
     
         # Create pulsar-specific output directory
         pulsar_outdir = joinpath(outdir, pulsar_name)
+    
+        # Ensure the pulsar-specific directory exists
         mkpath(pulsar_outdir)
         println("Created new directory: $pulsar_outdir")
     
-        # Output file paths with pulsar name
+        # Define file paths inside the pulsar-specific directory
         outfile = joinpath(pulsar_outdir, "$pulsar_name.spCF")
         debased_file = joinpath(pulsar_outdir, "$pulsar_name.debase.gg")
     
@@ -135,8 +147,10 @@ module Data
     
         # Debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+    
+        # Read captured output
         output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")
+        rm("pmod_output.txt")  # cleanup
     
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
@@ -151,7 +165,7 @@ module Data
             println("Found onpulse range: $bin_st to $bin_end")
         end
     
-        # Move the debased file into the pulsar directory
+        # Move the debased file into the pulsar directory (force overwrite if needed)
         mv(outfile, debased_file; force=true)
     
         # Calculate 2dfs and lrfs
@@ -159,9 +173,12 @@ module Data
     
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
-        output = read("pspecDetect_output.txt", String)
-        rm("pspecDetect_output.txt")
         
+        # Read captured output
+        output = read("pspecDetect_output.txt", String)
+        rm("pspecDetect_output.txt")  # cleanup
+    
+        # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
             last_match = p3_matches[end]
@@ -173,18 +190,14 @@ module Data
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
     
-        # Calculate pfold and store the result
+        # Compute pfold and save results in the pulsar-specific directory
         pfold_file = joinpath(pulsar_outdir, "$pulsar_name.debase.p3fold")
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
     
-        # Ensure pfold file exists before moving it
-        if isfile(pfold_file)
-            println("pfold file generated successfully: $pfold_file")
-        else
-            error("Plik $pfold_file nie został utworzony przez pfold.")
-        end
+        println("All files are stored in: $pulsar_outdir")
     
         return bin_st-20, bin_end+20
     end
+    
     
 end # module
