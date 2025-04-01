@@ -1018,20 +1018,6 @@ module SpaTs
         Data.process_psrchive(indir, outdir, ["2019-12-15-03:19:04_00000-00255.spCF", "2019-12-15-03:19:04_00256-00511.spCF", "2019-12-15-03:19:04_00512-00767.spCF", "2019-12-15-03:19:04_00768-01029.spCF"], "J1319-6105.spCF")
     end
 
-    function J1750_psrchive(indir, outdir)
-        Data.process_psrchive(indir, outdir, ["J1750-3503_MeerKAT_2019-09-29.debase.hp"], "J1750-3503.spCF")
-    end
-
-    function fold_test(outdir)
-        data = Data.load_ascii("input/1.txt")
-        #Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
-        #Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
-        folded = Tools.p3fold(data, 4.81, 24)
-        #println(size(folded))
-        Plot.single(data, outdir; darkness=0.5, number=100, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
-        Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
-        Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="test", show_=true, repeat_num=4)
-    end
 
 
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
@@ -1104,19 +1090,45 @@ module SpaTs
         process_all_catalogues(output_dir, "/home/psr/data/new")
     end
     
+    function process_psrdata(indir, outdir)
+        bin_st, bin_end = Data.process_psrdata(indir, outdir)
+        folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
+        Plot.p3fold(folded, outdir; start=3, bin_st=bin_st, bin_end=bin_end, name_mod="test", show_=true, repeat_num=4)
+        
+    end
 
+    function J1750_psrdata(indir, outdir)
+        bin_st, bin_end = Data.process_psrdata(indir, outdir; files= ["J1750-3503_MeerKAT_2019-09-29.debase.hp"])
+        folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
+        Plot.p3fold(folded, outdir; start=3, bin_st=bin_st, bin_end=bin_end, name_mod="test", show_=true, repeat_num=4)
+
+    end
+
+    function fold_test(indir, outdir)
+        # TODO fix this!
+        Data.convert_psrfit_ascii("J1750-3503_MeerKAT_2019-09-29.debase.hp", outdir*"1.txt")
+        data = Data.load_ascii(outdir*"1.txt")
+        #Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
+        #Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
+        folded = Tools.p3fold(data, 4.81, 24)
+        #println(size(folded))
+        Plot.single(data, outdir; darkness=0.5, number=100, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
+        Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="test", bin_st=470, bin_end=550, show_=true)
+        Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="test", show_=true, repeat_num=4)
+    end
 
     function main()
         # output directory for local run
         localout = "output"
         # output directory for VPM
         vpmout = "/home/psr/output/"
+        indir = "/home/psr/data/"
 
-        #fold_test(vpmout)
         #J1319(vpmout)
-        #J1319_psrchive("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
-        J1750_psrchive("/home/psr/data/", vpmout)
-        #J0034Mac(vpmout)
+        #process_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
+        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        #J1750_psrdata(indir, vpmout)
+        #fold_test(indir, vpmout)
         #test(vpmout)
         #J0820(args)
         #mkieth()
