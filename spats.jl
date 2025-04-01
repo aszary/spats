@@ -1020,7 +1020,7 @@ module SpaTs
 
         # Step 7: Convert spCF -> ascii
         Data.convert_psrfit_ascii(output_file, out_txt)
-        rm(output_file)
+        rm(output_file) #cleanup .spCF file
 
         # Step 8: Debase the combined ASCII file using pmod
         debased_file = replace(out_txt, ".txt" => ".debase.gg")
@@ -1028,15 +1028,15 @@ module SpaTs
     
         # Read captured output and cleanup
         output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")  # Cleanup temp file
+        rm("pmod_output.txt")  # Cleanup 
 
         # Step 9: Load combined data
         combined_data = Data.load_ascii(out_txt)
 
-        output = read(debased_file, String)
+        output_debase = read(debased_file, String)
 
         # Extract onpulse values
-        m = match(r"-onpulse '(\d+) (\d+)'", output)
+        m = match(r"-onpulse '(\d+) (\d+)'", output_debase)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
             # Ensure onpulse region length is even
