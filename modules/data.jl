@@ -169,9 +169,14 @@ module Data
     
         # Compute pfold and save results in the pulsar-specific directory
         pfold_file = joinpath(pulsar_outdir, "$pulsar_name.debase.p3fold")
-        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
-    
-        println("All files are stored in: $pulsar_outdir")
+
+        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file -o $pfold_file`, stderr="errs.txt"))
+        
+        # Validate file creation
+        if !isfile(pfold_file)
+            error("ERROR: pfold output file was not created: $pfold_file")
+        end
+        
     
         return bin_st-20, bin_end+20
     end
