@@ -103,6 +103,16 @@ module Data
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
     
+        # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
+        sort!(files, by = f -> begin
+            m = match(r"_(\d+)-(\d+)\.spCF$", f)
+            if isnothing(m)
+                return typemax(Int)  # Files without proper format go to the end
+            else
+                return parse(Int, m.captures[1])  # Sort by the starting pulse number
+            end
+        end)
+    
         if isempty(files)
             error("No .spCF files found in directory: $indir")
         end
@@ -114,12 +124,17 @@ module Data
     
         file_names = [joinpath(indir, file) for file in files]
     
-        # Extract pulsar name dynamically from the directory path
-        path_parts = splitpath(indir)
-        pulsar_name = path_parts[end-1]  # Assuming the pulsar name is in the second last directory
+        # Extract pulsar name dynamically from the directory structure
+        pulsar_name_match = match(r"/([^/]+)/\d{4}-\d{2}-\d{2}-\d{2}:\d{2}:\d{2}/?$", indir)
+        if isnothing(pulsar_name_match)
+            error("Could not extract pulsar name from input directory.")
+        end
+        pulsar_name = pulsar_name_match.captures[1]  # Extracted from the folder structure
     
         # Create pulsar-specific output directory
         pulsar_outdir = joinpath(outdir, pulsar_name)
+    
+        # Ensure the pulsar-specific directory exists
         mkpath(pulsar_outdir)
         println("Created new directory: $pulsar_outdir")
     
@@ -139,44 +154,59 @@ module Data
     
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
-        if isnothing(m)
-            error("Could not find onpulse range in output")
+        if !isnothing(m)
+            bin_st, bin_end = parse.(Int, m.captures)
+            region_length = bin_end - bin_st + 1
+            if region_length % 2 != 0
+                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                bin_end -= 1
+                println("Adjusted onpulse range: $bin_st to $bin_end")
+            end
+            println("Found onpulse range: $bin_st to $bin_end")
         end
-        bin_st, bin_end = parse.(Int, m.captures)
-        println("Found onpulse range: $bin_st to $bin_end")
     
-        # Move the debased file into the pulsar directory
+        # Move the debased file into the pulsar directory (force overwrite if needed)
         mv(outfile, debased_file; force=true)
     
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$bin_st $bin_end" $debased_file`, stderr="errs.txt"))
+        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr="errs.txt"))
     
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
+    
+        # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # cleanup
     
-        # Extract P3 value
-        p3_match = match(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output)
-        if isnothing(p3_match)
-            error("Could not extract P3 value")
+        # Extract P3 value from the last occurrence
+        p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
+        if !isempty(p3_matches)
+            last_match = p3_matches[end]
+            p3_value = parse(Float64, last_match.captures[1])
+            p3_error = parse(Float64, last_match.captures[2])
+            println("Found P3 = $p3_value ± $p3_error P0")
         end
-        p3_value = parse(Float64, p3_match.captures[1])
-        println("Found P3 = $p3_value P0")
     
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
     
         # Compute pfold and save results in the pulsar-specific directory
         pfold_file = joinpath(pulsar_outdir, "$pulsar_name.debase.p3fold")
-
-        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file -o $pfold_file`, stderr="errs.txt"))
-        
+    
+        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd $pulsar_outdir -w -oformat ascii $debased_file -o $pfold_file`, stderr="errs.txt"))
+    
         # Validate file creation
         if !isfile(pfold_file)
             error("ERROR: pfold output file was not created: $pfold_file")
         end
-        
+    
+        println("All files are stored in: $pulsar_outdir")
+    
+        # Generate PDF (assuming psrplot is used)
+        pdf_file = joinpath(pulsar_outdir, "$pulsar_name.pdf")
+        run(pipeline(`psrplot -p3fold $pfold_file -device "$pdf_file/CPS"`, stderr="errs.txt"))
+    
+        println("PDF successfully generated: $pdf_file")
     
         return bin_st-20, bin_end+20
     end
