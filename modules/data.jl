@@ -177,9 +177,13 @@ module Data
         ybins = round(Int, p3_value * 10)
         println("Number of ybins: $ybins")
         
-        # Ensure directory exists for pfold output file
+        # Check if the directory exists before creating it
         p3fold_outdir = joinpath(pulsar_outdir, "pulsar.debase.p3fold")
-        mkpath(p3fold_outdir)  # Ensure directory exists
+        if !isdir(p3fold_outdir)
+            mkpath(p3fold_outdir)  # Ensure directory exists only if it does not exist
+        else
+            println("Directory already exists: $p3fold_outdir")
+        end
     
         # Run pfold with the calculated P3 value and ybins
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
