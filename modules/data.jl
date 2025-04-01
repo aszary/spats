@@ -127,7 +127,7 @@ module Data
     
         # Extract pulsar name from the first file by removing the extension (.spCF)
         first_file = files[1]
-        pulsar_name = basename(first_file, ".spCF")  # Get the base name without extension
+        pulsar_name = splitext(first_file)[1]  # Get the base name without the extension
         pulsar_outdir = joinpath(outdir, pulsar_name)
         mkpath(pulsar_outdir)  # Ensure pulsar-specific directory exists
     
@@ -183,6 +183,5 @@ module Data
         return bin_st-20, bin_end+20  # Return adjusted bin range for further processing
     end
     
-
 
 end # module
