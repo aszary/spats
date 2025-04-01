@@ -105,7 +105,6 @@ module Data
     
         # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
         sort!(files, by = f -> begin
-            # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
             m = match(r"_(\d+)-(\d+)\.spCF$", f)
             if isnothing(m)
                 return typemax(Int)  # Files without proper format go to the end
@@ -126,43 +125,37 @@ module Data
         file_names = [joinpath(indir, file) for file in files]
     
         # Extract pulsar name dynamically from the input files
-        pulsar_name = match(r"^([A-Za-z0-9\+\-]+)", files[1]) # regex to capture pulsar name from the filename
-        if isnothing(pulsar_name)
+        pulsar_name_match = match(r"^([A-Za-z0-9\+\-]+)", files[1]) # regex to capture pulsar name
+        if isnothing(pulsar_name_match)
             error("Could not extract pulsar name from the input file.")
         end
-        pulsar_name = pulsar_name.captures[1]  # The first capture group
+        pulsar_name = pulsar_name_match.captures[1]  # The first capture group
     
         # Create pulsar-specific output directory
         pulsar_outdir = joinpath(outdir, pulsar_name)
     
-        # Check if the directory exists and create if needed
-        i = 1
-        unique_dir = pulsar_outdir
-        while isdir(unique_dir)
-            unique_dir = "$(pulsar_outdir)_$i"
-            i += 1
-        end
+        # Ensure the pulsar-specific directory exists
+        mkpath(pulsar_outdir)
+        println("Created new directory: $pulsar_outdir")
     
-        mkpath(unique_dir)  # Create the directory
-        println("Created new directory: $unique_dir")
-    
-        # Output file paths with pulsar name
-        outfile = joinpath(unique_dir, "$pulsar_name.spCF")
-        debased_file = joinpath(unique_dir, "$pulsar_name.debase.gg")
+        # Define file paths inside the pulsar-specific directory
+        outfile = joinpath(pulsar_outdir, "$pulsar_name.spCF")
+        debased_file = joinpath(pulsar_outdir, "$pulsar_name.debase.gg")
     
         # Combine all files using psradd
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))
     
         # Debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+    
         # Read captured output
         output = read("pmod_output.txt", String)
         rm("pmod_output.txt")  # cleanup
+    
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
-            # Check if onpulse region length is even
             region_length = bin_end - bin_st + 1
             if region_length % 2 != 0
                 println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
@@ -172,17 +165,19 @@ module Data
             println("Found onpulse range: $bin_st to $bin_end")
         end
     
-        # Move the debased file into the pulsar directory
-        mv(outfile, debased_file)
+        # Move the debased file into the pulsar directory (force overwrite if needed)
+        mv(outfile, debased_file; force=true)
     
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr="errs.txt"))
     
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
+        
         # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # cleanup
+    
         # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
@@ -195,14 +190,12 @@ module Data
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
     
-        # Calculate pfold and store the result
-        pfold_file = joinpath(unique_dir, "$pulsar_name.debase.p3fold")
+        # Compute pfold and save results in the pulsar-specific directory
+        pfold_file = joinpath(pulsar_outdir, "$pulsar_name.debase.p3fold")
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
     
-        # Move pfold results to the pulsar directory
-        mv(pfold_file, joinpath(unique_dir, "$pulsar_name.debase.p3fold"))
+        println("All files are stored in: $pulsar_outdir")
     
-        # All other output files will be similarly renamed and moved into the pulsar-specific directory
         return bin_st-20, bin_end+20
     end
     
