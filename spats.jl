@@ -1036,6 +1036,9 @@ if !isnothing(m)
     println("Found onpulse range: $bin_st to $bin_end")
 end
 
+bin_range_file = joinpath(outdir, "onpulse_range.txt")
+
+
 # Save bin start and bin end values for later use
 open(bin_range_file, "w") do f
     write(f, "$bin_st $bin_end\n")
