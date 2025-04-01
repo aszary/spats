@@ -999,6 +999,9 @@ function J0820Mac(outdir)
     # Define input and output file paths
     input_file = "/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF"
     output_txt = joinpath(outdir, "J0820-1350_converted.txt")
+    bin_range_file = joinpath(outdir, "onpulse_range.txt")  # File storing bin start/end
+
+
 
     # Ensure output directory exists
     if !isdir(outdir)
