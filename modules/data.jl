@@ -170,23 +170,28 @@ module Data
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
     
-        # Determine output directory based on the full name and handle if it exists
-        pulsar_name = splitext(files[1])[1]  # Using the first file to extract the base name
+        # Determine output directory based on the pulsar name
+        pulsar_name = "J1919+0134"  # Pulsar name can be taken from the context or input
         pulsar_outdir = joinpath(outdir, pulsar_name)
     
-        # Check if the directory exists
-        if isdir(pulsar_outdir)
-            println("Directory $pulsar_outdir already exists. Skipping directory creation.")
-        else
-            mkpath(pulsar_outdir)  # Create a new directory if it doesn't exist
-            println("Created new directory: $pulsar_outdir")
+        # Check if the directory exists and create if needed
+        i = 1
+        unique_dir = pulsar_outdir
+        while isdir(unique_dir)
+            unique_dir = "$(pulsar_outdir)_$i"
+            i += 1
         end
     
+        mkpath(unique_dir)  # Create the directory
+        println("Created new directory: $unique_dir")
+    
+        # Now move the files into this directory instead of directly in outdir
         # Run pfold with the calculated P3 value and ybins
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
     
         return bin_st-20, bin_end+20
     end
+    
     
     
 end # module
