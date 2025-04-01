@@ -103,16 +103,6 @@ module Data
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
     
-        # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
-        sort!(files, by = f -> begin
-            m = match(r"_(\d+)-(\d+)\.spCF$", f)
-            if isnothing(m)
-                return typemax(Int)  # Files without proper format go to the end
-            else
-                return parse(Int, m.captures[1])  # Sort by the starting pulse number
-            end
-        end)
-    
         if isempty(files)
             error("No .spCF files found in directory: $indir")
         end
@@ -124,17 +114,12 @@ module Data
     
         file_names = [joinpath(indir, file) for file in files]
     
-        # Extract pulsar name dynamically from the input files
-        pulsar_name_match = match(r"^([A-Za-z0-9\+\-]+)", files[1]) # regex to capture pulsar name
-        if isnothing(pulsar_name_match)
-            error("Could not extract pulsar name from the input file.")
-        end
-        pulsar_name = pulsar_name_match.captures[1]  # The first capture group
+        # Extract pulsar name dynamically from the directory path
+        path_parts = splitpath(indir)
+        pulsar_name = path_parts[end-1]  # Assuming the pulsar name is in the second last directory
     
         # Create pulsar-specific output directory
         pulsar_outdir = joinpath(outdir, pulsar_name)
-    
-        # Ensure the pulsar-specific directory exists
         mkpath(pulsar_outdir)
         println("Created new directory: $pulsar_outdir")
     
@@ -154,38 +139,30 @@ module Data
     
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
-        if !isnothing(m)
-            bin_st, bin_end = parse.(Int, m.captures)
-            region_length = bin_end - bin_st + 1
-            if region_length % 2 != 0
-                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
-                bin_end -= 1
-                println("Adjusted onpulse range: $bin_st to $bin_end")
-            end
-            println("Found onpulse range: $bin_st to $bin_end")
+        if isnothing(m)
+            error("Could not find onpulse range in output")
         end
+        bin_st, bin_end = parse.(Int, m.captures)
+        println("Found onpulse range: $bin_st to $bin_end")
     
-        # Move the debased file into the pulsar directory (force overwrite if needed)
+        # Move the debased file into the pulsar directory
         mv(outfile, debased_file; force=true)
     
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr="errs.txt"))
+        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$bin_st $bin_end" $debased_file`, stderr="errs.txt"))
     
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
-        
-        # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # cleanup
     
-        # Extract P3 value from the last occurrence
-        p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
-        if !isempty(p3_matches)
-            last_match = p3_matches[end]
-            p3_value = parse(Float64, last_match.captures[1])
-            p3_error = parse(Float64, last_match.captures[2])
-            println("Found P3 = $p3_value ± $p3_error P0")
+        # Extract P3 value
+        p3_match = match(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output)
+        if isnothing(p3_match)
+            error("Could not extract P3 value")
         end
+        p3_value = parse(Float64, p3_match.captures[1])
+        println("Found P3 = $p3_value P0")
     
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
