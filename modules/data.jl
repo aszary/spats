@@ -125,7 +125,31 @@ module Data
     
         file_names = [joinpath(indir, file) for file in files]
     
-        outfile = joinpath(outdir, outfile)
+        # Extract pulsar name dynamically from the input files
+        pulsar_name = match(r"^([A-Za-z0-9\+\-]+)", files[1]) # regex to capture pulsar name from the filename
+        if isnothing(pulsar_name)
+            error("Could not extract pulsar name from the input file.")
+        end
+        pulsar_name = pulsar_name.captures[1]  # The first capture group
+    
+        # Create pulsar-specific output directory
+        pulsar_outdir = joinpath(outdir, pulsar_name)
+    
+        # Check if the directory exists and create if needed
+        i = 1
+        unique_dir = pulsar_outdir
+        while isdir(unique_dir)
+            unique_dir = "$(pulsar_outdir)_$i"
+            i += 1
+        end
+    
+        mkpath(unique_dir)  # Create the directory
+        println("Created new directory: $unique_dir")
+    
+        # Output file paths with pulsar name
+        outfile = joinpath(unique_dir, "$pulsar_name.spCF")
+        debased_file = joinpath(unique_dir, "$pulsar_name.debase.gg")
+    
         # Combine all files using psradd
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))
     
@@ -148,7 +172,8 @@ module Data
             println("Found onpulse range: $bin_st to $bin_end")
         end
     
-        debased_file = replace(outfile, ".spCF" => ".debase.gg")
+        # Move the debased file into the pulsar directory
+        mv(outfile, debased_file)
     
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr="errs.txt"))
@@ -170,28 +195,16 @@ module Data
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
     
-        # Determine output directory based on the pulsar name
-        pulsar_name = "J1919+0134"  # Pulsar name can be taken from the context or input
-        pulsar_outdir = joinpath(outdir, pulsar_name)
-    
-        # Check if the directory exists and create if needed
-        i = 1
-        unique_dir = pulsar_outdir
-        while isdir(unique_dir)
-            unique_dir = "$(pulsar_outdir)_$i"
-            i += 1
-        end
-    
-        mkpath(unique_dir)  # Create the directory
-        println("Created new directory: $unique_dir")
-    
-        # Now move the files into this directory instead of directly in outdir
-        # Run pfold with the calculated P3 value and ybins
+        # Calculate pfold and store the result
+        pfold_file = joinpath(unique_dir, "$pulsar_name.debase.p3fold")
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
     
+        # Move pfold results to the pulsar directory
+        mv(pfold_file, joinpath(unique_dir, "$pulsar_name.debase.p3fold"))
+    
+        # All other output files will be similarly renamed and moved into the pulsar-specific directory
         return bin_st-20, bin_end+20
     end
-    
     
     
 end # module
