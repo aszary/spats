@@ -1020,29 +1020,32 @@ function J0820Mac(outdir)
 output = read(debased_file, String)
 
 
-# Extract onpulse values dynamically
-m = match(r"-onpulse '(\d+) (\d+)'", output)
-if !isnothing(m)
-    bin_st, bin_end = parse.(Int, m.captures)
 
-    # Ensure onpulse range length is even
-    region_length = bin_end - bin_st + 1
-    if region_length % 2 != 0
-        println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end.")
-        bin_end -= 1
+# ✅ Check if bin range file exists
+if isfile(bin_range_file)
+    println("Using existing bin range from: $bin_range_file")
+    bin_values = readlines(bin_range_file)
+    if length(bin_values) > 0
+        bin_st, bin_end = parse.(Int, split(bin_values[1]))
     end
-    println("Found onpulse range: $bin_st to $bin_end")
+else
+    # Extract onpulse range from the new processing
+    output = read(debased_file, String)
+    m = match(r"-onpulse '(\d+) (\d+)'", output)
+    if !isnothing(m)
+        bin_st, bin_end = parse.(Int, m.captures)
+        if (bin_end - bin_st + 1) % 2 != 0
+            bin_end -= 1
+        end
+        println("Found onpulse range: $bin_st to $bin_end")
+
+        # ✅ Save bin start/end values to file (only if new calculation is made)
+        open(bin_range_file, "w") do f
+            write(f, "$bin_st $bin_end\n")
+        end
+        println("Saved new on-pulse range to $bin_range_file")
+    end
 end
-
-bin_range_file = joinpath(outdir, "onpulse_range.txt")
-
-
-# Save bin start and bin end values for later use
-open(bin_range_file, "w") do f
-    write(f, "$bin_st $bin_end\n")
-end
-println("Saved on-pulse range to $bin_range_file")
-
 
 
     # Load the ASCII data after conversion
