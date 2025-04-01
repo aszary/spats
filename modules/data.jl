@@ -177,6 +177,10 @@ module Data
         ybins = round(Int, p3_value * 10)
         println("Number of ybins: $ybins")
         
+        # Ensure directory exists for pfold output file
+        p3fold_outdir = joinpath(pulsar_outdir, "pulsar.debase.p3fold")
+        mkpath(p3fold_outdir)  # Ensure directory exists
+    
         # Run pfold with the calculated P3 value and ybins
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
         
