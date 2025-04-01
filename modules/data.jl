@@ -3,7 +3,6 @@ module Data
     using FITSIO
     using ProgressMeter
     using Base.Filesystem
-    using Functions
     include("functions.jl")
 
     """
