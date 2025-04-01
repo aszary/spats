@@ -96,21 +96,16 @@ module Data
     """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
         # Base.open
-
+    
         if files === nothing
             # Find all .spCF files in the input directory
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
         
-        # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
+        # Sort files based on pulse numbers
         sort!(files, by = f -> begin
-            # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
             m = match(r"_(\d+)-(\d+)\.spCF$", f)
-            if isnothing(m)
-                return typemax(Int)  # Files without proper format go to the end
-            else
-                return parse(Int, m.captures[1])  # Sort by the starting pulse number
-            end
+            isnothing(m) ? typemax(Int) : parse(Int, m.captures[1])
         end)
     
         if isempty(files)
@@ -123,22 +118,23 @@ module Data
         end
     
         file_names = [joinpath(indir, file) for file in files]
-
-        outfile = joinpath(outdir, outfile)
-        # connecting all files
-        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
+        outfile_path = joinpath(outdir, outfile)
         
-
-        # debase the data
-        run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
-        # Read captured output
+        # Ensure output directory exists
+        mkpath(outdir)
+    
+        # Connecting all files
+        run(pipeline(`psradd $file_names -o $outfile_path`, stderr="errs.txt")) # PSRCHIVE
+    
+        # Debase the data
+        run(pipeline(`pmod -device "/xw" -debase $outfile_path`, `tee pmod_output.txt`))
         output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")  # cleanup
+        rm("pmod_output.txt")  # Cleanup
+    
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
-            # Check if onpulse region length is even
             region_length = bin_end - bin_st + 1
             if region_length % 2 != 0
                 println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
@@ -147,19 +143,17 @@ module Data
             end
             println("Found onpulse range: $bin_st to $bin_end")
         end
-
-        debased_file = replace(outfile, ".spCF" => ".debase.gg")
-
+    
+        debased_file = joinpath(outdir, replace(outfile, ".spCF" => ".debase.gg"))
+    
         # Calculate 2dfs and lrfs
-        #run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "/NULL"-2dfsd "/NULL"  -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
-        run(pipeline(`pspec -w -2dfs -lrfs -onpulsed "/NULL"-nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
-
+        run(pipeline(`pspec -w -2dfs -lrfs -onpulsed "/NULL" -nfft 256 -onpulse "$bin_st $bin_end" $debased_file`, stderr="errs.txt"))
+    
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
-        # Read captured output
         output = read("pspecDetect_output.txt", String)
-        rm("pspecDetect_output.txt")  # cleanup
-        # Extract P3 value from the last occurrence
+        rm("pspecDetect_output.txt")  # Cleanup
+    
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
             last_match = p3_matches[end]
@@ -167,12 +161,13 @@ module Data
             p3_error = parse(Float64, last_match.captures[2])
             println("Found P3 = $p3_value ± $p3_error P0")
         end
+    
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
-
-        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-
+    
+        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
+    
         return bin_st-20, bin_end+20
     end
-
+    
 end # module
