@@ -155,7 +155,7 @@ module Data
         #run(pipeline(`pspec -w -2dfs -lrfs -onpulsed "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
         # Find P3
-        run(pipeline(`pspecDetect -v -onpulsed "/NULL" -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
+        run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
         # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # cleanup
