@@ -84,10 +84,16 @@ module Data
     """
     Converts PSRFIT file to ASCII (using PSRCHIVE tools)
     """
-    using Base.Filesystem
-    using Functions  # Assuming this module contains 'find_ybins' function
-    
-    # Function to process the pulsar data
+    function convert_psrfit_ascii(infile, outfile)
+        run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
+        # change -t to -A to get frequancy information
+        #@showprogress 1 for i in 1:pn  # psrchive indexing
+        #end
+    end
+
+    """
+    Process data with PSRCHIVE and PSRSALSA
+    """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
         # Base.open
 
@@ -167,8 +173,5 @@ module Data
 
         return bin_st-20, bin_end+20
     end
-
-
-
 
 end # module
