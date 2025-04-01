@@ -95,6 +95,7 @@ module Data
     Process data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
+        # Base.open
 
         if files === nothing
             # Find all .spCF files in the input directory
@@ -150,7 +151,8 @@ module Data
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
 
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "/NULL"-2dfsd "/NULL"  -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
+        #run(pipeline(`pspec -w -2dfs -lrfs  -onpulsed "/NULL"-2dfsd "/NULL"  -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pspec -w -2dfs -lrfs  -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
