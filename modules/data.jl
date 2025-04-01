@@ -176,15 +176,17 @@ module Data
     
         # Check if the directory exists
         if isdir(pulsar_outdir)
-            println("Directory $pulsar_outdir already exists. Overwriting.")
-            rm(pulsar_outdir, force=true)  # Remove the existing directory
+            println("Directory $pulsar_outdir already exists. Skipping directory creation.")
+        else
+            mkpath(pulsar_outdir)  # Create a new directory if it doesn't exist
+            println("Created new directory: $pulsar_outdir")
         end
-        mkpath(pulsar_outdir)  # Create a new directory
     
         # Run pfold with the calculated P3 value and ybins
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
     
         return bin_st-20, bin_end+20
     end
+    
     
 end # module
