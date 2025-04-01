@@ -980,15 +980,67 @@ module SpaTs
         Plot.lrfs(d, outdir; darkness=0.1, start=1, name_mod="1", bin_st=500, bin_end=530)
 
     end
-    function J0820Mac(outdir)
+   #= function J0820Mac(outdir)
         Data.convert_psrfit_ascii("/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF" , "/home/psr/output/2.txt")
         data = Data.load_ascii("/home/psr/output/2.txt")
+
+
+
         Plot.single(data, outdir, darkness=0.5, bin_st=1 , bin_end=1024, number=nothing, name_mod="J0820Mac", show_=true)
         Plot.lrfs(data, outdir, darkness=0.1, start=1,  bin_st=1, bin_end=1024, name_mod="J0820Mac", change_fftphase=false, show_=true)
         Plot.average(data, outdir, bin_st=1, bin_end=1024, number=nothing, name_mod="J0820Mac", show_=true)
     end
+=#
 
+function J0820Mac(outdir)
+    # Define input and output file paths
+    input_file = "/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF"
+    output_txt = joinpath(outdir, "J0820-1350_converted.txt")
 
+    # Ensure output directory exists
+    if !isdir(outdir)
+        mkpath(outdir)
+        println("Created output directory: ", outdir)
+    end
+
+    # Convert PSRFIT file to ASCII format
+    Data.convert_psrfit_ascii(input_file, output_txt)
+
+    # Debase the converted ASCII file using pmod
+    debased_file = replace(output_txt, ".txt" => ".debase.gg")
+
+    # Perform debasing on the ASCII file
+    run(pipeline(`pmod -device "/xw" -debase $output_txt`))
+
+    # Extract on-pulse range from the debased output
+    output = read(debased_file, String)
+
+    # Extract onpulse values dynamically
+    bin_st, bin_end = 1, 1024  # Default values
+    m = match(r"-onpulse '(\d+) (\d+)'", output)
+    if !isnothing(m)
+        bin_st, bin_end = parse.(Int, m.captures)
+
+        # Ensure onpulse range length is even
+        region_length = bin_end - bin_st + 1
+        if region_length % 2 != 0
+            println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end.")
+            bin_end -= 1
+        end
+        println("Found onpulse range: $bin_st to $bin_end")
+    end
+
+    # Load the ASCII data after conversion
+    data = Data.load_ascii(output_txt)
+    folded = Tools.p3fold(data, 4.81, 24)
+
+    # Plot with dynamically adjusted bin range
+    Plot.single(data, outdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
+    Plot.lrfs(data, outdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod="J0820Mac", change_fftphase=false, show_=true)    
+    Plot.average(data, outdir, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
+    Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="J0820Mac", show_=true, repeat_num=4)
+end
+    #=
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory 
         base_name = basename(base_dir)
@@ -1075,7 +1127,7 @@ module SpaTs
     function J0034Mac(output_dir)
         process_all_catalogues(output_dir, "/home/psr/data/new")
     end
-
+    =#
  
 
     
@@ -1097,8 +1149,8 @@ module SpaTs
         =#
 
         #test(vpmout)
-        #J0820Mac(vpmout)
-        J0034Mac(vpmout)
+        J0820Mac(vpmout)
+        #######J0034Mac(vpmout)
         #mkieth()
         #J1651()
         #J1705()
