@@ -992,6 +992,9 @@ module SpaTs
     end
 =#
 
+
+
+#testing functionality
 function J0820Mac(outdir)
     # Define input and output file paths
     input_file = "/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF"
@@ -1038,8 +1041,14 @@ function J0820Mac(outdir)
     Plot.single(data, outdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
     Plot.lrfs(data, outdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod="J0820Mac", change_fftphase=false, show_=true)    
     Plot.average(data, outdir, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
-    Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="J0820Mac", show_=true, repeat_num=4)
+    #Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="J0820Mac", show_=true, repeat_num=4)
 end
+
+
+
+
+
+
     #=
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory 
