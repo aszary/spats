@@ -124,9 +124,9 @@ module Data
     
         file_names = [joinpath(indir, file) for file in files]
     
-        # Extract pulsar name from the first file
+        # Extract pulsar name from the filename (start after "_" and before the next number before ".spCF")
         first_file = files[1]
-        pulsar_match = match(r"(J\d+\+\d+)", first_file)
+        pulsar_match = match(r"_(\d+)-\d+\.spCF$", first_file)
         if pulsar_match === nothing
             error("Could not determine pulsar name from filename: $first_file")
         end
@@ -182,4 +182,5 @@ module Data
         return bin_st-20, bin_end+20
     end
     
+
 end # module
