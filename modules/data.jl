@@ -2,7 +2,6 @@ module Data
     using Glob
     using FITSIO
     using ProgressMeter
-    using Base.Filesystem
     include("functions.jl")
 
     """
