@@ -179,8 +179,10 @@ module Data
         
         # Check if the directory exists before creating it
         p3fold_outdir = joinpath(pulsar_outdir, "pulsar.debase.p3fold")
+        
         if !isdir(p3fold_outdir)
-            mkpath(p3fold_outdir)  # Ensure directory exists only if it does not exist
+            mkpath(p3fold_outdir)  # Only create if it doesn't exist
+            println("Directory created: $p3fold_outdir")
         else
             println("Directory already exists: $p3fold_outdir")
         end
