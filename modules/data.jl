@@ -5,35 +5,8 @@ module Data
 
     include("functions.jl")
 
-
-    """
-    Function to create the folder
-    """
-    function create_output_directory(outdir::String)
-        if !isdir(outdir)
-            println("Folder $outdir nie istnieje. Tworzę folder...")
-            mkdir(outdir)
-        else
-            println("Folder $outdir już istnieje.")
-        end
-    end
-
-    """
-    Function to move the files to folder
-    """
-    function move_files_to_directory(files::Array{String}, outdir::String)
-        for file in files
-            new_path = joinpath(outdir, basename(file))
-            println("Przenoszę plik $file do $new_path")
-            mv(file, new_path)
-        end
-    end
-    
-
-
     """
     Zero selected pulses
-
     """
     function zap!(data; ranges=nothing)
         pulses, bins = size(data)
@@ -51,7 +24,6 @@ module Data
             end
         end
     end
-
 
     """
     Loads PSRCHIVE ASCII file
@@ -74,8 +46,6 @@ module Data
         return data
     end
 
-
-
     """
     Save PSRCHIVE ASCII file
     """
@@ -95,7 +65,6 @@ module Data
         return
     end
 
-
     """
     Loads data in FITS format
     """
@@ -112,20 +81,34 @@ module Data
     """
     function convert_psrfit_ascii(infile, outfile)
         run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
-        # change -t to -A to get frequancy information
-        #@showprogress 1 for i in 1:pn  # psrchive indexing
-        #end
     end
 
-    
+    # Funkcja tworząca folder, jeśli nie istnieje
+    function create_output_directory(outdir)
+        if !isdir(outdir)
+            println("Tworzenie folderu: $outdir")
+            mkdir(outdir)
+        else
+            println("Folder $outdir już istnieje.")
+        end
+    end
+
+    # Funkcja przenosząca pliki do wskazanego folderu
+    function move_files_to_directory(files, outdir)
+        for file in files
+            dest = joinpath(outdir, basename(file))
+            println("Przenoszę plik $file do folderu $outdir")
+            mv(file, dest)
+        end
+    end
+
     """
     Process data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
-        # Tworzymy folder, jeśli nie istnieje
+        # Tworzymy folder na dane wyjściowe, jeśli nie istnieje
         create_output_directory(outdir)
-    
-        # Base.open
+
         if files === nothing
             # Find all .spCF files in the input directory
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
@@ -141,25 +124,25 @@ module Data
                 return parse(Int, m.captures[1])  # Sort by the starting pulse number
             end
         end)
-        
+    
         if isempty(files)
             error("No .spCF files found in directory: $indir")
         end
-        
+    
         println("Processing files in order:")
         for (i, f) in enumerate(files)
             println("$i. $f")
         end
-        
-        file_names = [joinpath(indir, file) for file in files]
     
+        file_names = [joinpath(indir, file) for file in files]
+
         outfile = joinpath(outdir, outfile)
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
         
         # Przenosimy pliki do odpowiedniego folderu
         move_files_to_directory(file_names, outdir)
-    
+
         # debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
         # Read captured output
@@ -178,12 +161,12 @@ module Data
             end
             println("Found onpulse range: $bin_st to $bin_end")
         end
-    
+
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
-    
+
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
-    
+
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
         # Read captured output
@@ -199,11 +182,9 @@ module Data
         end
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
-    
+
         run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-    
+
         return bin_st-20, bin_end+20
     end
-    
-
 end # module
