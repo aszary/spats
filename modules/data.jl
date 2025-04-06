@@ -174,4 +174,5 @@ module Data
         return bin_st-20, bin_end+20
     end
 
+    #komentarz
 end # module
