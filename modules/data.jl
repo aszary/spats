@@ -84,16 +84,6 @@ module Data
     """
     Converts PSRFIT file to ASCII (using PSRCHIVE tools)
     """
-    function convert_psrfit_ascii(infile, outfile)
-        run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
-        # change -t to -A to get frequancy information
-        #@showprogress 1 for i in 1:pn  # psrchive indexing
-        #end
-    end
-
-    """
-    Process data with PSRCHIVE and PSRSALSA
-    """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
         # Check if the output directory exists, if not, create it
         if !isdir(outdir)
@@ -127,15 +117,27 @@ module Data
             println("$i. $f")
         end
         
-        file_names = [joinpath(indir, file) for file in files]
+        # Define a unique output folder based on the pulsar and create it
+        pulsar_name = "pulsar_output"  # You can change this to use a specific pulsar identifier if needed
+        pulsar_folder = joinpath(outdir, pulsar_name)
         
-        # Define the output file path
-        outfile = joinpath(outdir, outfile)
+        if !isdir(pulsar_folder)
+            println("Creating unique folder for pulsar: $pulsar_folder")
+            mkpath(pulsar_folder)
+        else
+            println("Directory for pulsar $pulsar_name already exists. Skipping...")
+            return  # Skip further processing if the directory already exists
+        end
+        
+        # Define the output file path inside the pulsar folder
+        outfile = joinpath(pulsar_folder, outfile)
+        
+        file_names = [joinpath(indir, file) for file in files]
     
-        # Connect all files
+        # Connect all files into the output file
         println("Running psradd to combine files into $outfile...")
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))  # PSRCHIVE
-        
+    
         # Debase the data
         println("Running pmod to debase the data...")
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
@@ -159,7 +161,7 @@ module Data
         end
         
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
-    
+        
         # Calculate 2dfs and lrfs
         println("Running pspec to calculate 2dfs and lrfs...")
         run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr="errs.txt"))
@@ -190,6 +192,7 @@ module Data
         
         return bin_st - 20, bin_end + 20
     end
+    
     
     
 
