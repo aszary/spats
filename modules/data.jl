@@ -94,37 +94,31 @@ module Data
     """
     Process data with PSRCHIVE and PSRSALSA
     """
-    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
-        # Wyciągnięcie nazwy pulsara ze ścieżki (np. J1919+0134)
+    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing, force=false)
+        # Wyciągnięcie nazwy pulsara z katalogu wejściowego
         m = match(r"/([Jj]\d{4}[+-]\d{4})/", indir)
         if isnothing(m)
             error("Nie udało się znaleźć nazwy pulsara w ścieżce: $indir")
         end
         pulsar_name = m.captures[1]
     
-        # Tworzenie nowego podfolderu i nadpisanie outdir
+        # Utwórz folder docelowy z nazwą pulsara
         outdir = joinpath(outdir, pulsar_name)
-        if isdir(outdir)
+        if isdir(outdir) && !force
             println("Folder $outdir już istnieje — pomijam przetwarzanie.")
-            return
-        else
-            mkpath(outdir)
-            println("Utworzono folder: $outdir")
+            return missing, missing
         end
-    
+        mkpath(outdir)
+        println("Utworzono folder: $outdir")
     
         if files === nothing
-            # Find all .spCF files in the input directory
+            # Znajdź wszystkie pliki .spCF w katalogu wejściowym
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
     
         sort!(files, by = f -> begin
             m = match(r"_(\d+)-(\d+)\.spCF$", f)
-            if isnothing(m)
-                return typemax(Int)
-            else
-                return parse(Int, m.captures[1])
-            end
+            isnothing(m) ? typemax(Int) : parse(Int, m.captures[1])
         end)
     
         if isempty(files)
@@ -137,15 +131,12 @@ module Data
         end
     
         file_names = [joinpath(indir, file) for file in files]
+        outfile = joinpath(outdir, outfile)
     
-        # Przeniesienie wyników do podfolderu
-        outfile = joinpath(pulsar_outdir, outfile)
-    
-        run(pipeline(`psradd $file_names -o $outfile`, stderr=joinpath(pulsar_outdir, "errs.txt")))
-    
-        run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee $(joinpath(pulsar_outdir, "pmod_output.txt"))`))
-        output = read(joinpath(pulsar_outdir, "pmod_output.txt"), String)
-        rm(joinpath(pulsar_outdir, "pmod_output.txt"))
+        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))
+        run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+        output = read("pmod_output.txt", String)
+        rm("pmod_output.txt")
     
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
@@ -161,11 +152,11 @@ module Data
     
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
     
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr=joinpath(pulsar_outdir, "errs.txt")))
+        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
     
-        run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee $(joinpath(pulsar_outdir, "pspecDetect_output.txt"))`))
-        output = read(joinpath(pulsar_outdir, "pspecDetect_output.txt"), String)
-        rm(joinpath(pulsar_outdir, "pspecDetect_output.txt"))
+        run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
+        output = read("pspecDetect_output.txt", String)
+        rm("pspecDetect_output.txt")
     
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
@@ -178,7 +169,7 @@ module Data
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
     
-        run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr=joinpath(pulsar_outdir, "errs.txt")))
+        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
     
         return bin_st - 20, bin_end + 20
     end
