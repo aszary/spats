@@ -101,7 +101,7 @@ module Data
             # Find all .spCF files in the input directory
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
-        
+    
         # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
         sort!(files, by = f -> begin
             # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
