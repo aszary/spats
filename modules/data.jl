@@ -102,15 +102,16 @@ module Data
         end
         pulsar_name = m.captures[1]
     
-        # Tworzenie nowego podfolderu w outdir
-        pulsar_outdir = joinpath(outdir, pulsar_name)
-        if isdir(pulsar_outdir)
-            println("Folder $pulsar_outdir już istnieje — pomijam przetwarzanie.")
+        # Tworzenie nowego podfolderu i nadpisanie outdir
+        outdir = joinpath(outdir, pulsar_name)
+        if isdir(outdir)
+            println("Folder $outdir już istnieje — pomijam przetwarzanie.")
             return
         else
-            mkpath(pulsar_outdir)
-            println("Utworzono folder: $pulsar_outdir")
+            mkpath(outdir)
+            println("Utworzono folder: $outdir")
         end
+    
     
         if files === nothing
             # Find all .spCF files in the input directory
