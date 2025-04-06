@@ -169,10 +169,18 @@ module Data
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
     
+        # Sprawdzenie, czy plik p3fold istnieje przed jego otwarciem
+        p3fold_file = joinpath(outdir, "pulsar.debase.p3fold")
+        if !isfile(p3fold_file)
+            println("Plik p3fold nie istnieje: $p3fold_file")
+            return nothing, nothing  # Zwracamy nothing, aby uniknąć dalszego błędu
+        end
+    
         run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
     
         return bin_st - 20, bin_end + 20
     end
+    
     
 
 end # module
