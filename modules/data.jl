@@ -5,6 +5,32 @@ module Data
 
     include("functions.jl")
 
+
+    """
+    Function to create the folder
+    """
+    function create_output_directory(outdir::String)
+        if !isdir(outdir)
+            println("Folder $outdir nie istnieje. Tworzę folder...")
+            mkdir(outdir)
+        else
+            println("Folder $outdir już istnieje.")
+        end
+    end
+
+    """
+    Function to move the files to folder
+    """
+    function move_files_to_directory(files::Array{String}, outdir::String)
+        for file in files
+            new_path = joinpath(outdir, basename(file))
+            println("Przenoszę plik $file do $new_path")
+            mv(file, new_path)
+        end
+    end
+    
+
+
     """
     Zero selected pulses
 
@@ -96,16 +122,9 @@ module Data
     Process data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
-        # Extract pulsar name from the input directory (e.g., "J1919+0134" from "/home/psr/data/new/J1919+0134/")
-        pulsar_name = basename(dirname(indir))
-
-        # Check if the pulsar directory exists in the output directory, create it if not
-        pulsar_folder = joinpath(outdir, pulsar_name)
-        if !isdir(pulsar_folder)
-            println("Directory for pulsar $pulsar_name does not exist. Creating directory...")
-            mkpath(pulsar_folder)  # Create pulsar-specific directory
-        end
-        
+        # Tworzymy folder, jeśli nie istnieje
+        create_output_directory(outdir)
+    
         # Base.open
         if files === nothing
             # Find all .spCF files in the input directory
@@ -122,31 +141,30 @@ module Data
                 return parse(Int, m.captures[1])  # Sort by the starting pulse number
             end
         end)
-
+        
         if isempty(files)
             error("No .spCF files found in directory: $indir")
         end
-
+        
         println("Processing files in order:")
         for (i, f) in enumerate(files)
             println("$i. $f")
         end
-
+        
         file_names = [joinpath(indir, file) for file in files]
-
-        # Modify the outfile to be inside the pulsar-specific folder
-        outfile = joinpath(pulsar_folder, outfile)
-
+    
+        outfile = joinpath(outdir, outfile)
         # connecting all files
-        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))  # PSRCHIVE
-
+        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
+        
+        # Przenosimy pliki do odpowiedniego folderu
+        move_files_to_directory(file_names, outdir)
+    
         # debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
-
         # Read captured output
         output = read("pmod_output.txt", String)
         rm("pmod_output.txt")  # cleanup
-
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
@@ -160,19 +178,17 @@ module Data
             end
             println("Found onpulse range: $bin_st to $bin_end")
         end
-
+    
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
-
+    
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`, stderr="errs.txt"))
-
+        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
+    
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
-
         # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # cleanup
-
         # Extract P3 value from the last occurrence
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
@@ -183,11 +199,11 @@ module Data
         end
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
-
-        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
-
+    
+        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
+    
         return bin_st-20, bin_end+20
     end
-
+    
 
 end # module
