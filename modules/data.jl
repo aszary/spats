@@ -83,32 +83,17 @@ module Data
         run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
     end
 
-    # Funkcja tworząca folder, jeśli nie istnieje
-    function create_output_directory(outdir)
-        if !isdir(outdir)
-            println("Tworzenie folderu: $outdir")
-            mkdir(outdir)
-        else
-            println("Folder $outdir już istnieje.")
-        end
-    end
-
-    # Funkcja przenosząca pliki do wskazanego folderu
-    function move_files_to_directory(files, outdir)
-        for file in files
-            dest = joinpath(outdir, basename(file))
-            println("Przenoszę plik $file do folderu $outdir")
-            mv(file, dest)
-        end
+    # Funkcja tworząca plik wynikowy z nazwą pulsara
+    function create_output_file(outdir, pulsar_name)
+        outfile = joinpath(outdir, "$pulsar_name.spCF")
+        println("Plik wynikowy zostanie zapisany jako: $outfile")
+        return outfile
     end
 
     """
     Process data with PSRCHIVE and PSRSALSA
     """
-    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
-        # Tworzymy folder na dane wyjściowe, jeśli nie istnieje
-        create_output_directory(outdir)
-
+    function process_psrdata(indir, outdir; files=nothing)
         if files === nothing
             # Find all .spCF files in the input directory
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
@@ -136,13 +121,13 @@ module Data
     
         file_names = [joinpath(indir, file) for file in files]
 
-        outfile = joinpath(outdir, outfile)
+        # Zakładamy, że nazwa pulsara pochodzi z nazwy pliku lub innego źródła
+        pulsar_name = "Pulsar_X"  # To może być dynamicznie ustalane na podstawie pliku lub innych danych
+        outfile = create_output_file(outdir, pulsar_name)
+
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
         
-        # Przenosimy pliki do odpowiedniego folderu
-        move_files_to_directory(file_names, outdir)
-
         # debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
         # Read captured output
