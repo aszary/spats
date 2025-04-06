@@ -26,6 +26,7 @@ module Data
         end
     end
 
+
     """
     Loads PSRCHIVE ASCII file
     """
@@ -36,7 +37,7 @@ module Data
         pulses = parse(Int, res[6])
         bins = parse(Int, res[12])
         data = Array{Float64}(undef, pulses, bins)
-        for i in 2:length(lines)
+        for i in 2: length(lines)
             res = split(lines[i])
             bin = parse(Int, res[3]) + 1
             pulse = parse(Int, res[1]) + 1
@@ -46,6 +47,7 @@ module Data
         close(f)
         return data
     end
+
 
     """
     Save PSRCHIVE ASCII file
@@ -66,6 +68,7 @@ module Data
         return
     end
 
+
     """
     Loads data in FITS format
     """
@@ -82,29 +85,32 @@ module Data
     """
     function convert_psrfit_ascii(infile, outfile)
         run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
+        # change -t to -A to get frequancy information
+        #@showprogress 1 for i in 1:pn  # psrchive indexing
+        #end
     end
 
     """
     Process data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
-        # Create a new folder in outdir with the current timestamp
+        # Tworzenie nowego folderu w outdir z datą i godziną
         timestamp = Dates.format(Dates.now(), "yyyy-mm-dd_HH-MM-SS")
         new_outdir = joinpath(outdir, "output_$timestamp")
-        mkpath(new_outdir)  # Create the new directory
+        mkpath(new_outdir)  # Tworzenie folderu
 
         if files === nothing
-            # Find all .spCF files in the input directory
+            # Znajdź wszystkie pliki .spCF w katalogu wejściowym
             files = filter(f -> endswith(f, ".spCF"), readdir(indir))
         end
         
-        # Sort files based on pulse numbers
+        # Sortowanie plików na podstawie numerów impulsów
         sort!(files, by = f -> begin
             m = match(r"_(\d+)-(\d+)\.spCF$", f)
             if isnothing(m)
-                return typemax(Int)
+                return typemax(Int)  # Pliki, które nie pasują do formatu, idą na koniec
             else
-                return parse(Int, m.captures[1])
+                return parse(Int, m.captures[1])  # Sortowanie po numerze początkowego impulsu
             end
         end)
     
@@ -119,20 +125,20 @@ module Data
     
         file_names = [joinpath(indir, file) for file in files]
 
-        outfile = joinpath(new_outdir, outfile)  # Output to the new folder
-        # Connecting all files
-        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))  # PSRCHIVE
-        
-        # Debase the data
+        outfile = joinpath(new_outdir, outfile)  # Wskazujemy nowy folder
+
+        # Łączenie wszystkich plików
+        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt"))
+
+        # Debasing danych
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
-        # Read captured output
         output = read("pmod_output.txt", String)
         rm("pmod_output.txt")  # Cleanup
+
         # Extract onpulse values
         m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
-            # Check if onpulse region length is even
             region_length = bin_end - bin_st + 1
             if region_length % 2 != 0
                 println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
@@ -149,10 +155,9 @@ module Data
 
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
-        # Read captured output
         output = read("pspecDetect_output.txt", String)
         rm("pspecDetect_output.txt")  # Cleanup
-        # Extract P3 value from the last occurrence
+
         p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
         if !isempty(p3_matches)
             last_match = p3_matches[end]
@@ -165,7 +170,15 @@ module Data
 
         run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
 
+        # Przenoszenie plików do nowo utworzonego folderu
+        for file in readdir(outdir)
+            if !isdir(joinpath(outdir, file))  # Upewnij się, że to plik, a nie folder
+                mv(joinpath(outdir, file), new_outdir)  # Przenieś pliki do nowego folderu
+            end
+        end
+
         return bin_st - 20, bin_end + 20
     end
 
 end  # module
+
