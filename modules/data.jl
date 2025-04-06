@@ -84,6 +84,16 @@ module Data
     """
     Converts PSRFIT file to ASCII (using PSRCHIVE tools)
     """
+    function convert_psrfit_ascii(infile, outfile)
+        run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
+        # change -t to -A to get frequancy information
+        #@showprogress 1 for i in 1:pn  # psrchive indexing
+        #end
+    end
+
+    """
+    Process data with PSRCHIVE and PSRSALSA
+    """
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
         # Check if the output directory exists, if not, create it
         if !isdir(outdir)
@@ -192,7 +202,6 @@ module Data
         
         return bin_st - 20, bin_end + 20
     end
-    
     
     
 
