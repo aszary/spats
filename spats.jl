@@ -1004,8 +1004,8 @@ module SpaTs
 
 
 function J0820Mac(outdir)
-    params_file = "params1.json"
-    output_txt = joinpath(outdir, "test2.txt")
+    params_file = "params.json"
+    output_txt = joinpath(outdir, "test.txt")
     debased_file = replace(output_txt, ".txt" => ".debase.gg")
 
     # === Load or initialize JSON parameter library ===
@@ -1024,7 +1024,7 @@ function J0820Mac(outdir)
     end
 
     # === Convert PSRFIT file to ASCII format ===
-    input_file = "/home/psr/data/new/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF"
+    input_file = "/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/2020-01-11-01:05:56_00768-01055.spCF"
     if !isfile(output_txt)
         println("Converting PSRFIT to ASCII...")
         Data.convert_psrfit_ascii(input_file, output_txt)
