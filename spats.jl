@@ -1024,7 +1024,7 @@ function J0820Mac(outdir)
     end
 
     # === Convert PSRFIT file to ASCII format ===
-    input_file = "/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/2020-01-11-01:05:56_00000-00255.spCF"
+    input_file = "/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/2020-01-11-01:05:56_00768-01055.spCF"
     if !isfile(output_txt)
         println("Converting PSRFIT to ASCII...")
         Data.convert_psrfit_ascii(input_file, output_txt)
