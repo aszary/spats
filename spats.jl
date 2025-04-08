@@ -994,6 +994,14 @@ module SpaTs
 
 
 
+
+
+
+
+
+
+
+
 #testing functionality
 function J0820Mac(outdir)
     # Define input and output file paths
@@ -1024,14 +1032,16 @@ output = read(debased_file, String)
 
 
 
-# ✅ Check if bin range file exists
+#  Check if bin range file exists
 if isfile(bin_range_file)
     println("Using existing bin range from: $bin_range_file")
     bin_values = readlines(bin_range_file)
     if length(bin_values) > 0
         bin_st, bin_end = parse.(Int, split(bin_values[1]))
     end
+
 else
+
     # Extract onpulse range from the new processing
     output = read(debased_file, String)
     m = match(r"-onpulse '(\d+) (\d+)'", output)
@@ -1042,7 +1052,7 @@ else
         end
         println("Found onpulse range: $bin_st to $bin_end")
 
-        # ✅ Save bin start/end values to file (only if new calculation is made)
+        #  Save bin start/end values to file (only if new calculation is made)
         open(bin_range_file, "w") do f
             write(f, "$bin_st $bin_end\n")
         end
@@ -1085,6 +1095,15 @@ end
     
         # Step 5: Find .spCF files
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
+        sort!(spcf_files, by = f -> begin
+            # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
+            m = match(r"_(\d+)-(\d+)\.spCF$", f)
+            if isnothing(m)
+                return typemax(Int)  # Files without proper format go to the end
+            else
+                return parse(Int, m.captures[1])  # Sort by the starting pulse number
+            end
+        end)
         converted_txt_files = String[]
 
         #step 6: combining .spCF into one 
