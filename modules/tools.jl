@@ -9,6 +9,7 @@ module Tools
     using StatsBase
     using CubicSplines
     using Trapz
+    using JSON
 
     using PyPlot
     using DSP
@@ -2089,6 +2090,33 @@ module Tools
         end
     
         return folded_
+    end
+
+    """
+    Read parameters used in the analysis from a JSON file
+    """
+    function read_params(filename="params.json")
+        f = open(filename, "r")
+        params = JSON.parse(f)
+        close(f)
+        return params
+    end
+
+    """
+    Write default parameters to a JSON file
+    """
+    function default_params(filename="params_default.json")
+        p = Dict(
+            "nfft" => 256,
+            "bin_st" => 1,
+            "bin_end" => 1024,
+            "pulse_start" => 1,
+            "pulse_end" => nothing
+        )
+        f = open(filename, "w")
+        JSON.print(f, p)
+        close(f)
+        return p
     end
 
 end  # module Tools

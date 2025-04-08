@@ -92,10 +92,10 @@ module Data
     end
 
     """
-    Process data with PSRCHIVE and PSRSALSA
+    Uses PSRCHIVE to add spCF files 
+
     """
-    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing)
-        # Base.open
+    function add_psrfiles(indir, outdir, p; outfile="pulsar.spCF", files=nothing)
 
         if files === nothing
             # Find all .spCF files in the input directory
@@ -127,7 +127,25 @@ module Data
         outfile = joinpath(outdir, outfile)
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
-        
+
+    end
+
+    """
+    Process data with PSRCHIVE and PSRSALSA
+    """
+    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing, params_file="params.json")
+
+        # check if params_file exists if not creating default one
+        if !isfile(params_file)
+            println("File $params_file does not exist, creating default one.")
+            p = Tools.default_params(filename=params_file)
+        else
+            p = Tools.read_params(params_file)
+        end
+
+
+        # add all .spCF files and get number of pulses
+        add_psrfiles(indir, outdir, p; outfile=outfile, files=files)
 
         # debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
@@ -151,7 +169,7 @@ module Data
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
 
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft 256 -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
 
         # Find P3
         run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
