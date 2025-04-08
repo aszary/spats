@@ -92,8 +92,7 @@ module Data
     end
 
     """
-    Uses PSRCHIVE to add spCF files 
-
+    Uses PSRCHIVE to add .spCF files 
     """
     function add_psrfiles(indir, outdir, p; outfile="pulsar.spCF", files=nothing)
 
@@ -137,12 +136,15 @@ module Data
     function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing, params_file="params.json")
 
         # check if params_file exists if not creating default one
+        params_file = joinpath(outdir, params_file)
         if !isfile(params_file)
             println("File $params_file does not exist, creating default one.")
             p = Tools.default_params(filename=params_file)
         else
             p = Tools.read_params(params_file)
         end
+
+        return
 
 
         # add all .spCF files and get number of pulses
