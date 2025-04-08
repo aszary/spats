@@ -1005,8 +1005,7 @@ module SpaTs
 #testing functionality
 function J0820Mac(outdir)
     # Define input and output file paths
-    input_file = "/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF"
-    output_txt = joinpath(outdir, "J0820-1350_converted.txt")
+    #input_file = "/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF"
     bin_range_file = joinpath(outdir, "onpulse_range.txt")  # File storing bin start/end
 
 
@@ -1017,8 +1016,13 @@ function J0820Mac(outdir)
         println("Created output directory: ", outdir)
     end
 
+
+    output_txt = joinpath(outdir, "J0820-1350_converted.txt")
     # Convert PSRFIT file to ASCII format
-    Data.convert_psrfit_ascii(input_file, output_txt)
+
+    Data.convert_psrfit_ascii("/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF" , output_txt)
+    data = Data.load_ascii(output_txt)
+    #Data.convert_psrfit_ascii(input_file, output_txt)
 
     # Debase the converted ASCII file using pmod
     debased_file = replace(output_txt, ".txt" => ".debase.gg")
@@ -1028,7 +1032,7 @@ function J0820Mac(outdir)
 
 
 # Extract on-pulse range from the debased output
-output = read(debased_file, String)
+    output = read(debased_file, String)
 
 
 
