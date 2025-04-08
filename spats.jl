@@ -1020,9 +1020,7 @@ function J0820Mac(outdir)
     output_txt = joinpath(outdir, "J0820-1350_converted.txt")
     # Convert PSRFIT file to ASCII format
 
-    #Data.convert_psrfit_ascii("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF" , output_txt)
     Data.convert_psrfit_ascii("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/2020-01-11-01:05:56_00000-00255.spCF" , output_txt)
-    println(output_txt)
     data = Data.load_ascii(output_txt)
     #Data.convert_psrfit_ascii(input_file, output_txt)
 
@@ -1030,11 +1028,13 @@ function J0820Mac(outdir)
     debased_file = replace(output_txt, ".txt" => ".debase.gg")
 
     # Perform debasing on the ASCII file
-    run(pipeline(`pmod -device "/xw" -debase $output_txt`))
+    run(pipeline(`pmod -device "/xw" -debase $output_txt`, `tee pmod_output.txt`))
 
 
-# Extract on-pulse range from the debased output
+    # TODO do poprawy, przeczytać pmod_output.txt
+    # Extract on-pulse range from the debased output
     output = read(debased_file, String)
+
 
 
 
@@ -1049,7 +1049,6 @@ if isfile(bin_range_file)
 else
 
     # Extract onpulse range from the new processing
-    output = read(debased_file, String)
     m = match(r"-onpulse '(\d+) (\d+)'", output)
     if !isnothing(m)
         bin_st, bin_end = parse.(Int, m.captures)
