@@ -1006,8 +1006,12 @@ module SpaTs
 function J0820Mac(outdir)
     # Define input and output file paths
     #input_file = "/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF"
+    # TODO użyj JSON, czytanie do słownika d
+    # d = JSON.parsefile("params.json")
     bin_range_file = joinpath(outdir, "onpulse_range.txt")  # File storing bin start/end
 
+    d["number"] = 150
+    d["pulse_start"] = 1
 
 
     # Ensure output directory exists
@@ -1034,7 +1038,6 @@ function J0820Mac(outdir)
     # TODO do poprawy, przeczytać pmod_output.txt
     # Extract on-pulse range from the debased output
     output = read(debased_file, String)
-
 
 
 
@@ -1071,8 +1074,9 @@ end
     #folded = Tools.p3fold(data, 4.81, 24)
 
     # Plot with dynamically adjusted bin range
-    Plot.single(data, outdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
-    Plot.lrfs(data, outdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod="J0820Mac", change_fftphase=false, show_=true)    
+    # TODO zakres pulsów do rysowania (pobrany z JSON)
+    Plot.single(data, outdir, darkness=0.5, bin_st=d["bin_st", bin_end=d["bin_end"], start=d["pulse_start"], number=d["number"], name_mod="J0820Mac", show_=true)
+    Plot.lrfs(data, outdir, darkness=0.1, start=d["pulse_start"], bin_st=bin_st, bin_end=bin_end, name_mod="J0820Mac", change_fftphase=false, show_=true)    
     Plot.average(data, outdir, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
     #Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="J0820Mac", show_=true, repeat_num=4)
 end
