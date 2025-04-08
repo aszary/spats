@@ -1012,6 +1012,8 @@ function J0820Mac(outdir)
 
     d["number"] = 150
     d["pulse_start"] = 1
+    d["bin_st"]=1
+    d["bin_end"]=1024
 
 
     # Ensure output directory exists
@@ -1075,7 +1077,7 @@ end
 
     # Plot with dynamically adjusted bin range
     # TODO zakres pulsów do rysowania (pobrany z JSON)
-    Plot.single(data, outdir, darkness=0.5, bin_st=d["bin_st", bin_end=d["bin_end"], start=d["pulse_start"], number=d["number"], name_mod="J0820Mac", show_=true)
+    Plot.single(data, outdir, darkness=0.5, bin_st=d["bin_st"], bin_end=d["bin_end"], start=d["pulse_start"], number=d["number"], name_mod="J0820Mac", show_=true)
     Plot.lrfs(data, outdir, darkness=0.1, start=d["pulse_start"], bin_st=bin_st, bin_end=bin_end, name_mod="J0820Mac", change_fftphase=false, show_=true)    
     Plot.average(data, outdir, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
     #Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="J0820Mac", show_=true, repeat_num=4)
