@@ -996,92 +996,100 @@ module SpaTs
 
 
 
-
-
-
-
-
-
-#testing functionality
-function J0820Mac(outdir)
-    # Define input and output file paths
-    #input_file = "/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF"
     # TODO użyj JSON, czytanie do słownika d
-    # d = JSON.parsefile("params.json")
-    bin_range_file = joinpath(outdir, "onpulse_range.txt")  # File storing bin start/end
-
-    d["number"] = 150
-    d["pulse_start"] = 1
-    d["bin_st"]=1
-    d["bin_end"]=1024
+    # TODO do poprawy, przeczytać pmod_output.txt
+    # TODO zakres pulsów do rysowania (pobrany z JSON)
+   
 
 
-    # Ensure output directory exists
+
+function J0820Mac(outdir)
+    params_file = "params.json"
+    output_txt = joinpath(outdir, "J0820-1350_converted.txt")
+    debased_file = replace(output_txt, ".txt" => ".debase.gg")
+
+    # === Load or initialize JSON parameter library ===
+    p = isfile(params_file) ? JSON.parsefile(params_file) : Dict()
+    if !haskey(p, "number")
+        p["number"] = 150
+        p["pulse_start"] = 1
+        p["bin_st"] = 1
+        p["bin_end"] = 1024
+    end
+
+    # === Ensure output directory exists ===
     if !isdir(outdir)
         mkpath(outdir)
         println("Created output directory: ", outdir)
     end
 
+    # === Convert PSRFIT file to ASCII format ===
+    input_file = "/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/2020-01-11-01:05:56_00000-00255.spCF"
+    if !isfile(output_txt)
+        println("Converting PSRFIT to ASCII...")
+        Data.convert_psrfit_ascii(input_file, output_txt)
+    else
+        println("Found existing ASCII file.")
+    end
 
-    output_txt = joinpath(outdir, "J0820-1350_converted.txt")
-    # Convert PSRFIT file to ASCII format
+    # === Debase the data using pmod ===
+    if !isfile(debased_file)
+        println("Running pmod to debase...")
+        run(pipeline(`pmod -device "/xw" -debase $output_txt`, `tee pmod_output.txt`))
 
-    Data.convert_psrfit_ascii("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/2020-01-11-01:05:56_00000-00255.spCF" , output_txt)
+        # Read the captured output from pmod
+        output = read("pmod_output.txt", String)
+        rm("pmod_output.txt")  # Cleanup the log file
+
+        # Extract onpulse range from the output
+        m = match(r"-onpulse '(\d+) (\d+)'", output)
+        if !isnothing(m)
+            bin_st, bin_end = parse.(Int, m.captures)
+            # Ensure the onpulse region length is even
+            region_length = bin_end - bin_st + 1
+            if region_length % 2 != 0
+                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                bin_end -= 1
+                println("Adjusted onpulse range: $bin_st to $bin_end")
+            end
+            println("Found onpulse range: $bin_st to $bin_end")
+            p["bin_st"] = bin_st
+            p["bin_end"] = bin_end
+        end
+    else
+        println("Using existing debased file.")
+    end
+
+    # === Save updated params back to JSON ===
+    open(params_file, "w") do f
+        write(f, JSON.json(p, 4))  # Pretty format
+    end
+    println("Saved updated parameters to $params_file")
+
+    # === Load data and plot ===
     data = Data.load_ascii(output_txt)
-    #Data.convert_psrfit_ascii(input_file, output_txt)
 
-    # Debase the converted ASCII file using pmod
-    debased_file = replace(output_txt, ".txt" => ".debase.gg")
-
-    # Perform debasing on the ASCII file
-    run(pipeline(`pmod -device "/xw" -debase $output_txt`, `tee pmod_output.txt`))
-
-
-    # TODO do poprawy, przeczytać pmod_output.txt
-    # Extract on-pulse range from the debased output
-    output = read(debased_file, String)
-
-
-
-#  Check if bin range file exists
-if isfile(bin_range_file)
-    println("Using existing bin range from: $bin_range_file")
-    bin_values = readlines(bin_range_file)
-    if length(bin_values) > 0
-        bin_st, bin_end = parse.(Int, split(bin_values[1]))
-    end
-
-else
-
-    # Extract onpulse range from the new processing
-    m = match(r"-onpulse '(\d+) (\d+)'", output)
-    if !isnothing(m)
-        bin_st, bin_end = parse.(Int, m.captures)
-        if (bin_end - bin_st + 1) % 2 != 0
-            bin_end -= 1
-        end
-        println("Found onpulse range: $bin_st to $bin_end")
-
-        #  Save bin start/end values to file (only if new calculation is made)
-        open(bin_range_file, "w") do f
-            write(f, "$bin_st $bin_end\n")
-        end
-        println("Saved new on-pulse range to $bin_range_file")
-    end
+    Plot.single(data, outdir;darkness=0.5,bin_st=p["bin_st"],bin_end=p["bin_end"],start=p["pulse_start"],number=p["number"],name_mod="J0820Mac",show_=true)
+    Plot.lrfs(data, outdir;darkness=0.1,start=p["pulse_start"],bin_st=p["bin_st"],bin_end=p["bin_end"],name_mod="J0820Mac",change_fftphase=false,show_=true)
+    Plot.average(data, outdir;bin_st=p["bin_st"],bin_end=p["bin_end"],number=nothing,name_mod="J0820Mac",show_=true)
 end
 
 
-    # Load the ASCII data after conversion
-    data = Data.load_ascii(output_txt)
-    #folded = Tools.p3fold(data, 4.81, 24)
 
-    # Plot with dynamically adjusted bin range
-    # TODO zakres pulsów do rysowania (pobrany z JSON)
-    Plot.single(data, outdir, darkness=0.5, bin_st=d["bin_st"], bin_end=d["bin_end"], start=d["pulse_start"], number=d["number"], name_mod="J0820Mac", show_=true)
-    Plot.lrfs(data, outdir, darkness=0.1, start=d["pulse_start"], bin_st=bin_st, bin_end=bin_end, name_mod="J0820Mac", change_fftphase=false, show_=true)    
-    Plot.average(data, outdir, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod="J0820Mac", show_=true)
-    #Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="J0820Mac", show_=true, repeat_num=4)
-end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
