@@ -1021,6 +1021,7 @@ function J0820Mac(outdir)
     # Convert PSRFIT file to ASCII format
 
     Data.convert_psrfit_ascii("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF" , output_txt)
+    println(output_txt)
     data = Data.load_ascii(output_txt)
     #Data.convert_psrfit_ascii(input_file, output_txt)
 
