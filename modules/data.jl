@@ -125,6 +125,7 @@ module Data
         file_names = [joinpath(indir, file) for file in files]
 
         outfile = joinpath(outdir, outfile)
+
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
 
