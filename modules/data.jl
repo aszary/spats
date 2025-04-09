@@ -96,7 +96,7 @@ module Data
     """
     Uses PSRCHIVE to add .spCF files 
     """
-    function add_psrfiles(indir, outdir, p; outfile="pulsar.spCF", files=nothing)
+    function add_psrfiles(indir, outdir, params; outfile="pulsar.spCF", files=nothing)
 
         if files === nothing
             # Find all .spCF files in the input directory
@@ -133,8 +133,8 @@ module Data
         # gets number of pulses
         outstr = read(pipeline(`psrstat -c nsubint $outfile`, stderr="errs.txt"), String)
         nsubint = parse(Int, split(outstr, "=")[2])
-        p["nsubint"] = nsubint
-        p["pulse_end"] = nsubint
+        params["nsubint"] = nsubint
+        params["pulse_end"] = nsubint
 
     end
 
@@ -154,9 +154,10 @@ module Data
 
         # add all .spCF files and get number of pulses
         add_psrfiles(indir, outdir, p; outfile=outfile, files=files)
-
+        println("$outfile created with $(p["nsubint"]) pulses.")
         # debase the data
         run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+
         # Read captured output
         output = read("pmod_output.txt", String)
         rm("pmod_output.txt")  # cleanup
