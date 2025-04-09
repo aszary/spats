@@ -2123,8 +2123,8 @@ module Tools
             "pulse_start" => 1,
             "pulse_end" => nothing,
             "nsubint" => nothing,
-            "p3" => 3.2,
-            "p3_error" => nothing,
+            "p3" => -1.0,
+            "p3_error" => -1.0,
             "p3_ybins" => nothing
         )
         f = open(filename, "w")
