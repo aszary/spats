@@ -1005,7 +1005,7 @@ module SpaTs
 
 function J0820Mac(outdir)
     params_file = "params.json"
-    output_txt = joinpath(outdir, "test.txt")
+    output_txt = joinpath(outdir, "J0924-5814.txt")
     debased_file = replace(output_txt, ".txt" => ".debase.gg")
 
     # === Load or initialize JSON parameter library ===
