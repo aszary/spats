@@ -1039,7 +1039,7 @@ function J0820Mac(outdir)
 
         # Read the captured output from pmod
         output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")  # Cleanup the log file
+       # Cleanup the log file
 
         # Extract onpulse range from the output
         m = match(r"-onpulse '(\d+) (\d+)'", output)
