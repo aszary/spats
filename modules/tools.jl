@@ -2118,6 +2118,7 @@ module Tools
     function default_params(filename)
         p = Dict(
             "nfft" => 256,
+            "_nfft" => "Set size of fft's [default=256]",
             "bin_st" => 1,
             "bin_end" => 1024,
             "pulse_start" => 1,
