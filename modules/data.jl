@@ -135,6 +135,16 @@ module Data
     end
 
 
+    function get_nsubint(outfile, params_file, params)
+        # gets number of single pulses
+        outstr = read(pipeline(`psrstat -c nsubint $outfile`, stderr="errs.txt"), String)
+        nsubint = parse(Int, split(outstr, "=")[2])
+        params["nsubint"] = nsubint
+        println("Number of subintervals: $nsubint")
+        Tools.save_params(params_file, params)
+    end
+    
+
     """
     Process data with PSRCHIVE and PSRSALSA
     """
@@ -155,12 +165,10 @@ module Data
         # add all .spCF files 
         add_psrfiles(indir, outfile; files=files)
 
-        # gets number of single pulses
-        outstr = read(pipeline(`psrstat -c nsubint $outfile`, stderr="errs.txt"), String)
-        nsubint = parse(Int, split(outstr, "=")[2])
-        p["nsubint"] = nsubint
-        p["pulse_end"] = nsubint
-        Tools.save_params(params_file, p)
+        # gets number of single pulses if needed
+        if isnothing(p["nsubint"])
+            get_nsubint(outfile, params_file, p)
+        end
 
         # debase the data
         run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
