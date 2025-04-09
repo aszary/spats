@@ -92,6 +92,7 @@ module Data
         #end
     end
 
+
     """
     Uses PSRCHIVE to add .spCF files 
     """
@@ -129,6 +130,12 @@ module Data
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
 
+        # gets number of pulses
+        outstr = read(pipeline(`psrstat -c nsubint $outfile`, stderr="errs.txt"), String)
+        nsubint = parse(Int, split(outstr, "=")[2])
+        p["nsubint"] = nsubint
+        p["pulse_end"] = nsubint
+
     end
 
     """
@@ -144,9 +151,6 @@ module Data
         else
             p = Tools.read_params(params_file)
         end
-
-        return
-
 
         # add all .spCF files and get number of pulses
         add_psrfiles(indir, outdir, p; outfile=outfile, files=files)

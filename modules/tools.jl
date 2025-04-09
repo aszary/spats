@@ -2095,7 +2095,7 @@ module Tools
     """
     Read parameters used in the analysis from a JSON file
     """
-    function read_params(filename="params.json")
+    function read_params(filename)
         f = open(filename, "r")
         params = JSON.parse(f)
         close(f)
