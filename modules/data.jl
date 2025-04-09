@@ -95,8 +95,12 @@ module Data
 
     """
     Uses PSRCHIVE to add .spCF files 
+    
+    indir: input directory
+    outfile: output file name (full path)
+    files: list of files to add (filenames only)
     """
-    function add_psrfiles(indir, outdir, params, params_file; files=nothing, outfile="pulsar.spCF")
+    function add_psrfiles(indir, outfile; files=nothing)
 
         if files === nothing
             # Find all .spCF files in the input directory
@@ -125,26 +129,22 @@ module Data
     
         file_names = [joinpath(indir, file) for file in files]
 
-        outfile = joinpath(outdir, outfile)
-
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
 
-        # gets number of pulses
-        outstr = read(pipeline(`psrstat -c nsubint $outfile`, stderr="errs.txt"), String)
-        nsubint = parse(Int, split(outstr, "=")[2])
-        params["nsubint"] = nsubint
-        params["pulse_end"] = nsubint
-        Tools.save_params(params_file, params)
     end
+
 
     """
     Process data with PSRCHIVE and PSRSALSA
     """
-    function process_psrdata(indir, outdir; outfile="pulsar.spCF", files=nothing, params_file="params.json")
+    function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json")
+
+        # full paths
+        params_file = joinpath(outdir, params_file)
+        outfile = joinpath(outdir, outfile)
 
         # check if params_file exists if not creating default one
-        params_file = joinpath(outdir, params_file)
         if !isfile(params_file)
             println("File $params_file does not exist, creating default one.")
             p = Tools.default_params(params_file)
@@ -152,15 +152,20 @@ module Data
             p = Tools.read_params(params_file)
         end
 
-        # add all .spCF files and get number of pulses
-        add_psrfiles(indir, outdir, p, params_file; outfile=outfile, files=files)
+        # add all .spCF files 
+        add_psrfiles(indir, outfile; files=files)
 
-        outfile = joinpath(outdir, outfile)
+        # gets number of single pulses
+        outstr = read(pipeline(`psrstat -c nsubint $outfile`, stderr="errs.txt"), String)
+        nsubint = parse(Int, split(outstr, "=")[2])
+        p["nsubint"] = nsubint
+        p["pulse_end"] = nsubint
+        Tools.save_params(params_file, p)
 
         # debase the data
         run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
-        # Read captured output
+        # Read captured output to get bin_st and bin_end
         output = read("pmod_output.txt", String)
         rm("pmod_output.txt")  # cleanup
         # Extract onpulse values
@@ -175,6 +180,9 @@ module Data
                 println("Adjusted onpulse range: $bin_st to $bin_end")
             end
             println("Found onpulse range: $bin_st to $bin_end")
+            p["bin_st"] = bin_st
+            p["bin_end"] = bin_end
+            Tools.save_params(params_file, p)
         end
 
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
@@ -200,7 +208,7 @@ module Data
 
         run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
-        return bin_st-20, bin_end+20
+        return p
     end
 
 end # module
