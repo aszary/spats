@@ -2123,7 +2123,7 @@ module Tools
             "pulse_start" => 1,
             "pulse_end" => nothing,
             "nsubint" => nothing,
-            "p3" => nothing,
+            "p3" => 3.2,
             "p3_error" => nothing,
             "p3_ybins" => nothing
         )
