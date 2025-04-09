@@ -140,7 +140,7 @@ module Data
         params_file = joinpath(outdir, params_file)
         if !isfile(params_file)
             println("File $params_file does not exist, creating default one.")
-            p = Tools.default_params(filename=params_file)
+            p = Tools.default_params(params_file)
         else
             p = Tools.read_params(params_file)
         end

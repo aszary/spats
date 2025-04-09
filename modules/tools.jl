@@ -2105,7 +2105,7 @@ module Tools
     """
     Write default parameters to a JSON file
     """
-    function default_params(filename="params_default.json")
+    function default_params(filename)
         p = Dict(
             "nfft" => 256,
             "bin_st" => 1,
