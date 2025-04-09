@@ -155,6 +155,8 @@ module Data
         # add all .spCF files and get number of pulses
         add_psrfiles(indir, outdir, p, params_file; outfile=outfile, files=files)
 
+        println("$outfile created.")
+
         # debase the data
         run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
