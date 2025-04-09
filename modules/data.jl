@@ -153,6 +153,7 @@ module Data
         # full paths
         params_file = joinpath(outdir, params_file)
         outfile = joinpath(outdir, outfile)
+        debased_file = replace(outfile, ".spCF" => ".debase.gg")
 
         # check if params_file exists if not creating default one
         if !isfile(params_file)
@@ -195,7 +196,6 @@ module Data
             Tools.save_params(params_file, p)
         end
 
-        debased_file = replace(outfile, ".spCF" => ".debase.gg")
 
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
