@@ -203,8 +203,12 @@ module Data
             p3_error = parse(Float64, last_match.captures[2])
             println("Found P3 = $p3_value ± $p3_error P0")
         end
+
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
+        p["p3"] = p3_value
+        p["p3_error"] = p3_error
+        p["p3_ybins"] = ybins
 
         run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 

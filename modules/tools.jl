@@ -2121,7 +2121,11 @@ module Tools
             "bin_st" => 1,
             "bin_end" => 1024,
             "pulse_start" => 1,
-            "pulse_end" => nothing
+            "pulse_end" => nothing,
+            "nsubint" => nothing,
+            "p3" => nothing,
+            "p3_error" => nothing,
+            "p3_ybins" => nothing
         )
         f = open(filename, "w")
         JSON.print(f, p)
