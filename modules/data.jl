@@ -127,6 +127,8 @@ module Data
 
         outfile = joinpath(outdir, outfile)
 
+        println("$outfile")
+
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
 
@@ -154,9 +156,9 @@ module Data
 
         # add all .spCF files and get number of pulses
         add_psrfiles(indir, outdir, p; outfile=outfile, files=files)
-        println("$outfile created with $(p["nsubint"]) pulses.")
+
         # debase the data
-        run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+        run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
         # Read captured output
         output = read("pmod_output.txt", String)
