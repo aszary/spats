@@ -2093,6 +2093,16 @@ module Tools
     end
 
     """
+    Save parameters used in the analysis to a JSON file
+    """
+    function save_params(filename, params)
+        open(filename, "w") do file
+            JSON.print(file, params)
+        end
+    end
+
+
+    """
     Read parameters used in the analysis from a JSON file
     """
     function read_params(filename)
