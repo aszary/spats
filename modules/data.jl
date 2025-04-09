@@ -4,6 +4,7 @@ module Data
     using ProgressMeter
 
     include("functions.jl")
+    include("tools.jl")
 
     """
     Zero selected pulses
