@@ -172,6 +172,8 @@ module Data
 
         # debase the data
         run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
+        
+        # TODO WHAT TO DO IF BINS ARE ALREADY THERE !?
 
         # Read captured output to get bin_st and bin_end
         output = read("pmod_output.txt", String)
