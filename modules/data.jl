@@ -143,7 +143,40 @@ module Data
         println("Number of subintervals: $nsubint")
         Tools.save_params(params_file, params)
     end
-    
+  
+    """
+    Debase the data
+    """
+    function debase(outfile, params_file, params)
+
+        if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
+
+            run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
+
+            # Read captured output to get bin_st and bin_end
+            output = read("pmod_output.txt", String)
+            rm("pmod_output.txt")  # cleanup
+
+            # Extract onpulse values
+            m = match(r"-onpulse '(.+) (.+)'", output)
+            if !isnothing(m)
+                bin_st, bin_end = parse.(Int, m.captures)
+                # Check if onpulse region length is even
+                region_length = bin_end - bin_st + 1
+                if region_length % 2 != 0
+                    println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                    bin_end -= 1
+                    println("Adjusted onpulse range: $bin_st to $bin_end")
+                end
+                println("Found onpulse range: $bin_st to $bin_end")
+                params["bin_st"] = bin_st
+                params["bin_end"] = bin_end
+                Tools.save_params(params_file, params)
+            end
+        else
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
+        end
+    end
 
     """
     Process data with PSRCHIVE and PSRSALSA
@@ -171,31 +204,8 @@ module Data
             get_nsubint(outfile, params_file, p)
         end
 
-        # TODO WHAT TO DO IF BINS ARE ALREADY THERE !?
-
         # debase the data
-        run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
-
-        # Read captured output to get bin_st and bin_end
-        output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")  # cleanup
-        # Extract onpulse values
-        m = match(r"-onpulse '(\d+) (\d+)'", output)
-        if !isnothing(m)
-            bin_st, bin_end = parse.(Int, m.captures)
-            # Check if onpulse region length is even
-            region_length = bin_end - bin_st + 1
-            if region_length % 2 != 0
-                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
-                bin_end -= 1
-                println("Adjusted onpulse range: $bin_st to $bin_end")
-            end
-            println("Found onpulse range: $bin_st to $bin_end")
-            p["bin_st"] = bin_st
-            p["bin_end"] = bin_end
-            Tools.save_params(params_file, p)
-        end
-
+        debase(outfile, params_file, p)
 
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(bin_st) $(bin_end)" $debased_file`,  stderr="errs.txt"))
