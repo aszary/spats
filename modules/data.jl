@@ -181,31 +181,35 @@ module Data
     """
     Calculate 2dfs and lrfs using PSRSALSA
     """
-    function twodfs_lrfs(debased_file, params_file, p)
+    function twodfs_lrfs(debased_file, params_file, p, detect=false)
 
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
 
-        # Find P3
-        run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
-        # Read captured output
-        output = read("pspecDetect_output.txt", String)
-        rm("pspecDetect_output.txt")  # cleanup
-        # Extract P3 value from the last occurrence
-        p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
-        if !isempty(p3_matches)
-            last_match = p3_matches[end]
-            p3_value = parse(Float64, last_match.captures[1])
-            p3_error = parse(Float64, last_match.captures[2])
-            println("Found P3 = $p3_value ± $p3_error P0")
-        end
+        if p["p3"] == -1.0 || detect == true
+            # Find P3
+            run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
 
-        ybins = Functions.find_ybins(p3_value)
-        println("Number of ybins: $ybins")
-        p["p3"] = p3_value
-        p["p3_error"] = p3_error
-        p["p3_ybins"] = ybins
-        Tools.save_params(params_file, p)
+            # Read captured output
+            output = read("pspecDetect_output.txt", String)
+            rm("pspecDetect_output.txt")  # cleanup
+
+            # Extract P3 value from the last occurrence
+            p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
+            if !isempty(p3_matches)
+                last_match = p3_matches[end]
+                p3_value = parse(Float64, last_match.captures[1])
+                p3_error = parse(Float64, last_match.captures[2])
+                println("Found P3 = $p3_value ± $p3_error P0")
+            end
+
+            ybins = Functions.find_ybins(p3_value)
+            println("Number of ybins: $ybins")
+            p["p3"] = p3_value
+            p["p3_error"] = p3_error
+            p["p3_ybins"] = ybins
+            Tools.save_params(params_file, p)
+        end
     end
 
     """
