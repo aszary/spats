@@ -174,7 +174,7 @@ module Data
                 Tools.save_params(params_file, params)
             end
         else
-            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
         end
     end
 
@@ -231,7 +231,7 @@ module Data
         p["p3_ybins"] = ybins
         Tools.save_params(params_file, p)
 
-        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
         return p
     end
