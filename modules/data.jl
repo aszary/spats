@@ -183,7 +183,6 @@ module Data
     """
     function twodfs_lrfs(debased_file, params_file, p)
 
-        println("asd $debased_file")
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
 
@@ -238,11 +237,8 @@ module Data
         # debase the data
         debase(outfile, params_file, p)
 
-        println(debased_file)
-        println(debased_file)
-        println(debased_file)
         # Calculate 2dfs and lrfs
-        twodfs_lrfs(dabased_file, params_file, p)
+        twodfs_lrfs(debased_file, params_file, p)
 
 
         run(pipeline(`pfold  -p3fold "$p3_value $ybins" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
