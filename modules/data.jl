@@ -238,6 +238,8 @@ module Data
         debase(outfile, params_file, p)
 
         println(debased_file)
+        println(debased_file)
+        println(debased_file)
         # Calculate 2dfs and lrfs
         twodfs_lrfs(dabased_file, params_file, p)
 
