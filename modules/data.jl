@@ -241,7 +241,7 @@ module Data
         twodfs_lrfs(debased_file, params_file, p)
 
 
-        run(pipeline(`pfold  -p3fold "$(p["p3_value"]) $(p["ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
         return p
     end
