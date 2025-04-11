@@ -186,7 +186,7 @@ module Data
     
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
     
-        return bin_st - 20, bin_end + 20
+        return bin_st - 20, bin_end + 20, pulsar_name
     end
     
 
