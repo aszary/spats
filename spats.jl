@@ -1142,11 +1142,11 @@ module SpaTs
             println("=== HEADER HDU $i ===")
             try
                 if typeof(hdu) <: ImageHDU
-                    # For ImageHDU, access the header directly
-                    header = hdu.header
+                    # For ImageHDU, get the header with `hdu.header`
+                    header = read_header(hdu)
                 elseif typeof(hdu) <: TableHDU
-                    # For TableHDU, also access the header directly
-                    header = hdu.header
+                    # For TableHDU, get the header with `hdu.header`
+                    header = read_header(hdu)
                 else
                     println("Unsupported HDU type: $(typeof(hdu))")
                     continue
@@ -1164,6 +1164,8 @@ module SpaTs
     
         close(f)
     end
+    
+    
     
     
     
