@@ -1091,7 +1091,7 @@ module SpaTs
     end
     
     function process_psrdata(indir, outdir)
-        bin_st, bin_end = Data.process_psrdata(indir, outdir)
+        bin_st, bin_end, pulsar_name = Data.process_psrdata(indir, outdir)
         folded = Data.load_ascii(joinpath(outdir, pulsar_name, "$pulsar_name.debase.p3fold"))
         Plot.p3fold(folded, joinpath(outdir, pulsar_name); start=3, bin_st=bin_st, bin_end=bin_end, name_mod="test", show_=true, repeat_num=4)
         
