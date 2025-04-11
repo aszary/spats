@@ -1140,14 +1140,21 @@ module SpaTs
         # Loop through each HDU (Header/Data Unit) and print its header
         for (i, hdu) in enumerate(f)
             println("=== HEADER HDU $i ===")
-            for (key, value) in hdu.header
-                println("  $key = $value")
+            try
+                # Use primary_header() to extract the header if it's an ImageHDU
+                header = hdu.primary_header()  # this should work with ImageHDU
+                for (key, value) in header
+                    println("  $key = $value")
+                end
+            catch e
+                println("Error reading header for HDU $i: $e")
             end
             println()
         end
     
         close(f)
     end
+    
     
     function main()
         # output directory for local run
