@@ -1141,8 +1141,18 @@ module SpaTs
         for (i, hdu) in enumerate(f)
             println("=== HEADER HDU $i ===")
             try
-                # Use primary_header() to extract the header if it's an ImageHDU
-                header = hdu.primary_header()  # this should work with ImageHDU
+                if typeof(hdu) <: ImageHDU
+                    # For ImageHDU, access the header directly
+                    header = hdu.header
+                elseif typeof(hdu) <: TableHDU
+                    # For TableHDU, also access the header directly
+                    header = hdu.header
+                else
+                    println("Unsupported HDU type: $(typeof(hdu))")
+                    continue
+                end
+    
+                # Print the header keys and values
                 for (key, value) in header
                     println("  $key = $value")
                 end
@@ -1154,6 +1164,7 @@ module SpaTs
     
         close(f)
     end
+    
     
     
     function main()
