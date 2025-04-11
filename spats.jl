@@ -2,6 +2,7 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
+    using FITSIO
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -1117,6 +1118,37 @@ module SpaTs
         Plot.p3fold(folded, outdir; start=3, bin_st=470, bin_end=550, name_mod="test", show_=true, repeat_num=4)
     end
 
+    function print_lrfs_header_from_folder(folder::String)
+    
+        # Resolve the ~ to the full absolute path
+        folder = abspath(expanduser(folder))
+    
+        # Construct the full path to the pulsar.debase.lrfs file
+        fits_path = joinpath(folder, "pulsar.debase.lrfs")
+    
+        # Check if the file exists
+        if !isfile(fits_path)
+            println("File does not exist: $fits_path")
+            return
+        end
+    
+        println("Opening FITS file: $fits_path")
+    
+        # Open the FITS file
+        f = FITS(fits_path)
+    
+        # Loop through each HDU (Header/Data Unit) and print its header
+        for (i, hdu) in enumerate(f)
+            println("=== HEADER HDU $i ===")
+            for (key, value) in hdu.header
+                println("  $key = $value")
+            end
+            println()
+        end
+    
+        close(f)
+    end
+    
     function main()
         # output directory for local run
         localout = "output"
@@ -1127,7 +1159,8 @@ module SpaTs
         #J1319(vpmout)
         #process_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
+        #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
+        print_lrfs_header_from_folder("home/psr/output/J1919+0134")
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
         #test(vpmout)
