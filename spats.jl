@@ -1005,15 +1005,8 @@ module SpaTs
         
     end
 
-    function J1750_psrdata(indir, outdir)
-        bin_st, bin_end = Data.process_psrdata(indir, outdir; files= ["J1750-3503_MeerKAT_2019-09-29.debase.hp"])
-        folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
-        Plot.p3fold(folded, outdir; start=3, bin_st=bin_st, bin_end=bin_end, name_mod="test", show_=true, repeat_num=4)
-
-    end
-
     function fold_test(indir, outdir)
-        # TODO fix this!
+        # TODO fix this! fix what?
         Data.convert_psrfit_ascii("J1750-3503_MeerKAT_2019-09-29.debase.hp", outdir*"1.txt")
         data = Data.load_ascii(outdir*"1.txt")
         #Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=470, bin_end=550, start=1, name_mod="test", show_=true)
@@ -1038,19 +1031,6 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
-        #test(vpmout)
-        #J0820(args)
-        #mkieth()
-        #J1651()
-        #J1705()
-        #B0320()
-        #J1750_remote()
-        #J1750_local()
-        #J1750_paper()
-        #J1750_paper2()
-        #J1750_average()
-        #J1750_modeled()
-        #J1750_calculations()
 
     end
 
