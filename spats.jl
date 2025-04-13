@@ -3,7 +3,7 @@ module SpaTs
     using Glob
     using JSON
     using FITSIO
-    using Plots
+    using PyPlot
     using FilePathsBase
 
     include("modules/data.jl")
@@ -1170,13 +1170,13 @@ module SpaTs
 
 
 
+
     """
         plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
     
-    Rysuje i zapisuje wykres 2DFS z pliku pulsar.debase.1.2dfs znajdującego się w katalogu output/<pulsar_name>.
+    Rysuje i zapisuje wykres 2DFS z pliku pulsar.debase.1.2dfs przy użyciu PyPlot.
     """
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        # Ścieżka do pliku
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         if !isfile(filepath)
@@ -1190,32 +1190,32 @@ module SpaTs
         close(f)
     
         n_p3, n_p2 = size(data)
-    
-        # Zakresy osi
         p3_range = range(0, stop=0.5, length=n_p3)
         p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
     
-        # Wykres
-        plt = heatmap(
-            p2_range, p3_range, data;
-            xlabel="P2 [cpp]",
-            ylabel="P3 [cpp]",
-            title="2DFS – "*pulsar_name,
-            colorbar_title="Moc",
-            yflip=true,
-            c=:viridis,
-            framestyle=:box
+        fig, ax = subplots()
+        im = ax.imshow(data;
+            extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
+            origin="lower",
+            aspect="auto",
+            cmap="viridis"
         )
+        ax.set_xlabel("P2 [cpp]")
+        ax.set_ylabel("P3 [cpp]")
+        ax.set_title("2DFS – $pulsar_name")
+        colorbar(im, ax=ax, label="Moc")
+    
+        savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+        savefig(savepath)
+        println("Zapisano wykres 2DFS do: $savepath")
     
         if show_plot
-            display(plt)
+            show()
+        else
+            close(fig)
         end
-    
-        # Zapis do pliku PNG
-        outpath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-        savefig(plt, outpath)
-        println("Zapisano wykres 2DFS do: $outpath")
     end
+    
     
     
     
@@ -1234,7 +1234,7 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
-        plot_2dfs("output", "J1057-5226"; show_plot=true)
+        plot_2dfs("output", "J1057-5226")
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
         #test(vpmout)
