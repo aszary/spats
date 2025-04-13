@@ -1186,8 +1186,8 @@ module SpaTs
         println("Loading 2DFS data from: $filepath")
         f = FITS(filepath)
         
-        # Use getdata to correctly access the data in the Table HDU
-        data = getdata(f[2])  # getdata retrieves the data from the Table HDU
+        # Use read to correctly access the data from the Table HDU
+        data = read(f[2])  # read retrieves the data from the Table HDU
         
         close(f)
         
@@ -1229,6 +1229,7 @@ module SpaTs
             close(fig)
         end
     end
+    
     
 
 
