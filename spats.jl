@@ -1185,7 +1185,10 @@ module SpaTs
         # Load the 2DFS data from the file
         println("Loading 2DFS data from: $filepath")
         f = FITS(filepath)
-        data = f[2].data  # Access the data from the Table HDU
+        
+        # Use getdata to correctly access the data in the Table HDU
+        data = getdata(f[2])  # getdata retrieves the data from the Table HDU
+        
         close(f)
         
         # Get the dimensions of the data
