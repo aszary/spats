@@ -4,7 +4,6 @@ module SpaTs
     using JSON
     using FITSIO
     using PyPlot
-    using FilePathsBase
 
     include("modules/data.jl")
     include("modules/plot.jl")
