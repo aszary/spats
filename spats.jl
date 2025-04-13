@@ -1170,54 +1170,67 @@ module SpaTs
 
 
 
-    """
-        plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+"""
+    plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
     
-    Rysuje i zapisuje wykres 2DFS z pliku pulsar.debase.1.2dfs przy użyciu PyPlot.
-    """
-    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+Renders and saves a 2DFS plot from the file pulsar.debase.1.2dfs using PyPlot.
+"""
+function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    # Generate the full file path for the pulsar.debase.1.2dfs file
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
-        if !isfile(filepath)
-            println("Plik nie istnieje: $filepath")
-            return
-        end
-    
-        println("Ładowanie pliku 2DFS z: $filepath")
-        f = FITS(filepath)
-        data = read(f[2])
-        close(f)
-    
-        n_p3, n_p2 = size(data)
-        p3_range = range(0, stop=0.5, length=n_p3)
-        p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
-    
-        fig, ax = subplots()
-        im = ax.imshow(data;
-            extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
-            origin="lower",
-            aspect="auto",
-            cmap="viridis"
-        )
-        ax.set_xlabel("P2 [cpp]")
-        ax.set_ylabel("P3 [cpp]")
-        ax.set_title("2DFS – $pulsar_name")
-        colorbar(im, ax=ax, label="Moc")
-    
-        savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-        savefig(savepath)
-        println("Zapisano wykres 2DFS do: $savepath")
-    
-        if show_plot
-            show()
-        else
-            close(fig)
-        end
+    # Check if the file exists
+    if !isfile(filepath)
+        println("File does not exist: $filepath")
+        return
     end
     
+    # Load the 2DFS data from the file
+    println("Loading 2DFS data from: $filepath")
+    f = FITS(filepath)
+    data = read(f[2])
+    close(f)
     
+    # Get the dimensions of the data
+    n_p3, n_p2 = size(data)
     
+    # Create ranges for P3 and P2 axes
+    p3_range = range(0, stop=0.5, length=n_p3)
+    p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
     
+    # Create the figure and axis for the plot
+    fig, ax = subplots()
+    
+    # Plot the 2DFS data using the imshow function
+    im = ax.imshow(data;
+        extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
+        origin="lower",
+        aspect="auto",
+        cmap="viridis"  # Use a color map
+    )
+    
+    # Set labels and title for the plot
+    ax.set_xlabel("P2 [cpp]")
+    ax.set_ylabel("P3 [cpp]")
+    ax.set_title("2DFS – $pulsar_name")
+    
+    # Add a color bar to the plot
+    colorbar(im, ax=ax, label="Power")
+    
+    # Save the plot as a PNG file
+    savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+    savefig(savepath)
+    println("2DFS plot saved to: $savepath")
+    
+    # Show the plot if requested, otherwise close the figure
+    if show_plot
+        show()
+    else
+        close(fig)
+    end
+end
+
+
     
     
     
