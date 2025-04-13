@@ -3,6 +3,8 @@ module SpaTs
     using Glob
     using JSON
     using FITSIO
+    using Plots
+    using FilePathsBase
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -1165,6 +1167,57 @@ module SpaTs
         close(f)
     end
     
+
+
+
+    """
+        plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    
+    Rysuje i zapisuje wykres 2DFS z pliku pulsar.debase.1.2dfs znajdującego się w katalogu output/<pulsar_name>.
+    """
+    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        # Ścieżka do pliku
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    
+        if !isfile(filepath)
+            println("Plik nie istnieje: $filepath")
+            return
+        end
+    
+        println("Ładowanie pliku 2DFS z: $filepath")
+        f = FITS(filepath)
+        data = read(f[2])
+        close(f)
+    
+        n_p3, n_p2 = size(data)
+    
+        # Zakresy osi
+        p3_range = range(0, stop=0.5, length=n_p3)
+        p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
+    
+        # Wykres
+        plt = heatmap(
+            p2_range, p3_range, data;
+            xlabel="P2 [cpp]",
+            ylabel="P3 [cpp]",
+            title="2DFS – "*pulsar_name,
+            colorbar_title="Moc",
+            yflip=true,
+            c=:viridis,
+            framestyle=:box
+        )
+    
+        if show_plot
+            display(plt)
+        end
+    
+        # Zapis do pliku PNG
+        outpath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+        savefig(plt, outpath)
+        println("Zapisano wykres 2DFS do: $outpath")
+    end
+    
+    
     
     
     
@@ -1180,7 +1233,8 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
-        print_lrfs_header_from_folder("~/output/J1919+0134")
+        #print_lrfs_header_from_folder("~/output/J1919+0134")
+        plot_2dfs("output", "J1057-5226"; show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
         #test(vpmout)
