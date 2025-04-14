@@ -1266,11 +1266,11 @@ module SpaTs
             f = FITS(filepath)  # Otwórz plik FITS
             println("== FITS File Summary ==")
             
-            # Sprawdzenie pierwszego HDU, który zawiera obraz
+            # Sprawdzenie pierwszego HDU (image data)
             hdu1 = f[1]
             println("HDU 1: ", typeof(hdu1))
             
-            # Sprawdzamy, czy dane są obecne
+            # Sprawdzamy dostępność danych
             if haskey(hdu1, :data)
                 image_data = hdu1[:data]  # Odczytaj dane obrazu
                 println("Data type: ", typeof(image_data))
@@ -1285,6 +1285,7 @@ module SpaTs
             println("Error reading FITS file: $e")  # Obsłuż błędy
         end
     end
+    
     
 
 
