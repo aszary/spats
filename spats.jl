@@ -1169,111 +1169,84 @@ module SpaTs
     
     
 
-   """
+    """
     Renders and saves a 2DFS plot from the file pulsar.debase.1.2dfs using PyPlot.
-
     Arguments:
     - outdir: The output directory where the pulsar data is stored.
     - pulsar_name: The name of the pulsar to create the plot for.
     - show_plot: A boolean flag to decide whether to display the plot (default: true).
     """
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-    
+        using FITSIO
+        using PyPlot
+
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
-    
+        
         if !isfile(filepath)
             println("File does not exist: $filepath")
             return
         end
-    
-        println("Inspecting FITS file: $filepath")
-    
+        
+        println("Loading 2DFS data from: $filepath")
+
         f = nothing
-        data = nothing
         try
             f = FITS(filepath)
-    
-            for (i, hdu) in enumerate(f)
-                println("HDU $i:")
-                println("  Type: ", typeof(hdu))
-    
-                try
-                    if hdu isa FITSIO.ImageHDU
-                        img = read(hdu)
-                        if ndims(img) == 2
-                            println("  -> Found 2D image of size ", size(img))
-                            data = img
-                            break
-                        else
-                            println("  -> Not a 2D image (ndims=$(ndims(img)))")
-                        end
-    
-                    elseif hdu isa FITSIO.TableHDU
-                        names = FITSIO.colnames(hdu)
-                        println("  Columns: ", names)
-    
-                        for name in names
-                            col_data = read(hdu, name)
-                            println("    Column '$name' -> type: ", typeof(col_data), ", size: ", size(col_data))
-    
-                            if isa(col_data, AbstractArray) && ndims(col_data) == 2 && eltype(col_data) <: Number
-                                println("  ✅ Found 2D numeric column '$name' in HDU $i")
-                                data = col_data
-                                break
-                            end
-                        end
-                    end
-                catch e
-                    println("  -> Failed to read HDU $i: $e")
-                end
-    
-                if data !== nothing
-                    break
-                end
-            end
-    
-            if data === nothing
-                println("❌ No suitable 2D data found in FITS file.")
-                close(f)
-                return
-            end
-    
-            close(f)
-    
-            n_p3, n_p2 = size(data)
-            p3_range = range(0, stop=0.5, length=n_p3)
-            p2_range = range(160, stop=200, length=n_p2)  # Pulse longitude in deg, ograniczony do 160–200
-    
-            fig, ax = subplots()
-            im = ax.imshow(data;
-                extent=[160, 200, 0, 0.5],
-                origin="lower",
-                aspect="auto",
-                cmap="gray"
-            )
-    
-            ax.set_xlabel("Pulse longitude (deg)")
-            ax.set_ylabel("Fluctuation frequency (P/P3)")
-            ax.set_title("2DFS – $pulsar_name")
-            colorbar(im, ax=ax, label="Power")
-    
-            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-            savefig(savepath)
-            println("✅ 2DFS plot saved to: $savepath")
-    
-            if show_plot
-                show()
-            else
-                close(fig)
-            end
-    
         catch e
-            println("❌ Error handling FITS file: $e")
-            if f !== nothing
-                close(f)
-            end
+            println("Error opening FITS file: $e")
+            return
+        end
+
+        if f == nothing
+            println("Failed to open FITS file.")
+            return
+        end
+
+        try
+            data = read(f[1])  # Raw image data – no table column
+        catch e
+            println("Error reading data from FITS file: $e")
+            close(f)
+            return
+        end
+        close(f)
+
+        # Upewniamy się że dane są 2D i prawidłowo ułożone
+        if ndims(data) != 2
+            println("Unexpected data shape, expected 2D array.")
+            return
+        end
+
+        # Zakresy osi
+        y_range = range(0, stop=0.5, length=size(data, 1))     # Fluctuation frequency (P/P₃)
+        x_range = range(160, stop=200, length=size(data, 2))   # Pulse longitude (deg)
+
+        # Tworzymy wykres
+        fig, ax = subplots()
+        im = ax.imshow(data;
+            extent=(minimum(x_range), maximum(x_range), minimum(y_range), maximum(y_range)),
+            origin="lower",
+            aspect="auto",
+            cmap="gray_r"
+        )
+
+        ax.set_xlabel("Pulse longitude (deg)")
+        ax.set_ylabel("Fluctuation frequency (P/P₃)")
+        ax.set_title("2DFS – $pulsar_name")
+
+        colorbar(im, ax=ax, label="Power")
+
+        savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+        savefig(savepath)
+        println("2DFS plot saved to: $savepath")
+
+        if show_plot
+            show()
+        else
+            close(fig)
         end
     end
+
     
     
     
