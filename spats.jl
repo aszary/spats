@@ -1264,7 +1264,6 @@ module SpaTs
    
 
     function inspect_fits(filepath::String)
-        using FITSIO
     
         if !isfile(filepath)
             println("File does not exist: $filepath")
