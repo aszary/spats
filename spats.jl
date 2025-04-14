@@ -1178,6 +1178,7 @@ module SpaTs
     - show_plot: A boolean flag to decide whether to display the plot (default: true).
     """
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        using FITSIO, PyPlot
     
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
@@ -1216,7 +1217,6 @@ module SpaTs
                             col_data = read(hdu, name)
                             println("    Column '$name' -> type: ", typeof(col_data), ", size: ", size(col_data))
     
-                            # Jeśli to coś 2D i numeryczne
                             if isa(col_data, AbstractArray) && ndims(col_data) == 2 && eltype(col_data) <: Number
                                 println("  ✅ Found 2D numeric column '$name' in HDU $i")
                                 data = col_data
@@ -1241,21 +1241,20 @@ module SpaTs
     
             close(f)
     
-            # Zakresy (póki co domyślne – do korekty)
             n_p3, n_p2 = size(data)
             p3_range = range(0, stop=0.5, length=n_p3)
-            p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
+            p2_range = range(0, stop=360, length=n_p2)  # Pulse longitude in degrees
     
             fig, ax = subplots()
             im = ax.imshow(data;
                 extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
                 origin="lower",
                 aspect="auto",
-                cmap="viridis"
+                cmap="gray"   # <--- czarno-biały
             )
     
-            ax.set_xlabel("P2 [cpp]")
-            ax.set_ylabel("P3 [cpp]")
+            ax.set_xlabel("Pulse longitude (deg)")
+            ax.set_ylabel("Fluctuation frequency (P/P3)")
             ax.set_title("2DFS – $pulsar_name")
             colorbar(im, ax=ax, label="Power")
     
@@ -1276,6 +1275,7 @@ module SpaTs
             end
         end
     end
+    
     
     
 
