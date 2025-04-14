@@ -1220,18 +1220,17 @@ module SpaTs
 
     function inspect_fits(filepath::String)
         println("Inspecting FITS file: $filepath")
-        
-        # Open the FITS file
-        f = FITS(filepath)
-        
-        # Print a summary of the entire FITS file to understand its structure
-        println("\n== FITS File Summary ==")
-        summary(f)  # This will display the structure of the FITS file
-        
-        # Close the FITS file
-        close(f)
+        try
+            f = FITS(filepath)  # Open the FITS file
+            println("== FITS File Summary ==")
+            summary(f)  # Print the FITS file summary
+            close(f)  # Close the FITS file
+        catch e
+            println("Error reading FITS file: $e")  # Handle errors
+        end
     end
     
+
     
     
     
