@@ -1178,7 +1178,6 @@ module SpaTs
     - show_plot: A boolean flag to decide whether to display the plot (default: true).
     """
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        using FITSIO, PyPlot
     
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
@@ -1243,14 +1242,14 @@ module SpaTs
     
             n_p3, n_p2 = size(data)
             p3_range = range(0, stop=0.5, length=n_p3)
-            p2_range = range(0, stop=360, length=n_p2)  # Pulse longitude in degrees
+            p2_range = range(160, stop=200, length=n_p2)  # Pulse longitude in deg, ograniczony do 160–200
     
             fig, ax = subplots()
             im = ax.imshow(data;
-                extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
+                extent=[160, 200, 0, 0.5],
                 origin="lower",
                 aspect="auto",
-                cmap="gray"   # <--- czarno-biały
+                cmap="gray"
             )
     
             ax.set_xlabel("Pulse longitude (deg)")
@@ -1275,6 +1274,7 @@ module SpaTs
             end
         end
     end
+    
     
     
     
