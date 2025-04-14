@@ -1261,31 +1261,28 @@ module SpaTs
     function inspect_fits(filepath::String)
         println("Inspecting FITS file: $filepath")
         try
-            f = FITS(filepath)  # Open the FITS file
+            f = FITS(filepath)  # Otwórz plik FITS
             println("== FITS File Summary ==")
             
-            # Iterate through the HDUs to check their contents
+            # Iteruj przez HDU i wyświetl szczegóły o każdym z nich
             for i in 1:length(f)
                 println("HDU $i:")
-                # If HDU is an image, show its size and data type
-                if f[i].type == "IMAGE"
-                    println("  Type: IMAGE")
+                # Sprawdzanie dostępnych informacji
+                println("  Type: ", typeof(f[i]))  # Wyświetlenie typu obiektu HDU
+                println("  Shape of data (if available): ", size(f[i].data))  # Rozmiar danych, jeśli dostępny
+                
+                # Jeśli to obraz, wyświetl dodatkowe szczegóły
+                if haskey(f[i], :data)  # Sprawdzamy, czy dane są dostępne w tej HDU
                     println("  Data type: ", typeof(f[i].data))
-                    println("  Data size: ", size(f[i].data))
-                elseif f[i].type == "TABLE"
-                    # If HDU is a table, list the columns
-                    println("  Type: TABLE")
-                    println("  Columns: ", keys(f[i]))
-                else
-                    println("  Type: ", f[i].type)
                 end
             end
             
-            close(f)  # Close the FITS file
+            close(f)  # Zamknij plik FITS
         catch e
-            println("Error reading FITS file: $e")  # Handle errors
+            println("Error reading FITS file: $e")  # Obsłuż błędy
         end
     end
+    
     
     
     
