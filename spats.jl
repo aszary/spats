@@ -1168,87 +1168,78 @@ module SpaTs
 
     
     
-    """
+
+   """
     Renders and saves a 2DFS plot from the file pulsar.debase.1.2dfs using PyPlot.
+
     Arguments:
     - outdir: The output directory where the pulsar data is stored.
     - pulsar_name: The name of the pulsar to create the plot for.
     - show_plot: A boolean flag to decide whether to display the plot (default: true).
     """
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        using FITSIO, PyPlot
+
         # Construct the filepath for the 2DFS data
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
-        
+
         # Check if the file exists
         if !isfile(filepath)
             println("File does not exist: $filepath")
             return
         end
-        
+
         println("Loading 2DFS data from: $filepath")
-        
-        # Open the FITS file
+
+        # Open the FITS file and read the image data from the 2nd HDU
         f = nothing
+        data = nothing
         try
             f = FITS(filepath)
+            data = read(f[2])  # Read image directly
         catch e
-            println("Error opening FITS file: $e")
+            println("Error reading data from FITS file: $e")
+            if f !== nothing
+                close(f)
+            end
             return
         end
 
-        if f == nothing
-            println("Failed to open FITS file.")
-            return
-        end
-        
-        # Read the 2DFS data from the second HDU (Header Data Unit)
-        # Make sure the correct column name 'POWER' is used (adjust if needed)
-        try
-            data = read(f[2], "POWER")  # Replace "POWER" with the actual column name if necessary
-        catch e
-            println("Error reading data from FITS file: $e")
-            close(f)
-            return
-        end
-        
+        close(f)  # Close the FITS file
+
         # Get the shape of the data (assumed to be 2D)
         n_p3, n_p2 = size(data)
 
-        # Define the range for p3 (time or frequency, depending on the data) and p2 (time or frequency)
-        p3_range = range(0, stop=0.5, length=n_p3)  # Adjust based on the actual units of your data
-        p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)  # Adjust the range accordingly
-        
-        # Create the plot with PyPlot (the Julia interface to Matplotlib)
-        fig, ax = subplots()  # Create a new figure and axis
+        # Define axis ranges – adjust if necessary based on header info or domain knowledge
+        p3_range = range(0, stop=0.5, length=n_p3)
+        p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
+
+        # Create the plot
+        fig, ax = subplots()
         im = ax.imshow(data;
             extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
-            origin="lower",  # Set the origin to the lower-left corner (typical for images)
-            aspect="auto",   # Allow the aspect ratio to adjust automatically
-            cmap="viridis"   # Use the 'viridis' colormap
+            origin="lower",
+            aspect="auto",
+            cmap="viridis"
         )
-        
-        # Label the axes and set the title
-        ax.set_xlabel("P2 [cpp]")  # Adjust label according to your data's units
-        ax.set_ylabel("P3 [cpp]")  # Adjust label according to your data's units
+
+        ax.set_xlabel("P2 [cpp]")
+        ax.set_ylabel("P3 [cpp]")
         ax.set_title("2DFS – $pulsar_name")
-        
-        # Add a colorbar to the plot with a label
         colorbar(im, ax=ax, label="Power")
 
-        # Construct the path where the plot will be saved
+        # Save the figure
         savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-        
-        # Save the plot as a PNG file
         savefig(savepath)
         println("2DFS plot saved to: $savepath")
-        
-        # Show the plot if show_plot is true, otherwise close it
+
         if show_plot
             show()
         else
             close(fig)
         end
     end
+
 
 
 
