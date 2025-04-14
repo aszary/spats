@@ -1264,12 +1264,20 @@ module SpaTs
             f = FITS(filepath)  # Open the FITS file
             println("== FITS File Summary ==")
             
-            # Print all the HDUs and columns available
+            # Iterate through the HDUs to check their contents
             for i in 1:length(f)
                 println("HDU $i:")
-                # If HDU contains a table, list its columns
-                if haskey(f[i], "columns")
-                    println("Columns in HDU $i: ", keys(f[i]["columns"]))
+                # If HDU is an image, show its size and data type
+                if f[i].type == "IMAGE"
+                    println("  Type: IMAGE")
+                    println("  Data type: ", typeof(f[i].data))
+                    println("  Data size: ", size(f[i].data))
+                elseif f[i].type == "TABLE"
+                    # If HDU is a table, list the columns
+                    println("  Type: TABLE")
+                    println("  Columns: ", keys(f[i]))
+                else
+                    println("  Type: ", f[i].type)
                 end
             end
             
@@ -1278,6 +1286,7 @@ module SpaTs
             println("Error reading FITS file: $e")  # Handle errors
         end
     end
+    
     
     
     function print_first_20_lines(filepath::String)
