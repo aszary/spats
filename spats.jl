@@ -1172,48 +1172,82 @@ module SpaTs
     Renders and saves a 2DFS plot from the file pulsar.debase.1.2dfs using PyPlot.
     """ 
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        """
+        Arguments:
+        - outdir: The output directory where the pulsar data is stored.
+        - pulsar_name: The name of the pulsar to create the plot for.
+        - show_plot: A boolean flag to decide whether to display the plot (default: true).
+        """
+        # Construct the filepath for the 2DFS data
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
         
+        # Check if the file exists
         if !isfile(filepath)
             println("File does not exist: $filepath")
             return
         end
         
         println("Loading 2DFS data from: $filepath")
-        f = FITS(filepath)
+        try
+            # Try to open the FITS file
+            f = FITS(filepath)
+        catch e
+            println("Error opening FITS file: $e")
+            return
+        end
         
-        # Read the 2DFS data (assuming it's in HDU[2] and the column name is 'POWER')
-        data = read(f[2], "POWER")  # Replace 'POWER' with the correct column name if different
+        # Inspect the FITS file structure (optional: uncomment for debugging)
+        # println("== FITS File Summary ==")
+        # summary(f)
+    
+        try
+            # Attempt to read the data from the second HDU, 'POWER' column
+            data = read(f[2], "POWER")  # Ensure "POWER" is the correct column name in the FITS file
+        catch e
+            println("Error reading data from FITS file: $e")
+            close(f)
+            return
+        end
         
-        # Get the shape of the data (assuming it's a 2D array)
+        # Get the shape of the data (assumed to be 2D)
         n_p3, n_p2 = size(data)
-        p3_range = range(0, stop=0.5, length=n_p3)
-        p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
+    
+        # Define the range for p3 (time or frequency, depending on the data) and p2 (time or frequency)
+        p3_range = range(0, stop=0.5, length=n_p3)  # Adjust based on the actual units of your data
+        p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)  # Adjust the range accordingly
         
         # Plotting
         fig, ax = subplots()
         im = ax.imshow(data;
             extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
-            origin="lower",
-            aspect="auto",
-            cmap="viridis"
+            origin="lower",  # Set the origin to the lower left for typical imaging convention
+            aspect="auto",   # Let the aspect ratio adjust automatically
+            cmap="viridis"   # Use the 'viridis' colormap for visualization
         )
         
-        ax.set_xlabel("P2 [cpp]")
-        ax.set_ylabel("P3 [cpp]")
+        # Add labels and title
+        ax.set_xlabel("P2 [cpp]")  # Change units to match your data (e.g., time or frequency)
+        ax.set_ylabel("P3 [cpp]")  # Change units to match your data (e.g., time or frequency)
         ax.set_title("2DFS – $pulsar_name")
-        colorbar(im, ax=ax, label="Power")
         
+        # Add a colorbar with label
+        colorbar(im, ax=ax, label="Power")
+    
+        # Construct the path where the plot will be saved
         savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+        
+        # Save the plot as a PNG file
         savefig(savepath)
         println("2DFS plot saved to: $savepath")
         
+        # Show the plot if show_plot is true, otherwise close it
         if show_plot
             show()
         else
             close(fig)
         end
     end
+    
 
 
 
@@ -1274,9 +1308,9 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
-        #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
-        print_first_20_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
+        #print_first_20_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
 
 
         #J1750_psrdata(indir, vpmout)
