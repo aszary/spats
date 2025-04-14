@@ -1186,70 +1186,97 @@ module SpaTs
             return
         end
     
-        println("Loading 2DFS data from: $filepath")
+        println("Inspecting FITS file: $filepath")
     
         f = nothing
         data = nothing
         try
             f = FITS(filepath)
     
-            # Przeskanuj HDU i znajdź pierwsze pasujące dane obrazu
             for (i, hdu) in enumerate(f)
-                if hdu isa FITSIO.ImageHDU
-                    raw = read(hdu)
-                    if ndims(raw) == 2
-                        data = raw
-                        println("Found 2D image data in HDU $i.")
-                        break
+                println("HDU $i:")
+                println("  Type: ", typeof(hdu))
+    
+                try
+                    if hdu isa FITSIO.ImageHDU
+                        img = read(hdu)
+                        if ndims(img) == 2
+                            println("  -> Found 2D image of size ", size(img))
+                            data = img
+                            break
+                        else
+                            println("  -> Not a 2D image (ndims=$(ndims(img)))")
+                        end
+    
+                    elseif hdu isa FITSIO.TableHDU
+                        names = FITSIO.colnames(hdu)
+                        println("  Columns: ", names)
+    
+                        for name in names
+                            col_data = read(hdu, name)
+                            println("    Column '$name' -> type: ", typeof(col_data), ", size: ", size(col_data))
+    
+                            # Jeśli to coś 2D i numeryczne
+                            if isa(col_data, AbstractArray) && ndims(col_data) == 2 && eltype(col_data) <: Number
+                                println("  ✅ Found 2D numeric column '$name' in HDU $i")
+                                data = col_data
+                                break
+                            end
+                        end
                     end
+                catch e
+                    println("  -> Failed to read HDU $i: $e")
+                end
+    
+                if data !== nothing
+                    break
                 end
             end
     
             if data === nothing
-                println("No 2D image HDU found in FITS file.")
+                println("❌ No suitable 2D data found in FITS file.")
                 close(f)
                 return
             end
+    
+            close(f)
+    
+            # Zakresy (póki co domyślne – do korekty)
+            n_p3, n_p2 = size(data)
+            p3_range = range(0, stop=0.5, length=n_p3)
+            p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
+    
+            fig, ax = subplots()
+            im = ax.imshow(data;
+                extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
+                origin="lower",
+                aspect="auto",
+                cmap="viridis"
+            )
+    
+            ax.set_xlabel("P2 [cpp]")
+            ax.set_ylabel("P3 [cpp]")
+            ax.set_title("2DFS – $pulsar_name")
+            colorbar(im, ax=ax, label="Power")
+    
+            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+            savefig(savepath)
+            println("✅ 2DFS plot saved to: $savepath")
+    
+            if show_plot
+                show()
+            else
+                close(fig)
+            end
+    
         catch e
-            println("Error reading data from FITS file: $e")
+            println("❌ Error handling FITS file: $e")
             if f !== nothing
                 close(f)
             end
-            return
-        end
-    
-        close(f)
-    
-        # Rozmiary danych
-        n_p3, n_p2 = size(data)
-    
-        # Zakresy osi (do korekty jeśli masz lepsze dane z nagłówka)
-        p3_range = range(0, stop=0.5, length=n_p3)
-        p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
-    
-        fig, ax = subplots()
-        im = ax.imshow(data;
-            extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
-            origin="lower",
-            aspect="auto",
-            cmap="viridis"
-        )
-    
-        ax.set_xlabel("P2 [cpp]")
-        ax.set_ylabel("P3 [cpp]")
-        ax.set_title("2DFS – $pulsar_name")
-        colorbar(im, ax=ax, label="Power")
-    
-        savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-        savefig(savepath)
-        println("2DFS plot saved to: $savepath")
-    
-        if show_plot
-            show()
-        else
-            close(fig)
         end
     end
+    
     
 
 
