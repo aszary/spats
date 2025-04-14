@@ -1239,10 +1239,8 @@ module SpaTs
         
             close(f)
         
-            # Zastosowanie logarytmu z dodaniem małej wartości
-            # Przekształcenie z usunięciem wartości zerowych
-            data[data .<= 0] .= 1e-6  # Usuwamy zera, zastępując je małą wartością
-            data_log = log10.(data)  # Logarytmujemy dane
+            # Perform log-normalization manually
+            data_log = log10.(data .+ 1e-6)  # Add small constant to avoid log(0) error
         
             n_p3, n_p2 = size(data)
             p3_range = range(0, stop=0.5, length=n_p3)
@@ -1250,12 +1248,12 @@ module SpaTs
         
             fig, ax = subplots()
             
-            # Zmieniona mapa kolorów (odwrócona)
+            # Now use the log-transformed data
             im = ax.imshow(data_log';
                 extent=[160, 200, 0, 0.5],
                 origin="lower",
                 aspect="auto",
-                cmap="gray_r"  # Odwrócona skala szarości
+                cmap="gray"
             )
         
             ax.set_xlabel("Pulse longitude (deg)")
@@ -1280,7 +1278,6 @@ module SpaTs
             end
         end
     end
-    
     
     
     
