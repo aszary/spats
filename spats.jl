@@ -1247,37 +1247,34 @@ module SpaTs
     
             fig, ax = subplots()
             im = ax.imshow(data';
-                extent=[160, 200, 0, 0.5],
+                extent=[160, 200, 0, 0.5],  # Zakresy dla osi
                 origin="lower",
                 aspect="auto",
-                cmap="gray"
-                vmin=0,
-                vmax=0.06
+                cmap="gray",  # Dodany przecinek
+                vmin=0,  # Minimalna wartość skali kolorów
+                vmax=0.06  # Maksymalna wartość skali kolorów
             )
-    
+            
+            # Etykiety osi
             ax.set_xlabel("Pulse longitude (deg)")
             ax.set_ylabel("Fluctuation frequency (P/P3)")
             ax.set_title("2DFS – $pulsar_name")
+            
+            # Dodanie colorbar
             colorbar(im, ax=ax, label="Power")
-    
+            
+            # Zapisanie wykresu do pliku
             savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
             savefig(savepath)
             println("✅ 2DFS plot saved to: $savepath")
-    
+            
+            # Wyświetlenie wykresu lub jego zamknięcie
             if show_plot
                 show()
             else
                 close(fig)
             end
-    
-        catch e
-            println("❌ Error handling FITS file: $e")
-            if f !== nothing
-                close(f)
-            end
-        end
-    end
-    
+            
     
     
     
