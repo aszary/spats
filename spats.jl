@@ -1178,7 +1178,6 @@ module SpaTs
     - show_plot: A boolean flag to decide whether to display the plot (default: true).
     """
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        using FITSIO, PyPlot
     
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
