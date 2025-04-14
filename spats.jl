@@ -1166,18 +1166,16 @@ module SpaTs
     end
     
 
+    
+    
     """
-        plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        
     Renders and saves a 2DFS plot from the file pulsar.debase.1.2dfs using PyPlot.
-    """ 
+    Arguments:
+    - outdir: The output directory where the pulsar data is stored.
+    - pulsar_name: The name of the pulsar to create the plot for.
+    - show_plot: A boolean flag to decide whether to display the plot (default: true).
+    """
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        """
-        Arguments:
-        - outdir: The output directory where the pulsar data is stored.
-        - pulsar_name: The name of the pulsar to create the plot for.
-        - show_plot: A boolean flag to decide whether to display the plot (default: true).
-        """
         # Construct the filepath for the 2DFS data
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
         
@@ -1196,13 +1194,10 @@ module SpaTs
             return
         end
         
-        # Inspect the FITS file structure (optional: uncomment for debugging)
-        # println("== FITS File Summary ==")
-        # summary(f)
-    
+        # Read the 2DFS data from the second HDU (Header Data Unit)
+        # Make sure the correct column name 'POWER' is used (adjust if needed)
         try
-            # Attempt to read the data from the second HDU, 'POWER' column
-            data = read(f[2], "POWER")  # Ensure "POWER" is the correct column name in the FITS file
+            data = read(f[2], "POWER")  # Replace "POWER" with the actual column name if necessary
         catch e
             println("Error reading data from FITS file: $e")
             close(f)
@@ -1211,7 +1206,7 @@ module SpaTs
         
         # Get the shape of the data (assumed to be 2D)
         n_p3, n_p2 = size(data)
-    
+
         # Define the range for p3 (time or frequency, depending on the data) and p2 (time or frequency)
         p3_range = range(0, stop=0.5, length=n_p3)  # Adjust based on the actual units of your data
         p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)  # Adjust the range accordingly
@@ -1232,7 +1227,7 @@ module SpaTs
         
         # Add a colorbar with label
         colorbar(im, ax=ax, label="Power")
-    
+
         # Construct the path where the plot will be saved
         savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
         
@@ -1247,6 +1242,7 @@ module SpaTs
             close(fig)
         end
     end
+
     
 
 
