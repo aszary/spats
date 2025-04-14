@@ -1182,8 +1182,18 @@ module SpaTs
         println("Loading 2DFS data from: $filepath")
         f = FITS(filepath)
     
-        # Wczytaj dane z HDU[2] – zakładamy, że to 2D ImageHDU
-        data = read(f[2])
+        # Sprawdź typ HDU, a potem wczytaj dane
+        if typeof(f[2]) == FITSIO.ImageHDU
+            # Jeśli to ImageHDU
+            data = read(f[2])
+        elseif typeof(f[2]) == FITSIO.TableHDU
+            # Jeśli to TableHDU (np. z kolumną "POWER")
+            data = read(f[2], "POWER")
+        else
+            println("Unknown HDU type!")
+            close(f)
+            return
+        end
         close(f)
     
         n_p3, n_p2 = size(data)
@@ -1213,6 +1223,7 @@ module SpaTs
             close(fig)
         end
     end
+    
     
     
     function inspect_hdu(filepath::String)
@@ -1249,9 +1260,9 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
-        #plot_2dfs("/home/psr/output", "J1919+0134")
+        plot_2dfs("/home/psr/output", "J1919+0134")
         #inspect_hdu("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
-        inspect_summary("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        #inspect_summary("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
 
 
         #J1750_psrdata(indir, vpmout)
