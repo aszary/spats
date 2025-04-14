@@ -1178,24 +1178,39 @@ module SpaTs
     - show_plot: A boolean flag to decide whether to display the plot (default: true).
     """
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-
-        # Construct the filepath for the 2DFS data
+        using FITSIO, PyPlot
+    
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
-
-        # Check if the file exists
+    
         if !isfile(filepath)
             println("File does not exist: $filepath")
             return
         end
-
+    
         println("Loading 2DFS data from: $filepath")
-
-        # Open the FITS file and read the image data from the 2nd HDU
+    
         f = nothing
         data = nothing
         try
             f = FITS(filepath)
-            data = read(f[2])  # Read image directly
+    
+            # Przeskanuj HDU i znajdź pierwsze pasujące dane obrazu
+            for (i, hdu) in enumerate(f)
+                if hdu isa FITSIO.ImageHDU
+                    raw = read(hdu)
+                    if ndims(raw) == 2
+                        data = raw
+                        println("Found 2D image data in HDU $i.")
+                        break
+                    end
+                end
+            end
+    
+            if data === nothing
+                println("No 2D image HDU found in FITS file.")
+                close(f)
+                return
+            end
         catch e
             println("Error reading data from FITS file: $e")
             if f !== nothing
@@ -1203,17 +1218,16 @@ module SpaTs
             end
             return
         end
-
-        close(f)  # Close the FITS file
-
-        # Get the shape of the data (assumed to be 2D)
+    
+        close(f)
+    
+        # Rozmiary danych
         n_p3, n_p2 = size(data)
-
-        # Define axis ranges – adjust if necessary based on header info or domain knowledge
+    
+        # Zakresy osi (do korekty jeśli masz lepsze dane z nagłówka)
         p3_range = range(0, stop=0.5, length=n_p3)
         p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
-
-        # Create the plot
+    
         fig, ax = subplots()
         im = ax.imshow(data;
             extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
@@ -1221,23 +1235,23 @@ module SpaTs
             aspect="auto",
             cmap="viridis"
         )
-
+    
         ax.set_xlabel("P2 [cpp]")
         ax.set_ylabel("P3 [cpp]")
         ax.set_title("2DFS – $pulsar_name")
         colorbar(im, ax=ax, label="Power")
-
-        # Save the figure
+    
         savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
         savefig(savepath)
         println("2DFS plot saved to: $savepath")
-
+    
         if show_plot
             show()
         else
             close(fig)
         end
     end
+    
 
 
 
