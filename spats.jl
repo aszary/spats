@@ -1226,22 +1226,12 @@ module SpaTs
         
         # Print a summary of the entire FITS file to understand its structure
         println("\n== FITS File Summary ==")
-        summary(f)
-        
-        # Check if HDU[2] exists and read the data column
-        if length(f) >= 2
-            println("\nAvailable columns in HDU[2]: ", keys(f[2]))  # Display columns of HDU[2]
-            # If you want to extract a specific column, replace "DATA" with the correct column name
-            lrfs_data = read(f[2], "DATA")  # Replace "DATA" with the actual column name if needed
-            println("Data from 'DATA' column (or replace it with the correct column name):")
-            println(lrfs_data)
-        else
-            println("\nNo HDU[2] found in this file.")
-        end
+        summary(f)  # This will display the structure of the FITS file
         
         # Close the FITS file
         close(f)
     end
+    
     
     
     
