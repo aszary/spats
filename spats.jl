@@ -1212,9 +1212,6 @@ module SpaTs
         p3_range = range(0, stop=0.5, length=n_p3)  # Adjust based on the actual units of your data
         p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)  # Adjust the range accordingly
         
-        # Create the plot with PyPlot (the Julia interface to Matplotlib)
-        using PyPlot
-        
         fig, ax = subplots()  # Create a new figure and axis
         im = ax.imshow(data;
             extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
