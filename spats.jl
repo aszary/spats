@@ -1260,7 +1260,7 @@ module SpaTs
 
    
 
-    function inspect_image_fits(filepath::String)
+    function inspect_fits(filepath::String)
         println("Inspecting FITS file: $filepath")
         try
             f = FITS(filepath)  # Otwórz plik FITS
@@ -1270,7 +1270,7 @@ module SpaTs
             hdu1 = f[1]
             println("HDU 1: ", typeof(hdu1))
             
-            # Jeśli w pierwszym HDU jest obraz, sprawdźmy jego dane
+            # Sprawdzamy, czy dane są obecne
             if haskey(hdu1, :data)
                 image_data = hdu1[:data]  # Odczytaj dane obrazu
                 println("Data type: ", typeof(image_data))
@@ -1285,6 +1285,7 @@ module SpaTs
             println("Error reading FITS file: $e")  # Obsłuż błędy
         end
     end
+    
 
 
     
