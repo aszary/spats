@@ -4,6 +4,8 @@ module SpaTs
     using JSON
     using FITSIO
     using PyPlot
+    using matplotlib.colors: LogNorm
+
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
