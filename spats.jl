@@ -1231,7 +1231,7 @@ module SpaTs
         # Print available columns in HDU[2] (if it exists)
         if length(f) >= 2
             # Get column names in HDU[2] (which is a TableHDU)
-            println("\nAvailable columns in HDU[2]: ", columnnames(f[2]))  # Print available columns in HDU[2]
+            println("\nAvailable columns in HDU[2]: ", names(f[2]))  # Print available columns in HDU[2]
         else
             println("\nNo HDU[2] found in this file.")
         end
@@ -1239,6 +1239,7 @@ module SpaTs
         # Close the FITS file
         close(f)
     end
+    
     
 
     
