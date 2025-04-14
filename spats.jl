@@ -1186,8 +1186,9 @@ module SpaTs
         end
         
         println("Loading 2DFS data from: $filepath")
+        
+        # Open the FITS file
         try
-            # Try to open the FITS file
             f = FITS(filepath)
         catch e
             println("Error opening FITS file: $e")
