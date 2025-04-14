@@ -1172,63 +1172,48 @@ module SpaTs
     Renders and saves a 2DFS plot from the file pulsar.debase.1.2dfs using PyPlot.
     """ 
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        # Generate the full file path for the pulsar.debase.1.2dfs file
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
-        
-        # Check if the file exists
+    
         if !isfile(filepath)
             println("File does not exist: $filepath")
             return
         end
-        
-        # Load the 2DFS data from the file
+    
         println("Loading 2DFS data from: $filepath")
         f = FITS(filepath)
-        
-        # Use readtable to correctly access the data from the Table HDU
-        # Here we use readtable for the TableHDU
-        data = readtable(f, 2)  # readtable retrieves the table data from the second HDU
-        
-        close(f)  # Close the FITS file after reading
-        
-        # Get the dimensions of the data (assuming it's a 2D array)
+    
+        # Wczytaj dane z HDU[2] – zakładamy, że to 2D ImageHDU
+        data = read(f[2])
+        close(f)
+    
         n_p3, n_p2 = size(data)
-        
-        # Create ranges for P3 and P2 axes (adjust as necessary)
         p3_range = range(0, stop=0.5, length=n_p3)
         p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
-        
-        # Create the figure and axis for the plot using PyPlot
+    
         fig, ax = subplots()
-        
-        # Plot the 2DFS data using the imshow function
         im = ax.imshow(data;
             extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
             origin="lower",
             aspect="auto",
-            cmap="viridis"  # Use the "viridis" colormap
+            cmap="viridis"
         )
-        
-        # Set labels and title for the plot
+    
         ax.set_xlabel("P2 [cpp]")
         ax.set_ylabel("P3 [cpp]")
         ax.set_title("2DFS – $pulsar_name")
-        
-        # Add a color bar to the plot for reference
         colorbar(im, ax=ax, label="Power")
-        
-        # Save the plot as a PNG file in the specified output directory
+    
         savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
         savefig(savepath)
         println("2DFS plot saved to: $savepath")
-        
-        # Show the plot if requested, otherwise close the figure
+    
         if show_plot
             show()
         else
             close(fig)
         end
     end
+    
     
     
 
