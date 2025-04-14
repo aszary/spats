@@ -1263,12 +1263,22 @@ module SpaTs
         try
             f = FITS(filepath)  # Open the FITS file
             println("== FITS File Summary ==")
-            summary(f)  # Print the FITS file summary
+            
+            # Print all the HDUs and columns available
+            for i in 1:length(f)
+                println("HDU $i:")
+                # If HDU contains a table, list its columns
+                if haskey(f[i], "columns")
+                    println("Columns in HDU $i: ", keys(f[i]["columns"]))
+                end
+            end
+            
             close(f)  # Close the FITS file
         catch e
             println("Error reading FITS file: $e")  # Handle errors
         end
     end
+    
     
     function print_first_20_lines(filepath::String)
         println("Reading first 100 lines from FITS file: $filepath")
@@ -1314,8 +1324,8 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
-        plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
-        #inspect_fits("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
+        #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+        inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_20_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
 
 
