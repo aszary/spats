@@ -1264,38 +1264,41 @@ module SpaTs
    
 
     function inspect_fits(filepath::String)
+        using FITSIO
+    
+        if !isfile(filepath)
+            println("File does not exist: $filepath")
+            return
+        end
+    
         println("Inspecting FITS file: $filepath")
+        
         try
             f = FITS(filepath)
-            println("== FITS File Summary ==")
     
-            for i in 1:length(f)
-                hdu = f[i]
-                println("HDU $i: ", typeof(hdu))
-    
-                # Wypisz informacje podstawowe z nagłówka
-                hdr = read_header(hdu)
-                for (key, val) in hdr
-                    println("  $key = $val")
-                end
-    
-                # Jeżeli dane są obecne, spróbuj je odczytać
+            for (i, hdu) in enumerate(f)
+                println("HDU $i:")
+                println("  Type: ", typeof(hdu))
                 try
-                    data = read(hdu)
-                    println("  Data present: type = ", typeof(data), ", size = ", size(data))
-                    if !isempty(data)
-                        println("  First values: ", data[1:min(end, 5)])
+                    if hdu isa FITSIO.ImageHDU
+                        d = read(hdu)
+                        println("  -> ImageHDU with dims: ", size(d))
+                    elseif hdu isa FITSIO.TableHDU
+                        println("  -> TableHDU with columns: ", colnames(hdu))
+                    else
+                        println("  -> Unknown HDU type.")
                     end
                 catch e
-                    println("  Could not read data: $e")
+                    println("  -> Failed to read HDU $i: $e")
                 end
             end
     
             close(f)
         catch e
-            println("Error reading FITS file: $e")
+            println("Error opening FITS file: $e")
         end
     end
+    
     
     
     
@@ -1352,8 +1355,8 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
-        plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
-        #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+        inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
 
 
