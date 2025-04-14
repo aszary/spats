@@ -1223,7 +1223,13 @@ module SpaTs
     end
     
     
-
+    function inspect_summary(filepath::String)
+        println("== HDU Summary for: $filepath ==")
+        f = FITS(filepath)
+        summary(f)
+        close(f)
+    end
+    
 
 
 
@@ -1244,7 +1250,9 @@ module SpaTs
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs("/home/psr/output", "J1919+0134")
-        inspect_hdu("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        #inspect_hdu("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        inspect_summary("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+
 
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
