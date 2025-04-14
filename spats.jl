@@ -1212,21 +1212,23 @@ module SpaTs
         p3_range = range(0, stop=0.5, length=n_p3)  # Adjust based on the actual units of your data
         p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)  # Adjust the range accordingly
         
-        # Plotting
-        fig, ax = subplots()
+        # Create the plot with PyPlot (the Julia interface to Matplotlib)
+        using PyPlot
+        
+        fig, ax = subplots()  # Create a new figure and axis
         im = ax.imshow(data;
             extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
-            origin="lower",  # Set the origin to the lower left for typical imaging convention
-            aspect="auto",   # Let the aspect ratio adjust automatically
-            cmap="viridis"   # Use the 'viridis' colormap for visualization
+            origin="lower",  # Set the origin to the lower-left corner (typical for images)
+            aspect="auto",   # Allow the aspect ratio to adjust automatically
+            cmap="viridis"   # Use the 'viridis' colormap
         )
         
-        # Add labels and title
-        ax.set_xlabel("P2 [cpp]")  # Change units to match your data (e.g., time or frequency)
-        ax.set_ylabel("P3 [cpp]")  # Change units to match your data (e.g., time or frequency)
+        # Label the axes and set the title
+        ax.set_xlabel("P2 [cpp]")  # Adjust label according to your data's units
+        ax.set_ylabel("P3 [cpp]")  # Adjust label according to your data's units
         ax.set_title("2DFS – $pulsar_name")
         
-        # Add a colorbar with label
+        # Add a colorbar to the plot with a label
         colorbar(im, ax=ax, label="Power")
 
         # Construct the path where the plot will be saved
@@ -1243,6 +1245,7 @@ module SpaTs
             close(fig)
         end
     end
+
 
     
 
