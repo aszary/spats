@@ -1215,6 +1215,13 @@ module SpaTs
     end
     
     
+    function inspect_hdu(filepath::String)
+        println("Inspecting HDU columns in: $filepath")
+        f = FITS(filepath)
+        cols = names(f[2])
+        println("Dostępne kolumny w HDU[2]: ", cols)
+        close(f)
+    end
     
 
 
@@ -1235,7 +1242,10 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
-        plot_2dfs("/home/psr/output", "J1919+0134")
+
+        #plot_2dfs("/home/psr/output", "J1919+0134")
+        inspect_hdu("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
         #test(vpmout)
