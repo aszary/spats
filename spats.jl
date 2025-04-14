@@ -1218,10 +1218,10 @@ module SpaTs
     function inspect_hdu(filepath::String)
         println("Inspecting HDU columns in: $filepath")
         f = FITS(filepath)
-        cols = names(f[2])
-        println("Dostępne kolumny w HDU[2]: ", cols)
+        println("Dostępne kolumny w HDU[2]: ", keys(f[2]))
         close(f)
     end
+    
     
 
 
