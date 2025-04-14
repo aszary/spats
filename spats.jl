@@ -1266,34 +1266,39 @@ module SpaTs
             f = FITS(filepath)  # Otwórz plik FITS
             println("== FITS File Summary ==")
     
-            # Iteracja przez wszystkie HDU
+            # Iteracja przez wszystkie HDU (Header Data Units)
             for i in 1:length(f)
                 hdu = f[i]  # Pobierz bieżące HDU
                 println("HDU $i: ", typeof(hdu))
     
-                # Sprawdzenie dostępnych pól w danym HDU
-                println("  Keys in this HDU: ", keys(hdu))  # Wyświetl dostępne klucze w HDU
-    
-                # Spróbuj wyświetlić zawartość, nawet jeśli dane nie są przechowywane w standardowy sposób
+                # Wyświetl dostępne pola w HDU
                 try
-                    if haskey(hdu, :data)
-                        data = hdu[:data]  # Odczytaj dane, jeśli dostępne
-                        println("  Data type: ", typeof(data))
-                        println("  Shape of data: ", size(data))  # Rozmiar danych
-                        println("  First few values of data: ", data[1:min(5, end)])  # Pierwsze kilka wartości
-                    else
-                        println("  No :data field in this HDU.")
-                        # Dodatkowe próby wydobycia informacji z innych dostępnych pól
-                        println("  Other fields in this HDU: ", typeof(hdu))
-                        if haskey(hdu, :header)
-                            println("  Header fields: ", keys(hdu[:header]))
-                        end
-                        if haskey(hdu, :primary)
-                            println("  Primary HDU fields: ", keys(hdu[:primary]))
-                        end
-                    end
+                    println("  Keys in this HDU: ", keys(hdu))
                 catch e
-                    println("  Error accessing data in HDU $i: $e")
+                    println("  Could not fetch keys for this HDU: $e")
+                end
+    
+                # Dodatkowe sprawdzenie, czy jest pole :data
+                if haskey(hdu, :data)
+                    println("  Found :data field in this HDU.")
+                    data = hdu[:data]  # Odczytaj dane
+                    println("  Data type: ", typeof(data))
+                    println("  Data shape: ", size(data))  # Rozmiar danych
+                    println("  First few values of data: ", data[1:min(5, end)])  # Pierwsze wartości
+                else
+                    println("  No :data field in this HDU.")
+                    if haskey(hdu, :header)
+                        println("  Header information: ", hdu[:header])
+                    end
+                    if haskey(hdu, :primary)
+                        println("  Primary HDU information: ", hdu[:primary])
+                    end
+                end
+    
+                # Jeśli to rozszerzenie tabeli, to także wyświetl dodatkowe informacje
+                if haskey(hdu, :extname)
+                    extname = hdu[:extname]
+                    println("  Extension name: ", extname)
                 end
             end
     
@@ -1302,6 +1307,7 @@ module SpaTs
             println("Error reading FITS file: $e")  # Obsłuż błędy
         end
     end
+    
     
     
     
