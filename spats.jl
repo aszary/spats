@@ -1312,11 +1312,11 @@ module SpaTs
     
     
     
-    function print_first_20_lines(filepath::String)
-        println("Reading first 100 lines from FITS file: $filepath")
+    function print_first_10_lines(filepath::String)
+        println("Reading first 10 lines from FITS file: $filepath")
         try
             f = open(filepath, "r")  # Open the FITS file in read mode
-            for i in 1:20
+            for i in 1:10
                 line = readline(f)  # Read a single line
                 println(line)  # Print the line
             end
@@ -1357,8 +1357,8 @@ module SpaTs
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
-        inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
-        #print_first_20_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
+        #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
 
 
         #J1750_psrdata(indir, vpmout)
