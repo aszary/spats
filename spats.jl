@@ -1246,7 +1246,7 @@ module SpaTs
             p2_range = range(160, stop=200, length=n_p2)  # Pulse longitude in deg, ograniczony do 160–200
     
             fig, ax = subplots()
-            im = ax.imshow(data;
+            im = ax.imshow(data';
                 extent=[160, 200, 0, 0.5],
                 origin="lower",
                 aspect="auto",
