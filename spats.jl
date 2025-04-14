@@ -1250,7 +1250,8 @@ module SpaTs
                 extent=[160, 200, 0, 0.5],
                 origin="lower",
                 aspect="auto",
-                cmap="gray"
+                cmap="gray",
+                norm=LogNorm(vmin=0.01, vmax=0.06)
             )
     
             ax.set_xlabel("Pulse longitude (deg)")
