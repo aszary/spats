@@ -1270,27 +1270,39 @@ module SpaTs
             for i in 1:length(f)
                 hdu = f[i]  # Pobierz bieżące HDU
                 println("HDU $i: ", typeof(hdu))
-                
-                # Sprawdzenie czy HDU zawiera dane
-                if haskey(hdu, :data)
-                    try
-                        data = hdu[:data]  # Odczytaj dane
-                        println("Data type: ", typeof(data))
-                        println("Shape of data: ", size(data))  # Rozmiar danych
-                        println("First few values of data: ", data[1:min(5, end)])  # Pierwsze kilka wartości
-                    catch e
-                        println("Error accessing data in HDU $i: $e")
+    
+                # Sprawdzenie dostępnych pól w danym HDU
+                println("  Keys in this HDU: ", keys(hdu))  # Wyświetl dostępne klucze w HDU
+    
+                # Spróbuj wyświetlić zawartość, nawet jeśli dane nie są przechowywane w standardowy sposób
+                try
+                    if haskey(hdu, :data)
+                        data = hdu[:data]  # Odczytaj dane, jeśli dostępne
+                        println("  Data type: ", typeof(data))
+                        println("  Shape of data: ", size(data))  # Rozmiar danych
+                        println("  First few values of data: ", data[1:min(5, end)])  # Pierwsze kilka wartości
+                    else
+                        println("  No :data field in this HDU.")
+                        # Dodatkowe próby wydobycia informacji z innych dostępnych pól
+                        println("  Other fields in this HDU: ", typeof(hdu))
+                        if haskey(hdu, :header)
+                            println("  Header fields: ", keys(hdu[:header]))
+                        end
+                        if haskey(hdu, :primary)
+                            println("  Primary HDU fields: ", keys(hdu[:primary]))
+                        end
                     end
-                else
-                    println("No :data field in this HDU.")
+                catch e
+                    println("  Error accessing data in HDU $i: $e")
                 end
             end
-            
+    
             close(f)  # Zamknij plik FITS
         catch e
             println("Error reading FITS file: $e")  # Obsłuż błędy
         end
     end
+    
     
     
     
