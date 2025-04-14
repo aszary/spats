@@ -1264,16 +1264,17 @@ module SpaTs
             f = FITS(filepath)  # Otwórz plik FITS
             println("== FITS File Summary ==")
             
-            # Iteruj przez HDU i wyświetl szczegóły o każdym z nich
+            # Iteruj przez wszystkie HDU
             for i in 1:length(f)
                 println("HDU $i:")
-                # Sprawdzanie dostępnych informacji
-                println("  Type: ", typeof(f[i]))  # Wyświetlenie typu obiektu HDU
-                println("  Shape of data (if available): ", size(f[i].data))  # Rozmiar danych, jeśli dostępny
+                println("  Type: ", typeof(f[i]))  # Wyświetl typ HDU
                 
-                # Jeśli to obraz, wyświetl dodatkowe szczegóły
-                if haskey(f[i], :data)  # Sprawdzamy, czy dane są dostępne w tej HDU
+                # Sprawdzanie dostępności danych
+                if haskey(f[i], :data)
                     println("  Data type: ", typeof(f[i].data))
+                    println("  Shape of data: ", size(f[i].data))  # Rozmiar danych
+                else
+                    println("  No data field available in this HDU.")
                 end
             end
             
@@ -1282,6 +1283,7 @@ module SpaTs
             println("Error reading FITS file: $e")  # Obsłuż błędy
         end
     end
+    
     
     
     
