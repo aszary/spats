@@ -1258,24 +1258,26 @@ module SpaTs
 
 
 
-    function inspect_fits(filepath::String)
+   
+
+    function inspect_image_fits(filepath::String)
         println("Inspecting FITS file: $filepath")
         try
             f = FITS(filepath)  # Otwórz plik FITS
             println("== FITS File Summary ==")
             
-            # Iteruj przez wszystkie HDU
-            for i in 1:length(f)
-                println("HDU $i:")
-                println("  Type: ", typeof(f[i]))  # Wyświetl typ HDU
-                
-                # Sprawdzanie dostępności danych
-                if haskey(f[i], :data)
-                    println("  Data type: ", typeof(f[i].data))
-                    println("  Shape of data: ", size(f[i].data))  # Rozmiar danych
-                else
-                    println("  No data field available in this HDU.")
-                end
+            # Sprawdzenie pierwszego HDU, który zawiera obraz
+            hdu1 = f[1]
+            println("HDU 1: ", typeof(hdu1))
+            
+            # Jeśli w pierwszym HDU jest obraz, sprawdźmy jego dane
+            if haskey(hdu1, :data)
+                image_data = hdu1[:data]  # Odczytaj dane obrazu
+                println("Data type: ", typeof(image_data))
+                println("Shape of image data: ", size(image_data))  # Rozmiar danych obrazu
+                println("First few pixels of image data: ", image_data[1:min(5, end)])  # Pierwsze kilka pikseli
+            else
+                println("No image data available in this HDU.")
             end
             
             close(f)  # Zamknij plik FITS
@@ -1283,7 +1285,8 @@ module SpaTs
             println("Error reading FITS file: $e")  # Obsłuż błędy
         end
     end
-    
+
+
     
     
     
