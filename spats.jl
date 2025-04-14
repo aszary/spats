@@ -1251,6 +1251,8 @@ module SpaTs
                 origin="lower",
                 aspect="auto",
                 cmap="gray"
+                vmin=0,
+                vmax=0.06
             )
     
             ax.set_xlabel("Pulse longitude (deg)")
