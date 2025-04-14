@@ -1337,7 +1337,7 @@ module SpaTs
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
-        inspect_image_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_20_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
 
 
