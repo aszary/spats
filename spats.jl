@@ -1188,10 +1188,16 @@ module SpaTs
         println("Loading 2DFS data from: $filepath")
         
         # Open the FITS file
+        f = nothing
         try
             f = FITS(filepath)
         catch e
             println("Error opening FITS file: $e")
+            return
+        end
+
+        if f == nothing
+            println("Failed to open FITS file.")
             return
         end
         
@@ -1212,6 +1218,7 @@ module SpaTs
         p3_range = range(0, stop=0.5, length=n_p3)  # Adjust based on the actual units of your data
         p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)  # Adjust the range accordingly
         
+        # Create the plot with PyPlot (the Julia interface to Matplotlib)
         fig, ax = subplots()  # Create a new figure and axis
         im = ax.imshow(data;
             extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
@@ -1242,6 +1249,8 @@ module SpaTs
             close(fig)
         end
     end
+
+
 
 
     
