@@ -1172,35 +1172,45 @@ module SpaTs
     Renders and saves a 2DFS plot from the file pulsar.debase.1.2dfs using PyPlot.
     """ 
     function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        # Construct the path to the 2DFS file
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
+        # Check if the file exists, if not, print an error and return
         if !isfile(filepath)
             println("File does not exist: $filepath")
             return
         end
     
+        # Print a message that we are loading the 2DFS data
         println("Loading 2DFS data from: $filepath")
         f = FITS(filepath)
     
-        # Sprawdź typ HDU, a potem wczytaj dane
+        # Check the HDU type and read the data accordingly
         if typeof(f[2]) == FITSIO.ImageHDU
-            # Jeśli to ImageHDU
+            # If it's an ImageHDU, read the data directly
             data = read(f[2])
         elseif typeof(f[2]) == FITSIO.TableHDU
-            # Jeśli to TableHDU (np. z kolumną "POWER")
+            # If it's a TableHDU (e.g., with the "POWER" column), read the data for the "POWER" column
             data = read(f[2], "POWER")
         else
+            # If the HDU type is unknown, print an error and exit
             println("Unknown HDU type!")
             close(f)
             return
         end
         close(f)
     
+        # Get the dimensions of the data
         n_p3, n_p2 = size(data)
+    
+        # Define the ranges for p3 and p2 axes
         p3_range = range(0, stop=0.5, length=n_p3)
         p2_range = range(-n_p2/2, stop=n_p2/2, length=n_p2)
     
+        # Create the plot
         fig, ax = subplots()
+    
+        # Display the image (2DFS plot) with appropriate scaling and color map
         im = ax.imshow(data;
             extent=[minimum(p2_range), maximum(p2_range), minimum(p3_range), maximum(p3_range)],
             origin="lower",
@@ -1208,15 +1218,20 @@ module SpaTs
             cmap="viridis"
         )
     
+        # Set the axis labels and title
         ax.set_xlabel("P2 [cpp]")
         ax.set_ylabel("P3 [cpp]")
         ax.set_title("2DFS – $pulsar_name")
+    
+        # Add a colorbar to show the power scale
         colorbar(im, ax=ax, label="Power")
     
+        # Save the plot to the specified output path
         savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
         savefig(savepath)
         println("2DFS plot saved to: $savepath")
     
+        # If show_plot is true, display the plot; otherwise, close the figure
         if show_plot
             show()
         else
@@ -1224,6 +1239,11 @@ module SpaTs
         end
     end
     
+
+
+
+
+
     
     
     function inspect_hdu(filepath::String)
@@ -1260,7 +1280,7 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
-        plot_2dfs("/home/psr/output", "J1919+0134")
+        plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_hdu("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #inspect_summary("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
 
