@@ -1487,10 +1487,12 @@ end
                 return
             end
     
-            # === Rozmiary i zakresy ===
+            # === Rozmiar danych ===
             n_freq, n_long = size(data)
-            freq_range = range(0, stop=0.5, length=n_freq)
-            long_range = range(0, stop=360, length=n_long)  # lub inny zakres, zależnie od danych
+            
+            # Automatyczne dopasowanie zakresu na podstawie rozmiaru danych
+            freq_range = range(0, stop=0.5, length=n_freq)  # Frequencies based on data size
+            long_range = range(0, stop=360, length=n_long)  # Pulse longitude range based on data size
     
             # === Tworzenie wykresu ===
             fig, ax = subplots()
@@ -1500,11 +1502,11 @@ end
                 aspect="auto",
                 cmap="gray",
                 vmin=0,
-                vmax=maximum(data)
+                vmax=maximum(data)  # Dynamic range based on data values
             )
     
-            #ax.set_xlabel("Pulse longitude (deg)")
-            #ax.set_ylabel("Fluctuation frequency (P/P3)")
+            ax.set_xlabel("Pulse longitude (deg)")
+            ax.set_ylabel("Fluctuation frequency (P/P3)")
             ax.set_title("LRFS – $pulsar_name")
             colorbar(im, ax=ax, label="Power")
     
@@ -1526,6 +1528,7 @@ end
             end
         end
     end
+    
     
 
 
