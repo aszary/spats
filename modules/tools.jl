@@ -2066,13 +2066,13 @@ module Tools
         return h / 3 * s
     end
 
+    """
+    Creates folded profile
+    :param data: single pulses
+    :param p3: P_3 periodicity
+    :return: folded profile
+    """
     function p3fold(data, p3, ybins=10, start_ind=nothing)
-        """
-        Creates folded profile
-        :param data: single pulses
-        :param p3: P_3 periodicity
-        :return: folded profile
-        """
         if isnothing(start_ind)
             start_ind = Int(floor(p3 / 2))
         end
@@ -2122,7 +2122,7 @@ module Tools
             "bin_st" => nothing,
             "bin_end" => nothing,
             "pulse_start" => 1,
-            "pulse_end" => nothing,
+            "pulse_end" => 150,
             "nsubint" => nothing,
             "p3" => -1.0,
             "p3_error" => -1.0,
