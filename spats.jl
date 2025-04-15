@@ -1268,8 +1268,8 @@ module SpaTs
                 origin="lower",
                 aspect="auto",
                 cmap="gray",  # Dodano przecinek
-                #vmin=0,  # Minimalna wartość skali kolorów
-                #vmax=0.06  # Maksymalna wartość skali kolorów
+                vmin=0,  # Minimalna wartość skali kolorów
+                vmax=20000  # Maksymalna wartość skali kolorów
             )
 
 
