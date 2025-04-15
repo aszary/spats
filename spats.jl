@@ -1303,7 +1303,7 @@ end
 
 
 
-    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    function plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
 
         if !isfile(filepath)
