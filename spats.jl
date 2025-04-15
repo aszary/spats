@@ -1171,10 +1171,13 @@ end
         println("Parameters updated and saved to $params_file")
     
         # Step 10: Plot
-        Plot.single(combined_data, output_subdir;darkness=0.5,bin_st=p["bin_st"],bin_end=p["bin_end"],start=p["pulse_start"],number=(p["pulse_end"]-p["pulse_start"]) ,name_mod="J0820Mac",show_=true)
-        Plot.lrfs(combined_data, output_subdir;darkness=0.1,start=p["pulse_start"],bin_st=p["bin_st"],bin_end=p["bin_end"],name_mod="J0820Mac",change_fftphase=false,show_=true)
-        Plot.average(combined_data, output_subdir;bin_st=p["bin_st"],bin_end=p["bin_end"],number=(p["pulse_end"]-p["pulse_start"]), name_mod="J0820Mac",show_=false)
-#=
+        Plot.single(combined_data, output_subdir; darkness=0.5, bin_st=p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=true)
+
+        Plot.lrfs(combined_data, output_subdir; darkness=0.1, start=p["pulse_start"], bin_st=p["bin_st"], bin_end=p["bin_end"], name_mod=name_mod, change_fftphase=false, show_=true)
+
+        Plot.average(combined_data, output_subdir; bin_st=p["bin_st"], bin_end=p["bin_end"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
+        
+        #=
         Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
         Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod=name_mod, change_fftphase=false, show_=false)
         Plot.average(combined_data, output_subdir,bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
