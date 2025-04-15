@@ -1100,7 +1100,7 @@ end
         end
 
         # Step 3 create JSON file
-        json_file = joinpath(output_subdir, "params_$(base_name).json")
+        json_file = joinpath(output_subdir, "params.json")
 
         #Step 3.5 Check if already processed
 
