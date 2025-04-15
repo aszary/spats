@@ -1009,8 +1009,7 @@ function J0820Mac(outdir)
     debased_file = replace(output_txt, ".txt" => ".debase.gg")
 
     # === Load or initialize JSON parameter library ===
-    p = isfile(params_file) ? JSON.parsefile(params_file) : default_params(params_file)
-
+    p = isfile(params_file) ? read_params(params_file) : default_params(params_file)
 
     # === Ensure output directory exists ===
     if !isdir(outdir)
