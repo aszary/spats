@@ -1486,7 +1486,7 @@ end
                 println("❌ No suitable LRFS data found.")
                 return
             end
-    
+            
             # === Rozmiar danych ===
             n_freq, n_long = size(data)
             
@@ -1628,14 +1628,14 @@ end
 
         #J1319(vpmout)
         #process_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
-        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
-        plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
+        #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
 
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
