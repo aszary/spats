@@ -1002,7 +1002,7 @@ module SpaTs
    
 
 
-
+#=
 function J0820Mac(outdir)
     params_file = "params.json"
     output_txt = joinpath(outdir, "J0924-5814.txt")
@@ -1066,6 +1066,7 @@ function J0820Mac(outdir)
     Plot.lrfs(data, outdir;darkness=0.1,start=p["pulse_start"],bin_st=p["bin_st"],bin_end=p["bin_end"],name_mod="J0820Mac",change_fftphase=false,show_=true)
     Plot.average(data, outdir;bin_st=p["bin_st"],bin_end=p["bin_end"],number=nothing,name_mod="J0820Mac",show_=true)
 end
+=#
 
 
 
@@ -1085,38 +1086,43 @@ end
 
 
 
-
-    #=
+    
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory 
         base_name = basename(base_dir)
     
-        # Step 2: Auto-generate name_mod
-        name_mod = isnothing(name_mod) ? base_name * "Mac" : name_mod
     
-        # Step 3: Create output subdirectory
+        # Step 2: Create output subdirectory
         output_subdir = joinpath(output_dir, base_name)
         if !isdir(output_subdir)
             mkpath(output_subdir)
             println("Created output directory: ", output_subdir)
         end
-    
+
+        # Step 3 create JSON file
+        json_file = joinpath(output_subdir, "params_$(base_name).json")
+
+        #Step 3.5 Check if already processed
+
+        if isdir(output_subdir) && isfile(joinpath(output_subdir, "params.json"))
+            println("Skipping already processed catalogue: $base_name")
+            return
+        end
+
+        
+        p = isfile(json_file) ? Tools.read_params(json_file) : Tools.default_params(json_file)
+
+
         # Step 4: Find second-level catalogue
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
         println("Second catalogue found: ", second_catalogue)
     
         # Step 5: Find .spCF files
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
-        sort!(spcf_files, by = f -> begin
-            # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
-            m = match(r"_(\d+)-(\d+)\.spCF$", f)
-            if isnothing(m)
-                return typemax(Int)  # Files without proper format go to the end
-            else
-                return parse(Int, m.captures[1])  # Sort by the starting pulse number
-            end
-        end)
+        Data.sort!(spcf_files)
+
         converted_txt_files = String[]
+
 
         #step 6: combining .spCF into one 
         output_file = joinpath(output_subdir, "converted.spCF")
@@ -1153,15 +1159,22 @@ end
                 bin_end -= 1
                 println("Adjusted onpulse range: $bin_st to $bin_end")
             end
+            p["bin_st"] = bin_st
+            p["bin_end"] = bin_end
             println("Found onpulse range: $bin_st to $bin_end")
         end
+
+        Tools.save_params(params_file, p)
+        println("Parameters updated and saved to $params_file")
     
         # Step 10: Plot
-        #Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
-        #Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod=name_mod, change_fftphase=false, show_=false)
-        #Plot.average(combined_data, output_subdir,bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
+        Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
+        Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod=name_mod, change_fftphase=false, show_=false)
+        Plot.average(combined_data, output_subdir,bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
     end
     
+
+
     function process_all_catalogues(output_dir::String, base_root::String="/home/psr/data/new")
         # Get all subdirectories in base_root
         catalogues = filter(isdir, readdir(base_root, join=true))
@@ -1182,7 +1195,7 @@ end
     function J0034Mac(output_dir)
         process_all_catalogues(output_dir, "/home/psr/data/new")
     end
-    =#
+    
  
 
     
@@ -1204,8 +1217,8 @@ end
         =#
 
         #test(vpmout)
-        J0820Mac(vpmout)
-        #######J0034Mac(vpmout)
+        #J0820Mac(vpmout)
+        J0034Mac(vpmout)
         #mkieth()
         #J1651()
         #J1705()
