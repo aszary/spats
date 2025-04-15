@@ -1464,70 +1464,116 @@ end
 
 
     function plot_lrfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.lrfs")
-    
-        if !isfile(filepath)
-            println("File does not exist: $filepath")
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.lrfs")
+
+    if !isfile(filepath)
+        println("File does not exist: $filepath")
+        return
+    end
+
+    println("Inspecting FITS file: $filepath")
+
+    f = nothing
+    data = nothing
+
+    try
+        f = FITS(filepath)
+
+        # Iteracja przez dostępne HDU w pliku FITS
+        for (i, hdu) in enumerate(f)
+            println("HDU $i:")
+            println("  Type: ", typeof(hdu))
+
+            try
+                # Próbujemy znaleźć dane w różnych typach HDU
+                if hdu isa FITSIO.ImageHDU
+                    img = read(hdu)
+                    if ndims(img) == 2  # Sprawdzamy, czy to jest obraz 2D
+                        println("  -> Found 2D image of size ", size(img))
+                        data = img
+                        break
+                    else
+                        println("  -> Not a 2D image (ndims=$(ndims(img)))")
+                    end
+
+                elseif hdu isa FITSIO.TableHDU
+                    names = FITSIO.colnames(hdu)
+                    println("  Columns: ", names)
+
+                    # Przeglądamy kolumny, by znaleźć odpowiednie dane
+                    for name in names
+                        col_data = read(hdu, name)
+                        println("    Column '$name' -> type: ", typeof(col_data), ", size: ", size(col_data))
+
+                        if isa(col_data, AbstractArray) && ndims(col_data) == 2 && eltype(col_data) <: Number
+                            println("  ✅ Found 2D numeric column '$name' in HDU $i")
+                            data = col_data
+                            break
+                        end
+                    end
+                end
+            catch e
+                println("  -> Failed to read HDU $i: $e")
+            end
+
+            # Jeśli dane zostały znalezione, przerywamy iterację
+            if data !== nothing
+                break
+            end
+        end
+
+        # Jeśli nie znaleziono danych, zwracamy błąd
+        if data === nothing
+            println("❌ No suitable LRFS data found.")
+            close(f)
             return
         end
-    
-        println("Inspecting FITS file: $filepath")
-    
-        f = nothing
-        data = nothing
-    
-        try
-            f = FITS(filepath)
-            hdu = f[4]  # Zakładamy, że HDU 4 zawiera dane LRFS
-            data = read(hdu, "DATA")
+
+        # Zamykanie pliku FITS
+        close(f)
+
+        # === Rozmiar danych ===
+        n_freq, n_long = size(data)
+
+        # Automatyczne dopasowanie zakresu na podstawie rozmiaru danych
+        freq_range = range(0, stop=0.5, length=n_freq)  # Frequencies based on data size
+        long_range = range(0, stop=360, length=n_long)  # Pulse longitude range based on data size
+
+        # === Tworzenie wykresu ===
+        fig, ax = subplots()
+        im = ax.imshow(data';
+            extent=[0, 360, 0, 0.5],  # [x_min, x_max, y_min, y_max]
+            origin="lower",
+            aspect="auto",
+            cmap="gray",
+            vmin=0,
+            vmax=maximum(data)  # Dynamic range based on data values
+        )
+
+        ax.set_xlabel("Pulse longitude (deg)")
+        ax.set_ylabel("Fluctuation frequency (P/P3)")
+        ax.set_title("LRFS – $pulsar_name")
+        colorbar(im, ax=ax, label="Power")
+
+        # === Zapis wykresu ===
+        savepath = joinpath(outdir, pulsar_name, "lrfs_" * pulsar_name * ".png")
+        savefig(savepath)
+        println("✅ LRFS plot saved to: $savepath")
+
+        if show_plot
+            show()
+        else
+            close(fig)
+        end
+
+    catch e
+        println("❌ Error handling FITS file: $e")
+        if f !== nothing
             close(f)
-    
-            if data === nothing
-                println("❌ No suitable LRFS data found.")
-                return
-            end
-            
-            # === Rozmiar danych ===
-            n_freq, n_long = size(data)
-            
-            # Automatyczne dopasowanie zakresu na podstawie rozmiaru danych
-            freq_range = range(0, stop=0.5, length=n_freq)  # Frequencies based on data size
-            long_range = range(0, stop=360, length=n_long)  # Pulse longitude range based on data size
-    
-            # === Tworzenie wykresu ===
-            fig, ax = subplots()
-            im = ax.imshow(data';
-                extent=[0, 360, 0, 0.5],  # [x_min, x_max, y_min, y_max]
-                origin="lower",
-                aspect="auto",
-                cmap="gray",
-                vmin=0,
-                vmax=maximum(data)  # Dynamic range based on data values
-            )
-    
-            #ax.set_xlabel("Pulse longitude (deg)")
-            #ax.set_ylabel("Fluctuation frequency (P/P3)")
-            ax.set_title("LRFS – $pulsar_name")
-            colorbar(im, ax=ax, label="Power")
-    
-            # === Zapis wykresu ===
-            savepath = joinpath(outdir, pulsar_name, "lrfs_" * pulsar_name * ".png")
-            savefig(savepath)
-            println("✅ LRFS plot saved to: $savepath")
-    
-            if show_plot
-                show()
-            else
-                close(fig)
-            end
-    
-        catch e
-            println("❌ Error handling FITS file: $e")
-            if f !== nothing
-                close(f)
-            end
         end
     end
+end
+
     
     
 
@@ -1628,14 +1674,14 @@ end
 
         #J1319(vpmout)
         #process_psrdata("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/", vpmout)
-        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
-        #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
 
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
