@@ -1177,7 +1177,7 @@ module SpaTs
     - pulsar_name: The name of the pulsar to create the plot for.
     - show_plot: A boolean flag to decide whether to display the plot (default: true).
     """
-    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+   """ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
 
@@ -1275,10 +1275,74 @@ module SpaTs
                 close(f)
             end
         end
-end
+end"""
 
     
-    
+    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+
+        if !isfile(filepath)
+            println("File does not exist: $filepath")
+            return
+        end
+
+        println("Inspecting FITS file: $filepath")
+
+        f = FITS(filepath)
+        data = nothing
+        xrange = (0.0, 1.0)
+        yrange = (0.0, 0.5)
+
+        for hdu in f
+            if hdu isa FITSIO.ImageHDU
+                img = read(hdu)
+                if ndims(img) == 2
+                    data = img
+                    header = read_header(hdu)
+                    if haskey(header, "XRANGE1") && haskey(header, "XRANGE2")
+                        xrange = (parse(Float64, header["XRANGE1"]),
+                                parse(Float64, header["XRANGE2"]))
+                    end
+                    if haskey(header, "YRANGE1") && haskey(header, "YRANGE2")
+                        yrange = (parse(Float64, header["YRANGE1"]),
+                                parse(Float64, header["YRANGE2"]))
+                    end
+                    break
+                end
+            end
+        end
+        close(f)
+
+        if data === nothing
+            println("❌ No suitable 2D data found in FITS file.")
+            return
+        end
+
+        fig, ax = subplots()
+        im = ax.imshow(data;
+            extent=[xrange[1], xrange[2], yrange[1], yrange[2]],
+            origin="lower",
+            aspect="auto",
+            cmap="gray"
+        )
+
+        ax.set_xlabel("Fluctuation frequency (P/P2)")
+        ax.set_ylabel("Fluctuation frequency (P/P3)")
+        ax.set_title("2DFS – $pulsar_name")
+        colorbar(im, ax=ax, label="Power")
+
+        savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+        savefig(savepath)
+        println("✅ 2DFS plot saved to: $savepath")
+
+        if show_plot
+            show()
+        else
+            close(fig)
+        end
+    end
+
     
     
     
