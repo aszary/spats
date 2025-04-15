@@ -1418,6 +1418,7 @@ end
             # Left panel: column sum profile (vertical)
             axs[1].plot(-col_sums, -p2_range)
             axs[1].invert_xaxis()  # Flip to keep panel visually on the left
+            axs[1].set_xscale("log")
             axs[1].set_ylabel("Pulse longitude (deg)")
             axs[1].set_xlabel("Column sum (Power)")
             axs[1].grid(true)
