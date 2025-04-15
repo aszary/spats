@@ -1332,17 +1332,18 @@ end
             p3_range = range(0, stop=0.5, length=n_p3)
             p2_range = range(160, stop=200, length=n_p2)
 
-            # === Compute row sums for left panel ===
-            row_sums = sum(data, dims=1)[1, :]  # Collapse each row into a single value
+            # === Compute column sums for left panel ===
+            col_sums = sum(data, dims=1)[1, :]  # Collapse each column into a single value
 
             # === Create side-by-side plots ===
             fig, axs = subplots(1, 2, figsize=(10, 5), width_ratios=[1, 4])
 
-            # Left panel: row sum profile (rotated vertically)
-            axs[1].plot(-row_sums, p3_range)
+            # Left panel: column sum profile (rotated vertically)
+            axs[1].plot(-col_sums, p2_range)
             axs[1].invert_xaxis()  # Flip horizontally so it appears on the left
-            axs[1].set_ylabel("Fluctuation frequency (P/P3)")
-            #axs[1].grid(true)
+            axs[1].set_ylabel("Pulse longitude (deg)")
+            axs[1].set_xlabel("Power sum")
+            axs[1].grid(true)
 
             # Right panel: original 2DFS image
             im = axs[2].imshow(data';
