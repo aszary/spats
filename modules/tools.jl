@@ -9,6 +9,7 @@ module Tools
     using StatsBase
     using CubicSplines
     using Trapz
+    using JSON
 
     using PyPlot
     using DSP
@@ -2061,7 +2062,7 @@ module Tools
         return h / 3 * s
     end
 
-    
+
     function save_params(filename, params)
         open(filename, "w") do file
             JSON.print(file, params)
