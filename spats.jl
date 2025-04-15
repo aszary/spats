@@ -1127,7 +1127,7 @@ end
         #step 6: combining .spCF into one 
         output_file = joinpath(output_subdir, "converted.spCF")
         file_names = [joinpath(base_name, file) for file in spcf_files]
-        sorted_files = sort_spcf_files(file_names)
+        Data.sort!(spcf_files)
         run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
         out_txt=replace(output_file ,".spCF" => ".txt")
 
