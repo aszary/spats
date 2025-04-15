@@ -2061,12 +2061,6 @@ module Tools
         return h / 3 * s
     end
 
-
-
-
-
-
-
     
     function save_params(filename, params)
         open(filename, "w") do file
