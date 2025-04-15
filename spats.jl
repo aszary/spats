@@ -1342,7 +1342,6 @@ end
             axs[1].plot(-row_sums, p3_range)
             axs[1].invert_xaxis()  # żeby lewy panel był przyklejony do wykresu
             axs[1].set_ylabel("Fluctuation frequency (P/P3)")
-            axs[1].set_xlabel("Row sum (Power)")
             axs[1].grid(true)
 
             # Panel po prawej (oryginalny wykres)
