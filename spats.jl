@@ -1380,7 +1380,82 @@ end
 
 
 
+    function plot_2dfs_zmiany2(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
+        if !isfile(filepath)
+            println("File does not exist: $filepath")
+            return
+        end
+    
+        println("Inspecting FITS file: $filepath")
+    
+        f = nothing
+        data = nothing
+    
+        try
+            f = FITS(filepath)
+            hdu = f[4]  # Directly access HDU 4
+            data = read(hdu, "DATA")
+            close(f)
+    
+            if data === nothing
+                println("❌ No suitable 2D data found.")
+                return
+            end
+    
+            # === Dimensions and axis ranges ===
+            n_p3, n_p2 = size(data)
+            p3_range = range(0, stop=0.5, length=n_p3)
+            p2_range = range(160, stop=200, length=n_p2)
+    
+            # === Left panel: sum over columns instead of rows ===
+            col_sums = sum(data, dims=1)[1, :]  # Collapse along rows → sum each column
+    
+            # === Subplots setup ===
+            fig, axs = subplots(1, 2, figsize=(10, 5), width_ratios=[1, 4])
+    
+            # Left panel: column sum profile (vertical)
+            axs[1].plot(col_sums, p2_range)
+            axs[1].invert_xaxis()  # Flip to keep panel visually on the left
+            axs[1].set_ylabel("Pulse longitude (deg)")
+            axs[1].set_xlabel("Column sum (Power)")
+            axs[1].grid(true)
+    
+            # Right panel: 2DFS image
+            im = axs[2].imshow(data';
+                extent=[160, 200, 0, 0.5],
+                origin="lower",
+                aspect="auto",
+                cmap="gray",
+                vmin=0,
+                vmax=5000
+            )
+    
+            axs[2].set_xlabel("Pulse longitude (deg)")
+            axs[2].set_ylabel("Fluctuation frequency (P/P3)")
+            axs[2].set_title("2DFS – $pulsar_name")
+            colorbar(im, ax=axs[2], label="Power")
+    
+            # Save output
+            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+            savefig(savepath)
+            println("✅ 2DFS plot with left column-sum panel saved to: $savepath")
+    
+            if show_plot
+                show()
+            else
+                close(fig)
+            end
+    
+        catch e
+            println("❌ Error handling FITS file: $e")
+            if f !== nothing
+                close(f)
+            end
+        end
+    end
+        
     
 
 
@@ -1485,7 +1560,7 @@ end
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
-        plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_2dfs_zmiany2("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
 
