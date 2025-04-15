@@ -1342,7 +1342,7 @@ end
             axs[1].plot(-row_sums, p3_range)
             axs[1].invert_xaxis()  # Flip horizontally so it appears on the left
             axs[1].set_ylabel("Fluctuation frequency (P/P3)")
-            axs[1].grid(true)
+            #axs[1].grid(true)
 
             # Right panel: original 2DFS image
             im = axs[2].imshow(data';
