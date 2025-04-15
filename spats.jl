@@ -1009,7 +1009,7 @@ function J0820Mac(outdir)
     debased_file = replace(output_txt, ".txt" => ".debase.gg")
 
     # === Load or initialize JSON parameter library ===
-    p = isfile(params_file) ? tools.read_params(params_file) : tools.default_params(params_file)
+    p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
 
     # === Ensure output directory exists ===
     if !isdir(outdir)
@@ -1056,7 +1056,7 @@ function J0820Mac(outdir)
     end
 
     # === Save updated params back to JSON ===
-    tools.save_params(params_file, p)
+    Tools.save_params(params_file, p)
     println("Parameters updated and saved to $params_file")
 
     # === Load data and plot ===
