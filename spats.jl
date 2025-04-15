@@ -1090,7 +1090,7 @@ end
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory 
         base_name = basename(base_dir)
-    
+        params_file = "params.json"
     
         # Step 2: Create output subdirectory
         output_subdir = joinpath(output_dir, base_name)
@@ -1127,12 +1127,15 @@ end
         #step 6: combining .spCF into one 
         output_file = joinpath(output_subdir, "converted.spCF")
         file_names = [joinpath(base_name, file) for file in spcf_files]
+
         Data.sort!(spcf_files)
+
         run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
         out_txt=replace(output_file ,".spCF" => ".txt")
 
         # Step 7: Convert spCF -> ascii
         Data.convert_psrfit_ascii(output_file, out_txt)
+
         rm(output_file) #cleanup .spCF file
 
         # Step 8: Debase the combined ASCII file using pmod
