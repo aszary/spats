@@ -1104,11 +1104,11 @@ end
 
         #Step 3.5 Check if already processed
 
-        if isdir(output_subdir) && isfile(joinpath(output_subdir, "params.json"))
+        #=if isdir(output_subdir) && isfile(joinpath(output_subdir, "params.json"))
             println("Skipping already processed catalogue: $base_name")
             return
         end
-
+        =#
         
         p = isfile(json_file) ? Tools.read_params(json_file) : Tools.default_params(json_file)
 
