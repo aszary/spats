@@ -1005,7 +1005,7 @@ module SpaTs
 
 function J0820Mac(outdir)
     params_file = "params.json"
-    output_txt = joinpath(outdir, "J0820-1350_converted.txt")
+    output_txt = joinpath(outdir, "J0924-5814.txt")
     debased_file = replace(output_txt, ".txt" => ".debase.gg")
 
     # === Load or initialize JSON parameter library ===
@@ -1019,7 +1019,8 @@ function J0820Mac(outdir)
     end
 
     # === Convert PSRFIT file to ASCII format ===
-    input_file = "/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/2020-01-11-01:05:56_00000-00255.spCF"
+    input_file = "/home/psr/data/new/J0924-5814/2019-10-19-05:58:44/2019-10-19-05:58:44_00512-00767.spCF"
+    
     if !isfile(output_txt)
         println("Converting PSRFIT to ASCII...")
         Data.convert_psrfit_ascii(input_file, output_txt)
@@ -1034,7 +1035,7 @@ function J0820Mac(outdir)
 
         # Read the captured output from pmod
         output = read("pmod_output.txt", String)
-        rm("pmod_output.txt")  # Cleanup the log file
+       # Cleanup the log file
 
         # Extract onpulse range from the output
         m = match(r"-onpulse '(\d+) (\d+)'", output)
