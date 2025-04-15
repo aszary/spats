@@ -1009,13 +1009,8 @@ function J0820Mac(outdir)
     debased_file = replace(output_txt, ".txt" => ".debase.gg")
 
     # === Load or initialize JSON parameter library ===
-    p = isfile(params_file) ? JSON.parsefile(params_file) : Dict()
-    if !haskey(p, "number")
-        p["number"] = 150
-        p["pulse_start"] = 1
-        p["bin_st"] = 1
-        p["bin_end"] = 1024
-    end
+    p = isfile(params_file) ? JSON.parsefile(params_file) : default_params(params_file)
+
 
     # === Ensure output directory exists ===
     if !isdir(outdir)
@@ -1061,10 +1056,8 @@ function J0820Mac(outdir)
     end
 
     # === Save updated params back to JSON ===
-    open(params_file, "w") do f
-        write(f, JSON.json(p, 4))  # Pretty format
-    end
-    println("Saved updated parameters to $params_file")
+    save_params(params_file, p)
+    println("Parameters updated and saved to $params_file")
 
     # === Load data and plot ===
     data = Data.load_ascii(output_txt)
