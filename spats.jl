@@ -1463,6 +1463,73 @@ end
 
 
 
+    function plot_lrfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.lrfs")
+    
+        if !isfile(filepath)
+            println("File does not exist: $filepath")
+            return
+        end
+    
+        println("Inspecting FITS file: $filepath")
+    
+        f = nothing
+        data = nothing
+    
+        try
+            f = FITS(filepath)
+            hdu = f[4]  # Zakładamy, że HDU 4 zawiera dane LRFS
+            data = read(hdu, "DATA")
+            close(f)
+    
+            if data === nothing
+                println("❌ No suitable LRFS data found.")
+                return
+            end
+    
+            # === Rozmiary i zakresy ===
+            n_freq, n_long = size(data)
+            freq_range = range(0, stop=0.5, length=n_freq)
+            long_range = range(0, stop=360, length=n_long)  # lub inny zakres, zależnie od danych
+    
+            # === Tworzenie wykresu ===
+            fig, ax = subplots()
+            im = ax.imshow(data';
+                extent=[0, 360, 0, 0.5],  # [x_min, x_max, y_min, y_max]
+                origin="lower",
+                aspect="auto",
+                cmap="gray",
+                vmin=0,
+                vmax=maximum(data)
+            )
+    
+            #ax.set_xlabel("Pulse longitude (deg)")
+            #ax.set_ylabel("Fluctuation frequency (P/P3)")
+            ax.set_title("LRFS – $pulsar_name")
+            colorbar(im, ax=ax, label="Power")
+    
+            # === Zapis wykresu ===
+            savepath = joinpath(outdir, pulsar_name, "lrfs_" * pulsar_name * ".png")
+            savefig(savepath)
+            println("✅ LRFS plot saved to: $savepath")
+    
+            if show_plot
+                show()
+            else
+                close(fig)
+            end
+    
+        catch e
+            println("❌ Error handling FITS file: $e")
+            if f !== nothing
+                close(f)
+            end
+        end
+    end
+    
+
+
+
 
     
 
@@ -1562,10 +1629,10 @@ end
         #process_psrdata("/home/psr/data/new/J1057-5226/2019-06-21-15:37:29", vpmout)
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
-        plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
+        #plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
-
+        plot_lrfs(""/home/psr/output", "J1919+0134", show_plot=true")
 
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
