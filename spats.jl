@@ -1505,8 +1505,8 @@ end
                 vmax=maximum(data)  # Dynamic range based on data values
             )
     
-            ax.set_xlabel("Pulse longitude (deg)")
-            ax.set_ylabel("Fluctuation frequency (P/P3)")
+            #ax.set_xlabel("Pulse longitude (deg)")
+            #ax.set_ylabel("Fluctuation frequency (P/P3)")
             ax.set_title("LRFS – $pulsar_name")
             colorbar(im, ax=ax, label="Power")
     
