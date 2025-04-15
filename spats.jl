@@ -1263,7 +1263,7 @@ module SpaTs
 
 
             fig, ax = subplots()
-            im = ax.imshow(data;
+            im = ax.imshow(data';
                 extent=[160, 200, 0, 0.5],  # Zamieniono osie x i y
                 origin="lower",
                 aspect="auto",
