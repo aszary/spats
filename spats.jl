@@ -1301,7 +1301,8 @@ end
 
 
 
-    function plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=true)
+
+    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
 
         if !isfile(filepath)
@@ -1316,8 +1317,8 @@ end
 
         try
             f = FITS(filepath)
-            hdu = f[4]  # upraszczamy, bo wiemy że to HDU 4
-            data = read(hdu, "DATA")  # od razu sięgamy po kolumnę "DATA"
+            hdu = f[4]
+            data = read(hdu, "DATA")
             close(f)
 
             if data === nothing
@@ -1325,25 +1326,26 @@ end
                 return
             end
 
-            # === Wartości wykresu ===
             n_p3, n_p2 = size(data)
             p3_range = range(0, stop=0.5, length=n_p3)
             p2_range = range(160, stop=200, length=n_p2)
 
-            # === Panel z lewej strony: suma rzędów ===
-            row_sums = sum(data, dims=2)[:, 1]  # suma każdego wiersza (n_p3-elementowy wektor)
+            row_sums = sum(data, dims=2)[:, 1]
 
-            # === Ustawienie subplotów ===
-            fig, axs = subplots(1, 2, figsize=(10, 5), width_ratios=[1, 4])  # 1 rząd, 2 kolumny
+            fig, axs = subplots(1, 2, figsize=(10, 5), width_ratios=[1, 4],
+                                gridspec_kw=Dict("wspace"=>0.05))  # minimalna przestrzeń między panelami
 
-            # Panel po lewej
+            # Panel po lewej – obrócony
             axs[1].plot(row_sums, p3_range)
-            axs[1].invert_xaxis()  # żeby lewy panel był przyklejony do wykresu
-            axs[1].set_ylabel("Fluctuation frequency (P/P3)")
-            axs[1].set_xlabel("Row sum (Power)")
-            axs[1].grid(true)
+            axs[1].invert_xaxis()
+            axs[1].set_yticks([])  # brak duplikacji wartości Y – tylko po prawej
+            axs[1].tick_params(left=false, labelleft=false, bottom=false, labelbottom=false)
+            axs[1].spines["top"].set_visible(false)
+            axs[1].spines["right"].set_visible(false)
+            axs[1].spines["bottom"].set_visible(false)
+            axs[1].spines["left"].set_visible(false)
 
-            # Panel po prawej (oryginalny wykres)
+            # Panel po prawej – główny 2DFS
             im = axs[2].imshow(data';
                 extent=[160, 200, 0, 0.5],
                 origin="lower",
@@ -1358,9 +1360,8 @@ end
             axs[2].set_title("2DFS – $pulsar_name")
             colorbar(im, ax=axs[2], label="Power")
 
-            # Zapis
             savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-            savefig(savepath)
+            savefig(savepath, bbox_inches="tight")
             println("✅ 2DFS plot with left panel saved to: $savepath")
 
             if show_plot
