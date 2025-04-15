@@ -2090,7 +2090,7 @@ module Tools
             "bin_st" => nothing,
             "bin_end" => nothing,
             "pulse_start" => 1,
-            "pulse_end" => nothing,
+            "pulse_end" => 150,
             "nsubint" => nothing,
             "p3" => -1.0,
             "p3_error" => -1.0,
