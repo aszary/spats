@@ -1278,16 +1278,28 @@ module SpaTs
 end"""
 
     
-    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+using FITSIO
+using PyPlot
 
+"""
+Renders and saves a 2DFS plot from a FITS file using PyPlot.
+
+Arguments:
+- outdir: Output directory containing the pulsar folder
+- pulsar_name: Name of the pulsar (subdirectory + filename base)
+- show_plot: Whether to display the plot (default: true)
+"""
+
+
+    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
 
         if !isfile(filepath)
-            println("File does not exist: $filepath")
+            println("❌ File does not exist: $filepath")
             return
         end
 
-        println("Inspecting FITS file: $filepath")
+        println("🔍 Inspecting FITS file: $filepath")
 
         f = FITS(filepath)
         data = nothing
@@ -1327,8 +1339,8 @@ end"""
             cmap="gray"
         )
 
-        ax.set_xlabel("Fluctuation frequency (P/P2)")
-        ax.set_ylabel("Fluctuation frequency (P/P3)")
+        ax.set_xlabel("Fluctuation frequency (P/P2)")  # P2 axis – horizontal
+        ax.set_ylabel("Fluctuation frequency (P/P3)")  # P3 axis – vertical
         ax.set_title("2DFS – $pulsar_name")
         colorbar(im, ax=ax, label="Power")
 
@@ -1342,6 +1354,7 @@ end"""
             close(fig)
         end
     end
+
 
     
     
