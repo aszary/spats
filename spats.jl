@@ -1333,7 +1333,7 @@ end
             p2_range = range(160, stop=200, length=n_p2)
 
             # === Compute row sums for left panel ===
-            row_sums = sum(data, dims=2)[1, :]  # Collapse each row into a single value
+            row_sums = sum(data, dims=2)[:, 1]  # Collapse each row into a single value
 
             # === Create side-by-side plots ===
             fig, axs = subplots(1, 2, figsize=(10, 5), width_ratios=[1, 4])
