@@ -1302,7 +1302,7 @@ end
 
 
 
-    function plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
 
         if !isfile(filepath)
@@ -1333,19 +1333,17 @@ end
             row_sums = sum(data, dims=2)[:, 1]
 
             fig, axs = subplots(1, 2, figsize=(10, 5), width_ratios=[1, 4],
-                                gridspec_kw=Dict("wspace"=>0.05))  # minimalna przestrzeń między panelami
+                                gridspec_kw=Dict("wspace"=>0.1))
 
-            # Panel po lewej – obrócony
-            axs[1].plot(row_sums, p3_range)
-            axs[1].invert_xaxis()
-            axs[1].set_yticks([])  # brak duplikacji wartości Y – tylko po prawej
-            axs[1].tick_params(left=false, labelleft=false, bottom=false, labelbottom=false)
-            axs[1].spines["top"].set_visible(false)
-            axs[1].spines["right"].set_visible(false)
-            axs[1].spines["bottom"].set_visible(false)
-            axs[1].spines["left"].set_visible(false)
+            # ▶️ Lewy panel – wykres row_sums OBRÓCONY o 90° (leży poziomo)
+            axs[1].barh(p3_range, row_sums, color="black")  # poziomy wykres słupkowy
+            axs[1].set_ylim(0, 0.5)
+            axs[1].invert_xaxis()  # obrót lewo-prawo
+            axs[1].set_xlabel("")  # usuwamy podpis X
+            axs[1].tick_params(axis="x", labelbottom=false)  # brak etykiet X
+            axs[1].set_ylabel("Fluctuation frequency (P/P3)")
 
-            # Panel po prawej – główny 2DFS
+            # ▶️ Prawy panel – główny wykres 2DFS
             im = axs[2].imshow(data';
                 extent=[160, 200, 0, 0.5],
                 origin="lower",
