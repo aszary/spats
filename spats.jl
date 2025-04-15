@@ -1339,7 +1339,7 @@ end
             fig, axs = subplots(1, 2, figsize=(10, 5), width_ratios=[1, 4])  # 1 rząd, 2 kolumny
 
             # Panel po lewej
-            axs[1].plot(row_sums, p3_range)
+            axs[1].plot(-row_sums, p3_range)
             axs[1].invert_xaxis()  # żeby lewy panel był przyklejony do wykresu
             axs[1].set_ylabel("Fluctuation frequency (P/P3)")
             axs[1].set_xlabel("Row sum (Power)")
