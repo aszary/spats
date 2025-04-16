@@ -51,7 +51,6 @@ module Data
     end
 
 
-
     """
     Save PSRCHIVE ASCII file
     """
@@ -91,6 +90,128 @@ module Data
         # change -t to -A to get frequancy information
         #@showprogress 1 for i in 1:pn  # psrchive indexing
         #end
+    end
+
+
+    """
+    Uses PSRCHIVE to add .spCF files 
+    
+    indir: input directory
+    outfile: output file name (full path)
+    files: list of files to add (filenames only)
+    """
+    function add_psrfiles(indir, outfile; files=nothing)
+
+        if files === nothing
+            # Find all .spCF files in the input directory
+            files = filter(f -> endswith(f, ".spCF"), readdir(indir))
+        end
+        
+        # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
+        sort!(files, by = f -> begin
+            # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
+            m = match(r"_(\d+)-(\d+)\.spCF$", f)
+            if isnothing(m)
+                return typemax(Int)  # Files without proper format go to the end
+            else
+                return parse(Int, m.captures[1])  # Sort by the starting pulse number
+            end
+        end)
+    
+        if isempty(files)
+            error("No .spCF files found in directory: $indir")
+        end
+    
+        println("Processing files in order:")
+        for (i, f) in enumerate(files)
+            println("$i. $f")
+        end
+    
+        file_names = [joinpath(indir, file) for file in files]
+
+        # connecting all files
+        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
+
+    end
+
+
+    function get_nsubint(outfile, params_file, params)
+        # gets number of single pulses
+        outstr = read(pipeline(`psrstat -c nsubint $outfile`, stderr="errs.txt"), String)
+        nsubint = parse(Int, split(outstr, "=")[2])
+        params["nsubint"] = nsubint
+        println("Number of subintervals: $nsubint")
+        Tools.save_params(params_file, params)
+    end
+ 
+    
+    """
+    Debase the data
+    """
+    function debase(outfile, params_file, params)
+
+        if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
+
+            run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
+
+            # Read captured output to get bin_st and bin_end
+            output = read("pmod_output.txt", String)
+            rm("pmod_output.txt")  # cleanup
+
+            # Extract onpulse values
+            m = match(r"-onpulse '(.+) (.+)'", output)
+            if !isnothing(m)
+                bin_st, bin_end = parse.(Int, m.captures)
+                # Check if onpulse region length is even
+                region_length = bin_end - bin_st + 1
+                if region_length % 2 != 0
+                    println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                    bin_end -= 1
+                    println("Adjusted onpulse range: $bin_st to $bin_end")
+                end
+                println("Found onpulse range: $bin_st to $bin_end")
+                params["bin_st"] = bin_st
+                params["bin_end"] = bin_end
+                Tools.save_params(params_file, params)
+            end
+        else
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
+        end
+    end
+
+
+    """
+    Calculate 2dfs and lrfs using PSRSALSA
+    """
+    function twodfs_lrfs(debased_file, params_file, p; detect=false)
+
+        # Calculate 2dfs and lrfs
+        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
+
+        if p["p3"] == -1.0 || detect == true
+            # Find P3
+            run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
+
+            # Read captured output
+            output = read("pspecDetect_output.txt", String)
+            rm("pspecDetect_output.txt")  # cleanup
+
+            # Extract P3 value from the last occurrence
+            p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
+            if !isempty(p3_matches)
+                last_match = p3_matches[end]
+                p3_value = parse(Float64, last_match.captures[1])
+                p3_error = parse(Float64, last_match.captures[2])
+                println("Found P3 = $p3_value ± $p3_error P0")
+            end
+
+            ybins = Functions.find_ybins(p3_value)
+            println("Number of ybins: $ybins")
+            p["p3"] = p3_value
+            p["p3_error"] = p3_error
+            p["p3_ybins"] = ybins
+            Tools.save_params(params_file, p)
+        end
     end
 
 
