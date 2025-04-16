@@ -9,6 +9,7 @@ module Tools
     using StatsBase
     using CubicSplines
     using Trapz
+    using JSON
 
     using PyPlot
     using DSP
