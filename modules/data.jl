@@ -89,4 +89,45 @@ module Data
         #end
     end
 
+
+    """
+    Process data with PSRCHIVE and PSRSALSA
+    """
+    function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json")
+
+        # full paths
+        params_file = joinpath(outdir, params_file)
+        outfile = joinpath(outdir, outfile)
+        debased_file = replace(outfile, ".spCF" => ".debase.gg")
+
+        # check if params_file exists if not creating default one
+        if !isfile(params_file)
+            println("File $params_file does not exist, creating default one.")
+            p = Tools.default_params(params_file)
+        else
+            p = Tools.read_params(params_file)
+        end
+
+        # add all .spCF files 
+        add_psrfiles(indir, outfile; files=files)
+
+        # gets number of single pulses if needed
+        if isnothing(p["nsubint"])
+            get_nsubint(outfile, params_file, p)
+        end
+
+        # debase the data
+        debase(outfile, params_file, p)
+
+        # Calculate 2dfs and lrfs
+        twodfs_lrfs(debased_file, params_file, p; detect=false)
+
+        # calculate p3-folded profile
+        run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
+
+        return p
+    end
+
+
+
 end # module
