@@ -59,7 +59,7 @@ module Plot
         savefig("$outdir/average_$name_mod.pdf")
         if show_ == true
             show()
-            println("Press Enter to close figure.")
+            println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
         close()
@@ -118,7 +118,7 @@ module Plot
         savefig("$outdir/$(name_mod)_single.pdf")
         if show_ == true
             show()
-            println("Press Enter to close figure.")
+            println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
         close()
@@ -255,13 +255,80 @@ module Plot
         savefig("$outdir/$(name_mod)_lrfs.svg")
         if show_ == true
             show()
-            println("Press Enter to close figure.")
+            println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
         close()
     end
 
 
+    function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=false)
+        num, bins = size(data)
+        if number == nothing
+            number = num - start  # missing one?
+        end
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+        da = data[start:start+number-1,bin_st:bin_end]
+        average = Tools.average_profile(da)
+        intensity, pulses = Tools.intensity_pulses(da)
+        intensity .-= minimum(intensity)
+        intensity ./= maximum(intensity)
+
+        pulses .+= start
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        # repeat data
+        da = repeat(da, repeat_num)
+        intensity = repeat(intensity, repeat_num)
+        pulses = collect(1:length(intensity))
+        le = length(pulses)
+        ticks = [floor(Int, le /4), floor(Int, le /2), floor(Int, le *3 / 4)]
+        fracs = [repeat_num / 4, repeat_num/2, repeat_num * 3 / 4]
+        ti = ["$(fracs[i])\$P_3\$" for i in 1:3]
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        subplots_adjust(left=0.16, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+
+        subplot2grid((5, 3), (0, 0), rowspan=4)
+        minorticks_on()
+        plot(intensity, pulses, c="grey")
+        ylim(pulses[1], pulses[end])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        xticks([0.5, 1.0])
+        yticks(ticks, ti)
+        #ylabel("Pulse number")
+
+        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+        tick_params(labelleft=false, labelbottom=false)
+
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        minorticks_on()
+        plot(longitude, average, c="grey")
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        xlabel("longitude \$(^\\circ)\$")
+        #tick_params(labeltop=false, labelbottom=true)
+        savefig("$outdir/$(name_mod)_p3fold.pdf")
+        println("$outdir/$(name_mod)_p3fold.pdf")
+        if show_ == true
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
 
 
 end  # module Plot
