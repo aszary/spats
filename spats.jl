@@ -15,6 +15,7 @@ module SpaTs
         Plot.lrfs(d, outdir; darkness=0.1, start=1, name_mod="1", bin_st=500, bin_end=530, show_=true)
     end
 
+    
     function test2(outdir)    
         Data.convert_psrfit_ascii("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/2019-12-15-03:19:04_00000-00255.spCF", outdir*"1.txt")  
         Data.convert_psrfit_ascii("/home/psr/data/new/J1319-6105/2019-12-15-03:19:04/2019-12-15-03:19:04_00256-00511.spCF", outdir*"2.txt")  
@@ -30,6 +31,14 @@ module SpaTs
         Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
         folded = Tools.p3fold(data, 20, 40)
         Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
+    end
+
+
+    function process_psrdata(indir, outdir)
+        p = Data.process_psrdata(indir, outdir)
+        folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
+        Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="test", show_=true, repeat_num=4)
+        
     end
 
 
