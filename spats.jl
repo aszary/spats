@@ -1715,8 +1715,8 @@ end
     
         try
             f = FITS(filepath)
-            hdu = f[4]  # Bezpiecznie, bo Twoje pliki 2DFS są w HDU 4
-            data = read(hdu, "DATA")
+            hdu = f[4]  # HDU 4 zawiera właściwe dane
+            data = read(hdu, "DATA")  # czytamy tylko kolumnę "DATA"
             close(f)
     
             if data === nothing
@@ -1724,14 +1724,19 @@ end
                 return
             end
     
-            n_p3, n_p2 = size(data)
-            p2_min = -n_p2/2
-            p2_max = n_p2/2 - 1
-            p2_range = LinRange(p2_min, p2_max, n_p2)
-            p3_range = range(0, stop=0.5, length=n_p3)
+            n_bins, n_subints = size(data)  # (98, 129)
+            
+            # UWAGA: musimy transponować dane żeby osie były poprawne!
+            data = data'  # teraz data: (n_subints, n_bins)
+    
+            # Definiujemy zakresy osi
+            p2_min = -n_bins/2
+            p2_max = n_bins/2 - 1
+            p2_range = LinRange(p2_min, p2_max, n_bins)  # Oś P2
+            p3_range = LinRange(0, 0.5, n_subints)       # Oś P3
     
             fig, ax = subplots()
-            im = ax.imshow(data';
+            im = ax.imshow(data;
                 extent=[p2_min, p2_max, 0, 0.5],
                 origin="lower",
                 aspect="auto",
@@ -1745,9 +1750,9 @@ end
             ax.set_title("2DFS – $pulsar_name")
             colorbar(im, ax=ax, label="Power")
     
-            #savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-            #savefig(savepath)
-            #println("✅ 2DFS plot saved to: $savepath")
+            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+            savefig(savepath)
+            println("✅ 2DFS plot saved to: $savepath")
     
             if show_plot
                 show()
@@ -1762,6 +1767,7 @@ end
             end
         end
     end
+    
     
     
     function inspect_fits22(filepath::String)
@@ -1827,8 +1833,8 @@ end
         #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
-        #plot_2dfs22("/home/psr/output", "J1919+0134", show_plot=true)
-        inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        plot_2dfs22("/home/psr/output", "J1919+0134", show_plot=true)
+        #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
