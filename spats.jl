@@ -1702,7 +1702,7 @@ end
     
 
     function plot2dfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.2dfs")
     
         # Sprawdzenie, czy plik istnieje
         if !isfile(filepath)
@@ -1720,6 +1720,13 @@ end
             f = FITS(filepath)
             hdu = f[4]  # Możliwe że 2DFS jest w HDU 4, ale warto to zweryfikować
             data = read(hdu, "DATA")
+            
+            # Sprawdźmy wymiary danych (powinny być 2D)
+            if ndims(data) != 2
+                println("❌ Data is not 2D as expected.")
+                return
+            end
+    
             close(f)
     
             # Jeśli dane są puste, zakończ działanie funkcji
@@ -1728,6 +1735,7 @@ end
                 return
             end
     
+            # Zakładając, że P3 to częstotliwość, a P2 to pulsacja, dostosujemy odpowiednie zakresy
             nP3, nP2 = size(data)
             P3 = LinRange(0.0, 0.5, nP3)  # Zakładając, że P3 jest od 0 do 0.5
             P2 = LinRange(-0.5, 0.5, nP2)  # Zakładając, że P2 jest od -0.5 do 0.5
@@ -1779,6 +1787,7 @@ end
             end
         end
     end
+    
     
     
     
