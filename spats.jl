@@ -1699,50 +1699,70 @@ end
 
 
 
+    
     function plot_2dfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
-
+    
         if !isfile(filepath)
             println("❌ File does not exist: $filepath")
             return
         end
-
+    
         println("✅ Reading 2DFS from: $filepath")
-        f = FITS(filepath)
-        data = read(f[1])
-        close(f)
-
-        n_p3, n_p2 = size(data)
-        p2_min = -n_p2/2
-        p2_max = n_p2/2 - 1
-        p2_range = LinRange(p2_min, p2_max, n_p2)
-        p3_range = range(0, stop=0.5, length=n_p3)
-
-        fig, ax = subplots()
-        im = ax.imshow(data';
-            extent=[p2_min, p2_max, 0, 0.5],
-            origin="lower",
-            aspect="auto",
-            cmap="gray",
-            vmin=0,
-            vmax=maximum(data)
-        )
-        ax.set_xlabel("P2 (cycles per period)")
-        ax.set_ylabel("P3 (cycles per period)")
-        ax.set_title("2DFS – $pulsar_name")
-        colorbar(im, ax=ax, label="Power")
-
-        savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-        savefig(savepath)
-        println("✅ 2DFS plot saved to: $savepath")
-
-        if show_plot
-            show()
-        else
-            close(fig)
+    
+        f = nothing
+        data = nothing
+    
+        try
+            f = FITS(filepath)
+            hdu = f[4]  # Bezpiecznie, bo Twoje pliki 2DFS są w HDU 4
+            data = read(hdu, "DATA")
+            close(f)
+    
+            if data === nothing
+                println("❌ No suitable 2D data found in 2DFS.")
+                return
+            end
+    
+            n_p3, n_p2 = size(data)
+            p2_min = -n_p2/2
+            p2_max = n_p2/2 - 1
+            p2_range = LinRange(p2_min, p2_max, n_p2)
+            p3_range = range(0, stop=0.5, length=n_p3)
+    
+            fig, ax = subplots()
+            im = ax.imshow(data';
+                extent=[p2_min, p2_max, 0, 0.5],
+                origin="lower",
+                aspect="auto",
+                cmap="gray",
+                vmin=0,
+                vmax=maximum(data)
+            )
+    
+            ax.set_xlabel("P2 (cycles per period)")
+            ax.set_ylabel("P3 (cycles per period)")
+            ax.set_title("2DFS – $pulsar_name")
+            colorbar(im, ax=ax, label="Power")
+    
+            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+            savefig(savepath)
+            println("✅ 2DFS plot saved to: $savepath")
+    
+            if show_plot
+                show()
+            else
+                close(fig)
+            end
+    
+        catch e
+            println("❌ Error handling FITS file: $e")
+            if f !== nothing
+                close(f)
+            end
         end
     end
-
+    
     
 
 
@@ -1770,8 +1790,8 @@ end
         #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
-        #plot_2dfs22("/home/psr/output", "J1919+0134", show_plot=true)
-        plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_2dfs22("/home/psr/output", "J1919+0134", show_plot=true)
+        #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmout)
         #test(vpmout)
