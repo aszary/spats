@@ -1701,73 +1701,85 @@ end
 
     
 
-    function plot2dfs22(filename::String, pulsarID::String; output_png::String="", show_plot::Bool=false)
-        # 1. Wczytanie danych z pliku FITS (HDU 4, kolumna "DATA")
-        f = FITS(filename, "r")
-        data = read(f[4], "DATA")
-        close(f)
-        # Zakładamy, że data to tablica 2D (P3 × P2)
-        
-        # 2. Obliczenie profili marginesowych (sum po osiach)
-        profile_P3 = sum(data, dims=2)[:,1]   # profil zintegrowany wzdłuż osi P2
-        profile_P2 = sum(data, dims=1)[1,:]   # profil zintegrowany wzdłuż osi P3
-        
-        # 3. Konfiguracja wykresu i siatki paneli
-        fig = figure(figsize=(6.4, 6.4))  # rozmiar figury w calach
-        gs = matplotlib[:gridspec][:GridSpec](2, 2,
-            width_ratios=[1, 4], height_ratios=[1, 4],
-            wspace=0.05, hspace=0.05)
-        axMain = fig.add_subplot(gs[1, 1])           # główny panel (2DFS)
-        axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)  # panel z lewej (profil vs P3)
-        axTop  = fig.add_subplot(gs[0, 1], sharex=axMain)  # panel u góry (profil vs P2)
-        
-        # Ukrycie współdzielonych etykiet na panelach marginesowych
-        axTop.xaxis.set_tick_params(labelbottom=false)
-        axLeft.yaxis.set_tick_params(labelleft=false)
-        
-        # 4. Rysowanie głównego wykresu 2DFS
-        # Przyjmujemy, że osie P2 i P3 są równomierne i zależne od wymiaru data
-        nP3, nP2 = size(data)
-        # Zakresy P2 i P3 (np. normalizowane na okres pulsara)
-        P2 = LinRange(-maxP2, maxP2, nP2)  # przykład: od -max do max
-        P3 = LinRange(0.0, 0.5, nP3)        # przykład: 0 do Nyquist
-        img = axMain.imshow(data;
-            aspect="auto",
-            origin="lower",
-            cmap="gray_r",                               # jasna kolorystyka
-            norm=matplotlib[:colors][:LogNorm](vmin=maximum(minimum(data), eps()), vmax=maximum(data)),
-            extent=[first(P2), last(P2), first(P3), last(P3)])
-        colorbar(img, ax=axMain, label="Power", shrink=0.9)
-        
-        # 5. Rysowanie profilu bocznego (po lewej)
-        y = collect(P3)                    # oś P3 (pionowa)
-        x = profile_P3                     # odpowiadające wartości mocy
-        axLeft.plot(x, y, color="black", lw=1.5)
-        axLeft.set_xlabel("Power")
-        
-        # 6. Rysowanie profilu górnego
-        x = collect(P2)                    # oś P2 (pozioma)
-        y = profile_P2                     # odpowiadające wartości mocy
-        # wypełnienie pod krzywą
-        axTop.fill_between(x, 0, y, facecolor="lightgray", edgecolor="black", alpha=0.5)
-        axTop.plot(x, y, color="black", lw=1.5)
-        axTop.set_ylabel("Power")
-        
-        # 7. Opisy osi i tytuł
-        axMain.set_xlabel("P2 (cycles per period)")
-        axMain.set_ylabel("P3 (cycles per period)")
-        fig.suptitle("2DFS – $pulsarID")
-        
-        # 8. Zapis do pliku PNG, jeśli podano ścieżkę
-        #if !isempty(output_png)
-        #    savefig(output_png, dpi=300)
-        #end
-        
-        # 9. Wyświetlenie wykresu, jeśli show_plot jest ustawione na true
-        if show_plot
-            display(fig)
+    function plot2dfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.2dfs")
+    
+        # Sprawdzenie, czy plik istnieje
+        if !isfile(filepath)
+            println("❌ File does not exist: $filepath")
+            return
+        end
+    
+        println("✅ Reading 2DFS from: $filepath")
+    
+        f = nothing
+        data = nothing
+    
+        try
+            # Otwarcie pliku FITS
+            f = FITS(filepath)
+            hdu = f[4]  # Możliwe że 2DFS jest w HDU 4, ale warto to zweryfikować
+            data = read(hdu, "DATA")
+            close(f)
+    
+            # Jeśli dane są puste, zakończ działanie funkcji
+            if data === nothing
+                println("❌ No suitable 2D data found in 2DFS.")
+                return
+            end
+    
+            nP3, nP2 = size(data)
+            P3 = LinRange(0.0, 0.5, nP3)  # Zakładając, że P3 jest od 0 do 0.5
+            P2 = LinRange(-0.5, 0.5, nP2)  # Zakładając, że P2 jest od -0.5 do 0.5
+    
+            fig = figure(figsize=(8, 8))
+            gs = matplotlib[:gridspec][:GridSpec](2, 2, width_ratios=[1, 4], height_ratios=[1, 4], wspace=0.05, hspace=0.05)
+            axMain = fig.add_subplot(gs[1, 1])  # Główny panel (2DFS)
+            axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)  # Panel z lewej (profil P3)
+            axTop = fig.add_subplot(gs[0, 1], sharex=axMain)  # Panel u góry (profil P2)
+    
+            # Ukrycie współdzielonych etykiet na marginesach
+            axTop.xaxis.set_tick_params(labelbottom=false)
+            axLeft.yaxis.set_tick_params(labelleft=false)
+    
+            # 1. Rysowanie wykresu 2DFS
+            img = axMain.imshow(data, origin="lower", aspect="auto", cmap="gray_r", 
+                                extent=[first(P2), last(P2), first(P3), last(P3)])
+            colorbar(img, ax=axMain, label="Power", shrink=0.9)
+    
+            # 2. Profilowanie P3 (po lewej)
+            axLeft.plot(sum(data, dims=2), P3, color="black", lw=1.5)
+            axLeft.set_xlabel("Power")
+            
+            # 3. Profilowanie P2 (u góry)
+            axTop.fill_between(P2, 0, sum(data, dims=1), color="lightgray", edgecolor="black", alpha=0.5)
+            axTop.plot(P2, sum(data, dims=1), color="black", lw=1.5)
+            axTop.set_ylabel("Power")
+    
+            axMain.set_xlabel("P2 (cycles per period)")
+            axMain.set_ylabel("P3 (cycles per period)")
+            fig.suptitle("2DFS – $pulsar_name")
+    
+            # Zapis do pliku PNG
+            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+            savefig(savepath, dpi=300)
+            println("✅ 2DFS plot saved to: $savepath")
+    
+            # Wyświetlenie wykresu, jeśli show_plot jest ustawione na true
+            if show_plot
+                show()
+            else
+                close(fig)
+            end
+    
+        catch e
+            println("❌ Error handling FITS file: $e")
+            if f !== nothing
+                close(f)
+            end
         end
     end
+    
     
     
 
