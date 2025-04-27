@@ -1702,7 +1702,7 @@ end
     
 
     function plot2dfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.2dfs")
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         # Sprawdzenie, czy plik istnieje
         if !isfile(filepath)
