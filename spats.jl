@@ -1756,7 +1756,8 @@ end
         # 7. Opisy osi i tytuł
         axMain.set_xlabel("P2 (cycles per period)")
         axMain.set_ylabel("P3 (cycles per period)")
-        fig.suptitle("2DFS – $pulsarID$")
+        fig.suptitle("2DFS – $pulsarID")
+
         
         # 8. Zapis do pliku PNG, jeśli podano ścieżkę
         if !isempty(output_png)
