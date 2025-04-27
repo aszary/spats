@@ -1634,6 +1634,8 @@ end
     
     
 
+    
+
     function plot_lrfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.lrfs")
 
@@ -1643,67 +1645,58 @@ end
         end
 
         println("✅ Reading LRFS from: $filepath")
-        f = FITS(filepath)
         
+        f = nothing
         data = nothing
-        for hdu in f
-            if hdu isa FITSIO.ImageHDU
-                img = read(hdu)
-                if ndims(img) == 2
-                    data = img
-                    break
-                end
-            elseif hdu isa FITSIO.TableHDU
-                names = FITSIO.colnames(hdu)
-                println("Available columns: ", names)
-                # Spróbuj wczytać kolumnę "DATA" lub pierwszą liczbowa
-                for name in names
-                    col_data = read(hdu, name)
-                    if ndims(col_data) == 2
-                        data = col_data
-                        break
-                    end
-                end
-                if data !== nothing
-                    break
-                end
+
+        try
+            f = FITS(filepath)
+            hdu = f[2]  # Możliwe że 2 albo inny — trzeba sprawdzić!
+            data = read(hdu, "DATA")
+            close(f)
+
+            if data === nothing
+                println("❌ No suitable 2D data found in LRFS.")
+                return
+            end
+
+            n_freq, n_long = size(data)
+            freq_range = range(0, stop=0.5, length=n_freq)
+            long_range = range(0, stop=360*(n_long-1)/n_long, length=n_long)
+
+            fig, ax = subplots()
+            im = ax.imshow(data';
+                extent=[0, 360, 0, 0.5],
+                origin="lower",
+                aspect="auto",
+                cmap="gray",
+                vmin=0,
+                vmax=maximum(data)
+            )
+
+            ax.set_xlabel("Pulse phase (deg)")
+            ax.set_ylabel("Fluctuation frequency (P/P3)")
+            ax.set_title("LRFS – $pulsar_name")
+            colorbar(im, ax=ax, label="Power")
+
+            savepath = joinpath(outdir, pulsar_name, "lrfs_" * pulsar_name * ".png")
+            savefig(savepath)
+            println("✅ LRFS plot saved to: $savepath")
+
+            if show_plot
+                show()
+            else
+                close(fig)
+            end
+
+        catch e
+            println("❌ Error handling FITS file: $e")
+            if f !== nothing
+                close(f)
             end
         end
-        close(f)
-
-        if data === nothing
-            println("❌ Could not find valid 2D data in LRFS file!")
-            return
-        end
-
-        n_freq, n_long = size(data)
-        freq_range = range(0, stop=0.5, length=n_freq)
-        long_range = range(0, stop=360*(n_long-1)/n_long, length=n_long)
-
-        fig, ax = subplots()
-        im = ax.imshow(data';
-            extent=[0, 360, 0, 0.5],
-            origin="lower",
-            aspect="auto",
-            cmap="gray",
-            vmin=0,
-            vmax=maximum(data)
-        )
-        ax.set_xlabel("Pulse phase (deg)")
-        ax.set_ylabel("Fluctuation frequency (P/P3)")
-        ax.set_title("LRFS – $pulsar_name")
-        colorbar(im, ax=ax, label="Power")
-
-        savepath = joinpath(outdir, pulsar_name, "lrfs_" * pulsar_name * ".png")
-        savefig(savepath)
-        println("✅ LRFS plot saved to: $savepath")
-
-        if show_plot
-            show()
-        else
-            close(fig)
-        end
     end
+
 
 
     function plot_2dfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
