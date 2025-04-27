@@ -1701,7 +1701,7 @@ end
 
     
 
-    function plot2dfs22_v2(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    function plot2dfs333(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         # Sprawdzenie, czy plik istnieje
@@ -1740,29 +1740,16 @@ end
             P3 = LinRange(0.0, 0.5, nP3)  # Zakładając, że P3 jest od 0 do 0.5
             P2 = LinRange(-0.5, 0.5, nP2)  # Zakładając, że P2 jest od -0.5 do 0.5
     
-            fig = figure(figsize=(8, 8))
-            gs = matplotlib[:gridspec][:GridSpec](2, 2, width_ratios=[1, 4], height_ratios=[1, 4], wspace=0.05, hspace=0.05)
-            axMain = fig.add_subplot(gs[1, 1])  # Główny panel (2DFS)
-            axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)  # Panel z lewej (profil P3)
-            axTop = fig.add_subplot(gs[0, 1], sharex=axMain)  # Panel u góry (profil P2)
+            # Tworzenie wykresu z jednym panelem (środkowym)
+            fig = figure(figsize=(8, 6))
     
-            # Ukrycie współdzielonych etykiet na marginesach
-            axTop.xaxis.set_tick_params(labelbottom=false)
-            axLeft.yaxis.set_tick_params(labelleft=false)
+            # Główny panel (2DFS)
+            axMain = fig.add_subplot(111)
     
-            # 1. Rysowanie wykresu 2DFS
+            # Rysowanie wykresu 2DFS
             img = axMain.imshow(data, origin="lower", aspect="auto", cmap="gray_r", 
                                 extent=[first(P2), last(P2), first(P3), last(P3)])
             colorbar(img, ax=axMain, label="Power", shrink=0.9)
-    
-            # 2. Profilowanie P3 (po lewej)
-            axLeft.plot(sum(data, dims=2), P3, color="black", lw=1.5)
-            axLeft.set_xlabel("Power")
-    
-            # 3. Profilowanie P2 (u góry)
-            axTop.fill_between(P2, 0, sum(data, dims=1), color="lightgray", edgecolor="black", alpha=0.5)
-            axTop.plot(P2, sum(data, dims=1), color="black", lw=1.5)
-            axTop.set_ylabel("Power")
     
             axMain.set_xlabel("P2 (cycles per period)")
             axMain.set_ylabel("P3 (cycles per period)")
@@ -1787,6 +1774,7 @@ end
             end
         end
     end
+    
     
     
     
@@ -1859,7 +1847,7 @@ end
         #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
-        plot2dfs22_v2("/home/psr/output", "J1919+0134", show_plot=true)
+        plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
 
  
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
