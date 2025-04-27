@@ -1651,7 +1651,7 @@ end
 
         try
             f = FITS(filepath)
-            hdu = f[2]  # Możliwe że 2 albo inny — trzeba sprawdzić!
+            hdu = f[4]  # Możliwe że 2 albo inny — trzeba sprawdzić!
             data = read(hdu, "DATA")
             close(f)
 
