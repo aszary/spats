@@ -1701,7 +1701,7 @@ end
 
     
 
-    function plot2dfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    function plot2dfs22_v2(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         # Sprawdzenie, czy plik istnieje
@@ -1758,7 +1758,7 @@ end
             # 2. Profilowanie P3 (po lewej)
             axLeft.plot(sum(data, dims=2), P3, color="black", lw=1.5)
             axLeft.set_xlabel("Power")
-            
+    
             # 3. Profilowanie P2 (u góry)
             axTop.fill_between(P2, 0, sum(data, dims=1), color="lightgray", edgecolor="black", alpha=0.5)
             axTop.plot(P2, sum(data, dims=1), color="black", lw=1.5)
@@ -1787,6 +1787,7 @@ end
             end
         end
     end
+    
     
     
     
@@ -1858,7 +1859,7 @@ end
         #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
-        plot2dfs22("/home/psr/output", "J1919+0134", show_plot=true)
+        plot2dfs22_v2("/home/psr/output", "J1919+0134", show_plot=true)
 
  
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
