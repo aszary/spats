@@ -1700,73 +1700,70 @@ end
 
 
     
-    function plot_2dfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
-    
-        if !isfile(filepath)
-            println("❌ File does not exist: $filepath")
-            return
-        end
-    
-        println("✅ Reading 2DFS from: $filepath")
-    
-        f = nothing
-        data = nothing
-    
-        try
-            f = FITS(filepath)
-            hdu = f[4]  # HDU 4 zawiera właściwe dane
-            data = read(hdu, "DATA")  # czytamy tylko kolumnę "DATA"
-            close(f)
-    
-            if data === nothing
-                println("❌ No suitable 2D data found in 2DFS.")
-                return
-            end
-    
-            n_bins, n_subints = size(data)  # (98, 129)
-            
-            # UWAGA: musimy transponować dane żeby osie były poprawne!
-            data = data'  # teraz data: (n_subints, n_bins)
-    
-            # Definiujemy zakresy osi
-            p2_min = -n_bins/2
-            p2_max = n_bins/2 - 1
-            p2_range = LinRange(p2_min, p2_max, n_bins)  # Oś P2
-            p3_range = LinRange(0, 0.5, n_subints)       # Oś P3
-    
-            fig, ax = subplots()
-            im = ax.imshow(data;
-                extent=[p2_min, p2_max, 0, 0.5],
-                origin="lower",
-                aspect="auto",
-                cmap="gray",
-                vmin=0,
-                vmax=maximum(data)
-            )
-    
-            ax.set_xlabel("P2 (cycles per period)")
-            ax.set_ylabel("P3 (cycles per period)")
-            ax.set_title("2DFS – $pulsar_name")
-            colorbar(im, ax=ax, label="Power")
-    
-            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-            savefig(savepath)
-            println("✅ 2DFS plot saved to: $savepath")
-    
-            if show_plot
-                show()
-            else
-                close(fig)
-            end
-    
-        catch e
-            println("❌ Error handling FITS file: $e")
-            if f !== nothing
-                close(f)
-            end
+
+    function plot2dfs22(filename::String, pulsarID::String; output_png::String="")
+        # 1. Wczytanie danych z pliku FITS (HDU 4, kolumna "DATA")
+        f = FITS(filename, "r")
+        data = read(f[4], "DATA")
+        close(f)
+        # Zakładamy, że data to tablica 2D (P3 × P2)
+        
+        # 2. Obliczenie profili marginesowych (sum po osiach)
+        profile_P3 = sum(data, dims=2)[:,1]   # profil zintegrowany wzdłuż osi P2
+        profile_P2 = sum(data, dims=1)[1,:]   # profil zintegrowany wzdłuż osi P3
+        
+        # 3. Konfiguracja wykresu i siatki paneli
+        fig = figure(figsize=(6.4, 6.4))  # rozmiar figury w calach
+        gs = matplotlib[:gridspec][:GridSpec](2, 2,
+            width_ratios=[1, 4], height_ratios=[1, 4],
+            wspace=0.05, hspace=0.05)
+        axMain = fig.add_subplot(gs[1, 1])           # główny panel (2DFS)
+        axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)  # panel z lewej (profil vs P3)
+        axTop  = fig.add_subplot(gs[0, 1], sharex=axMain)  # panel u góry (profil vs P2)
+        
+        # Ukrycie współdzielonych etykiet na panelach marginesowych
+        axTop.xaxis.set_tick_params(labelbottom=false)
+        axLeft.yaxis.set_tick_params(labelleft=false)
+        
+        # 4. Rysowanie głównego wykresu 2DFS
+        # Przyjmujemy, że osie P2 i P3 są równomierne i zależne od wymiaru data
+        nP3, nP2 = size(data)
+        # Zakresy P2 i P3 (np. normalizowane na okres pulsara)
+        P2 = LinRange(-maxP2, maxP2, nP2)  # przykład: od -max do max
+        P3 = LinRange(0.0, 0.5, nP3)        # przykład: 0 do Nyquist
+        img = axMain.imshow(data;
+            aspect="auto",
+            origin="lower",
+            cmap="gray_r",                               # jasna kolorystyka
+            norm=matplotlib[:colors][:LogNorm](vmin=maximum(minimum(data), eps()), vmax=maximum(data)),
+            extent=[first(P2), last(P2), first(P3), last(P3)])
+        colorbar(img, ax=axMain, label="Power", shrink=0.9)
+        
+        # 5. Rysowanie profilu bocznego (po lewej)
+        y = collect(P3)                    # oś P3 (pionowa)
+        x = profile_P3                     # odpowiadające wartości mocy
+        axLeft.plot(x, y, color="black", lw=1.5)
+        axLeft.set_xlabel("Power")
+        
+        # 6. Rysowanie profilu górnego
+        x = collect(P2)                    # oś P2 (pozioma)
+        y = profile_P2                     # odpowiadające wartości mocy
+        # wypełnienie pod krzywą
+        axTop.fill_between(x, 0, y, facecolor="lightgray", edgecolor="black", alpha=0.5)
+        axTop.plot(x, y, color="black", lw=1.5)
+        axTop.set_ylabel("Power")
+        
+        # 7. Opisy osi i tytuł
+        axMain.set_xlabel("P2 (cycles per period)")
+        axMain.set_ylabel("P3 (cycles per period)")
+        fig.suptitle("2DFS – $pulsarID$")
+        
+        # 8. Zapis do pliku PNG, jeśli podano ścieżkę
+        if !isempty(output_png)
+            savefig(output_png, dpi=300)
         end
     end
+
     
     
     
@@ -1834,6 +1831,7 @@ end
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
         plot_2dfs22("/home/psr/output", "J1919+0134", show_plot=true)
+ 
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
