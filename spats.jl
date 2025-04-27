@@ -1644,8 +1644,37 @@ end
 
         println("✅ Reading LRFS from: $filepath")
         f = FITS(filepath)
-        data = read(f[1])
+        
+        data = nothing
+        for hdu in f
+            if hdu isa FITSIO.ImageHDU
+                img = read(hdu)
+                if ndims(img) == 2
+                    data = img
+                    break
+                end
+            elseif hdu isa FITSIO.TableHDU
+                names = FITSIO.colnames(hdu)
+                println("Available columns: ", names)
+                # Spróbuj wczytać kolumnę "DATA" lub pierwszą liczbowa
+                for name in names
+                    col_data = read(hdu, name)
+                    if ndims(col_data) == 2
+                        data = col_data
+                        break
+                    end
+                end
+                if data !== nothing
+                    break
+                end
+            end
+        end
         close(f)
+
+        if data === nothing
+            println("❌ Could not find valid 2D data in LRFS file!")
+            return
+        end
 
         n_freq, n_long = size(data)
         freq_range = range(0, stop=0.5, length=n_freq)
@@ -1675,6 +1704,7 @@ end
             close(fig)
         end
     end
+
 
     function plot_2dfs22(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
