@@ -1745,9 +1745,9 @@ end
             ax.set_title("2DFS – $pulsar_name")
             colorbar(im, ax=ax, label="Power")
     
-            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
-            savefig(savepath)
-            println("✅ 2DFS plot saved to: $savepath")
+            #savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+            #savefig(savepath)
+            #println("✅ 2DFS plot saved to: $savepath")
     
             if show_plot
                 show()
