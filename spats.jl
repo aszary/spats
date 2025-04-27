@@ -1701,18 +1701,18 @@ end
 
     
 
-    function plot2dfs22(filename::String, pulsarID::String; output_png::String="")
+    function plot2dfs22(filename::String, pulsarID::String; output_png::String="", show_plot::Bool=false)
         # 1. Wczytanie danych z pliku FITS (HDU 4, kolumna "DATA")
         f = FITS(filename, "r")
         data = read(f[4], "DATA")
         close(f)
         # Zakładamy, że data to tablica 2D (P3 × P2)
         
-        # 2. Obliczenie profili marginesowych (sum po osiach)
-        profile_P3 = sum(data, dims=2)[:,1]   # profil zintegrowany wzdłuż osi P2
-        profile_P2 = sum(data, dims=1)[1,:]   # profil zintegrowany wzdłuż osi P3
+        # Obliczenie profili marginesowych (sum po osiach)
+        profile_P3 = sum(data, dims=2)[:,1]
+        profile_P2 = sum(data, dims=1)[1,:]
         
-        # 3. Konfiguracja wykresu i siatki paneli
+        # Konfiguracja wykresu i siatki paneli
         fig = figure(figsize=(6.4, 6.4))  # rozmiar figury w calach
         gs = matplotlib[:gridspec][:GridSpec](2, 2,
             width_ratios=[1, 4], height_ratios=[1, 4],
@@ -1726,29 +1726,26 @@ end
         axLeft.yaxis.set_tick_params(labelleft=false)
         
         # 4. Rysowanie głównego wykresu 2DFS
-        # Przyjmujemy, że osie P2 i P3 są równomierne i zależne od wymiaru data
         nP3, nP2 = size(data)
-        # Zakresy P2 i P3 (np. normalizowane na okres pulsara)
-        P2 = LinRange(-maxP2, maxP2, nP2)  # przykład: od -max do max
-        P3 = LinRange(0.0, 0.5, nP3)        # przykład: 0 do Nyquist
+        P2 = LinRange(-maxP2, maxP2, nP2)
+        P3 = LinRange(0.0, 0.5, nP3)
         img = axMain.imshow(data;
             aspect="auto",
             origin="lower",
-            cmap="gray_r",                               # jasna kolorystyka
+            cmap="gray_r",
             norm=matplotlib[:colors][:LogNorm](vmin=maximum(minimum(data), eps()), vmax=maximum(data)),
             extent=[first(P2), last(P2), first(P3), last(P3)])
         colorbar(img, ax=axMain, label="Power", shrink=0.9)
         
         # 5. Rysowanie profilu bocznego (po lewej)
-        y = collect(P3)                    # oś P3 (pionowa)
-        x = profile_P3                     # odpowiadające wartości mocy
+        y = collect(P3)
+        x = profile_P3
         axLeft.plot(x, y, color="black", lw=1.5)
         axLeft.set_xlabel("Power")
         
         # 6. Rysowanie profilu górnego
-        x = collect(P2)                    # oś P2 (pozioma)
-        y = profile_P2                     # odpowiadające wartości mocy
-        # wypełnienie pod krzywą
+        x = collect(P2)
+        y = profile_P2
         axTop.fill_between(x, 0, y, facecolor="lightgray", edgecolor="black", alpha=0.5)
         axTop.plot(x, y, color="black", lw=1.5)
         axTop.set_ylabel("Power")
@@ -1757,13 +1754,18 @@ end
         axMain.set_xlabel("P2 (cycles per period)")
         axMain.set_ylabel("P3 (cycles per period)")
         fig.suptitle("2DFS – $pulsarID")
-
-        
+    
         # 8. Zapis do pliku PNG, jeśli podano ścieżkę
         if !isempty(output_png)
             savefig(output_png, dpi=300)
         end
+    
+        # Optionally display the plot if show_plot is true
+        if show_plot
+            display(fig)
+        end
     end
+    
 
     
     
