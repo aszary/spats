@@ -1747,7 +1747,7 @@ end
             axMain = fig.add_subplot(111)
     
             # Rysowanie wykresu 2DFS
-            img = axMain.imshow(data, origin="lower", aspect="auto", cmap="gray_r", 
+            img = axMain.imshow(data', origin="lower", aspect="auto", cmap="gray_r", 
                                 extent=[first(P2), last(P2), first(P3), last(P3)])
             colorbar(img, ax=axMain, label="Power", shrink=0.9)
     
