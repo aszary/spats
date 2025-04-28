@@ -2096,9 +2096,10 @@ end
     
     
     
+    
     function plot_simple_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
-        
+    
         if !isfile(filepath)
             println("❌ File does not exist: $filepath")
             return
@@ -2111,34 +2112,40 @@ end
             hdu = f[4]
             data_raw = read(hdu, "DATA")
             close(f)
-            
+    
             n_pulses, n_bins = size(data_raw)
             println("ℹ️ Data shape: $n_pulses pulses × $n_bins bins")
     
+            # 2D FFT
+            F = fftshift(fft(fft(data_raw, 1), 2))
+            power = abs.(F).^2
+    
+            # Osie
             pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]
             pulse_freq = fftshift(fftfreq(n_pulses, 1))
-    
-            figure(figsize=(8, 6))
             extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
     
+            # Wykres
+            fig = PyPlot.figure(figsize=(8, 6))
+            ax = PyPlot.gca()
             im = ax.imshow(power, aspect="auto", cmap="Greys", extent=extent, origin="lower",
                            vmin=0, vmax=quantile(vec(power), 0.95), interpolation="none")
-            
-            xlabel("Pulse longitude [deg]")
-            ylabel("Fluctuation frequency (P/P3)")
-            title("2DFS – $pulsar_name")
-            xlim(160, 200)
-            ylim(0, 0.5)
     
-            colorbar(im, ax=ax, label="Normalized Power")
+            ax.set_xlabel("Pulse longitude [deg]")
+            ax.set_ylabel("Fluctuation frequency (P/P3)")
+            ax.set_title("2DFS – $pulsar_name")
+            ax.set_xlim(160, 200)
+            ax.set_ylim(0, 0.5)
+    
+            PyPlot.colorbar(im, ax=ax, label="Power")
     
             savepath = joinpath(outdir, pulsar_name, "simple_2dfs_" * pulsar_name * ".png")
-            savefig(savepath, dpi=300)
-            
+            PyPlot.savefig(savepath, dpi=300)
+    
             println("✅ 2DFS saved to: $savepath")
     
             if show_plot
-                show()
+                PyPlot.show()
             end
     
         catch e
