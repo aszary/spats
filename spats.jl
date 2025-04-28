@@ -2096,7 +2096,7 @@ end
     
     
     
-    function plot_simple_2dfs(outdir::String, pulsar_name::String)
+    function plot_simple_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
         
         if !isfile(filepath)
@@ -2107,44 +2107,46 @@ end
         println("✅ Reading 2DFS from: $filepath")
     
         try
-            # Open FITS file
             f = FITS(filepath, "r")
-            hdu = f[4]  # always 4th HDU for data
-            
-            # Read the raw data as Float64 (or Float32)
-            data_raw = read(hdu, "DATA")  # Read raw data
-            
+            hdu = f[4]
+            data_raw = read(hdu, "DATA")
             close(f)
             
-            # Dimensions of data
             n_pulses, n_bins = size(data_raw)
             println("ℹ️ Data shape: $n_pulses pulses × $n_bins bins")
     
-            # Assume Pulse Longitude is linearly spaced from 160° to 200°
-            pulse_long = LinRange(160, 200, n_bins)
+            pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]
+            pulse_freq = fftshift(fftfreq(n_pulses, 1))
     
-            # Create fluctuation frequency (P/P3) (just using an example here, normally you'd calculate it)
-            fluctuation_frequency = fftshift(fftfreq(n_pulses, 1))  # or you can just mock some values here
-    
-            # Plot using PyPlot
+            using PyPlot
             figure(figsize=(8, 6))
-            plot(pulse_long, fluctuation_frequency, linewidth=2)
+            extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
+    
+            imshow(abs.(fftshift(fft(fft(data_raw, 1), 2))).^2, aspect="auto", cmap="Greys",
+                   extent=extent, origin="lower", vmin=0, vmax=quantile(vec(abs.(data_raw).^2), 0.95), interpolation="none")
+            
             xlabel("Pulse longitude [deg]")
             ylabel("Fluctuation frequency (P/P3)")
-            title("2DFS for $pulsar_name")
+            title("2DFS – $pulsar_name")
             xlim(160, 200)
             ylim(0, 0.5)
-            
-            # Save the figure
+    
+            colorbar(label="Power")
+    
             savepath = joinpath(outdir, pulsar_name, "simple_2dfs_" * pulsar_name * ".png")
             savefig(savepath, dpi=300)
             
             println("✅ 2DFS saved to: $savepath")
     
+            if show_plot
+                show()
+            end
+    
         catch e
             println("❌ Error while handling FITS file: $e")
         end
     end
+    
     
 
 
