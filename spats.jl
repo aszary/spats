@@ -1827,6 +1827,8 @@ end
 
    
 
+        
+
     function plot_correct_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
 
@@ -1876,12 +1878,11 @@ end
             # Plot using PyPlot
             figure(figsize=(8, 6))
             ax = gca()
-            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]])
+            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]], vmin=0, vmax=quantile(vec(power), 0.95))
             ax.set_xlabel("Pulse longitude [deg]")
             ax.set_ylabel("Fluctuation frequency [cpp]")
             ax.set_title("2DFS – $pulsar_name")
             ax.set_ylim(0, 0.5)
-            ax.set_clim(0, quantile(vec(power), 0.95))  # Clip to 95th percentile
             colorbar(im, ax=ax, label="Power")
 
             savepath = joinpath(outdir, pulsar_name, "corrected_2dfs_" * pulsar_name * ".png")
