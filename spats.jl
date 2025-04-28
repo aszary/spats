@@ -1912,7 +1912,7 @@ end
 
 
 
-    function plot_2dfs_koncowy(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        function plot_2dfs_koncowy(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         if !isfile(filepath)
@@ -2003,7 +2003,88 @@ end
     
     
 
-
+    function plot_2dfs_koncowy2(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    
+        if !isfile(filepath)
+            println("❌ File does not exist: $filepath")
+            return
+        end
+    
+        println("✅ Reading 2DFS from: $filepath")
+    
+        try
+            # Open FITS
+            f = FITS(filepath, "r")
+            hdu = f[4]  # always 4th HDU for data
+    
+            # Read raw data ONLY — no scaling!
+            data = read(hdu, "DATA")
+    
+            close(f)
+    
+            # Check dimensions
+            n_pulses, n_bins = size(data)
+            println("ℹ️ Data shape: $n_pulses pulses × $n_bins bins")
+    
+            # Detrend: Remove mean from each pulse profile
+            for i in 1:n_pulses
+                data[i, :] .-= mean(data[i, :])
+            end
+    
+            # Apply 2D window (Hanning window)
+            win_pulses = 0.5 .* (1 .- cos.(2π .* (0:n_pulses-1) ./ (n_pulses-1)))
+            win_bins = 0.5 .* (1 .- cos.(2π .* (0:n_bins-1) ./ (n_bins-1)))
+            window = win_pulses * win_bins'
+            data_windowed = data .* window
+    
+            # Perform 2D FFT
+            F = fftshift(fft(fft(data_windowed, 1), 2))
+    
+            # Power spectrum
+            power = abs.(F).^2
+    
+            # Normalize power
+            power ./= maximum(power)
+    
+            # Frequency axes
+            pulse_freq = fftshift(fftfreq(n_pulses, 1))  # cycles per pulse
+            bin_freq = fftshift(fftfreq(n_bins, 1))      # cycles per bin
+    
+            # Longitude (bin) to degrees
+            pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]
+    
+            # Plot
+            figure(figsize=(8, 6))
+            ax = gca()
+            extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
+    
+            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=extent, origin="lower",
+                           vmin=0, vmax=quantile(vec(power), 0.95), interpolation="none")
+    
+            ax.set_xlabel("Pulse longitude [deg]")
+            ax.set_ylabel("Fluctuation frequency (cycles per period, cpp)")
+            ax.set_title("2DFS – $pulsar_name")
+            ax.set_xlim(160, 200)
+            ax.set_ylim(0, 0.5)
+    
+            colorbar(im, ax=ax, label="Normalized Power")
+    
+            # Save figure
+            savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+            savefig(savepath, dpi=300)
+    
+            println("✅ 2DFS saved to: $savepath")
+    
+            if show_plot
+                # No need to call display() manually
+            end
+    
+        catch e
+            println("❌ Error while handling FITS file: $e")
+        end
+    end
+    
 
 
 
@@ -2034,7 +2115,7 @@ end
         #plot2dfsNOWY("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
-        plot_2dfs_koncowy("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_2dfs_koncowy2("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmoudt)
