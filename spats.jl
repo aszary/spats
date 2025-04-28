@@ -2006,7 +2006,7 @@ end
    
     
 
-    function plot_2dfs_koncowy2(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    function plot_2dfs_koncowy(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         if !isfile(filepath)
@@ -2017,12 +2017,12 @@ end
         println("✅ Reading 2DFS from: $filepath")
     
         try
-            # Open FITS
+            # Open FITS file
             f = FITS(filepath, "r")
             hdu = f[4]  # always 4th HDU for data
     
-            # Read the raw data (as Float32 or Float64, no casting to Int16)
-            data_raw = read(hdu, "DATA")  # Read data as Float32 or Float64, depending on the FITS file format
+            # Read the raw data as Float64 (or Float32) directly, ensuring no rouding or casting
+            data_raw = read(hdu, "DATA")  # This will load the data as a matrix with the correct type
     
             close(f)
     
@@ -2080,13 +2080,14 @@ end
             println("✅ 2DFS saved to: $savepath")
     
             if show_plot
-                # No need to call display() manually
+                # Display automatically handled by the environment
             end
     
         catch e
             println("❌ Error while handling FITS file: $e")
         end
     end
+    
     
 
 
