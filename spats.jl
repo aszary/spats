@@ -2122,7 +2122,7 @@ end
             extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
     
             imshow(abs.(fftshift(fft(fft(data_raw, 1), 2))).^2, aspect="auto", cmap="Greys",
-                   extent=extent, origin="lower", vmin=0, vmax=quantile(vec(abs.(data_raw).^2), 0.95), interpolation="none")
+                   extent=extent, origin="lower", vmin=0, vmax=quantile(vec(abs.(data_raw)), 0.95), interpolation="none")
             
             xlabel("Pulse longitude [deg]")
             ylabel("Fluctuation frequency (P/P3)")
