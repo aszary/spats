@@ -2003,6 +2003,9 @@ end
     
     
 
+   
+    
+
     function plot_2dfs_koncowy2(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
@@ -2018,8 +2021,8 @@ end
             f = FITS(filepath, "r")
             hdu = f[4]  # always 4th HDU for data
     
-            # Read raw data — don't cast to Int16, just read it as Float32 or Float64
-            data_raw = read(hdu, "DATA")  # By default, this might be a Float32 or Float64 type
+            # Read the raw data (as Float32 or Float64, no casting to Int16)
+            data_raw = read(hdu, "DATA")  # Read data as Float32 or Float64, depending on the FITS file format
     
             close(f)
     
@@ -2085,9 +2088,6 @@ end
         end
     end
     
-    
-
-
 
 
 
