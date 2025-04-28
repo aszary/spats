@@ -1826,49 +1826,29 @@ end
     
 
     
-    function plot2dfsNOWY(folder::String, pulsar_name::String; show_plot::Bool=true)
-        # === Składanie ścieżki ===
-        fitsfile = joinpath(folder, pulsar_name * ".fits")
-    
-        # === Otwieranie pliku FITS ===
-        fits = FITS(fitsfile)
-        subint = fits["SUBINT"]
+    function plot2dfsNOWY(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        # === Ścieżka do pliku .2dfs ===
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         # === Wczytanie danych ===
-        raw_data = read(subint, "DATA")[1,1,1,:]
-        dat_scl = read(subint, "DAT_SCL")[1,1]
-        dat_offs = read(subint, "DAT_OFFS")[1,1]
-        period = read(subint, "PERIOD")[1]
+        data = open(filepath, "r") do io
+            read!(io, Matrix{Float32}(undef, 256, 256))  # załóżmy 256x256 (lub dopasuj jeśli inne wymiary!)
+        end
     
-        # === Korekta skalowania ===
-        profile = raw_data .* dat_scl .+ dat_offs
+        # === Wymiary
+        ny, nx = size(data)
     
-        # === Symulacja pulse-stacka ===
-        n_pulses = 128  # liczba pulsów
-        pulse_stack = repeat(profile', n_pulses, 1)
+        # === Osie
+        freq = LinRange(-0.5, 0.5, ny)
+        pulse_longitude = LinRange(0, 360, nx)
     
-        # === FFT w osi czasu ===
-        F = fft(pulse_stack, 1)
-        F = fftshift(F, 1)
-        power = abs.(F).^2
-    
-        # === Osie ===
-        n_bins = size(pulse_stack, 2)
-        n_pulses = size(pulse_stack, 1)
-        freq = fftshift(fftfreq(n_pulses, 1.0))
-        pulse_longitude = LinRange(0, 360, n_bins+1)[1:end-1]
-    
-        # === Przycięcie kolorów ===
-        vmax = percentile(vec(power), 95)
+        # === Przycięcie kolorów
+        vmax = percentile(vec(data), 95)
         vmin = 0.0
     
-        # === Flip poziomy (opcjonalny) ===
-        power = reverse(power, dims=2)
-        pulse_longitude = reverse(pulse_longitude)
-    
-        # === Rysowanie z PyPlot ===
+        # === Rysowanie z PyPlot
         figure(figsize=(8,6))
-        imshow(power,
+        imshow(data,
             extent=(pulse_longitude[1], pulse_longitude[end], freq[1], freq[end]),
             origin="lower",
             aspect="auto",
@@ -1880,14 +1860,13 @@ end
         ylabel("Fluctuation frequency [cpp]")
         title("2DFS of $pulsar_name")
     
-        close(fits)
-    
         if show_plot
             show()
         else
-            close("all")  # zamknij wszystkie wykresy jeśli nie pokazujemy
+            close("all")
         end
     end
+    
     
 
 
