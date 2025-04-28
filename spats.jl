@@ -2021,8 +2021,14 @@ end
             f = FITS(filepath, "r")
             hdu = f[4]  # always 4th HDU for data
     
-            # Read the raw data as Float64 (or Float32) directly, ensuring no rouding or casting
-            data_raw = read(hdu, "DATA")  # This will load the data as a matrix with the correct type
+            # Read the raw data, check if it's an appropriate type, and force conversion to Float64
+            data_raw = read(hdu, "DATA")  # Read raw data
+            
+            # Ensure the data is in correct floating point format (Float64 or Float32)
+            if typeof(data_raw) <: AbstractArray && eltype(data_raw) <: Integer
+                println("⚠️ Data is in integer format, converting to Float64...")
+                data_raw = Float64.(data_raw)
+            end
     
             close(f)
     
@@ -2087,6 +2093,7 @@ end
             println("❌ Error while handling FITS file: $e")
         end
     end
+    
     
     
 
