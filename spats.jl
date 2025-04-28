@@ -2127,7 +2127,6 @@ end
             fluctuation_frequency = fftshift(fftfreq(n_pulses, 1))  # or you can just mock some values here
     
             # Plot using PyPlot
-            using PyPlot
             figure(figsize=(8, 6))
             plot(pulse_long, fluctuation_frequency, linewidth=2)
             xlabel("Pulse longitude [deg]")
