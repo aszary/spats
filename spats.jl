@@ -2369,8 +2369,9 @@ end
             println("✅ 2DFS saved to: $savepath")
             
             if show_plot
-                display()
+                show()
             end
+            
 
         catch e
             println("❌ Error while handling FITS file: $e")
