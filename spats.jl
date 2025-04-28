@@ -2384,7 +2384,7 @@ end
             println("✅ 2DFS saved to: $savepath")
 
             if show_plot
-                gui()
+                show()
             end
 
             
