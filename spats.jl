@@ -1844,11 +1844,10 @@ end
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
-        #inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        inspect_fits("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
-        plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
-
+        #plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
  
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
