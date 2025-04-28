@@ -1975,12 +1975,12 @@ end
             extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
     
             im = ax.imshow(power, 
-            aspect="auto", 
-            cmap="Greys", 
-            extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]],
-            vmin=0, vmax=quantile(vec(power), 0.95),
-            origin="lower",
-            interpolation="none")  # <<< DODAJ TO!
+                aspect="auto", 
+                cmap="Greys", 
+                extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]],
+                vmin=0, vmax=quantile(vec(power), 0.95),
+                origin="lower",
+                interpolation="none")  # <<< DODAJ TO!
 
     
             ax.set_xlabel("Pulse longitude [deg]")
