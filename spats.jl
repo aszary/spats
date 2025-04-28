@@ -1975,7 +1975,7 @@ end
             extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
     
             im = ax.imshow(power, aspect="auto", cmap="Greys", extent=extent, origin="lower",
-                           vmin=0, vmax=quantile(vec(power), 0.95), interpolation="bicubic")
+                           vmin=0, vmax=quantile(vec(power), 0.95), interpolation="biclinear")
     
             ax.set_xlabel("Pulse longitude [deg]")
             ax.set_ylabel("Fluctuation frequency (cycles per period, cpp)")
