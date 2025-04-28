@@ -2163,6 +2163,75 @@ end
     
 
 
+    function plot_2dfs_pulse_longitude(outdir::String, pulsar_name::String; show_plot::Bool=true)
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    
+        if !isfile(filepath)
+            println("❌ File does not exist: $filepath")
+            return
+        end
+    
+        println("✅ Reading 2DFS from: $filepath")
+    
+        try
+            f = FITS(filepath)
+            hdu = f[4]
+            data = read(hdu, "DATA")
+            close(f)
+    
+            if ndims(data) != 2
+                println("❌ Data is not 2D.")
+                return
+            end
+    
+            n_pulses, n_bins = size(data)
+            println("ℹ️ Data shape: $n_pulses pulses × $n_bins bins")
+    
+            # Perform FFT
+            F = fftshift(fft(fft(data, 1), 2))
+            power = abs.(F).^2
+    
+            # Axes
+            pulse_freq = fftshift(fftfreq(n_pulses, 1))     # fluctuation frequency (P/P3)
+            bin_freq = fftshift(fftfreq(n_bins, 1))         # fluctuation frequency (P/P2)
+            pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
+    
+            # Crop longitude 160–200 deg
+            mask = (pulse_long .>= 160) .& (pulse_long .<= 200)
+            power_crop = power[:, mask]
+            pulse_long_crop = pulse_long[mask]
+    
+            extent = [pulse_long_crop[1], pulse_long_crop[end], pulse_freq[1], pulse_freq[end]]
+    
+            fig = PyPlot.figure(figsize=(8, 6))
+            ax = PyPlot.gca()
+            im = ax.imshow(power_crop, aspect="auto", cmap="Greys", extent=extent, origin="lower",
+                           vmin=0, vmax=quantile(vec(power), 0.95), interpolation="none")
+    
+            ax.set_xlabel("Pulse longitude [deg]")
+            ax.set_ylabel("Fluctuation frequency (P/P3)")
+            ax.set_xlim(160, 200)
+            ax.set_ylim(0, 0.5)
+    
+            PyPlot.colorbar(im, ax=ax, label="Power")
+            ax.set_title("2DFS – $pulsar_name")
+    
+            savepath = joinpath(outdir, pulsar_name, "2dfs_pulse_long_" * pulsar_name * ".png")
+            PyPlot.savefig(savepath, dpi=300)
+            println("✅ 2DFS pulse longitude plot saved to: $savepath")
+    
+            if show_plot
+                PyPlot.show()
+            else
+                PyPlot.close(fig)
+            end
+    
+        catch e
+            println("❌ Error while handling FITS file: $e")
+        end
+    end
+    
+
 
     
     
@@ -2188,7 +2257,7 @@ end
         #plot2dfsNOWY("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
-        plot_simple_2dfs_fixed("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_2dfs_pulse_longitude("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmoudt)
