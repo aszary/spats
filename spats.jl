@@ -1825,47 +1825,79 @@ end
     end
     
 
-    
-    function plot2dfsNOWY(outdir::String, pulsar_name::String; show_plot::Bool=true)
-        # === Ścieżka do pliku .2dfs ===
+   
+
+    function plot_correct_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
-    
-        # === Wczytanie danych ===
-        data = open(filepath, "r") do io
-            read!(io, Matrix{Float32}(undef, 256, 256))  # załóżmy 256x256 (lub dopasuj jeśli inne wymiary!)
+
+        if !isfile(filepath)
+            println("❌ File does not exist: $filepath")
+            return
         end
-    
-        # === Wymiary
-        ny, nx = size(data)
-    
-        # === Osie
-        freq = LinRange(-0.5, 0.5, ny)
-        pulse_longitude = LinRange(0, 360, nx)
-    
-        # === Przycięcie kolorów
-        vmax = percentile(vec(data), 95)
-        vmin = 0.0
-    
-        # === Rysowanie z PyPlot
-        figure(figsize=(8,6))
-        imshow(data,
-            extent=(pulse_longitude[1], pulse_longitude[end], freq[1], freq[end]),
-            origin="lower",
-            aspect="auto",
-            cmap="gray",
-            vmin=vmin,
-            vmax=vmax)
-        colorbar(label="Power")
-        xlabel("Pulse longitude [deg]")
-        ylabel("Fluctuation frequency [cpp]")
-        title("2DFS of $pulsar_name")
-    
-        if show_plot
-            show()
-        else
-            close("all")
+
+        println("✅ Reading 2DFS from: $filepath")
+
+        try
+            # Open FITS
+            f = FITS(filepath, "r")
+            hdu = f[4]
+            data_raw = read(hdu, "DATA")
+            
+            # Check dimensions
+            if ndims(data_raw) != 2
+                println("❌ Data is not 2D as expected.")
+                close(f)
+                return
+            end
+
+            # Try to read scaling if available
+            header = read_header(hdu)
+            dat_scl = tryparse(Float64, get(header, "DAT_SCL", "1.0"))
+            dat_offs = tryparse(Float64, get(header, "DAT_OFFS", "0.0"))
+            period = tryparse(Float64, get(header, "PERIOD", "1.0"))  # seconds
+
+            data = data_raw .* dat_scl .+ dat_offs
+            
+            close(f)
+
+            # Prepare for 2D FFT
+            n_pulses, n_bins = size(data)
+            println("ℹ️ Data shape: $n_pulses pulses × $n_bins bins")
+
+            # 2D FFT over pulse axis (time)
+            F = fft(data, 1)  # FFT along pulses
+            F = fftshift(F, 1)  # Center zero frequency vertically
+            power = abs.(F).^2
+
+            # Create axis scales
+            freq = fftshift(fftfreq(n_pulses, 1))  # P/P3 axis
+            pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
+
+            # Plot using PyPlot
+            figure(figsize=(8, 6))
+            ax = gca()
+            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]])
+            ax.set_xlabel("Pulse longitude [deg]")
+            ax.set_ylabel("Fluctuation frequency [cpp]")
+            ax.set_title("2DFS – $pulsar_name")
+            ax.set_ylim(0, 0.5)
+            ax.set_clim(0, quantile(vec(power), 0.95))  # Clip to 95th percentile
+            colorbar(im, ax=ax, label="Power")
+
+            savepath = joinpath(outdir, pulsar_name, "corrected_2dfs_" * pulsar_name * ".png")
+            savefig(savepath)
+
+            println("✅ 2DFS saved to: $savepath")
+            
+            if show_plot
+                display()
+            end
+
+        catch e
+            println("❌ Error while handling FITS file: $e")
         end
     end
+
     
     
 
@@ -1897,7 +1929,8 @@ end
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
         #plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
-        plot2dfsNOWY("/home/psr/output", "J1919+0134", show_plot=true)
+        #plot2dfsNOWY("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
