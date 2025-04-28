@@ -2348,29 +2348,45 @@ end
             n_pulses, n_bins = size(data)
             println("Data shape: $n_pulses pulses × $n_bins bins")
 
-            freq = fftshift(fftfreq(n_pulses, 1))  # P/P3 axis
-            pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
+            # Pulse longitude array
+            pulse_long = LinRange(0, 360, n_bins+1)[1:end-1]
 
+            # Frequency array (P/P3)
+            freq = fftshift(fftfreq(n_pulses, 1))
+
+            # Nowa zmienna - moc sygnału
             power = abs2.(data)
 
+            # Wytnij fragment pulse longitude 160° - 200°
+            mask = (pulse_long .>= 160) .& (pulse_long .<= 200)
+            pulse_long_crop = pulse_long[mask]
+            power_crop = power[:, mask]  # Uwaga: zachowaj wszystkie częstotliwości (wiersze), ale tylko wybrane kolumny!
 
+            # Plotowanie
             figure(figsize=(8, 6))
             ax = gca()
-            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]], vmin=0, vmax=quantile(vec(power), 0.95))
-            ax.set_xlabel("Pulse longitude [deg]")
-            ax.set_ylabel("Fluctuation frequency [cpp]")
-            ax.set_title("2DFS – $pulsar_name")
-            ax.set_ylim(0, 0.5)
+            im = ax.imshow(
+                power_crop, 
+                aspect="auto", 
+                cmap="Greys",
+                extent=[pulse_long_crop[1], pulse_long_crop[end], freq[1], freq[end]],
+                vmin=0, vmax=quantile(vec(power_crop), 0.95)
+            )
+            ax.set_xlabel("Pulse Longitude [deg]")
+            ax.set_ylabel("P/P₃ [cpp]")
+            ax.set_title("2DFS – $pulsar_name (160°–200°)")
+            ax.set_ylim(0, 0.5)  # np. ograniczenie Y do sensownego zakresu
             colorbar(im, ax=ax, label="Power")
 
             savepath = joinpath(outdir, pulsar_name, "corrected_2dfs_" * pulsar_name * ".png")
             savefig(savepath)
 
             println("✅ 2DFS saved to: $savepath")
-            
+
             if show_plot
-                show()
+                gui()
             end
+
             
 
         catch e
