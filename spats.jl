@@ -1981,6 +1981,8 @@ end
             ax.set_ylabel("Fluctuation frequency (cycles per period, cpp)")
             ax.set_title("2DFS – $pulsar_name")
             ax.set_ylim(0, 0.5)  # Standard limit as in Song et al.
+            ax.set_xlim(160, 200)
+
     
             colorbar(im, ax=ax, label="Normalized Power")
     
