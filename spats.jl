@@ -4,6 +4,9 @@ module SpaTs
     using JSON
     using FITSIO
     using PyPlot
+    using FFTW
+    using plots
+    using Statistics
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
@@ -1824,6 +1827,68 @@ end
     
 
     
+    function plot2dfsNOWY(folder::String, pulsar_name::String; show_plot::Bool=true)
+        # === Składanie ścieżki ===
+        fitsfile = joinpath(folder, pulsar_name * ".fits")
+    
+        # === Otwieranie pliku FITS ===
+        fits = FITS(fitsfile)
+        subint = fits["SUBINT"]
+    
+        # === Wczytanie danych ===
+        raw_data = read(subint, "DATA")[1,1,1,:]
+        dat_scl = read(subint, "DAT_SCL")[1,1]
+        dat_offs = read(subint, "DAT_OFFS")[1,1]
+        period = read(subint, "PERIOD")[1]
+    
+        # === Korekta skalowania ===
+        profile = raw_data .* dat_scl .+ dat_offs
+    
+        # === Symulacja pulse-stacka ===
+        n_pulses = 128  # liczba pulsów
+        pulse_stack = repeat(profile', n_pulses, 1)
+    
+        # === FFT w osi czasu ===
+        F = fft(pulse_stack, 1)
+        F = fftshift(F, 1)
+        power = abs.(F).^2
+    
+        # === Osie ===
+        n_bins = size(pulse_stack, 2)
+        n_pulses = size(pulse_stack, 1)
+        freq = fftshift(fftfreq(n_pulses, 1.0))
+        pulse_longitude = LinRange(0, 360, n_bins+1)[1:end-1]
+    
+        # === Przycięcie kolorów ===
+        vmax = percentile(vec(power), 95)
+        vmin = 0.0
+    
+        # === Flip poziomy (opcjonalny) ===
+        power = reverse(power, dims=2)
+        pulse_longitude = reverse(pulse_longitude)
+    
+        # === Rysowanie ===
+        plt = heatmap(pulse_longitude, freq, power,
+            xlabel="Pulse longitude [deg]",
+            ylabel="Fluctuation frequency [cpp]",
+            c=:gray,
+            colorbar_title="Power",
+            clims=(vmin, vmax),
+            aspect_ratio=:auto,
+            title="2DFS of $pulsar_name")
+    
+        close(fits)
+    
+        if show_plot
+            display(plt)
+        end
+    end
+    
+
+
+
+
+
 
 
 
@@ -1844,11 +1909,11 @@ end
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
-        inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
         #plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
- 
+        plot2dfsNOWY("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
