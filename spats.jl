@@ -2351,6 +2351,9 @@ end
             freq = fftshift(fftfreq(n_pulses, 1))  # P/P3 axis
             pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
 
+            power = abs2.(data)
+
+
             figure(figsize=(8, 6))
             ax = gca()
             im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]], vmin=0, vmax=quantile(vec(power), 0.95))
