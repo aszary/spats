@@ -1858,7 +1858,7 @@ end
             dat_offs = tryparse(Float64, get(header, "DAT_OFFS", "0.0"))
             period = tryparse(Float64, get(header, "PERIOD", "1.0"))  # seconds
 
-            data = data_raw .* dat_scl .+ dat_offs
+            #data = data_raw .* dat_scl .+ dat_offs
             
             close(f)
 
