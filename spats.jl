@@ -1873,17 +1873,16 @@ end
 
             # Create axis scales
             freq = fftshift(fftfreq(n_pulses, 1))  # P/P3 axis
-            pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
+            pulse_long = LinRange(160, 200, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
 
             # Plot using PyPlot
             figure(figsize=(8, 6))
             ax = gca()
-            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]], vmin=0, vmax=quantile(vec(power)))
+            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]], vmin=0, vmax=quantile(vec(power), 0.95))
             ax.set_xlabel("Pulse longitude [deg]")
             ax.set_ylabel("Fluctuation frequency [cpp]")
             ax.set_title("2DFS – $pulsar_name")
             ax.set_ylim(0, 0.5)
-            ax.set_xlim(160, 200)
             colorbar(im, ax=ax, label="Power")
 
             savepath = joinpath(outdir, pulsar_name, "corrected_2dfs_" * pulsar_name * ".png")
