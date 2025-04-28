@@ -1901,6 +1901,14 @@ end
 
 
 
+    # Define Hanning window
+    function hanning(N::Int)
+        if N <= 1
+            return ones(N)
+        else
+            return 0.5 .- 0.5 * cos.(2pi .* (0:(N-1)) ./ (N-1))
+        end
+    end
 
 
 
