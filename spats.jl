@@ -2097,7 +2097,7 @@ end
     
     
     
-    function plot_simple_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    function plot_simple_2dfs_fixed(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         if !isfile(filepath)
@@ -2110,25 +2110,31 @@ end
         try
             f = FITS(filepath, "r")
             hdu = f[4]
-            data_raw = read(hdu, "DATA")
+            data = read(hdu, "DATA")
             close(f)
     
-            n_pulses, n_bins = size(data_raw)
+            n_pulses, n_bins = size(data)
             println("ℹ️ Data shape: $n_pulses pulses × $n_bins bins")
     
             # 2D FFT
-            F = fftshift(fft(fft(data_raw, 1), 2))
+            F = fftshift(fft(fft(data, 1), 2))
             power = abs.(F).^2
     
             # Osie
             pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]
             pulse_freq = fftshift(fftfreq(n_pulses, 1))
-            extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
     
-            # Wykres
+            # Wybieramy tylko fragment 160–200 stopni
+            mask = (pulse_long .>= 160) .& (pulse_long .<= 200)
+            power_crop = power[:, mask]
+            pulse_long_crop = pulse_long[mask]
+    
+            extent = [pulse_long_crop[1], pulse_long_crop[end], pulse_freq[1], pulse_freq[end]]
+    
+            # Rysujemy tylko wycinek
             fig = PyPlot.figure(figsize=(8, 6))
             ax = PyPlot.gca()
-            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=extent, origin="lower",
+            im = ax.imshow(power_crop, aspect="auto", cmap="Greys", extent=extent, origin="lower",
                            vmin=0, vmax=quantile(vec(power), 0.95), interpolation="none")
     
             ax.set_xlabel("Pulse longitude [deg]")
@@ -2154,6 +2160,7 @@ end
     end
     
     
+    
 
 
 
@@ -2177,11 +2184,11 @@ end
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
-        plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
+        #plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
         #plot2dfsNOWY("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
-        #plot_simple_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_simple_2dfs_fixed("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmoudt)
