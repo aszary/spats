@@ -2434,7 +2434,7 @@ end
     end
 
 
-    function plot_2dfs_ostateczne(outdir, pulsar_name; title_text="2DFS Plot", cmap="viridis", show_plot=false)
+    function plot_2dfs_ostateczne(outdir, pulsar_name; title_text="2DFS Plot", cmap="gray", show_plot=false)
         # Generowanie ścieżki do pliku
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
@@ -2524,6 +2524,7 @@ end
             close(f)
         end
     end
+    
     
     
 
