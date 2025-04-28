@@ -5,7 +5,6 @@ module SpaTs
     using FITSIO
     using PyPlot
     using FFTW
-    using plots
     using Statistics
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -1867,20 +1866,26 @@ end
         power = reverse(power, dims=2)
         pulse_longitude = reverse(pulse_longitude)
     
-        # === Rysowanie ===
-        plt = heatmap(pulse_longitude, freq, power,
-            xlabel="Pulse longitude [deg]",
-            ylabel="Fluctuation frequency [cpp]",
-            c=:gray,
-            colorbar_title="Power",
-            clims=(vmin, vmax),
-            aspect_ratio=:auto,
-            title="2DFS of $pulsar_name")
+        # === Rysowanie z PyPlot ===
+        figure(figsize=(8,6))
+        imshow(power,
+            extent=(pulse_longitude[1], pulse_longitude[end], freq[1], freq[end]),
+            origin="lower",
+            aspect="auto",
+            cmap="gray",
+            vmin=vmin,
+            vmax=vmax)
+        colorbar(label="Power")
+        xlabel("Pulse longitude [deg]")
+        ylabel("Fluctuation frequency [cpp]")
+        title("2DFS of $pulsar_name")
     
         close(fits)
     
         if show_plot
-            display(plt)
+            show()
+        else
+            close("all")  # zamknij wszystkie wykresy jeśli nie pokazujemy
         end
     end
     
