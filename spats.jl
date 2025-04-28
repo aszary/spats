@@ -1987,10 +1987,11 @@ end
             # Save figure
             savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
             savefig(savepath)
+
             println("✅ 2DFS saved to: $savepath")
-    
+
             if show_plot
-                display()
+                # Nic nie trzeba, wykres i tak się pokaże
             end
     
         catch e
