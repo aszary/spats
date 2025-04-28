@@ -2327,7 +2327,8 @@ end
         try
             f = FITS(filepath, "r")
             hdu = f[4]
-            data = read(hdu, "DATA")
+        header = read_header(hdu)  # <-- dodaj to
+        data = read(hdu, "DATA")
 
             #check dimensions
             if ndims(data) != 2
