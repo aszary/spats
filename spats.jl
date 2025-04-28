@@ -2096,7 +2096,57 @@ end
     
     
     
-
+    function plot_simple_2dfs(outdir::String, pulsar_name::String)
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+        
+        if !isfile(filepath)
+            println("❌ File does not exist: $filepath")
+            return
+        end
+    
+        println("✅ Reading 2DFS from: $filepath")
+    
+        try
+            # Open FITS file
+            f = FITS(filepath, "r")
+            hdu = f[4]  # always 4th HDU for data
+            
+            # Read the raw data as Float64 (or Float32)
+            data_raw = read(hdu, "DATA")  # Read raw data
+            
+            close(f)
+            
+            # Dimensions of data
+            n_pulses, n_bins = size(data_raw)
+            println("ℹ️ Data shape: $n_pulses pulses × $n_bins bins")
+    
+            # Assume Pulse Longitude is linearly spaced from 160° to 200°
+            pulse_long = LinRange(160, 200, n_bins)
+    
+            # Create fluctuation frequency (P/P3) (just using an example here, normally you'd calculate it)
+            fluctuation_frequency = fftshift(fftfreq(n_pulses, 1))  # or you can just mock some values here
+    
+            # Plot using PyPlot
+            using PyPlot
+            figure(figsize=(8, 6))
+            plot(pulse_long, fluctuation_frequency, linewidth=2)
+            xlabel("Pulse longitude [deg]")
+            ylabel("Fluctuation frequency (P/P3)")
+            title("2DFS for $pulsar_name")
+            xlim(160, 200)
+            ylim(0, 0.5)
+            
+            # Save the figure
+            savepath = joinpath(outdir, pulsar_name, "simple_2dfs_" * pulsar_name * ".png")
+            savefig(savepath, dpi=300)
+            
+            println("✅ 2DFS saved to: $savepath")
+    
+        catch e
+            println("❌ Error while handling FITS file: $e")
+        end
+    end
+    
 
 
 
@@ -2124,7 +2174,7 @@ end
         #plot2dfsNOWY("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
-        plot_2dfs_koncowy2("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_simple_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmoudt)
