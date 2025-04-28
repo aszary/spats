@@ -1873,7 +1873,7 @@ end
 
             # Create axis scales
             freq = fftshift(fftfreq(n_pulses, 1))  # P/P3 axis
-            pulse_long = LinRange(160, 200, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
+            pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
 
             # Plot using PyPlot
             figure(figsize=(8, 6))
