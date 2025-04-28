@@ -1171,7 +1171,7 @@ module SpaTs
     
     
 
-
+#=
 
  
     """
@@ -2232,7 +2232,7 @@ end
     end
     
 
-    function plot2dfs_p2_frequency(outdir::String, pulsar_name::String; show_plot::Bool=true, a::Float64=0.0, b::Float64=0.0)
+    function plot2dfs_p2_frequency(outdir::String, pulsar_name::String; show_plot::Bool=true)
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     
         if !isfile(filepath)
@@ -2267,7 +2267,8 @@ end
             pulse_freq = fftshift(fftfreq(n_pulses, 1))  # cycles per pulse (P/P3)
             bin_freq = fftshift(fftfreq(n_bins, 1))      # cycles per bin (P/P2)
     
-            bin_freq_scaled = bin_freq .* 100  # Skala -100 do 100
+            # Fluctuation freq (P/P2) przeskalowana na zakres -100 do 100
+            bin_freq_scaled = bin_freq .* 100
     
             extent = [bin_freq_scaled[1], bin_freq_scaled[end], pulse_freq[1], pulse_freq[end]]
     
@@ -2282,21 +2283,14 @@ end
             ax.set_ylabel("Fluctuation frequency (P/P3)")
             ax.set_xlim(-100, 100)
             ax.set_ylim(0, 0.5)
-            fig.suptitle("2DFS with Line – $pulsar_name")
+            fig.suptitle("2DFS – $pulsar_name")
     
             PyPlot.colorbar(img, ax=ax, label="Power", shrink=0.9)
     
-            # ---- Dorysowanie linii ----
-            y_vals = LinRange(0, 0.5, 500)
-            x_vals = a .* y_vals .+ b
-    
-            ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Line: x = $(a) * y + $(b)")
-            ax.legend()
-    
-            savepath = joinpath(outdir, pulsar_name, "2dfs_p2freq_line_" * pulsar_name * ".png")
+            savepath = joinpath(outdir, pulsar_name, "2dfs_p2freq_" * pulsar_name * ".png")
             PyPlot.savefig(savepath, dpi=300)
     
-            println("✅ 2DFS (P2 freq + line) plot saved to: $savepath")
+            println("✅ 2DFS (P2 freq) plot saved to: $savepath")
     
             if show_plot
                 PyPlot.show()
@@ -2312,6 +2306,73 @@ end
         end
     end
     
+
+
+
+    =#
+    function plot_2dfs_kon(outdir::String, pulsar_name::String; show_plot::Bool=true)
+
+        filepath = joinpath(outdir,, pulsar_name, "pulsar.debase.1.2dfs")
+
+        if !isfile(filepath)
+            println("File does not exist: $filepath")
+            return
+        end
+        
+
+        println("File does exist and we can read 2DFS from : $filepath")
+
+        f = nothing
+        data = nothing
+        try
+            f = FITS(filepath, "r")
+            hdu = f[4]
+            data = read(hdu, "DATA")
+
+            #check dimensions
+            if ndims(data) != 2
+                println("Data is not 2D")
+                close(f)
+                return
+            end
+
+            dat_scl = tryparse(Float64, get(header, "DAT_SCL", "1.0"))
+            dat_offs = tryparse(Float64, get(header, "DAT_OFFS", "0.0"))
+            period = tryparse(Float64, get(header, "PERIOD", "1.0"))  # seconds
+
+        
+
+            close(f)
+
+            n_pulses, n_bins = size(data)
+            println("Data shape: $n_pulses pulses × $n_bins bins")
+
+            freq = fftshift(fftfreq(n_pulses, 1))  # P/P3 axis
+            pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]  # Pulse longitude in degrees
+
+            figure(figsize=(8, 6))
+            ax = gca()
+            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]], vmin=0, vmax=quantile(vec(power), 0.95))
+            ax.set_xlabel("Pulse longitude [deg]")
+            ax.set_ylabel("Fluctuation frequency [cpp]")
+            ax.set_title("2DFS – $pulsar_name")
+            ax.set_ylim(0, 0.5)
+            colorbar(im, ax=ax, label="Power")
+
+            savepath = joinpath(outdir, pulsar_name, "corrected_2dfs_" * pulsar_name * ".png")
+            savefig(savepath)
+
+            println("✅ 2DFS saved to: $savepath")
+            
+            if show_plot
+                display()
+            end
+
+        catch e
+            println("❌ Error while handling FITS file: $e")
+        end
+    end
+
     
     
     
