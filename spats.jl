@@ -2432,6 +2432,99 @@ end
         end
         close(f)
     end
+
+
+    function plot_2dfs_ostateczne(outdir, pulsar_name; title_text="2DFS Plot", cmap="viridis", show_plot=false)
+        # Generowanie ścieżki do pliku
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    
+        if !isfile(filepath)
+            println("File does not exist: $filepath")
+            return
+        end
+    
+        println("File exists and we can read 2DFS from: $filepath")
+    
+        f = nothing
+        data = nothing
+        try
+            # Otwórz plik FITS
+            f = FITS(filepath, "r")
+            hdu = f[4]  # Czwarty HDU zawiera dane
+            
+            # Odczyt nagłówka i danych
+            header = read_header(hdu)
+            data = read(hdu, "DATA")
+    
+            # Sprawdzenie wymiarów danych
+            if ndims(data) != 2
+                println("Data is not 2D")
+                close(f)
+                return
+            end
+    
+            # Odczytywanie wartości z nagłówka
+            dat_scl = tryparse(Float64, get(header, "DAT_SCL", "1.0"))
+            dat_offs = tryparse(Float64, get(header, "DAT_OFFS", "0.0"))
+            period = tryparse(Float64, get(header, "PERIOD", "1.0"))  # Czas w sekundach
+            
+            # Skala danych (skalowanie, przesunięcie)
+            data = (data .- dat_offs) .* dat_scl
+    
+            # Przygotowanie danych dla osi
+            P2_vals = LinRange(-1.0, 1.0, size(data, 2))  # Przykładowe wartości dla 1/P2
+            P3_vals = LinRange(0.0, 0.5, size(data, 1))  # Przykładowe wartości dla 1/P3
+    
+            # Tworzenie wykresu
+            fig, ax = subplots(figsize=(8,6))
+    
+            # Rysowanie obrazu 2DFS
+            cax = ax.imshow(data,
+                extent=[minimum(P2_vals), maximum(P2_vals), minimum(P3_vals), maximum(P3_vals)],
+                aspect="auto",
+                origin="lower",
+                cmap=cmap
+            )
+    
+            # Dodanie paska kolorów
+            colorbar(cax, ax=ax, label="Spectral Power")
+    
+            # Ustawienia osi
+            ax.set_ylabel("Fluctuation Frequency (1/P₃) [cpp]")
+            ax.set_xlabel("Fluctuation Frequency (1/P₂) [cpp]")
+    
+            # Linia pomocnicza w 1/P₂ = 0
+            ax.axvline(x=0, color="white", linestyle="--", linewidth=1.5, label="1/P₂ = 0")
+    
+            # Symetria - odbicie w poziomie (jeśli to ma sens)
+            vertical_profile = sum(data, dims=1)[:]  # Integracja w pionie (po 1/P₃)
+            mirrored_profile = reverse(vertical_profile)  # Odbicie
+            P2_centered = LinRange(minimum(P2_vals), maximum(P2_vals), length=length(vertical_profile))
+    
+            ax2 = ax.twinx()
+            ax2.plot(P2_centered, mirrored_profile, color="cyan", linestyle="--", alpha=0.6, label="Mirrored Profile")
+            ax2.set_yticks([])
+            ax2.set_ylim(ax.get_ylim())
+    
+            # Tytuł wykresu
+            ax.set_title(title_text)
+            ax.legend(loc="upper right")
+            tight_layout()
+            
+            # Zamykanie pliku FITS
+            close(f)
+    
+            # Pokazanie wykresu, jeśli 'show_plot' jest ustawione na true
+            if show_plot
+                show()
+            end
+    
+        catch e
+            println("Error: $e")
+            close(f)
+        end
+    end
+    
     
 
     
@@ -2451,7 +2544,7 @@ end
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
-        inspect_fits223("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        #inspect_fits223("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
         #plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
@@ -2460,6 +2553,7 @@ end
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_2dfs_pulse_longitude("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_2dfs_kon("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmoudt)
