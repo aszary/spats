@@ -1878,7 +1878,7 @@ end
             # Plot using PyPlot
             figure(figsize=(8, 6))
             ax = gca()
-            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]], vmin=0, vmax=quantile(vec(power), 0.95))
+            im = ax.imshow(power, aspect="auto", cmap="Greys", extent=[pulse_long[1], pulse_long[end], freq[1], freq[end]], vmin=0, vmax=quantile(vec(power)))
             ax.set_xlabel("Pulse longitude [deg]")
             ax.set_ylabel("Fluctuation frequency [cpp]")
             ax.set_title("2DFS – $pulsar_name")
