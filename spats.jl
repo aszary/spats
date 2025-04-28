@@ -2118,7 +2118,6 @@ end
             pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]
             pulse_freq = fftshift(fftfreq(n_pulses, 1))
     
-            using PyPlot
             figure(figsize=(8, 6))
             extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
     
