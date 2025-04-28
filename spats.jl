@@ -2018,25 +2018,25 @@ end
             f = FITS(filepath, "r")
             hdu = f[4]  # always 4th HDU for data
     
-            # Read raw data ONLY — no scaling!
-            data = read(hdu, "DATA")
+            # Read raw data — don't cast to Int16, just read it as Float32 or Float64
+            data_raw = read(hdu, "DATA")  # By default, this might be a Float32 or Float64 type
     
             close(f)
     
             # Check dimensions
-            n_pulses, n_bins = size(data)
+            n_pulses, n_bins = size(data_raw)
             println("ℹ️ Data shape: $n_pulses pulses × $n_bins bins")
     
             # Detrend: Remove mean from each pulse profile
             for i in 1:n_pulses
-                data[i, :] .-= mean(data[i, :])
+                data_raw[i, :] .-= mean(data_raw[i, :])
             end
     
             # Apply 2D window (Hanning window)
             win_pulses = 0.5 .* (1 .- cos.(2π .* (0:n_pulses-1) ./ (n_pulses-1)))
             win_bins = 0.5 .* (1 .- cos.(2π .* (0:n_bins-1) ./ (n_bins-1)))
             window = win_pulses * win_bins'
-            data_windowed = data .* window
+            data_windowed = data_raw .* window
     
             # Perform 2D FFT
             F = fftshift(fft(fft(data_windowed, 1), 2))
@@ -2084,6 +2084,7 @@ end
             println("❌ Error while handling FITS file: $e")
         end
     end
+    
     
 
 
