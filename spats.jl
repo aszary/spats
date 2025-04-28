@@ -1970,7 +1970,7 @@ end
             pulse_long = LinRange(0, 360, n_bins + 1)[1:end-1]
     
             # Plot 2DFS
-            figure(figsize=(8, 6))
+            figure(figsize=(8, 6), dpi=600)
             ax = gca()
             extent = [pulse_long[1], pulse_long[end], pulse_freq[1], pulse_freq[end]]
     
