@@ -2312,7 +2312,7 @@ end
     =#
     function plot_2dfs_kon(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
-        filepath = joinpath(outdir,, pulsar_name, "pulsar.debase.1.2dfs")
+        filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
 
         if !isfile(filepath)
             println("File does not exist: $filepath")
@@ -2398,7 +2398,7 @@ end
         #plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_2dfs_pulse_longitude("/home/psr/output", "J1919+0134", show_plot=true)
-        plot2dfs_p2_frequency("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_2dfs_kon("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmoudt)
