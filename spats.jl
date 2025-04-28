@@ -2394,6 +2394,46 @@ end
         end
     end
 
+
+    function inspect_fits223(filepath::String)
+        if !isfile(filepath)
+            println("❌ File does not exist: $filepath")
+            return
+        end
+    
+        println("🔎 Inspecting FITS file: $filepath")
+    
+        f = FITS(filepath)
+        for (i, hdu) in enumerate(f)
+            println("\n📂 HDU $i:")
+            println("  Type: ", typeof(hdu))
+    
+            try
+                if hdu isa FITSIO.ImageHDU
+                    img = read(hdu)
+                    println("  - Image dimensions: ", size(img))
+                    println("  - Image element type: ", eltype(img))
+    
+                elseif hdu isa FITSIO.TableHDU
+                    names = FITSIO.colnames(hdu)
+                    println("  - Table columns: ", names)
+    
+                    for name in names
+                        col_data = read(hdu, name)
+                        println("    Column '$name': type ", eltype(col_data), ", size ", size(col_data))
+                    end
+    
+                else
+                    println("  - Unknown HDU type.")
+                end
+            catch e
+                println("  ⚠️ Error reading HDU $i: $e")
+            end
+        end
+        close(f)
+    end
+    
+
     
     
     
@@ -2411,7 +2451,7 @@ end
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
-        #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        inspect_fits223("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
         #plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
@@ -2419,7 +2459,7 @@ end
         #plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_2dfs_pulse_longitude("/home/psr/output", "J1919+0134", show_plot=true)
-        plot_2dfs_kon("/home/psr/output", "J1919+0134", show_plot=true)
+        #plot_2dfs_kon("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmoudt)
