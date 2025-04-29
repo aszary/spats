@@ -33,6 +33,25 @@ module SpaTs
         #Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
     end
 
+
+
+    function load_ascii2(infile::String)
+        # Otwórz plik i wczytaj dane
+        raw_lines = readlines(infile)
+        data = []
+        for line in raw_lines
+            parts = split(strip(line))
+            if length(parts) >= 6
+                # Przekształcamy dane na Float64, zamiast na Int64
+                row = tryparse.(Float64, parts[1:6])
+                if all(!isnothing, row)
+                    push!(data, row)
+                end
+            end
+        end
+        return data
+    end
+    
     function repuls(vpmout::String, num_files::Int)
         all_data = []
     
@@ -98,10 +117,10 @@ module SpaTs
             println(all_data[1:min(5, end)])  # Wypisz pierwsze 5 wierszy
     
             # Zbieramy wszystkie dane w jednym obiekcie
-            data1 = Data.load_ascii(vpmout*"1_zmiany.txt")
-            data2 = Data.load_ascii(vpmout*"2_zmiany.txt")
-            data3 = Data.load_ascii(vpmout*"3_zmiany.txt")
-            data4 = Data.load_ascii(vpmout*"4_zmiany.txt")
+            data1 = load_ascii2(vpmout*"1_zmiany.txt")
+            data2 = load_ascii2(vpmout*"2_zmiany.txt")
+            data3 = load_ascii2(vpmout*"3_zmiany.txt")
+            data4 = load_ascii2(vpmout*"4_zmiany.txt")
             data = vcat(data1, data2, data3, data4)
     
             # Użycie Plot.single do wygenerowania wykresu
@@ -110,6 +129,7 @@ module SpaTs
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
+    
     
     
     
