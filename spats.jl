@@ -2665,7 +2665,7 @@ end
     end
     
     
-    # Funkcja do wczytywania i obliczania odwrotności P2 i P3
+    
     function check_and_plot_2dfs(file_path::String, col_p2::Int64, col_p3::Int64)
         # Wczytanie pliku FITS
         hdu = FITS(file_path)
@@ -2687,12 +2687,18 @@ end
         inv_p2 = 1.0 .÷ p2_values  # Odwrotność P2
         inv_p3 = 1.0 .÷ p3_values  # Odwrotność P3
         
-        # Wizualizacja odwrotności w postaci wykresu
-        plot(inv_p2, inv_p3, label="1/P2 vs 1/P3", xlabel="1/P2", ylabel="1/P3", lw=2)
+        # Wizualizacja odwrotności w postaci wykresu z pyplot
+        pyplot.plot(inv_p2, inv_p3, label="1/P2 vs 1/P3", linewidth=2)
+        pyplot.xlabel("1/P2")
+        pyplot.ylabel("1/P3")
+        pyplot.legend()
         
         # Wypisanie pierwszych 10 wartości odwrotności dla P2 i P3
         println("Pierwsze 10 wartości 1/P2: ", inv_p2[1:10])
         println("Pierwsze 10 wartości 1/P3: ", inv_p3[1:10])
+        
+        # Pokaż wykres
+        pyplot.show()
         
         return inv_p2, inv_p3
     end
@@ -2726,6 +2732,7 @@ end
         #plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
         #wykres2dfs("/home/psr/output/J1919+0134", "/home/psr/output", "J1919+0134", show_plot=true)
         check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", 4, 5)
+
 
 
 
