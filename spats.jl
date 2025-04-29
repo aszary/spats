@@ -2528,8 +2528,7 @@ end
     
     
 
-    function wykres2dfs(folder_path, show_plot=false)
-
+    function wykres2dfs(folder_path; show_plot=false)
     
         # Funkcja do odczytu danych z pliku FITS
         function read_fits_data(file_path, hdu_number, column_name)
@@ -2553,12 +2552,12 @@ end
             heatmap = PlotlyJS.heatmap(z=abs.(data_2dfs),
                                        colorscale="Viridis",
                                        colorbar_title="Amplitude")
-            
+    
             # Layout wykresu
             layout = PlotlyJS.Layout(title="2DFS for $(output_name)",
                                      xaxis_title="Harmonics",
                                      yaxis_title="Subintegrations")
-            
+    
             # Tworzymy i zapisujemy wykres
             fig = PlotlyJS.Plot(heatmap, layout)
             PlotlyJS.savefig(fig, output_name * "_2dfs.png")  # Zapisz wykres jako PNG
@@ -2577,13 +2576,14 @@ end
             file_name = splitext(basename(file_path))[1]   # Wyciągnij nazwę pliku bez rozszerzenia
             plot_2dfs(data_2dfs, file_name)                # Wygeneruj wykres i zapisz jako PNG
         end
-
+    
         if show_plot
             show()
         end
     
         println("Przetwarzanie plików zakończone.")
     end
+    
     
     
     
