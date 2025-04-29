@@ -85,10 +85,10 @@ module SpaTs
         # Jeśli zebrano jakiekolwiek dane, zrób wykres
         if !isempty(all_data)
             # Zbieramy wszystkie dane w jednym obiekcie
-            data1 = Data.load_ascii(outdir*"1_zmiany.txt")
-            data2 = Data.load_ascii(outdir*"2_zmiany.txt")
-            data3 = Data.load_ascii(outdir*"3_zmiany.txt")
-            data4 = Data.load_ascii(outdir*"4_zmiany.txt")
+            data1 = Data.load_ascii(vpmout*"1_zmiany.txt")
+            data2 = Data.load_ascii(vpmout*"2_zmiany.txt")
+            data3 = Data.load_ascii(vpmout*"3_zmiany.txt")
+            data4 = Data.load_ascii(vpmout*"4_zmiany.txt")
             data = vcat(data1, data2, data3, data4)
 
             # Użycie Plot.single do wygenerowania wykresu
