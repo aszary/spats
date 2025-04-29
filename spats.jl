@@ -60,14 +60,14 @@ module SpaTs
                 continue
             end
     
-            # Oblicz moc sygnału
+            # Oblicz moc sygnału z kolumn 5 i 6
             magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
             max_val = maximum(magnitudes)
-            cap = 0 * max_val
+            cap = 0.1 * max_val
     
-            # Zmodyfikowane dane (tylko 4 kolumny)
+            # Zmodyfikowane dane (nie usuwamy kolumn)
             modified_data = [
-                (row[1], row[2], row[3], magnitude > cap ? row[4] : 0.0)
+                (row..., magnitude > cap ? row[4] : 0.0)  # zachowujemy wszystkie kolumny, modyfikujemy tylko 4-tą
                 for (row, magnitude) in zip(data, magnitudes)
             ]
     
@@ -90,6 +90,7 @@ module SpaTs
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
+    
     
     
 
