@@ -32,9 +32,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         return
     end
 
-
     println("Inspecting FITS file: $filepath")
-
 
     f = nothing
     data = nothing
