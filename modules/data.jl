@@ -88,6 +88,7 @@ module Data
     function convert_psrfit_ascii(infile, outfile)
         run(pipeline(`pdv -t -F $infile`, stdout="$outfile", stderr="errs.txt"))
         # change -t to -A to get frequancy information
+        #-p removed from piepline
         #@showprogress 1 for i in 1:pn  # psrchive indexing
         #end
     end
