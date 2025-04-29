@@ -49,11 +49,13 @@ module SpaTs
             data = []
             for line in raw_lines
                 parts = split(strip(line))
-                if length(parts) >= 6 && all(x -> occursin(number_regex, x), parts[1:6])
-                    push!(data, parse.(Float64, parts[1:6]))  # Zmieniamy z Int64 na Float64
+                if length(parts) >= 6
+                    row = tryparse.(Float64, parts[1:6])
+                    if all(!isnothing, row)  # Upewnij się, że wszystkie dane są poprawnie sparsowane
+                        push!(data, row)
+                    end
                 end
             end
-
     
             # Jeśli brak danych, pomiń ten plik
             if isempty(data)
@@ -91,13 +93,14 @@ module SpaTs
             data3 = Data.load_ascii(vpmout*"3_zmiany.txt")
             data4 = Data.load_ascii(vpmout*"4_zmiany.txt")
             data = vcat(data1, data2, data3, data4)
-
+    
             # Użycie Plot.single do wygenerowania wykresu
             Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
         else
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
+    
     
     
     
