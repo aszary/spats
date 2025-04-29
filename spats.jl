@@ -36,37 +36,61 @@ module SpaTs
     function repuls(vpmout::String, num_files::Int)
         all_data = []
     
+        # Regex do sprawdzania liczby: dopuszcza liczby dodatnie, ujemne, naukowe (1e-3 itp.)
+        number_regex = r"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$"
+    
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt"
             outfile = "$(vpmout)$(i)_zmiany.txt"
     
             raw_lines = readlines(infile)
-            data = [parse.(Float64, split(line)) for line in raw_lines]
     
+            # Dokładne sprawdzanie i parsowanie tylko poprawnych linii
+            data = []
+            for line in raw_lines
+                parts = split(strip(line))
+                if length(parts) >= 6 && all(x -> occursin(number_regex, x), parts[1:6])
+                    push!(data, parse.(Float64, parts[1:6]))
+                end
+            end
+    
+            # Jeśli brak danych, pomiń ten plik
+            if isempty(data)
+                println("Plik $(infile) nie zawiera prawidłowych danych – pominięty.")
+                continue
+            end
+    
+            # Oblicz moc sygnału
             magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
             max_val = maximum(magnitudes)
             cap = 0.5 * max_val
     
-            # Zmodyfikowane dane z zachowaniem tylko 4 kolumn
+            # Zmodyfikowane dane (tylko 4 kolumny)
             modified_data = [
                 (row[1], row[2], row[3], magnitude > cap ? row[4] : 0.0)
                 for (row, magnitude) in zip(data, magnitudes)
             ]
     
+            # Zapis do nowego pliku
             open(outfile, "w") do io
                 for row in modified_data
                     println(io, join(row, " "))
                 end
             end
     
+            # Dołącz do całości
             append!(all_data, [collect(row) for row in modified_data])
         end
     
-        # Końcowe dane (4 kolumny) jako macierz
-        data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
-    
-        Plot.single(data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
+        # Jeśli zebrano jakiekolwiek dane, zrób wykres
+        if !isempty(all_data)
+            data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
+            Plot.single(data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
+        else
+            println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
+        end
     end
+    
     
 
 
