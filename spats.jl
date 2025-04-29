@@ -102,10 +102,6 @@ module SpaTs
                 end
             end
     
-            # Debugowanie: wypisanie danych do sprawdzenia
-            println("Dane zapisane w pliku $(outfile):")
-            println(modified_data[1:min(5, end)])  # Wypisz pierwsze 5 wierszy dla debugowania
-    
             # Dołącz do całości (właściwie, zbieramy wszystkie zmodyfikowane dane)
             append!(all_data, [collect(row) for row in modified_data])
         end
@@ -121,7 +117,16 @@ module SpaTs
             data2 = load_ascii2(vpmout*"2_zmiany.txt")
             data3 = load_ascii2(vpmout*"3_zmiany.txt")
             data4 = load_ascii2(vpmout*"4_zmiany.txt")
+            
+            # Debugowanie: sprawdzenie struktury danych przed ich połączeniem
+            println("Struktura danych przed połączeniem:")
+            println(typeof(data1), typeof(data2), typeof(data3), typeof(data4))
+            
             data = vcat(data1, data2, data3, data4)
+    
+            # Debugowanie: sprawdzenie danych przed generowaniem wykresu
+            println("Dane przekazane do wykresu:")
+            println(data[1:min(5, end)])
     
             # Użycie Plot.single do wygenerowania wykresu
             Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
@@ -129,6 +134,7 @@ module SpaTs
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
+    
     
     
     
