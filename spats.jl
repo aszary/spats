@@ -2667,31 +2667,44 @@ end
     
     
     function check_and_plot_2dfs(file_path::String, col_p2::String, col_p3::String)
-        hdu = FITS(file_path)
-        println("Dostępne HDU: ", length(hdu))
-        hdu_data = hdu[4]
-        println("Typ HDU: ", typeof(hdu_data))
+        FITS(file_path) do f
+            hdu = f[4]  # 4. HDU
+            
+            if !(hdu isa FITSIO.TableHDU)
+                println("Błąd: HDU 4 nie jest tabelą.")
+                return
+            end
     
-        # Odczyt kolumn po nazwie
-        p2_values = read(hdu_data, col_p2)
-        p3_values = read(hdu_data, col_p3)
+            # Wczytaj dane kolumn
+            p2_values = read(hdu, col_p2)
+            p3_values = read(hdu, col_p3)
     
-        println("Rozmiary kolumn: ", length(p2_values), ", ", length(p3_values))
+            # Wypisz rozmiary
+            println("Rozmiar kolumny $col_p2: ", size(p2_values))
+            println("Rozmiar kolumny $col_p3: ", size(p3_values))
     
-        inv_p2 = 1.0 .÷ p2_values
-        inv_p3 = 1.0 .÷ p3_values
+            # Oblicz odwrotności
+            inv_p2 = 1.0 .÷ p2_values
+            inv_p3 = 1.0 .÷ p3_values
     
-        pyplot.plot(inv_p2, inv_p3, label="1/P2 vs 1/P3", linewidth=2)
-        pyplot.xlabel("1/P2")
-        pyplot.ylabel("1/P3")
-        pyplot.legend()
-        pyplot.show()
+            # Wykres
+            using PyPlot
+            plot(inv_p2, inv_p3, label="1/$col_p2 vs 1/$col_p3", linewidth=2)
+            xlabel("1/$col_p2")
+            ylabel("1/$col_p3")
+            legend()
+            grid(true)
+            title("Wykres odwrotności")
+            show()
     
-        println("Pierwsze 10 wartości 1/P2: ", inv_p2[1:10])
-        println("Pierwsze 10 wartości 1/P3: ", inv_p3[1:10])
+            # Wypisz pierwsze 10 wartości
+            println("Pierwsze 10 wartości 1/$col_p2: ", inv_p2[1:10])
+            println("Pierwsze 10 wartości 1/$col_p3: ", inv_p3[1:10])
     
-        return inv_p2, inv_p3
+            return inv_p2, inv_p3
+        end
     end
+    
     
     
     
@@ -2714,7 +2727,7 @@ end
         #print_lrfs_header_from_folder("~/output/J1919+0134")
 
         #plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
-        inspect_fits223("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
+        #inspect_fits223("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #print_first_10_lines("/home/psr/output/J1057-5226/pulsar.debase.1.2dfs")
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
         #plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
@@ -2726,6 +2739,7 @@ end
         #plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
         #wykres2dfs("/home/psr/output/J1919+0134", "/home/psr/output", "J1919+0134", show_plot=true)
         #check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", 4, 5)
+        check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", "PERIOD", "PS_RMS")
 
 
 
