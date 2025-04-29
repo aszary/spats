@@ -2688,7 +2688,6 @@ end
             inv_p3 = 1.0 .÷ p3_values
     
             # Wykres
-            using PyPlot
             plot(inv_p2, inv_p3, label="1/$col_p2 vs 1/$col_p3", linewidth=2)
             xlabel("1/$col_p2")
             ylabel("1/$col_p3")
