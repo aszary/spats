@@ -2717,7 +2717,8 @@ end
         #plot_2dfs_kon("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
         #wykres2dfs("/home/psr/output/J1919+0134", "/home/psr/output", "J1919+0134", show_plot=true)
-        check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", 4)
+        check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", 4, 5)
+
 
         
 
