@@ -2666,28 +2666,21 @@ end
     
     
     
-    function check_and_plot_2dfs(file_path::String, col_p2::Int, col_p3::Int)
-        # Wczytanie pliku FITS
+    function check_and_plot_2dfs(file_path::String, col_p2::String, col_p3::String)
         hdu = FITS(file_path)
-    
         println("Dostępne HDU: ", length(hdu))
-    
-        # Przełączenie na odpowiedni HDU (np. numer 4)
         hdu_data = hdu[4]
-    
         println("Typ HDU: ", typeof(hdu_data))
     
-        # Odczytaj kolumny przez indeks
-        p2_values = hdu_data[col_p2]
-        p3_values = hdu_data[col_p3]
+        # Odczyt kolumn po nazwie
+        p2_values = read(hdu_data, col_p2)
+        p3_values = read(hdu_data, col_p3)
     
         println("Rozmiary kolumn: ", length(p2_values), ", ", length(p3_values))
     
-        # Obliczanie odwrotności
         inv_p2 = 1.0 .÷ p2_values
         inv_p3 = 1.0 .÷ p3_values
     
-        # Wykres
         pyplot.plot(inv_p2, inv_p3, label="1/P2 vs 1/P3", linewidth=2)
         pyplot.xlabel("1/P2")
         pyplot.ylabel("1/P3")
@@ -2699,6 +2692,7 @@ end
     
         return inv_p2, inv_p3
     end
+    
     
     
     
