@@ -2672,12 +2672,17 @@ end
         
         # Zakładając, że dane znajdują się w pierwszym HDU
         data = read(hdu[1])
+        println("Wymiary danych: ", size(data))
+        hdu = FITS(file_path)
+        println("Lista HDU: ", hdu)
+
         
         # Sprawdzenie liczby wymiarów
         if ndims(data) != 2
             println("Błąd: Dane nie są 2D. Liczba wymiarów: ", ndims(data))
             return
         end
+
         
         # Zakładając, że P2 i P3 są w odpowiednich kolumnach
         p2_values = data[:, col_p2]  # Kolumna P2
