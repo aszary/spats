@@ -2671,15 +2671,15 @@ end
         hdu = FITS(file_path)
     
         println("Dostępne HDU: ", length(hdu))
-        
+    
         # Przełączenie na odpowiedni HDU (np. numer 4)
         hdu_data = hdu[4]
     
         println("Typ HDU: ", typeof(hdu_data))
     
-        # Odczytaj konkretne kolumny
-        p2_values = read_column(hdu_data, col_p2)
-        p3_values = read_column(hdu_data, col_p3)
+        # Odczytaj kolumny przez indeks
+        p2_values = hdu_data[col_p2]
+        p3_values = hdu_data[col_p3]
     
         println("Rozmiary kolumn: ", length(p2_values), ", ", length(p3_values))
     
@@ -2699,6 +2699,7 @@ end
     
         return inv_p2, inv_p3
     end
+    
     
     
 
