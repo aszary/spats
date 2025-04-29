@@ -1171,7 +1171,7 @@ module SpaTs
     
     
 
-#=
+
 
  
     """
@@ -2309,7 +2309,7 @@ end
 
 
 
-    =#
+    
     function plot_2dfs_kon(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
         filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
