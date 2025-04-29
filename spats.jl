@@ -63,7 +63,7 @@ module SpaTs
             # Oblicz moc sygnału
             magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
             max_val = maximum(magnitudes)
-            cap = 0.2 * max_val
+            cap = 0.1 * max_val
     
             # Zmodyfikowane dane (tylko 4 kolumny)
             modified_data = [
