@@ -2666,45 +2666,38 @@ end
     
     
     
-    function check_and_plot_2dfs(file_path::String, col_p2::Int64, col_p3::Int64)
+    function check_and_plot_2dfs(file_path::String, p2_colname::Symbol, p3_colname::Symbol)
         # Wczytanie pliku FITS
         hdu = FITS(file_path)
+    
+        println("Dostępne HDU: ", length(hdu))
         
-        # Zakładając, że dane znajdują się w pierwszym HDU
-        data = read(hdu[1])
-        println("Wymiary danych: ", size(data))
-        hdu = FITS(file_path)
-        println("Lista HDU: ", hdu)
-
-        
-        # Sprawdzenie liczby wymiarów
-        if ndims(data) != 2
-            println("Błąd: Dane nie są 2D. Liczba wymiarów: ", ndims(data))
-            return
-        end
-
-        
-        # Zakładając, że P2 i P3 są w odpowiednich kolumnach
-        p2_values = data[:, col_p2]  # Kolumna P2
-        p3_values = data[:, col_p3]  # Kolumna P3
-        
+        # Przełączenie na odpowiedni HDU (np. numer 4)
+        hdu_data = hdu[4]  # <- uwaga tu zmiana!!
+    
+        # Wczytaj dane z HDU4
+        data = read(hdu_data) |> Tables.columntable
+    
+        println("Dostępne kolumny: ", propertynames(data))
+    
+        # Pobieranie kolumn P2 i P3
+        p2_values = data[p2_colname]
+        p3_values = data[p3_colname]
+    
         # Obliczanie odwrotności P2 i P3
-        inv_p2 = 1.0 .÷ p2_values  # Odwrotność P2
-        inv_p3 = 1.0 .÷ p3_values  # Odwrotność P3
-        
-        # Wizualizacja odwrotności w postaci wykresu z pyplot
+        inv_p2 = 1.0 .÷ p2_values
+        inv_p3 = 1.0 .÷ p3_values
+    
+        # Wykres
         pyplot.plot(inv_p2, inv_p3, label="1/P2 vs 1/P3", linewidth=2)
         pyplot.xlabel("1/P2")
         pyplot.ylabel("1/P3")
         pyplot.legend()
-        
-        # Wypisanie pierwszych 10 wartości odwrotności dla P2 i P3
+        pyplot.show()
+    
         println("Pierwsze 10 wartości 1/P2: ", inv_p2[1:10])
         println("Pierwsze 10 wartości 1/P3: ", inv_p3[1:10])
-        
-        # Pokaż wykres
-        pyplot.show()
-        
+    
         return inv_p2, inv_p3
     end
     
