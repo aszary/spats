@@ -2656,7 +2656,7 @@ end
             println("Przetwarzam plik: ", file_path)
             data = read_fits_data(file_path, 4, "DATA")  # Odczytaj dane z kolumny 'DATA' w HDU 4
             data_2dfs = compute_2dfs(data)                 # Oblicz 2DFS
-            plot_2dfs_ostateczne(outdir, pulsar_name; title_text="2DFS for $pulsar_name", cmap="Gray", show_plot=true)  # Wywołaj funkcję plot_2dfs_ostateczne
+            plot_2dfs_ostateczne(outdir, pulsar_name; title_text="2DFS for $pulsar_name", cmap="gray", show_plot=true)  # Wywołaj funkcję plot_2dfs_ostateczne
         else
             println("Plik pulsar.debase.1.2dfs nie istnieje w ścieżce: $file_path")
         end
