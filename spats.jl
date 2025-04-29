@@ -2541,10 +2541,18 @@ end
         
         # Funkcja do obliczania 2DFS
         function compute_2dfs(data)
-            data_fft_1d = FFTW.fft(data, dims=1)  # Transformata Fouriera wzdłuż pierwszego wymiaru (wzdłuż wierszy)
-            data_2dfs = FFTW.fft(data_fft_1d, dims=2)  # Transformata Fouriera wzdłuż drugiego wymiaru (wzdłuż kolumn)
+            # Przekształcenie danych na Complex{Float64}
+            data_complex = Complex{Float64}.(data)
+        
+            # Wykonanie FFT na pierwszym wymiarze
+            data_fft = FFTW.fft(data_complex, 1)  # Wykonaj FFT wzdłuż pierwszego wymiaru (np. wiersze)
+        
+            # Wykonanie FFT na drugim wymiarze
+            data_2dfs = FFTW.fft(data_fft, 2)  # Wykonaj FFT wzdłuż drugiego wymiaru (np. kolumny)
+            
             return data_2dfs
         end
+        
         
         
         # Funkcja do generowania wykresu 2DFS z użyciem plot_2dfs_ostateczne
