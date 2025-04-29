@@ -2528,7 +2528,7 @@ end
     
     
 
-    function wykres2dfs(folder_path)
+    function wykres2dfs(folder_path, show_plot=false)
 
     
         # Funkcja do odczytu danych z pliku FITS
@@ -2577,6 +2577,10 @@ end
             file_name = splitext(basename(file_path))[1]   # Wyciągnij nazwę pliku bez rozszerzenia
             plot_2dfs(data_2dfs, file_name)                # Wygeneruj wykres i zapisz jako PNG
         end
+
+        if show_plot
+            show()
+        end
     
         println("Przetwarzanie plików zakończone.")
     end
@@ -2607,7 +2611,7 @@ end
         #plot_2dfs_pulse_longitude("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_2dfs_kon("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
-        wykres2dfs("home/psr/output/J1919+0134")
+        wykres2dfs("home/psr/output/J1919+0134", show_plot=true)
 
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
