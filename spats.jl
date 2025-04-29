@@ -83,12 +83,20 @@ module SpaTs
                 end
             end
     
+            # Debugowanie: wypisanie danych do sprawdzenia
+            println("Dane zapisane w pliku $(outfile):")
+            println(modified_data[1:min(5, end)])  # Wypisz pierwsze 5 wierszy dla debugowania
+    
             # Dołącz do całości (właściwie, zbieramy wszystkie zmodyfikowane dane)
             append!(all_data, [collect(row) for row in modified_data])
         end
     
         # Jeśli zebrano jakiekolwiek dane, zrób wykres
         if !isempty(all_data)
+            # Debugowanie: sprawdzenie danych przed generowaniem wykresu
+            println("Dane zebrane do wykresu:")
+            println(all_data[1:min(5, end)])  # Wypisz pierwsze 5 wierszy
+    
             # Zbieramy wszystkie dane w jednym obiekcie
             data1 = Data.load_ascii(vpmout*"1_zmiany.txt")
             data2 = Data.load_ascii(vpmout*"2_zmiany.txt")
@@ -102,6 +110,7 @@ module SpaTs
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
+    
     
     
     
