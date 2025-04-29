@@ -27,10 +27,10 @@ module SpaTs
         data4 = Data.load_ascii(outdir*"4.txt")
         data = vcat(data1, data2, data3, data4)
         Plot.single(data, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
-        Plot.average(data, outdir; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
-        Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
-        folded = Tools.p3fold(data, 20, 40)
-        Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
+        #Plot.average(data, outdir; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
+        #Plot.lrfs(data, outdir; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
+        #folded = Tools.p3fold(data, 20, 40)
+        #Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
     end
 
     function repuls(vpmout::String, num_files::Int)
@@ -108,9 +108,9 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
         num_files = 4  # lub inna liczba plików, które chcesz przetworzyć
-        repuls(vpmout, num_files)
+        #repuls(vpmout, num_files)
         #test(vpmout)
-        #test2(vpmout)
+        test2(vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
 
     end
