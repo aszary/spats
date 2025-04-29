@@ -2666,25 +2666,31 @@ end
     
     
     
-    function check_and_plot_2dfs(file_path::String, p2_colname::Symbol, p3_colname::Symbol)
+    function check_and_plot_2dfs(file_path::String, col_p2::Int, col_p3::Int)
         # Wczytanie pliku FITS
         hdu = FITS(file_path)
     
         println("Dostępne HDU: ", length(hdu))
         
         # Przełączenie na odpowiedni HDU (np. numer 4)
-        hdu_data = hdu[4]  # <- uwaga tu zmiana!!
+        hdu_data = hdu[4]
     
         # Wczytaj dane z HDU4
-        data = read(hdu_data) |> Tables.columntable
+        data = read(hdu_data)
     
-        println("Dostępne kolumny: ", propertynames(data))
+        println("Rozmiar danych: ", size(data))
     
-        # Pobieranie kolumn P2 i P3
-        p2_values = data[p2_colname]
-        p3_values = data[p3_colname]
+        # Zakładamy, że dane są w formacie tablicy 2D
+        if ndims(data) != 2
+            println("Błąd: Dane nie są 2D. Liczba wymiarów: ", ndims(data))
+            return
+        end
     
-        # Obliczanie odwrotności P2 i P3
+        # Pobranie kolumn
+        p2_values = data[:, col_p2]
+        p3_values = data[:, col_p3]
+    
+        # Obliczanie odwrotności
         inv_p2 = 1.0 .÷ p2_values
         inv_p3 = 1.0 .÷ p3_values
     
@@ -2701,6 +2707,7 @@ end
         return inv_p2, inv_p3
     end
     
+
     
     
     
@@ -2730,6 +2737,7 @@ end
         #plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
         #wykres2dfs("/home/psr/output/J1919+0134", "/home/psr/output", "J1919+0134", show_plot=true)
         check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", 4, 5)
+
 
 
 
