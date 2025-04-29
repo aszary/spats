@@ -2529,52 +2529,56 @@ end
     
 
     function wykres2dfs(folder_path)
-        # Ładujemy lokalnie potrzebne biblioteki
-        import FITSIO
-        import FFTW
-        import Plots
-        import Glob
+
     
-        # Funkcja: czyta dane z HDU 4 i kolumny 'DATA'
+        # Funkcja do odczytu danych z pliku FITS
         function read_fits_data(file_path, hdu_number, column_name)
-            fits_file = FITSIO.FITS(file_path)                     # Otwórz plik FITS
-            hdu = fits_file[hdu_number]                            # Przejdź do HDU
-            data_column = hdu[column_name][:]                      # Odczytaj całą kolumnę jako macierz
-            FITSIO.close(fits_file)                                # Zamknij plik
+            fits_file = FITSIO.FITS(file_path)               # Otwórz plik FITS
+            hdu = fits_file[hdu_number]                      # Wybierz odpowiedni HDU
+            data_column = hdu[column_name][:]                # Odczytaj dane z wybranej kolumny
+            FITSIO.close(fits_file)                          # Zamknij plik FITS
             return data_column
         end
     
-        # Funkcja: wykonuje dwuwymiarową transformatę Fouriera (2DFS)
+        # Funkcja do obliczania 2DFS
         function compute_2dfs(data)
-            data_fft = FFTW.fft(data)                               # FFT wzdłuż pierwszego wymiaru
-            data_2dfs = FFTW.fft(data_fft, dims=2)                  # FFT wzdłuż drugiego wymiaru
+            data_fft = FFTW.fft(data)                        # Transformata Fouriera wzdłuż pierwszego wymiaru
+            data_2dfs = FFTW.fft(data_fft, dims=2)           # Transformata Fouriera wzdłuż drugiego wymiaru
             return data_2dfs
         end
     
-        # Funkcja: rysuje i zapisuje wykres 2DFS
+        # Funkcja do generowania wykresu 2DFS
         function plot_2dfs(data_2dfs, output_name)
-            Plots.heatmap(abs.(data_2dfs),                         # Użyj modułu z transformaty
-                          xlabel="Harmonics", ylabel="Subintegrations",
-                          color=:viridis,
-                          title="2DFS for $(output_name)")
-            Plots.savefig(output_name * "_2dfs.png")               # Zapisz wykres jako plik PNG
+            # Tworzymy wykres w postaci heatmapy
+            heatmap = PlotlyJS.heatmap(z=abs.(data_2dfs),
+                                       colorscale="Viridis",
+                                       colorbar_title="Amplitude")
+            
+            # Layout wykresu
+            layout = PlotlyJS.Layout(title="2DFS for $(output_name)",
+                                     xaxis_title="Harmonics",
+                                     yaxis_title="Subintegrations")
+            
+            # Tworzymy i zapisujemy wykres
+            fig = PlotlyJS.Plot(heatmap, layout)
+            PlotlyJS.savefig(fig, output_name * "_2dfs.png")  # Zapisz wykres jako PNG
         end
     
-        # --- Tutaj zaczyna się przetwarzanie folderu ---
+        # --- Główna część programu: przetwarzanie folderu ---
     
-        # Znajdź wszystkie pliki .fits w folderze
+        # Znajdź wszystkie pliki FITS w podanym folderze
         fits_files = Glob.glob(folder_path * "/*.fits")
     
-        # Przetwarzaj każdy plik po kolei
+        # Dla każdego pliku FITS
         for file_path in fits_files
-            println("Przetwarzanie pliku: ", file_path)
-            data = read_fits_data(file_path, 4, "DATA")            # Czytaj 'DATA' z HDU 4
-            data_2dfs = compute_2dfs(data)                         # Licz 2DFS
-            file_name = splitext(basename(file_path))[1]           # Wyciągnij nazwę pliku bez rozszerzenia
-            plot_2dfs(data_2dfs, file_name)                        # Rysuj wykres
+            println("Przetwarzam plik: ", file_path)
+            data = read_fits_data(file_path, 4, "DATA")  # Odczytaj dane z kolumny 'DATA' w HDU 4
+            data_2dfs = compute_2dfs(data)                 # Oblicz 2DFS
+            file_name = splitext(basename(file_path))[1]   # Wyciągnij nazwę pliku bez rozszerzenia
+            plot_2dfs(data_2dfs, file_name)                # Wygeneruj wykres i zapisz jako PNG
         end
     
-        println("Wszystkie pliki przetworzone.")
+        println("Przetwarzanie plików zakończone.")
     end
     
     
