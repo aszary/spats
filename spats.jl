@@ -50,9 +50,10 @@ module SpaTs
             for line in raw_lines
                 parts = split(strip(line))
                 if length(parts) >= 6 && all(x -> occursin(number_regex, x), parts[1:6])
-                    push!(data, parse.(Float64, parts[1:6]))  # Parsujemy kolumny 1-6
+                    push!(data, parse.(Float64, parts[1:6]))  # Zmieniamy z Int64 na Float64
                 end
             end
+
     
             # Jeśli brak danych, pomiń ten plik
             if isempty(data)
