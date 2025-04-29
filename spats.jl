@@ -1100,7 +1100,7 @@ end
         end
 
         # Step 3 create JSON file
-        json_file = joinpath(output_subdir, "params.json")
+        params_file = joinpath(output_subdir, "params.json")
 
         #Step 3.5 Check if already processed
 
@@ -1110,7 +1110,7 @@ end
         end
         
         
-        p = isfile(json_file) ? Tools.read_params(json_file) : Tools.default_params(json_file)
+        p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
 
 
         # Step 4: Find second-level catalogue
@@ -1167,8 +1167,8 @@ end
             println("Found onpulse range: $bin_st to $bin_end")
         end
 
-        Tools.save_params(json_file, p)
-        println("Parameters updated and saved to $json_file")
+        Tools.save_params(params_file, p)
+        println("Parameters updated and saved to $params_file")
     
         # Step 10: Plot
         Plot.single(combined_data, output_subdir; darkness=0.5, bin_st=p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
