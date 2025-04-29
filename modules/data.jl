@@ -86,7 +86,7 @@ module Data
     Converts PSRFIT file to ASCII (using PSRCHIVE tools)
     """
     function convert_psrfit_ascii(infile, outfile)
-        run(pipeline(`pdv -t -F -p $infile`, stdout="$outfile", stderr="errs.txt"))
+        run(pipeline(`pdv -t -F $infile`, stdout="$outfile", stderr="errs.txt"))
         # change -t to -A to get frequancy information
         #@showprogress 1 for i in 1:pn  # psrchive indexing
         #end
