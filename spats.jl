@@ -33,6 +33,43 @@ module SpaTs
         Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
     end
 
+    function repuls(vpmout::String, num_files::Int)
+        all_data = []
+    
+        for i in 1:num_files
+            infile = "$(vpmout)$(i).txt"
+            outfile = "$(vpmout)$(i)_zmiany.txt"
+    
+            raw_lines = readlines(infile)
+            data = [parse.(Float64, split(line)) for line in raw_lines]
+    
+            magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
+            max_val = maximum(magnitudes)
+            cap = 0.5 * max_val
+    
+            # Zmodyfikowane dane z zachowaniem tylko 4 kolumn
+            modified_data = [
+                (row[1], row[2], row[3], magnitude > cap ? row[4] : 0.0)
+                for (row, magnitude) in zip(data, magnitudes)
+            ]
+    
+            open(outfile, "w") do io
+                for row in modified_data
+                    println(io, join(row, " "))
+                end
+            end
+    
+            append!(all_data, [collect(row) for row in modified_data])
+        end
+    
+        # Końcowe dane (4 kolumny) jako macierz
+        data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
+    
+        Plot.single(data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
+    end
+    
+
+
 
     function process_psrdata(indir, outdir)
         p = Data.process_psrdata(indir, outdir)
@@ -45,9 +82,10 @@ module SpaTs
     function main()
         # output directory for VPM
         vpmout = "/home/psr/output/"
-
+        num_files = 4  # lub inna liczba plików, które chcesz przetworzyć
+        repuls(vpmout, num_files)
         #test(vpmout)
-        test2(vpmout)
+        #test2(vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
 
     end
