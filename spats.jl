@@ -2675,20 +2675,13 @@ end
         # Przełączenie na odpowiedni HDU (np. numer 4)
         hdu_data = hdu[4]
     
-        # Wczytaj dane z HDU4
-        data = read(hdu_data)
+        println("Typ HDU: ", typeof(hdu_data))
     
-        println("Rozmiar danych: ", size(data))
+        # Odczytaj konkretne kolumny
+        p2_values = read_column(hdu_data, col_p2)
+        p3_values = read_column(hdu_data, col_p3)
     
-        # Zakładamy, że dane są w formacie tablicy 2D
-        if ndims(data) != 2
-            println("Błąd: Dane nie są 2D. Liczba wymiarów: ", ndims(data))
-            return
-        end
-    
-        # Pobranie kolumn
-        p2_values = data[:, col_p2]
-        p3_values = data[:, col_p3]
+        println("Rozmiary kolumn: ", length(p2_values), ", ", length(p3_values))
     
         # Obliczanie odwrotności
         inv_p2 = 1.0 .÷ p2_values
@@ -2706,6 +2699,7 @@ end
     
         return inv_p2, inv_p3
     end
+    
     
 
     
