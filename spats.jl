@@ -2534,7 +2534,7 @@ end
         function read_fits_data(file_path, hdu_number, column_name)
             fits_file = FITSIO.FITS(file_path)               # Otwórz plik FITS
             hdu = fits_file[hdu_number]                      # Wybierz odpowiedni HDU
-            data_column = hdu[column_name][:]                # Odczytaj dane z wybranej kolumny
+            data_column = read(hdu, column_name)             # Odczytaj dane z wybranej kolumny
             FITSIO.close(fits_file)                          # Zamknij plik FITS
             return data_column
         end
