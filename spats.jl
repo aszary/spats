@@ -2528,8 +2528,8 @@ end
     
     
 
-    function wykres2dfs(folder_path, outdir, pulsar_name)
-
+    function wykres2dfs(folder_path, outdir, pulsar_name; show_plot=false)
+    
         # Funkcja do odczytu danych z pliku FITS
         function read_fits_data(file_path, hdu_number, column_name)
             fits_file = FITSIO.FITS(file_path)               # Otwórz plik FITS
@@ -2538,17 +2538,17 @@ end
             FITSIO.close(fits_file)                          # Zamknij plik FITS
             return data_column
         end
-    
+        
         # Funkcja do obliczania 2DFS
         function compute_2dfs(data)
             data_fft = FFTW.fft(data)                        # Transformata Fouriera wzdłuż pierwszego wymiaru
             data_2dfs = FFTW.fft(data_fft, dims=2)           # Transformata Fouriera wzdłuż drugiego wymiaru
             return data_2dfs
         end
-    
+        
         # Funkcja do generowania wykresu 2DFS z użyciem plot_2dfs_ostateczne
         function plot_2dfs_ostateczne(outdir, pulsar_name; title_text="2DFS Plot", cmap="gray", show_plot=false)
-    
+        
             # Generowanie ścieżki do pliku
             filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
         
@@ -2639,23 +2639,22 @@ end
             end
         end
     
-        #=
-        # --- Główna część programu: przetwarzanie folderu ---
-    
-        # Znajdź wszystkie pliki FITS w podanym folderze
-        fits_files = Glob.glob(folder_path * "/*.fits")
-    
-        # Dla każdego pliku FITS
-        for file_path in fits_files
+        # --- Główna część programu: przetwarzanie pliku FITS ---
+        
+        # Bez potrzeby przetwarzania wielu plików, przechodzimy od razu do jednego
+        file_path = joinpath(folder_path, "pulsar.debase.1.2dfs")
+        if isfile(file_path)
             println("Przetwarzam plik: ", file_path)
             data = read_fits_data(file_path, 4, "DATA")  # Odczytaj dane z kolumny 'DATA' w HDU 4
             data_2dfs = compute_2dfs(data)                 # Oblicz 2DFS
-            file_name = splitext(basename(file_path))[1]   # Wyciągnij nazwę pliku bez rozszerzenia
-            plot_2dfs_ostateczne(outdir, pulsar_name; title_text="2DFS for $file_name", cmap="Viridis", show_plot=true)  # Wywołaj funkcję plot_2dfs_ostateczne
+            plot_2dfs_ostateczne(outdir, pulsar_name; title_text="2DFS for $pulsar_name", cmap="Viridis", show_plot=true)  # Wywołaj funkcję plot_2dfs_ostateczne
+        else
+            println("Plik pulsar.debase.1.2dfs nie istnieje w ścieżce: $file_path")
         end
-        =#
-        println("Przetwarzanie plików zakończone.")
+    
+        println("Przetwarzanie pliku zakończone.")
     end
+    
     
     
     
