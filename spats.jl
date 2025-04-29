@@ -1090,7 +1090,7 @@ end
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory 
         base_name = basename(base_dir)
-        params_file = "params.json"
+        
     
         # Step 2: Create output subdirectory
         output_subdir = joinpath(output_dir, base_name)
@@ -1168,7 +1168,7 @@ end
         end
 
         Tools.save_params(json_file, p)
-        println("Parameters updated and saved to $params_file")
+        println("Parameters updated and saved to $jason_file")
     
         # Step 10: Plot
         Plot.single(combined_data, output_subdir; darkness=0.5, bin_st=p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
