@@ -2731,7 +2731,7 @@ end
         #plot_lrfs("/home/psr/output", "J1919+0134", show_plot=true)
         #plot2dfs333("/home/psr/output", "J1919+0134", show_plot=true)
         #plot2dfsNOWY("/home/psr/output", "J1919+0134", show_plot=true)
-        plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+        #plot_correct_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_2dfs_pulse_longitude("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_2dfs_kon("/home/psr/output", "J1919+0134", show_plot=true)
@@ -2739,7 +2739,7 @@ end
         #wykres2dfs("/home/psr/output/J1919+0134", "/home/psr/output", "J1919+0134", show_plot=true)
         #check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", 4, 5)
         #check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", "PERIOD", "PS_RMS")
-
+        plot_simple_2dfs_fixed("/home/psr/output", "J1919+0134", show_plot=true)
 
 
 
