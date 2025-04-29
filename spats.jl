@@ -88,7 +88,7 @@ module SpaTs
             data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
     
             # Użycie Plot.single do wygenerowania wykresu
-            Plot.single(data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
+            Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
         else
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
