@@ -2528,6 +2528,54 @@ end
     
     
 
+    function wykres2dfs(folder_path)
+        # Ładujemy lokalnie potrzebne biblioteki
+        import FITSIO
+        import FFTW
+        import Plots
+        import Glob
+    
+        # Funkcja: czyta dane z HDU 4 i kolumny 'DATA'
+        function read_fits_data(file_path, hdu_number, column_name)
+            fits_file = FITSIO.FITS(file_path)                     # Otwórz plik FITS
+            hdu = fits_file[hdu_number]                            # Przejdź do HDU
+            data_column = hdu[column_name][:]                      # Odczytaj całą kolumnę jako macierz
+            FITSIO.close(fits_file)                                # Zamknij plik
+            return data_column
+        end
+    
+        # Funkcja: wykonuje dwuwymiarową transformatę Fouriera (2DFS)
+        function compute_2dfs(data)
+            data_fft = FFTW.fft(data)                               # FFT wzdłuż pierwszego wymiaru
+            data_2dfs = FFTW.fft(data_fft, dims=2)                  # FFT wzdłuż drugiego wymiaru
+            return data_2dfs
+        end
+    
+        # Funkcja: rysuje i zapisuje wykres 2DFS
+        function plot_2dfs(data_2dfs, output_name)
+            Plots.heatmap(abs.(data_2dfs),                         # Użyj modułu z transformaty
+                          xlabel="Harmonics", ylabel="Subintegrations",
+                          color=:viridis,
+                          title="2DFS for $(output_name)")
+            Plots.savefig(output_name * "_2dfs.png")               # Zapisz wykres jako plik PNG
+        end
+    
+        # --- Tutaj zaczyna się przetwarzanie folderu ---
+    
+        # Znajdź wszystkie pliki .fits w folderze
+        fits_files = Glob.glob(folder_path * "/*.fits")
+    
+        # Przetwarzaj każdy plik po kolei
+        for file_path in fits_files
+            println("Przetwarzanie pliku: ", file_path)
+            data = read_fits_data(file_path, 4, "DATA")            # Czytaj 'DATA' z HDU 4
+            data_2dfs = compute_2dfs(data)                         # Licz 2DFS
+            file_name = splitext(basename(file_path))[1]           # Wyciągnij nazwę pliku bez rozszerzenia
+            plot_2dfs(data_2dfs, file_name)                        # Rysuj wykres
+        end
+    
+        println("Wszystkie pliki przetworzone.")
+    end
     
     
     
@@ -2554,7 +2602,9 @@ end
         #inspect_fits22("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs")
         #plot_2dfs_pulse_longitude("/home/psr/output", "J1919+0134", show_plot=true)
         #plot_2dfs_kon("/home/psr/output", "J1919+0134", show_plot=true)
-        plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
+        #plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
+        wykres2dfs("home/psr/output/J1919+0134")
+
         #plot_lrfs22("/home/psr/output", "J1919+0134", show_plot=true)
         #J1750_psrdata(indir, vpmout)
         #fold_test(indir, vpmoudt)
