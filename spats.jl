@@ -118,7 +118,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
         colorbar(im, ax=ax, label="Power")
 
 
-        savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+        savepath = joinpath(outdir, "2dfs_" * pulsar_name * ".png")
         savefig(savepath)
         println("✅ 2DFS plot saved to: $savepath")
 
