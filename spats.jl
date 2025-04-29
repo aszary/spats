@@ -40,8 +40,8 @@ module SpaTs
         number_regex = r"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$"
     
         for i in 1:num_files
-            infile = "$(vpmout)$(i).txt"
-            outfile = "$(vpmout)$(i)_zmiany.txt"
+            infile = "$(vpmout)$(i).txt"  # Wczytujemy plik 1.txt, 2.txt, itd.
+            outfile = "$(vpmout)$(i)_zmiany.txt"  # Tworzymy nowy plik zmodyfikowany
     
             raw_lines = readlines(infile)
     
@@ -50,7 +50,7 @@ module SpaTs
             for line in raw_lines
                 parts = split(strip(line))
                 if length(parts) >= 6 && all(x -> occursin(number_regex, x), parts[1:6])
-                    push!(data, parse.(Float64, parts[1:6]))
+                    push!(data, parse.(Float64, parts[1:6]))  # Parsujemy kolumny 1-6
                 end
             end
     
@@ -60,36 +60,40 @@ module SpaTs
                 continue
             end
     
-            # Oblicz moc sygnału z kolumn 5 i 6
+            # Oblicz magnitudę sygnału z kolumn 5 i 6
             magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
             max_val = maximum(magnitudes)
-            cap = 0.1 * max_val
+            cap = 0.1 * max_val  # Cap to 10% z maksymalnej magnitudy
     
-            # Zmodyfikowane dane (nie usuwamy kolumn)
+            # Zmodyfikowane dane (nie usuwamy kolumn, zmieniamy tylko 4-tą)
             modified_data = [
-                (row..., magnitude > cap ? row[4] : 0.0)  # zachowujemy wszystkie kolumny, modyfikujemy tylko 4-tą
+                (row..., magnitude > cap ? row[4] : 0.0)  # Zachowujemy wszystkie kolumny, zmieniając tylko 4-tą
                 for (row, magnitude) in zip(data, magnitudes)
             ]
     
             # Zapis do nowego pliku
             open(outfile, "w") do io
                 for row in modified_data
-                    println(io, join(row, " "))
+                    println(io, join(row, " "))  # Zapisujemy dane w nowym pliku
                 end
             end
     
-            # Dołącz do całości
+            # Dołącz do całości (właściwie, będziemy zbierać wszystkie zmodyfikowane dane)
             append!(all_data, [collect(row) for row in modified_data])
         end
     
         # Jeśli zebrano jakiekolwiek dane, zrób wykres
         if !isempty(all_data)
+            # Zbieramy wszystkie dane w jednym obiekcie
             data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
-            Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
+    
+            # Użycie Plot.single do wygenerowania wykresu
+            Plot.single(data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
         else
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
+    
     
     
     
@@ -108,9 +112,9 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
         num_files = 4  # lub inna liczba plików, które chcesz przetworzyć
-        #repuls(vpmout, num_files)
+        repuls(vpmout, num_files)
         #test(vpmout)
-        test2(vpmout)
+        #test2(vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
 
     end
