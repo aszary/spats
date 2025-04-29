@@ -2666,12 +2666,20 @@ end
     
     
     # Funkcja do wczytywania i obliczania odwrotności P2 i P3
-    function check_and_plot_2dfs(file_path::String, col_p2::Int, col_p3::Int)
+    function check_and_plot_2dfs(file_path::String, col_p2::Int64, col_p3::Int64)
         # Wczytanie pliku FITS
-        fits_file = FITS(file_path)
-        data = read(fits_file[1])  # Zakładając, że dane są w pierwszym HDU
+        hdu = FITS(file_path)
         
-        # Zakładając, że P2 jest w kolumnie `col_p2`, a P3 w kolumnie `col_p3`
+        # Zakładając, że dane znajdują się w pierwszym HDU
+        data = read(hdu[1])
+        
+        # Sprawdzenie liczby wymiarów
+        if ndims(data) != 2
+            println("Błąd: Dane nie są 2D. Liczba wymiarów: ", ndims(data))
+            return
+        end
+        
+        # Zakładając, że P2 i P3 są w odpowiednich kolumnach
         p2_values = data[:, col_p2]  # Kolumna P2
         p3_values = data[:, col_p3]  # Kolumna P3
         
@@ -2718,6 +2726,7 @@ end
         #plot_2dfs_ostateczne("/home/psr/output", "J1919+0134", show_plot=true)
         #wykres2dfs("/home/psr/output/J1919+0134", "/home/psr/output", "J1919+0134", show_plot=true)
         check_and_plot_2dfs("/home/psr/output/J1919+0134/pulsar.debase.1.2dfs", 4, 5)
+
 
 
         
