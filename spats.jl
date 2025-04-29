@@ -50,7 +50,9 @@ module SpaTs
             for line in raw_lines
                 parts = split(strip(line))
                 if length(parts) >= 6
+                    # Próba parsowania danych jako Float64
                     row = tryparse.(Float64, parts[1:6])
+                    # Jeśli wszystkie elementy są poprawnie sparsowane
                     if all(!isnothing, row)
                         push!(data, row)
                     end
@@ -81,7 +83,7 @@ module SpaTs
                 end
             end
     
-            # Dołącz do całości (właściwie, będziemy zbierać wszystkie zmodyfikowane dane)
+            # Dołącz do całości (właściwie, zbieramy wszystkie zmodyfikowane dane)
             append!(all_data, [collect(row) for row in modified_data])
         end
     
@@ -100,6 +102,7 @@ module SpaTs
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
+    
     
     
     
