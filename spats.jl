@@ -1167,7 +1167,7 @@ end
             println("Found onpulse range: $bin_st to $bin_end")
         end
 
-        Tools.save_params(params_file, p)
+        Tools.save_params(json_file, p)
         println("Parameters updated and saved to $params_file")
     
         # Step 10: Plot
