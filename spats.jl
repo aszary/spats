@@ -67,7 +67,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
 
                         if isa(col_data, AbstractArray) && ndims(col_data) == 2 && eltype(col_data) <: Number
-                            println("  ✅ Found 2D numeric column '$name' in HDU $i")
+                            println("  Found 2D numeric column '$name' in HDU $i")
                             data = col_data
                             break
                         end
@@ -85,7 +85,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
 
         if data === nothing
-            println("❌ No suitable 2D data found in FITS file.")
+            println(" No suitable 2D data found in FITS file.")
             close(f)
             return
         end
@@ -118,7 +118,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
         savepath = joinpath(outdir, "2dfs_" * pulsar_name * ".png")
         savefig(savepath)
-        println("✅ 2DFS plot saved to: $savepath")
+        println(" 2DFS plot saved to: $savepath")
 
 
         if show_plot
@@ -129,7 +129,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
 
     catch e
-        println("❌ Error handling FITS file: $e")
+        println(" Error handling FITS file: $e")
         if f !== nothing
             close(f)
         end
@@ -139,27 +139,49 @@ end
 
 
 function read_2dfs_file(filename::String)
+    println("Reading FITS file: $filename")
+    
     # Open the FITS file
     fits = FITS(filename)
     
-    # Read the data
-    data = read(fits[1])  # 2D array of floats
-    
-    # Read header information
-    header = read_header(fits[1])
-    
-    # Extract relevant parameters
-    NrBins = header["NAXIS1"]  # Number of bins
-    NrSubints = header["NAXIS2"]  # Number of sub-integrations
-    f2_min = header["F2_MIN"]  # Minimum f2 value
-    f2_max = header["F2_MAX"]  # Maximum f2 value
-    f3_min = header["F3_MIN"]  # Minimum f3 value
-    f3_max = header["F3_MAX"]  # Maximum f3 value
-    
-    # Close the file
-    close(fits)
-    
-    return (data, NrBins, NrSubints, f2_min, f2_max, f3_min, f3_max)
+    try
+        # Print header information for debugging
+        header = read_header(fits[1])
+        println("FITS Header Information:")
+        println("NAXIS1: ", header["NAXIS1"])
+        println("NAXIS2: ", header["NAXIS2"])
+        println("BITPIX: ", header["BITPIX"])
+        
+        # Read the data
+        data = read(fits[1])
+        
+        # Read header information
+        header = read_header(fits[1])
+        
+        # Extract relevant parameters
+        NrBins = header["NAXIS1"]  # Number of bins
+        NrSubints = header["NAXIS2"]  # Number of sub-integrations
+        f2_min = header["F2_MIN"]  # Minimum f2 value
+        f2_max = header["F2_MAX"]  # Maximum f2 value
+        f3_min = header["F3_MIN"]  # Minimum f3 value
+        f3_max = header["F3_MAX"]  # Maximum f3 value
+        
+        # Print data shape for debugging
+        println("Data shape: ", size(data))
+        
+        return (data, NrBins, NrSubints, f2_min, f2_max, f3_min, f3_max)
+    catch e
+        println("Error reading FITS file:")
+        println(e)
+        println("Header contents:")
+        for (key, value) in header
+            println("$key: $value")
+        end
+        rethrow()
+    finally
+        # Close the file
+        close(fits)
+    end
 end
 
     
