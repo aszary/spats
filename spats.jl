@@ -141,6 +141,11 @@ end
 function read_2dfs_file(filename::String)
     println("Reading FITS file: $filename")
     
+    # Check if file exists
+    if !isfile(filename)
+        error("File does not exist: $filename")
+    end
+    
     # Open the FITS file
     fits = FITS(filename)
     
@@ -148,34 +153,53 @@ function read_2dfs_file(filename::String)
         # Print header information for debugging
         header = read_header(fits[1])
         println("FITS Header Information:")
-        println("NAXIS1: ", header["NAXIS1"])
-        println("NAXIS2: ", header["NAXIS2"])
-        println("BITPIX: ", header["BITPIX"])
         
-        # Read the data
-        data = read(fits[1])
+        # Try to get dimensions from header
+        NrBins = get(header, "NAXIS1", nothing)
+        NrSubints = get(header, "NAXIS2", nothing)
         
-        # Read header information
-        header = read_header(fits[1])
+        if NrBins === nothing || NrSubints === nothing
+            println("Warning: Could not find NAXIS1/NAXIS2 in header")
+            println("Header contents:")
+            for (key, value) in header
+                println("$key: $value")
+            end
+            
+            # Try to infer dimensions from data
+            data = read(fits[1])
+            if data !== nothing
+                println("Data shape: ", size(data))
+                NrBins, NrSubints = size(data)
+            else
+                error("Could not read data from FITS file")
+            end
+        else
+            println("NAXIS1: $NrBins")
+            println("NAXIS2: $NrSubints")
+            
+            # Read the data
+            data = read(fits[1])
+        end
         
-        # Extract relevant parameters
-        NrBins = header["NAXIS1"]  # Number of bins
-        NrSubints = header["NAXIS2"]  # Number of sub-integrations
-        f2_min = header["F2_MIN"]  # Minimum f2 value
-        f2_max = header["F2_MAX"]  # Maximum f2 value
-        f3_min = header["F3_MIN"]  # Minimum f3 value
-        f3_max = header["F3_MAX"]  # Maximum f3 value
+        # Try to get other parameters from header
+        f2_min = get(header, "F2_MIN", nothing)
+        f2_max = get(header, "F2_MAX", nothing)
+        f3_min = get(header, "F3_MIN", nothing)
+        f3_max = get(header, "F3_MAX", nothing)
         
-        # Print data shape for debugging
-        println("Data shape: ", size(data))
+        if f2_min === nothing || f2_max === nothing || f3_min === nothing || f3_max === nothing
+            println("Warning: Could not find some required parameters in header")
+        end
         
         return (data, NrBins, NrSubints, f2_min, f2_max, f3_min, f3_max)
     catch e
         println("Error reading FITS file:")
         println(e)
         println("Header contents:")
-        for (key, value) in header
-            println("$key: $value")
+        if haskey(locals(), :header)
+            for (key, value) in header
+                println("$key: $value")
+            end
         end
         rethrow()
     finally
