@@ -138,70 +138,58 @@ end
 
 
 
-function read_2dfs_file(filename::String)
-    println("Reading FITS file: $filename")
+function analyze_fits_file(filename::String)
+    println("Analyzing FITS file: $filename")
     
     # Check if file exists
     if !isfile(filename)
-        error("File does not exist: $filename")
+        println("Error: File does not exist")
+        return
     end
     
     # Open the FITS file
     fits = FITS(filename)
     
     try
-        # Print header information for debugging
-        header = read_header(fits[1])
-        println("FITS Header Information:")
+        # Get number of HDUs
+        println("\nNumber of HDUs: ", length(fits))
         
-        # Try to get dimensions from header
-        NrBins = get(header, "NAXIS1", nothing)
-        NrSubints = get(header, "NAXIS2", nothing)
-        
-        if NrBins === nothing || NrSubints === nothing
-            println("Warning: Could not find NAXIS1/NAXIS2 in header")
-            println("Header contents:")
+        # Analyze each HDU
+        for (i, hdu) in enumerate(fits)
+            println("\n=== HDU $i ===")
+            
+            # Print header information
+            header = read_header(hdu)
+            println("\nHeader Keywords:")
             for (key, value) in header
                 println("$key: $value")
             end
             
-            # Try to infer dimensions from data
-            data = read(fits[1])
-            if data !== nothing
+            # Print data information if available
+            try
+                data = read(hdu)
+                println("\nData Information:")
+                println("Data type: ", typeof(data))
+                println("Data size: ", size(data))
                 println("Data shape: ", size(data))
-                NrBins, NrSubints = size(data)
-            else
-                error("Could not read data from FITS file")
+                println("Data element type: ", eltype(data))
+                
+                # Print some statistics if numeric data
+                if isa(data, AbstractArray) && eltype(data) <: Number
+                    println("\nData Statistics:")
+                    println("Min value: ", minimum(data))
+                    println("Max value: ", maximum(data))
+                    println("Mean value: ", mean(data))
+                    println("Standard deviation: ", std(data))
+                end
+            catch e
+                println("\nNo data in this HDU or error reading data:")
+                println(e)
             end
-        else
-            println("NAXIS1: $NrBins")
-            println("NAXIS2: $NrSubints")
-            
-            # Read the data
-            data = read(fits[1])
         end
-        
-        # Try to get other parameters from header
-        f2_min = get(header, "F2_MIN", nothing)
-        f2_max = get(header, "F2_MAX", nothing)
-        f3_min = get(header, "F3_MIN", nothing)
-        f3_max = get(header, "F3_MAX", nothing)
-        
-        if f2_min === nothing || f2_max === nothing || f3_min === nothing || f3_max === nothing
-            println("Warning: Could not find some required parameters in header")
-        end
-        
-        return (data, NrBins, NrSubints, f2_min, f2_max, f3_min, f3_max)
     catch e
-        println("Error reading FITS file:")
+        println("\nError analyzing FITS file:")
         println(e)
-        println("Header contents:")
-        if haskey(locals(), :header)
-            for (key, value) in header
-                println("$key: $value")
-            end
-        end
-        rethrow()
     finally
         # Close the file
         close(fits)
@@ -217,14 +205,7 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        data, NrBins, NrSubints, f2_min, f2_max, f3_min, f3_max = read_2dfs_file(vpmout * "/pulsar.debase.1.2dfs") 
-
-        println("Number of bins: $NrBins")
-        println("Number of sub-integrations: $NrSubints")
-        println("f2_min: $f2_min")
-        println("f2_max: $f2_max")
-        println("f3_min: $f3_min")
-        println("f3_max: $f3_max")
+        analyze_fits_file(vpmout * "/pulsar.debase.1.2dfs") 
 
         #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
 
