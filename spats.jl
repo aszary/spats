@@ -136,9 +136,32 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
     end
 end
 
-   
 
+
+function read_2dfs_file(filename::String)
+    # Open the FITS file
+    fits = FITS(filename)
     
+    # Read the data
+    data = read(fits[1])  # 2D array of floats
+    
+    # Read header information
+    header = read_header(fits[1])
+    
+    # Extract relevant parameters
+    NrBins = header["NAXIS1"]  # Number of bins
+    NrSubints = header["NAXIS2"]  # Number of sub-integrations
+    f2_min = header["F2_MIN"]  # Minimum f2 value
+    f2_max = header["F2_MAX"]  # Maximum f2 value
+    f3_min = header["F3_MIN"]  # Minimum f3 value
+    f3_max = header["F3_MAX"]  # Maximum f3 value
+    
+    # Close the file
+    close(fits)
+    
+    return (data, NrBins, NrSubints, f2_min, f2_max, f3_min, f3_max)
+end
+
     
     
     function main()
@@ -148,29 +171,21 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+        data, NrBins, NrSubints, f2_min, f2_max, f3_min, f3_max = read_2dfs_file(vpmout * "/pulsar.debase.1.2dfs") 
 
-        
+        println("Number of bins: $NrBins")
+        println("Number of sub-integrations: $NrSubints")
+        println("f2_min: $f2_min")
+        println("f2_max: $f2_max")
+        println("f3_min: $f3_min")
+        println("f3_max: $f3_max")
+
+        #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+
 
 
     end
 
-    function parse_commandline()
-        s = ArgParseSettings()
-        @add_arg_table! s begin
-            "--indir", "-i"
-                help = "input directory"
-                default = "input"
-            "--outdir", "-o"
-                help = "output directory"
-                default = "output"
-            "--plot", "-p"
-                help = "plots to create"
-                default = []
-                nargs = '*'
-        end
-        return parse_args(s)
-    end
 
 end # module
 
