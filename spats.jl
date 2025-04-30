@@ -161,8 +161,33 @@ function analyze_fits_file(filename::String)
             # Print header information
             header = read_header(hdu)
             println("\nHeader Keywords:")
-            for (key, value) in header
-                println("$key: $value")
+            
+            # Try different ways to access header
+            try
+                # Try to access as dictionary
+                for (key, value) in pairs(header)
+                    println("$key: $value")
+                end
+            catch e1
+                try
+                    # Try to access as array of tuples
+                    for (key, value) in header
+                        println("$key: $value")
+                    end
+                catch e2
+                    println("Could not iterate over header: ")
+                    println(e2)
+                    # Try to print individual keys
+                    println("\nAvailable header keys:")
+                    println("SIMPLE: ", header["SIMPLE"])
+                    println("BITPIX: ", header["BITPIX"])
+                    println("NAXIS: ", header["NAXIS"])
+                    println("NAXIS1: ", header["NAXIS1"])
+                    println("NAXIS2: ", header["NAXIS2"])
+                    println("EXTEND: ", header["EXTEND"])
+                    println("BZERO: ", header["BZERO"])
+                    println("BSCALE: ", header["BSCALE"])
+                end
             end
             
             # Print data information if available
