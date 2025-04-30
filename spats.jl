@@ -138,6 +138,74 @@ end
 
 
 
+function read_2dfs_file(filename::String)
+    println("Reading 2DFS FITS file: $filename")
+    
+    # Check if file exists
+    if !isfile(filename)
+        error("File does not exist: $filename")
+    end
+    
+    # Open the FITS file
+    fits = FITS(filename)
+    
+    try
+        # Get the first HDU (primary array)
+        hdu = fits[1]
+        
+        # Read the data
+        data = read(hdu)
+        
+        # Get header information
+        header = read_header(hdu)
+        
+        # Extract dimensions from header
+        NrBins = get(header, "NAXIS1", nothing)
+        NrSubints = get(header, "NAXIS2", nothing)
+        
+        if NrBins === nothing || NrSubints === nothing
+            # Try to get dimensions from data shape
+            if data !== nothing
+                NrBins, NrSubints = size(data)
+            else
+                error("Could not determine dimensions from header or data")
+            end
+        end
+        
+        # Extract other parameters from header
+        fft_size = get(header, "FFT_SIZE", nothing)
+        
+        # Get on-pulse region information
+        onpulse_left = get(header, "ONPULSE_LEFT", nothing)
+        onpulse_right = get(header, "ONPULSE_RIGHT", nothing)
+        
+        # Print information for debugging
+        println("\nFile Information:")
+        println("Data type: ", typeof(data))
+        println("Data shape: ", size(data))
+        println("NrBins: $NrBins")
+        println("NrSubints: $NrSubints")
+        println("FFT size: ", fft_size)
+        println("On-pulse region: ", onpulse_left, " to ", onpulse_right)
+        
+        return (data, NrBins, NrSubints, fft_size, onpulse_left, onpulse_right)
+        
+    catch e
+        println("\nError reading 2DFS FITS file:")
+        println(e)
+        println("\nHeader contents:")
+        if haskey(locals(), :header)
+            for (key, value) in header
+                println("$key: $value")
+            end
+        end
+        rethrow()
+    finally
+        # Close the file
+        close(fits)
+    end
+end
+
 function analyze_fits_file(filename::String)
     println("Analyzing FITS file: $filename")
     
@@ -221,22 +289,24 @@ function analyze_fits_file(filename::String)
     end
 end
 
-    
-    
-    function main()
-        # output directory for local run
-        localout = "output"
-        # output directory for VPM
-        vpmout = "/home/psr/output/"
-        indir = "/home/psr/data/"
+function main()
+    # output directory for local run
+    localout = "output"
+    # output directory for VPM
+    vpmout = "/home/psr/output/"
+    indir = "/home/psr/data/"
 
-        analyze_fits_file(vpmout * "/pulsar.debase.1.2dfs") 
+    # Read the 2DFS file
+    data, NrBins, NrSubints, fft_size, onpulse_left, onpulse_right = read_2dfs_file(vpmout * "/pulsar.debase.1.2dfs")
 
-        #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+    println("\n2DFS File Information:")
+    println("Number of bins: $NrBins")
+    println("Number of sub-integrations: $NrSubints")
+    println("FFT size: $fft_size")
+    println("On-pulse region: $onpulse_left to $onpulse_right")
 
-
-
-    end
+    #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+end
 
 
 end # module
