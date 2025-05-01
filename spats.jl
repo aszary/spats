@@ -34,7 +34,6 @@ module SpaTs
     end
 
 
-
     function repuls(vpmout::String, num_files::Int)
         all_data = []
     
@@ -69,14 +68,15 @@ module SpaTs
     
             # Zmodyfikowane dane (nie usuwamy kolumn)
             modified_data = [
-                (row..., magnitude > cap ? row[4] : 0.0)  # zachowujemy wszystkie kolumny, modyfikujemy tylko 4-tą
+                (row[1], row[2], row[3], magnitude > cap ? row[4] : 0.0, row[5], row[6])
                 for (row, magnitude) in zip(data, magnitudes)
             ]
     
-            # Zapis do nowego pliku
+            # Zapis do nowego pliku z formatowaniem liczb bez .0 jeśli niepotrzebne
             open(outfile, "w") do io
                 for row in modified_data
-                    println(io, join(row, " "))
+                    formatted_row = [x == floor(x) ? Int(x) : x for x in row]
+                    println(io, join(formatted_row, " "))
                 end
             end
     
@@ -86,36 +86,18 @@ module SpaTs
     
         # Jeśli zebrano jakiekolwiek dane, zrób wykres
         if !isempty(all_data)
-            data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
-            Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
-        else
-            println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
-        end
-    end
-    
-
-    
-            # Dołącz do całości (właściwie, zbieramy wszystkie zmodyfikowane dane)
-            append!(all_data, [collect(row) for row in modified_data])
-        end
-    
-        # Jeśli zebrano jakiekolwiek dane, zrób wykres
-        if !isempty(all_data)
             # Debugowanie: sprawdzenie danych przed generowaniem wykresu
             println("Dane zebrane do wykresu:")
             println(all_data[1:min(5, end)])  # Wypisz pierwsze 5 wierszy
     
-            # Zbieramy wszystkie dane w jednym obiekcie
-            data1 = load_ascii2(vpmout*"1_zmiany.txt")
-            data2 = load_ascii2(vpmout*"2_zmiany.txt")
-            data3 = load_ascii2(vpmout*"3_zmiany.txt")
-            data4 = load_ascii2(vpmout*"4_zmiany.txt")
-            
-            # Debugowanie: sprawdzenie struktury danych przed ich połączeniem
-            println("Struktura danych przed połączeniem:")
-            println(typeof(data1), typeof(data2), typeof(data3), typeof(data4))
-            
-            data = vcat(data1, data2, data3, data4)
+            # Zbieramy wszystkie dane z plików wynikowych
+            data = []
+            for i in 1:num_files
+                zmianyfile = "$(vpmout)$(i)_zmiany.txt"
+                if isfile(zmianyfile)
+                    append!(data, load_ascii2(zmianyfile))
+                end
+            end
     
             # Debugowanie: sprawdzenie danych przed generowaniem wykresu
             println("Dane przekazane do wykresu:")
@@ -128,9 +110,7 @@ module SpaTs
         end
     end
     
-    
-    
-    
+   
     
     
     
