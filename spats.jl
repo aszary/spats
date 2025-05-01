@@ -38,16 +38,14 @@ module SpaTs
 
 
     function repuls(vpmout::String, num_files::Int)
-        # Przechowujemy wszystkie dane
         all_data = []
         
         # Regex do sprawdzania liczby: dopuszcza liczby dodatnie, ujemne, naukowe (1e-3 itp.)
         number_regex = r"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$"
         
-        # Dla każdego pliku od 1 do num_files
         for i in 1:num_files
-            infile = "$(vpmout)$(i).txt"                # Plik wejściowy np. 1.txt
-            outfile = "$(vpmout)$(i)_zmiany.txt"        # Plik wyjściowy np. 1_zmiany.txt
+            infile = "$(vpmout)$(i).txt"               # Plik wejściowy np. 1.txt
+            outfile = "$(vpmout)$(i)_zmiany.txt"       # Plik wyjściowy np. 1_zmiany.txt
             
             # Skopiuj plik wejściowy do pliku wyjściowego (1:1)
             open(outfile, "w") do io
@@ -64,8 +62,9 @@ module SpaTs
                 parts = split(strip(line))
                 if length(parts) >= 7 && all(x -> occursin(number_regex, x), parts[1:7])
                     try
-                        # Parsujemy kolumny 1-7
-                        push!(data, parse.(Float64, parts[1:7]))  
+                        # Parsujemy kolumny 1-7 jako Float64
+                        parsed_row = parse.(Float64, parts[1:7])
+                        push!(data, parsed_row)  
                     catch e
                         # Jeżeli wystąpi błąd, wypisz linię i kontynuuj
                         println("Błąd parsowania w linii: $line")
