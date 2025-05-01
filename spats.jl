@@ -96,11 +96,15 @@ module SpaTs
             ]
     
             # Zapis do nowego pliku
+            # Zapis do nowego pliku
             open(outfile, "w") do io
                 for row in modified_data
-                    println(io, join(row, " "))  # Zapisujemy dane w nowym pliku
+                    # Konwersja: jeśli liczba jest całkowita (np. 1.0), zapisujemy jako Int (czyli bez .0)
+                    formatted_row = [x == floor(x) ? Int(x) : x for x in row]
+                    println(io, join(formatted_row, " "))
                 end
             end
+
     
             # Dołącz do całości (właściwie, zbieramy wszystkie zmodyfikowane dane)
             append!(all_data, [collect(row) for row in modified_data])
