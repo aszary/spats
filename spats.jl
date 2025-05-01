@@ -37,57 +37,58 @@ module SpaTs
 
 
     function repuls(vpmout::String, num_files::Int)
+        # Przechowujemy wszystkie dane
         all_data = []
-    
+        
         # Dla każdego pliku od 1 do num_files
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt"                # Plik wejściowy np. 1.txt
             outfile = "$(vpmout)$(i)_zmiany.txt"        # Plik wyjściowy np. 1_zmiany.txt
-    
+            
             # Skopiuj plik wejściowy do pliku wyjściowego (1:1)
             open(outfile, "w") do io
                 for line in readlines(infile)
-                    # Modyfikuj 4 kolumnę w linii (zakładając, że dane są oddzielone spacjami)
-                    parts = split(strip(line))
-    
-                    # Sprawdź, czy linia zawiera dokładnie 7 kolumn
+                    parts = split(strip(line))  # Rozdzielamy linijkę na kolumny
+                    
+                    # Sprawdzamy, czy linia zawiera dokładnie 7 kolumn
                     if length(parts) == 7
                         # Oblicz pierwiastek z sumy kwadratów 5. i 6. kolumny
                         fifth_col = parse(Float64, parts[5])
                         sixth_col = parse(Float64, parts[6])
                         rms_value = sqrt(fifth_col^2 + sixth_col^2)
-    
-                        # Oblicz 50% sumy 5. i 6. kolumny
+                        
+                        # Obliczamy sumę 5. i 6. kolumny
                         sum_cols = fifth_col + sixth_col
-                        threshold = 0.5 * sum_cols
-    
-                        # Jeśli wartość RMS jest mniejsza niż 50% sumy 5. i 6. kolumny, ustaw 4. kolumnę na 0
+                        threshold = 0.0 * sum_cols  # 50% tej sumy
+                        
+                        # Jeśli RMS jest mniejsze niż 50% sumy 5. i 6. kolumny, ustawiamy 4. kolumnę na 0
                         if rms_value < threshold
-                            parts[4] = "0.0"  # Ustawienie 4. kolumny na 0
+                            parts[4] = "0.0"  # Zmiana 4. kolumny na 0
                         end
                         
-                        # Zapisz zmodyfikowaną linię do pliku
-                        println(io, join(parts, " "))
+                        # Zapisujemy zmodyfikowaną linię do pliku
+                        println(io, join(parts, " "))  # Zapisujemy linijkę w odpowiednim formacie
                     else
-                        # Jeśli linia nie ma dokładnie 7 kolumn, po prostu ją kopiujemy
+                        # Jeśli linia nie ma 7 kolumn, kopiujemy ją bez zmian
                         println(io, line)
                     end
                 end
             end
         end
     
-        # Teraz przechodzimy do operacji takich jak w funkcji test2
+        # Wczytanie danych z plików
         data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
         data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
         data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
         data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
-    
+        
         # Łączenie danych
         combined_data = vcat(data1, data2, data3, data4)
     
         # Tworzenie wykresu
         Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
     end
+    
     
     
     
