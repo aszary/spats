@@ -41,6 +41,9 @@ module SpaTs
         # Przechowujemy wszystkie dane
         all_data = []
         
+        # Regex do sprawdzania liczby: dopuszcza liczby dodatnie, ujemne, naukowe (1e-3 itp.)
+        number_regex = r"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$"
+        
         # Dla każdego pliku od 1 do num_files
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt"                # Plik wejściowy np. 1.txt
@@ -52,20 +55,70 @@ module SpaTs
                     println(io, line)  # Kopiujemy każdą linię bez zmian
                 end
             end
+            
+            raw_lines = readlines(outfile)
+            data = []
+            
+            # Przetwarzamy każdą linię
+            for line in raw_lines
+                parts = split(strip(line))
+                if length(parts) >= 7 && all(x -> occursin(number_regex, x), parts[1:7])
+                    try
+                        # Parsujemy kolumny 1-7
+                        push!(data, parse.(Float64, parts[1:7]))  
+                    catch e
+                        # Jeżeli wystąpi błąd, wypisz linię i kontynuuj
+                        println("Błąd parsowania w linii: $line")
+                        continue
+                    end
+                end
+            end
+            
+            if isempty(data)
+                println("Plik $(infile) nie zawiera prawidłowych danych – pominięty.")
+                continue
+            end
+            
+            # Obliczamy magnitudy z kolumn 5 i 6
+            magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
+            max_val = maximum(magnitudes)
+            cap = 0 * max_val  # cap = 0, więc nie będzie zmian
+            
+            # Modyfikujemy kolumnę 4 na podstawie obliczonych magnitud (ale cap = 0)
+            modified_data = [
+                begin
+                    new_row = copy(row)
+                    new_row[4] = magnitude > cap ? row[4] : 0.0  # Modyfikacja kolumny 4
+                    new_row
+                end
+                for (row, magnitude) in zip(data, magnitudes)
+            ]
+            
+            # Zapisujemy zmodyfikowane dane do nowego pliku
+            open(outfile, "w") do io
+                for row in modified_data
+                    formatted_row = [x == floor(x) ? string(Int(x)) : string(x) for x in row]
+                    println(io, join(formatted_row, " "))
+                end
+            end
+            
+            # Zbieramy dane do wspólnej tabeli
+            append!(all_data, [collect(row) for row in modified_data])
         end
-    
-        # Teraz przechodzimy do operacji takich jak w funkcji test2
+        
+        # Ładowanie danych z nowych plików
         data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
         data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
         data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
         data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
-    
+        
         # Łączenie danych
         combined_data = vcat(data1, data2, data3, data4)
-    
+        
         # Tworzenie wykresu
         Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
     end
+    
     
     
     
