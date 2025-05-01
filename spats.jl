@@ -33,7 +33,6 @@ module SpaTs
         #Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
     end
 
-
     function repuls(vpmout::String, num_files::Int)
         all_data = []
     
@@ -46,6 +45,7 @@ module SpaTs
     
             raw_lines = readlines(infile)
     
+            # Wczytywanie danych i parsowanie ich
             data = []
             for line in raw_lines
                 parts = split(strip(line))
@@ -86,14 +86,20 @@ module SpaTs
             append!(all_data, [collect(row) for row in modified_data])
         end
     
-        # Wykres
-        if !isempty(all_data)
-            data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
-            Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
-        else
-            println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
-        end
+        # Teraz ładujemy dane z plików _zmiany.txt, jak w test2
+        # Ładowanie danych
+        data1 = Data.load_ascii($(vpmout)"1_zmiany.txt")
+        data2 = Data.load_ascii($(vpmout)"2_zmiany.txt")
+        data3 = Data.load_ascii($(vpmout)"3_zmiany.txt")
+        data4 = Data.load_ascii($(vpmout)"4_zmiany.txt")
+    
+        # Łączenie danych
+        combined_data = vcat(data1, data2, data3, data4)
+    
+        # Generowanie wykresu
+        Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
     end
+    
     
     
     
