@@ -41,21 +41,19 @@ module SpaTs
         number_regex = r"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$"
     
         for i in 1:num_files
-            infile = "$(vpmout)$(i).txt"  # Wczytujemy plik 1.txt, 2.txt, itd.
-            outfile = "$(vpmout)$(i)_zmiany.txt"  # Tworzymy nowy plik zmodyfikowany
+            infile = "$(vpmout)$(i).txt"               # Wczytujemy plik np. 1.txt, 2.txt, itd.
+            outfile = "$(vpmout)$(i)_zmiany.txt"       # Tworzymy nowy plik zmodyfikowany
     
             raw_lines = readlines(infile)
     
-            # Dokładne sprawdzanie i parsowanie tylko poprawnych linii
             data = []
             for line in raw_lines
                 parts = split(strip(line))
-                if length(parts) >= 6 && all(x -> occursin(number_regex, x), parts[1:6])
-                    push!(data, parse.(Float64, parts[1:6]))  # Parsujemy kolumny 1-6
+                if length(parts) >= 7 && all(x -> occursin(number_regex, x), parts[1:7])
+                    push!(data, parse.(Float64, parts[1:7]))  # Parsujemy kolumny 1–7
                 end
             end
     
-            # Jeśli brak danych, pomiń ten plik
             if isempty(data)
                 println("Plik $(infile) nie zawiera prawidłowych danych – pominięty.")
                 continue
@@ -64,39 +62,39 @@ module SpaTs
             # Oblicz magnitudę sygnału z kolumn 5 i 6
             magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
             max_val = maximum(magnitudes)
-            cap = 0.1 * max_val  # Cap to 10% z maksymalnej magnitudy
+            cap = 0.1 * max_val  # 10% z maksymalnej magnitudy
     
-            # Zmodyfikowane dane (nie usuwamy kolumn, zmieniamy tylko 4-tą)
+            # Modyfikujemy TYLKO kolumnę 4 — inne pozostają bez zmian
             modified_data = [
-                (row..., magnitude > cap ? row[4] : 0.0)  # Zachowujemy wszystkie kolumny, zmieniając tylko 4-tą
+                begin
+                    new_row = copy(row)
+                    new_row[4] = magnitude > cap ? row[4] : 0.0
+                    new_row
+                end
                 for (row, magnitude) in zip(data, magnitudes)
             ]
     
             # Zapis do nowego pliku
             open(outfile, "w") do io
                 for row in modified_data
-                    # Konwersja: jeśli liczba jest całkowita (np. 1.0), zapisujemy jako Int (czyli bez .0)
                     formatted_row = [x == floor(x) ? Int(x) : x for x in row]
                     println(io, join(formatted_row, " "))
                 end
             end
-
     
-            # Dołącz do całości (właściwie, będziemy zbierać wszystkie zmodyfikowane dane)
+            # Zbieramy dane do wspólnej tabeli
             append!(all_data, [collect(row) for row in modified_data])
         end
     
-        # Jeśli zebrano jakiekolwiek dane, zrób wykres
+        # Wykres
         if !isempty(all_data)
-            # Zbieramy wszystkie dane w jednym obiekcie
             data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
-    
-            # Użycie Plot.single do wygenerowania wykresu
             Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
         else
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
+    
     
     
     
