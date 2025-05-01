@@ -35,23 +35,6 @@ module SpaTs
 
 
 
-    function load_ascii2(infile::String)
-        # Otwórz plik i wczytaj dane
-        raw_lines = readlines(infile)
-        data = []
-        for line in raw_lines
-            parts = split(strip(line))
-            if length(parts) >= 6
-                # Przekształcamy dane na Float64, zamiast na Int64
-                row = tryparse.(Float64, parts[1:6])
-                if all(!isnothing, row)
-                    push!(data, row)
-                end
-            end
-        end
-        return data
-    end
-    
     function repuls(vpmout::String, num_files::Int)
         all_data = []
     
@@ -59,8 +42,8 @@ module SpaTs
         number_regex = r"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$"
     
         for i in 1:num_files
-            infile = "$(vpmout)$(i).txt"  # Wczytujemy plik 1.txt, 2.txt, itd.
-            outfile = "$(vpmout)$(i)_zmiany.txt"  # Tworzymy nowy plik zmodyfikowany
+            infile = "$(vpmout)$(i).txt"
+            outfile = "$(vpmout)$(i)_zmiany.txt"
     
             raw_lines = readlines(infile)
     
@@ -68,13 +51,8 @@ module SpaTs
             data = []
             for line in raw_lines
                 parts = split(strip(line))
-                if length(parts) >= 6
-                    # Próba parsowania danych jako Float64
-                    row = tryparse.(Float64, parts[1:6])
-                    # Jeśli wszystkie elementy są poprawnie sparsowane
-                    if all(!isnothing, row)
-                        push!(data, row)
-                    end
+                if length(parts) >= 6 && all(x -> occursin(number_regex, x), parts[1:6])
+                    push!(data, parse.(Float64, parts[1:6]))
                 end
             end
     
@@ -84,26 +62,37 @@ module SpaTs
                 continue
             end
     
-            # Oblicz magnitudę sygnału z kolumn 5 i 6
+            # Oblicz moc sygnału z kolumn 5 i 6
             magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
             max_val = maximum(magnitudes)
-            cap = 0.1 * max_val  # Cap to 10% z maksymalnej magnitudy
+            cap = 0.1 * max_val
     
-            # Zmodyfikowane dane (nie usuwamy kolumn, zmieniamy tylko 4-tą)
+            # Zmodyfikowane dane (nie usuwamy kolumn)
             modified_data = [
-                (row..., magnitude > cap ? row[4] : 0.0)  # Zachowujemy wszystkie kolumny, zmieniając tylko 4-tą
+                (row..., magnitude > cap ? row[4] : 0.0)  # zachowujemy wszystkie kolumny, modyfikujemy tylko 4-tą
                 for (row, magnitude) in zip(data, magnitudes)
             ]
     
             # Zapis do nowego pliku
-            # Zapis do nowego pliku
             open(outfile, "w") do io
                 for row in modified_data
-                    # Konwersja: jeśli liczba jest całkowita (np. 1.0), zapisujemy jako Int (czyli bez .0)
-                    formatted_row = [x == floor(x) ? Int(x) : x for x in row]
-                    println(io, join(formatted_row, " "))
+                    println(io, join(row, " "))
                 end
             end
+    
+            # Dołącz do całości
+            append!(all_data, [collect(row) for row in modified_data])
+        end
+    
+        # Jeśli zebrano jakiekolwiek dane, zrób wykres
+        if !isempty(all_data)
+            data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
+            Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
+        else
+            println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
+        end
+    end
+    
 
     
             # Dołącz do całości (właściwie, zbieramy wszystkie zmodyfikowane dane)
