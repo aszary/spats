@@ -88,10 +88,10 @@ module SpaTs
     
         # Teraz ładujemy dane z plików _zmiany.txt, jak w test2
         # Ładowanie danych
-        data1 = Data.load_ascii($(vpmout)"1_zmiany.txt")
-        data2 = Data.load_ascii($(vpmout)"2_zmiany.txt")
-        data3 = Data.load_ascii($(vpmout)"3_zmiany.txt")
-        data4 = Data.load_ascii($(vpmout)"4_zmiany.txt")
+        data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
+        data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
+        data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
+        data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
     
         # Łączenie danych
         combined_data = vcat(data1, data2, data3, data4)
