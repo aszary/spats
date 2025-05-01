@@ -59,7 +59,7 @@ module SpaTs
     
                         # Oblicz 50% sumy 5. i 6. kolumny
                         sum_cols = fifth_col + sixth_col
-                        threshold = 0.0 * sum_cols
+                        threshold = 0.5 * sum_cols
     
                         # Jeśli wartość RMS jest mniejsza niż 50% sumy 5. i 6. kolumny, ustaw 4. kolumnę na 0
                         if rms_value < threshold
