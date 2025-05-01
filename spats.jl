@@ -37,18 +37,41 @@ module SpaTs
 
 
     function repuls(vpmout::String, num_files::Int)
-        # Przechowujemy wszystkie dane
         all_data = []
-        
+    
         # Dla każdego pliku od 1 do num_files
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt"                # Plik wejściowy np. 1.txt
             outfile = "$(vpmout)$(i)_zmiany.txt"        # Plik wyjściowy np. 1_zmiany.txt
-            
+    
             # Skopiuj plik wejściowy do pliku wyjściowego (1:1)
             open(outfile, "w") do io
                 for line in readlines(infile)
-                    println(io, line)  # Kopiujemy każdą linię bez zmian
+                    # Modyfikuj 4 kolumnę w linii (zakładając, że dane są oddzielone spacjami)
+                    parts = split(strip(line))
+    
+                    # Sprawdź, czy linia zawiera dokładnie 7 kolumn
+                    if length(parts) == 7
+                        # Oblicz pierwiastek z sumy kwadratów 5. i 6. kolumny
+                        fifth_col = parse(Float64, parts[5])
+                        sixth_col = parse(Float64, parts[6])
+                        rms_value = sqrt(fifth_col^2 + sixth_col^2)
+    
+                        # Oblicz 50% sumy 5. i 6. kolumny
+                        sum_cols = fifth_col + sixth_col
+                        threshold = 0.0 * sum_cols
+    
+                        # Jeśli wartość RMS jest mniejsza niż 50% sumy 5. i 6. kolumny, ustaw 4. kolumnę na 0
+                        if rms_value < threshold
+                            parts[4] = "0.0"  # Ustawienie 4. kolumny na 0
+                        end
+                        
+                        # Zapisz zmodyfikowaną linię do pliku
+                        println(io, join(parts, " "))
+                    else
+                        # Jeśli linia nie ma dokładnie 7 kolumn, po prostu ją kopiujemy
+                        println(io, line)
+                    end
                 end
             end
         end
@@ -65,6 +88,8 @@ module SpaTs
         # Tworzenie wykresu
         Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
     end
+    
+    
     
     
     
