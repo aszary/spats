@@ -34,18 +34,19 @@ module SpaTs
     end
 
 
+
     function repuls(vpmout::String, num_files::Int)
         all_data = []
-    
+
         # Regex do sprawdzania liczby: dopuszcza liczby dodatnie, ujemne, naukowe (1e-3 itp.)
         number_regex = r"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$"
-    
+
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt"               # Wczytujemy plik np. 1.txt, 2.txt, itd.
             outfile = "$(vpmout)$(i)_zmiany.txt"       # Tworzymy nowy plik zmodyfikowany
-    
+
             raw_lines = readlines(infile)
-    
+
             data = []
             for line in raw_lines
                 parts = split(strip(line))
@@ -53,17 +54,17 @@ module SpaTs
                     push!(data, parse.(Float64, parts[1:7]))  # Parsujemy kolumny 1–7
                 end
             end
-    
+
             if isempty(data)
                 println("Plik $(infile) nie zawiera prawidłowych danych – pominięty.")
                 continue
             end
-    
+
             # Oblicz magnitudę sygnału z kolumn 5 i 6
             magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
             max_val = maximum(magnitudes)
             cap = 0 * max_val  # 10% z maksymalnej magnitudy
-    
+
             # Modyfikujemy TYLKO kolumnę 4 — inne pozostają bez zmian
             modified_data = [
                 begin
@@ -73,20 +74,21 @@ module SpaTs
                 end
                 for (row, magnitude) in zip(data, magnitudes)
             ]
-    
+
             # Zapis do nowego pliku
             open(outfile, "w") do io
                 for row in modified_data
-                    formatted_row = [x == floor(x) ? Int(x) : x for x in row]
+                    # Formatujemy zapis, aby nie zmieniać formatu liczb (zachowujemy oryginalny format)
+                    formatted_row = [x == floor(x) ? string(Int(x)) : @sprintf("%.6f", x) for x in row]
                     println(io, join(formatted_row, " "))
                 end
             end
-    
+
             # Zbieramy dane do wspólnej tabeli
             append!(all_data, [collect(row) for row in modified_data])
         end
-        
 
+        # Ładowanie danych z plików zmodyfikowanych
         data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
         data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
         data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
@@ -97,12 +99,12 @@ module SpaTs
 
         # Wykres
         if !isempty(all_data)
-            Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
+            Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
         else
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
     end
-    
+
     
     
     
