@@ -63,7 +63,7 @@ module SpaTs
                         
                         # Jeśli RMS jest mniejsze niż 50% sumy 5. i 6. kolumny, ustawiamy 4. kolumnę na 0
                         if rms_value < threshold
-                            parts[4] = "0.0"  # Zmiana 4. kolumny na 0
+                            parts[4] = "0.2"  # Zmiana 4. kolumny na 0
                         end
                         
                         # Zapisujemy zmodyfikowaną linię do pliku
