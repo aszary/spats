@@ -34,6 +34,23 @@ module SpaTs
     end
 
 
+    function load_ascii2(infile::String)
+        raw_lines = readlines(infile)
+        data = []
+        for line in raw_lines
+            parts = split(strip(line))
+            if length(parts) >= 6
+                row = tryparse.(Float64, parts[1:6])
+                if all(!isnothing, row)
+                    push!(data, row)
+                end
+            end
+        end
+        return data
+    end
+    
+
+
     function repuls(vpmout::String, num_files::Int)
         all_data = []
     
