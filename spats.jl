@@ -58,20 +58,26 @@ module SpaTs
 
     function repuls(vpmout::String, num_files::Int)
         all_data = []
-    
+        
         # Regex do sprawdzania liczby: dopuszcza liczby dodatnie, ujemne, naukowe (1e-3 itp.)
         number_regex = r"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$"
-    
+        
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt"               # Wczytujemy plik np. 1.txt, 2.txt, itd.
             outfile = "$(vpmout)$(i)_zmiany.txt"       # Tworzymy nowy plik zmodyfikowany
-    
-            raw_lines = readlines(infile)
-    
+        
+            # Skopiuj plik wejściowy do wyjściowego, aby zapewnić, że są identyczne
+            open(outfile, "w") do io
+                for line in readlines(infile)
+                    println(io, line)  # Kopiujemy każdą linię dokładnie
+                end
+            end
+        
+            raw_lines = readlines(outfile)
+        
             data = []
             for line in raw_lines
                 parts = split(strip(line))
-                
                 if length(parts) >= 7 && all(x -> occursin(number_regex, x), parts[1:7])
                     try
                         # Dodano zabezpieczenie przed błędami parsowania
@@ -83,57 +89,55 @@ module SpaTs
                     end
                 end
             end
-    
+        
             if isempty(data)
                 println("Plik $(infile) nie zawiera prawidłowych danych – pominięty.")
                 continue
             end
-    
+        
             # Oblicz magnitudę sygnału z kolumn 5 i 6
             magnitudes = [sqrt(row[5]^2 + row[6]^2) for row in data]
             max_val = maximum(magnitudes)
             cap = 0 * max_val  # 10% z maksymalnej magnitudy
-    
+        
             # Modyfikujemy TYLKO kolumnę 4 — inne pozostają bez zmian
             modified_data = [
                 begin
                     new_row = copy(row)
-                    new_row[4] = magnitude > cap ? row[4] : 0.0
+                    new_row[4] = magnitude > cap ? row[4] : 0.0  # Modyfikacja kolumny 4
                     new_row
                 end
                 for (row, magnitude) in zip(data, magnitudes)
             ]
-    
+        
             # Zapis do nowego pliku
             open(outfile, "w") do io
                 for row in modified_data
-                    formatted_row = [x == floor(x) ? Int(x) : x for x in row]
+                    formatted_row = [x == floor(x) ? string(Int(x)) : string(x) for x in row]
                     println(io, join(formatted_row, " "))
                 end
             end
-    
+        
             # Zbieramy dane do wspólnej tabeli
             append!(all_data, [collect(row) for row in modified_data])
         end
-    
+        
         data1 = load_ascii2(vpmout * "1_zmiany.txt")
         data2 = load_ascii2(vpmout * "2_zmiany.txt")
         data3 = load_ascii2(vpmout * "3_zmiany.txt")
         data4 = load_ascii2(vpmout * "4_zmiany.txt")
-    
+        
         # Łączenie danych
         combined_data = vcat(data1, data2, data3, data4)
-    
+        
         # Wykres
         if !isempty(all_data)
-            # Debugowanie: Sprawdź rozmiar danych
-            println("Rozmiar danych do wykresu: ", size(combined_data))
-            Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
+            Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
         else
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
-        
     end
+    
     
 
     
