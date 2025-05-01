@@ -36,37 +36,34 @@ module SpaTs
 
 
 
-
     function repuls(vpmout::String, num_files::Int)
+        # Przechowujemy wszystkie dane
         all_data = []
+        
+        # Dla każdego pliku od 1 do num_files
         for i in 1:num_files
-            infile = "$(vpmout)$(i).txt"
-            outfile = "$(vpmout)$(i)_zmiany.txt"
-         
-            # Skopiuj plik wejściowy do wyjściowego
+            infile = "$(vpmout)$(i).txt"                # Plik wejściowy np. 1.txt
+            outfile = "$(vpmout)$(i)_zmiany.txt"        # Plik wyjściowy np. 1_zmiany.txt
+            
+            # Skopiuj plik wejściowy do pliku wyjściowego (1:1)
             open(outfile, "w") do io
                 for line in readlines(infile)
-                    println(io, line)  # Kopiujemy każdą linię dokładnie
+                    println(io, line)  # Kopiujemy każdą linię bez zmian
                 end
             end
-        
-            raw_lines = readlines(outfile)
-            data = []
-            for line in raw_lines
-                parts = split(strip(line))
-                try
-                    push!(data, parse.(Float64, parts[1:7]))  # Parsujemy jako Float64
-                catch e
-                    println("Błąd parsowania w linii: $line")
-                end
-            end
-        
-            append!(all_data, data)
         end
     
-        # Łączenie danych i rysowanie wykresu
-        combined_data = vcat(all_data...)
-        Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
+        # Teraz przechodzimy do operacji takich jak w funkcji test2
+        data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
+        data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
+        data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
+        data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
+    
+        # Łączenie danych
+        combined_data = vcat(data1, data2, data3, data4)
+    
+        # Tworzenie wykresu
+        Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
     end
     
     
