@@ -85,11 +85,20 @@ module SpaTs
             # Zbieramy dane do wspólnej tabeli
             append!(all_data, [collect(row) for row in modified_data])
         end
-    
+        
+
+        data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
+        data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
+        data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
+        data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
+
+        # Łączenie danych
+        combined_data = vcat(data1, data2, data3, data4)
+
         # Wykres
         if !isempty(all_data)
             data = reduce(vcat, [reshape(row, 1, :) for row in all_data])
-            Plot.single(data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
+            Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
         else
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
