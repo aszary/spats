@@ -36,6 +36,26 @@ module SpaTs
 
 
 
+    # Zmiana z parse(Int64) na parse(Float64) w funkcji load_ascii lub innej funkcji parsującej dane
+    function load_ascii2(infile::String)
+        raw_data = readlines(infile)
+        data = []
+        
+        for line in raw_data
+            parts = split(strip(line))
+            # Sprawdź czy części są poprawne i parsuj je jako Float64
+            try
+                parsed_row = parse.(Float64, parts)
+                push!(data, parsed_row)
+            catch e
+                println("Błąd parsowania w linii: $line")
+            end
+        end
+        return data
+    end
+
+
+
     function repuls(vpmout::String, num_files::Int)
         all_data = []
     
@@ -96,10 +116,10 @@ module SpaTs
             append!(all_data, [collect(row) for row in modified_data])
         end
     
-        data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
-        data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
-        data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
-        data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
+        data1 = load_ascii2(vpmout * "1_zmiany.txt")
+        data2 = load_ascii2(vpmout * "2_zmiany.txt")
+        data3 = load_ascii2(vpmout * "3_zmiany.txt")
+        data4 = load_ascii2(vpmout * "4_zmiany.txt")
     
         # Łączenie danych
         combined_data = vcat(data1, data2, data3, data4)
