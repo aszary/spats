@@ -122,10 +122,10 @@ module SpaTs
             append!(all_data, [collect(row) for row in modified_data])
         end
         
-        data1 = load_ascii2(vpmout * "1_zmiany.txt")
-        data2 = load_ascii2(vpmout * "2_zmiany.txt")
-        data3 = load_ascii2(vpmout * "3_zmiany.txt")
-        data4 = load_ascii2(vpmout * "4_zmiany.txt")
+        data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
+        data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
+        data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
+        data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
         
         # Łączenie danych
         combined_data = vcat(data1, data2, data3, data4)
