@@ -39,17 +39,17 @@ module SpaTs
     function repuls(vpmout::String, num_files::Int)
         # Przechowujemy wszystkie dane
         all_data = []
-        
+    
         # Dla każdego pliku od 1 do num_files
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt"                # Plik wejściowy np. 1.txt
             outfile = "$(vpmout)$(i)_zmiany.txt"        # Plik wyjściowy np. 1_zmiany.txt
-            
+    
             # Skopiuj plik wejściowy do pliku wyjściowego (1:1)
             open(outfile, "w") do io
                 for line in readlines(infile)
                     parts = split(strip(line))  # Rozdzielamy linijkę na kolumny
-                    
+    
                     # Sprawdzamy, czy linia zawiera dokładnie 7 kolumn
                     if length(parts) == 7
                         # Oblicz pierwiastek z sumy kwadratów 5. i 6. kolumny
@@ -59,11 +59,11 @@ module SpaTs
                         
                         # Obliczamy sumę 5. i 6. kolumny
                         sum_cols = fifth_col + sixth_col
-                        threshold = 0.0 * sum_cols  # 50% tej sumy
+                        threshold = 0.01 * sum_cols  # 50% tej sumy
                         
                         # Jeśli RMS jest mniejsze niż 50% sumy 5. i 6. kolumny, ustawiamy 4. kolumnę na 0
                         if rms_value < threshold
-                            parts[4] = "0.2"  # Zmiana 4. kolumny na 0
+                            parts[4] = "0.0"  # Zmiana 4. kolumny na 0
                         end
                         
                         # Zapisujemy zmodyfikowaną linię do pliku
