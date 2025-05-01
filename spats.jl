@@ -126,10 +126,13 @@ module SpaTs
     
         # Wykres
         if !isempty(all_data)
+            # Debugowanie: Sprawdź rozmiar danych
+            println("Rozmiar danych do wykresu: ", size(combined_data))
             Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, start=1, name_mod="J1319", show_=true)
         else
             println("Nie znaleziono żadnych prawidłowych danych do wykresu.")
         end
+        
     end
     
 
