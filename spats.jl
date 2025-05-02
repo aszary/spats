@@ -64,7 +64,7 @@ module SpaTs
         end
     
         # Obliczamy 50% z maksymalnej wartości RMS
-        threshold = 0.1 * max_rms_value
+        threshold = 0.2 * max_rms_value
     
         # Teraz wykonujemy edycję plików
         for i in 1:num_files
