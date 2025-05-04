@@ -37,25 +37,21 @@ module SpaTs
 
 
     function repuls(vpmout::String, num_files::Int)
-        # Zmienna do przechowywania maksymalnego RMS
         max_rms_value = 0.0
     
-        # Najpierw obliczamy maksymalny RMS we wszystkich linijkach
         for i in 1:num_files
-            infile = "$(vpmout)$(i).txt"  # Plik wejściowy np. 1.txt
-    
-            # Sprawdzamy każdą linijkę i obliczamy RMS
+            infile = "$(vpmout)$(i).txt" 
+
             for line in readlines(infile)
-                parts = split(strip(line))  # Rozdzielamy linijkę na kolumny
+                parts = split(strip(line))  
     
-                # Sprawdzamy, czy linia ma dokładnie 7 kolumn
+
                 if length(parts) == 7
-                    # Obliczamy pierwiastek z sumy kwadratów 5. i 6. kolumny
                     fifth_col = parse(Float64, parts[5])
                     sixth_col = parse(Float64, parts[6])
                     rms_value = sqrt(fifth_col^2 + sixth_col^2)
-    
-                    # Aktualizujemy maksymalną wartość RMS
+
+
                     if rms_value > max_rms_value
                         max_rms_value = rms_value
                     end
@@ -63,51 +59,40 @@ module SpaTs
             end
         end
     
-        # Obliczamy 50% z maksymalnej wartości RMS
         threshold = 0.2 * max_rms_value
     
-        # Teraz wykonujemy edycję plików
         for i in 1:num_files
-            infile = "$(vpmout)$(i).txt"  # Plik wejściowy np. 1.txt
-            outfile = "$(vpmout)$(i)_zmiany.txt"  # Plik wyjściowy np. 1_zmiany.txt
+            infile = "$(vpmout)$(i).txt" 
+            outfile = "$(vpmout)$(i)_zmiany.txt"
     
-            # Skopiuj plik wejściowy do pliku wyjściowego (1:1)
             open(outfile, "w") do io
                 for line in readlines(infile)
-                    parts = split(strip(line))  # Rozdzielamy linijkę na kolumny
+                    parts = split(strip(line))  
     
-                    # Sprawdzamy, czy linia ma dokładnie 7 kolumn
                     if length(parts) == 7
-                        # Obliczamy pierwiastek z sumy kwadratów 5. i 6. kolumny
                         fifth_col = parse(Float64, parts[5])
                         sixth_col = parse(Float64, parts[6])
                         rms_value = sqrt(fifth_col^2 + sixth_col^2)
     
-                        # Jeśli RMS jest mniejsze niż 50% maksymalnego RMS, ustawiamy 4. kolumnę na 0
                         if rms_value < threshold
-                            parts[4] = "0.0"  # Zmiana 4. kolumny na 0
+                            parts[4] = "0.0"  
                         end
     
-                        # Zapisujemy zmodyfikowaną linię do pliku
                         println(io, join(parts, " "))
                     else
-                        # Jeśli linia nie ma 7 kolumn, kopiujemy ją bez zmian
                         println(io, line)
                     end
                 end
             end
         end
     
-        # Wczytanie danych z plików
         data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
         data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
         data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
         data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
         
-        # Łączenie danych
         combined_data = vcat(data1, data2, data3, data4)
     
-        # Tworzenie wykresu
         Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
     end
     
