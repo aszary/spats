@@ -1167,6 +1167,7 @@ end
             end
             p["bin_st"] = bin_st
             p["bin_end"] = bin_end
+            Tools.save_params(params_file, p)
             println("Found onpulse range: $bin_st to $bin_end")
             
         end
