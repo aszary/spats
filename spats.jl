@@ -1157,6 +1157,7 @@ end
             bin_st, bin_end = parse.(Int, m.captures)
             # Ensure onpulse region length is even
             region_length = bin_end - bin_st + 1
+            println("JESTEM TU LUDZI TŁUM")
             if region_length % 2 != 0
                 println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
                 bin_end -= 1
@@ -1175,7 +1176,7 @@ end
 
         Plot.lrfs(combined_data, output_subdir; darkness=0.1, start=p["pulse_start"], bin_st=p["bin_st"], bin_end=p["bin_end"], name_mod=name_mod, change_fftphase=false, show_=false)
 
-        Plot.average(combined_data, output_subdir; bin_st=p["bin_st"], bin_end=p["bin_end"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
+        #Plot.average(combined_data, output_subdir; bin_st=p["bin_st"], bin_end=p["bin_end"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
         
         #=
         Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
