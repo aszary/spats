@@ -1091,7 +1091,9 @@ end
         # Step 1: Extract base directory 
         base_name = basename(base_dir)
        
-    
+   
+        println(output_subdir)
+
         # Step 2: Create output subdirectory
         output_subdir = joinpath(output_dir, base_name)
         if !isdir(output_subdir)
