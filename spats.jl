@@ -1164,17 +1164,17 @@ end
                 bin_end -= 1
                 println("Adjusted onpulse range: $bin_st to $bin_end")
             end
-            #=p["bin_st"] = bin_st
+            p["bin_st"] = bin_st
             p["bin_end"] = bin_end
             println("Found onpulse range: $bin_st to $bin_end")
-            =#Tools.save_params(params_file, p)
+            Tools.save_params(params_file, p)
         println("Parameters updated and saved to $params_file")
         end
-        
+        #=
         p["bin_st"] = bin_st
         p["bin_end"] = bin_end
         println("Saving updated bin_st=$(bin_st), bin_end=$(bin_end)")
-        Tools.save_params(params_file, p)
+        Tools.save_params(params_file, p) =#
 
 
     
