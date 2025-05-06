@@ -1092,10 +1092,10 @@ end
         base_name = basename(base_dir)
        
    
-        println(output_subdir)
 
         # Step 2: Create output subdirectory
         output_subdir = joinpath(output_dir, base_name)
+        println(output_subdir)
         if !isdir(output_subdir)
             mkpath(output_subdir)
             println("Created output directory: ", output_subdir)
