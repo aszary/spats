@@ -59,7 +59,7 @@ module SpaTs
             end
         end
     
-        threshold = 0.05 * max_rms_value
+        threshold = 0.3 * max_rms_value
     
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt" 
@@ -93,9 +93,9 @@ module SpaTs
         
         combined_data = vcat(data1, data2, data3, data4)
     
-        Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=300, bin_end=700, start=1, name_mod="J1414-6802", show_=true)
+        Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1414-6802", show_=true)
         #Plot.average(combined_data, vpmout; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
-        Plot.lrfs(combined_data, vpmout; darkness=0.1, start=1, name_mod="J1414-6802", bin_st=300, bin_end=700, show_=true)
+        Plot.lrfs(combined_data, vpmout; darkness=0.1, start=1, name_mod="J1414-6802", bin_st=400, bin_end=600, show_=true)
         #folded = Tools.p3fold(combined_data, 20, 40)
         #Plot.single(folded, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
     end
@@ -123,9 +123,9 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
         num_files = 4  # lub inna liczba plików, które chcesz przetworzyć
-        #repuls(vpmout, num_files)
+        repuls(vpmout, num_files)
         #test(vpmout)
-        test2(vpmout)
+        #test2(vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
 
     end
