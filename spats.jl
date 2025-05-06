@@ -1150,9 +1150,8 @@ end
         combined_data = Data.load_ascii(out_txt)
 
         output_debase = read(debased_file, String)
-        
-        println(output_debase)
 
+       
         # Extract onpulse values
         m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
 
@@ -1169,15 +1168,15 @@ end
             p["bin_st"] = bin_st
             p["bin_end"] = bin_end
             println("Found onpulse range: $bin_st to $bin_end")
-            Tools.save_params(params_file, p)
-        println("Parameters updated and saved to $params_file")
+            
         end
         #=
         p["bin_st"] = bin_st
         p["bin_end"] = bin_end
         println("Saving updated bin_st=$(bin_st), bin_end=$(bin_end)")
         Tools.save_params(params_file, p) =#
-
+        Tools.save_params(params_file, p)
+        println("Parameters updated and saved to $params_file")
 
     
         # Step 10: Plot
