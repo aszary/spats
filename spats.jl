@@ -1001,7 +1001,7 @@ module SpaTs
     # TODO zakres pulsów do rysowania (pobrany z JSON)
    
 
-
+#=
 
 function J0820Mac(outdir)
     params_file = "params.json"
@@ -1067,6 +1067,7 @@ function J0820Mac(outdir)
     Plot.average(data, outdir;bin_st=p["bin_st"],bin_end=p["bin_end"],number=nothing,name_mod="J0820Mac",show_=true)
 end
 
+=#
 
 
 
@@ -1085,7 +1086,6 @@ end
 
 
 
-#=
     
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory 
@@ -1207,7 +1207,7 @@ end
         process_all_catalogues(output_dir, "/home/psr/data/new")
     end
     
- =#
+ 
 
     
     
@@ -1228,8 +1228,8 @@ end
         =#
 
         #test(vpmout)
-        J0820Mac(vpmout)
-        #J0034Mac(vpmout)
+        #J0820Mac(vpmout)
+        J0034Mac(vpmout)
         #mkieth()
         #J1651()
         #J1705()
