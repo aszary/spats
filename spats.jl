@@ -1150,16 +1150,13 @@ end
         # Step 9: Load combined data
         combined_data = Data.load_ascii(out_txt)
 
-        output_debase = read(debased_file, String)
-        println("TUUUUU")
-        println(output_debase)
-        println("TUUUUU")
+        #output_debase = read(debased_file, String)
 
         # Extract onpulse values
         #m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
         #=p["bin_st"] = bin_st
         p["bin_end"] = bin_end=#
-        m = match(r"-onpulse '(\d+) (\d+)'", output_debase)
+        m = match(r"-onpulse '(\d+) (\d+)'", output)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
             #p["bin_st"] = bin_st
