@@ -2087,8 +2087,8 @@ module Tools
         p = Dict(
             "nfft" => 256,
             "_nfft" => "Set size of fft's [default=256]",
-            "bin_st" => nothing,
-            "bin_end" => nothing,
+            "bin_st" => 1,
+            "bin_end" => 1024,
             "pulse_start" => 1,
             "pulse_end" => 150,
             "nsubint" => nothing,
