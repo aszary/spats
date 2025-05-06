@@ -1154,10 +1154,13 @@ end
        
         # Extract onpulse values
         m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
-
+        p["bin_st"] = bin_st
+        p["bin_end"] = bin_end
         #m = match(r"-onpulse '(\d+) (\d+)'", output_debase)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
+            p["bin_st"] = bin_st
+            p["bin_end"] = bin_end
 
             # Ensure onpulse region length is even
             region_length = bin_end - bin_st + 1
@@ -1166,9 +1169,9 @@ end
                 bin_end -= 1
                 println("Adjusted onpulse range: $bin_st to $bin_end")
             end
-            p.bin_st = bin_st
-            p.bin_end = bin_end
-            println("Found onpulse range: $bin_st to $bin_end")
+            #=p["bin_st"] = bin_st
+            p["bin_end"] = bin_end
+            println("Found onpulse range: $bin_st to $bin_end")=#
             
         end
        
