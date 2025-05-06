@@ -1157,7 +1157,6 @@ end
             bin_st, bin_end = parse.(Int, m.captures)
             # Ensure onpulse region length is even
             region_length = bin_end - bin_st + 1
-            println("JESTEM TU LUDZI TŁUM")
             if region_length % 2 != 0
                 println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
                 bin_end -= 1
