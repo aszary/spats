@@ -1107,7 +1107,7 @@ end
         #Step 3.5 Check if already processed
         if isdir(output_subdir) && isfile(joinpath(output_subdir, "p.json"))
             println("Skipping already processed catalogue: $base_name")
-            #return
+            return
         end
         
         println(params_file)
