@@ -1153,10 +1153,10 @@ end
 
        
         # Extract onpulse values
-        m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
-        p["bin_st"] = bin_st
-        p["bin_end"] = bin_end
-        #m = match(r"-onpulse '(\d+) (\d+)'", output_debase)
+        #m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
+        #=p["bin_st"] = bin_st
+        p["bin_end"] = bin_end=#
+        m = match(r"-onpulse '(\d+) (\d+)'", output_debase)
         if !isnothing(m)
             bin_st, bin_end = parse.(Int, m.captures)
             p["bin_st"] = bin_st
