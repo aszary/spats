@@ -122,7 +122,7 @@ module SpaTs
     function main()
         # output directory for VPM
         vpmout = "/home/psr/output/"
-        num_files = 4  # lub inna liczba plików, które chcesz przetworzyć
+        num_files = 2  # lub inna liczba plików, które chcesz przetworzyć
         repuls(vpmout, num_files)
         #test(vpmout)
         #test2(vpmout)
