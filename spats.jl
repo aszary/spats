@@ -59,7 +59,7 @@ module SpaTs
             end
         end
     
-        threshold = 0.0 * max_rms_value
+        threshold = 0.3 * max_rms_value
     
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt" 
@@ -123,9 +123,9 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
         num_files = 4  # lub inna liczba plików, które chcesz przetworzyć
-        #repuls(vpmout, num_files)
+        repuls(vpmout, num_files)
         #test(vpmout)
-        test2(vpmout)
+        #test2(vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
 
     end
