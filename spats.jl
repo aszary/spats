@@ -1090,7 +1090,7 @@ end
     function process_psrfit_files(base_dir::String, output_dir::String; name_mod::Union{String, Nothing}=nothing)
         # Step 1: Extract base directory 
         base_name = basename(base_dir)
-        params_file = "params.json"
+       
     
         # Step 2: Create output subdirectory
         output_subdir = joinpath(output_dir, base_name)
