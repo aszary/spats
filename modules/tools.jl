@@ -2063,9 +2063,9 @@ module Tools
     end
 
 
-    function save_params(filename, params)
+    function save_params(filename, p)
         open(filename, "w") do file
-            JSON.print(file, params)
+            JSON.print(file, p)
         end
     end
 
@@ -2075,9 +2075,9 @@ module Tools
     """
     function read_params(filename)
         f = open(filename, "r")
-        params = JSON.parse(f)
+        p = JSON.parse(f)
         close(f)
-        return params
+        return p
     end
 
     """
@@ -2087,8 +2087,8 @@ module Tools
         p = Dict(
             "nfft" => 256,
             "_nfft" => "Set size of fft's [default=256]",
-            "bin_st" => 550,
-            "bin_end" => 999,
+            "bin_st" => nothing,
+            "bin_end" => nothing,
             "pulse_start" => 1,
             "pulse_end" => 150,
             "nsubint" => nothing,
