@@ -1151,8 +1151,10 @@ end
         combined_data = Data.load_ascii(out_txt)
 
         output_debase = read(debased_file, String)
+        println("TUUUUU")
+        println(output_debase)
+        println("TUUUUU")
 
-       
         # Extract onpulse values
         #m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
         #=p["bin_st"] = bin_st
