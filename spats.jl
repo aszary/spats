@@ -88,10 +88,10 @@ module SpaTs
     
         data1 = Data.load_ascii(vpmout * "1_zmiany.txt")
         data2 = Data.load_ascii(vpmout * "2_zmiany.txt")
-        data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
-        data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
+        #data3 = Data.load_ascii(vpmout * "3_zmiany.txt")
+        #data4 = Data.load_ascii(vpmout * "4_zmiany.txt")
         
-        combined_data = vcat(data1, data2, data3, data4)
+        combined_data = vcat(data1, data2)
     
         Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1414-6802", show_=true)
         #Plot.average(combined_data, vpmout; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
