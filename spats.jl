@@ -1208,7 +1208,6 @@ end
             base_name = basename(catalogue)  # Extract directory name
             println("Processing catalogue: ", base_name)
             process_psrfit_files(catalogue, output_dir, name_mod=base_name * "Mac")
-            return # TODO remove
         end
     end
     
