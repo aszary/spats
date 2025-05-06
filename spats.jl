@@ -59,7 +59,7 @@ module SpaTs
             end
         end
     
-        threshold = 0.3 * max_rms_value
+        threshold = 0.0 * max_rms_value
     
         for i in 1:num_files
             infile = "$(vpmout)$(i).txt" 
