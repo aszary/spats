@@ -1107,14 +1107,13 @@ end
         #Step 3.5 Check if already processed
         if isdir(output_subdir) && isfile(joinpath(output_subdir, "p.json"))
             println("Skipping already processed catalogue: $base_name")
-            return
+            #return
         end
         
         println(params_file)
         
         p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
 
-        return
 
         # Step 4: Find second-level catalogue
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
@@ -1125,7 +1124,6 @@ end
         Data.sort!(spcf_files)
 
         converted_txt_files = String[]
-
 
         #step 6: combining .spCF into one 
         output_file = joinpath(output_subdir, "converted.spCF")
@@ -1211,6 +1209,7 @@ end
             base_name = basename(catalogue)  # Extract directory name
             println("Processing catalogue: ", base_name)
             process_psrfit_files(catalogue, output_dir, name_mod=base_name * "Mac")
+            return # TODO remove
         end
     end
     
