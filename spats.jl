@@ -1111,10 +1111,10 @@ end
         end
         
         println(params_file)
-        return
         
         p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
 
+        return
 
         # Step 4: Find second-level catalogue
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
