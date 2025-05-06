@@ -1165,10 +1165,10 @@ end
             p["bin_st"] = bin_st
             p["bin_end"] = bin_end
             println("Found onpulse range: $bin_st to $bin_end")
+            Tools.save_params(params_file, p)
+        println("Parameters updated and saved to $params_file")
         end
 
-        Tools.save_params(params_file, p)
-        println("Parameters updated and saved to $params_file")
     
         # Step 10: Plot
         Plot.single(combined_data, output_subdir; darkness=0.5, bin_st=p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
