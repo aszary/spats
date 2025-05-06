@@ -94,10 +94,10 @@ module SpaTs
         combined_data = vcat(data1, data2, data3, data4)
     
         Plot.single(combined_data, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
-        Plot.average(combined_data, vpmout; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
-        Plot.lrfs(combined_data, vpmout; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
-        folded = Tools.p3fold(combined_data, 20, 40)
-        Plot.single(folded, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
+        #Plot.average(combined_data, vpmout; number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319", show_=true)
+        #Plot.lrfs(combined_data, vpmout; darkness=0.1, start=1, name_mod="J1319", bin_st=400, bin_end=600, show_=true)
+        #folded = Tools.p3fold(combined_data, 20, 40)
+        #Plot.single(folded, vpmout; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
     end
     
     
