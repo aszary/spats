@@ -1150,6 +1150,8 @@ end
         combined_data = Data.load_ascii(out_txt)
 
         output_debase = read(debased_file, String)
+        
+        println(output_debase)
 
         # Extract onpulse values
         m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
