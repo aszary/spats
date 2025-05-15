@@ -187,8 +187,8 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
         wspace=0.05, hspace=0.05)
 
     axMain = fig.add_subplot(gs[1, 1])
-    axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)
-    axTop = fig.add_subplot(gs[0, 1], sharex=axMain)
+    #axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)
+    #axTop = fig.add_subplot(gs[0, 1], sharex=axMain)
 
     axTop.xaxis.set_tick_params(labelbottom=false)
     axLeft.yaxis.set_tick_params(labelleft=false)
