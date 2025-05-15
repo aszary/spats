@@ -165,7 +165,7 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
     end
 
     n_bins, n_subints = size(data)
-    data = data'
+    data = data'  # Transpozycja: teraz (subints, bins)
 
     # Skalowanie jak w pplot.c
     data_min = minimum(data)
@@ -178,24 +178,6 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
         new_min, new_max = data_min, data_max
     end
 
-    profile_P3 = sum(data, dims=2)[:,1]
-    profile_P2 = sum(data, dims=1)[1,:]
-
-    fig = figure(figsize=(8, 8))
-    gs = matplotlib[:gridspec][:GridSpec](2, 2,
-    width_ratios=[0.2, 1.0],
-    height_ratios=[0.2, 1.0],
-    wspace=0.05, hspace=0.05)
-
-    axMain = fig.add_subplot(gs[1, 1])
-    axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)
-    axTop  = fig.add_subplot(gs[0, 1], sharex=axMain)
-
-
-
-    axTop.xaxis.set_tick_params(labelbottom=false)
-    axLeft.yaxis.set_tick_params(labelleft=false)
-
     p2_min = -n_bins / 2
     p2_max = n_bins / 2 - 1
     p3_min = 0.0
@@ -203,6 +185,8 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
 
     x_vals = LinRange(p2_min, p2_max, n_bins)
     y_vals = LinRange(p3_min, p3_max, n_subints)
+
+    fig, axMain = subplots(figsize=(6, 5))
 
     im = axMain.imshow(data;
         cmap="gray_r",
@@ -213,13 +197,6 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
     )
 
     colorbar(im, ax=axMain, label="Power", shrink=0.9)
-
-    axLeft.plot(profile_P3, y_vals, color="black", lw=1.5)
-    axLeft.set_xlabel("Power")
-
-    axTop.fill_between(x_vals, 0, profile_P2, facecolor="lightgray", edgecolor="black", alpha=0.5)
-    axTop.plot(x_vals, profile_P2, color="black", lw=1.5)
-    axTop.set_ylabel("Power")
 
     axMain.set_xlabel("fluctuation frequency (cycles/period)")
     axMain.set_ylabel("fluctuation frequency (cycles/period)")
@@ -235,6 +212,7 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
         close(fig)
     end
 end
+
 
 
 
