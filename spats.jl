@@ -165,42 +165,42 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
     end
 
     n_bins, n_subints = size(data)
-    data = data'  # Transpozycja: teraz (subints, bins)
+    data = data'  # Transponujemy: (subints, bins)
 
-    # Skalowanie jak w pplot.c
-    data_min = minimum(data)
-    data_max = maximum(data)
-    scale = 1.0
+    # === Skalowanie ręczne jak w pplot.c ===
+    dmin = minimum(data)
+    dmax = maximum(data)
+    scale  = 1.0
     scale2 = 0.0
-    new_min = data_min + (data_max - data_min) * scale2
-    new_max = data_min + (data_max - data_min) / scale
-    if new_max <= new_min
-        new_min, new_max = data_min, data_max
+    vmin = dmin + (dmax - dmin) * scale2
+    vmax = dmin + (dmax - dmin) / scale
+    if vmax <= vmin
+        vmin, vmax = dmin, dmax
     end
 
+    # === Zakresy osi ===
     p2_min = -n_bins / 2
     p2_max = n_bins / 2 - 1
     p3_min = 0.0
     p3_max = 0.5
 
-    x_vals = LinRange(p2_min, p2_max, n_bins)
-    y_vals = LinRange(p3_min, p3_max, n_subints)
+    fig, ax = subplots(figsize=(7, 6))
 
-    fig, axMain = subplots(figsize=(6, 5))
-
-    im = axMain.imshow(data;
-        cmap="gray_r",
-        norm=matplotlib[:colors][:Normalize](vmin=new_min, vmax=new_max),
-        origin="lower",
+    img = ax.imshow(data;
         extent=[p2_min, p2_max, p3_min, p3_max],
-        aspect="auto"
+        origin="lower",
+        aspect="auto",
+        cmap="gray_r",
+        vmin=vmin,
+        vmax=vmax
     )
 
-    colorbar(im, ax=axMain, label="Power", shrink=0.9)
+    cbar = colorbar(img, ax=ax)
+    cbar.set_label("Power")
 
-    axMain.set_xlabel("fluctuation frequency (cycles/period)")
-    axMain.set_ylabel("fluctuation frequency (cycles/period)")
-    fig.suptitle("2DFS – $pulsar_name")
+    ax.set_xlabel("fluctuation frequency (cycles/period)")
+    ax.set_ylabel("fluctuation frequency (cycles/period)")
+    ax.set_title("2DFS – $pulsar_name")
 
     savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
     savefig(savepath)
@@ -212,6 +212,7 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
         close(fig)
     end
 end
+
 
 
 
