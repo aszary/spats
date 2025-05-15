@@ -165,49 +165,38 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
     end
 
     n_bins, n_subints = size(data)
-    data = data'  # Transpozycja, teraz (n_subints, n_bins)
+    data = data'  # Transponujemy: (subints, bins)
 
-    # === Skalowanie danych jak w pplot.c ===
-    dmin = minimum(data)
-    dmax = maximum(data)
-    scale  = 1.0
-    scale2 = 0.0
-    vmin = dmin + (dmax - dmin) * scale2
-    vmax = dmin + (dmax - dmin) / scale
-    if vmax <= vmin
-        vmin, vmax = dmin, dmax
-    end
+    # === Zakresy osi ===
+    pulse_longitude = LinRange(160.0, 200.0, n_bins)    # Oś X: długość impulsu
+    fluct_freq = LinRange(0.0, 0.5, n_subints)          # Oś Y: częstotliwość fluktuacji (P/P3)
 
-    # === Zakresy osi zgodnie z pplot.c ===
-    p2 = LinRange(-n_bins/2, n_bins/2 - 1, n_bins)  # P2 (poziomo)
-    p3 = LinRange(0.0, 0.5, n_subints)             # P3 (pionowo)
+    # === Parametry mapy kolorów ===
+    vmin = 0.0
+    vmax = 0.07
 
-    # === Tworzenie figury ===
     fig, ax = subplots(figsize=(7, 6))
 
     im = ax.imshow(data;
-        extent=[minimum(p2), maximum(p2), minimum(p3), maximum(p3)],
+        extent=[160, 200, 0.0, 0.5],
         origin="lower",
-        aspect="auto",            # dopasuj do danych, nie kwadrat
-        cmap="gray_r",            # odwrócona jasna skala (jak inverted heat)
+        aspect="auto",
+        cmap="gray_r",
         vmin=vmin,
         vmax=vmax
     )
 
-    # === Oś X ===
-    ax.set_xlabel("P2 (cycles per period)")
-    ax.set_xlim(minimum(p2), maximum(p2))
-
-    # === Oś Y ===
-    ax.set_ylabel("P3 (cycles per period)")
-    ax.set_ylim(minimum(p3), maximum(p3))
-
-    # === Tytuł i pasek kolorów ===
+    # === Opisy osi i tytuł ===
+    ax.set_xlabel("Pulse longitude (deg)")
+    ax.set_ylabel("Fluctuation frequency (P/P₃)")
     ax.set_title("2DFS – $pulsar_name")
+
+    # === Pasek kolorów ===
     cbar = colorbar(im, ax=ax)
     cbar.set_label("Power")
+    cbar.set_ticks([0.0, 0.02, 0.04, 0.06])
 
-    # === Zapis i wyświetlenie ===
+    # === Zapis i/lub wyświetlenie ===
     savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
     savefig(savepath, dpi=150)
     println("✅ 2DFS plot saved to: $savepath")
@@ -218,6 +207,7 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
         close(fig)
     end
 end
+
 
 
 
