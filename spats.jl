@@ -138,6 +138,12 @@ end
 
 
 
+function process_psrdata(indir, outdir)
+        p = Data.process_psrdata(indir, outdir)
+        folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
+        Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="test", show_=true, repeat_num=4)
+        
+    end
 
 
 
@@ -153,8 +159,9 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
-
+        #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        
         
 
 
