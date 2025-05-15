@@ -183,8 +183,9 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
 
     fig = figure(figsize=(8, 8))
     gs = matplotlib[:gridspec][:GridSpec](2, 2,
-        width_ratios=[1, 4], height_ratios=[1, 4],
-        wspace=0.05, hspace=0.05)
+    width_ratios=[0.3, 1.0], height_ratios=[0.3, 1.0],
+    wspace=0.05, hspace=0.05)
+
 
     axMain = fig.add_subplot(gs[1, 1])
     axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)
