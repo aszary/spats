@@ -187,8 +187,8 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
         wspace=0.05, hspace=0.05)
 
     axMain = fig.add_subplot(gs[1, 1])
-    #axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)
-    #axTop = fig.add_subplot(gs[0, 1], sharex=axMain)
+    axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)
+    axTop = fig.add_subplot(gs[0, 1], sharex=axMain)
 
     axTop.xaxis.set_tick_params(labelbottom=false)
     axLeft.yaxis.set_tick_params(labelleft=false)
@@ -211,12 +211,12 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
 
     colorbar(im, ax=axMain, label="Power", shrink=0.9)
 
-    #axLeft.plot(profile_P3, y_vals, color="black", lw=1.5)
-    #axLeft.set_xlabel("Power")
+    axLeft.plot(profile_P3, y_vals, color="black", lw=1.5)
+    axLeft.set_xlabel("Power")
 
-    #axTop.fill_between(x_vals, 0, profile_P2, facecolor="lightgray", edgecolor="black", alpha=0.5)
-    #axTop.plot(x_vals, profile_P2, color="black", lw=1.5)
-    #axTop.set_ylabel("Power")
+    axTop.fill_between(x_vals, 0, profile_P2, facecolor="lightgray", edgecolor="black", alpha=0.5)
+    axTop.plot(x_vals, profile_P2, color="black", lw=1.5)
+    axTop.set_ylabel("Power")
 
     axMain.set_xlabel("fluctuation frequency (cycles/period)")
     axMain.set_ylabel("fluctuation frequency (cycles/period)")
