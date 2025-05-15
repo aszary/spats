@@ -189,7 +189,7 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
         extent=[minimum(p2), maximum(p2), minimum(p3), maximum(p3)],
         origin="lower",
         aspect="auto",            # dopasuj do danych, nie kwadrat
-        cmap="gray_r",            # odwrócona jasna skala (jak inverted heat)
+        cmap="gray",            # odwrócona jasna skala (jak inverted heat)
         vmin=vmin,
         vmax=vmax
     )
