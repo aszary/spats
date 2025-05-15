@@ -67,7 +67,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
 
                         if isa(col_data, AbstractArray) && ndims(col_data) == 2 && eltype(col_data) <: Number
-                            println("  Found 2D numeric column '$name' in HDU $i")
+                            println("  ✅ Found 2D numeric column '$name' in HDU $i")
                             data = col_data
                             break
                         end
@@ -85,7 +85,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
 
         if data === nothing
-            println(" No suitable 2D data found in FITS file.")
+            println("❌ No suitable 2D data found in FITS file.")
             close(f)
             return
         end
@@ -118,7 +118,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
         savepath = joinpath(outdir, "2dfs_" * pulsar_name * ".png")
         savefig(savepath)
-        println(" 2DFS plot saved to: $savepath")
+        println("✅ 2DFS plot saved to: $savepath")
 
 
         if show_plot
@@ -129,7 +129,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
 
 
     catch e
-        println(" Error handling FITS file: $e")
+        println("❌ Error handling FITS file: $e")
         if f !== nothing
             close(f)
         end
@@ -138,176 +138,44 @@ end
 
 
 
-function read_2dfs_file(filename::String)
-    println("Reading 2DFS FITS file: $filename")
+
+
+
+   
+
     
-    # Check if file exists
-    if !isfile(filename)
-        error("File does not exist: $filename")
+    
+    
+    function main()
+        # output directory for local run
+        localout = "output"
+        # output directory for VPM
+        vpmout = "/home/psr/output/"
+        indir = "/home/psr/data/"
+
+        plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+
+        
+
+
     end
-    
-    # Open the FITS file
-    fits = FITS(filename)
-    
-    try
-        # Get the first HDU (primary array)
-        hdu = fits[1]
-        
-        # Read the data
-        data = read(hdu)
-        
-        # Get header information
-        header = read_header(hdu)
-        
-        # Extract dimensions from header
-        NrBins = get(header, "NAXIS1", nothing)
-        NrSubints = get(header, "NAXIS2", nothing)
-        
-        if NrBins === nothing || NrSubints === nothing
-            # Try to get dimensions from data shape
-            if data !== nothing
-                NrBins, NrSubints = size(data)
-            else
-                error("Could not determine dimensions from header or data")
-            end
+
+    function parse_commandline()
+        s = ArgParseSettings()
+        @add_arg_table! s begin
+            "--indir", "-i"
+                help = "input directory"
+                default = "input"
+            "--outdir", "-o"
+                help = "output directory"
+                default = "output"
+            "--plot", "-p"
+                help = "plots to create"
+                default = []
+                nargs = '*'
         end
-        
-        # Extract other parameters from header
-        fft_size = get(header, "FFT_SIZE", nothing)
-        
-        # Get on-pulse region information
-        onpulse_left = get(header, "ONPULSE_LEFT", nothing)
-        onpulse_right = get(header, "ONPULSE_RIGHT", nothing)
-        
-        # Print information for debugging
-        println("\nFile Information:")
-        println("Data type: ", typeof(data))
-        println("Data shape: ", size(data))
-        println("NrBins: $NrBins")
-        println("NrSubints: $NrSubints")
-        println("FFT size: ", fft_size)
-        println("On-pulse region: ", onpulse_left, " to ", onpulse_right)
-        
-        return (data, NrBins, NrSubints, fft_size, onpulse_left, onpulse_right)
-        
-    catch e
-        println("\nError reading 2DFS FITS file:")
-        println(e)
-        println("\nHeader contents:")
-        if haskey(locals(), :header)
-            for (key, value) in header
-                println("$key: $value")
-            end
-        end
-        rethrow()
-    finally
-        # Close the file
-        close(fits)
+        return parse_args(s)
     end
-end
-
-function analyze_fits_file(filename::String)
-    println("Analyzing FITS file: $filename")
-    
-    # Check if file exists
-    if !isfile(filename)
-        println("Error: File does not exist")
-        return
-    end
-    
-    # Open the FITS file
-    fits = FITS(filename)
-    
-    try
-        # Get number of HDUs
-        println("\nNumber of HDUs: ", length(fits))
-        
-        # Analyze each HDU
-        for (i, hdu) in enumerate(fits)
-            println("\n=== HDU $i ===")
-            
-            # Print header information
-            header = read_header(hdu)
-            println("\nHeader Keywords:")
-            
-            # Try different ways to access header
-            try
-                # Try to access as dictionary
-                for (key, value) in pairs(header)
-                    println("$key: $value")
-                end
-            catch e1
-                try
-                    # Try to access as array of tuples
-                    for (key, value) in header
-                        println("$key: $value")
-                    end
-                catch e2
-                    println("Could not iterate over header: ")
-                    println(e2)
-                    # Try to print individual keys
-                    println("\nAvailable header keys:")
-                    println("SIMPLE: ", header["SIMPLE"])
-                    println("BITPIX: ", header["BITPIX"])
-                    println("NAXIS: ", header["NAXIS"])
-                    println("NAXIS1: ", header["NAXIS1"])
-                    println("NAXIS2: ", header["NAXIS2"])
-                    println("EXTEND: ", header["EXTEND"])
-                    println("BZERO: ", header["BZERO"])
-                    println("BSCALE: ", header["BSCALE"])
-                end
-            end
-            
-            # Print data information if available
-            try
-                data = read(hdu)
-                println("\nData Information:")
-                println("Data type: ", typeof(data))
-                println("Data size: ", size(data))
-                println("Data shape: ", size(data))
-                println("Data element type: ", eltype(data))
-                
-                # Print some statistics if numeric data
-                if isa(data, AbstractArray) && eltype(data) <: Number
-                    println("\nData Statistics:")
-                    println("Min value: ", minimum(data))
-                    println("Max value: ", maximum(data))
-                    println("Mean value: ", mean(data))
-                    println("Standard deviation: ", std(data))
-                end
-            catch e
-                println("\nNo data in this HDU or error reading data:")
-                println(e)
-            end
-        end
-    catch e
-        println("\nError analyzing FITS file:")
-        println(e)
-    finally
-        # Close the file
-        close(fits)
-    end
-end
-
-function main()
-    # output directory for local run
-    localout = "output"
-    # output directory for VPM
-    vpmout = "/home/psr/output/"
-    indir = "/home/psr/data/"
-
-    # Read the 2DFS file
-    data, NrBins, NrSubints, fft_size, onpulse_left, onpulse_right = read_2dfs_file(vpmout * "/pulsar.debase.1.2dfs")
-
-    println("\n2DFS File Information:")
-    println("Number of bins: $NrBins")
-    println("Number of sub-integrations: $NrSubints")
-    println("FFT size: $fft_size")
-    println("On-pulse region: $onpulse_left to $onpulse_right")
-
-    #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
-end
-
 
 end # module
 
