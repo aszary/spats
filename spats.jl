@@ -145,6 +145,94 @@ function process_psrdata(indir, outdir)
         
     end
 
+function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+
+    if !isfile(filepath)
+        println("❌ File does not exist: $filepath")
+        return
+    end
+
+    println("✅ Reading 2DFS from: $filepath")
+
+    f = FITS(filepath)
+    data = read(f[4], "DATA")
+    close(f)
+
+    if data === nothing
+        println("❌ No suitable 2D data found in 2DFS.")
+        return
+    end
+
+    n_bins, n_subints = size(data)
+    data = data'
+
+    # Skalowanie jak w pplot.c
+    data_min = minimum(data)
+    data_max = maximum(data)
+    scale = 1.0
+    scale2 = 0.0
+    new_min = data_min + (data_max - data_min) * scale2
+    new_max = data_min + (data_max - data_min) / scale
+    if new_max <= new_min
+        new_min, new_max = data_min, data_max
+    end
+
+    profile_P3 = sum(data, dims=2)[:,1]
+    profile_P2 = sum(data, dims=1)[1,:]
+
+    fig = figure(figsize=(8, 8))
+    gs = matplotlib[:gridspec][:GridSpec](2, 2,
+        width_ratios=[1, 4], height_ratios=[1, 4],
+        wspace=0.05, hspace=0.05)
+
+    axMain = fig.add_subplot(gs[1, 1])
+    axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)
+    axTop = fig.add_subplot(gs[0, 1], sharex=axMain)
+
+    axTop.xaxis.set_tick_params(labelbottom=false)
+    axLeft.yaxis.set_tick_params(labelleft=false)
+
+    p2_min = -n_bins / 2
+    p2_max = n_bins / 2 - 1
+    p3_min = 0.0
+    p3_max = 0.5
+
+    x_vals = LinRange(p2_min, p2_max, n_bins)
+    y_vals = LinRange(p3_min, p3_max, n_subints)
+
+    im = axMain.imshow(data;
+        cmap="gray_r",
+        norm=matplotlib[:colors][:Normalize](vmin=new_min, vmax=new_max),
+        origin="lower",
+        extent=[p2_min, p2_max, p3_min, p3_max],
+        aspect="auto"
+    )
+
+    colorbar(im, ax=axMain, label="Power", shrink=0.9)
+
+    axLeft.plot(profile_P3, y_vals, color="black", lw=1.5)
+    axLeft.set_xlabel("Power")
+
+    axTop.fill_between(x_vals, 0, profile_P2, facecolor="lightgray", edgecolor="black", alpha=0.5)
+    axTop.plot(x_vals, profile_P2, color="black", lw=1.5)
+    axTop.set_ylabel("Power")
+
+    axMain.set_xlabel("fluctuation frequency (cycles/period)")
+    axMain.set_ylabel("fluctuation frequency (cycles/period)")
+    fig.suptitle("2DFS – $pulsar_name")
+
+    savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+    savefig(savepath)
+    println("✅ 2DFS plot saved to: $savepath")
+
+    if show_plot
+        show()
+    else
+        close(fig)
+    end
+end
+
 
 
    
@@ -160,9 +248,9 @@ function process_psrdata(indir, outdir)
         indir = "/home/psr/data/"
 
         #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
-        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         
-        
+        Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
 
 
     end
