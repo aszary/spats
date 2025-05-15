@@ -181,7 +181,7 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
         extent=[160, 200, 0.0, 0.5],
         origin="lower",
         aspect="auto",
-        cmap="gray_r",
+        cmap="gray",
         vmin=vmin,
         vmax=vmax
     )
