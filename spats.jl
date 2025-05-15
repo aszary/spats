@@ -183,13 +183,15 @@ function Plot_2dfs_zmiany(outdir::String, pulsar_name::String; show_plot::Bool=t
 
     fig = figure(figsize=(8, 8))
     gs = matplotlib[:gridspec][:GridSpec](2, 2,
-    width_ratios=[0.3, 1.0], height_ratios=[0.3, 1.0],
+    width_ratios=[0.2, 1.0],
+    height_ratios=[0.2, 1.0],
     wspace=0.05, hspace=0.05)
-
 
     axMain = fig.add_subplot(gs[1, 1])
     axLeft = fig.add_subplot(gs[1, 0], sharey=axMain)
-    axTop = fig.add_subplot(gs[0, 1], sharex=axMain)
+    axTop  = fig.add_subplot(gs[0, 1], sharex=axMain)
+
+
 
     axTop.xaxis.set_tick_params(labelbottom=false)
     axLeft.yaxis.set_tick_params(labelleft=false)
