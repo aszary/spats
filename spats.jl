@@ -584,7 +584,7 @@ function Plot_ostateczny_simple(outdir::String, pulsar_name::String, period::Flo
         vmin=0.0,
         vmax= 0.0003
     )
-    im.set_clim(0.0, 0.07)
+    #im.set_clim(0.0, 0.07)
 
 
     ax.set_xlabel("Pulse longitude (degrees)")
