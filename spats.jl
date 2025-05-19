@@ -473,9 +473,13 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
     close(f)
 
     println("🔍 Dostępne klucze w nagłówku HDU #4:")
-    for (k, v) in hdr
-        println("KEY: $(repr(k)) => $(repr(v))")
+    for i in 1:length(hdr)
+        card = hdr[i]
+        key = FITSIO.cardkey(card)
+        val = FITSIO.cardval(card)
+        println("KEY: $(repr(key)) => $(repr(val))")
     end
+
 
     # Get period P from header
     if haskey(hdr, "PERIOD")
