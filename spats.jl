@@ -4,7 +4,7 @@ module SpaTs
     using JSON
     using FITSIO
     using PyPlot
-    @pyimport matplotlib.colors as mcolors
+    const mcolors = pyimport("matplotlib.colors")
     using FFTW
     using Statistics
 
