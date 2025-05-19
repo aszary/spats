@@ -477,15 +477,14 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         println("KEY: ", key, " => ", hdr[key])
     end
 
-    # Pobierz nazwy kolumn w HDU #4
-    colnames = collect(keys(f[4].cols))
+    # Próba pobrania listy kolumn HDU #4
+    colnames = [col.name for col in f[4].columns]
     println("🔍 Dostępne kolumny w HDU #4:")
     println(colnames)
 
-    # Sprawdź, czy jest kolumna "PERIOD" i odczytaj ją
     if "PERIOD" in colnames
         period_col = getcolumn(f[4], "PERIOD")
-        P = mean(period_col)  # jeśli wiele wartości, weź średnią
+        P = mean(period_col)
         println("✅ PERIOD znaleziony jako kolumna: ", P)
     else
         println("❌ PERIOD nie znaleziony jako kolumna.")
@@ -493,7 +492,6 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         return
     end
 
-    # Odczytaj kolumnę DATA
     if "DATA" in colnames
         data_col = getcolumn(f[4], "DATA")
     else
@@ -556,6 +554,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
 
     println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
+
 
 
 
