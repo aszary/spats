@@ -210,6 +210,58 @@ end
 
 
 
+function Plot_2DFS_from_pspec(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    # ścieżka do pliku wygenerowanego przez pspec
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+
+    # wczytanie danych 2DFS
+    f = FITS(filepath)
+    data = read(f[4], "DATA")       # tabela HDU 4, kolumna DATA
+    close(f)
+    data = data'                    # transpozycja: (subints, bins)
+
+    # rozmiary
+    n_bins, n_subints = size(data)
+
+    # zakresy osi
+    x0, x1 = 160.0, 200.0
+    y0, y1 = 0.0, 0.5
+
+    # rysunek
+    fig, ax = subplots(figsize=(7,6))
+
+    im = ax.imshow(
+        data;
+        extent=[x0, x1, y0, y1],
+        origin="lower",
+        aspect="auto",
+        cmap="gray_r",    # invertowana skala szarości
+        vmin=0.0,
+        vmax=0.07         # maks. 0.07
+    )
+
+    # etykiety i tytuł
+    ax.set_xlabel("Pulse longitude (deg)")
+    ax.set_ylabel("Fluctuation frequency (P/P₃)")
+    ax.set_title("2DFS – $pulsar_name")
+
+    # pasek kolorów
+    cbar = colorbar(im, ax=ax)
+    cbar.set_label("Power")
+    cbar.set_ticks(0:0.02:0.06)
+
+    # zapis
+    savepath = joinpath(outdir, pulsar_name, "2dfs_"*pulsar_name*".png")
+    savefig(savepath, dpi=150)
+
+    # show / close
+    if show_plot
+        show()
+    else
+        close(fig)
+    end
+end
+
 
 
 
@@ -229,7 +281,8 @@ end
         #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         
-        Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
+        #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
+        Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
 
 
     end
