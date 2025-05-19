@@ -480,14 +480,15 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         println("KEY: $(repr(key)) => $(repr(val))")
     end
 
-
-    # Get period P from header
-    if haskey(hdr, "PERIOD")
-        P = parse(Float64, hdr["PERIOD"])
-    else
-        println("❌ PERIOD not found in FITS header.")
-        return
+    P = nothing
+    for i in 1:length(hdr)
+        if strip(String(FITSIO.cardkey(hdr[i]))) == "PERIOD"
+            P = parse(Float64, FITSIO.cardval(hdr[i]))
+            break
+        end
     end
+
+
 
     # Transpose data for plotting (match [longitude, frequency])
     data = data'
