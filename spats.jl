@@ -329,6 +329,85 @@ end
 
 
    
+function Plot_2dfs_zmiany_pplot2(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    if !isfile(filepath)
+        println("❌ File does not exist: $filepath")
+        return
+    end
+
+    println("🔍 Reading 2DFS from: $filepath")
+    f = FITS(filepath)
+    data = read(f[4], "DATA")
+    close(f)
+
+    data = data'  # transpozycja (129, 92)
+
+    # Konwersja na float
+    dataf = Float64.(data)
+
+    # Wybór regionu (binów) do wyświetlenia
+    NBIN = 512
+    left_bin = 160
+    right_bin = 200
+    n_region = right_bin - left_bin + 1
+
+    # Sprawdź czy region mieści się w wymiarach danych
+    n_bins = size(dataf, 2)
+    if right_bin > n_bins || left_bin < 1
+        println("⚠️ Region out of bounds danych, ustawiam pełny zakres kolumn")
+        left_bin = 1
+        right_bin = n_bins
+    end
+
+    # Przytnij dane do regionu
+    dataf_region = dataf[:, left_bin:right_bin]
+
+    # Zamień wartości ≤ 0 na małą wartość dla LogNorm
+    dataf_region[dataf_region .<= 0] .= 1e-10
+
+    # Wyznacz zakres normy logarytmicznej
+    vmin = maximum([minimum(dataf_region[dataf_region .> 0]), 1e-10])
+    vmax = maximum(dataf_region)
+
+    println("Zakres LogNorm: vmin=$vmin, vmax=$vmax")
+
+    # Osie
+    p2min = -NBIN / 2
+    p2max = p2min + NBIN * n_region / NBIN
+
+    p3min = 0.0
+    p3max = 0.5
+
+    fig, ax = subplots(figsize=(7,6))
+
+    im = ax.imshow(dataf_region;
+        extent=[p2min, p2max, p3min, p3max],
+        origin="lower",
+        aspect="auto",
+        cmap="gray",
+        norm=matplotlib[:colors][:LogNorm](vmin=vmin, vmax=vmax)
+    )
+
+    ax.set_xlabel("Pulse longitude (deg)")
+    ax.set_ylabel("Fluctuation frequency (P/P₃)")
+    ax.set_title("2DFS – $pulsar_name")
+
+    cbar = colorbar(im, ax=ax)
+    cbar.set_label("Power")
+    # Automatycznie można ustawić ticki lub zostawić domyślne
+    cbar.set_ticks([vmin, (vmin+vmax)/2, vmax])
+
+    savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
+    savefig(savepath, dpi=150)
+    println("✅ 2DFS plot saved to: $savepath")
+
+    if show_plot
+        show()
+    else
+        close(fig)
+    end
+end
 
     
     
@@ -345,8 +424,8 @@ end
         
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
-        #Plot_2dfs_zmiany_pplot("/home/psr/output", "J1919+0134", show_plot=true)
-        Check_2dfs_file("/home/psr/output", "J1919+0134")
+        Plot_2dfs_zmiany_pplot2("/home/psr/output", "J1919+0134", show_plot=true)
+        #Check_2dfs_file("/home/psr/output", "J1919+0134")
 
     end
 
