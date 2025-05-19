@@ -581,7 +581,7 @@ function Plot_ostateczny_simple(outdir::String, pulsar_name::String, period::Flo
         extent=[minimum(pulse_longitudes), maximum(pulse_longitudes),
                 minimum(P_over_P3[2:end]), maximum(P_over_P3[2:end])],
         cmap="gray_r",
-        vmin=97.0,
+        vmin=99.5,
         vmax= 100.0
     )
     #im.set_clim(0.0, 0.07)
