@@ -296,10 +296,11 @@ function detailed_check_fits(outdir::String, pulsar_name::String)
     for (i, hdu) in enumerate(f)
         println("\n--- HDU #$i ---")
         hdr = read_header(hdu)
-        keys = keys(hdr)
-        for k in keys
-            v = hdr[k]
-            println("$k = $v")
+        cards = header_cards(hdr)
+        for card in cards
+            # card to krotka (klucz, wartość, komentarz)
+            k, v, c = card
+            println("$k = $v ; $c")
         end
     end
 
@@ -335,6 +336,7 @@ function detailed_check_fits(outdir::String, pulsar_name::String)
 
     println("\n✅ Sprawdzenie zakończone.")
 end
+
 
 
 
