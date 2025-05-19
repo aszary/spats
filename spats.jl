@@ -472,6 +472,11 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
     data = read(f[4], "DATA")
     close(f)
 
+    println("🔍 Dostępne klucze w nagłówku HDU #4:")
+    for (k, v) in hdr
+        println("KEY: $(repr(k)) => $(repr(v))")
+    end
+
     # Get period P from header
     if haskey(hdr, "PERIOD")
         P = parse(Float64, hdr["PERIOD"])
