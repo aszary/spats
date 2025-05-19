@@ -220,10 +220,11 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
 
     # 2. Wczytanie nagłówka i parametrów regionu
     f = FITS(filepath)
-    hdr = readheader(f[4])
-    NBIN      = parse(Int, hdr["NBIN"])
-    left_bin  = parse(Int, hdr["LEFT_BIN"])
-    right_bin = parse(Int, hdr["RIGHT_BIN"])
+    hdu = f[4]
+    NBIN      = parse(Int, read_key(hdu, "NBIN"))
+    left_bin  = parse(Int, read_key(hdu, "LEFT_BIN"))
+    right_bin = parse(Int, read_key(hdu, "RIGHT_BIN"))
+
     # opcjonalnie, jeśli masz VAR_RMS_2DFS w nagłówku:
     #vrms = parse(Float64, hdr["VAR_RMS_2DFS"])
     close(f)
