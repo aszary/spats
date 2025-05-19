@@ -471,10 +471,9 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
     f = FITS(filepath)
 
     hdr = read_header(f[4])
-    
-    # Odczytujemy kolumny: PERIOD i DATA
-    period_col = readcols(f[4], "PERIOD")
-    data_col = readcols(f[4], "DATA")
+
+    # Odczytujemy całą tabelę (tablica NamedTuple)
+    table_data = read(f[4])
 
     close(f)
 
@@ -483,14 +482,19 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         println("KEY: ", key, " => ", hdr[key])
     end
 
-    if length(period_col) == 0
-        println("❌ PERIOD nie znaleziony lub pusta kolumna.")
+    # Pobieramy kolumnę PERIOD
+    if !haskey(table_data[1], :PERIOD)
+        println("❌ PERIOD nie znaleziony w danych tabeli.")
         return
     end
-    P = period_col[1]
-    println("✅ PERIOD znaleziony w kolumnie: ", P)
 
-    # Dane DATA są prawdopodobnie wektorami Int32 lub Float32 (92 elementy na wiersz)
+    P = table_data[1][:PERIOD]
+    println("✅ PERIOD znaleziony w tabeli: ", P)
+
+    # Pobieramy kolumnę DATA (to będzie wektor wektorów)
+    data_col = [row[:DATA] for row in table_data]
+
+    # Zamiana na macierz Float64: wiersze = subint, kolumny = 92 biny
     nrows = length(data_col)
     ncols = length(data_col[1])
     data = zeros(Float64, nrows, ncols)
@@ -498,7 +502,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         data[i, :] = Float64.(data_col[i])
     end
 
-    data = data'  # transpozycja: [y, x]
+    data = data'  # transpozycja
 
     n_y, n_x = size(data)
     pulse_longitudes = range(0, stop=360, length=n_x)
