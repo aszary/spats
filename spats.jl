@@ -328,8 +328,7 @@ end
 
 
 
-   
-function Plot_2dfs_zmiany_pplot2(outdir::String, pulsar_name::String; show_plot::Bool=true)
+function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=true)
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
         println("❌ File does not exist: $filepath")
@@ -342,7 +341,6 @@ function Plot_2dfs_zmiany_pplot2(outdir::String, pulsar_name::String; show_plot:
     close(f)
 
     data = data'  # transpozycja
-
     dataf = Float64.(data)
 
     NBIN = 512
@@ -350,22 +348,13 @@ function Plot_2dfs_zmiany_pplot2(outdir::String, pulsar_name::String; show_plot:
     right_bin = 200
     n_region = right_bin - left_bin + 1
 
-    n_bins = size(dataf, 2)
-    if right_bin > n_bins || left_bin < 1
-        println("⚠️ Region out of bounds danych, ustawiam pełny zakres kolumn")
-        left_bin = 1
-        right_bin = n_bins
-        n_region = right_bin - left_bin + 1
-    end
-
     dataf_region = dataf[:, left_bin:right_bin]
 
-    dataf_region[dataf_region .<= 0] .= 1e-10
+    # Zamiana zer i ujemnych na minimalną dodatnią
+    dataf_region[dataf_region .<= 0] .= 1e-6
 
-    vmin = maximum([minimum(dataf_region[dataf_region .> 0]), 1e-10])
+    vmin = minimum(dataf_region)
     vmax = maximum(dataf_region)
-
-    println("Zakres LogNorm: vmin=$vmin, vmax=$vmax")
 
     p2min = -NBIN / 2
     p2max = p2min + NBIN * n_region / NBIN
@@ -380,8 +369,9 @@ function Plot_2dfs_zmiany_pplot2(outdir::String, pulsar_name::String; show_plot:
         origin="lower",
         aspect="auto",
         cmap="gray",
-        interpolation="nearest",
-        norm=matplotlib[:colors][:LogNorm](vmin=vmin, vmax=vmax)
+        vmin=vmin,
+        vmax=vmax
+        # bez interpolation i norm
     )
 
     ax.set_xlabel("Pulse longitude (deg)")
@@ -403,8 +393,6 @@ function Plot_2dfs_zmiany_pplot2(outdir::String, pulsar_name::String; show_plot:
     end
 end
 
-end
-
     
     
     
@@ -420,7 +408,7 @@ end
         
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
-        Plot_2dfs_zmiany_pplot2("/home/psr/output", "J1919+0134", show_plot=true)
+        Plot_2dfs_simple("/home/psr/output", "J1919+0134", show_plot=true)
         #Check_2dfs_file("/home/psr/output", "J1919+0134")
 
     end
