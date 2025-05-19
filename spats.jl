@@ -580,9 +580,9 @@ function Plot_ostateczny_simple(outdir::String, pulsar_name::String, period::Flo
         aspect="auto",
         extent=[minimum(pulse_longitudes), maximum(pulse_longitudes),
                 minimum(P_over_P3[2:end]), maximum(P_over_P3[2:end])],
-        cmap="gray_r",
+        cmap="gray",
         vmin=0.0,
-        vmax= 500
+        vmax= 5000
     )
     #im.set_clim(0.0, 0.07)
 
