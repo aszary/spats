@@ -581,9 +581,11 @@ function Plot_ostateczny_simple(outdir::String, pulsar_name::String, period::Flo
         extent=[minimum(pulse_longitudes), maximum(pulse_longitudes),
                 minimum(P_over_P3[2:end]), maximum(P_over_P3[2:end])],
         cmap="gray",
-        vmin=1.0,
-        vmax= 2.0
+        vmin=0.0,
+        vmax= 1.0
     )
+    im.set_clim(0.0, 0.07)
+
 
     ax.set_xlabel("Pulse longitude (degrees)")
     ax.set_ylabel("Fluctuation frequency (P/P3)")
