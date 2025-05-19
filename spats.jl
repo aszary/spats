@@ -468,53 +468,51 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         return
     end
 
+    println("🔍 Reading 2DFS from: $filepath")
     f = FITS(filepath)
-
     hdr = read_header(f[4])
-
-    # Odczytujemy całą tabelę (tablica NamedTuple)
-    table_data = read(f[4])
-
-    close(f)
 
     println("🔍 Dostępne klucze w nagłówku HDU #4:")
     for key in keys(hdr)
         println("KEY: ", key, " => ", hdr[key])
     end
 
-    # Pobieramy kolumnę PERIOD
-    if !haskey(table_data[1], :PERIOD)
-        println("❌ PERIOD nie znaleziony w danych tabeli.")
+    if haskey(hdr, "PERIOD")
+        P = hdr["PERIOD"]
+        println("✅ PERIOD znaleziony: ", P)
+    else
+        println("❌ PERIOD nie znaleziony w nagłówku.")
+        close(f)
         return
     end
 
-    P = table_data[1][:PERIOD]
-    println("✅ PERIOD znaleziony w tabeli: ", P)
+    # Pobierz kolumnę DATA z HDU #4 (TableHDU) - getcolumn działa poprawnie
+    data_col = getcolumn(f[4], "DATA")
+    close(f)
 
-    # Pobieramy kolumnę DATA (to będzie wektor wektorów)
-    data_col = [row[:DATA] for row in table_data]
-
-    # Zamiana na macierz Float64: wiersze = subint, kolumny = 92 biny
     nrows = length(data_col)
     ncols = length(data_col[1])
     data = zeros(Float64, nrows, ncols)
+
     for i in 1:nrows
-        data[i, :] = Float64.(data_col[i])
+        data[i, :] .= Float64.(data_col[i])
     end
 
     data = data'  # transpozycja
 
     n_y, n_x = size(data)
+
     pulse_longitudes = range(0, stop=360, length=n_x)
     fluct_freqs = range(0, stop=0.5, length=n_y)
     P_over_P3 = P ./ fluct_freqs
-    P_over_P3[1] = NaN  # unikamy dzielenia przez zero
+    P_over_P3[1] = NaN
 
     x_indices = findall(x -> 160 <= x <= 200, pulse_longitudes)
     if isempty(x_indices)
         println("❌ No pulse longitude values found in the range 160–200°.")
         return
     end
+
     cropped_data = data[:, x_indices]
     cropped_longitudes = pulse_longitudes[x_indices]
 
