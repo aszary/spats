@@ -506,13 +506,12 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
     cropped_longitudes = pulse_longitudes[x_indices]
 
     # Import PyPlot only inside the function (optional)
-    using PyPlot
+   
 
     # Create figure and axis
     fig, ax = subplots()
 
     # Define custom grayscale colormap from white (0) to black (0.07)
-    using Colors
     cmap = get_cmap("gray")  # standard grayscale: white (1) to black (0)
     
     # Plot with imshow
