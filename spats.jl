@@ -426,7 +426,7 @@ end
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2dfs_simple("/home/psr/output", "J1919+0134", show_plot=true)
         #Check_2dfs_file("/home/psr/output", "J1919+0134")
-        detailed_check_fits("/home/psr/output/J1919+0134", "J1919+0134")
+        detailed_check_fits("/home/psr/output", "J1919+0134")
 
     end
 
