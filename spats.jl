@@ -371,7 +371,7 @@ function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=t
         extent=[p2min, p2max, p3min, p3max],
         origin="lower",
         aspect="auto",
-        cmap="gray",
+        cmap="gray_r",
         vmin=vmin,
         vmax=vmax
     )
