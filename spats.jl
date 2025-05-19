@@ -472,15 +472,10 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
     f = FITS(filepath)
     hdr = read_header(f[4])
 
-    println("🔍 Dostępne klucze w nagłówku HDU #4:")
-    for key in keys(hdr)
-        println("KEY: ", key, " => ", hdr[key])
-    end
-
     println("✅ Używany okres (period) z argumentu: ", period)
 
     try
-        data_col = getcolumn(f[4], "DATA")
+        data_col = read(f[4], "DATA")
     catch e
         println("❌ Błąd przy odczycie kolumny DATA: ", e)
         close(f)
@@ -489,17 +484,11 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
 
     close(f)
 
-    nrows = length(data_col)
-    ncols = length(data_col[1])
-    data = zeros(Float64, nrows, ncols)
+    data = data_col'  # transpozycja
+    dataf = Float64.(data)
 
-    for i in 1:nrows
-        data[i, :] .= Float64.(data_col[i])
-    end
-
-    data = data'  # transpozycja
-
-    n_y, n_x = size(data)
+    # dalej operacje na dataf jak w Twoim wcześniejszym kodzie
+    n_y, n_x = size(dataf)
 
     pulse_longitudes = range(0, stop=360, length=n_x)
     fluct_freqs = range(0, stop=0.5, length=n_y)
@@ -512,7 +501,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
         return
     end
 
-    cropped_data = data[:, x_indices]
+    cropped_data = dataf[:, x_indices]
     cropped_longitudes = pulse_longitudes[x_indices]
 
     fig, ax = subplots()
@@ -541,7 +530,6 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
 
     println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
-
 
 
 
