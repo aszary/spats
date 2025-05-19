@@ -231,9 +231,9 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
     println("Czy są Inf: ", any(isinf, data))
 
     # Zamień 0 lub NaN na minimalną wartość, aby LogNorm działał
-    #data_clean = copy(data)
-    #data_clean[isnan.(data_clean)] .= 1e-10
-    #data_clean[data_clean .<= 0] .= 1e-10
+    data_clean = copy(data)
+    data_clean[isnan.(data_clean)] .= 1e-10
+    data_clean[data_clean .<= 0] .= 1e-10
 
     NBIN = 512
     left_bin = 160
