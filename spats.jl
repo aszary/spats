@@ -281,6 +281,50 @@ end
 
 
 
+function Check_2dfs_file(outdir::String, pulsar_name::String)
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    if !isfile(filepath)
+        println("❌ File does not exist: $filepath")
+        return
+    end
+
+    println("🔍 Reading 2DFS from: $filepath")
+    f = FITS(filepath)
+    data = read(f[4], "DATA")
+    close(f)
+
+    println("Wczytano dane o rozmiarze: ", size(data))
+    
+    # Transpozycja, aby mieć (n_p3, n_bins)
+    data = data'
+
+    println("Po transpozycji rozmiar: ", size(data))
+
+    # Typ danych
+    println("Typ danych: ", eltype(data))
+
+    # Statystyki podstawowe
+    println("Minimum: ", minimum(data))
+    println("Maximum: ", maximum(data))
+    println("Średnia: ", mean(data))
+    println("Mediana: ", median(data))
+
+    # Sprawdzenie NaN i Inf
+    nan_count = count(isnan, data)
+    inf_count = count(isinf, data)
+    println("Liczba NaN: ", nan_count)
+    println("Liczba Inf: ", inf_count)
+
+    # Dodatkowe info: liczba zer i wartości <= 0
+    zero_count = count(x -> x == 0, data)
+    leq_zero_count = count(x -> x <= 0, data)
+    println("Liczba zer: ", zero_count)
+    println("Liczba wartości <= 0: ", leq_zero_count)
+
+    # Kilka przykładowych wartości z danych (np. pierwszy wiersz i pierwsze 10 elementów)
+    println("Przykładowe wartości (pierwszy wiersz, pierwsze 10 elementów):")
+    println(data[1, 1:min(10, size(data,2))])
+end
 
 
 
@@ -301,7 +345,8 @@ end
         
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
-        Plot_2dfs_zmiany_pplot("/home/psr/output", "J1919+0134", show_plot=true)
+        #Plot_2dfs_zmiany_pplot("/home/psr/output", "J1919+0134", show_plot=true)
+        Check_2dfs_file("/home/psr/output", "J1919+0134")
 
     end
 
