@@ -4,6 +4,7 @@ module SpaTs
     using JSON
     using FITSIO
     using PyPlot
+    @pyimport matplotlib.colors as mcolors
     using FFTW
     using Statistics
 
