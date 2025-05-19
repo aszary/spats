@@ -282,7 +282,6 @@ end
 
 
 function detailed_check_fits(outdir::String, pulsar_name::String)
-    using FITSIO, Statistics
     
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
