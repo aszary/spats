@@ -344,20 +344,23 @@ function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=t
     dataf = Float64.(data)
 
     NBIN = 512
-    left_bin = 160
-    right_bin = 200
+
+    # Dopasuj indeksy do rozmiaru danych
+    left_bin = 1
+    right_bin = size(dataf, 2)
+
     n_region = right_bin - left_bin + 1
 
     dataf_region = dataf[:, left_bin:right_bin]
 
     # Zamiana zer i ujemnych na minimalną dodatnią
-    dataf_region[dataf_region .<= 0] .= 1e-6
+    dataf_region[dataf_region .<= 0] .= 1e-10
 
     vmin = minimum(dataf_region)
     vmax = maximum(dataf_region)
 
     p2min = -NBIN / 2
-    p2max = p2min + NBIN * n_region / NBIN
+    p2max = p2min + n_region  # dokładnie n_region na osi x
 
     p3min = 0.0
     p3max = 0.5
@@ -371,7 +374,6 @@ function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=t
         cmap="gray",
         vmin=vmin,
         vmax=vmax
-        # bez interpolation i norm
     )
 
     ax.set_xlabel("Pulse longitude (deg)")
@@ -392,6 +394,7 @@ function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=t
         close(fig)
     end
 end
+
 
     
     
