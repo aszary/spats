@@ -468,7 +468,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
 
     # Load FITS file and read HDU 4 (contains the 2DFS data)
     f = FITS(filepath)
-    hdr = read_header(f[1])
+    hdr = read_header(f[4])
     data = read(f[4], "DATA")
     close(f)
 
