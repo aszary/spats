@@ -282,6 +282,7 @@ end
 
 
 function detailed_check_fits(outdir::String, pulsar_name::String)
+    using FITSIO, Statistics
     
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
@@ -296,12 +297,13 @@ function detailed_check_fits(outdir::String, pulsar_name::String)
     for (i, hdu) in enumerate(f)
         println("\n--- HDU #$i ---")
         hdr = read_header(hdu)
-        for (k, v) in hdr
+        keys = keys(hdr)
+        for k in keys
+            v = hdr[k]
             println("$k = $v")
         end
     end
 
-    # Weź dane z 4 HDU (jak w oryginalnym kodzie)
     println("\n🔍 Reading DATA from HDU #4")
     data = read(f[4], "DATA")
     close(f)
@@ -318,7 +320,6 @@ function detailed_check_fits(outdir::String, pulsar_name::String)
     println("Liczba zer: ", count(x -> x == 0, data))
     println("Liczba wartości <= 0: ", count(x -> x <= 0, data))
 
-    # Próbka danych: pierwsze 5 wierszy, pierwsze 10 kolumn
     nrows = min(5, size(data,1))
     ncols = min(10, size(data,2))
     println("\nPróbka danych (pierwsze $nrows wierszy i $ncols kolumn):")
@@ -326,11 +327,8 @@ function detailed_check_fits(outdir::String, pulsar_name::String)
         println(data[r, 1:ncols])
     end
 
-    # Transpozycja danych
     data_t = data'
     println("\nPo transpozycji rozmiar: ", size(data_t))
-
-    # Próbka danych po transpozycji: pierwsze 5 wierszy i 10 kolumn
     println("\nPróbka danych po transpozycji (pierwsze $nrows wierszy i $ncols kolumn):")
     for r in 1:nrows
         println(data_t[r, 1:ncols])
