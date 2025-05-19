@@ -474,6 +474,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
 
     println("✅ Używany okres (period) z argumentu: ", period)
 
+    # Pobieramy kolumnę DATA, jeśli błąd to wychodzimy z funkcji
     try
         data_col = read(f[4], "DATA")
     catch e
@@ -487,9 +488,8 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
     data = data_col'  # transpozycja
     dataf = Float64.(data)
 
-    # dalej operacje na dataf jak w Twoim wcześniejszym kodzie
+    # dalsza część funkcji korzysta z dataf
     n_y, n_x = size(dataf)
-
     pulse_longitudes = range(0, stop=360, length=n_x)
     fluct_freqs = range(0, stop=0.5, length=n_y)
     P_over_P3 = period ./ fluct_freqs
