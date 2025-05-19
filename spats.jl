@@ -225,10 +225,11 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
     # === Debug: wypisz nagłówki dostępne w HDU 4
     hdr = FITSIO.read_header(hdu)
     println("📋 Available header keys in HDU 4:")
-    for i in 1:length(hdr)
-        card = hdr[i]
-        println("   ", FITSIO.card_name(card), " = ", FITSIO.card_value(card))
+    for key in FITSIO.keys(hdu)
+        val = FITSIO.read_key(hdu, key)[1]
+        println("   $key = $val")
     end
+
 
 
 
