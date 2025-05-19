@@ -461,7 +461,7 @@ end
 
 
 
-function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=true)
+function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; show_plot::Bool=true)
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
         println("❌ File does not exist: $filepath")
@@ -477,16 +477,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         println("KEY: ", key, " => ", hdr[key])
     end
 
-    # Pobierz okres i dane bez sprawdzania listy kolumn
-    try
-        period_col = getcolumn(f[4], "PERIOD")
-        P = mean(period_col)
-        println("✅ PERIOD znaleziony jako kolumna: ", P)
-    catch e
-        println("❌ Błąd przy odczycie kolumny PERIOD: ", e)
-        close(f)
-        return
-    end
+    println("✅ Używany okres (period) z argumentu: ", period)
 
     try
         data_col = getcolumn(f[4], "DATA")
@@ -512,7 +503,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
 
     pulse_longitudes = range(0, stop=360, length=n_x)
     fluct_freqs = range(0, stop=0.5, length=n_y)
-    P_over_P3 = P ./ fluct_freqs
+    P_over_P3 = period ./ fluct_freqs
     P_over_P3[1] = NaN
 
     x_indices = findall(x -> 160 <= x <= 200, pulse_longitudes)
@@ -550,6 +541,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
 
     println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
+
 
 
 
@@ -596,11 +588,10 @@ end
 
         #Plot_ostateczny("/home/psr/output", "J1919+0134", show_plot=true)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        if check_period_column(joinpath(vpmout, "J1919+0134", "pulsar.debase.1.2dfs"))
-            println("✅ Kolumna PERIOD jest obecna w pliku.")
-        else
-            println("❌ Kolumna PERIOD NIE jest obecna w pliku.")
-        end
+        period_value = 1.6039332673478421  # Twoja znana wartość
+
+        Plot_ostateczny("/home/psr/output", "J1919+0134", period_value; show_plot=true)
+
 
 
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
