@@ -210,57 +210,76 @@ end
 
 
 
-function Plot_2DFS_from_pspec(outdir::String, pulsar_name::String; show_plot::Bool=true)
-    # ścieżka do pliku wygenerowanego przez pspec
+function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    # 1. Ścieżka do pliku 2DFS wygenerowanego przez pspec
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    if !isfile(filepath)
+        println("❌ File does not exist: $filepath")
+        return
+    end
 
-    # wczytanie danych 2DFS
+    # 2. Wczytanie nagłówka i parametrów regionu
     f = FITS(filepath)
-    data = read(f[4], "DATA")       # tabela HDU 4, kolumna DATA
+    hdr = readheader(f[4])
+    NBIN      = parse(Int, hdr["NBIN"])
+    left_bin  = parse(Int, hdr["LEFT_BIN"])
+    right_bin = parse(Int, hdr["RIGHT_BIN"])
+    # opcjonalnie, jeśli masz VAR_RMS_2DFS w nagłówku:
+    vrms = parse(Float64, hdr["VAR_RMS_2DFS"])
     close(f)
-    data = data'                    # transpozycja: (subints, bins)
 
-    # rozmiary
-    n_bins, n_subints = size(data)
+    # 3. Wczytanie macierzy DATA i transpozycja
+    f = FITS(filepath)
+    data = read(f[4], "DATA")   # wymiar (NBIN_region × Nfreq)
+    close(f)
+    data = data'                # teraz (Nfreq, NBIN_region)
 
-    # zakresy osi
-    x0, x1 = 160.0, 200.0
-    y0, y1 = 0.0, 0.5
+    n_region = right_bin - left_bin + 1
+    n_p3     = size(data, 1)
 
-    # rysunek
-    fig, ax = subplots(figsize=(7,6))
+    # 4. Obliczenie dokładnych granic P2
+    p2min = -NBIN/2
+    p2max = p2min + NBIN*(right_bin - left_bin)/(n_region)
 
-    im = ax.imshow(
-        data;
-        extent=[x0, x1, y0, y1],
+    # 5. Zakres P3
+    p3min = 0.0
+    p3max = 0.5
+
+    # 6. Rysunek
+    fig, ax = subplots(figsize=(7, 6))
+
+    im = ax.imshow(data;
+        extent=[p2min, p2max, p3min, p3max],
         origin="lower",
         aspect="auto",
-        cmap="gray",    # invertowana skala szarości
+        cmap="gray_r",
         vmin=0.0,
-        vmax=0.07         # maks. 0.07
+        vmax=0.07
     )
 
-    # etykiety i tytuł
+    # 7. Opisy osi i tytuł
     ax.set_xlabel("Pulse longitude (deg)")
     ax.set_ylabel("Fluctuation frequency (P/P₃)")
     ax.set_title("2DFS – $pulsar_name")
 
-    # pasek kolorów
+    # 8. Pasek kolorów
     cbar = colorbar(im, ax=ax)
     cbar.set_label("Power")
-    cbar.set_ticks(0:0.02:0.06)
+    cbar.set_ticks([0.0, 0.02, 0.04, 0.06])
 
-    # zapis
-    savepath = joinpath(outdir, pulsar_name, "2dfs_"*pulsar_name*".png")
+    # 9. Zapis do PNG
+    savepath = joinpath(outdir, pulsar_name, "2dfs_" * pulsar_name * ".png")
     savefig(savepath, dpi=150)
+    println("✅ 2DFS plot saved to: $savepath")
 
-    # show / close
+    # 10. Pokaz lub zamknięcie
     if show_plot
         show()
     else
         close(fig)
     end
 end
+
 
 
 
@@ -282,8 +301,8 @@ end
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
-        Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
-
+        #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
+        Plot_2dfs_zmiany_pplot("/home/psr/output", "J1919+0134", show_plot=true)
 
     end
 
