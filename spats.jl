@@ -472,7 +472,7 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        Plot_2dfs2 ("/home/psr/output", "J1919+0134", show_plot=true)
+        Plot_2dfs2("/home/psr/output", "J1919+0134", show_plot=true)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
