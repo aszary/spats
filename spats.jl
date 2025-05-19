@@ -404,6 +404,64 @@ function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=t
 end
 
 
+function Plot_2dfs2(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    # Ścieżka do pliku z danymi 2DFS
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    if !isfile(filepath)
+        println("❌ File does not exist: $filepath")
+        return
+    end
+
+    # Wczytaj dane z pliku, zakładam, że to zwykły tekst lub CSV z kolumnami
+    # np. kolumny: pulse_longitude, fluctuation_freq, power
+    # Dopasuj ten wczytanie do formatu twojego pliku, tutaj przykład CSV:
+
+    data = readdlm(filepath)
+
+    # Zakładam, że data ma 3 kolumny: pulse_longitude, fluctuation_freq, power
+    pulse_longitude = data[:,1]
+    fluctuation_freq = data[:,2]
+    power = data[:,3]
+
+    # Wytnij tylko pulse_longitude w zakresie 160 - 200
+    mask = (pulse_longitude .>= 160) .& (pulse_longitude .<= 200)
+
+    pulse_longitude_cut = pulse_longitude[mask]
+    fluctuation_freq_cut = fluctuation_freq[mask]
+    power_cut = power[mask]
+
+    # Teraz zrób wykres 2D (np. scatter albo heatmap)
+
+
+    # Jeżeli dane są siatką (np. regularnie ułożone), zrób meshgrid i imshow,
+    # jeżeli nie, można spróbować scatter (mniej ładne)
+    # Zakładam siatkę (należy to dostosować do formatu danych):
+    unique_pulse = unique(pulse_longitude_cut)
+    unique_freq = unique(fluctuation_freq_cut)
+    
+    # Stwórz macierz mocy do imshow:
+    power_mat = reshape(power_cut, length(unique_freq), length(unique_pulse))
+
+    pyplot()
+    fig, ax = plt.subplots()
+    c = ax.imshow(power_mat, 
+                  aspect="auto", 
+                  extent=[minimum(unique_pulse), maximum(unique_pulse), minimum(unique_freq), maximum(unique_freq)], 
+                  origin="lower", cmap="viridis")
+    ax.set_xlabel("Pulse Longitude (deg)")
+    ax.set_ylabel("Fluctuation Frequency (P/P3)")
+    ax.set_title("2DFS for $pulsar_name")
+    fig.colorbar(c, ax=ax, label="Power")
+
+    if show_plot
+        plt.show()
+    else
+        plt.close(fig)
+    end
+end
+
+
+
     
     
     
@@ -414,7 +472,7 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        #plot_2dfs("/home/psr/output", "J1919+0134", show_plot=true)
+        Plot_2dfs2 ("/home/psr/output", "J1919+0134", show_plot=true)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
