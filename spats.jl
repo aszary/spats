@@ -560,29 +560,25 @@ end
 
 function check_period_column(fits_path::String)
     f = FITS(fits_path)
-    hdr = read_header(f[4])
-    tf = get(hdr, "TFIELDS", 0)
-    period_col_index = 0
-
-    for i in 1:tf
-        key = "TTYPE$i"
-        if haskey(hdr, key) && hdr[key] == "PERIOD"
-            period_col_index = i
-            break
+    try
+        hdr = read_header(f[4])
+        tf = get(hdr, "TFIELDS", 0)
+        for i in 1:tf
+            key = "TTYPE$i"
+            if haskey(hdr, key) && hdr[key] == "PERIOD"
+                # Odczytaj kolumnę PERIOD
+                period_data = read(f[4], "PERIOD")
+                println("Wartości w kolumnie PERIOD:")
+                println(period_data)
+                close(f)
+                return true
+            end
         end
-    end
-
-    if period_col_index == 0
         close(f)
-        println("❌ Kolumna PERIOD nie znaleziona w pliku.")
         return false
-    else
-        # Odczytaj kolumnę PERIOD (indeksowana od 1)
-        period_data = read(f[4], period_col_index)
-        println("✅ Kolumna PERIOD znaleziona. Przykładowe wartości:")
-        println(period_data[1:min(end,10)])  # wypisz max 10 pierwszych wartości
+    catch e
         close(f)
-        return true
+        rethrow(e)
     end
 end
 
