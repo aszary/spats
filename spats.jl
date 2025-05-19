@@ -225,7 +225,7 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
     left_bin  = parse(Int, hdr["LEFT_BIN"])
     right_bin = parse(Int, hdr["RIGHT_BIN"])
     # opcjonalnie, jeśli masz VAR_RMS_2DFS w nagłówku:
-    vrms = parse(Float64, hdr["VAR_RMS_2DFS"])
+    #vrms = parse(Float64, hdr["VAR_RMS_2DFS"])
     close(f)
 
     # 3. Wczytanie macierzy DATA i transpozycja
