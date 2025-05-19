@@ -282,8 +282,6 @@ end
 
 
 function detailed_check_fits(outdir::String, pulsar_name::String)
-
-    
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
         println("❌ File does not exist: $filepath")
@@ -297,11 +295,7 @@ function detailed_check_fits(outdir::String, pulsar_name::String)
     for (i, hdu) in enumerate(f)
         println("\n--- HDU #$i ---")
         hdr = read_header(hdu)
-        
-        # Spróbuj przekonwertować nagłówek na kolekcję i wypisz
-        for card in collect(hdr)
-            println(card)
-        end
+        println(hdr)  # wypisujemy nagłówek jako tekst
     end
 
     println("\n🔍 Reading DATA from HDU #4")
@@ -336,6 +330,7 @@ function detailed_check_fits(outdir::String, pulsar_name::String)
 
     println("\n✅ Sprawdzenie zakończone.")
 end
+
 
 
 
