@@ -2,10 +2,11 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
-    using FITSIO
+    using FITSIO: cardkey, cardval
     using PyPlot
     using FFTW
     using Statistics
+
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
