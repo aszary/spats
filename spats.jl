@@ -404,59 +404,52 @@ function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=t
 end
 
 
+
 function Plot_2dfs2(outdir::String, pulsar_name::String; show_plot::Bool=true)
-    # Ścieżka do pliku z danymi 2DFS
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
         println("❌ File does not exist: $filepath")
         return
     end
 
-    # Wczytaj dane z pliku, zakładam, że to zwykły tekst lub CSV z kolumnami
-    # np. kolumny: pulse_longitude, fluctuation_freq, power
-    # Dopasuj ten wczytanie do formatu twojego pliku, tutaj przykład CSV:
+    lines = readlines(filepath)
+    data = Float64[]
+    for line in lines
+        # pomijamy puste linie
+        if isempty(strip(line))
+            continue
+        end
+        vals = split(strip(line))
+        for v in vals
+            push!(data, parse(Float64, v))
+        end
+    end
 
-    data = readdlm(filepath)
+    # zakładamy, że dane są prostokątną tablicą, wymiar trzeba znać z dokumentacji lub wywnioskować
+    # dla przykładu przyjmijmy 129 wierszy i 92 kolumn (jak HDU4 transpozycja)
+    nrows = 129
+    ncols = 92
+    if length(data) != nrows*ncols
+        println("⚠️ Warning: Unexpected data length: $(length(data)), expected $(nrows*ncols)")
+        return
+    end
 
-    # Zakładam, że data ma 3 kolumny: pulse_longitude, fluctuation_freq, power
-    pulse_longitude = data[:,1]
-    fluctuation_freq = data[:,2]
-    power = data[:,3]
+    arr = reshape(data, ncols, nrows)'  # transpozycja, aby mieć (129, 92)
 
-    # Wytnij tylko pulse_longitude w zakresie 160 - 200
-    mask = (pulse_longitude .>= 160) .& (pulse_longitude .<= 200)
+    # Oś X: Pulse longitude (deg), zakres od 160 do 200 stopni, linspace
+    x = range(160, stop=200, length=ncols)
+    # Oś Y: Fluctuation frequency (P/P3), zakładam liniowy zakres 0..0.5 (np)
+    y = range(0, stop=0.5, length=nrows)
 
-    pulse_longitude_cut = pulse_longitude[mask]
-    fluctuation_freq_cut = fluctuation_freq[mask]
-    power_cut = power[mask]
-
-    # Teraz zrób wykres 2D (np. scatter albo heatmap)
-
-
-    # Jeżeli dane są siatką (np. regularnie ułożone), zrób meshgrid i imshow,
-    # jeżeli nie, można spróbować scatter (mniej ładne)
-    # Zakładam siatkę (należy to dostosować do formatu danych):
-    unique_pulse = unique(pulse_longitude_cut)
-    unique_freq = unique(fluctuation_freq_cut)
-    
-    # Stwórz macierz mocy do imshow:
-    power_mat = reshape(power_cut, length(unique_freq), length(unique_pulse))
-
-    pyplot()
-    fig, ax = plt.subplots()
-    c = ax.imshow(power_mat, 
-                  aspect="auto", 
-                  extent=[minimum(unique_pulse), maximum(unique_pulse), minimum(unique_freq), maximum(unique_freq)], 
-                  origin="lower", cmap="viridis")
-    ax.set_xlabel("Pulse Longitude (deg)")
-    ax.set_ylabel("Fluctuation Frequency (P/P3)")
-    ax.set_title("2DFS for $pulsar_name")
-    fig.colorbar(c, ax=ax, label="Power")
-
+    figure()
+    imshow(arr, extent=(minimum(x), maximum(x), minimum(y), maximum(y)),
+           aspect="auto", origin="lower", cmap="viridis")
+    colorbar(label="Intensity")
+    xlabel("Pulse longitude (deg)")
+    ylabel("Fluctuation frequency (P/P3)")
+    title("2DFS plot for $pulsar_name")
     if show_plot
-        plt.show()
-    else
-        plt.close(fig)
+        show()
     end
 end
 
@@ -479,7 +472,7 @@ end
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2dfs_simple("/home/psr/output", "J1919+0134", show_plot=true)
         #Check_2dfs_file("/home/psr/output", "J1919+0134")
-        detailed_check_fits("/home/psr/output", "J1919+0134")
+        #detailed_check_fits("/home/psr/output", "J1919+0134")
 
     end
 
