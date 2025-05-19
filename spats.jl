@@ -477,25 +477,21 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         println("KEY: ", key, " => ", hdr[key])
     end
 
-    # Spróbuj pobrać nazwy kolumn
-    colnames = names(f[4])
-    println("🔍 Dostępne kolumny w HDU #4:")
-    println(colnames)
-
-    if "PERIOD" in colnames
+    # Pobierz okres i dane bez sprawdzania listy kolumn
+    try
         period_col = getcolumn(f[4], "PERIOD")
         P = mean(period_col)
         println("✅ PERIOD znaleziony jako kolumna: ", P)
-    else
-        println("❌ PERIOD nie znaleziony jako kolumna.")
+    catch e
+        println("❌ Błąd przy odczycie kolumny PERIOD: ", e)
         close(f)
         return
     end
 
-    if "DATA" in colnames
+    try
         data_col = getcolumn(f[4], "DATA")
-    else
-        println("❌ DATA nie znalezione w kolumnach.")
+    catch e
+        println("❌ Błąd przy odczycie kolumny DATA: ", e)
         close(f)
         return
     end
@@ -510,14 +506,14 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         data[i, :] .= Float64.(data_col[i])
     end
 
-    data = data'  # transpozycja danych
+    data = data'  # transpozycja
 
     n_y, n_x = size(data)
 
     pulse_longitudes = range(0, stop=360, length=n_x)
     fluct_freqs = range(0, stop=0.5, length=n_y)
     P_over_P3 = P ./ fluct_freqs
-    P_over_P3[1] = NaN  # unikamy dzielenia przez zero
+    P_over_P3[1] = NaN
 
     x_indices = findall(x -> 160 <= x <= 200, pulse_longitudes)
     if isempty(x_indices)
@@ -554,6 +550,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
 
     println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
+
 
 
 
