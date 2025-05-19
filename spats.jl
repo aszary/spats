@@ -461,100 +461,90 @@ end
 
 
 function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=true)
-    # Construct the path to the 2DFS FITS file
+    # Ścieżka do pliku
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
         println("❌ File does not exist: $filepath")
         return
     end
 
-    # Load FITS file and read HDU 4 (contains the 2DFS data)
+    # Odczytaj nagłówek i dane z HDU #4
     f = FITS(filepath)
     hdr = read_header(f[4])
     data = read(f[4], "DATA")
     close(f)
 
+    # Wypisz dostępne klucze
     println("🔍 Dostępne klucze w nagłówku HDU #4:")
-    for i in 1:length(hdr)
-        card = hdr[i]
-        key = FITSIO.cardkey(card)
-        val = FITSIO.cardval(card)
-        println("KEY: $(repr(key)) => $(repr(val))")
+    for key in keys(hdr)
+        println("KEY: ", key, " => ", hdr[key])
     end
 
-    P = nothing
-    for i in 1:length(hdr)
-        if strip(String(FITSIO.cardkey(hdr[i]))) == "PERIOD"
-            P = parse(Float64, FITSIO.cardval(hdr[i]))
-            break
-        end
+    # Pobierz PERIOD z nagłówka
+    if haskey(hdr, "PERIOD")
+        P = hdr["PERIOD"]
+        println("✅ PERIOD znaleziony: ", P)
+    else
+        println("❌ PERIOD nie znaleziony w nagłówku.")
+        return
     end
 
-
-
-    # Transpose data for plotting (match [longitude, frequency])
+    # Transpozycja danych: [y, x] = [fluct. freq, pulse longitude]
     data = data'
 
-    # Determine axis sizes
+    # Wymiary
     n_y, n_x = size(data)
 
-    # Pulse longitude typically spans 360 degrees
+    # Oś długości impulsu (0–360°)
     pulse_longitudes = range(0, stop=360, length=n_x)
 
-    # Fluctuation frequencies (P/P3) go from 0 to 0.5 cycles per period
+    # Oś częstotliwości fluktuacji (P/P3)
     fluct_freqs = range(0, stop=0.5, length=n_y)
     P_over_P3 = P ./ fluct_freqs
-    P_over_P3[1] = NaN  # avoid division by zero at 0 Hz
+    P_over_P3[1] = NaN  # unika dzielenia przez zero
 
-    # Filter longitude indices for 160 to 200 degrees
+    # Ogranicz zakres długości impulsu do 160–200°
     x_indices = findall(x -> 160 <= x <= 200, pulse_longitudes)
     if isempty(x_indices)
         println("❌ No pulse longitude values found in the range 160–200°.")
         return
     end
-
-    # Crop data and x-axis
     cropped_data = data[:, x_indices]
     cropped_longitudes = pulse_longitudes[x_indices]
 
-    # Import PyPlot only inside the function (optional)
-   
 
-    # Create figure and axis
+    # Wykres
     fig, ax = subplots()
 
-    # Define custom grayscale colormap from white (0) to black (0.07)
-    cmap = get_cmap("gray")  # standard grayscale: white (1) to black (0)
-    
-    # Plot with imshow
     im = ax.imshow(cropped_data;
         origin="lower",
         aspect="auto",
-        extent=[minimum(cropped_longitudes), maximum(cropped_longitudes), minimum(P_over_P3[2:end]), maximum(P_over_P3[2:end])],
+        extent=[minimum(cropped_longitudes), maximum(cropped_longitudes),
+                minimum(P_over_P3[2:end]), maximum(P_over_P3[2:end])],
         cmap="gray",
-        vmin=0.0, vmax=1.0  # initially full range
+        vmin=0.0,
+        vmax=1.0
     )
+    im.set_clim(0.0, 0.07)  # biel–czerń
 
-    # Overlay a clip from 0 to 0.07 for visualization
-    im.set_clim(0.0, 0.07)
-
-    # Axis labels and title
+    # Opisy osi i tytuł
     ax.set_xlabel("Pulse longitude (degrees)")
     ax.set_ylabel("Fluctuation frequency (P/P3)")
     ax.set_title("2DFS: $pulsar_name")
 
-    # Optional colorbar
+    # Colorbar
     colorbar(im, ax=ax, label="Intensity")
 
-    # Show or save
+    # Wyświetlenie lub zapis
     if show_plot
         show()
     else
         savefig(joinpath(outdir, pulsar_name, "$pulsar_name-2dfs.png"))
     end
 
-    println("✅ Plot generated for $pulsar_name.")
+    println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
+
 
 
 
