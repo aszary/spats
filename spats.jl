@@ -230,23 +230,25 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
     println("Czy są NaN: ", any(isnan, data))
     println("Czy są Inf: ", any(isinf, data))
 
-    # Zamień 0 lub NaN na minimalną wartość, aby LogNorm działał
+    # Tworzymy kopię danych do wyświetlenia
     data_clean = copy(data)
+    # Zamieniamy NaN i wartości ≤ 0 na małą wartość, by LogNorm działał
     data_clean[isnan.(data_clean)] .= 1e-10
     data_clean[data_clean .<= 0] .= 1e-10
 
+    # Parametry do skali wykresu (dopasuj do swoich danych)
     NBIN = 512
     left_bin = 160
     right_bin = 200
     n_region = right_bin - left_bin + 1
 
     p2min = -NBIN / 2
-    p2max = p2min + NBIN * n_region / NBIN   # uproszczenie: n_region
+    p2max = p2min + NBIN * n_region / NBIN  # p2min + n_region
 
     p3min = 0.0
     p3max = 0.5
 
-    fig, ax = subplots(figsize=(7,6))
+    fig, ax = subplots(figsize=(7, 6))
 
     im = ax.imshow(data_clean;
         extent=[p2min, p2max, p3min, p3max],
@@ -274,6 +276,7 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
         close(fig)
     end
 end
+
 
 
 
