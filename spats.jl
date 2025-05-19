@@ -477,8 +477,8 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         println("KEY: ", key, " => ", hdr[key])
     end
 
-    # Próba pobrania listy kolumn HDU #4
-    colnames = [col.name for col in f[4].columns]
+    # Spróbuj pobrać nazwy kolumn
+    colnames = names(f[4])
     println("🔍 Dostępne kolumny w HDU #4:")
     println(colnames)
 
@@ -554,6 +554,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
 
     println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
+
 
 
 
