@@ -2,7 +2,7 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
-    using FITSIO: cardkey, cardval
+    using FITSIO
     using PyPlot
     using FFTW
     using Statistics
