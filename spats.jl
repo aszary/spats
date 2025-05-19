@@ -458,6 +458,95 @@ function Plot_2dfs2(outdir::String, pulsar_name::String; show_plot::Bool=true)
 end
 
 
+function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=true)
+    # Construct the path to the 2DFS FITS file
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    if !isfile(filepath)
+        println("❌ File does not exist: $filepath")
+        return
+    end
+
+    # Load FITS file and read HDU 4 (contains the 2DFS data)
+    f = FITS(filepath)
+    hdr = read_header(f[1])
+    data = read(f[4], "DATA")
+    close(f)
+
+    # Get period P from header
+    if haskey(hdr, "PERIOD")
+        P = parse(Float64, hdr["PERIOD"])
+    else
+        println("❌ PERIOD not found in FITS header.")
+        return
+    end
+
+    # Transpose data for plotting (match [longitude, frequency])
+    data = data'
+
+    # Determine axis sizes
+    n_y, n_x = size(data)
+
+    # Pulse longitude typically spans 360 degrees
+    pulse_longitudes = range(0, stop=360, length=n_x)
+
+    # Fluctuation frequencies (P/P3) go from 0 to 0.5 cycles per period
+    fluct_freqs = range(0, stop=0.5, length=n_y)
+    P_over_P3 = P ./ fluct_freqs
+    P_over_P3[1] = NaN  # avoid division by zero at 0 Hz
+
+    # Filter longitude indices for 160 to 200 degrees
+    x_indices = findall(x -> 160 <= x <= 200, pulse_longitudes)
+    if isempty(x_indices)
+        println("❌ No pulse longitude values found in the range 160–200°.")
+        return
+    end
+
+    # Crop data and x-axis
+    cropped_data = data[:, x_indices]
+    cropped_longitudes = pulse_longitudes[x_indices]
+
+    # Import PyPlot only inside the function (optional)
+    using PyPlot
+
+    # Create figure and axis
+    fig, ax = subplots()
+
+    # Define custom grayscale colormap from white (0) to black (0.07)
+    using Colors
+    cmap = get_cmap("gray")  # standard grayscale: white (1) to black (0)
+    
+    # Plot with imshow
+    im = ax.imshow(cropped_data;
+        origin="lower",
+        aspect="auto",
+        extent=[minimum(cropped_longitudes), maximum(cropped_longitudes), minimum(P_over_P3[2:end]), maximum(P_over_P3[2:end])],
+        cmap="gray",
+        vmin=0.0, vmax=1.0  # initially full range
+    )
+
+    # Overlay a clip from 0 to 0.07 for visualization
+    im.set_clim(0.0, 0.07)
+
+    # Axis labels and title
+    ax.set_xlabel("Pulse longitude (degrees)")
+    ax.set_ylabel("Fluctuation frequency (P/P3)")
+    ax.set_title("2DFS: $pulsar_name")
+
+    # Optional colorbar
+    colorbar(im, ax=ax, label="Intensity")
+
+    # Show or save
+    if show_plot
+        show()
+    else
+        savefig(joinpath(outdir, pulsar_name, "$pulsar_name-2dfs.png"))
+    end
+
+    println("✅ Plot generated for $pulsar_name.")
+end
+
+
+
 
 
     
@@ -470,7 +559,7 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        Plot_2dfs2("/home/psr/output", "J1919+0134", show_plot=true)
+        Plot_ostateczny("/home/psr/output", "J1919+0134", show_plot=true)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
