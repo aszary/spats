@@ -217,56 +217,29 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
         return
     end
 
-    println("🔍 Reading 2DFS FITS: $filepath")
-
+    println("🔍 Reading 2DFS from: $filepath")
     f = FITS(filepath)
-    hdu = f[4]
-
-    # === Debug: wypisz nagłówki dostępne w HDU 4
-    hdr = FITSIO.read_header(hdu)
-    println("📋 Available header keys in HDU 4:")
-    for key in FITSIO.keys(hdu)
-        val = FITSIO.read_key(hdu, key)[1]
-        println("   $key = $val")
-    end
-
-
-
-
-
-    # === Spróbuj odczytać parametry z nagłówka
-    function try_read_key(hdu, keyname, default)
-        try
-            val = read_key(hdu, keyname)[1]
-            println("✅ Found $keyname = $val")
-            return val
-        catch
-            println("⚠️  $keyname not found – using default = $default")
-            return default
-        end
-    end
-
-    NBIN      = try_read_key(hdu, "NBIN", 512)
-    left_bin  = try_read_key(hdu, "LEFT_BIN", 160)
-    right_bin = try_read_key(hdu, "RIGHT_BIN", 200)
-
-    # === Wczytanie danych
-    data = read(hdu, "DATA")
+    data = read(f[4], "DATA")
     close(f)
-    data = data'   # transpozycja (n_p3, n_p2)
+
+    data = data'  # transpozycja: teraz (n_p3, n_bins)
+
+    # 🔧 Ustawienia ręczne (dopasuj do swoich danych!)
+    NBIN = 512
+    left_bin = 160
+    right_bin = 200
 
     n_region = right_bin - left_bin + 1
-    n_p3     = size(data, 1)
 
-    # === Obliczenie zakresu P2 zgodnie z pplot.c
+    # 📐 Oś X: pulse longitude (jak w pplot)
     p2min = -NBIN / 2
     p2max = p2min + NBIN * (right_bin - left_bin) / n_region
 
-    # === Zakres P3
+    # 📐 Oś Y: fluctuation frequency (0.0 – 0.5)
     p3min = 0.0
     p3max = 0.5
 
-    # === Rysowanie
+    # 🖼 Rysowanie wykresu
     fig, ax = subplots(figsize=(7, 6))
 
     im = ax.imshow(data;
