@@ -222,34 +222,39 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
     data = read(f[4], "DATA")
     close(f)
 
-    data = data'  # transpozycja: teraz (n_p3, n_bins)
+    data = data'  # transpozycja
 
-    # 🔧 Ustawienia ręczne (dopasuj do swoich danych!)
+    # Sprawdzenie danych
+    println("Dane min: ", minimum(data))
+    println("Dane max: ", maximum(data))
+    println("Czy są NaN: ", any(isnan, data))
+    println("Czy są Inf: ", any(isinf, data))
+
+    # Zamień 0 lub NaN na minimalną wartość, aby LogNorm działał
+    #data_clean = copy(data)
+    #data_clean[isnan.(data_clean)] .= 1e-10
+    #data_clean[data_clean .<= 0] .= 1e-10
+
     NBIN = 512
     left_bin = 160
     right_bin = 200
-
     n_region = right_bin - left_bin + 1
 
-    # 📐 Oś X: pulse longitude (jak w pplot)
     p2min = -NBIN / 2
-    p2max = p2min + NBIN * (right_bin - left_bin) / n_region
+    p2max = p2min + NBIN * n_region / NBIN   # uproszczenie: n_region
 
-    # 📐 Oś Y: fluctuation frequency (0.0 – 0.5)
     p3min = 0.0
     p3max = 0.5
 
-    # 🖼 Rysowanie wykresu
-    fig, ax = subplots(figsize=(7, 6))
+    fig, ax = subplots(figsize=(7,6))
 
-    im = ax.imshow(data;
+    im = ax.imshow(data_clean;
         extent=[p2min, p2max, p3min, p3max],
         origin="lower",
         aspect="auto",
         cmap="gray",
         norm=matplotlib[:colors][:LogNorm](vmin=1e-4, vmax=0.07)
     )
-
 
     ax.set_xlabel("Pulse longitude (deg)")
     ax.set_ylabel("Fluctuation frequency (P/P₃)")
@@ -269,6 +274,7 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
         close(fig)
     end
 end
+
 
 
 
