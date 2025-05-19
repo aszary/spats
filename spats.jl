@@ -539,6 +539,66 @@ end
 
 
 
+function Plot_ostateczny_simple(outdir::String, pulsar_name::String, period::Float64; show_plot::Bool=true)
+    filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
+    if !isfile(filepath)
+        println("❌ File does not exist: $filepath")
+        return
+    end
+
+    println("🔍 Reading 2DFS from: $filepath")
+    f = FITS(filepath)
+    
+    data_col = nothing
+    try
+        data_col = read(f[4], "DATA")
+    catch e
+        println("❌ Error reading DATA column: ", e)
+        close(f)
+        return
+    end
+
+    close(f)
+
+    if data_col === nothing
+        println("❌ DATA column not loaded correctly")
+        return
+    end
+
+    data = data_col'
+    dataf = Float64.(data)
+
+    n_y, n_x = size(dataf)
+    pulse_longitudes = range(0, stop=360, length=n_x)
+    fluct_freqs = range(0, stop=0.5, length=n_y)
+    P_over_P3 = period ./ fluct_freqs
+    P_over_P3[1] = NaN
+
+    fig, ax = subplots()
+    im = ax.imshow(dataf;
+        origin="lower",
+        aspect="auto",
+        extent=[minimum(pulse_longitudes), maximum(pulse_longitudes),
+                minimum(P_over_P3[2:end]), maximum(P_over_P3[2:end])],
+        cmap="gray",
+        vmin=0.0,
+        vmax=0.07
+    )
+
+    ax.set_xlabel("Pulse longitude (degrees)")
+    ax.set_ylabel("Fluctuation frequency (P/P3)")
+    ax.set_title("2DFS: $pulsar_name")
+
+    colorbar(im, ax=ax, label="Intensity")
+
+    if show_plot
+        show()
+    else
+        savefig(joinpath(outdir, pulsar_name, "$pulsar_name-2dfs.png"))
+    end
+
+    println("✅ Wykres wygenerowany dla $pulsar_name.")
+end
 
 
 
@@ -585,7 +645,7 @@ end
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         period_value = 1.6039332673478421  # Twoja znana wartość
 
-        Plot_ostateczny("/home/psr/output", "J1919+0134", period_value; show_plot=true)
+        Plot_ostateczny_simple("/home/psr/output", "J1919+0134", period_value; show_plot=true)
 
 
 
