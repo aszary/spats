@@ -415,30 +415,34 @@ function Plot_2dfs2(outdir::String, pulsar_name::String; show_plot::Bool=true)
     lines = readlines(filepath)
     data = Float64[]
     for line in lines
-        # pomijamy puste linie
+        # Pomijamy puste linie
         if isempty(strip(line))
             continue
         end
         vals = split(strip(line))
-        for v in vals
-            push!(data, parse(Float64, v))
+        # Sprawdzamy, czy linia zawiera same liczby
+        can_parse_all = all(v -> try parse(Float64, v); true catch; false end, vals)
+        if can_parse_all
+            for v in vals
+                push!(data, parse(Float64, v))
+            end
+        else
+            # Pomijamy linie, które nie da się sparsować do liczb
+            continue
         end
     end
 
-    # zakładamy, że dane są prostokątną tablicą, wymiar trzeba znać z dokumentacji lub wywnioskować
-    # dla przykładu przyjmijmy 129 wierszy i 92 kolumn (jak HDU4 transpozycja)
+    # Podaj wymiary zgodnie z tym, czego się spodziewasz w pliku
     nrows = 129
     ncols = 92
+
     if length(data) != nrows*ncols
         println("⚠️ Warning: Unexpected data length: $(length(data)), expected $(nrows*ncols)")
         return
     end
 
-    arr = reshape(data, ncols, nrows)'  # transpozycja, aby mieć (129, 92)
-
-    # Oś X: Pulse longitude (deg), zakres od 160 do 200 stopni, linspace
+    arr = reshape(data, ncols, nrows)'
     x = range(160, stop=200, length=ncols)
-    # Oś Y: Fluctuation frequency (P/P3), zakładam liniowy zakres 0..0.5 (np)
     y = range(0, stop=0.5, length=nrows)
 
     figure()
@@ -452,6 +456,7 @@ function Plot_2dfs2(outdir::String, pulsar_name::String; show_plot::Bool=true)
         show()
     end
 end
+
 
 
 
