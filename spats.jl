@@ -582,7 +582,7 @@ function Plot_ostateczny_simple(outdir::String, pulsar_name::String, period::Flo
                 minimum(P_over_P3[2:end]), maximum(P_over_P3[2:end])],
         cmap="gray",
         vmin=1.0,
-        vmax= 2
+        vmax= 2.0
     )
 
     ax.set_xlabel("Pulse longitude (degrees)")
