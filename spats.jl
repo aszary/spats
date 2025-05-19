@@ -558,7 +558,33 @@ end
 
 
 
+function check_period_column(fits_path::String)
+    f = FITS(fits_path)
+    hdr = read_header(f[4])
+    tf = get(hdr, "TFIELDS", 0)
+    period_col_index = 0
 
+    for i in 1:tf
+        key = "TTYPE$i"
+        if haskey(hdr, key) && hdr[key] == "PERIOD"
+            period_col_index = i
+            break
+        end
+    end
+
+    if period_col_index == 0
+        close(f)
+        println("❌ Kolumna PERIOD nie znaleziona w pliku.")
+        return false
+    else
+        # Odczytaj kolumnę PERIOD (indeksowana od 1)
+        period_data = read(f[4], period_col_index)
+        println("✅ Kolumna PERIOD znaleziona. Przykładowe wartości:")
+        println(period_data[1:min(end,10)])  # wypisz max 10 pierwszych wartości
+        close(f)
+        return true
+    end
+end
 
 
 
@@ -572,15 +598,22 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        Plot_ostateczny("/home/psr/output", "J1919+0134", show_plot=true)
+        #Plot_ostateczny("/home/psr/output", "J1919+0134", show_plot=true)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        
+        if check_period_column(joinpath(vpmout, "J1919+0134", "pulsar.debase.1.2dfs"))
+            println("✅ Kolumna PERIOD jest obecna w pliku.")
+        else
+            println("❌ Kolumna PERIOD NIE jest obecna w pliku.")
+        end
+
+
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2dfs_simple("/home/psr/output", "J1919+0134", show_plot=true)
         #Check_2dfs_file("/home/psr/output", "J1919+0134")
         #detailed_check_fits("/home/psr/output", "J1919+0134")
 
+    
     end
 
     function parse_commandline()
