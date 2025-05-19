@@ -354,7 +354,7 @@ function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=t
     dataf_region = dataf[:, left_bin:right_bin]
 
     # Zamiana zer i ujemnych na minimalną dodatnią
-    dataf_region[dataf_region .<= 0] .= 10000
+    dataf_region[dataf_region .<= 0] .= 1e-10
 
     vmin = minimum(dataf_region)
     vmax = maximum(dataf_region)
@@ -371,7 +371,7 @@ function Plot_2dfs_simple(outdir::String, pulsar_name::String; show_plot::Bool=t
         extent=[p2min, p2max, p3min, p3max],
         origin="lower",
         aspect="auto",
-        cmap="gray_r",
+        cmap="gray",
         vmin=vmin,
         vmax=vmax
     )
