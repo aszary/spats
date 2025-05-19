@@ -246,10 +246,10 @@ function Plot_2dfs_zmiany_pplot(outdir::String, pulsar_name::String; show_plot::
         extent=[p2min, p2max, p3min, p3max],
         origin="lower",
         aspect="auto",
-        cmap="gray_r",
-        vmin=0.0,
-        vmax=0.07
+        cmap="gray",
+        norm=matplotlib[:colors][:LogNorm](vmin=1e-4, vmax=0.07)
     )
+
 
     ax.set_xlabel("Pulse longitude (deg)")
     ax.set_ylabel("Fluctuation frequency (P/P₃)")
