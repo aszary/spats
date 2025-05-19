@@ -460,60 +460,70 @@ function Plot_2dfs2(outdir::String, pulsar_name::String; show_plot::Bool=true)
 end
 
 
+
 function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=true)
-    # Ścieżka do pliku
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
         println("❌ File does not exist: $filepath")
         return
     end
 
-    # Odczytaj nagłówek i dane z HDU #4
     f = FITS(filepath)
+
     hdr = read_header(f[4])
-    data = read(f[4], "DATA")
+    tbl = read(f[4])  # wczytujemy tabelę (DataFrame-like)
+
     close(f)
 
-    # Wypisz dostępne klucze
     println("🔍 Dostępne klucze w nagłówku HDU #4:")
     for key in keys(hdr)
         println("KEY: ", key, " => ", hdr[key])
     end
 
-    # Pobierz PERIOD z nagłówka
-    if haskey(hdr, "PERIOD")
-        P = hdr["PERIOD"]
-        println("✅ PERIOD znaleziony: ", P)
+    # Spróbuj wyciągnąć PERIOD z kolumny tabeli
+    if hasproperty(tbl, :PERIOD)
+        P = tbl.PERIOD[1]  # bierzemy pierwszy okres
+        println("✅ PERIOD znaleziony w kolumnie tabeli: ", P)
     else
-        println("❌ PERIOD nie znaleziony w nagłówku.")
+        println("❌ PERIOD nie znaleziony w kolumnie tabeli.")
         return
     end
 
-    # Transpozycja danych: [y, x] = [fluct. freq, pulse longitude]
+    # Wczytaj dane do matrycy (zakładamy, że DATA to tablica wektorów lub macierzy)
+    if hasproperty(tbl, :DATA)
+        # Dane są prawdopodobnie tablicą tablic 1D, scalmy je do 2D macierzy
+        # np. DATA ma wymiar N x 1 (N wierszy), każdy element to 92-elementowy wektor
+        data_list = tbl.DATA
+        nrows = length(data_list)
+        ncols = length(data_list[1])
+        data = zeros(Float64, nrows, ncols)
+        for i in 1:nrows
+            data[i, :] = data_list[i]
+        end
+    else
+        println("❌ DATA nie znaleziony w kolumnie tabeli.")
+        return
+    end
+
+    # Transpozycja danych: aby [y, x] = [częstotliwość fluktuacji, długość impulsu]
     data = data'
 
-    # Wymiary
     n_y, n_x = size(data)
 
-    # Oś długości impulsu (0–360°)
     pulse_longitudes = range(0, stop=360, length=n_x)
-
-    # Oś częstotliwości fluktuacji (P/P3)
     fluct_freqs = range(0, stop=0.5, length=n_y)
     P_over_P3 = P ./ fluct_freqs
-    P_over_P3[1] = NaN  # unika dzielenia przez zero
+    P_over_P3[1] = NaN  # unikamy dzielenia przez zero
 
-    # Ogranicz zakres długości impulsu do 160–200°
     x_indices = findall(x -> 160 <= x <= 200, pulse_longitudes)
     if isempty(x_indices)
         println("❌ No pulse longitude values found in the range 160–200°.")
         return
     end
+
     cropped_data = data[:, x_indices]
     cropped_longitudes = pulse_longitudes[x_indices]
 
-
-    # Wykres
     fig, ax = subplots()
 
     im = ax.imshow(cropped_data;
@@ -525,17 +535,14 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         vmin=0.0,
         vmax=1.0
     )
-    im.set_clim(0.0, 0.07)  # biel–czerń
+    im.set_clim(0.0, 0.07)
 
-    # Opisy osi i tytuł
     ax.set_xlabel("Pulse longitude (degrees)")
     ax.set_ylabel("Fluctuation frequency (P/P3)")
     ax.set_title("2DFS: $pulsar_name")
 
-    # Colorbar
     colorbar(im, ax=ax, label="Intensity")
 
-    # Wyświetlenie lub zapis
     if show_plot
         show()
     else
@@ -544,6 +551,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
 
     println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
+
 
 
 
