@@ -471,7 +471,10 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
     f = FITS(filepath)
 
     hdr = read_header(f[4])
-    tbl = read(f[4])  # wczytujemy tabelę (DataFrame-like)
+    
+    # Odczytujemy kolumny: PERIOD i DATA
+    period_col = readcols(f[4], "PERIOD")
+    data_col = readcols(f[4], "DATA")
 
     close(f)
 
@@ -480,36 +483,24 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         println("KEY: ", key, " => ", hdr[key])
     end
 
-    # Spróbuj wyciągnąć PERIOD z kolumny tabeli
-    if hasproperty(tbl, :PERIOD)
-        P = tbl.PERIOD[1]  # bierzemy pierwszy okres
-        println("✅ PERIOD znaleziony w kolumnie tabeli: ", P)
-    else
-        println("❌ PERIOD nie znaleziony w kolumnie tabeli.")
+    if length(period_col) == 0
+        println("❌ PERIOD nie znaleziony lub pusta kolumna.")
         return
     end
+    P = period_col[1]
+    println("✅ PERIOD znaleziony w kolumnie: ", P)
 
-    # Wczytaj dane do matrycy (zakładamy, że DATA to tablica wektorów lub macierzy)
-    if hasproperty(tbl, :DATA)
-        # Dane są prawdopodobnie tablicą tablic 1D, scalmy je do 2D macierzy
-        # np. DATA ma wymiar N x 1 (N wierszy), każdy element to 92-elementowy wektor
-        data_list = tbl.DATA
-        nrows = length(data_list)
-        ncols = length(data_list[1])
-        data = zeros(Float64, nrows, ncols)
-        for i in 1:nrows
-            data[i, :] = data_list[i]
-        end
-    else
-        println("❌ DATA nie znaleziony w kolumnie tabeli.")
-        return
+    # Dane DATA są prawdopodobnie wektorami Int32 lub Float32 (92 elementy na wiersz)
+    nrows = length(data_col)
+    ncols = length(data_col[1])
+    data = zeros(Float64, nrows, ncols)
+    for i in 1:nrows
+        data[i, :] = Float64.(data_col[i])
     end
 
-    # Transpozycja danych: aby [y, x] = [częstotliwość fluktuacji, długość impulsu]
-    data = data'
+    data = data'  # transpozycja: [y, x]
 
     n_y, n_x = size(data)
-
     pulse_longitudes = range(0, stop=360, length=n_x)
     fluct_freqs = range(0, stop=0.5, length=n_y)
     P_over_P3 = P ./ fluct_freqs
@@ -520,12 +511,10 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
         println("❌ No pulse longitude values found in the range 160–200°.")
         return
     end
-
     cropped_data = data[:, x_indices]
     cropped_longitudes = pulse_longitudes[x_indices]
 
     fig, ax = subplots()
-
     im = ax.imshow(cropped_data;
         origin="lower",
         aspect="auto",
@@ -551,6 +540,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String; show_plot::Bool=tr
 
     println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
+
 
 
 
