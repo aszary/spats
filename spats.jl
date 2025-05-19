@@ -281,49 +281,63 @@ end
 
 
 
-function Check_2dfs_file(outdir::String, pulsar_name::String)
+function detailed_check_fits(outdir::String, pulsar_name::String)
+    using FITSIO, Statistics  # zakładam, że można używać tych bibliotek
+    
     filepath = joinpath(outdir, pulsar_name, "pulsar.debase.1.2dfs")
     if !isfile(filepath)
         println("❌ File does not exist: $filepath")
         return
     end
-
-    println("🔍 Reading 2DFS from: $filepath")
+    
+    println("🔍 Opening FITS file: $filepath")
     f = FITS(filepath)
+
+    println("\n=== Nagłówki HDU ===")
+    for (i, hdu) in enumerate(f)
+        println("\n--- HDU #$i ---")
+        hdr = read_header(hdu)
+        for (k, v) in hdr
+            println("$k = $v")
+        end
+    end
+
+    # Weź dane z 4 HDU (jak w oryginalnym kodzie)
+    println("\n🔍 Reading DATA from HDU #4")
     data = read(f[4], "DATA")
     close(f)
 
-    println("Wczytano dane o rozmiarze: ", size(data))
-    
-    # Transpozycja, aby mieć (n_p3, n_bins)
-    data = data'
-
-    println("Po transpozycji rozmiar: ", size(data))
-
-    # Typ danych
+    println("\n=== Podstawowe informacje o danych ===")
+    println("Rozmiar oryginalnych danych: ", size(data))
     println("Typ danych: ", eltype(data))
-
-    # Statystyki podstawowe
     println("Minimum: ", minimum(data))
-    println("Maximum: ", maximum(data))
-    println("Średnia: ", mean(data))
-    println("Mediana: ", median(data))
+    println("Maksimum: ", maximum(data))
+    println("Średnia: ", mean(Float64.(data)))
+    println("Mediana: ", median(Float64.(data)))
+    println("Liczba NaN: ", count(isnan, data))
+    println("Liczba Inf: ", count(isinf, data))
+    println("Liczba zer: ", count(x -> x == 0, data))
+    println("Liczba wartości <= 0: ", count(x -> x <= 0, data))
 
-    # Sprawdzenie NaN i Inf
-    nan_count = count(isnan, data)
-    inf_count = count(isinf, data)
-    println("Liczba NaN: ", nan_count)
-    println("Liczba Inf: ", inf_count)
+    # Próbka danych: pierwsze 5 wierszy, pierwsze 10 kolumn
+    nrows = min(5, size(data,1))
+    ncols = min(10, size(data,2))
+    println("\nPróbka danych (pierwsze $nrows wierszy i $ncols kolumn):")
+    for r in 1:nrows
+        println(data[r, 1:ncols])
+    end
 
-    # Dodatkowe info: liczba zer i wartości <= 0
-    zero_count = count(x -> x == 0, data)
-    leq_zero_count = count(x -> x <= 0, data)
-    println("Liczba zer: ", zero_count)
-    println("Liczba wartości <= 0: ", leq_zero_count)
+    # Transpozycja danych
+    data_t = data'
+    println("\nPo transpozycji rozmiar: ", size(data_t))
 
-    # Kilka przykładowych wartości z danych (np. pierwszy wiersz i pierwsze 10 elementów)
-    println("Przykładowe wartości (pierwszy wiersz, pierwsze 10 elementów):")
-    println(data[1, 1:min(10, size(data,2))])
+    # Próbka danych po transpozycji: pierwsze 5 wierszy i 10 kolumn
+    println("\nPróbka danych po transpozycji (pierwsze $nrows wierszy i $ncols kolumn):")
+    for r in 1:nrows
+        println(data_t[r, 1:ncols])
+    end
+
+    println("\n✅ Sprawdzenie zakończone.")
 end
 
 
@@ -411,8 +425,9 @@ end
         
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
-        Plot_2dfs_simple("/home/psr/output", "J1919+0134", show_plot=true)
+        #Plot_2dfs_simple("/home/psr/output", "J1919+0134", show_plot=true)
         #Check_2dfs_file("/home/psr/output", "J1919+0134")
+        detailed_check_fits("/home/psr/output/J1919+0134", "J1919+0134")
 
     end
 
