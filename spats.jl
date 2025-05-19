@@ -235,7 +235,7 @@ function Plot_2DFS_from_pspec(outdir::String, pulsar_name::String; show_plot::Bo
         extent=[x0, x1, y0, y1],
         origin="lower",
         aspect="auto",
-        cmap="gray_r",    # invertowana skala szarości
+        cmap="gray",    # invertowana skala szarości
         vmin=0.0,
         vmax=0.07         # maks. 0.07
     )
