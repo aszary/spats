@@ -470,11 +470,12 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
 
     println("🔍 Reading 2DFS from: $filepath")
     f = FITS(filepath)
-    hdr = read_header(f[4])
 
+    # Nie pobieramy okresu z pliku tylko bierzemy argument period
     println("✅ Używany okres (period) z argumentu: ", period)
 
-    # Pobieramy kolumnę DATA, jeśli błąd to wychodzimy z funkcji
+    # Bezpiecznie czytamy dane
+    data_col = nothing
     try
         data_col = read(f[4], "DATA")
     catch e
@@ -485,10 +486,15 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
 
     close(f)
 
+    # Sprawdzenie, czy data_col jest OK
+    if data_col === nothing
+        println("❌ data_col nie został poprawnie wczytany.")
+        return
+    end
+
     data = data_col'  # transpozycja
     dataf = Float64.(data)
 
-    # dalsza część funkcji korzysta z dataf
     n_y, n_x = size(dataf)
     pulse_longitudes = range(0, stop=360, length=n_x)
     fluct_freqs = range(0, stop=0.5, length=n_y)
@@ -530,6 +536,7 @@ function Plot_ostateczny(outdir::String, pulsar_name::String, period::Float64; s
 
     println("✅ Wygenerowano wykres dla $pulsar_name.")
 end
+
 
 
 
