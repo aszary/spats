@@ -55,8 +55,6 @@ module SpaTs
         Plot.single(d[:,:,3], vpmout; show_=true)
 
 
-
-
         #test(vpmout)
         #test2(vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
