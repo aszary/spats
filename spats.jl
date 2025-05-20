@@ -678,13 +678,13 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        #Plot_ostateczny("/home/psr/output", "J1919+0134", show_plot=true)
+        plot_2dfs("/home/psr/output", "J0924-5302", show_plot=true)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         period_value = 1.6039332673478421  # Twoja znana wartość
 
         #Plot_ostateczny_simple("/home/psr/output", "J1919+0134", period_value; show_plot=true)
 
-        process_psrdata("/home/psr/data/new/J0924-5302/2019-12-15-01:28:41/", vpmout)
+        #process_psrdata("/home/psr/data/new/J0924-5302/2019-12-15-01:28:41/", vpmout)
 
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
