@@ -609,6 +609,73 @@ end
 
 
 
+function plot_2dfs33(fits_path::String, pulsar_name::String; show_plot::Bool=true)
+    # 1. Otwórz plik FITS i przejdź do 4. HDU
+    f = FITS(fits_path)
+    hdu = f[4]  # HDU 4 – tabela z kolumną "DATA"
+
+    # 2. Wczytaj dane 2DFS z kolumny "DATA"
+    data = read(hdu, "DATA")  # Zakładamy, że dane są w kolumnie "DATA"
+    data = data'  # Transpozycja, jeśli potrzebna (dopasuj do orientacji danych)
+
+    # 3. Parametry regionu (dostosuj do swoich danych)
+    NBIN = 512
+    left_bin = 140
+    right_bin = 250
+    n_region = right_bin - left_bin + 1
+
+    # 4. Oblicz granice osi X (P2)
+    p2min = -NBIN / 2
+    p2max = p2min + NBIN * (right_bin - left_bin) / n_region
+
+    # 5. Zakres osi Y (P3)
+    p3min = 0.0
+    p3max = 0.5
+
+    # 6. Stwórz wykres
+    fig, ax = subplots(figsize=(7, 6))
+
+    # 7. Rysuj mapę kolorów
+    im = ax.imshow(
+        data,
+        origin="lower",
+        aspect="auto",
+        extent=[p2min, p2max, p3min, p3max],
+        cmap="gray_r",
+        vmin=0.0,
+        vmax=0.07
+        # norm=matplotlib[:colors][:LogNorm](vmin=1e-4, vmax=0.07)  # Odkomentuj dla skali logarytmicznej
+    )
+
+    # 8. Podpisy i tytuł
+    ax.set_xlabel("Pulse longitude (deg)")
+    ax.set_ylabel("Fluctuation frequency (P/P₃)")
+    ax.set_title("2DFS – $pulsar_name")
+
+    # 9. Pasek kolorów
+    cbar = colorbar(im, ax=ax)
+    cbar.set_label("Power")
+    cbar.set_ticks([0.0, 0.02, 0.04, 0.06])
+
+    # 10. Zapisz lub pokaż wykres
+    savepath = "$(pulsar_name)_2dfs.png"
+    savefig(savepath, dpi=150)
+    println("✅ Zapisano do $savepath")
+
+    if show_plot
+        show()
+    else
+        close(fig)
+    end
+
+    close(f)
+end
+
+
+
+
+
+
 function check_period_column(fits_path::String)
     f = FITS(fits_path)
     try
@@ -678,7 +745,11 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        plot_2dfs("/home/psr/output/J0738-4042", "J0738-4042", show_plot=true)
+
+        
+        plot_2dfs33("/home/psr/output/J0738-4042/pulsar.debase.1.2dfs", "J0738-4042", show_plot=true)
+
+        #plot_2dfs("/home/psr/output/J0738-4042", "J0738-4042", show_plot=true)
         #process_psrdata("/home/psr/data/new/J0738-4042/2019-11-18-21:45:21/", vpmout)
         #period_value = 1.6039332673478421  # Twoja znana wartość
 
