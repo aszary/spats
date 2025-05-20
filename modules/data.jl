@@ -253,6 +253,4 @@ module Data
         return p
     end
 
-
-
 end # module
