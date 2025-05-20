@@ -678,7 +678,7 @@ end
         vpmout = "/home/psr/output/"
         indir = "/home/psr/data/"
 
-        plot_2dfs("/home/psr/outpu/t", "J0924-5302", show_plot=true)
+        plot_2dfs("/home/psr/output", "J0924-5302", show_plot=true)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         period_value = 1.6039332673478421  # Twoja znana wartość
 
