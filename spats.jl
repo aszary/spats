@@ -1271,14 +1271,14 @@ function combine_pdfs(output_dir::String)
     pulsar_name = splitpath(output_dir)[end]
 
     # True combined path (where you actually want to save)
-    combined_pdf_path = joinpath("/home/aszary/output/Maciej", pulsar_name * ".pdf")
+    combined_pdf_path = joinpath("/home/aszary/output/Maciej", pulsar_name * ".pdf ")
 
     # Create a version of the paths just for printing (fake Maciej-style paths)
     fake_pdf_paths = [replace(path, "/home/psr/output" => "/home/aszary/output/Maciej") for path in pdf_paths]
 
     try
         println("Simulated command:")
-        println(`pdfunite $(fake_pdf_paths...) $combined_pdf_path`)
+        println("pdfunite " * join(fake_pdf_paths, " ") * " " * combined_pdf_path)
         # Actual execution (if you want)
         # run(`pdfunite $(pdf_paths...) $combined_pdf_path`)
     catch e
