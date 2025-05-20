@@ -85,6 +85,7 @@ module Data
         lines = readlines(f)
         
         header = split(lines[1])
+        println(header)
         pulses = parse(Int, header[7])    # Nsub
         bins = parse(Int, header[13])     # Nbin
         pols = parse(Int, header[11])     # Npol
