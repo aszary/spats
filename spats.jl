@@ -643,7 +643,7 @@ function plot_2dfs33(fits_path::String, pulsar_name::String; show_plot::Bool=tru
         extent=[p2min, p2max, p3min, p3max],
         cmap="gray_r",
         vmin=0.0,
-        vmax= 10000
+        vmax= 30000.0
         # norm=matplotlib[:colors][:LogNorm](vmin=1e-4, vmax=0.07)  # Odkomentuj dla skali logarytmicznej
     )
 
@@ -655,7 +655,7 @@ function plot_2dfs33(fits_path::String, pulsar_name::String; show_plot::Bool=tru
     # 9. Pasek kolorów
     cbar = colorbar(im, ax=ax)
     cbar.set_label("Power")
-    cbar.set_ticks([0.0, 0.02, 0.04, 0.06])
+    #cbar.set_ticks([0.0, 0.02, 0.04, 0.06])
 
     # 10. Zapisz lub pokaż wykres
     savepath = "$(pulsar_name)_2dfs.png"
