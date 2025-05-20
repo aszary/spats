@@ -158,7 +158,7 @@ module Plot
         subplot2grid((5, 3), (1, 0), rowspan=4)
         minorticks_on()
         plot(intensity, pulses, c="grey")
-        ylim(pulses[1] - 0.5, pulses[end] + 0.5)
+        #ylim(pulses[1] - 0.5, pulses[end] + 0.5)
         #xticks([0.5, 1.0])
         #xlim(1.1, -0.1)
         ylabel("Fluctuation frequency (P/P₃)")
