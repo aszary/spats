@@ -274,7 +274,7 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        figure(figsize=(4.72, 6.50))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
