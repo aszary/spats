@@ -110,7 +110,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
             aspect="auto",
             cmap="gray",  # Dodano przecinek
             vmin=0,  # Minimalna wartość skali kolorów
-            vmax=5000  # Maksymalna wartość skali kolorów
+            vmax=1  # Maksymalna wartość skali kolorów
         )
 
 
