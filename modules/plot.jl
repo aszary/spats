@@ -130,7 +130,7 @@ module Plot
     function 2dfs22(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
         num, bins = size(data)
         if number == nothing
-            number = num - start + 1
+            number = num - start
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
@@ -179,13 +179,13 @@ module Plot
         tick_params(labelleft=false, labelbottom=false)
 
         # DOLNY WYKRES: długość impulsu
-        subplot2grid((6, 3), (5, 1), colspan=2)
-        minorticks_on()
-        plot(longitude, average, c="grey")
-        yticks([0.0, 0.5])
-        xlim(longitude[1], longitude[end])
-        xlabel("Pulse longitude (°)")
-        tick_params(labelleft=false)
+        #subplot2grid((6, 3), (5, 1), colspan=2)
+        #minorticks_on()
+        #plot(longitude, average, c="grey")
+        #yticks([0.0, 0.5])
+        #xlim(longitude[1], longitude[end])
+        #xlabel("Pulse longitude (°)")
+        #tick_params(labelleft=false)
 
         println("$outdir/$(name_mod)_single.pdf")
         savefig("$outdir/$(name_mod)_single.pdf")
