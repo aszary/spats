@@ -38,17 +38,20 @@ module SpaTs
         p = Data.process_psrdata(indir, outdir)
         folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
         Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="test", show_=true, repeat_num=4)
-        
     end
+
 
 
     function main()
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
+        d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
+        println(szie(d))
+
         #test(vpmout)
         #test2(vpmout)
-        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
     end
 
 end # module
