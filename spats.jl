@@ -684,7 +684,7 @@ end
 
         #Plot_ostateczny_simple("/home/psr/output", "J1919+0134", period_value; show_plot=true)
 
-        process_psrdata("/home/psr/data/new/J1041-1942/2019-11-06-01:04:46/", vpmout)
+        process_psrdata("/home/psr/data/new/J0924-5302/2019-12-15-01:28:41/", vpmout)
 
         #Plot_2dfs_zmiany("/home/psr/output", "J1919+0134", show_plot=true)
         #Plot_2DFS_from_pspec("/home/psr/output", "J1919+0134", show_plot=true)
