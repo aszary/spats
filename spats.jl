@@ -1249,15 +1249,9 @@ end
 
 
 function combine_pdfs(output_dir::String)
-    # Extract pulsar name from the last part of output_dir
-    pulsar_name = splitpath(output_dir)[end]
-
-    # Define the new root where PDFs are now located
-    new_root = joinpath("/home/aszary/output/Maciej", pulsar_name)
-
-    # Collect all matching PDFs in the new path
+    # Find all .pdf files in subdirectories
     pdf_paths = String[]
-    for (root, _, files) in walkdir(new_root)
+    for (root, _, files) in walkdir(output_dir)
         for file in files
             if endswith(file, "single.pdf")
                 push!(pdf_paths, joinpath(root, file))
@@ -1269,23 +1263,28 @@ function combine_pdfs(output_dir::String)
     sort!(pdf_paths)
 
     if isempty(pdf_paths)
-        println("No PDF files found in subdirectories of $new_root.")
+        println("No PDF files found in subdirectories of $output_dir.")
         return
     end
 
-    # Define where the combined PDF will be saved
+    # Extract pulsar name
+    pulsar_name = splitpath(output_dir)[end]
+
+    # True combined path (where you actually want to save)
     combined_pdf_path = joinpath("/home/aszary/output/Maciej", pulsar_name * ".pdf")
 
+    # Create a version of the paths just for printing (fake Maciej-style paths)
+    fake_pdf_paths = [replace(path, "/home/psr/output" => "/home/aszary/output/Maciej") for path in pdf_paths]
+
     try
-        println(`pdfunite $(pdf_paths...) $combined_pdf_path`)
-        # Uncomment to actually run it:
+        println("Simulated command:")
+        println(`pdfunite $(fake_pdf_paths...) $combined_pdf_path`)
+        # Actual execution (if you want)
         # run(`pdfunite $(pdf_paths...) $combined_pdf_path`)
-        # println("Combined PDF created at: $combined_pdf_path")
     catch e
         println("Error combining PDFs: ", e)
     end
 end
-
 
 
     # Run processing for all catalogues
