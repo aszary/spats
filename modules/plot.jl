@@ -160,7 +160,7 @@ module Plot
         plot(intensity, pulses, c="grey")
         ylim(pulses[1] - 0.5, pulses[end] + 0.5)
         #xticks([0.5, 1.0])
-        xlim(1.1, -0.1)
+        #xlim(1.1, -0.1)
         ylabel("Fluctuation frequency (P/P₃)")
 
         # ŚRODKOWY wykres – mapa intensywności
