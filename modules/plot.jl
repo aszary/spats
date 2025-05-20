@@ -165,7 +165,7 @@ module Plot
         ylabel("Fluctuation frequency (P/P₃)")
 
         # ŚRODKOWY wykres – mapa intensywności
-        subplot2grid((5, 3), (1, 1), rowspan=5, colspan=2)
+        subplot2grid((5, 3), (1, 1), rowspan=10, colspan=3)
         imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness * maximum(da))
         tick_params(labelleft=false, labelbottom=false)
 
