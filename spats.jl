@@ -46,6 +46,8 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
+        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+
         d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
         println(size(d))
         Plot.single(d, vpmout; show_=true)
@@ -54,11 +56,8 @@ module SpaTs
         #println(size(d))
         #Plot.single(d[:,:,3], vpmout; show_=true)
 
-
-
         #test(vpmout)
         #test2(vpmout)
-        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
     end
 
 end # module
