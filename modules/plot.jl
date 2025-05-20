@@ -168,7 +168,7 @@ module Plot
         subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
         imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness * maximum(da))
         xlabel("Pulse longitude (deg)")
-        tick_params(labelleft=false, labelbottom=false)
+        tick_params(labelleft=false, labelbottom=true)
 
         # GÓRNY wykres – średni profil (dawny dolny)
         subplot2grid((5, 3), (0, 1), colspan=2)
