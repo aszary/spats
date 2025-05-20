@@ -620,8 +620,8 @@ function plot_2dfs33(fits_path::String, pulsar_name::String; show_plot::Bool=tru
 
     # 3. Parametry regionu (dostosuj do swoich danych)
     NBIN = 512
-    left_bin = 160
-    right_bin = 200
+    left_bin = 170
+    right_bin = 190
     n_region = right_bin - left_bin + 1
 
     # 4. Oblicz granice osi X (P2)
