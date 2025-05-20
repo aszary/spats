@@ -153,6 +153,7 @@ module Plot
         figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
         subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
 
+
         # Nowy układ subplotów: (5, 3)
         # GÓRA – średni profil
         subplot2grid((5, 3), (0, 1), colspan=2)
