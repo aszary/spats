@@ -47,7 +47,7 @@ module SpaTs
         vpmout = "/home/psr/output/"
 
         d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
-        println(szie(d))
+        println(size(d))
 
         #test(vpmout)
         #test2(vpmout)
