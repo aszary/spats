@@ -643,7 +643,7 @@ function plot_2dfs33(fits_path::String, pulsar_name::String; show_plot::Bool=tru
         extent=[p2min, p2max, p3min, p3max],
         cmap="gray_r",
         vmin=0.0,
-        vmax=0.07
+        vmax= 10000
         # norm=matplotlib[:colors][:LogNorm](vmin=1e-4, vmax=0.07)  # Odkomentuj dla skali logarytmicznej
     )
 
