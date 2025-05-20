@@ -161,7 +161,7 @@ module Plot
         ylim(pulses[1] - 0.5, pulses[end] + 0.5)
         xticks([])  # usuń ticki na osi X
         xlim(0.1, -1.1)
-        yticks([0.0, 0.5])  # tu ustawiasz ticki osi Y
+        #yticks([0.0, 0.5])  # tu ustawiasz ticki osi Y
         ylabel("Fluctuation frequency (P/P₃)")
 
 
