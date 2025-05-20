@@ -1236,6 +1236,7 @@ end
     #Zapisz to .txt i daj paths do wszystkich 
     try
         run(`pdfunite $(pdf_paths...) $combined_pdf_path`)
+        println(`pdfunite $(pdf_paths...) $combined_pdf_path`)
         println("Combined PDF created at: $combined_pdf_path")
     catch e
         println("Error combining PDFs: ", e)
