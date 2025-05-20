@@ -48,7 +48,7 @@ module SpaTs
 
         d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
         println(size(d))
-        Plot.single(d, outdir; show_=true)
+        Plot.single(d, vpmout; show_=true)
 
         #test(vpmout)
         #test2(vpmout)
