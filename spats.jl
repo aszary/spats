@@ -1247,10 +1247,17 @@ end
 
 
 
+
 function combine_pdfs(output_dir::String)
-    # Find all .pdf files in subdirectories
+    # Extract pulsar name from the last part of output_dir
+    pulsar_name = splitpath(output_dir)[end]
+
+    # Define the new root where PDFs are now located
+    new_root = joinpath("/home/aszary/output/Maciej", pulsar_name)
+
+    # Collect all matching PDFs in the new path
     pdf_paths = String[]
-    for (root, _, files) in walkdir(output_dir)
+    for (root, _, files) in walkdir(new_root)
         for file in files
             if endswith(file, "single.pdf")
                 push!(pdf_paths, joinpath(root, file))
@@ -1262,27 +1269,22 @@ function combine_pdfs(output_dir::String)
     sort!(pdf_paths)
 
     if isempty(pdf_paths)
-        println("No PDF files found in subdirectories of $output_dir.")
+        println("No PDF files found in subdirectories of $new_root.")
         return
     end
 
-    # Extract pulsar name from output_dir (assumes it's the last segment)
-    pulsar_name = splitpath(output_dir)[end]
-
-    # Create the new combined output path
-    target_dir = "/home/aszary/output/Maciej"
-    combined_pdf_path = joinpath(target_dir, pulsar_name * ".pdf")
+    # Define where the combined PDF will be saved
+    combined_pdf_path = joinpath("/home/aszary/output/Maciej", pulsar_name * ".pdf")
 
     try
         println(`pdfunite $(pdf_paths...) $combined_pdf_path`)
-        # Uncomment to actually run the command:
+        # Uncomment to actually run it:
         # run(`pdfunite $(pdf_paths...) $combined_pdf_path`)
         # println("Combined PDF created at: $combined_pdf_path")
     catch e
         println("Error combining PDFs: ", e)
     end
 end
-
 
 
 
