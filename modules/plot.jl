@@ -179,7 +179,7 @@ module Plot
         xticks([])  # brak X, bo jest u dołu
 
         # DODATKOWY podpis osi X na samym dole
-        subplot2grid((5, 3), (4, 1), colspan=2)
+        subplot2grid((5, 3), (4, 1), colspan=3)
         axis("off")
         xlabel("Pulse longitude (°)")
 
