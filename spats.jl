@@ -1211,6 +1211,39 @@ end
         end
     end
     
+    function combine_pdfs(output_dir::String)
+    # Find all .pdf files in subdirectories
+    pdf_paths = String[]
+    for (root, _, files) in walkdir(output_dir)
+        for file in files
+            if endswith(file, ".pdf")
+                push!(pdf_paths, joinpath(root, file))
+            end
+        end
+    end
+
+    # Sort for consistent ordering
+    sort!(pdf_paths)
+    combined_pdf_path = joinpath(output_dir, "singles.pdf")
+
+    if isempty(pdf_paths)
+        println("No PDF files found in subdirectories of $output_dir.")
+        return
+    end
+
+    # Use pdfunite to combine PDFs
+    try
+        run(`pdfunite $(pdf_paths...) $combined_pdf_path`)
+        println("Combined PDF created at: $combined_pdf_path")
+    catch e
+        println("Error combining PDFs: ", e)
+    end
+end
+
+
+
+
+
     # Run processing for all catalogues
     function J0034Mac(output_dir)
         process_all_catalogues(output_dir, "/home/psr/data/new")
