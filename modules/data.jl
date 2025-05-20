@@ -88,9 +88,9 @@ module Data
         println(header)
         pulses = parse(Int, header[6])    # Nsub
         println("PULSES $pulses")
-        bins = parse(Int, header[13])     # Nbin
+        bins = parse(Int, header[12])     # Nbin
         println("BINS $bins")
-        pols = parse(Int, header[11])     # Npol
+        pols = parse(Int, header[10])     # Npol
         println("POLS $pols")
 
         data = Array{Float64}(undef, pulses, bins, pols)
