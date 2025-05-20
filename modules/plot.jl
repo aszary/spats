@@ -130,57 +130,59 @@ module Plot
     function twodfs(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
         num, bins = size(data)
         if number == nothing
-            number = num - start  # missing one?
+            number = num - start
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
-        da = data[start:start+number-1,bin_st:bin_end]
+        da = data[start:start+number-1, bin_st:bin_end]
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
         intensity ./= maximum(intensity)
 
-        pulses .+= start - 1  # julia
+        pulses .+= start - 1  # julia indexing
 
         # Pulse longitude
-        db = (bin_end + 1) - bin_st  # yes +1
-        dl = 360. * db / bins
-        longitude = collect(range(-dl/2., dl/2., length=db))
-        rc("font", size=8.)
+        db = (bin_end + 1) - bin_st
+        dl = 360.0 * db / bins
+        longitude = collect(range(-dl/2.0, dl/2.0, length=db))
+
+        rc("font", size=8.0)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
         figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
-        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
+        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
 
+        # LEWY wykres – fluktuacje
+        subplot2grid((5, 3), (1, 0), rowspan=4)
+        minorticks_on()
+        plot(intensity, pulses, c="grey")
+        ylim(pulses[1] - 0.5, pulses[end] + 0.5)
+        xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("Fluctuation frequency (P/P₃)")
 
-        # Nowy układ subplotów: (5, 3)
-        # GÓRA – średni profil
+        # ŚRODKOWY wykres – mapa intensywności
+        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness * maximum(da))
+        tick_params(labelleft=false, labelbottom=false)
+
+        # GÓRNY wykres – średni profil (dawny dolny)
         subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
         plot(longitude, average, c="grey")
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         ylabel("Intensity / Modulation index")
-        xticks([])  # brak podpisu osi X
+        xticks([])  # brak X, bo jest u dołu
 
-        # LEWY – fluktuacje
-        subplot2grid((5, 3), (1, 0), rowspan=4)
-        minorticks_on()
-        plot(intensity, pulses, c="grey")
-        ylim(pulses[1]-0.5, pulses[end]+0.5)
-        xticks([0.5, 1.0])
-        xlim(1.1, -0.1)
-        xlabel("intensity")
-        ylabel("Fluctuation frequency (P/P₃)")
-
-        # PRAWY DÓŁ – imshow
-        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
-        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness * maximum(da))
+        # DODATKOWY podpis osi X na samym dole
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        axis("off")
         xlabel("Pulse longitude (°)")
-        tick_params(labelleft=false)
 
-        # Zapis pliku i pokaz
         println("$outdir/$(name_mod)_twodfs.pdf")
         savefig("$outdir/$(name_mod)_twodfs.pdf")
         if show_ == true
@@ -190,6 +192,7 @@ module Plot
         end
         close()
     end
+
 
 
 
