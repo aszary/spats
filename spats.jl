@@ -1210,7 +1210,7 @@ end
             process_psrfit_files(catalogue, output_dir, name_mod=base_name * "Mac")
         end
     end
-    
+    #=
     function combine_pdfs(output_dir::String)
     # Find all .pdf files in subdirectories
     pdf_paths = String[]
@@ -1243,7 +1243,45 @@ end
         println("Error combining PDFs: ", e)
     end
 end
+=#
 
+
+
+function combine_pdfs(output_dir::String)
+    # Find all .pdf files in subdirectories
+    pdf_paths = String[]
+    for (root, _, files) in walkdir(output_dir)
+        for file in files
+            if endswith(file, "single.pdf")
+                push!(pdf_paths, joinpath(root, file))
+            end
+        end
+    end
+
+    # Sort for consistent ordering
+    sort!(pdf_paths)
+
+    if isempty(pdf_paths)
+        println("No PDF files found in subdirectories of $output_dir.")
+        return
+    end
+
+    # Extract pulsar name from output_dir (assumes it's the last segment)
+    pulsar_name = splitpath(output_dir)[end]
+
+    # Create the new combined output path
+    target_dir = "/home/aszary/output/Maciej"
+    combined_pdf_path = joinpath(target_dir, pulsar_name * ".pdf")
+
+    try
+        println(`pdfunite $(pdf_paths...) $combined_pdf_path`)
+        # Uncomment to actually run the command:
+        # run(`pdfunite $(pdf_paths...) $combined_pdf_path`)
+        # println("Combined PDF created at: $combined_pdf_path")
+    catch e
+        println("Error combining PDFs: ", e)
+    end
+end
 
 
 
