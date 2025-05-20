@@ -46,9 +46,16 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
+        #d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
+        #println(size(d))
+        #Plot.single(d, vpmout; show_=true)
+
+        d = Data.load_ascii("/home/psr/output/pulsar.debase.lrfs")
         println(size(d))
         Plot.single(d, vpmout; show_=true)
+
+
+
 
         #test(vpmout)
         #test2(vpmout)
