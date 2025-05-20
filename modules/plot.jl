@@ -151,7 +151,7 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(4.72, 6.50), frameon=true)  # 16cm x 22cm
+        figure(figsize=(4.72, 6.50), frameon=true)  # 12cm x 16.5cm
         subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
 
         # LEWY wykres – fluktuacje
@@ -159,9 +159,8 @@ module Plot
         minorticks_on()
         plot(intensity, pulses, c="grey")
         ylim(pulses[1] - 0.5, pulses[end] + 0.5)
-        xticks([0.5, 1.0])
+        #xticks([0.5, 1.0])
         xlim(1.1, -0.1)
-        xlabel("intensity")
         ylabel("Fluctuation frequency (P/P₃)")
 
         # ŚRODKOWY wykres – mapa intensywności
