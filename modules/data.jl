@@ -186,7 +186,7 @@ module Data
     function twodfs_lrfs(debased_file, params_file, p; detect=false)
 
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pspec -oformat ASCII -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
 
         if p["p3"] == -1.0 || detect == true
             # Find P3
