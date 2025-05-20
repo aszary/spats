@@ -108,7 +108,7 @@ function plot_2dfs(outdir::String, pulsar_name::String; show_plot::Bool=true)
             extent=[160, 200, 0, 0.5],  # Zamieniono osie x i y
             origin="lower",
             aspect="auto",
-            cmap="gray",  # Dodano przecinek
+            cmap="gray_r",  # Dodano przecinek
             vmin=0,  # Minimalna wartość skali kolorów
             vmax=5000  # Maksymalna wartość skali kolorów
         )
