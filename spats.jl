@@ -50,7 +50,7 @@ module SpaTs
         println(size(d))
         Plot.twodfs(d, vpmout; show_=true)
 
-        #Plot.single(d, vpmout; show_=true)
+        Plot.single(d, vpmout; show_=true)
         #d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
         #println(size(d))
         #Plot.single(d[:,:,3], vpmout; show_=true)
