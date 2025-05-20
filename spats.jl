@@ -50,9 +50,9 @@ module SpaTs
         #println(size(d))
         #Plot.single(d, vpmout; show_=true)
 
-        d = Data.load_ascii("/home/psr/output/pulsar.debase.lrfs")
+        d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
         println(size(d))
-        Plot.single(d, vpmout; show_=true)
+        #Plot.single(d, vpmout; show_=true)
 
 
 

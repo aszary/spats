@@ -51,6 +51,61 @@ module Data
     end
 
 
+
+
+    
+    """
+    Loads PSRCHIVE ASCII
+    """
+    function load_ascii(infile)
+        f = open(infile)
+        lines = readlines(f)
+        res = split(lines[1])
+        pulses = parse(Int, res[6])
+        bins = parse(Int, res[12])
+        data = Array{Float64}(undef, pulses, bins)
+        for i in 2: length(lines)
+            res = split(lines[i])
+            bin = parse(Int, res[3]) + 1
+            pulse = parse(Int, res[1]) + 1
+            inte = parse(Float64, res[4])
+            data[pulse, bin] = inte
+        end
+        close(f)
+        return data
+    end
+
+
+    """
+        Loads PSRCHIVE ASCII file with all 4 polarizations.
+        Returns a 3D array: (pulse, bin, pol)
+    """
+    function load_ascii_all(infile)
+        f = open(infile)
+        lines = readlines(f)
+        
+        header = split(lines[1])
+        pulses = parse(Int, header[7])    # Nsub
+        bins = parse(Int, header[13])     # Nbin
+        pols = parse(Int, header[11])     # Npol
+
+        data = Array{Float64}(undef, pulses, bins, pols)
+
+        for i in 2:length(lines)
+            res = split(lines[i])
+            pulse = parse(Int, res[1]) + 1
+            bin = parse(Int, res[3]) + 1
+            for pol in 1:pols
+                val = parse(Float64, res[3 + pol])
+                data[pulse, bin, pol] = val
+            end
+        end
+
+        close(f)
+        return data
+    end
+
+
     """
     Save PSRCHIVE ASCII file
     """
