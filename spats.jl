@@ -748,8 +748,8 @@ end
 
         
         #plot_2dfs33("/home/psr/output/J0738-4042/pulsar.debase.1.2dfs", "J0738-4042", show_plot=true)
-
-        plot_2dfs("/home/psr/output/J0738-4042", "J0738-4042", show_plot=true)
+        plot_2dfs("/home/psr/output/J0924-5302", "J0924-5302", show_plot=true)
+        #plot_2dfs("/home/psr/output/J0738-4042", "J0738-4042", show_plot=true)
         #process_psrdata("/home/psr/data/new/J0738-4042/2019-11-18-21:45:21/", vpmout)
         #period_value = 1.6039332673478421  # Twoja znana wartość
 
