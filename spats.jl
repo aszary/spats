@@ -1216,7 +1216,7 @@ end
     pdf_paths = String[]
     for (root, _, files) in walkdir(output_dir)
         for file in files
-            if endswith(file, ".pdf")
+            if endswith(file, "single.pdf")
                 push!(pdf_paths, joinpath(root, file))
             end
         end
@@ -1247,6 +1247,7 @@ end
     # Run processing for all catalogues
     function J0034Mac(output_dir)
         process_all_catalogues(output_dir, "/home/psr/data/new")
+        combine_pdfs("/home/psr/output")
     end
     
  
