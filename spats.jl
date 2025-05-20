@@ -1232,6 +1232,8 @@ end
     end
 
     # Use pdfunite to combine PDFs
+
+    #Zapisz to .txt i daj paths do wszystkich 
     try
         run(`pdfunite $(pdf_paths...) $combined_pdf_path`)
         println("Combined PDF created at: $combined_pdf_path")
