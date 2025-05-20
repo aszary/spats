@@ -170,7 +170,7 @@ module Plot
         tick_params(labelleft=false, labelbottom=false)
 
         # GÓRNY wykres – średni profil (dawny dolny)
-        subplot2grid((5, 3), (0, 1), colspan=2)
+        subplot2grid((5, 3), (0, 1), rowspan=2, colspan=2)
         minorticks_on()
         plot(longitude, average, c="grey")
         yticks([0.0, 0.5])
@@ -179,7 +179,7 @@ module Plot
         xticks([])  # brak X, bo jest u dołu
 
         # DODATKOWY podpis osi X na samym dole
-        subplot2grid((5, 3), (4, 1), colspan=2)
+        subplot2grid((5, 3), (4, 1), rowspan=2, colspan=2)
         axis("off")
         xlabel("Pulse longitude (°)")
 
