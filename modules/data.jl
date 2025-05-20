@@ -85,13 +85,9 @@ module Data
         lines = readlines(f)
         
         header = split(lines[1])
-        println(header)
         pulses = parse(Int, header[6])    # Nsub
-        println("PULSES $pulses")
         bins = parse(Int, header[12])     # Nbin
-        println("BINS $bins")
         pols = parse(Int, header[10])     # Npol
-        println("POLS $pols")
 
         data = Array{Float64}(undef, pulses, bins, pols)
 
