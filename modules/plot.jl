@@ -151,7 +151,7 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
+        figure(figsize=(4.72, 6.50), frameon=true)  # 8cm x 11cm
         subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
 
         # LEWY wykres – fluktuacje
@@ -177,13 +177,13 @@ module Plot
         plot(longitude, average, c="grey")
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
-        ylabel("Intensity / Modulation index")
+        ylabel("Intensity")
         xticks([])  # brak X, bo jest u dołu
 
         # DODATKOWY podpis osi X na samym dole
         subplot2grid((5, 3), (4, 1), colspan=2)
         axis("off")
-        xlabel("Pulse longitude (°)")
+        xlabel("bin number")
 
         println("$outdir/$(name_mod)_twodfs.pdf")
         savefig("$outdir/$(name_mod)_twodfs.pdf")
