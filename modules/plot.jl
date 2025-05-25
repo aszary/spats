@@ -105,7 +105,7 @@ module Plot
         ylabel("Pulse number")
 
         ax_im = subplot2grid((5,20), (0,5), rowspan=4, colspan=13)  # główny wykres
-        extent = (160, 200, pulses[1]-0.5, pulses[end]+0.5)
+        extent = (0, 360, pulses[1]-0.5, pulses[end]+0.5)
         im = imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
                     extent=extent, vmin=0, vmax=0.02)
         tick_params(labelleft=false, labelbottom=false)
