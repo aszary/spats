@@ -89,11 +89,13 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(5.3, 6.5), frameon=true)  # poszerzamy na potrzeby paska
-        subplots_adjust(left=0.16, bottom=0.09, right=0.95, top=0.99, wspace=0., hspace=0.)
+        figure(figsize=(5, 6.5), frameon=true)  # figure size
 
-        # Wykres boczny: intensywność vs numer pulsu
-        subplot2grid((5, 4), (0, 0), rowspan=4)
+        # Ustawiamy marginesy tak, żeby pasek się zmieścił, ale nie za szeroki
+        subplots_adjust(left=0.16, bottom=0.09, right=0.97, top=0.99, wspace=0., hspace=0.)
+
+        # Tworzymy siatkę 5x20 - więcej kolumn, pasek zajmie 1 lub 2 kolumny
+        subplot2grid((5,20), (0,0), rowspan=4, colspan=5)  # intensywność vs pulse
         minorticks_on()
         plot(intensity, pulses, c="grey")
         ylim(pulses[1]-0.5, pulses[end]+0.5)
@@ -102,8 +104,7 @@ module Plot
         xlabel("intensity")
         ylabel("Pulse number")
 
-        # Wykres główny (imshow)
-        ax_im = subplot2grid((5, 4), (0, 1), rowspan=4, colspan=2)
+        ax_im = subplot2grid((5,20), (0,5), rowspan=4, colspan=13)  # główny wykres
         extent = (160, 200, pulses[1]-0.5, pulses[end]+0.5)
         im = imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
                     extent=extent, vmin=0, vmax=0.02)
@@ -111,13 +112,11 @@ module Plot
         ylim(pulses[1]-0.5, pulses[end]+0.5)
         xlim(160, 200)
 
-        # Dodajemy pasek kolorów
-        ax_cb = subplot2grid((4.7, 4.5), (0, 3), rowspan=4)
+        ax_cb = subplot2grid((5,20), (0,18), rowspan=4, colspan=1)  # węższy pasek
         cb = colorbar(im, cax=ax_cb)
         cb.set_label("Intensity")
 
-        # Dolny wykres: średni profil
-        subplot2grid((5, 4), (4, 1), colspan=2)
+        subplot2grid((5,20), (4,5), colspan=13)
         minorticks_on()
         plot(longitude, average, c="grey")
         yticks([0.0, 0.5])
