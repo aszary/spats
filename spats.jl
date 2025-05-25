@@ -5,7 +5,7 @@ module SpaTs
     using CairoMakie
     using FileIO
     using PDFIO
-    using Magick
+    using ImageMagick
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -1312,7 +1312,7 @@ function combine_pdfs(output_dir::String)
 
 
 function render_pdf_to_image(path::String)
-    img = Magick.read(path; density=150)[1]  # Read first page as image
+    img = ImageMagick.load(path)  # Will only work if ImageMagick CLI is working
     return convert(Matrix{RGB{N0f8}}, img)
 end
 
