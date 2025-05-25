@@ -70,22 +70,24 @@ module Plot
     function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
         num, bins = size(data)
         if number == nothing
-            number = num - start  # missing one?
+            number = num - start  # poprawka: aby nie brakowało 1
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
-        da = data[start:start+number-1,bin_st:bin_end]
+
+        da = data[start:start+number-1, bin_st:bin_end]
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
         intensity ./= maximum(intensity)
 
-        pulses .+= start - 1  # julia
+        pulses .+= start - 1
 
         # Pulse longitude
-        db = (bin_end + 1) - bin_st  # yes +1
+        db = (bin_end + 1) - bin_st
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
+
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -103,11 +105,13 @@ module Plot
         ylabel("Pulse number")
 
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-        im = imshow(da, origin="lower", cmap="gray_r", interpolation="none", aspect="auto",
-            extent=extent, vmin=0, vmax=0.02)
-        colorbar(im)
 
-        #axvline(x=563, lw=2)
+        # zdefiniuj extent (brakowało)
+        extent = (bin_st, bin_end, pulses[1]-0.5, pulses[end]+0.5)
+
+        im = imshow(da, origin="lower", cmap="gray_r", interpolation="none", aspect="auto",
+                    extent=extent, vmin=0, vmax=0.02)
+        colorbar(im)
         tick_params(labelleft=false, labelbottom=false)
 
         subplot2grid((5, 3), (4, 1), colspan=2)
@@ -116,17 +120,18 @@ module Plot
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
-        #tick_params(labeltop=false, labelbottom=true)
+
         println("$outdir/$(name_mod)_single.pdf")
         savefig("$outdir/$(name_mod)_single.pdf")
+
         if show_ == true
             show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
         close()
-        #clf()
     end
+
 
 
 
