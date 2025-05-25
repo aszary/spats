@@ -2,6 +2,9 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
+    using CairoMakie
+    using FileIO
+    using PDFIO
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -1247,7 +1250,7 @@ end
 
 
 
-
+#=
 function combine_pdfs(output_dir::String)
     # Find all .pdf files in subdirectories
     pdf_paths = String[]
@@ -1292,12 +1295,78 @@ end
         process_all_catalogues(output_dir, "/home/psr/data/new")
         combine_pdfs("/home/psr/output")
     end
-    
- 
+=#
+
+
+function combine_pdfs(output_dir::String)
+    # Find all .pdf files in subdirectories
+    pdf_paths = String[]
+    for (root, _, files) in walkdir(output_dir)
+        for file in files
+            if endswith(file, "single.pdf")
+                push!(pdf_paths, joinpath(root, file))
+            end
+        end
+    end
+
+    # Sort for consistent ordering
+    sort!(pdf_paths)
+
+    if isempty(pdf_paths)
+        println("No PDF files found in subdirectories of $output_dir.")
+        return
+    end
+
+    # Extract pulsar name
+    pulsar_name = splitpath(output_dir)[end]
+
+    # True combined path (where you actually want to save)
+    combined_pdf_path = joinpath("/home/aszary/output/Maciej", pulsar_name * ".pdf")
+
+    # Create a version of the paths just for printing (fake Maciej-style paths)
+    fake_pdf_paths = [replace(path, "/home/psr/output" => "/home/aszary/output/Maciej") for path in pdf_paths]
+
+    # NEW: Plotting and rendering
+    rendered_pages = String[]
+    fig = nothing
+    page_count = 0
+
+    for (i, path) in enumerate(pdf_paths)
+        if (i - 1) % 4 == 0
+            if fig !== nothing
+                temp_path = "/tmp/page_$page_count.pdf"
+                save(temp_path, fig)
+                push!(rendered_pages, temp_path)
+                page_count += 1
+            end
+            fig = Figure(resolution = (800, 800))
+        end
+
+        ax = fig[mod1(i, 2), ceil(Int, ((i - 1) % 4) / 2) + 1]
+        page = PDFIO.readpages(File(path))[1]
+        image_data = convert(Matrix{RGB{N0f8}}, page)
+        image!(ax, image_data)
+        ax.title = splitpath(path)[end]
+    end
+
+    # Save the last page
+    if fig !== nothing
+        temp_path = "/tmp/page_$page_count.pdf"
+        save(temp_path, fig)
+        push!(rendered_pages, temp_path)
+    end
+
+    # Combine rendered pages into one PDF
+    try
+        println("Simulated command:")
+        println("pdfunite " * join(rendered_pages, " ") * " " * combined_pdf_path)
+        run(`pdfunite $(rendered_pages...) $combined_pdf_path`)
+    catch e
+        println("Error combining PDFs: ", e)
+    end
+end
 
     
-    
-
 
 
     function main()
@@ -1306,12 +1375,7 @@ end
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        #=
-        args = parse_commandline()
-        for (arg, val) in args
-            println("  $arg  =>  $val")
-        end
-        =#
+
 
         #test(vpmout)
         #J0820Mac(vpmout)
