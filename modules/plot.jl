@@ -106,7 +106,7 @@ module Plot
         # Middle: dynamic spectrum
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
         extent = (160, 200, pulses[1]-0.5, pulses[end]+0.5)
-        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+        imshow(da, origin="lower", cmap="gray_r", interpolation="none", aspect="auto",
             extent=extent, vmin=0, vmax=0.02)  # Color scale and axis fixed
         tick_params(labelleft=false, labelbottom=false)
         ylim(pulses[1]-0.5, pulses[end]+0.5)
