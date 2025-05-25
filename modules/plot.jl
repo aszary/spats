@@ -110,7 +110,7 @@ module Plot
         extent = (bin_st, bin_end, pulses[1]-0.5, pulses[end]+0.5)
 
         im = imshow(da, origin="lower", cmap="gray_r", interpolation="none", aspect="auto",
-                    extent=extent, vmin=0, vmax=0.02)
+                    extent=extent, vmin=0, vmax=1.00)
         colorbar(im)
         tick_params(labelleft=false, labelbottom=false)
 
