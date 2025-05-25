@@ -103,8 +103,10 @@ module Plot
         ylabel("Pulse number")
 
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-        imshow(da, origin="lower", cmap="gray_r", interpolation="none", aspect="auto", vmin=0.0,  vmax=1.00)
-        colorbar(imshow)
+        im = imshow(da, origin="lower", cmap="gray_r", interpolation="none", aspect="auto",
+            extent=extent, vmin=0, vmax=0.02)
+        colorbar(im)
+
         #axvline(x=563, lw=2)
         tick_params(labelleft=false, labelbottom=false)
 
