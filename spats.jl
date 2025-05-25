@@ -1288,14 +1288,13 @@ function combine_pdfs(output_dir::String)
         println("Error combining PDFs: ", e)
     end
 end
-
+=#
 
     # Run processing for all catalogues
     function J0034Mac(output_dir)
         process_all_catalogues(output_dir, "/home/psr/data/new")
         combine_pdfs("/home/psr/output")
     end
-=#
 
 
 function combine_pdfs(output_dir::String)
@@ -1366,7 +1365,19 @@ function combine_pdfs(output_dir::String)
     end
 end
 
-    
+
+
+
+
+
+
+
+
+       # Run processing for all catalogues
+    function J0034Mac(output_dir)
+        process_all_catalogues(output_dir, "/home/psr/data/new")
+        combine_pdfs("/home/psr/output")
+    end 
 
 
     function main()
