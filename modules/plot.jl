@@ -110,7 +110,7 @@ module Plot
                     extent=extent, vmin=0, vmax=0.02)
         tick_params(labelleft=false, labelbottom=false)
         ylim(pulses[1]-0.5, pulses[end]+0.5)
-        xlim(160, 200)
+        xlim(0, 360)
 
         ax_cb = subplot2grid((5,20), (0,18), rowspan=4, colspan=1)  # węższy pasek
         cb = colorbar(im, cax=ax_cb)
