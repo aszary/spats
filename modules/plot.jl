@@ -108,7 +108,7 @@ module Plot
         cmap="gray_r",
         interpolation="none",
         aspect="auto",
-        extent=[160, 200, pulses[1], pulses[end]],
+        extent=[160, 161, pulses[1], pulses[end]],
         vmin=0.0,
         vmax=0.07
     )
