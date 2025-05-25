@@ -127,20 +127,20 @@ module Plot
 
 
 
-    function twodfs(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
+    function twodfs(data, outdir; start=1, number=100, cmap="gray_r", bin_st=nothing, bin_end=nothing, name_mod="PSR_NAME", show_=false)
         num, bins = size(data)
         if number == nothing
             number = num - start
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
+
         da = data[start:start+number-1, bin_st:bin_end]
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
         intensity ./= maximum(intensity)
-
-        pulses .+= start - 1  # julia indexing
+        pulses .+= start - 1  # Julia indexing
 
         # Pulse longitude
         db = (bin_end + 1) - bin_st
@@ -154,46 +154,57 @@ module Plot
         figure(figsize=(4.72, 6.50), frameon=true)  # 8cm x 11cm
         subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
 
-        # LEWY wykres – fluktuacje
+        # LEFT panel – power vs fluctuation frequency
         subplot2grid((5, 3), (1, 0), rowspan=4)
         minorticks_on()
-        plot(-intensity, pulses, c="grey")
+        plot(-intensity, pulses, c="black", lw=0.5)
         ylim(pulses[1] - 0.5, pulses[end] + 0.5)
-        xticks([])  # usuń ticki na osi X
-        xlim(0.1, -1.1)
-        #yticks([0.0, 0.5])  # tu ustawiasz ticki osi Y
+        xlim(1.1, -0.1)
+        xticks([0.5, 1.0])
+        xlabel("Power")
+        ylabel("Pulses")
+
+        # CENTER panel – 2DFS intensity map
+        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
+        imshow(da,
+            origin="lower",
+            cmap=cmap,
+            interpolation="none",
+            aspect="auto",
+            vmin=0.0,
+            vmax=0.07  # pplot-style scale cap
+        )
+        tick_params(labelleft=false, labelbottom=true)
+        xlabel("Pulse longitude (deg)")
         ylabel("Fluctuation frequency (P/P₃)")
 
-
-        # ŚRODKOWY wykres – mapa intensywności
-        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
-        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
-        xlabel("Fluctuation frequency")
-        tick_params(labelleft=false, labelbottom=true)
-
-        # GÓRNY wykres – średni profil (dawny dolny)
+        # TOP panel – average profile
         subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
-        plot(longitude, average, c="grey")
-        yticks([0.0, 0.5])
+        plot(longitude, average, c="black", lw=0.5)
         xlim(longitude[1], longitude[end])
+        yticks([0.0, 0.5])
+        xticks([])
         ylabel("Intensity")
-        xticks([])  # brak X, bo jest u dołu
 
-        # DODATKOWY podpis osi X na samym dole
+        # BOTTOM placeholder for consistent X-label (optional)
         subplot2grid((5, 3), (4, 1), colspan=2)
         axis("off")
-        xlabel("bin number")
+        xlabel("Pulse longitude (deg)")
 
-        println("$outdir/$(name_mod)_twodfs.pdf")
-        savefig("$outdir/$(name_mod)_twodfs.pdf")
-        if show_ == true
+        savepath = "$outdir/$(name_mod)_twodfs.pdf"
+        println("✅ 2DFS plot saved to: $savepath")
+        savefig(savepath)
+
+        if show_
             show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
+
         close()
     end
+
 
 
 
