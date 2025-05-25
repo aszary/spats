@@ -57,9 +57,9 @@ module SpaTs
 
 
 
-        d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
-        println(size(d))
-        Plot.single(d[:,:,3], vpmout; show_=true)
+        #d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
+        #println(size(d))
+        #Plot.single(d[:,:,3], vpmout; show_=true)
 
         #test(vpmout)
         #test2(vpmout)
