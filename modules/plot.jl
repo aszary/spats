@@ -67,7 +67,7 @@ module Plot
     end
 
 
-    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
+    function single(data, outdir; start=1, number=100, cmap="gray_r", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
         num, bins = size(data)
         if number == nothing
             number = num - start
@@ -80,21 +80,20 @@ module Plot
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
         intensity ./= maximum(intensity)
-        pulses .+= start - 1  # Julia index correction
+        pulses .+= start - 1
 
-        # Pulse longitude
         db = (bin_end + 1) - bin_st
-        longitude = collect(range(160, 200, length=db))  # Fixed x-axis range
+        longitude = collect(range(160, 200, length=db))
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(4.72, 6.5), frameon=true)
-        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
+        figure(figsize=(5.3, 6.5), frameon=true)  # poszerzamy na potrzeby paska
+        subplots_adjust(left=0.16, bottom=0.09, right=0.95, top=0.99, wspace=0., hspace=0.)
 
-        # Left: intensity profile vs pulse number
-        subplot2grid((5, 3), (0, 0), rowspan=4)
+        # Wykres boczny: intensywność vs numer pulsu
+        subplot2grid((5, 4), (0, 0), rowspan=4)
         minorticks_on()
         plot(intensity, pulses, c="grey")
         ylim(pulses[1]-0.5, pulses[end]+0.5)
@@ -103,17 +102,22 @@ module Plot
         xlabel("intensity")
         ylabel("Pulse number")
 
-        # Middle: dynamic spectrum
-        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        # Wykres główny (imshow)
+        ax_im = subplot2grid((5, 4), (0, 1), rowspan=4, colspan=2)
         extent = (160, 200, pulses[1]-0.5, pulses[end]+0.5)
-        imshow(da, origin="lower", cmap="gray_r", interpolation="none", aspect="auto",
-            extent=extent, vmin=0, vmax=0.02)  # Color scale and axis fixed
+        im = imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+                    extent=extent, vmin=0, vmax=0.02)
         tick_params(labelleft=false, labelbottom=false)
         ylim(pulses[1]-0.5, pulses[end]+0.5)
         xlim(160, 200)
 
-        # Bottom: average profile
-        subplot2grid((5, 3), (4, 1), colspan=2)
+        # Dodajemy pasek kolorów
+        ax_cb = subplot2grid((5, 4), (0, 3), rowspan=4)
+        cb = colorbar(im, cax=ax_cb)
+        cb.set_label("Intensity")
+
+        # Dolny wykres: średni profil
+        subplot2grid((5, 4), (4, 1), colspan=2)
         minorticks_on()
         plot(longitude, average, c="grey")
         yticks([0.0, 0.5])
@@ -130,6 +134,7 @@ module Plot
         end
         close()
     end
+
 
 
 
