@@ -67,35 +67,33 @@ module Plot
     end
 
 
-    function single(data, outdir; start=1, number=100, cmap="gray_r", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
+    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
         num, bins = size(data)
         if number == nothing
-            number = num - start
+            number = num - start  # missing one?
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
-
-        da = data[start:start+number-1, bin_st:bin_end]
+        da = data[start:start+number-1,bin_st:bin_end]
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
         intensity ./= maximum(intensity)
-        pulses .+= start - 1
 
-        db = (bin_end + 1) - bin_st
-        longitude = collect(range(160, 200, length=db))
+        pulses .+= start - 1  # julia
 
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(5, 6.5), frameon=true)  # figure size
+        figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
+        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
 
-        # Ustawiamy marginesy tak, żeby pasek się zmieścił, ale nie za szeroki
-        subplots_adjust(left=0.16, bottom=0.09, right=0.97, top=0.99, wspace=0., hspace=0.)
-
-        # Tworzymy siatkę 5x20 - więcej kolumn, pasek zajmie 1 lub 2 kolumny
-        subplot2grid((5,20), (0,0), rowspan=4, colspan=5)  # intensywność vs pulse
+        subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
         plot(intensity, pulses, c="grey")
         ylim(pulses[1]-0.5, pulses[end]+0.5)
@@ -104,34 +102,27 @@ module Plot
         xlabel("intensity")
         ylabel("Pulse number")
 
-        ax_im = subplot2grid((5,20), (0,5), rowspan=4, colspan=13)  # główny wykres
-        extent = (160, 200, pulses[1]-0.5, pulses[end]+0.5)
-        im = imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
-                    extent=extent, vmin=0, vmax=0.02)
+        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+        #axvline(x=563, lw=2)
         tick_params(labelleft=false, labelbottom=false)
-        ylim(pulses[1]-0.5, pulses[end]+0.5)
-        xlim(0, 360)
 
-        ax_cb = subplot2grid((5,20), (0,18), rowspan=4, colspan=1)  # węższy pasek
-        cb = colorbar(im, cax=ax_cb)
-        cb.set_label("Intensity")
-
-        subplot2grid((5,20), (4,5), colspan=13)
+        subplot2grid((5, 3), (4, 1), colspan=2)
         minorticks_on()
         plot(longitude, average, c="grey")
         yticks([0.0, 0.5])
-        xlim(160, 200)
+        xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
-
+        #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_single.pdf")
         savefig("$outdir/$(name_mod)_single.pdf")
-
         if show_ == true
             show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
         close()
+        #clf()
     end
 
 
