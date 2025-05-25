@@ -1330,32 +1330,42 @@ function combine_pdfs(output_dir::String)
     fig = nothing
     page_count = 0
 
+
+ # Rendering PDFs to pages with Makie
+    rendered_pages = String[]
+    fig = nothing
+    page_count = 0
+
     for (i, path) in enumerate(pdf_paths)
         if (i - 1) % 4 == 0
             if fig !== nothing
-                temp_path = "/tmp/page_$page_count.pdf"
-                save(temp_path, fig)
-                push!(rendered_pages, temp_path)
+                save("/tmp/page_$page_count.pdf", fig)
+                push!(rendered_pages, "/tmp/page_$page_count.pdf")
                 page_count += 1
             end
-            fig = Figure(resolution = (800, 800))
+            fig = Figure(size = (800, 800))
         end
 
-        ax = fig[mod1(i, 2), ceil(Int, ((i - 1) % 4) / 2) + 1]
-        page = PDFIO.readpages(File(path))[1]
-        image_data = convert(Matrix{RGB{N0f8}}, page)
-        image!(ax, image_data)
-        ax.title = splitpath(path)[end]
+        row = div((i - 1), 2) % 2 + 1
+        col = (i - 1) % 2 + 1
+        ax = Axis(fig[row, col])
+
+        try
+            image_data = load(path)  # First page preview
+            image!(ax, image_data)
+            ax.title = splitpath(path)[end]
+        catch e
+            ax.title = "Error loading: $(basename(path))"
+        end
     end
 
     # Save the last page
     if fig !== nothing
-        temp_path = "/tmp/page_$page_count.pdf"
-        save(temp_path, fig)
-        push!(rendered_pages, temp_path)
+        save("/tmp/page_$page_count.pdf", fig)
+        push!(rendered_pages, "/tmp/page_$page_count.pdf")
     end
 
-    # Combine rendered pages into one PDF
+    # Combine all rendered pages into one
     try
         println("Simulated command:")
         println("pdfunite " * join(rendered_pages, " ") * " " * combined_pdf_path)
