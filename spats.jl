@@ -5,6 +5,7 @@ module SpaTs
     using CairoMakie
     using FileIO
     using PDFIO
+    using Magick
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -1308,6 +1309,14 @@ function combine_pdfs(output_dir::String)
         end
     end
 
+
+
+function render_pdf_to_image(path::String)
+    img = Magick.read(path; density=150)[1]  # Read first page as image
+    return convert(Matrix{RGB{N0f8}}, img)
+end
+
+
     # Sort for consistent ordering
     sort!(pdf_paths)
 
@@ -1351,7 +1360,9 @@ function combine_pdfs(output_dir::String)
         ax = Axis(fig[row, col])
 
         try
-            image_data = load(path)  # First page preview
+            #image_data = load(path)
+            image_data = render_pdf_to_image(path)
+  # First page preview
             image!(ax, image_data)
             ax.title = splitpath(path)[end]
         catch e
