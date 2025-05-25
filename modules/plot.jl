@@ -112,7 +112,7 @@ module Plot
         xlim(160, 200)
 
         # Dodajemy pasek kolorów
-        ax_cb = subplot2grid((5, 4), (0, 3), rowspan=4)
+        ax_cb = subplot2grid((5, 4), (0, 3), rowspan=1)
         cb = colorbar(im, cax=ax_cb)
         cb.set_label("Intensity")
 
