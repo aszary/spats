@@ -133,7 +133,6 @@ module Plot
     end
 
 
-    using PyPlot
 
     function 2dfs(data, outdir;
                             start=1,
