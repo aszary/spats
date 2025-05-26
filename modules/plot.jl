@@ -171,7 +171,7 @@ module Plot
         figure(figsize=(5, 7))
         # Przesuwamy panel dolny na górę, więc ustawiamy grid inaczej
         # Grid 5x3: top (average_x) zajmie wiersz 0, główny wiersze 1-4, lewy panel kolumna 0
-        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
+        subplots_adjust(left=0.16, bottom=0.09, right=0.90, top=0.99, wspace=0.0, hspace=0.0)
 
         # Panel górny: average_x (profil poziomy)
         subplot2grid((5, 3), (0, 1), colspan=1)
