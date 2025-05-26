@@ -221,7 +221,7 @@ module Plot
               bin_st=1,
               bin_end=size(data, 2),
               cmap="Greys",
-              darkness=1.00,
+              darkness=0.07,
               name_mod="PSR_NAME",
               show_=false)
 
@@ -230,19 +230,16 @@ module Plot
             number = num - start + 1
         end
 
-        # Wybór fragmentu danych
+        # Wybór fragmentu widma
         da = data[start:start+number-1, bin_st:bin_end]
 
-        # Transformata Fouriera wzdłuż osi czasowej (P3)
-        spectrum = abs.(fft(da, dims=1))[1:div(number, 2), :]
-
         # Profile boczne
-        average_x = sum(spectrum, dims=1)[1, :]  # profil po fazie (binach)
-        average_y = sum(spectrum, dims=2)[:, 1]  # widmo całkowite (P3)
+        average_x = sum(da, dims=1)[1, :]  # profil wzdłuż P2
+        average_y = sum(da, dims=2)[:, 1]  # widmo P3
 
         # Zakresy osi
         xrange = collect(1:bin_end - bin_st + 1)
-        yrange = collect(range(0.0, stop=0.5, length=size(spectrum, 1)))
+        yrange = collect(range(0.0, stop=0.5, length=number))
 
         rc("font", size=8.0)
         rc("axes", linewidth=0.5)
@@ -251,12 +248,12 @@ module Plot
         figure(figsize=(4.62, 6.5))
         subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
 
-        # Lewy panel – widmo ogólne (P3)
+        # Lewy panel – profil P3 (widmo ogólne)
         subplot2grid((5, 3), (0, 0), rowspan=4)
         minorticks_on()
         plot(average_y, yrange, color="grey")
         ylim(yrange[1], yrange[end])
-        xticks([])  # usunięcie liczb na osi X
+        xticks([])  # bez numerów na osi X
         xlim(1.1 * maximum(average_y), -0.1)
         xlabel("intensity")
         ylabel("P3 [cpp]")
@@ -264,7 +261,7 @@ module Plot
         # Główny panel LRFS
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
         extent = (xrange[1], xrange[end], yrange[1], yrange[end])
-        im = imshow(spectrum,
+        im = imshow(da,
                     origin="lower",
                     cmap=cmap,
                     interpolation="none",
@@ -275,11 +272,11 @@ module Plot
         colorbar(im)
         tick_params(labelleft=false, labelbottom=false)
 
-        # Dolny panel – średni profil pulsacji
+        # Dolny panel – profil P2
         subplot2grid((5, 3), (4, 1), colspan=2)
         minorticks_on()
         plot(xrange, average_x, color="grey")
-        yticks([])  # usunięcie liczb na osi Y
+        yticks([])  # bez numerów na osi Y
         xlim(xrange[1], xrange[end])
         xlabel("Pulse phase bin")
 
@@ -295,6 +292,7 @@ module Plot
 
         close()
     end
+
 
 
 
