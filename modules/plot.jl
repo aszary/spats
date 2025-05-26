@@ -190,21 +190,21 @@ module Plot
         xticks([])
         ylabel("Pulse number")
 
-        # Główny panel - wykres 2D
-        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
-        im = imshow(norm_da,
-            origin="lower",
-            cmap=cmap,
-            interpolation="none",
-            aspect="auto",
-            vmin=0.0,
-            vmax=1.0)
+        # GŁÓWNY PANEL
+        ax = subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        im = ax.imshow(norm_da,
+                    origin="lower",
+                    cmap="gray_r",
+                    interpolation="none",
+                    aspect="auto",
+                    vmin=0.0,
+                    vmax=1.0)
 
-    # Tworzymy nową oś kolorbara po prawej stronie
-    cax = inset_axes(gca(), width="3%", height="100%", loc="right", borderpad=0.5)
-    cb = colorbar(im, cax=cax)
-    cb.ax.tick_params(labelsize=6)  # rozmiar czcionki kolorbara
-    cb.set_label("Normalized Intensity", fontsize=7)
+        # PROSTY KOLORBAR
+        cb = colorbar(im, ax=ax, fraction=0.046, pad=0.02)
+        cb.set_ticks([0.0, 0.5, 1.0])  # widoczne wartości
+        cb.ax.tick_params(labelsize=6)  # rozmiar cyfr
+
 
         tick_params(labelleft=false, labelbottom=false)
 
