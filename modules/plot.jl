@@ -7,7 +7,7 @@ module Plot
     using PyPlot
     using PyCall
     using Printf
-    using StatsBase
+    using StatsBase: mean
     @pyimport matplotlib.patches as patch
     
     PyPlot.matplotlib.use("Tkagg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
@@ -325,32 +325,23 @@ module Plot
         xlabel("Fluctuation frequency (P/P2)")
         xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
 
-
-
-        # Obliczamy poziomy profil (sumowanie wzdłuż pionu / po 1/P3)
+        # Dolny panel - profil sum po pulsach (po osi pionowej 1/P3), z lustrzanym odbiciem
         power_profile = sum(norm_da, dims=1)
-        power_profile = vec(power_profile)  # konwersja do wektora
+        power_profile = vec(power_profile)
 
-        # Wygładzamy go — np. 11-punktowa średnia ruchoma
-        smoothed = smooth(power_profile, 11)
+        smoothed = running_mean(power_profile, 11)  # zamiast `smooth`
 
-        # Dolny panel - uproszczony zarys + odbicie lustrzane
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
 
-        # Oryginalny wygładzony zarys (szary)
-        plot(mapped_x, smoothed, color="grey")
-
-        # Lustrzane odbicie (pomarańczowe)
-        plot(-mapped_x, smoothed, color="orange", linestyle="-")
+        plot(mapped_x, smoothed, color="grey")                      # oryginalny
+        plot(-mapped_x, smoothed, color="orange", linestyle="-")    # lustrzane odbicie
 
         yticks([])
         xlim(x_min, x_max)
         xlabel("Fluctuation frequency (1/P2, cpp)")
+        xticks([x_min, 0, x_max], string.([x_min, 0, x_max]))
 
-        # Ograniczone ticki
-        xticks_vals = [x_min, 0, x_max]
-        xticks(xticks_vals, string.(xticks_vals))
 
 
         legend(loc="upper right")
