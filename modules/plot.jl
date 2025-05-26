@@ -134,7 +134,7 @@ module Plot
 
 
 
-    function 2dfs(data, outdir;
+    function twodfs(data, outdir;
                             start=1,
                             number=nothing,
                             bin_st=1,
