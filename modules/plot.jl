@@ -256,26 +256,27 @@ module Plot
 
         da = data[start:start+number-1, bin_st:bin_end]
 
-        # Indeksy binów (kolumn)
+        # Pełny zakres binów (bin_st:bin_end)
         bin_indices = collect(bin_st:bin_end)
         nb = length(bin_indices)
-        center = (nb + 1)/2
+        center = (nb + 1) / 2
 
-        # Mapowanie binów na zakres -180 ... 0 ... +180
-        mapped_x = [(i - center) * 360 / (nb - 1) for i in 1:nb]
+        # Mapa binów na -360 ... 0 ... +360
+        # Załóżmy, że rozszerzamy o czynnik 2 zakres względem standardowego
+        mapped_x = [(i - center) * 720 / (nb - 1) for i in 1:nb]
 
-        # Ograniczenie zakresu do -120 ... +120
+        # Ograniczenie zakresu wyświetlania na osi x do -120 ... +120
         x_min = -120
         x_max = 120
-        idx_range = findall(x -> x_min <= x <= x_max, mapped_x)
 
-        # Wycięcie danych dla dolnego wykresu (profil sum po pulsach)
+        # Profile boczne
         average_x = sum(da, dims=1)[1, :]
-        average_x_cut = average_x[idx_range]
-        mapped_x_cut = mapped_x[idx_range]
+        average_y = sum(da, dims=2)[:, 1]
 
-        # Profile boczne:
-        average_y = sum(da, dims=2)[:, 1]   # profil lewy (suma po binach)
+        # Dla dolnego wykresu wycinamy dane mieszczące się w zakresie -120..120
+        idx_range = findall(x -> x_min <= x <= x_max, mapped_x)
+        mapped_x_cut = mapped_x[idx_range]
+        average_x_cut = average_x[idx_range]
 
         # Normalizacja intensywności głównej mapy
         norm_da = copy(da)
@@ -292,7 +293,7 @@ module Plot
         figure(figsize=(7, 7))
         subplots_adjust(left=0.16, bottom=0.15, right=0.90, top=0.95, wspace=0.0, hspace=0.0)
 
-        # Lewy panel - profil sum po binach, Y z tickami od 0 do 0.5 (przeskalowane)
+        # Lewy panel - profil sum po binach
         ax_left = subplot2grid((4,3), (0,0), rowspan=3)
         minorticks_on()
         plot(average_y, pulses, color="grey")
@@ -303,7 +304,7 @@ module Plot
         ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
         yticks(ytick_positions, string.(ytick_values))
 
-        # Główny panel - mapa intensywności 2DFS
+        # Główny panel - mapa intensywności 2DFS (pełne dane, ale ograniczony zakres x)
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         im = imshow(norm_da,
                     origin="lower",
@@ -316,9 +317,9 @@ module Plot
         colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Bin longitude (°)")
-        xlim(x_min, x_max)
+        xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
 
-        # Dolny panel - profil sum po pulsach (profil poziomy), tylko w zakresie -120..120
+        # Dolny panel - profil sum po pulsach, tylko w zakresie -120..120
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
         plot(mapped_x_cut, average_x_cut, color="grey")
@@ -343,6 +344,7 @@ module Plot
 
         close()
     end
+
 
 
 
