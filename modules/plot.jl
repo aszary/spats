@@ -330,19 +330,20 @@ module Plot
 
         # Sumowanie po pionie (1/P3)
         power_profile = sum(da, dims=1)
-        power_profile = vec(power_profile)  # na wektor
+        power_profile = vec(power_profile)  # konwersja do wektora
 
-        # Rysujemy profil i jego odbicie
-        plot(mapped_x, power_profile, color="grey", label="Integrated power")
-        plot(-mapped_x, power_profile, color="grey", linestyle="--", label="Mirrored")
+        # Rysujemy profil (szary) i jego odbicie (pomarańczowe)
+        plot(mapped_x, power_profile, color="grey")
+        plot(-mapped_x, power_profile, color="orange", linestyle="--")
 
         yticks([])
         xlim(x_min, x_max)
         xlabel("Fluctuation frequency (1/P2, cpp)")
 
-        # Ustawienie ticków osi X na trzy punkty
+        # Ticki osi X: -120, 0, 120
         xticks_vals = [x_min, 0, x_max]
         xticks(xticks_vals, string.(xticks_vals))
+
 
         legend(loc="upper right")
 
