@@ -127,84 +127,93 @@ module Plot
 
 
     function lrfsdwa(data, outdir;
-                 start=1,
-                 number=100,
-                 cmap="gray_r",
-                 bin_st=nothing,
-                 bin_end=nothing,
-                 darkness=0.02,
-                 name_mod="PSR_NAME",
-                 show_=false)
+              start=1,
+              number=100,
+              cmap="gray_r",
+              bin_st=nothing,
+              bin_end=nothing,
+              darkness=0.02,
+              name_mod="PSR_NAME",
+              show_=false)
 
         num, bins = size(data)
-
         if number === nothing
             number = num - start + 1
         end
-
-        # Wyliczamy bin_st i bin_end odpowiadające zakresowi 160–200 stopni
         if bin_st === nothing
-            bin_st = round(Int, 160 / 360 * bins) + 1  # +1 bo indeksowanie od 1
+            bin_st = 1
         end
         if bin_end === nothing
-            bin_end = round(Int, 200 / 360 * bins)
+            bin_end = bins
         end
 
         da = data[start:start+number-1, bin_st:bin_end]
 
-        # Obliczamy profile boczne
-        average_x = sum(da, dims=1)[1, :]  # profil wzdłuż kolumn (x)
-        average_y = sum(da, dims=2)[:, 1]  # profil wzdłuż wierszy (y)
+        # Przeliczanie binów na stopnie
+        nbins_total = size(data, 2)
+        bin_range = bin_st:bin_end
+        longitudes_deg = collect(bin_range) .* (360 / nbins_total)
+
+        # Indeksy odpowiadające 160–200°
+        idx_range = findall(x -> 160 <= x <= 200, longitudes_deg)
+        if isempty(idx_range)
+            error("No longitude bins found in the range 160–200°.")
+        end
+
+        da_zoom = da[:, idx_range]
+        longitudes_zoom = longitudes_deg[idx_range]
+
+        # Profile boczne
+        average_x = sum(da_zoom, dims=1)[1, :]
+        average_y = sum(da, dims=2)[:, 1]
 
         # Normalizacja intensywności
-        norm_da = copy(da)
+        norm_da = copy(da_zoom)
         norm_da .-= minimum(norm_da)
         norm_da ./= maximum(norm_da)
 
-        # Osie
-        pulses = start:start+number-1
-        longitudes = range(160, 200, length=size(norm_da, 2))
-        yrange = pulses
+        pulses = collect(start:start+number-1)
 
-        # Ustawienia stylu
+        # Styl
         rc("font", size=8.0)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(6.5, 7.0))
-        subplots_adjust(left=0.16, bottom=0.09, right=0.95, top=0.99, wspace=0.0, hspace=0.0)
+        figure(figsize=(6.5, 7))  # szerszy rysunek
+        subplots_adjust(left=0.12, bottom=0.09, right=0.92, top=0.99, wspace=0.0, hspace=0.0)
 
-        # Górny panel (average_x): 1. wiersz, kolumny 1-4
-        subplot2grid((5, 5), (0, 1), colspan=4)
+        # Nowy układ: 5 wierszy, 4 kolumny (1 dla lewego panelu, 3 dla górnego i głównego)
+        # Górny panel: 3 kolumny
+        subplot2grid((5, 4), (0, 1), colspan=3)
         minorticks_on()
-        plot(longitudes, average_x, color="grey")
+        plot(longitudes_zoom, average_x, color="grey")
         yticks([])
         xlim(160, 200)
-        xlabel("Pulse longitude (deg)")
+        xlabel("Pulse longitude (°)")
         ylabel("Intensity")
 
-        # Lewy panel: average_y (profil pionowy)
-        subplot2grid((5, 5), (1, 0), rowspan=4)
+        # Lewy panel: 1 kolumna
+        subplot2grid((5, 4), (1, 0), rowspan=4)
         minorticks_on()
-        plot(average_y, yrange, color="grey")
-        ylim(yrange[1], yrange[end])
+        plot(average_y, pulses, color="grey")
+        ylim(pulses[1], pulses[end])
         xticks([])
-        ylabel("Fluctuation frequency (P/P3)")
-        yticks(collect(yrange[1]:round(Int, number / 5):yrange[end]))
+        ylabel("Fluctuation frequency (P/P₃)")
+        yticks(collect(0.0:0.1:0.5))
 
-        # Główny panel: 2D obraz
-        subplot2grid((5, 5), (1, 1), rowspan=4, colspan=4)
+        # Główny panel: 3 kolumny
+        subplot2grid((5, 4), (1, 1), rowspan=4, colspan=3)
         im = imshow(norm_da,
                     origin="lower",
                     cmap=cmap,
                     interpolation="none",
                     aspect="auto",
-                    extent=(160, 200, yrange[1], yrange[end]),
+                    extent=(160, 200, pulses[1], pulses[end]),
                     vmin=0.0,
                     vmax=0.02)
         colorbar(im)
-        tick_params(labelleft=false)
-        xlabel("Pulse longitude (deg)")
+        tick_params(left=false, labelleft=false)
+        xlabel("Pulse longitude (°)")
 
         savepath = "$outdir/$(name_mod)_lrfs.pdf"
         println(savepath)
@@ -218,7 +227,6 @@ module Plot
 
         close()
     end
-
 
 
 
