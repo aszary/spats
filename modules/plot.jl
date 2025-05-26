@@ -324,20 +324,27 @@ module Plot
         xlabel("Fluctuation frequency (P/P2)")
         xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
 
-        # Dolny panel - profil sum po pulsach, tylko w zakresie -120..120
+        # Dolny panel - profil sum po pulsach (po osi pionowej 1/P3), z lustrzanym odbiciem
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
-        plot(mapped_x_cut, average_x_cut, color="grey")
+
+        # Sumowanie po pionie (1/P3)
+        power_profile = sum(da, dims=1)
+        power_profile = vec(power_profile)  # na wektor
+
+        # Rysujemy profil i jego odbicie
+        plot(mapped_x, power_profile, color="grey", label="Integrated power")
+        plot(-mapped_x, power_profile, color="grey", linestyle="--", label="Mirrored")
+
         yticks([])
         xlim(x_min, x_max)
-        xlabel("Fluctuation frequency (P/P2)")
+        xlabel("Fluctuation frequency (1/P2, cpp)")
 
-        # ... (reszta funkcji bez zmian)
+        # Ustawienie ticków osi X na trzy punkty
+        xticks_vals = [x_min, 0, x_max]
+        xticks(xticks_vals, string.(xticks_vals))
 
-        # Ticki osi X - tylko trzy punkty: -120, 0, 120
-        #xticks_vals = [x_min, 0, x_max]
-        #xticks!(ax_bottom, xticks_vals, string.(xticks_vals))
-        #xticks!(ax_main, xticks_vals, string.(xticks_vals))
+        legend(loc="upper right")
 
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
