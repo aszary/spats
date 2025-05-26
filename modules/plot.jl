@@ -215,7 +215,7 @@ module Plot
                     aspect="auto",
                     extent=(160, 200, pulses[1], pulses[end]),
                     vmin=0.0,
-                    vmax=0.02)
+                    vmax=0.07)
         #colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Pulse longitude (°)")
