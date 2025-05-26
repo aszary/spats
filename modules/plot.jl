@@ -192,13 +192,19 @@ module Plot
         # Główny panel - wykres 2D
         subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
         im = imshow(norm_da,
-                    origin="lower",
-                    cmap=cmap,
-                    interpolation="none",
-                    aspect="auto",
-                    vmin=0.0,
-                    vmax=0.02)
-        colorbar(im)
+            origin="lower",
+            cmap=cmap,
+            interpolation="none",
+            aspect="auto",
+            vmin=0.0,
+            vmax=1.0)
+        
+    # Tworzymy nową oś kolorbara po prawej stronie
+    cax = inset_axes(gca(), width="3%", height="100%", loc="right", borderpad=0.5)
+    cb = colorbar(im, cax=cax)
+    cb.ax.tick_params(labelsize=6)  # rozmiar czcionki kolorbara
+    cb.set_label("Normalized Intensity", fontsize=7)
+
         tick_params(labelleft=false, labelbottom=false)
 
         savepath = "$outdir/$(name_mod)_lrfs.pdf"
