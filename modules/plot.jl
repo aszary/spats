@@ -133,6 +133,95 @@ module Plot
     end
 
 
+    using PyPlot
+
+    function 2dfs_dobry(data, outdir;
+                            start=1,
+                            number=nothing,
+                            bin_st=1,
+                            bin_end=size(data, 2),
+                            cmap="Greys",
+                            darkness=0.5,
+                            name_mod="PSR_NAME",
+                            show_=false)
+
+        num, bins = size(data)
+        if number === nothing
+            number = num - start + 1
+        end
+
+        da = data[start:start+number-1, bin_st:bin_end]
+
+        # Wyznaczenie średnich profili bocznych
+        average_x = sum(da, dims=1)[1, :]  # profil wzdłuż P2
+        average_y = sum(da, dims=2)[:, 1]  # profil wzdłuż P3
+
+        # Normalizacja głównych danych
+        norm_da = copy(da)
+        norm_da .-= minimum(norm_da)
+        norm_da ./= maximum(norm_da)
+
+        # Zakresy osi:
+        db = (bin_end + 1) - bin_st
+        xrange = collect(range(-bins/2, stop=-bins/2 + bins * db / (db + 1), length=db))
+        yrange = collect(range(0.0, stop=0.5, length=number))
+
+        # Styl
+        rc("font", size=8.0)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(4.62, 6.5))
+        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
+
+        # Lewy panel: średni profil P3 (w pionie)
+        subplot2grid((5, 3), (0, 0), rowspan=4)
+        minorticks_on()
+        plot(average_y, yrange, color="grey")
+        ylim(yrange[1], yrange[end])
+        xticks([0.5 * maximum(average_y)])
+        xlim(1.1 * maximum(average_y), -0.1)
+        xlabel("intensity")
+        ylabel("P3 [cpp]")
+
+        # Główny wykres 2DFS
+        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        extent = (xrange[1], xrange[end], yrange[1], yrange[end])
+        im = imshow(norm_da,
+                    origin="lower",
+                    cmap=cmap,
+                    interpolation="none",
+                    aspect="auto",
+                    extent=extent,
+                    vmin=0.0,
+                    vmax=1.0)
+        colorbar(im)
+        tick_params(labelleft=false, labelbottom=false)
+
+        # Dolny panel: średni profil P2 (w poziomie)
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        minorticks_on()
+        plot(xrange, average_x, color="grey")
+        yticks([0.5 * maximum(average_x)])
+        xlim(xrange[1], xrange[end])
+        xlabel("P2 [cpp]")
+
+        savepath = "$outdir/$(name_mod)_2dfs.pdf"
+        println(savepath)
+        savefig(savepath)
+
+        if show_
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+
+        close()
+    end
+
+
+
+
 
 
 
