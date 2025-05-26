@@ -126,7 +126,7 @@ module Plot
     end
 
 
-    function lrfs(data, outdir;
+    function lrfsdwa(data, outdir;
               start=1,
               number=100,
               cmap="gray_r",
