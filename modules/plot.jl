@@ -310,7 +310,7 @@ module Plot
                     extent=(minimum(bin_indices), maximum(bin_indices), pulses[1], pulses[end]),
                     vmin=0.0,
                     vmax=darkness)
-        colorbar(im)
+        #colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Bin index")
 
