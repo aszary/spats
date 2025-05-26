@@ -199,10 +199,7 @@ module Plot
                     vmin=0.0,
                     vmax=1.0)
 
-        # PROSTY KOLORBAR
-        cb = colorbar(im, ax=ax, fraction=0.046, pad=0.02)
-        cb.set_ticks([0.0, 0.5, 1.0])  # widoczne wartości
-        cb.ax.tick_params(labelsize=6)  # rozmiar cyfr
+        
 
 
         tick_params(labelleft=false, labelbottom=false)
