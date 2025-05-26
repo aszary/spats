@@ -135,14 +135,14 @@ module Plot
 
 
     function twodfs(data, outdir;
-                            start=1,
-                            number=nothing,
-                            bin_st=1,
-                            bin_end=size(data, 2),
-                            cmap="Greys",
-                            darkness=0.5,
-                            name_mod="PSR_NAME",
-                            show_=false)
+                start=1,
+                number=nothing,
+                bin_st=1,
+                bin_end=size(data, 2),
+                cmap="Greys",
+                darkness=1.00,   # nowy domyślny vmax (np. 0.07)
+                name_mod="PSR_NAME",
+                show_=false)
 
         num, bins = size(data)
         if number === nothing
@@ -151,21 +151,15 @@ module Plot
 
         da = data[start:start+number-1, bin_st:bin_end]
 
-        # Wyznaczenie średnich profili bocznych
-        average_x = sum(da, dims=1)[1, :]  # profil wzdłuż P2
-        average_y = sum(da, dims=2)[:, 1]  # profil wzdłuż P3
+        # Profile boczne
+        average_x = sum(da, dims=1)[1, :]
+        average_y = sum(da, dims=2)[:, 1]
 
-        # Normalizacja głównych danych
-        norm_da = copy(da)
-        norm_da .-= minimum(norm_da)
-        norm_da ./= maximum(norm_da)
-
-        # Zakresy osi:
+        # Zakresy osi
         db = (bin_end + 1) - bin_st
         xrange = collect(range(-bins/2, stop=-bins/2 + bins * db / (db + 1), length=db))
         yrange = collect(range(0.0, stop=0.5, length=number))
 
-        # Styl
         rc("font", size=8.0)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -178,22 +172,22 @@ module Plot
         minorticks_on()
         plot(average_y, yrange, color="grey")
         ylim(yrange[1], yrange[end])
-        xticks([0.5 * maximum(average_y)])
+        xticks([])  # usunięcie liczb na osi X
         xlim(1.1 * maximum(average_y), -0.1)
         xlabel("intensity")
         ylabel("P3 [cpp]")
 
-        # Główny wykres 2DFS
+        # Główny wykres
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
         extent = (xrange[1], xrange[end], yrange[1], yrange[end])
-        im = imshow(norm_da,
+        im = imshow(da,
                     origin="lower",
                     cmap=cmap,
                     interpolation="none",
                     aspect="auto",
                     extent=extent,
                     vmin=0.0,
-                    vmax=1.0)
+                    vmax=darkness)  # zamiast normalizacji
         colorbar(im)
         tick_params(labelleft=false, labelbottom=false)
 
@@ -201,7 +195,7 @@ module Plot
         subplot2grid((5, 3), (4, 1), colspan=2)
         minorticks_on()
         plot(xrange, average_x, color="grey")
-        yticks([0.5 * maximum(average_x)])
+        yticks([])  # usunięcie liczb na osi Y
         xlim(xrange[1], xrange[end])
         xlabel("P2 [cpp]")
 
@@ -217,6 +211,7 @@ module Plot
 
         close()
     end
+
 
 
 
