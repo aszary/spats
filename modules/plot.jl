@@ -127,14 +127,14 @@ module Plot
 
 
     function lrfsdwa(data, outdir;
-              start=1,
-              number=100,
-              cmap="gray_r",
-              bin_st=nothing,
-              bin_end=nothing,
-              darkness=0.02,
-              name_mod="PSR_NAME",
-              show_=false)
+                 start=1,
+                 number=100,
+                 cmap="gray_r",
+                 bin_st=nothing,
+                 bin_end=nothing,
+                 darkness=0.02,
+                 name_mod="PSR_NAME",
+                 show_=false)
 
         num, bins = size(data)
         if number === nothing
@@ -179,12 +179,12 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(6.5, 7))  # szerszy rysunek
-        subplots_adjust(left=0.12, bottom=0.09, right=0.92, top=0.99, wspace=0.0, hspace=0.0)
+        figure(figsize=(7.0, 7.0))
+        subplots_adjust(left=0.1, bottom=0.09, right=0.95, top=0.99, wspace=0.0, hspace=0.0)
 
-        # Nowy układ: 5 wierszy, 4 kolumny (1 dla lewego panelu, 3 dla górnego i głównego)
-        # Górny panel: 3 kolumny
-        subplot2grid((5, 4), (0, 1), colspan=3)
+        # Układ: 5 wierszy, 6 kolumn
+        # Górny panel: kolumny 1–5
+        subplot2grid((5, 6), (0, 1), colspan=5)
         minorticks_on()
         plot(longitudes_zoom, average_x, color="grey")
         yticks([])
@@ -192,8 +192,8 @@ module Plot
         xlabel("Pulse longitude (°)")
         ylabel("Intensity")
 
-        # Lewy panel: 1 kolumna
-        subplot2grid((5, 4), (1, 0), rowspan=4)
+        # Lewy panel: kolumna 0
+        subplot2grid((5, 6), (1, 0), rowspan=4)
         minorticks_on()
         plot(average_y, pulses, color="grey")
         ylim(pulses[1], pulses[end])
@@ -201,8 +201,8 @@ module Plot
         ylabel("Fluctuation frequency (P/P₃)")
         yticks(collect(0.0:0.1:0.5))
 
-        # Główny panel: 3 kolumny
-        subplot2grid((5, 4), (1, 1), rowspan=4, colspan=3)
+        # Główny panel: kolumny 1–5
+        subplot2grid((5, 6), (1, 1), rowspan=4, colspan=5)
         im = imshow(norm_da,
                     origin="lower",
                     cmap=cmap,
@@ -210,7 +210,7 @@ module Plot
                     aspect="auto",
                     extent=(160, 200, pulses[1], pulses[end]),
                     vmin=0.0,
-                    vmax=0.02)
+                    vmax=darkness)
         colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Pulse longitude (°)")
@@ -227,6 +227,7 @@ module Plot
 
         close()
     end
+
 
 
 
