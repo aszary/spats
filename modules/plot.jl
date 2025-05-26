@@ -314,7 +314,7 @@ module Plot
                     extent=(minimum(mapped_x), maximum(mapped_x), pulses[1], pulses[end]),
                     vmin=0.0,
                     vmax=darkness)
-        colorbar(im)
+        #colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Fluctuation frequency (P/P2)")
         xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
