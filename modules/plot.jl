@@ -127,14 +127,14 @@ module Plot
 
 
     function lrfsdwa(data, outdir;
-                 start=1,
-                 number=100,
-                 cmap="gray_r",
-                 bin_st=nothing,
-                 bin_end=nothing,
-                 darkness=0.02,
-                 name_mod="PSR_NAME",
-                 show_=false)
+              start=1,
+              number=100,
+              cmap="gray_r",
+              bin_st=nothing,
+              bin_end=nothing,
+              darkness=1.0,
+              name_mod="PSR_NAME",
+              show_=false)
 
         num, bins = size(data)
         if number === nothing
@@ -160,12 +160,12 @@ module Plot
             error("No longitude bins found in the range 160–200°.")
         end
 
-        da_zoom = da[:, idx_range]
+        da_zoom = da[:, idx_range]  # tylko te kolumny
         longitudes_zoom = longitudes_deg[idx_range]
 
         # Profile boczne
-        average_x = sum(da_zoom, dims=1)[1, :]
-        average_y = sum(da, dims=2)[:, 1]
+        average_x = sum(da_zoom, dims=1)[1, :]        # profil poziomy (ograniczony)
+        average_y = sum(da, dims=2)[:, 1]              # profil pionowy (dla całego zakresu)
 
         # Normalizacja intensywności
         norm_da = copy(da_zoom)
@@ -179,12 +179,11 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(7.0, 7.0))
-        subplots_adjust(left=0.1, bottom=0.09, right=0.95, top=0.99, wspace=0.0, hspace=0.0)
+        figure(figsize=(5, 7))
+        subplots_adjust(left=0.16, bottom=0.09, right=0.90, top=0.99, wspace=0.0, hspace=0.0)
 
-        # Układ: 5 wierszy, 6 kolumn
-        # Górny panel: kolumny 1–5
-        subplot2grid((5, 6), (0, 1), colspan=5)
+        # Górny panel: average_x
+        subplot2grid((5, 3), (0, 1), colspan=1)
         minorticks_on()
         plot(longitudes_zoom, average_x, color="grey")
         yticks([])
@@ -192,8 +191,8 @@ module Plot
         xlabel("Pulse longitude (°)")
         ylabel("Intensity")
 
-        # Lewy panel: kolumna 0
-        subplot2grid((5, 6), (1, 0), rowspan=4)
+        # Lewy panel: average_y (pełen zakres)
+        subplot2grid((5, 3), (1, 0), rowspan=4)
         minorticks_on()
         plot(average_y, pulses, color="grey")
         ylim(pulses[1], pulses[end])
@@ -201,8 +200,8 @@ module Plot
         ylabel("Fluctuation frequency (P/P₃)")
         yticks(collect(0.0:0.1:0.5))
 
-        # Główny panel: kolumny 1–5
-        subplot2grid((5, 6), (1, 1), rowspan=4, colspan=5)
+        # Główny panel - tylko zakres 160–200°
+        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
         im = imshow(norm_da,
                     origin="lower",
                     cmap=cmap,
@@ -210,7 +209,7 @@ module Plot
                     aspect="auto",
                     extent=(160, 200, pulses[1], pulses[end]),
                     vmin=0.0,
-                    vmax=darkness)
+                    vmax=1.0)
         colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Pulse longitude (°)")
@@ -227,6 +226,7 @@ module Plot
 
         close()
     end
+
 
 
 
