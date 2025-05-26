@@ -198,7 +198,12 @@ module Plot
         ylim(pulses[1], pulses[end])
         xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
-        yticks(collect(0.0:0.1:0.5))
+
+        # Tick marks od 0.0 do 0.5 co 0.1, ale zamapowane na skalę pulsów
+        ytick_values = 0.0:0.1:0.5
+        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
+        yticks(ytick_positions, string.(ytick_values))
+
 
         # Główny panel - tylko zakres 160–200°
         subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
