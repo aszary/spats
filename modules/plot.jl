@@ -132,7 +132,7 @@ module Plot
               cmap="gray_r",
               bin_st=nothing,
               bin_end=nothing,
-              darkness=1.0,
+              darkness=0.02,
               name_mod="PSR_NAME",
               show_=false)
 
