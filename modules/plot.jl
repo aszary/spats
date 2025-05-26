@@ -339,7 +339,7 @@ module Plot
 
         yticks([])
         xlim(x_min, x_max)
-        xlabel("Fluctuation frequency (1/P2, cpp)")
+        xlabel("Fluctuation frequency (1/P2)")
 
         # Ticki osi X: -120, 0, 120
         xticks_vals = [x_min, 0, x_max]
