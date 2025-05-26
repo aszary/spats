@@ -149,21 +149,32 @@ module Plot
 
         da = data[start:start+number-1, bin_st:bin_end]
 
-        # Obliczamy profile boczne
-        average_x = sum(da, dims=1)[1, :]  # profil wzdłuż kolumn (x)
-        average_y = sum(da, dims=2)[:, 1]  # profil wzdłuż wierszy (y)
+        # Przeliczanie binów na stopnie
+        nbins_total = size(data, 2)
+        bin_range = bin_st:bin_end
+        longitudes_deg = collect(bin_range) .* (360 / nbins_total)
 
-        # Normalizacja intensywności na panelu głównym 0..1
-        norm_da = copy(da)
+        # Indeksy odpowiadające 160–200°
+        idx_range = findall(x -> 160 <= x <= 200, longitudes_deg)
+        if isempty(idx_range)
+            error("No longitude bins found in the range 160–200°.")
+        end
+
+        da_zoom = da[:, idx_range]  # tylko te kolumny
+        longitudes_zoom = longitudes_deg[idx_range]
+
+        # Profile boczne
+        average_x = sum(da_zoom, dims=1)[1, :]        # profil poziomy (ograniczony)
+        average_y = sum(da, dims=2)[:, 1]              # profil pionowy (dla całego zakresu)
+
+        # Normalizacja intensywności
+        norm_da = copy(da_zoom)
         norm_da .-= minimum(norm_da)
         norm_da ./= maximum(norm_da)
 
-        # Przeliczanie binów na stopnie
-        nbins_total = size(data, 2)
-        xrange_deg = collect(bin_st:bin_end) .* (360 / nbins_total)
-        yrange = collect(start:start+number-1)
+        pulses = collect(start:start+number-1)
 
-        # Ustawienia stylu
+        # Styl
         rc("font", size=8.0)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -171,32 +182,32 @@ module Plot
         figure(figsize=(5, 7))
         subplots_adjust(left=0.16, bottom=0.09, right=0.90, top=0.99, wspace=0.0, hspace=0.0)
 
-        # Panel górny: average_x (profil poziomy)
+        # Górny panel: average_x
         subplot2grid((5, 3), (0, 1), colspan=1)
         minorticks_on()
-        plot(xrange_deg, average_x, color="grey")
+        plot(longitudes_zoom, average_x, color="grey")
         yticks([])
-        xlim(xrange_deg[1], xrange_deg[end])
+        xlim(160, 200)
         xlabel("Pulse longitude (°)")
         ylabel("Intensity")
 
-        # Lewy panel: average_y (profil pionowy)
+        # Lewy panel: average_y (pełen zakres)
         subplot2grid((5, 3), (1, 0), rowspan=4)
         minorticks_on()
-        plot(average_y, yrange, color="grey")
-        ylim(yrange[1], yrange[end])
+        plot(average_y, pulses, color="grey")
+        ylim(pulses[1], pulses[end])
         xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
         yticks(collect(0.0:0.1:0.5))
 
-        # Główny panel - wykres 2D
+        # Główny panel - tylko zakres 160–200°
         subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
         im = imshow(norm_da,
                     origin="lower",
                     cmap=cmap,
                     interpolation="none",
                     aspect="auto",
-                    extent=(xrange_deg[1], xrange_deg[end], yrange[1], yrange[end]),
+                    extent=(160, 200, pulses[1], pulses[end]),
                     vmin=0.0,
                     vmax=1.0)
         colorbar(im)
@@ -215,6 +226,7 @@ module Plot
 
         close()
     end
+
 
 
 
