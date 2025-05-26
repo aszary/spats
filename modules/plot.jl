@@ -7,6 +7,7 @@ module Plot
     using PyPlot
     using PyCall
     using Printf
+    using StatsBase
     @pyimport matplotlib.patches as patch
     
     PyPlot.matplotlib.use("Tkagg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
@@ -324,23 +325,30 @@ module Plot
         xlabel("Fluctuation frequency (P/P2)")
         xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
 
-        # Dolny panel - profil sum po pulsach (po osi pionowej 1/P3), z lustrzanym odbiciem
+
+
+        # Obliczamy poziomy profil (sumowanie wzdłuż pionu / po 1/P3)
+        power_profile = sum(norm_da, dims=1)
+        power_profile = vec(power_profile)  # konwersja do wektora
+
+        # Wygładzamy go — np. 11-punktowa średnia ruchoma
+        smoothed = smooth(power_profile, 11)
+
+        # Dolny panel - uproszczony zarys + odbicie lustrzane
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
 
-        # Sumowanie po pionie (1/P3)
-        power_profile = sum(da, dims=1)
-        power_profile = vec(power_profile)  # konwersja do wektora
+        # Oryginalny wygładzony zarys (szary)
+        plot(mapped_x, smoothed, color="grey")
 
-        # Rysujemy profil (szary) i jego odbicie (pomarańczowe)
-        plot(mapped_x, power_profile, color="grey")
-        plot(-mapped_x, power_profile, color="orange", linestyle="--")
+        # Lustrzane odbicie (pomarańczowe)
+        plot(-mapped_x, smoothed, color="orange", linestyle="-")
 
         yticks([])
         xlim(x_min, x_max)
         xlabel("Fluctuation frequency (1/P2, cpp)")
 
-        # Ticki osi X: -120, 0, 120
+        # Ograniczone ticki
         xticks_vals = [x_min, 0, x_max]
         xticks(xticks_vals, string.(xticks_vals))
 
