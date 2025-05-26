@@ -70,29 +70,27 @@ module Plot
     function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
         num, bins = size(data)
         if number == nothing
-            number = num - start  # poprawka: aby nie brakowało 1
+            number = num - start  # missing one?
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
-
-        da = data[start:start+number-1, bin_st:bin_end]
+        da = data[start:start+number-1,bin_st:bin_end]
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
         intensity ./= maximum(intensity)
 
-        pulses .+= start - 1
+        pulses .+= start - 1  # julia
 
         # Pulse longitude
-        db = (bin_end + 1) - bin_st
+        db = (bin_end + 1) - bin_st  # yes +1
         dl = 360. * db / bins
         longitude = collect(range(-dl/2., dl/2., length=db))
-
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(4.62, 6.5), frameon=true)  # 8cm x 11cm
+        figure(figsize=(3.14961, 4.33071), frameon=true)  # 8cm x 11cm
         subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         subplot2grid((5, 3), (0, 0), rowspan=4)
@@ -105,13 +103,8 @@ module Plot
         ylabel("Pulse number")
 
         subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-
-        # zdefiniuj extent (brakowało)
-        extent = (bin_st, bin_end, pulses[1]-0.5, pulses[end]+0.5)
-
-        im = imshow(da, origin="lower", cmap="gray_r", interpolation="none", aspect="auto",
-                    extent=extent, vmin=0.00, vmax=1.00)
-        colorbar(im)
+        imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+        #axvline(x=563, lw=2)
         tick_params(labelleft=false, labelbottom=false)
 
         subplot2grid((5, 3), (4, 1), colspan=2)
@@ -120,186 +113,17 @@ module Plot
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
-
+        #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_single.pdf")
         savefig("$outdir/$(name_mod)_single.pdf")
-
         if show_ == true
             show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
         close()
+        #clf()
     end
-
-
-
-    function twodfs(data, outdir;
-                start=1,
-                number=nothing,
-                bin_st=1,
-                bin_end=size(data, 2),
-                cmap="Greys",
-                darkness=1.00,   # nowy domyślny vmax (np. 0.07)
-                name_mod="PSR_NAME",
-                show_=false)
-
-        num, bins = size(data)
-        if number === nothing
-            number = num - start + 1
-        end
-
-        da = data[start:start+number-1, bin_st:bin_end]
-
-        # Profile boczne
-        average_x = sum(da, dims=1)[1, :]
-        average_y = sum(da, dims=2)[:, 1]
-
-        # Zakresy osi
-        db = (bin_end + 1) - bin_st
-        xrange = collect(range(-bins/2, stop=-bins/2 + bins * db / (db + 1), length=db))
-        yrange = collect(range(0.0, stop=0.5, length=number))
-
-        rc("font", size=8.0)
-        rc("axes", linewidth=0.5)
-        rc("lines", linewidth=0.5)
-
-        figure(figsize=(4.62, 6.5))
-        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
-
-        # Lewy panel: średni profil P3 (w pionie)
-        subplot2grid((5, 3), (0, 0), rowspan=4)
-        minorticks_on()
-        plot(average_y, yrange, color="grey")
-        ylim(yrange[1], yrange[end])
-        xticks([])  # usunięcie liczb na osi X
-        xlim(1.1 * maximum(average_y), -0.1)
-        xlabel("intensity")
-        ylabel("P3 [cpp]")
-
-        # Główny wykres
-        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-        extent = (xrange[1], xrange[end], yrange[1], yrange[end])
-        im = imshow(da,
-                    origin="lower",
-                    cmap=cmap,
-                    interpolation="none",
-                    aspect="auto",
-                    extent=extent,
-                    vmin=0.0,
-                    vmax=darkness)  # zamiast normalizacji
-        colorbar(im)
-        tick_params(labelleft=false, labelbottom=false)
-
-        # Dolny panel: średni profil P2 (w poziomie)
-        subplot2grid((5, 3), (4, 1), colspan=2)
-        minorticks_on()
-        plot(xrange, average_x, color="grey")
-        yticks([])  # usunięcie liczb na osi Y
-        xlim(xrange[1], xrange[end])
-        xlabel("P2 [cpp]")
-
-        savepath = "$outdir/$(name_mod)_2dfs.pdf"
-        println(savepath)
-        savefig(savepath)
-
-        if show_
-            show()
-            println("Press Enter to close the figure.")
-            readline(stdin; keep=false)
-        end
-
-        close()
-    end
-
-
-
-
-    function lrfsdwa(data, outdir;
-              start=1,
-              number=nothing,
-              bin_st=1,
-              bin_end=size(data, 2),
-              cmap="Greys",
-              darkness=0.07,
-              name_mod="PSR_NAME",
-              show_=false)
-
-        num, bins = size(data)
-        if number === nothing
-            number = num - start + 1
-        end
-
-        # Wybór fragmentu widma
-        da = data[start:start+number-1, bin_st:bin_end]
-
-        # Profile boczne
-        average_x = sum(da, dims=1)[1, :]  # profil wzdłuż P2
-        average_y = sum(da, dims=2)[:, 1]  # widmo P3
-
-        # Zakresy osi
-        xrange = collect(1:bin_end - bin_st + 1)
-        yrange = collect(range(0.0, stop=0.5, length=number))
-
-        rc("font", size=8.0)
-        rc("axes", linewidth=0.5)
-        rc("lines", linewidth=0.5)
-
-        figure(figsize=(4.62, 6.5))
-        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
-
-        # Lewy panel – profil P3 (widmo ogólne)
-        subplot2grid((5, 3), (0, 0), rowspan=4)
-        minorticks_on()
-        plot(average_y, yrange, color="grey")
-        ylim(yrange[1], yrange[end])
-        xticks([])  # bez numerów na osi X
-        xlim(1.1 * maximum(average_y), -0.1)
-        xlabel("intensity")
-        ylabel("P3 [cpp]")
-
-        # Główny panel LRFS
-        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-        extent = (xrange[1], xrange[end], yrange[1], yrange[end])
-        im = imshow(da,
-                    origin="lower",
-                    cmap=cmap,
-                    interpolation="none",
-                    aspect="auto",
-                    extent=extent,
-                    vmin=0.0,
-                    vmax=darkness)
-        colorbar(im)
-        tick_params(labelleft=false, labelbottom=false)
-
-        # Dolny panel – profil P2
-        subplot2grid((5, 3), (4, 1), colspan=2)
-        minorticks_on()
-        plot(xrange, average_x, color="grey")
-        yticks([])  # bez numerów na osi Y
-        xlim(xrange[1], xrange[end])
-        xlabel("Pulse phase bin")
-
-        savepath = "$outdir/$(name_mod)_lrfs.pdf"
-        println(savepath)
-        savefig(savepath)
-
-        if show_
-            show()
-            println("Press Enter to close the figure.")
-            readline(stdin; keep=false)
-        end
-
-        close()
-    end
-
-
-
-
-
-
-
-
 
 
     function lrfs(data, outdir; start=1, number=nothing, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true, show_=false)
@@ -377,7 +201,7 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(4.72, 6.50))  # 8cm x 11cm
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
