@@ -183,14 +183,28 @@ module Plot
         figure(figsize=(7, 7))
         subplots_adjust(left=0.16, bottom=0.09, right=0.90, top=0.99, wspace=0.0, hspace=0.0)
 
-        # Górny panel: average_x
+        # Górny panel: średni profil + indeks modulacji
         subplot2grid((5, 3), (0, 1), colspan=3)
         minorticks_on()
-        plot(longitudes_zoom, average_x, color="grey")
-        yticks([])
+
+        # Średni profil
+        mean_profile = vec(mean(da_zoom, dims=1))
+        mean_profile_norm = mean_profile ./ maximum(mean_profile)
+
+        # Indeks modulacji m_i
+        mi = map(i -> std(da_zoom[:, i]) / mean(da_zoom[:, i]), 1:size(da_zoom, 2))
+        mean_mi = mean(mi)
+
+        # Wykres
+        plot(longitudes_zoom, mean_profile_norm, color="black", label="Average profile")
+        scatter(longitudes_zoom, mi, color="red", s=2, label="Modulation index")
+        axhline(mean_mi, color="blue", linestyle="--", linewidth=0.8, label="⟨m⟩ = $(round(mean_mi, digits=2))")
+
         xlim(160, 200)
-        xlabel("Pulse longitude (°)")
-        ylabel("Intensity")
+        yticks([])
+        legend(loc="upper right", frameon=false, fontsize=6)
+        ylabel("Norm. intensity / Mod. index")
+
 
         # Lewy panel: average_y (pełen zakres)
         subplot2grid((5, 3), (1, 0), rowspan=4)
