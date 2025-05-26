@@ -50,13 +50,13 @@ module SpaTs
         #println(size(d))
         #Plot.twodfs_plot(d, vpmout; show_=true)
 
-        #d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
-        #println(size(d))
-        #Plot.lrfsdwa(d[:,:,3], vpmout; show_=true)
+        d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
+        println(size(d))
+        Plot.lrfsdwa(d[:,:,3], vpmout; show_=true)
 
         #test(vpmout)
         #test2(vpmout)
-        process_psrdata("/home/psr/data/new/J1041-1942/2019-11-06-01:04:46/", vpmout)
+        #process_psrdata("/home/psr/data/new/J1041-1942/2019-11-06-01:04:46/", vpmout)
     end
 
 end # module
