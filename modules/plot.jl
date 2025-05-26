@@ -132,7 +132,7 @@ module Plot
                  cmap="gray_r",
                  bin_st=nothing,
                  bin_end=nothing,
-                 darkness=1.0,
+                 darkness=0.02,
                  name_mod="PSR_NAME",
                  show_=false)
 
@@ -201,7 +201,7 @@ module Plot
                     aspect="auto",
                     extent=(160, 200, yrange[1], yrange[end]),
                     vmin=0.0,
-                    vmax=1.0)
+                    vmax=0.02)
         colorbar(im)
         tick_params(labelleft=false)
         xlabel("Pulse longitude (deg)")
