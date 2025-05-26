@@ -132,7 +132,7 @@ module Plot
               cmap="gray_r",
               bin_st=nothing,
               bin_end=nothing,
-              darkness=0.02,
+              darkness=1.0,
               name_mod="PSR_NAME",
               show_=false)
 
@@ -158,9 +158,10 @@ module Plot
         norm_da .-= minimum(norm_da)
         norm_da ./= maximum(norm_da)
 
-        # Osie
-        xrange = bin_st:bin_end
-        yrange = range(0, stop=0.5, length=number)  # zakres y = 0–0.5
+        # Przeliczanie binów na stopnie
+        nbins_total = size(data, 2)
+        xrange_deg = collect(bin_st:bin_end) .* (360 / nbins_total)
+        yrange = collect(start:start+number-1)
 
         # Ustawienia stylu
         rc("font", size=8.0)
@@ -173,20 +174,20 @@ module Plot
         # Panel górny: average_x (profil poziomy)
         subplot2grid((5, 3), (0, 1), colspan=1)
         minorticks_on()
-        plot(xrange, average_x, color="grey")
-        ylabel("Intensity")
+        plot(xrange_deg, average_x, color="grey")
         yticks([])
-        xlim(xrange[1], xrange[end])
-        xlabel("Pulse longitude (deg)")
+        xlim(xrange_deg[1], xrange_deg[end])
+        xlabel("Pulse longitude (°)")
+        ylabel("Intensity")
 
         # Lewy panel: average_y (profil pionowy)
         subplot2grid((5, 3), (1, 0), rowspan=4)
         minorticks_on()
         plot(average_y, yrange, color="grey")
-        ylim(0, 0.5)
-        yticks(0:0.1:0.5)
-        ylabel("Fluctuation frequency (P/P₃)")
+        ylim(yrange[1], yrange[end])
         xticks([])
+        ylabel("Fluctuation frequency (P/P₃)")
+        yticks(collect(0.0:0.1:0.5))
 
         # Główny panel - wykres 2D
         subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
@@ -195,14 +196,13 @@ module Plot
                     cmap=cmap,
                     interpolation="none",
                     aspect="auto",
-                    extent=(bin_st, bin_end, 0.0, 0.5),
+                    extent=(xrange_deg[1], xrange_deg[end], yrange[1], yrange[end]),
                     vmin=0.0,
-                    vmax=0.02)
+                    vmax=1.0)
         colorbar(im)
-        xlabel("Pulse longitude (deg)")
-        tick_params(labelleft=false, labelbottom=true)  # ← ukrycie lewych ticzków i podpisu osi Y
+        tick_params(left=false, labelleft=false)
+        xlabel("Pulse longitude (°)")
 
-        # Zapis wykresu
         savepath = "$outdir/$(name_mod)_lrfs.pdf"
         println(savepath)
         savefig(savepath)
@@ -215,6 +215,7 @@ module Plot
 
         close()
     end
+
 
 
 
