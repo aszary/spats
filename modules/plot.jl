@@ -132,7 +132,7 @@ module Plot
               cmap="gray_r",
               bin_st=nothing,
               bin_end=nothing,
-              darkness=1000,
+              darkness=0.02,
               name_mod="PSR_NAME",
               show_=false)
 
@@ -197,7 +197,7 @@ module Plot
                     interpolation="none",
                     aspect="auto",
                     vmin=0.0,
-                    vmax=1.0)
+                    vmax=0.02)
         colorbar(im)
         tick_params(labelleft=false, labelbottom=false)
 
