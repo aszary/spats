@@ -200,7 +200,6 @@ module Plot
                     vmax=1.0)
         colorbar(im)
         xlabel("Pulse longitude (deg)")
-        ylabel("Fluctuation frequency (P/P₃)")
         tick_params(labelleft=true, labelbottom=true)
 
         # Zapis wykresu
