@@ -7,7 +7,6 @@ module Plot
     using PyPlot
     using PyCall
     using Printf
-    using matplotlib
     @pyimport matplotlib.patches as patch
     
     PyPlot.matplotlib.use("Tkagg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
