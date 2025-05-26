@@ -261,9 +261,14 @@ module Plot
         nb = length(bin_indices)
         center = (nb + 1) / 2
 
-        # Mapa binów na -360 ... 0 ... +360
-        # Załóżmy, że rozszerzamy o czynnik 2 zakres względem standardowego
+        # Odwrócenie danych na osi X:
+        da = da[:, end:-1:1]
+
+        # Mapowanie na oś X (bez zmian lub też odwrócone):
         mapped_x = [(i - center) * 720 / (nb - 1) for i in 1:nb]
+        # albo, jeśli trzeba
+        # mapped_x = reverse([(i - center) * 720 / (nb - 1) for i in 1:nb])
+
 
         # Ograniczenie zakresu wyświetlania na osi x do -120 ... +120
         x_min = -120
