@@ -132,13 +132,13 @@ module Plot
               cmap="gray_r",
               bin_st=nothing,
               bin_end=nothing,
-              darkness=1.0,
+              darkness=0.02,
               name_mod="PSR_NAME",
               show_=false)
 
         num, bins = size(data)
         if number === nothing
-            number = num - start
+            number = num - start + 1
         end
         if bin_st === nothing
             bin_st = 1
@@ -197,10 +197,10 @@ module Plot
                     aspect="auto",
                     extent=(bin_st, bin_end, 0.0, 0.5),
                     vmin=0.0,
-                    vmax=1.0)
+                    vmax=0.02)
         colorbar(im)
         xlabel("Pulse longitude (deg)")
-        tick_params(labelbottom=true)
+        tick_params(labelleft=false, labelbottom=true)  # ← ukrycie lewych ticzków i podpisu osi Y
 
         # Zapis wykresu
         savepath = "$outdir/$(name_mod)_lrfs.pdf"
@@ -215,6 +215,7 @@ module Plot
 
         close()
     end
+
 
 
 
