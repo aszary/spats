@@ -7,6 +7,7 @@ module Plot
     using PyPlot
     using PyCall
     using Printf
+    using matplotlib
     @pyimport matplotlib.patches as patch
     
     PyPlot.matplotlib.use("Tkagg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
@@ -198,7 +199,7 @@ module Plot
             aspect="auto",
             vmin=0.0,
             vmax=1.0)
-        
+
     # Tworzymy nową oś kolorbara po prawej stronie
     cax = inset_axes(gca(), width="3%", height="100%", loc="right", borderpad=0.5)
     cb = colorbar(im, cax=cax)
