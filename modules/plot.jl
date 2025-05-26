@@ -256,10 +256,8 @@ module Plot
 
         da = data[start:start+number-1, bin_st:bin_end]
 
-        # Pełny zakres binów i przeliczenie na stopnie (0-360)
-        nbins_total = size(data, 2)
-        bin_range = bin_st:bin_end
-        longitudes_deg = collect(bin_range) .* (360 / nbins_total)
+        # Bez przeliczania na stopnie - osie X = indeksy kolumn (biny)
+        bin_indices = collect(bin_st:bin_end)
 
         # Profile boczne:
         average_x = sum(da, dims=1)[1, :]   # profil dolny (suma po pulsach)
@@ -272,17 +270,23 @@ module Plot
 
         pulses = collect(start:start+number-1)
 
+        # *** DODANE PRINTY ***
+        println("Główny wykres (2DFS) - zakres osi X (indeksy kolumn):")
+        println("min = ", minimum(bin_indices))
+        println("max = ", maximum(bin_indices))
+        println("Przykładowe wartości (pierwsze 10): ", bin_indices[1:min(10,end)])
+
+        println("Dolny wykres (profil po pulsach) - zakres osi X (indeksy kolumn):")
+        println("min = ", minimum(bin_indices))
+        println("max = ", maximum(bin_indices))
+        println("Przykładowe wartości (pierwsze 10): ", bin_indices[1:min(10,end)])
+
         # Styl
         rc("font", size=8.0)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
         figure(figsize=(7, 7))
-        # Układ: 4 wiersze, 3 kolumny
-        # Lewy panel: 3 rzędy, 1 kolumna
-        # Główny panel: 3 rzędy, 2 kolumny
-        # Dolny panel: 1 rząd, 2 kolumny
-
         subplots_adjust(left=0.16, bottom=0.15, right=0.90, top=0.95, wspace=0.0, hspace=0.0)
 
         # Lewy panel - profil sum po binach, Y z tickami od 0 do 0.5 (przeskalowane)
@@ -292,7 +296,6 @@ module Plot
         ylim(pulses[1], pulses[end])
         xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
-        # Tick marks od 0.0 do 0.5 co 0.1, mapowane na pulsach
         ytick_values = 0.0:0.1:0.5
         ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
         yticks(ytick_positions, string.(ytick_values))
@@ -304,20 +307,20 @@ module Plot
                     cmap=cmap,
                     interpolation="none",
                     aspect="auto",
-                    extent=(minimum(longitudes_deg), maximum(longitudes_deg), pulses[1], pulses[end]),
+                    extent=(minimum(bin_indices), maximum(bin_indices), pulses[1], pulses[end]),
                     vmin=0.0,
                     vmax=darkness)
         colorbar(im)
         tick_params(left=false, labelleft=false)
-        xlabel("Pulse longitude (°)")
+        xlabel("Bin index")
 
         # Dolny panel - profil sum po pulsach (profil poziomy)
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
-        plot(longitudes_deg, average_x, color="grey")
+        plot(bin_indices, average_x, color="grey")
         yticks([])
-        xlim(minimum(longitudes_deg), maximum(longitudes_deg))
-        xlabel("Pulse longitude (°)")
+        xlim(minimum(bin_indices), maximum(bin_indices))
+        xlabel("Bin index")
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
@@ -331,6 +334,7 @@ module Plot
 
         close()
     end
+
 
 
 
