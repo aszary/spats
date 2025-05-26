@@ -135,7 +135,7 @@ module Plot
 
     using PyPlot
 
-    function 2dfs_dobry(data, outdir;
+    function 2dfs(data, outdir;
                             start=1,
                             number=nothing,
                             bin_st=1,

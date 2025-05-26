@@ -48,7 +48,7 @@ module SpaTs
 
         d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
         println(size(d))
-        Plot.2dfs_dobry(d, vpmout; show_=true)
+        Plot.2dfs(d, vpmout; show_=true)
 
         #Plot.single(d, vpmout; show_=true)
         #d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
