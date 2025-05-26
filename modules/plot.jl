@@ -126,70 +126,86 @@ module Plot
     end
 
 
-    function lrfsdwa(data, outdir; start=1, number=100, cmap="gray_r", bin_st=nothing, bin_end=nothing, darkness=1.0, name_mod="PSR_NAME", show_=false)
-    num, bins = size(data)
-        if number == nothing 
-            number = num - start
+    function lrfs(data, outdir;
+              start=1,
+              number=100,
+              cmap="gray_r",
+              bin_st=nothing,
+              bin_end=nothing,
+              darkness=1.0,
+              name_mod="PSR_NAME",
+              show_=false)
+
+        num, bins = size(data)
+        if number === nothing
+            number = num - start + 1
         end
-        if bin_st == nothing bin_st = 1 end
-        if bin_end == nothing bin_end = bins end
+        if bin_st === nothing
+            bin_st = 1
+        end
+        if bin_end === nothing
+            bin_end = bins
+        end
 
         da = data[start:start+number-1, bin_st:bin_end]
 
-        average = Tools.average_profile(da)
-        intensity, pulses = Tools.intensity_pulses(da)
-        intensity .-= minimum(intensity)
-        intensity ./= maximum(intensity)
+        # Obliczamy profile boczne
+        average_x = sum(da, dims=1)[1, :]  # profil wzdłuż kolumn (x)
+        average_y = sum(da, dims=2)[:, 1]  # profil wzdłuż wierszy (y)
 
-        pulses .+= start - 1
-
-        db = (bin_end + 1) - bin_st
-        dl = 360. * db / bins
-        longitude = collect(range(-dl/2., dl/2., length=db))
-
-        norm_da = da .- minimum(da)
+        # Normalizacja intensywności na panelu głównym 0..1
+        norm_da = copy(da)
+        norm_da .-= minimum(norm_da)
         norm_da ./= maximum(norm_da)
 
-        rc("font", size=8.)
+        # Osie (tutaj przykładowo)
+        pulses = start:start+number-1
+        xrange = 1:size(norm_da, 2)
+        yrange = pulses
+
+        # Ustawienia stylu
+        rc("font", size=8.0)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 4.33071), frameon=true)
-        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0., hspace=0.)
+        figure(figsize=(4, 6))
+        # Przesuwamy panel dolny na górę, więc ustawiamy grid inaczej
+        # Grid 5x3: top (average_x) zajmie wiersz 0, główny wiersze 1-4, lewy panel kolumna 0
+        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
 
-        # LEWY PANEL
-        subplot2grid((5, 3), (0, 0), rowspan=4)
+        # Panel górny: average_x (profil poziomy)
+        subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
-        plot(intensity, pulses, c="grey")
-        ylim(pulses[1]-0.5, pulses[end]+0.5)
-        xticks([0.5, 1.0])
-        xlim(1.1, -0.1)
-        xlabel("intensity")
+        plot(xrange, average_x, color="grey")
+        yticks([])
+        xlim(xrange[1], xrange[end])
+        xlabel("Longitude [bins]")
+
+        # Lewy panel: average_y (profil pionowy)
+        subplot2grid((5, 3), (1, 0), rowspan=4)
+        minorticks_on()
+        plot(average_y, yrange, color="grey")
+        ylim(yrange[1], yrange[end])
+        xticks([])
         ylabel("Pulse number")
 
-        # GŁÓWNY PANEL
-        ax = subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
-        im = ax.imshow(norm_da,
+        # Główny panel - wykres 2D
+        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
+        im = imshow(norm_da,
                     origin="lower",
                     cmap=cmap,
                     interpolation="none",
                     aspect="auto",
-                    vmax=darkness)
-
+                    vmin=0.0,
+                    vmax=1.0)
+        colorbar(im)
         tick_params(labelleft=false, labelbottom=false)
 
-        # DOLNY PANEL
-        subplot2grid((5, 3), (4, 1), colspan=2)
-        minorticks_on()
-        plot(longitude, average, c="grey")
-        yticks([0.0, 0.5])
-        xlim(longitude[1], longitude[end])
-        xlabel("longitude \$(^\\circ)\$")
+        savepath = "$outdir/$(name_mod)_lrfs.pdf"
+        println(savepath)
+        savefig(savepath)
 
-        println("$outdir/$(name_mod)_lrfs.pdf")
-        savefig("$outdir/$(name_mod)_lrfs.pdf")
-
-        if show_ == true
+        if show_
             show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
@@ -197,6 +213,7 @@ module Plot
 
         close()
     end
+
 
 
 
