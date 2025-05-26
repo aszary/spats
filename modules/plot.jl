@@ -183,7 +183,7 @@ module Plot
         subplots_adjust(left=0.16, bottom=0.09, right=0.90, top=0.99, wspace=0.0, hspace=0.0)
 
         # Górny panel: average_x
-        subplot2grid((5, 3), (0, 1), colspan=1)
+        subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
         plot(longitudes_zoom, average_x, color="grey")
         yticks([])
