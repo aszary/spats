@@ -138,7 +138,7 @@ module Plot
 
         num, bins = size(data)
         if number === nothing
-            number = num - start + 1
+            number = num - start
         end
         if bin_st === nothing
             bin_st = 1
@@ -158,10 +158,9 @@ module Plot
         norm_da .-= minimum(norm_da)
         norm_da ./= maximum(norm_da)
 
-        # Osie (tutaj przykładowo)
-        pulses = start:start+number-1
-        xrange = 1:size(norm_da, 2)
-        yrange = pulses
+        # Osie
+        xrange = bin_st:bin_end
+        yrange = range(0, stop=0.5, length=number)  # zakres y = 0–0.5
 
         # Ustawienia stylu
         rc("font", size=8.0)
@@ -169,25 +168,25 @@ module Plot
         rc("lines", linewidth=0.5)
 
         figure(figsize=(5, 7))
-        # Przesuwamy panel dolny na górę, więc ustawiamy grid inaczej
-        # Grid 5x3: top (average_x) zajmie wiersz 0, główny wiersze 1-4, lewy panel kolumna 0
         subplots_adjust(left=0.16, bottom=0.09, right=0.90, top=0.99, wspace=0.0, hspace=0.0)
 
         # Panel górny: average_x (profil poziomy)
-        subplot2grid((5, 3), (0, 1), colspan=2)
+        subplot2grid((5, 3), (0, 1), colspan=1)
         minorticks_on()
         plot(xrange, average_x, color="grey")
+        ylabel("Intensity")
         yticks([])
         xlim(xrange[1], xrange[end])
-        xlabel("Longitude [bins]")
+        xlabel("Pulse longitude (deg)")
 
         # Lewy panel: average_y (profil pionowy)
         subplot2grid((5, 3), (1, 0), rowspan=4)
         minorticks_on()
         plot(average_y, yrange, color="grey")
-        ylim(yrange[1], yrange[end])
+        ylim(0, 0.5)
+        yticks(0:0.1:0.5)
+        ylabel("Fluctuation frequency (P/P₃)")
         xticks([])
-        ylabel("Pulse number")
 
         # Główny panel - wykres 2D
         subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
@@ -196,10 +195,15 @@ module Plot
                     cmap=cmap,
                     interpolation="none",
                     aspect="auto",
+                    extent=(bin_st, bin_end, 0.0, 0.5),
                     vmin=0.0,
                     vmax=1.0)
-        tick_params(labelleft=false, labelbottom=false)
+        colorbar(im)
+        xlabel("Pulse longitude (deg)")
+        ylabel("Fluctuation frequency (P/P₃)")
+        tick_params(labelleft=true, labelbottom=true)
 
+        # Zapis wykresu
         savepath = "$outdir/$(name_mod)_lrfs.pdf"
         println(savepath)
         savefig(savepath)
@@ -212,6 +216,7 @@ module Plot
 
         close()
     end
+
 
 
 
