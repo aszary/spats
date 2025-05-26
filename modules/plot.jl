@@ -256,11 +256,25 @@ module Plot
 
         da = data[start:start+number-1, bin_st:bin_end]
 
-        # Bez przeliczania na stopnie - osie X = indeksy kolumn (biny)
+        # Indeksy binów (kolumn)
         bin_indices = collect(bin_st:bin_end)
+        nb = length(bin_indices)
+        center = (nb + 1)/2
+
+        # Mapowanie binów na zakres -180 ... 0 ... +180
+        mapped_x = [(i - center) * 360 / (nb - 1) for i in 1:nb]
+
+        # Ograniczenie zakresu do -120 ... +120
+        x_min = -120
+        x_max = 120
+        idx_range = findall(x -> x_min <= x <= x_max, mapped_x)
+
+        # Wycięcie danych dla dolnego wykresu (profil sum po pulsach)
+        average_x = sum(da, dims=1)[1, :]
+        average_x_cut = average_x[idx_range]
+        mapped_x_cut = mapped_x[idx_range]
 
         # Profile boczne:
-        average_x = sum(da, dims=1)[1, :]   # profil dolny (suma po pulsach)
         average_y = sum(da, dims=2)[:, 1]   # profil lewy (suma po binach)
 
         # Normalizacja intensywności głównej mapy
@@ -269,17 +283,6 @@ module Plot
         norm_da ./= maximum(norm_da)
 
         pulses = collect(start:start+number-1)
-
-        # *** DODANE PRINTY ***
-        println("Główny wykres (2DFS) - zakres osi X (indeksy kolumn):")
-        println("min = ", minimum(bin_indices))
-        println("max = ", maximum(bin_indices))
-        println("Przykładowe wartości (pierwsze 10): ", bin_indices[1:min(10,end)])
-
-        println("Dolny wykres (profil po pulsach) - zakres osi X (indeksy kolumn):")
-        println("min = ", minimum(bin_indices))
-        println("max = ", maximum(bin_indices))
-        println("Przykładowe wartości (pierwsze 10): ", bin_indices[1:min(10,end)])
 
         # Styl
         rc("font", size=8.0)
@@ -307,20 +310,26 @@ module Plot
                     cmap=cmap,
                     interpolation="none",
                     aspect="auto",
-                    extent=(minimum(bin_indices), maximum(bin_indices), pulses[1], pulses[end]),
+                    extent=(minimum(mapped_x), maximum(mapped_x), pulses[1], pulses[end]),
                     vmin=0.0,
                     vmax=darkness)
-        #colorbar(im)
+        colorbar(im)
         tick_params(left=false, labelleft=false)
-        xlabel("Bin index")
+        xlabel("Bin longitude (°)")
+        xlim(x_min, x_max)
 
-        # Dolny panel - profil sum po pulsach (profil poziomy)
+        # Dolny panel - profil sum po pulsach (profil poziomy), tylko w zakresie -120..120
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
-        plot(bin_indices, average_x, color="grey")
+        plot(mapped_x_cut, average_x_cut, color="grey")
         yticks([])
-        xlim(minimum(bin_indices), maximum(bin_indices))
-        xlabel("Bin index")
+        xlim(x_min, x_max)
+        xlabel("Bin longitude (°)")
+
+        # Ticki osi X - tylko trzy punkty: -120, 0, 120
+        xticks_vals = [x_min, 0, x_max]
+        ax_bottom.xticks(xticks_vals, string.(xticks_vals))
+        ax_main.xticks(xticks_vals, string.(xticks_vals))
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
@@ -334,6 +343,7 @@ module Plot
 
         close()
     end
+
 
 
 
