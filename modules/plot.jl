@@ -220,18 +220,27 @@ module Plot
         ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
         yticks(ytick_positions, string.(ytick_values))
 
-        # Główny panel - tylko zakres 160–200°
-        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=3)
-        im = imshow(norm_da,
-                    origin="lower",
-                    cmap=cmap,
-                    interpolation="none",
-                    aspect="auto",
-                    extent=(160, 200, pulses[1], pulses[end]),
-                    vmin=0.0,
-                    vmax=darkness)
-        tick_params(left=false, labelleft=false)
+        # ==== Górny panel (styl Xiaoxi) ====
+        subplot2grid((5, 3), (0, 1), colspan=3)
+        minorticks_on()
+
+        # Normalizowany średni profil (czarna linia)
+        avg_profile = mean(norm_da, dims=1)
+        avg_profile = vec(avg_profile)
+        avg_profile ./= maximum(avg_profile)
+        plot(longitudes_zoom, avg_profile, color="black", label="Avg. profile")
+
+        # Indeks modulacji (niebieskie kropki)
+        std_profile = std(norm_da, dims=1)
+        mean_profile = mean(norm_da, dims=1)
+        mod_index = vec(std_profile) ./ vec(mean_profile)
+        scatter(longitudes_zoom, mod_index, s=6, color="blue", label="Mod. index")
+
+        # Styl
+        xlim(160, 200)
+        yticks([])
         xlabel("Pulse longitude (°)")
+        legend(fontsize=6, loc="upper right", frameon=false)
 
         # Zapis i opcjonalne pokazanie
         savepath = "$outdir/$(name_mod)_lrfs.pdf"
