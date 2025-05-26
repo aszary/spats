@@ -330,9 +330,9 @@ module Plot
         # ... (reszta funkcji bez zmian)
 
         # Ticki osi X - tylko trzy punkty: -120, 0, 120
-        xticks_vals = [x_min, 0, x_max]
-        xticks!(ax_bottom, xticks_vals, string.(xticks_vals))
-        xticks!(ax_main, xticks_vals, string.(xticks_vals))
+        #xticks_vals = [x_min, 0, x_max]
+        #xticks!(ax_bottom, xticks_vals, string.(xticks_vals))
+        #xticks!(ax_main, xticks_vals, string.(xticks_vals))
 
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
