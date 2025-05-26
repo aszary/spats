@@ -132,7 +132,7 @@ module Plot
               cmap="gray_r",
               bin_st=nothing,
               bin_end=nothing,
-              darkness=0.02,
+              darkness=1.0,
               name_mod="PSR_NAME",
               show_=false)
 
@@ -160,12 +160,12 @@ module Plot
             error("No longitude bins found in the range 160–200°.")
         end
 
-        da_zoom = da[:, idx_range]  # tylko te kolumny
+        da_zoom = da[:, idx_range]
         longitudes_zoom = longitudes_deg[idx_range]
 
         # Profile boczne
-        average_x = sum(da_zoom, dims=1)[1, :]        # profil poziomy (ograniczony)
-        average_y = sum(da, dims=2)[:, 1]              # profil pionowy (dla całego zakresu)
+        average_x = sum(da_zoom, dims=1)[1, :]
+        average_y = sum(da, dims=2)[:, 1]
 
         # Normalizacja intensywności
         norm_da = copy(da_zoom)
@@ -179,11 +179,12 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(5, 7))
-        subplots_adjust(left=0.16, bottom=0.09, right=0.90, top=0.99, wspace=0.0, hspace=0.0)
+        figure(figsize=(6.5, 7))  # szerszy rysunek
+        subplots_adjust(left=0.12, bottom=0.09, right=0.92, top=0.99, wspace=0.0, hspace=0.0)
 
-        # Górny panel: average_x
-        subplot2grid((5, 3), (0, 1), colspan=1)
+        # Nowy układ: 5 wierszy, 4 kolumny (1 dla lewego panelu, 3 dla górnego i głównego)
+        # Górny panel: 3 kolumny
+        subplot2grid((5, 4), (0, 1), colspan=3)
         minorticks_on()
         plot(longitudes_zoom, average_x, color="grey")
         yticks([])
@@ -191,8 +192,8 @@ module Plot
         xlabel("Pulse longitude (°)")
         ylabel("Intensity")
 
-        # Lewy panel: average_y (pełen zakres)
-        subplot2grid((5, 3), (1, 0), rowspan=4)
+        # Lewy panel: 1 kolumna
+        subplot2grid((5, 4), (1, 0), rowspan=4)
         minorticks_on()
         plot(average_y, pulses, color="grey")
         ylim(pulses[1], pulses[end])
@@ -200,8 +201,8 @@ module Plot
         ylabel("Fluctuation frequency (P/P₃)")
         yticks(collect(0.0:0.1:0.5))
 
-        # Główny panel - tylko zakres 160–200°
-        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
+        # Główny panel: 3 kolumny
+        subplot2grid((5, 4), (1, 1), rowspan=4, colspan=3)
         im = imshow(norm_da,
                     origin="lower",
                     cmap=cmap,
@@ -209,7 +210,7 @@ module Plot
                     aspect="auto",
                     extent=(160, 200, pulses[1], pulses[end]),
                     vmin=0.0,
-                    vmax=0.02)
+                    vmax=1.0)
         colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Pulse longitude (°)")
