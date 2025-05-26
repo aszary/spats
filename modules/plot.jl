@@ -200,7 +200,7 @@ module Plot
                     vmax=1.0)
         colorbar(im)
         xlabel("Pulse longitude (deg)")
-        tick_params(labelleft=true, labelbottom=true)
+        tick_params(labelbottom=true)
 
         # Zapis wykresu
         savepath = "$outdir/$(name_mod)_lrfs.pdf"
