@@ -190,7 +190,7 @@ module Plot
         ylabel("Pulse number")
 
         # Główny panel - wykres 2D
-        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=3)
+        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2,3)
         im = imshow(norm_da,
                     origin="lower",
                     cmap=cmap,
