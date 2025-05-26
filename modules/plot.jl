@@ -128,14 +128,14 @@ module Plot
 
 
     function lrfsdwa(data, outdir;
-              start=1,
-              number=100,
-              cmap="gray_r",
-              bin_st=nothing,
-              bin_end=nothing,
-              darkness=0.02,
-              name_mod="PSR_NAME",
-              show_=false)
+                 start=1,
+                 number=100,
+                 cmap="gray_r",
+                 bin_st=nothing,
+                 bin_end=nothing,
+                 darkness=0.02,
+                 name_mod="PSR_NAME",
+                 show_=false)
 
         num, bins = size(data)
         if number === nothing
@@ -175,7 +175,21 @@ module Plot
 
         pulses = collect(start:start+number-1)
 
-        # Styl
+        # ==== Indeks modulacji ====
+        avg_profile = mean(norm_da, dims=1)
+        avg_profile = vec(avg_profile)
+        avg_profile ./= maximum(avg_profile)
+
+        std_profile = std(norm_da, dims=1)
+        std_profile = vec(std_profile)
+
+        mean_profile = mean(norm_da, dims=1)
+        mean_profile = vec(mean_profile)
+
+        mod_index = std_profile ./ mean_profile
+        mod_mean = mean(mod_index)
+
+        # ==== Rysowanie ====
         rc("font", size=8.0)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -183,14 +197,16 @@ module Plot
         figure(figsize=(7, 7))
         subplots_adjust(left=0.16, bottom=0.09, right=0.90, top=0.99, wspace=0.0, hspace=0.0)
 
-        # Górny panel: average_x
+        # Górny panel: profil i indeks modulacji
         subplot2grid((5, 3), (0, 1), colspan=3)
         minorticks_on()
-        plot(longitudes_zoom, average_x, color="grey")
+        plot(longitudes_zoom, avg_profile, color="black", label="Avg. profile")
+        scatter(longitudes_zoom, mod_index, color="blue", s=5, label="Mod. index")
+        legend(fontsize=6, loc="upper right", frameon=false)
         yticks([])
         xlim(160, 200)
         xlabel("Pulse longitude (°)")
-        ylabel("Intensity")
+        ylabel("Intensity / Modulation")
 
         # Lewy panel: average_y (pełen zakres)
         subplot2grid((5, 3), (1, 0), rowspan=4)
@@ -200,11 +216,9 @@ module Plot
         xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
 
-        # Tick marks od 0.0 do 0.5 co 0.1, ale zamapowane na skalę pulsów
         ytick_values = 0.0:0.1:0.5
         ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
         yticks(ytick_positions, string.(ytick_values))
-
 
         # Główny panel - tylko zakres 160–200°
         subplot2grid((5, 3), (1, 1), rowspan=4, colspan=3)
@@ -215,11 +229,11 @@ module Plot
                     aspect="auto",
                     extent=(160, 200, pulses[1], pulses[end]),
                     vmin=0.0,
-                    vmax=0.02)
-        #colorbar(im)
+                    vmax=darkness)
         tick_params(left=false, labelleft=false)
         xlabel("Pulse longitude (°)")
 
+        # Zapis i opcjonalne pokazanie
         savepath = "$outdir/$(name_mod)_lrfs.pdf"
         println(savepath)
         savefig(savepath)
@@ -232,6 +246,7 @@ module Plot
 
         close()
     end
+
 
 
     function twodfs_plot(data, outdir;
