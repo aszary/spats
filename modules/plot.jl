@@ -316,7 +316,7 @@ module Plot
                     vmax=darkness)
         colorbar(im)
         tick_params(left=false, labelleft=false)
-        xlabel("Bin longitude (°)")
+        xlabel("Fluctuation frequency (P/P2)")
         xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
 
         # Dolny panel - profil sum po pulsach, tylko w zakresie -120..120
@@ -325,7 +325,7 @@ module Plot
         plot(mapped_x_cut, average_x_cut, color="grey")
         yticks([])
         xlim(x_min, x_max)
-        xlabel("Bin longitude (°)")
+        xlabel("Fluctuation frequency (P/P2)")
 
         # Ticki osi X - tylko trzy punkty: -120, 0, 120
         xticks_vals = [x_min, 0, x_max]
