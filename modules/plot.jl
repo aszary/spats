@@ -137,7 +137,12 @@ module Plot
               show_=false)
 
 
-        da = Array(data[start:start+number-1, bin_st:bin_end])
+
+        if ndims(data) == 3
+            data = data[:, :, 1]  # wybieramy np. pierwszy kanał
+        end
+        data = Array(data)  # upewniamy się, że to macierz Julii
+
 
 
         num, bins = size(data)
