@@ -346,7 +346,6 @@ module Plot
         xticks(xticks_vals, string.(xticks_vals))
 
 
-        legend(loc="upper right")
 
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
