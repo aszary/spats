@@ -215,6 +215,87 @@ module Plot
 
 
 
+    function lrfsdwa(data, outdir;
+              start=1,
+              number=nothing,
+              bin_st=1,
+              bin_end=size(data, 2),
+              cmap="Greys",
+              darkness=1.00,
+              name_mod="PSR_NAME",
+              show_=false)
+
+        num, bins = size(data)
+        if number === nothing
+            number = num - start + 1
+        end
+
+        # Wybór fragmentu danych
+        da = data[start:start+number-1, bin_st:bin_end]
+
+        # Transformata Fouriera wzdłuż osi czasowej (P3)
+        spectrum = abs.(fft(da, dims=1))[1:div(number, 2), :]
+
+        # Profile boczne
+        average_x = sum(spectrum, dims=1)[1, :]  # profil po fazie (binach)
+        average_y = sum(spectrum, dims=2)[:, 1]  # widmo całkowite (P3)
+
+        # Zakresy osi
+        xrange = collect(1:bin_end - bin_st + 1)
+        yrange = collect(range(0.0, stop=0.5, length=size(spectrum, 1)))
+
+        rc("font", size=8.0)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(4.62, 6.5))
+        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
+
+        # Lewy panel – widmo ogólne (P3)
+        subplot2grid((5, 3), (0, 0), rowspan=4)
+        minorticks_on()
+        plot(average_y, yrange, color="grey")
+        ylim(yrange[1], yrange[end])
+        xticks([])  # usunięcie liczb na osi X
+        xlim(1.1 * maximum(average_y), -0.1)
+        xlabel("intensity")
+        ylabel("P3 [cpp]")
+
+        # Główny panel LRFS
+        subplot2grid((5, 3), (0, 1), rowspan=4, colspan=2)
+        extent = (xrange[1], xrange[end], yrange[1], yrange[end])
+        im = imshow(spectrum,
+                    origin="lower",
+                    cmap=cmap,
+                    interpolation="none",
+                    aspect="auto",
+                    extent=extent,
+                    vmin=0.0,
+                    vmax=darkness)
+        colorbar(im)
+        tick_params(labelleft=false, labelbottom=false)
+
+        # Dolny panel – średni profil pulsacji
+        subplot2grid((5, 3), (4, 1), colspan=2)
+        minorticks_on()
+        plot(xrange, average_x, color="grey")
+        yticks([])  # usunięcie liczb na osi Y
+        xlim(xrange[1], xrange[end])
+        xlabel("Pulse phase bin")
+
+        savepath = "$outdir/$(name_mod)_lrfs.pdf"
+        println(savepath)
+        savefig(savepath)
+
+        if show_
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+
+        close()
+    end
+
 
 
 
