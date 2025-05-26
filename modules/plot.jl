@@ -136,6 +136,9 @@ module Plot
               name_mod="PSR_NAME",
               show_=false)
 
+
+        data = Array(data)  # konwertuj na natywną macierz Julia
+
         num, bins = size(data)
         if number === nothing
             number = num - start + 1
