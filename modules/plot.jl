@@ -128,7 +128,7 @@ module Plot
 
     function lrfsdwa(data, outdir; start=1, number=100, cmap="gray_r", bin_st=nothing, bin_end=nothing, darkness=1.0, name_mod="PSR_NAME", show_=false)
     num, bins = size(data)
-        if number == nothing
+        if number == nothing 
             number = num - start
         end
         if bin_st == nothing bin_st = 1 end
