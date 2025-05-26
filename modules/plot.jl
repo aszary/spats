@@ -137,7 +137,8 @@ module Plot
               show_=false)
 
 
-        data = Array(data)  # konwertuj na natywną macierz Julia
+        da = Array(data[start:start+number-1, bin_st:bin_end])
+
 
         num, bins = size(data)
         if number === nothing
