@@ -126,6 +126,95 @@ module Plot
     end
 
 
+    function lrfsdwa(data, outdir;
+              start=1,
+              number=100,
+              cmap="gray_r",
+              bin_st=nothing,
+              bin_end=nothing,
+              darkness=1.0,
+              name_mod="PSR_NAME",
+              show_=false)
+
+        num, bins = size(data)
+        if number === nothing
+            number = num - start + 1
+        end
+        if bin_st === nothing
+            bin_st = 1
+        end
+        if bin_end === nothing
+            bin_end = bins
+        end
+
+        da = data[start:start+number-1, bin_st:bin_end]
+
+        # Obliczamy profile boczne
+        average_x = sum(da, dims=1)[1, :]  # profil wzdłuż kolumn (x)
+        average_y = sum(da, dims=2)[:, 1]  # profil wzdłuż wierszy (y)
+
+        # Normalizacja intensywności na panelu głównym 0..1
+        norm_da = copy(da)
+        norm_da .-= minimum(norm_da)
+        norm_da ./= maximum(norm_da)
+
+        # Osie (tutaj przykładowo)
+        pulses = start:start+number-1
+        xrange = 1:size(norm_da, 2)
+        yrange = pulses
+
+        # Ustawienia stylu
+        rc("font", size=8.0)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(4, 6))
+        # Przesuwamy panel dolny na górę, więc ustawiamy grid inaczej
+        # Grid 5x3: top (average_x) zajmie wiersz 0, główny wiersze 1-4, lewy panel kolumna 0
+        subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
+
+        # Panel górny: average_x (profil poziomy)
+        subplot2grid((5, 3), (0, 1), colspan=2)
+        minorticks_on()
+        plot(xrange, average_x, color="grey")
+        yticks([])
+        xlim(xrange[1], xrange[end])
+        xlabel("Longitude [bins]")
+
+        # Lewy panel: average_y (profil pionowy)
+        subplot2grid((5, 3), (1, 0), rowspan=4)
+        minorticks_on()
+        plot(average_y, yrange, color="grey")
+        ylim(yrange[1], yrange[end])
+        xticks([])
+        ylabel("Pulse number")
+
+        # Główny panel - wykres 2D
+        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
+        im = imshow(norm_da,
+                    origin="lower",
+                    cmap=cmap,
+                    interpolation="none",
+                    aspect="auto",
+                    vmin=0.0,
+                    vmax=1.0)
+        colorbar(im)
+        tick_params(labelleft=false, labelbottom=false)
+
+        savepath = "$outdir/$(name_mod)_lrfs.pdf"
+        println(savepath)
+        savefig(savepath)
+
+        if show_
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+
+        close()
+    end
+
+
     function lrfs(data, outdir; start=1, number=nothing, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true, show_=false)
 
         num, bins = size(data)
