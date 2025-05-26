@@ -168,7 +168,7 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(4, 6))
+        figure(figsize=(5, 7))
         # Przesuwamy panel dolny na górę, więc ustawiamy grid inaczej
         # Grid 5x3: top (average_x) zajmie wiersz 0, główny wiersze 1-4, lewy panel kolumna 0
         subplots_adjust(left=0.16, bottom=0.09, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
@@ -190,7 +190,7 @@ module Plot
         ylabel("Pulse number")
 
         # Główny panel - wykres 2D
-        subplot2grid((5, 3), (1, 1), rowspan=5, colspan=3)
+        subplot2grid((5, 3), (1, 1), rowspan=4, colspan=2)
         im = imshow(norm_da,
                     origin="lower",
                     cmap=cmap,
