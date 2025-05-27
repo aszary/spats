@@ -1405,7 +1405,7 @@ end
        # Run processing for all catalogues
     function J0034Mac(output_dir)
         process_all_catalogues(output_dir, "/home/psr/data/new")
-        combine_pdfs("/home/psr/output")
+       # combine_pdfs("/home/psr/output")
     end 
 
 
