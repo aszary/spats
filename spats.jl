@@ -1108,12 +1108,19 @@ end
         # Step 3 create JSON file
         params_file = joinpath(output_subdir, "p.json")
 
+
+
+        #=
         #Step 3.5 Check if already processed
         if isdir(output_subdir) && isfile(joinpath(output_subdir, "p.json"))
             println("Skipping already processed catalogue: $base_name")
             return
         end
-        
+        =#
+
+
+
+
         println(params_file)
         
         p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
@@ -1160,28 +1167,35 @@ end
         #m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
         #=p["bin_st"] = bin_st
         p["bin_end"] = bin_end=#
-        m = match(r"-onpulse '(\d+) (\d+)'", output)
-        if !isnothing(m)
-            bin_st, bin_end = parse.(Int, m.captures)
-            #p["bin_st"] = bin_st
-            #p["bin_end"] = bin_end
 
-            # Ensure onpulse region length is even
-            region_length = bin_end - bin_st + 1
-            if region_length % 2 != 0
-                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
-                bin_end -= 1
-                println("Adjusted onpulse range: $bin_st to $bin_end")
-            end
-            p["bin_st"] = bin_st
-            p["bin_end"] = bin_end
-            println("Found onpulse range: $bin_st to $bin_end")
+        if isfile(joinpath(output_subdir, "p.json"))
+          println("File exitst")
+          
+        else
+         m = match(r"-onpulse '(\d+) (\d+)'", output)
+            if !isnothing(m)
+                bin_st, bin_end = parse.(Int, m.captures)
+              #  p["bin_st"] = bin_st
+               #p["bin_end"] = bin_end
+
+                # Ensure onpulse region length is even
+                region_length = bin_end - bin_st + 1
+                if region_length % 2 != 0
+                  println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                   bin_end -= 1
+                   println("Adjusted onpulse range: $bin_st to $bin_end")
+                end
+               p["bin_st"] = bin_st
+               p["bin_end"] = bin_end
+               println("Found onpulse range: $bin_st to $bin_end")
             
+             end
+             Tools.save_params(params_file, p)
+              println("Parameters updated and saved to $params_file")
         end
-       
-            Tools.save_params(params_file, p)
+           #= Tools.save_params(params_file, p)
             println("Parameters updated and saved to $params_file")
-
+            =#
     
         # Step 10: Plot
         Plot.single(combined_data, output_subdir; darkness=0.5, bin_st= p["bin_st"], bin_end= p["bin_end"], start= p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod=name_mod, show_=false)
@@ -1291,13 +1305,7 @@ function combine_pdfs(output_dir::String)
 end
 =#
 
-    # Run processing for all catalogues
-    function J0034Mac(output_dir)
-        process_all_catalogues(output_dir, "/home/psr/data/new")
-        combine_pdfs("/home/psr/output")
-    end
-
-
+#=
 function combine_pdfs(output_dir::String)
     # Find all .pdf files in subdirectories
     pdf_paths = String[]
@@ -1385,7 +1393,7 @@ end
         println("Error combining PDFs: ", e)
     end
 end
-
+=#
 
 
 
