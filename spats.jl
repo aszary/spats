@@ -147,9 +147,13 @@ end
         end
         =#
 
-        if isdir(output_subdir) && isfile(joinpath(output_subdir, endswith(".png")))
-            println("Skipping already processed catalogue: $base_name")
-            return
+        if isdir(output_subdir)
+            png_files = filter(f -> endswith(f, ".png"),
+            readdir(output_subdir; join=true, sort=true))
+            if !isempty(png_files)
+                println("Skipping already processed catalogue: $base_name")
+                return
+            end
         end
 
 
