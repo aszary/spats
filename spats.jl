@@ -498,7 +498,7 @@ end
        # Run processing for all catalogues
     function J0034Mac(output_dir)
         process_all_catalogues(output_dir, "/home/psr/data/new")
-       # combine_pdfs("/home/psr/output")
+        combine_pngs_to_pdf("/home/psr/output")
     end 
 
 
@@ -521,7 +521,6 @@ end
         #J1750_local()
         #J1750_paper()
         #J1750_paper2()e(output_pdf_path, pages...)
-    pr
         #J1750_average()
         #J1750_modeled()
         #J1750_calculations()
