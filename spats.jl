@@ -453,7 +453,7 @@ function combine_pngs_to_pdf(output_dir::String)
 
     # 2. Output file name
     pulsar_name = splitpath(output_dir)[end]
-    output_pdf_path = joinpath("/home/aszary/output/Maciej", "$pulsar_name.pdf")
+    output_pdf_path = joinpath("/home/psr/output/", "$pulsar_name.pdf")
 
     # 3. Build 2x2 grids per page
     pages = []
@@ -486,6 +486,7 @@ function combine_pngs_to_pdf(output_dir::String)
 
     # 4. Save all figures into one PDF
     CairoMakie.activate!(type = "pdf")
+        save(output_pdf_path)
     println("Saved combined PDF to: $output_pdf_path")
 end
 
