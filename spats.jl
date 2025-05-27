@@ -46,9 +46,9 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        #d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
-        #println(size(d))
-        #Plot.twodfs_plot(d, vpmout; show_=true)
+        d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
+        println(size(d))
+        Plot.twodfs_plot(d, vpmout; show_=true)
 
         #d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
         #println(size(d))
@@ -56,7 +56,7 @@ module SpaTs
 
         #test(vpmout)
         #test2(vpmout)
-        process_psrdata("/home/psr/data/new/J1635-4944/2019-07-14-14:33:54/", vpmout)
+        #process_psrdata("/home/psr/data/new/J1635-4944/2019-07-14-14:33:54/", vpmout)
     end
 
 end # module
