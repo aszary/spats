@@ -464,7 +464,7 @@ function combine_pngs_to_pdf(output_dir::String)
             if fig !== nothing
                 push!(pages, fig)
             end
-            fig = Figure(resolution = (800, 800))
+            fig = Figure(size = (800, 800))
         end
 
         row = div((i - 1), 2) % 2 + 1
