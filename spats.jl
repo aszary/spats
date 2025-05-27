@@ -2,11 +2,11 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
-    using CairoMakie
+    #=using CairoMakie
     using FileIO
     using PDFIO
     using ImageMagick
-
+=#
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
