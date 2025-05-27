@@ -147,7 +147,10 @@ end
         end
         =#
 
-
+        if isdir(output_subdir) && isfile(joinpath(output_subdir, endswith(".png")))
+            println("Skipping already processed catalogue: $base_name")
+            return
+        end
 
 
         println(params_file)
