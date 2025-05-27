@@ -272,8 +272,8 @@ module Plot
 
 
         # Ograniczenie zakresu wyświetlania na osi x do -120 ... +120
-        x_min = -120
-        x_max = 120
+        #x_min = -120
+        #x_max = 120
 
         # Profile boczne
         average_x = sum(da, dims=1)[1, :]
