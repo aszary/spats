@@ -486,7 +486,6 @@ function combine_pngs_to_pdf(output_dir::String)
 
     # 4. Save all figures into one PDF
     CairoMakie.activate!(type = "pdf")
-    save(output_pdf_path, pages...)
     println("Saved combined PDF to: $output_pdf_path")
 end
 
@@ -521,7 +520,8 @@ end
         #J1750_remote()
         #J1750_local()
         #J1750_paper()
-        #J1750_paper2()
+        #J1750_paper2()e(output_pdf_path, pages...)
+    pr
         #J1750_average()
         #J1750_modeled()
         #J1750_calculations()
