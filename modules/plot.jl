@@ -295,8 +295,8 @@ module Plot
         scatter(longitude, phase_, marker=".", c="grey", s=3)
         ax_phase.xaxis.set_label_position("top")
         ax_phase.xaxis.set_ticks_position("top")
-        xlabel("longitude \$(^\\circ)\$")
-        ylabel("FFT phase \$(^\\circ)\$")
+        xlabel("Phase \$(^\\circ)\$")
+        #ylabel("FFT phase \$(^\\circ)\$")
 
         # Pobierz aktualny zakres osi Y
         ylims = ax_phase.get_ylim()
