@@ -268,23 +268,23 @@ module Plot
         dl = longitude[2] - longitude[1]
         dphase = zeros(length(phase_)-1)
         for i in 1:length(phase_)-1
-            changed = true
+            cchanged = true
             while changed
                 changed = false
-                dp = abs(phase_[i+1] - phase_[i])
-                dpp = abs(phase_[i+1]+360. - phase_[i])
-                dpm = abs(phase_[i+1]-360. - phase_[i])
-                if dpp < dp
-                    phase_[i+1] += 360
-                    changed = true
-                end
-                if dpm < dp
-                    phase_[i+1] -= 360
-                    changed = true
+                for i in 1:length(phase_)-1
+                    dp = abs(phase_[i+1] - phase_[i])
+                    dpp = abs(phase_[i+1] + 360. - phase_[i])
+                    dpm = abs(phase_[i+1] - 360. - phase_[i])
+                    if dpp < dp
+                        phase_[i+1] += 360
+                        changed = true
+                    elseif dpm < dp
+                        phase_[i+1] -= 360
+                        changed = true
+                    end
                 end
             end
-            dphase[i] = dp
-        end
+
 
         # Wykres
         rc("font", size=7.)
