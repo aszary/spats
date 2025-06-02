@@ -233,6 +233,109 @@ module Plot
         close()
     end
 
+    function twój_lrfs_plot(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=0.5, name_mod="0", show_=false)
+
+        num, cols = size(data)
+        if number == nothing
+            number = num - start + 1
+        end
+
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = (cols - 3) ÷ 2 end  # zakładam: 3 kolumny nagłówkowe + (Re,Im)*bin_count
+
+        # Rekonstrukcja zespolonych danych z kolumn
+        bins = bin_end - bin_st + 1
+        lrfs_complex = ComplexF64[ data[i, 4 + 2*(b-1)] + im * data[i, 5 + 2*(b-1)] for i in 1:num, b in bin_st:bin_end ]
+
+        # Obliczenie intensywności i częstotliwości
+        intensity = sum(abs.(lrfs_complex), dims=2)[:]
+        freq = collect(0:length(intensity)-1) ./ length(intensity)
+
+        # Znalezienie szczytu
+        peak = argmax(intensity)
+        println("\tpeak freq $(freq[peak])")
+        println("\tpeak P3 $(1/freq[peak])")
+
+        # Obliczenie fazy – TAK SAMO jak w poprzedniej funkcji
+        phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
+
+        # Ustalanie długości (longitude)
+        db = (bin_end + 1) - bin_st
+        dl = 360. * db / (cols ÷ 2)  # zakładam, że połowa kolumn to biny
+        longitude = collect(range(-dl/2., dl/2., length=db))
+
+        # Korekcja fazy (ciągłość)
+        dl = longitude[2] - longitude[1]
+        dphase = zeros(length(phase_)-1)
+        for i in 1:length(phase_)-1
+            changed = true
+            while changed
+                changed = false
+                dp = abs(phase_[i+1] - phase_[i])
+                dpp = abs(phase_[i+1]+360. - phase_[i])
+                dpm = abs(phase_[i+1]-360. - phase_[i])
+                if dpp < dp
+                    phase_[i+1] += 360
+                    changed = true
+                end
+                if dpm < dp
+                    phase_[i+1] -= 360
+                    changed = true
+                end
+            end
+            dphase[i] = dp
+        end
+
+        # Wykres
+        rc("font", size=7.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
+
+        # Górny panel: faza
+        ax = subplot2grid((5, 3), (0, 1), colspan=2)
+        scatter(longitude, phase_, marker=".", c="grey", s=3.)
+        ax.xaxis.set_label_position("top")
+        ax.xaxis.set_ticks_position("top")
+        xlabel("longitude \$(^\\circ)\$")
+        ylabel("FFT phase \$(^\\circ)\$")
+        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+
+        # Lewy panel: intensywność vs częstotliwość
+        ax2 = subplot2grid((5, 3), (1, 0), rowspan=3)
+        plot(intensity, freq, c="grey")
+        ylim(freq[1], freq[end])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("frequency \$(1/P)\$")
+
+        # Główny panel: mapa LRFS
+        ax3 = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
+        imshow(abs.(lrfs_complex), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness * maximum(abs.(lrfs_complex)))
+        tick_params(labelleft=false, labelbottom=false)
+
+        # Dolny panel: średni profil
+        ax4 = subplot2grid((5, 3), (4, 1), colspan=2)
+        average = mean(real.(lrfs_complex), dims=1)[:]
+        plot(longitude, average, c="grey")
+        axvline(x=0., ls=":", c="black")
+        yticks([0.0, 0.5])
+        xlim(longitude[1], longitude[end])
+        xlabel("longitude \$(^\\circ)\$")
+
+        savefig("$outdir/$(name_mod)_lrfs.pdf")
+        savefig("$outdir/$(name_mod)_lrfs.svg")
+        if show_
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
 
     function twodfs_plot(data, outdir;
                     start=1,
