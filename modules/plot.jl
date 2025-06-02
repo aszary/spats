@@ -290,16 +290,20 @@ module Plot
         figure(figsize=(6, 6))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0.0, hspace=0.0)
 
-        # --- GÓRNY PANEL: faza FFT ---
+        # Górny panel: faza FFT
         ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
         scatter(longitude, phase_, marker=".", c="grey", s=3)
         ax_phase.xaxis.set_label_position("top")
         ax_phase.xaxis.set_ticks_position("top")
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
+
         xlim(-180, 180)
-        ylim(minimum(phase_) - 10, maximum(phase_) + 10)
+        ylim(-180, 180)  # wymuszenie zakresu osi Y od -180 do 180
+        yticks(-180:45:180)  # ustalenie ticków osi Y co 45 stopni
+
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+
 
         # --- LEWY PANEL: intensywność vs częstotliwość ---
         pulses = collect(start:start+number-1)
