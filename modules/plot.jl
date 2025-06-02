@@ -332,7 +332,7 @@ module Plot
         average = mean(real.(lrfs_complex), dims=1)[:]
         plot(longitude, average, color="grey")
         axvline(x=0., ls=":", color="black")
-        yticks([0.0, 0.5])
+        #yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
 
