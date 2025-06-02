@@ -234,7 +234,6 @@ module Plot
     end
 
     function twój_lrfs_plot(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=0.5, name_mod="0", show_=false)
-
         num, cols = size(data)
         if number == nothing
             number = num - start + 1
@@ -256,7 +255,7 @@ module Plot
         println("\tpeak freq $(freq[peak])")
         println("\tpeak P3 $(1/freq[peak])")
 
-        # Obliczenie fazy – TAK SAMO jak w poprzedniej funkcji
+        # Obliczenie fazy
         phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
 
         # Ustalanie długości (longitude)
@@ -264,27 +263,23 @@ module Plot
         dl = 360. * db / (cols ÷ 2)  # zakładam, że połowa kolumn to biny
         longitude = collect(range(-dl/2., dl/2., length=db))
 
-        # Korekcja fazy (ciągłość)
-        dl = longitude[2] - longitude[1]
-        dphase = zeros(length(phase_)-1)
-        for i in 1:length(phase_)-1
-            cchanged = true
-            while changed
-                changed = false
-                for i in 1:length(phase_)-1
-                    dp = abs(phase_[i+1] - phase_[i])
-                    dpp = abs(phase_[i+1] + 360. - phase_[i])
-                    dpm = abs(phase_[i+1] - 360. - phase_[i])
-                    if dpp < dp
-                        phase_[i+1] += 360
-                        changed = true
-                    elseif dpm < dp
-                        phase_[i+1] -= 360
-                        changed = true
-                    end
+        # Korekcja fazy (unwrap)
+        changed = true
+        while changed
+            changed = false
+            for i in 1:length(phase_)-1
+                dp = abs(phase_[i+1] - phase_[i])
+                dpp = abs(phase_[i+1] + 360. - phase_[i])
+                dpm = abs(phase_[i+1] - 360. - phase_[i])
+                if dpp < dp
+                    phase_[i+1] += 360
+                    changed = true
+                elseif dpm < dp
+                    phase_[i+1] -= 360
+                    changed = true
                 end
             end
-
+        end
 
         # Wykres
         rc("font", size=7.)
@@ -334,6 +329,7 @@ module Plot
         end
         close()
     end
+
 
 
 
