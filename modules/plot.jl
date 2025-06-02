@@ -490,7 +490,9 @@ module Plot
         close()
     end
 
-    function twodfs_plot(data, outdir;
+
+
+    function twodfs_plot2(data, outdir;
                         start=1,
                         number=100,
                         cmap="gray_r",
@@ -511,24 +513,23 @@ module Plot
             bin_end = bins
         end
 
-        # Wyciągamy interesujący fragment danych
         da_raw = data[start:start+number-1, bin_st:bin_end]
 
-        # Odwrócenie danych w osi X (longitude)
+        # Odwrócenie danych na osi X:
         da_raw = da_raw[:, end:-1:1]
 
-        # Obliczenie 2D FFT dla 2DFS
-        fft_x = fft(da_raw, dims=2)
-        fft_2d = fftshift(fft(fft_x, dims=1))
+        # FFT 2D w Julii — najpierw wzdłuż kolumn, potem wierszy:
+        fft_x = fft(da_raw, 2)
+        fft_2d = fft(fft_x, 1)
+        fft_2d = fftshift(fft_2d)
 
-        # Obliczenie mocy
+        # Moc:
         power_2dfs = abs.(fft_2d).^2 ./ (size(da_raw,1)*size(da_raw,2))
 
-        # Normalizacja intensywności do 0..1
+        # Normalizacja do 0..1
         norm_da = power_2dfs .- minimum(power_2dfs)
         norm_da ./= maximum(norm_da)
 
-        # Przygotowanie osi częstotliwości X w stopniach:
         nb = size(da_raw, 2)
         center = (nb + 1) / 2
         mapped_x = [(i - center) * 720 / (nb - 1) for i in 1:nb]
@@ -537,10 +538,8 @@ module Plot
         x_max = 360
 
         pulses = collect(start:start+number-1)
-
         average_y = sum(norm_da, dims=2)[:, 1]
 
-        # --- Rysowanie wykresu ---
         rc("font", size=8.0)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
