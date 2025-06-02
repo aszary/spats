@@ -234,13 +234,18 @@ module Plot
     end
 
     function twój_lrfs_plot(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=0.5, name_mod="0", show_=false)
+
         num, cols = size(data)
-        if number == nothing
+        if number === nothing
             number = num - start + 1
         end
 
-        if bin_st == nothing bin_st = 1 end
-        if bin_end == nothing bin_end = (cols - 3) ÷ 2 end  # zakładam: 3 kolumny nagłówkowe + (Re,Im)*bin_count
+        if bin_st === nothing
+            bin_st = 1
+        end
+        if bin_end === nothing
+            bin_end = (cols - 3) ÷ 2  # zakładam: 3 kolumny nagłówkowe + (Re,Im)*bin_count
+        end
 
         # Rekonstrukcja zespolonych danych z kolumn
         bins = bin_end - bin_st + 1
@@ -258,30 +263,18 @@ module Plot
         # Obliczenie fazy
         phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
 
+        # Funkcja wrapująca fazę do [-180,180]
+        phase_wrapped = mod.(phase_ .+ 180, 360) .- 180
+
         # Ustalanie długości (longitude)
         db = (bin_end + 1) - bin_st
         dl = 360. * db / (cols ÷ 2)  # zakładam, że połowa kolumn to biny
         longitude = collect(range(-dl/2., dl/2., length=db))
 
-        # Korekcja fazy (unwrap)
-        changed = true
-        while changed
-            changed = false
-            for i in 1:length(phase_)-1
-                dp = abs(phase_[i+1] - phase_[i])
-                dpp = abs(phase_[i+1] + 360. - phase_[i])
-                dpm = abs(phase_[i+1] - 360. - phase_[i])
-                if dpp < dp
-                    phase_[i+1] += 360
-                    changed = true
-                elseif dpm < dp
-                    phase_[i+1] -= 360
-                    changed = true
-                end
-            end
-        end
+        # Korekcja fazy (ciągłość) - można usunąć, bo mamy wrapowanie
+        # Dlatego ten fragment można pominąć albo zostawić pusty
 
-        # Styl
+        # Style wykresu
         rc("font", size=7.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -289,41 +282,26 @@ module Plot
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
-        # Górny panel: faza
+        # Górny panel: faza (z wrapowaniem)
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
-        scatter(longitude, phase_, marker=".", c="grey", s=3)
+        scatter(longitude, phase_wrapped, marker=".", c="grey", s=3)
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
-        #ylim(-180, 180)
-        #yticks(-180:45:180)
+        ylim(-180, 180)
+        yticks(-180:45:180)
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
-        # ...
-        # Lewy panel: intensywność vs częstotliwość (wersja z lrfsdwa)
-        # Przygotowanie danych do lewego panelu w stylu lrfsdwa
-        nbins_total = cols
-        bin_range = bin_st:bin_end
-        longitudes_deg = collect(bin_range) .* (360 / nbins_total)
-        idx_range = findall(x -> 160 <= x <= 200, longitudes_deg)
-        pulses = collect(start:start+number-1)
-
-        # Profile boczne (pełen zakres)
-        # average_y jest sumą po kolumnach całego zakresu (podobnie do lrfsdwa)
-        da = abs.(lrfs_complex[start:start+number-1, :])
-        average_y = sum(da, dims=2)[:, 1]   # sumowanie po kolumnach
-
+        # Lewy panel: intensywność vs częstotliwość
         ax2 = subplot2grid((5, 3), (1, 0), rowspan=3)
-        plot(average_y, pulses, color="grey")
-        ylim(pulses[1], pulses[end])
-        xticks([])
-        ylabel("Fluctuation frequency (P/P₃)")
-
-        # Tick marks od 0.0 do 0.5 co 0.1, zamapowane na skalę pulsów
-        ytick_values = 0.0:0.1:0.5
-        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
-        yticks(ytick_positions, string.(ytick_values))
+        plot(intensity, freq, c="grey")
+        ylim(freq[1], freq[end])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("frequency \$(1/P)\$")
+        # Wyłączamy ticki na osi Y (prosiłeś o to dla dolnego panelu)
+        tick_params(left=false, labelleft=false)
 
         # Główny panel: mapa LRFS
         ax3 = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
@@ -335,19 +313,21 @@ module Plot
         average = mean(real.(lrfs_complex), dims=1)[:]
         plot(longitude, average, c="grey")
         axvline(x=0., ls=":", c="black")
-        yticks([])  # WYŁĄCZENIE ticków na osi Y w dolnym panelu
+        yticks([])   # wyłączamy ticki na osi Y dolnego panelu
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
 
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
+
         if show_
             show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
+
         close()
-end
+    end
 
 
 
