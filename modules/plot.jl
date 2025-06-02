@@ -490,6 +490,114 @@ module Plot
         close()
     end
 
+    function twodfs_plot(data, outdir;
+                        start=1,
+                        number=100,
+                        cmap="gray_r",
+                        bin_st=nothing,
+                        bin_end=nothing,
+                        darkness=0.07,
+                        name_mod="PSR_NAME",
+                        show_=false)
+
+        num, bins = size(data)
+        if number === nothing
+            number = num - start + 1
+        end
+        if bin_st === nothing
+            bin_st = 1
+        end
+        if bin_end === nothing
+            bin_end = bins
+        end
+
+        # Wyciągamy interesujący fragment danych
+        da_raw = data[start:start+number-1, bin_st:bin_end]
+
+        # Odwrócenie danych w osi X (longitude)
+        da_raw = da_raw[:, end:-1:1]
+
+        # Obliczenie 2D FFT dla 2DFS
+        fft_x = fft(da_raw, dims=2)
+        fft_2d = fftshift(fft(fft_x, dims=1))
+
+        # Obliczenie mocy
+        power_2dfs = abs.(fft_2d).^2 ./ (size(da_raw,1)*size(da_raw,2))
+
+        # Normalizacja intensywności do 0..1
+        norm_da = power_2dfs .- minimum(power_2dfs)
+        norm_da ./= maximum(norm_da)
+
+        # Przygotowanie osi częstotliwości X w stopniach:
+        nb = size(da_raw, 2)
+        center = (nb + 1) / 2
+        mapped_x = [(i - center) * 720 / (nb - 1) for i in 1:nb]
+
+        x_min = -360
+        x_max = 360
+
+        pulses = collect(start:start+number-1)
+
+        average_y = sum(norm_da, dims=2)[:, 1]
+
+        # --- Rysowanie wykresu ---
+        rc("font", size=8.0)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(7, 7))
+        subplots_adjust(left=0.16, bottom=0.15, right=0.90, top=0.95, wspace=0.0, hspace=0.0)
+
+        # Lewy panel
+        ax_left = subplot2grid((4,3), (0,0), rowspan=3)
+        minorticks_on()
+        plot(average_y, pulses, color="grey")
+        ylim(pulses[1], pulses[end])
+        xticks([])
+        ylabel("Fluctuation frequency (P/P₃)")
+        ytick_values = 0.0:0.1:0.5
+        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
+        yticks(ytick_positions, string.(ytick_values))
+
+        # Główny panel
+        ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
+        vmax_val = darkness * maximum(norm_da)
+        im = imshow(norm_da,
+                    origin="lower",
+                    cmap=cmap,
+                    interpolation="none",
+                    aspect="auto",
+                    extent=(minimum(mapped_x), maximum(mapped_x), pulses[1], pulses[end]),
+                    vmin=0.0,
+                    vmax=vmax_val)
+        tick_params(left=false, labelleft=false)
+        xlabel("Fluctuation frequency (P/P2) [degrees⁻¹]")
+        xlim(x_min, x_max)
+
+        # Dolny panel
+        ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
+        minorticks_on()
+        power_profile = sum(norm_da, dims=1) |> vec
+        plot(mapped_x, power_profile, color="grey")
+        plot(-mapped_x, power_profile, color="orange", linestyle="--")
+        yticks([])
+        xlim(x_min, x_max)
+        xlabel("Fluctuation frequency (1/P2) [degrees⁻¹]")
+        xticks_vals = [x_min, 0, x_max]
+        xticks(xticks_vals, string.(xticks_vals))
+
+        savepath = "$outdir/$(name_mod)_2dfs.pdf"
+        println("Saving figure to: $savepath")
+        savefig(savepath)
+
+        if show_
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+
+        close()
+    end
 
 
 
