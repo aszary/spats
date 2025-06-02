@@ -296,8 +296,8 @@ module Plot
         ax.xaxis.set_ticks_position("top")
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
-        ylim(-180, 180)
-        yticks(-180:45:180)
+        #ylim(-180, 180)
+        #yticks(-180:45:180)
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
         # ...
