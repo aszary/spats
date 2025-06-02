@@ -495,7 +495,7 @@ module Plot
     function twodfs_plot2(data, outdir;
                         start=1,
                         number=100,
-                        cmap="gray_r",
+                        cmap="viridis",
                         bin_st=nothing,
                         bin_end=nothing,
                         darkness=0.07,
