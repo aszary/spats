@@ -298,11 +298,22 @@ module Plot
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
 
-        xlim(-180, 180)
-        ylim(-180, 180)  # wymuszenie zakresu osi Y od -180 do 180
-        yticks(-180:45:180)  # ustalenie ticków osi Y co 45 stopni
+        # Pobierz aktualny zakres osi Y
+        ylims = ax_phase.get_ylim()
+        ymin, ymax = ylims
+
+        # Ustal pozycje ticków równomiernie od ymin do ymax
+        nticks = 9  # bo mamy 9 wartości od -180 do 180 co 45 stopni
+        ytick_positions = range(ymin, ymax, length=nticks)
+
+        # Ustaw ticki na tych pozycjach, ale etykiety -180, -135, ..., 180
+        ytick_labels = string.(-180:45:180)
+
+        ax_phase.set_yticks(collect(ytick_positions))
+        ax_phase.set_yticklabels(ytick_labels)
 
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
+
 
 
         # --- LEWY PANEL: intensywność vs częstotliwość ---
