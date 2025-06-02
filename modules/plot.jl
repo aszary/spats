@@ -291,13 +291,16 @@ module Plot
 
         # Górny panel: faza
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
-        scatter(longitude, phase_, marker=".", c="grey", s=3.)
+        scatter(longitude, phase_, marker=".", c="grey", s=3)
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
+        ylim(-180, 180)
+        yticks(-180:45:180)
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
+        # ...
         # Lewy panel: intensywność vs częstotliwość (wersja z lrfsdwa)
         # Przygotowanie danych do lewego panelu w stylu lrfsdwa
         nbins_total = cols
@@ -330,9 +333,9 @@ module Plot
         # Dolny panel: średni profil
         ax4 = subplot2grid((5, 3), (4, 1), colspan=2)
         average = mean(real.(lrfs_complex), dims=1)[:]
-        plot(longitude, average, color="grey")
-        axvline(x=0., ls=":", color="black")
-        #yticks([0.0, 0.5])
+        plot(longitude, average, c="grey")
+        axvline(x=0., ls=":", c="black")
+        yticks([])  # WYŁĄCZENIE ticków na osi Y w dolnym panelu
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
 
