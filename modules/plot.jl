@@ -281,7 +281,7 @@ module Plot
             end
         end
 
-        # Wykres
+        # Styl
         rc("font", size=7.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -298,13 +298,29 @@ module Plot
         ylabel("FFT phase \$(^\\circ)\$")
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
-        # Lewy panel: intensywność vs częstotliwość
+        # Lewy panel: intensywność vs częstotliwość (wersja z lrfsdwa)
+        # Przygotowanie danych do lewego panelu w stylu lrfsdwa
+        nbins_total = cols
+        bin_range = bin_st:bin_end
+        longitudes_deg = collect(bin_range) .* (360 / nbins_total)
+        idx_range = findall(x -> 160 <= x <= 200, longitudes_deg)
+        pulses = collect(start:start+number-1)
+
+        # Profile boczne (pełen zakres)
+        # average_y jest sumą po kolumnach całego zakresu (podobnie do lrfsdwa)
+        da = abs.(lrfs_complex[start:start+number-1, :])
+        average_y = sum(da, dims=2)[:, 1]   # sumowanie po kolumnach
+
         ax2 = subplot2grid((5, 3), (1, 0), rowspan=3)
-        plot(intensity, freq, c="grey")
-        ylim(freq[1], freq[end])
-        xlim(1.1, -0.1)
-        xlabel("intensity")
-        ylabel("frequency \$(1/P)\$")
+        plot(average_y, pulses, color="grey")
+        ylim(pulses[1], pulses[end])
+        xticks([])
+        ylabel("Fluctuation frequency (P/P₃)")
+
+        # Tick marks od 0.0 do 0.5 co 0.1, zamapowane na skalę pulsów
+        ytick_values = 0.0:0.1:0.5
+        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
+        yticks(ytick_positions, string.(ytick_values))
 
         # Główny panel: mapa LRFS
         ax3 = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
@@ -314,8 +330,8 @@ module Plot
         # Dolny panel: średni profil
         ax4 = subplot2grid((5, 3), (4, 1), colspan=2)
         average = mean(real.(lrfs_complex), dims=1)[:]
-        plot(longitude, average, c="grey")
-        axvline(x=0., ls=":", c="black")
+        plot(longitude, average, color="grey")
+        axvline(x=0., ls=":", color="black")
         yticks([0.0, 0.5])
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
@@ -328,7 +344,8 @@ module Plot
             readline(stdin; keep=false)
         end
         close()
-    end
+end
+
 
 
 
