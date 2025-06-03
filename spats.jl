@@ -133,8 +133,25 @@ module SpaTs
         ybins = Functions.find_ybins(p3_value)
         println("Number of ybins: $ybins")
 
+        
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
 
+        # --- Dodajemy teraz ładowanie i rysowanie wykresu p3fold ---
+        p3fold_file = joinpath(outdir, pulsar_name, "pulsar.debase.p3fold")
+
+        # Załaduj dane
+        folded = Data.load_ascii(p3fold_file)
+
+        # Wywołaj funkcję rysującą
+        Plot.p3fold(folded, joinpath(outdir, pulsar_name);
+                    start=3,
+                    bin_st=bin_st - 20,
+                    bin_end=bin_end + 20,
+                    name_mod="auto_p3fold",
+                    show_=true,
+                    repeat_num=4)
+
+        # --- Zwróć wartości potrzebne na zewnątrz ---
         return bin_st - 20, bin_end + 20
     end
 
