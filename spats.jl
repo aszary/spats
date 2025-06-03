@@ -46,13 +46,13 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        #d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
-        #println(size(d))
-        #Plot.twodfs_plot(d, vpmout; show_=true)
-
-        d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
+        d = Data.load_ascii("/home/psr/output/pulsar.debase.1.2dfs")
         println(size(d))
-        Plot.twoj_lrfs_plot(d[:,:,3], vpmout; show_=true)
+        Plot.twodfs_plot(d, vpmout; show_=true)
+
+        #d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
+        #println(size(d))
+        #Plot.twoj_lrfs_plot(d[:,:,3], vpmout; show_=true)
 
         #test(vpmout)
         #test2(vpmout)
