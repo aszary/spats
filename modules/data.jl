@@ -304,28 +304,27 @@ module Data
 
 
         # Step 8: Debase the combined ASCII file using pmod
-        debased_file = replace(out_txt, ".txt" => ".debase.gg")
+        #debased_file = replace(out_txt, ".txt" => ".debase.gg")
         run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
         # Read captured output and cleanup
         output = read("pmod_output.txt", String)
         m = match(r"-onpulse '(\d+) (\d+)'", output)
-            if !isnothing(m)
-                bin_st, bin_end = parse.(Int, m.captures)
-                # Ensure onpulse region length is even
-                region_length = bin_end - bin_st + 1
-                if region_length % 2 != 0
-                  println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
-                   bin_end -= 1
-                   println("Adjusted onpulse range: $bin_st to $bin_end")
-                end
-                p["bin_st"] = bin_st
-                p["bin_end"] = bin_end
-                println("Found onpulse range: $bin_st to $bin_end")
+        if !isnothing(m)
+            bin_st, bin_end = parse.(Int, m.captures)
+            # Ensure onpulse region length is even
+            region_length = bin_end - bin_st + 1
+            if region_length % 2 != 0
+                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                bin_end -= 1
+                println("Adjusted onpulse range: $bin_st to $bin_end")
             end
-            Tools.save_params(params_file, p)
-            println("Parameters updated and saved to $params_file")
+            p["bin_st"] = bin_st
+            p["bin_end"] = bin_end
+            println("Found onpulse range: $bin_st to $bin_end")
         end
-        #rm("pmod_output.txt")  # Cleanup 
+        Tools.save_params(params_file, p)
+        println("Parameters updated and saved to $params_file")
+        rm("pmod_output.txt")  # Cleanup 
 
         return
 
