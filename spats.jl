@@ -171,7 +171,7 @@ module SpaTs
 
         #test(vpmout)
         #test2(vpmout)
-        process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        process_psrdata2("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
 
     end
 
