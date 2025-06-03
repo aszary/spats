@@ -439,7 +439,7 @@ end
 
 =#
 
-
+#=
 using CairoMakie
 using FileIO
 
@@ -502,6 +502,92 @@ function combine_pngs_to_pdf(output_dir::String)
 
     println("Saved to: $output_pdf_path")
 end
+
+
+=#
+
+
+
+
+
+
+
+
+using CairoMakie, FileIO
+
+function combine_pngs_to_pdf_and_merge(output_dir::String)
+    # Collect PNG files recursively and sort
+    png_paths = sort([
+        joinpath(root, file)
+        for (root, _, files) in walkdir(output_dir)
+        for file in files
+        if endswith(lowercase(file), ".png")
+    ])
+
+    if isempty(png_paths)
+        println("No PNG files found in $output_dir")
+        return
+    end
+
+    pulsar_name = splitpath(output_dir)[end]
+
+    # Output directory for PDFs (adjust path to your aszary location)
+    output_pdf_dir = "/home/aszary/output/Maciej"
+    mkpath(output_pdf_dir)
+
+    pages = Makie.Figure[]
+    fig = nothing
+
+    for (i, path) in enumerate(png_paths)
+        if (i - 1) % 4 == 0
+            if fig !== nothing
+                push!(pages, fig)
+            end
+            fig = Figure(resolution = (800, 800))
+        end
+
+        row = div((i - 1), 2) % 2 + 1
+        col = (i - 1) % 2 + 1
+        ax = Axis(fig[row, col])
+
+        try
+            img = load(path)
+            image!(ax, img)
+            ax.title = basename(path)
+        catch e
+            @warn "Failed to load image: $path" exception=(e, catch_backtrace())
+            ax.title = "Error: $(basename(path))"
+        end
+    end
+
+    if fig !== nothing
+        push!(pages, fig)
+    end
+
+    # Save each figure as separate PDF pages
+    pdf_paths = String[]
+    for (idx, page) in enumerate(pages)
+        pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_page_$(idx).pdf")
+        CairoMakie.save(pdf_path, page)
+        push!(pdf_paths, pdf_path)
+    end
+
+    println("Saved individual PDF pages to: $output_pdf_dir")
+
+    # Now combine all PDFs into one using pdfunite
+    combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
+    try
+        cmd = `pdfunite $(pdf_paths...) $combined_pdf_path`
+        println("Running command: $cmd")
+        run(cmd)
+        println("Combined PDF created at: $combined_pdf_path")
+    catch e
+        println("Error combining PDFs: ", e)
+    end
+end
+
+
+
 
 
 
