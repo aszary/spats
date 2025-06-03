@@ -5,6 +5,7 @@ module Data
 
     include("functions.jl")
     include("tools.jl")
+    include("plot.jl")
 
 
     """
