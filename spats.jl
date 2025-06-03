@@ -153,7 +153,7 @@ module SpaTs
                     repeat_num=4)
 
         # --- Zwróć wartości potrzebne na zewnątrz ---
-        #return bin_st - 20, bin_end + 20
+        return bin_st - 20, bin_end + 20
     end
 
 
