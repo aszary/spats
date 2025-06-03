@@ -6,6 +6,7 @@ module SpaTs
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
+    include("modeluse/functions.jl")
 
 
     function test(outdir)
