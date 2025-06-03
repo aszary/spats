@@ -301,10 +301,10 @@ module Data
         # Step 7: Convert spCF -> ascii
         Data.convert_psrfit_ascii(output_file, out_txt)
         rm(output_file) #cleanup .spCF file 
-        
+
 
         # Step 8: Debase the combined ASCII file using pmod
-        debased_file = replace(out_txt, ".txt" => ".debase.gg")
+        #debased_file = replace(out_txt, ".txt" => ".debase.gg")
         run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
         # Read captured output and cleanup
         output = read("pmod_output.txt", String)
@@ -325,7 +325,7 @@ module Data
             Tools.save_params(params_file, p)
             println("Parameters updated and saved to $params_file")
         end
-        rm("pmod_output.txt")  # Cleanup 
+        #rm("pmod_output.txt")  # Cleanup 
 
         return
 
