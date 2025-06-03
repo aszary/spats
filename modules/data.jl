@@ -278,36 +278,37 @@ module Data
                 p = Tools.read_params(params_file)
             else
                 p = Tools.default_params(params_file)
+                println("New file with parameters created: $params_file")
+                println("TUUUUUU")
             end
-            println("New file with parameters created: $params_file")
+            println("TUUUUUU")
         end
-        return 
+        println("TU222222")
+
+        println(base_dir)
+        println(readdir(base_dir)[1])
 
         # Step 4: Find second-level catalogue
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
-        println("Second catalogue found: ", second_catalogue)
+        println("Second-level catalogue found: ", second_catalogue)
     
         # Step 5: Find .spCF files
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
         Data.sort!(spcf_files)
 
-        converted_txt_files = String[]
-
         #step 6: combining .spCF into one 
         output_file = joinpath(output_subdir, "converted.spCF")
         file_names = [joinpath(name, file) for file in spcf_files]
 
-        Data.sort!(spcf_files)
-
         run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
         out_txt=replace(output_file ,".spCF" => ".txt")
 
+
         # Step 7: Convert spCF -> ascii
         Data.convert_psrfit_ascii(output_file, out_txt)
+        rm(output_file) #cleanup .spCF file 
 
-        rm(output_file) #cleanup .spCF file
-
-
+        return
         
 
         # Step 8: Debase the combined ASCII file using pmod
