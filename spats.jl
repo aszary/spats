@@ -532,7 +532,7 @@ function combine_pngs_to_pdf(output_dir::String)
     pulsar_name = splitpath(output_dir)[end]
 
     # Output directory for PDFs (adjust path to your aszary location)
-    output_pdf_dir = "/home/aszary/output/Maciej"
+    output_pdf_dir = "/home/psr/output/"
     mkpath(output_pdf_dir)
 
     pages = Makie.Figure[]
