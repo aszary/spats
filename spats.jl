@@ -575,7 +575,10 @@ function combine_pngs_to_pdf(output_dir::String)
     println("Saved individual PDF pages to: $output_pdf_dir")
 
 
-try
+    
+    # Now combine all PDFs into one using pdfunite
+    combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
+    try
     cmd_args = vcat(["pdfunite"], pdf_paths, [combined_pdf_path])
     cmd = Cmd(cmd_args)
     println("Running command: ", cmd)
@@ -583,10 +586,10 @@ try
     println("Combined PDF created at: $combined_pdf_path")
     
     # Remove individual pdf files after combining
-    for pdff in pdf_paths
+    for pdf in pdf_paths
         try
-            rm(pdff)
-            println("Deleted temporary file: $pdff")
+            rm(pdf)
+            println("Deleted temporary file: $pdf")
         catch e
             println("Failed to delete $pdf: $e")
         end
@@ -597,19 +600,6 @@ catch e
 end
 
 
-#=
-    # Now combine all PDFs into one using pdfunite
-    combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
-    try
-        cmd = `pdfunite $(pdf_paths...) $combined_pdf_path`
-        println("Running command: $cmd")
-        run(cmd)
-        println("Combined PDF created at: $combined_pdf_path")
-    catch e
-        println("Error combining PDFs: ", e)
-    end
-end
-=#
 
 
 
