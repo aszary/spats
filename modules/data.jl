@@ -304,7 +304,7 @@ module Data
 
 
         # Step 8: Debase the combined ASCII file using pmod
-        #debased_file = replace(out_txt, ".txt" => ".debase.gg")
+        debased_file = replace(out_txt, ".txt" => ".debase.gg")
         run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
         # Read captured output and cleanup
         output = read("pmod_output.txt", String)
