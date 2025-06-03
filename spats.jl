@@ -137,7 +137,8 @@ module SpaTs
         run(pipeline(`pfold -p3fold "$p3_value $ybins" -onpulse "$bin_st $bin_end" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
 
         # --- Dodajemy teraz ładowanie i rysowanie wykresu p3fold ---
-        p3fold_file = joinpath(outdir, pulsar_name, "pulsar.debase.p3fold")
+        p3fold_file = joinpath(outdir, "pulsar.debase.p3fold")
+
 
         # Załaduj dane
         folded = Data.load_ascii(p3fold_file)
