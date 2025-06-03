@@ -9,27 +9,7 @@ module SpaTs
     include("modules/tools.jl")
 
 
-   
-   #= function J0820Mac(outdir)
-        Data.convert_psrfit_ascii("/home/psr/data/J0820-1350/2020-01-11-01:05:56_00768-01055.spCF" , "/home/psr/output/2.txt")
-        data = Data.load_ascii("/home/psr/output/2.txt")
 
-
-
-        Plot.single(data, outdir, darkness=0.5, bin_st=1 , bin_end=1024, number=nothing, name_mod="J0820Mac", show_=true)
-        Plot.lrfs(data, outdir, darkness=0.1, start=1,  bin_st=1, bin_end=1024, name_mod="J0820Mac", change_fftphase=false, show_=true)
-        Plot.average(data, outdir, bin_st=1, bin_end=1024, number=nothing, name_mod="J0820Mac", show_=true)
-    end
-=#
-
-
-
-
-
-    # TODO użyj JSON, czytanie do słownika d
-    # TODO do poprawy, przeczytać pmod_output.txt
-    # TODO zakres pulsów do rysowania (pobrany z JSON)
-   
 
 #=
 
@@ -98,18 +78,6 @@ function J0820Mac(outdir)
 end
 
 =#
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -344,7 +312,7 @@ function combine_pdfs(output_dir::String)
 end
 =#
 
-
+#=
 
 function combine_pngs_to_pdf(output_dir::String)
     # 1. Collect PNGs recursively
@@ -398,14 +366,76 @@ function combine_pngs_to_pdf(output_dir::String)
 
     # 4. Save all figures into one multi-page PDF
     CairoMakie.activate!(type = "pdf")  # Use CairoMakie PDF backend
-    CairoMakie.save(output_pdf_path, pages...)  # Save all figures as pages
+    CairoMakie.save("output.pdf", pages) 
+    #CairoMakie.save(output_pdf_path, pages...)  # Save all figures as pages
 
     println("Saved to: $output_pdf_path")
 end
+=#
 
 
 
+using CairoMakie
+using FileIO
 
+function combine_pngs_to_pdf(output_dir::String)
+    # 1. Collect PNGs recursively
+    png_paths = sort([
+        joinpath(root, file)
+        for (root, _, files) in walkdir(output_dir)
+        for file in files
+        if endswith(lowercase(file), ".png")
+    ])
+
+    if isempty(png_paths)
+        println("No PNG files found in $output_dir")
+        return
+    end
+
+    # 2. Determine output file name
+    pulsar_name = splitpath(output_dir)[end]
+    output_pdf_path = joinpath("/home/psr/output/", "$pulsar_name.pdf")
+
+    # Ensure output directory exists
+    mkpath(dirname(output_pdf_path))
+
+    # 3. Build figures with 2x2 grids (4 plots per page)
+    pages = Makie.Figure[]  # Array of Figures
+    fig = nothing
+
+    for (i, path) in enumerate(png_paths)
+        if (i - 1) % 4 == 0
+            if fig !== nothing
+                push!(pages, fig)
+            end
+            fig = Figure(size = (800, 800))
+        end
+
+        row = div((i - 1), 2) % 2 + 1
+        col = (i - 1) % 2 + 1
+        ax = Axis(fig[row, col])
+
+        try
+            img = load(path)
+            image!(ax, img)
+            ax.title = basename(path)
+        catch e
+            @warn "Failed to load image: $path" exception=(e, catch_backtrace())
+            ax.title = "Error: $(basename(path))"
+        end
+    end
+
+    # Add final page
+    if fig !== nothing
+        push!(pages, fig)
+    end
+
+    # 4. Save all figures into one multi-page PDF
+    CairoMakie.activate!(type = "pdf")  # Switch backend
+    CairoMakie.save(output_pdf_path, pages...)  # Correct splatting
+
+    println("Saved to: $output_pdf_path")
+end
 
 
 
