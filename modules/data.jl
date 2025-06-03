@@ -279,14 +279,8 @@ module Data
             else
                 p = Tools.default_params(params_file)
                 println("New file with parameters created: $params_file")
-                println("TUUUUUU")
             end
-            println("TUUUUUU")
         end
-        println("TU222222")
-
-        println(base_dir)
-        println(readdir(base_dir)[1])
 
         # Step 4: Find second-level catalogue
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
@@ -307,38 +301,16 @@ module Data
         # Step 7: Convert spCF -> ascii
         Data.convert_psrfit_ascii(output_file, out_txt)
         rm(output_file) #cleanup .spCF file 
-
-        return
         
 
         # Step 8: Debase the combined ASCII file using pmod
-       # debased_file = replace(out_txt, ".txt" => ".debase.gg")
-        #run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
-    
+        debased_file = replace(out_txt, ".txt" => ".debase.gg")
+        run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
         # Read captured output and cleanup
-        # output = read("pmod_output.txt", String)
-        # rm("pmod_output.txt")  # Cleanup 
-
-        # Step 9: Load combined data
-        combined_data = Data.load_ascii(out_txt)
-
-        #output_debase = read(debased_file, String)
-
-        # Extract onpulse values
-        #m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
-        #=p["bin_st"] = bin_st
-        p["bin_end"] = bin_end=#
-
-        if isfile(joinpath(output_subdir, "p.json"))
-          println("File exitst")
-          
-        else
-         m = match(r"-onpulse '(\d+) (\d+)'", output)
+        output = read("pmod_output.txt", String)
+        m = match(r"-onpulse '(\d+) (\d+)'", output)
             if !isnothing(m)
                 bin_st, bin_end = parse.(Int, m.captures)
-              #  p["bin_st"] = bin_st
-               #p["bin_end"] = bin_end
-
                 # Ensure onpulse region length is even
                 region_length = bin_end - bin_st + 1
                 if region_length % 2 != 0
@@ -346,14 +318,22 @@ module Data
                    bin_end -= 1
                    println("Adjusted onpulse range: $bin_st to $bin_end")
                 end
-               p["bin_st"] = bin_st
-               p["bin_end"] = bin_end
-               println("Found onpulse range: $bin_st to $bin_end")
-            
-             end
-             Tools.save_params(params_file, p)
-              println("Parameters updated and saved to $params_file")
+                p["bin_st"] = bin_st
+                p["bin_end"] = bin_end
+                println("Found onpulse range: $bin_st to $bin_end")
+            end
+            Tools.save_params(params_file, p)
+            println("Parameters updated and saved to $params_file")
         end
+        rm("pmod_output.txt")  # Cleanup 
+
+        return
+
+        # Step 9: Load combined data
+        combined_data = Data.load_ascii(out_txt)
+
+
+
            #= Tools.save_params(params_file, p)
             println("Parameters updated and saved to $params_file")
             =#
