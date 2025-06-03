@@ -168,7 +168,7 @@ module SpaTs
 
         d = Data.load_ascii_all("/home/psr/output/pulsar.debase.lrfs")
         println(size(d))
-        Plot.twoj_lrfs_plot(d[:,:,3], vpmout; show_=true)
+        Plot.lrfs_plot(d[:,:,3], vpmout; show_=true)
 
         #test(vpmout)
         #test2(vpmout)
