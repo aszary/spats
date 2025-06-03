@@ -2,11 +2,8 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
-    #=using CairoMakie
-    using FileIO
-    using PDFIO
-    using ImageMagick
-=#
+    using CairoMakie
+
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
@@ -269,6 +266,9 @@ end
             process_psrfit_files(catalogue, output_dir, name_mod=base_name * "Mac")
         end
     end
+
+
+
     #=
     function combine_pdfs(output_dir::String)
     # Find all .pdf files in subdirectories
@@ -303,8 +303,6 @@ end
     end
 end
 =#
-
-
 
 #=
 function combine_pdfs(output_dir::String)
@@ -345,224 +343,6 @@ function combine_pdfs(output_dir::String)
     end
 end
 =#
-
-#=
-function combine_pdfs(output_dir::String)
-    # Find all .pdf files in subdirectories
-    pdf_paths = String[]
-    for (root, _, files) in walkdir(output_dir)
-        for file in files
-            if endswith(file, "single.pdf")
-                push!(pdf_paths, joinpath(root, file))
-            end
-        end
-    end
-
-
-
-function render_pdf_to_image(path::String)
-    img = ImageMagick.load(path)  # Will only work if ImageMagick CLI is working
-    return convert(Matrix{RGB{N0f8}}, img)
-end
-
-
-    # Sort for consistent ordering
-    sort!(pdf_paths)
-
-    if isempty(pdf_paths)
-        println("No PDF files found in subdirectories of $output_dir.")
-        return
-    end
-
-    # Extract pulsar name
-    pulsar_name = splitpath(output_dir)[end]
-
-    # True combined path (where you actually want to save)
-    combined_pdf_path = joinpath("/home/aszary/output/Maciej", pulsar_name * ".pdf")
-
-    # Create a version of the paths just for printing (fake Maciej-style paths)
-    fake_pdf_paths = [replace(path, "/home/psr/output" => "/home/aszary/output/Maciej") for path in pdf_paths]
-
-    # NEW: Plotting and rendering
-    rendered_pages = String[]
-    fig = nothing
-    page_count = 0
-
-
- # Rendering PDFs to pages with Makie
-    rendered_pages = String[]
-    fig = nothing
-    page_count = 0
-
-    for (i, path) in enumerate(pdf_paths)
-        if (i - 1) % 4 == 0
-            if fig !== nothing
-                save("/tmp/page_$page_count.pdf", fig)
-                push!(rendered_pages, "/tmp/page_$page_count.pdf")
-                page_count += 1
-            end
-            fig = Figure(size = (800, 800))
-        end
-
-        row = div((i - 1), 2) % 2 + 1
-        col = (i - 1) % 2 + 1
-        ax = Axis(fig[row, col])
-
-        try
-            #image_data = load(path)
-            image_data = render_pdf_to_image(path)
-  # First page preview
-            image!(ax, image_data)
-            ax.title = splitpath(path)[end]
-        catch e
-            ax.title = "Error loading: $(basename(path))"
-        end
-    end
-
-    # Save the last page
-    if fig !== nothing
-        save("/tmp/page_$page_count.pdf", fig)
-        push!(rendered_pages, "/tmp/page_$page_count.pdf")
-    end
-
-    # Combine all rendered pages into one
-    try
-        println("Simulated command:")
-        println("pdfunite " * join(rendered_pages, " ") * " " * combined_pdf_path)
-        run(`pdfunite $(rendered_pages...) $combined_pdf_path`)
-    catch e
-        println("Error combining PDFs: ", e)
-    end
-end
-=#
-#=
-using FileIO
-using ImageIO
-using CairoMakie
-
-function combine_pngs_to_pdf(output_dir::String)
-    # 1. Collect PNGs
-        # Find all .pdf files in subdirectories
-    png_paths = String[]
-    for (root, _, files) in walkdir(output_dir)
-        for file in files
-            if endswith(file, ".png")
-                push!(png_paths, joinpath(root, file))
-            end
-        end
-    end
-
-
-
-
-    if isempty(png_paths)
-        println("No PNG files found in $output_dir")
-        return
-    end
-
-    # 2. Output file name
-    pulsar_name = splitpath(output_dir)[end]
-    output_pdf_path = joinpath("/home/psr/output/", "$pulsar_name.pdf")
-
-    # 3. Build 2x2 grids per page
-    pages = []
-    fig = nothing
-
-    for (i, path) in enumerate(png_paths)
-        if (i - 1) % 4 == 0
-            if fig !== nothing
-                push!(pages, fig)
-            end
-            fig = Figure(size = (800, 800))
-        end
-
-        row = div((i - 1), 2) % 2 + 1
-        col = (i - 1) % 2 + 1
-        ax = Axis(fig[row, col])
-
-        try
-            img = load(path)
-            image!(ax, img)
-            ax.title = basename(path)
-        catch e
-            ax.title = "Error: $(basename(path))"
-        end
-    end
-
-    if fig !== nothing
-        push!(pages, fig)
-    end
-
-    # 4. Save all figures into one PDF  
-    CairoMakie.activate!(type = "pdf")
-    save(combine_pngs_to_pdf, pages...)
-    println("Saved to: $combined_pdf_path")
-end
-=#
-
-#=
-using CairoMakie
-
-function combine_pngs_to_pdf(output_dir::String)
-    # 1. Collect PNGs
-    png_paths = String[]
-    for (root, _, files) in walkdir(output_dir)
-        for file in files
-            if endswith(file, ".png")
-                push!(png_paths, joinpath(root, file))
-            end
-        end
-    end
-
-    sort!(png_paths)
-
-    if isempty(png_paths)
-        println("No PNG files found in $output_dir")
-        return
-    end
-
-    # 2. Output file name
-    pulsar_name = splitpath(output_dir)[end]
-    output_pdf_path = joinpath("/home/psr/output/", "$pulsar_name.pdf")
-
-    # 3. Build 2x2 grids per page
-    CairoMakie.activate!(type = "pdf")  # Important: sets Makie to use PDF backend
-
-    pages = []
-    fig = nothing
-
-    for (i, path) in enumerate(png_paths)
-        if (i - 1) % 4 == 0
-            if fig !== nothing
-                push!(pages, fig)
-            end
-            fig = Figure(size = (800, 800))
-        end
-
-        row = div((i - 1), 2) % 2 + 1
-        col = (i - 1) % 2 + 1
-        ax = Axis(fig[row, col])
-
-        try
-            img = Makie.load(path)
-            image!(ax, img)
-            ax.title = basename(path)
-        catch e
-            ax.title = "Error: $(basename(path))"
-        end
-    end
-
-    if fig !== nothing
-        push!(pages, fig)
-    end
-
-    # 4. Save using Makie directly (not FileIO)
-    save(output_pdf_path, pages...)
-    println("Saved to: $output_pdf_path")
-end
-
-=#
-
 
 
 using CairoMakie
