@@ -486,7 +486,7 @@ function combine_pngs_to_pdf(output_dir::String)
 
     # 4. Save all figures into one PDF  
     CairoMakie.activate!(type = "pdf")
-    save(combined_pdf_path, pages...)
+    save(combine_pngs_to_pdf, pages...)
     println("Saved to: $combined_pdf_path")
 end
 
