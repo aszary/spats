@@ -148,7 +148,7 @@ module SpaTs
             mkpath(save_dir)
         end
         # Wywołaj funkcję rysującą
-        Plot.p3fold(folded, joinpath(outdir);
+        Plot.p3fold(folded, outdir;
                     start=3,
                     bin_st=bin_st - 20,
                     bin_end=bin_end + 20,
