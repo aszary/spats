@@ -515,7 +515,7 @@ end
 
 using CairoMakie, FileIO
 
-function combine_pngs_to_pdf_and_merge(output_dir::String)
+function combine_pngs_to_pdf(output_dir::String)
     # Collect PNG files recursively and sort
     png_paths = sort([
         joinpath(root, file)
