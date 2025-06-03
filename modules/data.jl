@@ -295,7 +295,7 @@ module Data
         file_names = [joinpath(name, file) for file in spcf_files]
 
         run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
-        out_txt=replace(output_file ,".spCF" => ".txt")
+        out_txt = replace(output_file ,".spCF" => ".txt")
 
 
         # Step 7: Convert spCF -> ascii
