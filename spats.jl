@@ -143,7 +143,7 @@ module SpaTs
         # Załaduj dane
         folded = Data.load_ascii(p3fold_file)
 
-        save_dir = joinpath(outdir, pulsar_name)
+        save_dir = joinpath(outdir)
         if !isdir(save_dir)
             mkpath(save_dir)
         end
