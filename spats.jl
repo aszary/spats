@@ -345,7 +345,6 @@ end
 =#
 
 
-using CairoMakie
 
 function combine_pngs_to_pdf(output_dir::String)
     # 1. Collect PNGs recursively
