@@ -435,16 +435,25 @@ end
     end
 end
 =#
-
+#=
 using FileIO
 using ImageIO
 using CairoMakie
 
 function combine_pngs_to_pdf(output_dir::String)
     # 1. Collect PNGs
-    png_paths = filter(x -> endswith(x, ".png"),
-        [joinpath(root, file) for (root, _, files) in walkdir(output_dir) for file in files])
-    sort!(png_paths)
+        # Find all .pdf files in subdirectories
+    png_paths = String[]
+    for (root, _, files) in walkdir(output_dir)
+        for file in files
+            if endswith(file, ".png")
+                push!(png_paths, joinpath(root, file))
+            end
+        end
+    end
+
+
+
 
     if isempty(png_paths)
         println("No PNG files found in $output_dir")
@@ -489,8 +498,68 @@ function combine_pngs_to_pdf(output_dir::String)
     save(combine_pngs_to_pdf, pages...)
     println("Saved to: $combined_pdf_path")
 end
+=#
 
+using FileIO
+using ImageIO
+using CairoMakie
 
+function combine_pngs_to_pdf(output_dir::String)
+    # 1. Collect PNGs
+    png_paths = String[]
+    for (root, _, files) in walkdir(output_dir)
+        for file in files
+            if endswith(file, ".png")
+                push!(png_paths, joinpath(root, file))
+            end
+        end
+    end
+
+    sort!(png_paths)
+
+    if isempty(png_paths)
+        println("No PNG files found in $output_dir")
+        return
+    end
+
+    # 2. Output file name
+    pulsar_name = splitpath(output_dir)[end]
+    output_pdf_path = joinpath("/home/psr/output/", "$pulsar_name.pdf")
+
+    # 3. Build 2x2 grids per page
+    pages = []
+    fig = nothing
+
+    for (i, path) in enumerate(png_paths)
+        if (i - 1) % 4 == 0
+            if fig !== nothing
+                push!(pages, fig)
+            end
+            fig = Figure(size = (800, 800))
+        end
+
+        row = div((i - 1), 2) % 2 + 1
+        col = (i - 1) % 2 + 1
+        ax = Axis(fig[row, col])
+
+        try
+            img = load(path)
+            image!(ax, img)
+            ax.title = basename(path)
+        catch e
+            ax.title = "Error: $(basename(path))"
+        end
+    end
+
+    if fig !== nothing
+        push!(pages, fig)
+    end
+
+    # 4. Save all figures into one PDF  
+    CairoMakie.activate!(type = "pdf")
+    save(output_pdf_path, pages...)
+    println("Saved to: $output_pdf_path")
+end
 
 
 
