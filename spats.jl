@@ -152,7 +152,7 @@ module SpaTs
                     start=3,
                     bin_st=bin_st - 20,
                     bin_end=bin_end + 20,
-                    name_mod="auto_p3fold",
+                    name_mod = pulsar_name,
                     show_=true,
                     repeat_num=4)
 
