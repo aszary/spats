@@ -374,7 +374,7 @@ end
 =#
 
 
-
+#=
 using CairoMakie
 using FileIO
 
@@ -437,7 +437,71 @@ function combine_pngs_to_pdf(output_dir::String)
     println("Saved to: $output_pdf_path")
 end
 
+=#
 
+
+using CairoMakie
+using FileIO
+
+function combine_pngs_to_pdf(output_dir::String)
+    # 1. Collect PNGs recursively and sort
+    png_paths = sort([
+        joinpath(root, file)
+        for (root, _, files) in walkdir(output_dir)
+        for file in files
+        if endswith(lowercase(file), ".png")
+    ])
+
+    if isempty(png_paths)
+        println("No PNG files found in $output_dir")
+        return
+    end
+
+    # 2. Determine output file name
+    pulsar_name = splitpath(output_dir)[end]
+    output_pdf_path = joinpath("/home/psr/output/", "$pulsar_name.pdf")
+    mkpath(dirname(output_pdf_path))  # Ensure output directory exists
+
+    # 3. Build figures with 2x2 grids (4 plots per page)
+    pages = Makie.Figure[]  # Array of Figures
+    fig = nothing
+
+    for (i, path) in enumerate(png_paths)
+        if (i - 1) % 4 == 0
+            if fig !== nothing
+                push!(pages, fig)
+            end
+            fig = Figure(size = (800, 800))
+        end
+
+        row = div((i - 1), 2) % 2 + 1
+        col = (i - 1) % 2 + 1
+        ax = Axis(fig[row, col])
+
+        try
+            img = load(path)
+            image!(ax, img)
+            ax.title = basename(path)
+        catch e
+            @warn "Failed to load image: $path" exception=(e, catch_backtrace())
+            ax.title = "Error: $(basename(path))"
+        end
+    end
+
+    # Add final page if needed
+    if fig !== nothing
+        push!(pages, fig)
+    end
+
+    # 4. Save all figures into a multi-page PDF using CairoMakie.record
+    CairoMakie.activate!(type = "pdf")
+
+    CairoMakie.record(output_pdf_path, pages) do fig
+        fig
+    end
+
+    println("Saved to: $output_pdf_path")
+end
 
 
 
