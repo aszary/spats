@@ -254,5 +254,141 @@ module Data
     end
 
 
+    function process_psrfit_files(base_dir, output_dir; name_mod=nothing)
+        # Step 1: Extract base directory 
+        name = basename(base_dir)
+
+        # Step 2: Create output subdirectory
+        output_subdir = joinpath(output_dir, name)
+        println(output_subdir)
+        if !isdir(output_subdir)
+            mkpath(output_subdir)
+            println("Created output directory: ", output_subdir)
+        end
+
+        # Step 3 create JSON file name
+        params_file = joinpath(output_subdir, "params.json")
+
+        #Step 3.5 Check if already processed
+        if isdir(output_subdir) && isfile(joinpath(output_subdir, "params.json"))
+            println("Skipping already processed catalogue: $name")
+            return
+        else
+            if isfile(params_file)
+                p = Tools.read_params(params_file)
+            else
+                p = Tools.default_params(params_file)
+            end
+            println("New file with parameters created: $params_file")
+        end
+        return 
+
+        # Step 4: Find second-level catalogue
+        second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
+        println("Second catalogue found: ", second_catalogue)
+    
+        # Step 5: Find .spCF files
+        spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
+        Data.sort!(spcf_files)
+
+        converted_txt_files = String[]
+
+        #step 6: combining .spCF into one 
+        output_file = joinpath(output_subdir, "converted.spCF")
+        file_names = [joinpath(name, file) for file in spcf_files]
+
+        Data.sort!(spcf_files)
+
+        run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
+        out_txt=replace(output_file ,".spCF" => ".txt")
+
+        # Step 7: Convert spCF -> ascii
+        Data.convert_psrfit_ascii(output_file, out_txt)
+
+        rm(output_file) #cleanup .spCF file
+
+
+        
+
+        # Step 8: Debase the combined ASCII file using pmod
+       # debased_file = replace(out_txt, ".txt" => ".debase.gg")
+        #run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
+    
+        # Read captured output and cleanup
+        # output = read("pmod_output.txt", String)
+        # rm("pmod_output.txt")  # Cleanup 
+
+        # Step 9: Load combined data
+        combined_data = Data.load_ascii(out_txt)
+
+        #output_debase = read(debased_file, String)
+
+        # Extract onpulse values
+        #m = match(r"-onpulse\s+'(\d+)\s+(\d+)'", output_debase)
+        #=p["bin_st"] = bin_st
+        p["bin_end"] = bin_end=#
+
+        if isfile(joinpath(output_subdir, "p.json"))
+          println("File exitst")
+          
+        else
+         m = match(r"-onpulse '(\d+) (\d+)'", output)
+            if !isnothing(m)
+                bin_st, bin_end = parse.(Int, m.captures)
+              #  p["bin_st"] = bin_st
+               #p["bin_end"] = bin_end
+
+                # Ensure onpulse region length is even
+                region_length = bin_end - bin_st + 1
+                if region_length % 2 != 0
+                  println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                   bin_end -= 1
+                   println("Adjusted onpulse range: $bin_st to $bin_end")
+                end
+               p["bin_st"] = bin_st
+               p["bin_end"] = bin_end
+               println("Found onpulse range: $bin_st to $bin_end")
+            
+             end
+             Tools.save_params(params_file, p)
+              println("Parameters updated and saved to $params_file")
+        end
+           #= Tools.save_params(params_file, p)
+            println("Parameters updated and saved to $params_file")
+            =#
+    
+        # Step 10: Plot
+        Plot.single(combined_data, output_subdir; darkness=0.5, bin_st= p["bin_st"], bin_end= p["bin_end"], start= p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod=name_mod, show_=false)
+
+        Plot.lrfs(combined_data, output_subdir; darkness=0.1, start= p["pulse_start"], bin_st= p["bin_st"], bin_end= p["bin_end"], name_mod=name_mod, change_fftphase=false, show_=false)
+
+        #Plot.average(combined_data, output_subdir; bin_st=p["bin_st"], bin_end=p["bin_end"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
+        
+        #=
+        Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
+        Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod=name_mod, change_fftphase=false, show_=false)
+        Plot.average(combined_data, output_subdir,bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
+        =#
+    end
+    
+
+    """
+
+    """
+    function process_all_data(outdir; base_root="/home/psr/data/new")
+        # Get all subdirectories in base_root
+        catalogues = filter(isdir, readdir(base_root, join=true))
+    
+        if isempty(catalogues)
+            println("No data found in $base_root. Exiting...")
+            return
+        end
+    
+        for catalogue in catalogues
+            name = basename(catalogue)  # Extract directory name
+            println("Processing catalogue: ", name)
+            process_psrfit_files(catalogue, outdir, name_mod=name)
+        end
+    end
 
 end # module
