@@ -128,7 +128,7 @@ module Plot
 
 
 
-    function twoj_lrfs_plot(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing,
+    function lrfs_plot(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing,
                        cmap="viridis", darkness=0.5, name_mod="0", show_=false)
 
         num, cols = size(data)
