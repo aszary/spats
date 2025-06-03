@@ -500,8 +500,7 @@ function combine_pngs_to_pdf(output_dir::String)
 end
 =#
 
-using FileIO
-using ImageIO
+
 using CairoMakie
 
 function combine_pngs_to_pdf(output_dir::String)
@@ -527,6 +526,8 @@ function combine_pngs_to_pdf(output_dir::String)
     output_pdf_path = joinpath("/home/psr/output/", "$pulsar_name.pdf")
 
     # 3. Build 2x2 grids per page
+    CairoMakie.activate!(type = "pdf")  # Important: sets Makie to use PDF backend
+
     pages = []
     fig = nothing
 
@@ -543,7 +544,7 @@ function combine_pngs_to_pdf(output_dir::String)
         ax = Axis(fig[row, col])
 
         try
-            img = load(path)
+            img = Makie.load(path)
             image!(ax, img)
             ax.title = basename(path)
         catch e
@@ -555,12 +556,10 @@ function combine_pngs_to_pdf(output_dir::String)
         push!(pages, fig)
     end
 
-    # 4. Save all figures into one PDF  
-    CairoMakie.activate!(type = "pdf")
+    # 4. Save using Makie directly (not FileIO)
     save(output_pdf_path, pages...)
     println("Saved to: $output_pdf_path")
 end
-
 
 
 
