@@ -143,6 +143,10 @@ module SpaTs
         # Załaduj dane
         folded = Data.load_ascii(p3fold_file)
 
+        save_dir = joinpath(outdir, pulsar_name)
+        if !isdir(save_dir)
+            mkpath(save_dir)
+        end
         # Wywołaj funkcję rysującą
         Plot.p3fold(folded, joinpath(outdir, pulsar_name);
                     start=3,
