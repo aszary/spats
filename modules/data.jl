@@ -269,9 +269,12 @@ module Data
 
     function process_psrfit_files(base_dir, output_dir; name_mod=nothing)
 
-        # Step 1: Extract base directory, pulsar name 
-        name = basename(base_dir)
+        pulsar_name = basename(base_dir)
+        data_dir = joinpath(base_dir, readdir(base_dir)[1]) # one level in
+        out_dir = joinpath(output_dir, pulsar_name)
 
+
+        #=
         # Step 2: Create output subdirectory
         output_subdir = joinpath(output_dir, name)
         println(output_subdir)
@@ -279,8 +282,9 @@ module Data
             mkpath(output_subdir)
             println("Created output directory: ", output_subdir)
         end
+        =#
 
-        process_psrdata(base_dir, output_subdir)
+        process_psrdata(data_dir, out_dir)
 
         #=
 
