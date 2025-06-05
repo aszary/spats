@@ -314,7 +314,7 @@ module Data
         d = load_ascii(joinpath(data_dir, "pulsar.debase.txt"))
 
         # Single pulses
-        Plot.single(d, data_dir; darkness=0.5, bin_st= p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod="pulsar", show_=false)
+        Plot.single(d, data_dir; darkness=0.5, bin_st= p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod="pulsar", show_=true)
 
         # 2DFS
         d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))

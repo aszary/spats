@@ -404,9 +404,6 @@ module Plot
         #xticks_vals = [x_min, 0, x_max]
         #xticks(xticks_vals, string.(xticks_vals))
 
-
-
-
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
         savefig(savepath)
