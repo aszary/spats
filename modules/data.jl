@@ -286,7 +286,10 @@ module Data
         # Step 4: Find second-level catalogue
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
         println("Second-level catalogue found: ", second_catalogue)
-    
+   
+        
+        println(second_catalogue)
+        return 
         # Step 5: Find .spCF files
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
         Data.sort!(spcf_files)
@@ -358,7 +361,7 @@ module Data
         end
     
         for catalogue in catalogues
-            name = basename(catalogue)  # Extract directory name
+            name = basename(catalogue)  # Extract directory name -> pulsar name
             println("Processing catalogue: ", name)
             process_psrfit_files(catalogue, outdir, name_mod=name)
         end
