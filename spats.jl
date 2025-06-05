@@ -49,7 +49,7 @@ module SpaTs
         #test(vpmout)
         #test2(vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        println("TUU-1")
+        #println("TUU-1")
 
         #Data.process_all_data(vpmout)
 
