@@ -372,7 +372,7 @@ module Plot
         minorticks_on()
         println(size(average_y))
         println(size(average_y))
-        plot(average_y, pulses, color="grey")
+        #plot(average_y, pulses, color="grey")
         #ylim(pulses[1], pulses[end])
         #xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
@@ -390,15 +390,15 @@ module Plot
         #colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Fluctuation frequency (P/P2)")
-        xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
+        #xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
 
         # Dolny panel - profil sum po pulsach (po osi pionowej 1/P3), z lustrzanym odbiciem
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
 
         # Sumowanie po pionie (1/P3)
-        power_profile = sum(da, dims=1)
-        power_profile = vec(power_profile)  # konwersja do wektora
+        #power_profile = sum(da, dims=1)
+        #power_profile = vec(power_profile)  # konwersja do wektora
 
         # Rysujemy profil (szary) i jego odbicie (pomarańczowe)
         #plot(mapped_x, power_profile, color="grey")
