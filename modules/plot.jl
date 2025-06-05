@@ -22,6 +22,7 @@ module Plot
     using LinearAlgebra
     using Distances
 
+    include("data.jl")
     include("tools.jl")
     #include("pyrmodule.jl")
     include("functions.jl")
