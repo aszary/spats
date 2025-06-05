@@ -100,8 +100,9 @@ module Data
     indir: input directory
     outfile: output file name (full path)
     files: list of files to add (filenames only)
+    txt: convert to txt?
     """
-    function add_psrfiles(indir, outfile; files=nothing)
+    function add_psrfiles(indir, outfile; files=nothing, txt=false)
 
         if files === nothing
             # Find all .spCF files in the input directory
@@ -133,6 +134,11 @@ module Data
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
 
+        if txt == true
+            out_txt = replace(outfile ,".spCF" => ".txt")
+            Data.convert_psrfit_ascii(outfile, out_txt)
+            rm(outfile) #cleanup .spCF file 
+        end
     end
 
 
@@ -286,31 +292,10 @@ module Data
         # Step 4: Find second-level catalogue
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
         println("Second-level catalogue found: ", second_catalogue)
-   
+  
+        # Step 5 combining .spCF into one
         output_file = joinpath(output_subdir, "converted.spCF")
-        add_psrfiles(second_catalogue, output_file)
-
-        #println(second_catalogue)
-        #println()
-        #return
-        #=
-        # Step 5: Find .spCF files
-        spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
-        Data.sort!(spcf_files)
-
-        #step 6: combining .spCF into one 
-        output_file = joinpath(output_subdir, "converted.spCF")
-        file_names = [joinpath(name, file) for file in spcf_files]
-
-        run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
-        =#
-        
-        out_txt = replace(output_file ,".spCF" => ".txt")
-
-
-        # Step 7: Convert spCF -> ascii
-        Data.convert_psrfit_ascii(output_file, out_txt)
-        rm(output_file) #cleanup .spCF file 
+        add_psrfiles(second_catalogue, output_file; txt=true)
 
 
         # Step 8: Debase the combined ASCII file using pmod
