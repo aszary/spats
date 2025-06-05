@@ -273,6 +273,10 @@ module Data
         data_dir = joinpath(base_dir, readdir(base_dir)[1]) # one level in
         out_dir = joinpath(output_dir, pulsar_name)
 
+        if !isdir(out_dir)
+            mkpath(out_dir)
+            println("Created output directory: ", out_dir)
+        end
 
         #=
         # Step 2: Create output subdirectory
