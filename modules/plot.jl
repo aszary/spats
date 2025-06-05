@@ -9,8 +9,8 @@ module Plot
     using Printf
     @pyimport matplotlib.patches as patch
     
-    #PyPlot.matplotlib.use("Tkagg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
-    PyPlot.matplotlib.use("qt5agg")
+    PyPlot.matplotlib.use("Tkagg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
+    #PyPlot.matplotlib.use("qt5agg")
     using Peaks
     using Glob
     using SmoothingSplines
@@ -119,7 +119,7 @@ module Plot
         println("$outdir/$(name_mod)_single.png")
         savefig("$outdir/$(name_mod)_single.png")
         if show_ == true
-            show()
+            PyPlot.show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
