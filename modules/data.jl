@@ -313,8 +313,8 @@ module Data
         # Plot.twodfs(d2, data_dir; name_mod="pulsar") # TODO fix/clean this
 
         # P3-folded
-        folded = Data.load_ascii(joinpath(data_dir, "pulsar.debase.p3fold"))
-        Plot.p3fold(folded, data_dir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=false, repeat_num=4)
+        d5 = Data.load_ascii(joinpath(data_dir, "pulsar.debase.p3fold"))
+        Plot.p3fold(d5, data_dir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=false, repeat_num=4)
  
 
 
@@ -337,14 +337,17 @@ module Data
 
             println("\n\n"*"#"^79*"\n"*"#"^79*"\n"*"#"^79)
             println("Processing pulsar: ", name)
-
+            
+            # Creates out_dir if does not exists...
             if !isdir(out_dir)
                 mkpath(out_dir)
                 println("Created output directory: ", out_dir)
             end
-            
+           
+            # process data
             p = process_psrdata(data_dir, out_dir)
-
+            
+            # plot data
             plot_psrdata(out_dir, p)
 
         end
