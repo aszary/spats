@@ -344,28 +344,20 @@ module Plot
         println(num)
         println(bins)
 
-
-        da = data #[start:start+number-1, bin_st:bin_end]
+        da = data 
 
         # Profile boczne
         average_x = sum(da, dims=1)[1, :]
         average_y = sum(da, dims=2)[:, 1]
 
 
-        # Normalizacja intensywności głównej mapy
-        norm_da = copy(da)
-        norm_da .-= minimum(norm_da)
-        norm_da ./= maximum(norm_da)
-
-        pulses = num
-
-        # Styl
-        rc("font", size=8.0)
+        # plot style
+        rc("font", size=7.)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(7, 7))
-        subplots_adjust(left=0.16, bottom=0.15, right=0.90, top=0.95, wspace=0.0, hspace=0.0)
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
         # Lewy panel - profil sum po binach
         ax_left = subplot2grid((4,3), (0,0), rowspan=3)
