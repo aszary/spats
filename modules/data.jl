@@ -138,7 +138,11 @@ module Data
             out_txt = replace(outfile ,".spCF" => ".txt")
             Data.convert_psrfit_ascii(outfile, out_txt)
             rm(outfile) #cleanup .spCF file 
+            return out_txt
+        else
+            return outfile
         end
+
     end
 
 
@@ -295,7 +299,8 @@ module Data
   
         # Step 5 combining .spCF into one
         output_file = joinpath(output_subdir, "converted.spCF")
-        add_psrfiles(second_catalogue, output_file; txt=true)
+        out_txt = add_psrfiles(second_catalogue, output_file; txt=true)
+
 
 
         # Step 8: Debase the combined ASCII file using pmod
