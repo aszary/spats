@@ -310,7 +310,7 @@ module Data
 
         # 2DFS
         d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
-        # Plot.twodfs(d2, data_dir; name_mod="pulsar") # TODO fix/clean this
+        Plot.twodfs(d2, data_dir; name_mod="pulsar") # TODO fix/clean this
 
         # P3-folded
         d5 = Data.load_ascii(joinpath(data_dir, "pulsar.debase.p3fold"))
