@@ -308,7 +308,7 @@ module Data
         Plot.single(d, data_dir; darkness=0.5, bin_st= p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod="pulsar", show_=false)
 
         d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
-        Plot.twodfs(d2, data_dir; bin_st= p["bin_st"], bin_end=p["bin_end"], name_mod="pulsar")
+        Plot.twodfs(d2, data_dir; name_mod="pulsar")
 
     end
 

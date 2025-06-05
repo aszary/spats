@@ -333,7 +333,7 @@ module Plot
     end
 
 
-   function twodfs(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.07, name_mod="PSR_NAME", show_=false)
+   function twodfs(data, outdir; start=1, number=100, cmap="viridis", darkness=0.07, name_mod="PSR_NAME", show_=false)
 
         num, bins = size(data)
         if number === nothing
