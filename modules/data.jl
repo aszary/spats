@@ -268,7 +268,8 @@ module Data
 
 
     function process_psrfit_files(base_dir, output_dir; name_mod=nothing)
-        # Step 1: Extract base directory 
+
+        # Step 1: Extract base directory, pulsar name 
         name = basename(base_dir)
 
         # Step 2: Create output subdirectory
@@ -278,6 +279,10 @@ module Data
             mkpath(output_subdir)
             println("Created output directory: ", output_subdir)
         end
+
+        process_psrdata(base_dir, output_subdir)
+
+        #=
 
         # Step 3 create JSON file name
         params_file = joinpath(output_subdir, "params.json")
@@ -306,39 +311,17 @@ module Data
         # Step 6: Debase the combined ASCII file using pmod
         debase(out_txt, params_file, p)
 
-        #=
-        # Step 8: Debase the combined ASCII file using pmod
-        #debased_file = replace(out_txt, ".txt" => ".debase.gg")
-        run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
-        # Read captured output and cleanup
-        output = read("pmod_output.txt", String)
-        m = match(r"-onpulse '(\d+) (\d+)'", output)
-        if !isnothing(m)
-            bin_st, bin_end = parse.(Int, m.captures)
-            # Ensure onpulse region length is even
-            region_length = bin_end - bin_st + 1
-            if region_length % 2 != 0
-                println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
-                bin_end -= 1
-                println("Adjusted onpulse range: $bin_st to $bin_end")
-            end
-            p["bin_st"] = bin_st
-            p["bin_end"] = bin_end
-            println("Found onpulse range: $bin_st to $bin_end")
-        end
-        Tools.save_params(params_file, p)
-        println("Parameters updated and saved to $params_file")
-        rm("pmod_output.txt")  # Cleanup 
-        =#
-
-
-        # Step 9: Load combined data
+        # Step 7: Load combined data
         combined_data = Data.load_ascii(out_txt)
-    
+   
+        
+
         # Step 10: Plot
         Plot.single(combined_data, output_subdir; darkness=0.5, bin_st= p["bin_st"], bin_end= p["bin_end"], start= p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod=name_mod, show_=false)
 
         Plot.lrfs(combined_data, output_subdir; darkness=0.1, start= p["pulse_start"], bin_st= p["bin_st"], bin_end= p["bin_end"], name_mod=name_mod, change_fftphase=false, show_=false)
+
+        =#
 
         #Plot.average(combined_data, output_subdir; bin_st=p["bin_st"], bin_end=p["bin_end"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
         
