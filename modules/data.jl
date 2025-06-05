@@ -348,15 +348,15 @@ module Data
             println("#"^79*"\n")
             println("#"^79*"\n")
             println("Processing pulsar: ", name)
-            data_dir = joinpath(base_dir, readdir(base_dir)[1]) # one level in
-            out_dir = joinpath(output_dir, pulsar_name)
+            data_dir = joinpath(dir, readdir(dir)[1]) # one level in
+            out_dir = joinpath(outdir, pulsar_name)
 
-            if !isdir(out_dir)
-                mkpath(out_dir)
-                println("Created output directory: ", out_dir)
+            if !isdir(outdir)
+                mkpath(outdir)
+                println("Created output directory: ", outdir)
             end
 
-            process_psrdata(data_dir, out_dir)
+            process_psrdata(data_dir, outdir)
 
         end
     end
