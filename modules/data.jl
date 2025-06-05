@@ -297,7 +297,9 @@ module Data
     end
 
 
-    function plot_psrdata(data_dir)
+    function plot_psrdata(data_dir, params)
+
+        p = params
 
         # ASCII single pulses
         convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
@@ -328,9 +330,9 @@ module Data
                 println("Created output directory: ", out_dir)
             end
             
-            process_psrdata(data_dir, out_dir)
+            p = process_psrdata(data_dir, out_dir)
 
-            plot_psrdata(out_dir)
+            plot_psrdata(out_dir, p)
 
         end
     end
