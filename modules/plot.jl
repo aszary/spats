@@ -348,10 +348,6 @@ module Plot
         average_x = sum(da, dims=1)[1, :]
         average_y = sum(da, dims=2)[:, 1]
 
-        # Dla dolnego wykresu wycinamy dane mieszczące się w zakresie -120..120
-        idx_range = findall(x -> x_min <= x <= x_max, mapped_x)
-        mapped_x_cut = mapped_x[idx_range]
-        average_x_cut = average_x[idx_range]
 
         # Normalizacja intensywności głównej mapy
         norm_da = copy(da)
@@ -385,10 +381,7 @@ module Plot
                     origin="lower",
                     cmap=cmap,
                     interpolation="none",
-                    aspect="auto",
-                    extent=(minimum(mapped_x), maximum(mapped_x), pulses[1], pulses[end]),
-                    vmin=0.0,
-                    vmax=darkness)
+                    aspect="auto")
         #colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Fluctuation frequency (P/P2)")
@@ -403,11 +396,11 @@ module Plot
         power_profile = vec(power_profile)  # konwersja do wektora
 
         # Rysujemy profil (szary) i jego odbicie (pomarańczowe)
-        plot(mapped_x, power_profile, color="grey")
-        plot(-mapped_x, power_profile, color="orange", linestyle="--")
+        #plot(mapped_x, power_profile, color="grey")
+        #plot(-mapped_x, power_profile, color="orange", linestyle="--")
 
         yticks([])
-        xlim(x_min, x_max)
+        #xlim(x_min, x_max)
         xlabel("Fluctuation frequency (1/P2)")
 
         # Ticki osi X: -120, 0, 120
