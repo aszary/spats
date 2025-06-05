@@ -116,6 +116,8 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_single.pdf")
         savefig("$outdir/$(name_mod)_single.pdf")
+        println("$outdir/$(name_mod)_single.png")
+        savefig("$outdir/$(name_mod)_single.png")
         if show_ == true
             show()
             println("Press Enter to close the figure.")

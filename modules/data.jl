@@ -300,8 +300,8 @@ module Data
     function plot_psrdata(data_dir)
 
         # ASCII single pulses
-        convert_psrfit_ascii(data_dir * "pulsar.debase.gg", data_dir * "pulsar.debase.txt")
-        d = load_ascii(data_dir * "pulsar.debase.txt")
+        convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
+        d = load_ascii(joinpath(data_dir, "pulsar.debase.txt"))
 
         Plot.single(d, data_dir; darkness=0.5, bin_st= p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod="pulsar", show_=false)
     end
