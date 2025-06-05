@@ -298,7 +298,6 @@ module Data
 
 
     function process_all_data(outdir; base_root="/home/psr/data/new")
-        println("TUU0")
         # Get all subdirectories in base_root
         dirs = filter(isdir, readdir(base_root, join=true))
     
@@ -307,7 +306,6 @@ module Data
             return
         end
         
-        println("TUU")
         for dir in dirs
             name = basename(dir)  # Extract directory name -> pulsar name
             data_dir = joinpath(dir, readdir(dir)[1]) # one level in
