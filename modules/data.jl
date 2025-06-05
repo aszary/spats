@@ -297,6 +297,15 @@ module Data
     end
 
 
+    function plot_psrdata(data_dir)
+
+        # ASCII single pulses
+        convert_psrfit_ascii(data_dir * "pulsar.debase.gg", data_dir * "pulsar.debase.txt")
+        d = load_ascii(data_dir * "pulsar.debase.txt")
+
+        Plot.single(d, data_dir; darkness=0.5, bin_st= p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod="pulsar", show_=false)
+    end
+
     function process_all_data(outdir; base_root="/home/psr/data/new")
         # Get all subdirectories in base_root
         dirs = filter(isdir, readdir(base_root, join=true))
@@ -318,9 +327,10 @@ module Data
                 mkpath(out_dir)
                 println("Created output directory: ", out_dir)
             end
-
+            
             process_psrdata(data_dir, out_dir)
-            Plot.plot_psrdata(out_dir)
+
+            plot_psrdata(out_dir)
 
         end
     end
