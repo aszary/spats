@@ -332,4 +332,127 @@ module Plot
         close()
     end
 
+
+   function twodfs(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.07, name_mod="PSR_NAME", show_=false)
+
+        num, bins = size(data)
+        if number === nothing
+            number = num - start + 1
+        end
+        if bin_st === nothing
+            bin_st = 1
+        end
+        if bin_end === nothing
+            bin_end = bins
+        end
+
+        da = data[start:start+number-1, bin_st:bin_end]
+
+        # Pełny zakres binów (bin_st:bin_end)
+        bin_indices = collect(bin_st:bin_end)
+        nb = length(bin_indices)
+        center = (nb + 1) / 2
+
+        # Odwrócenie danych na osi X:
+        da = da[:, end:-1:1]
+
+        # Mapowanie na oś X (bez zmian lub też odwrócone):
+        mapped_x = [(i - center) * 720 / (nb - 1) for i in 1:nb]
+        # albo, jeśli trzeba
+        # mapped_x = reverse([(i - center) * 720 / (nb - 1) for i in 1:nb])
+
+
+        # Ograniczenie zakresu wyświetlania na osi x do -120 ... +120
+        x_min = -360
+        x_max = 360
+
+        # Profile boczne
+        average_x = sum(da, dims=1)[1, :]
+        average_y = sum(da, dims=2)[:, 1]
+
+        # Dla dolnego wykresu wycinamy dane mieszczące się w zakresie -120..120
+        idx_range = findall(x -> x_min <= x <= x_max, mapped_x)
+        mapped_x_cut = mapped_x[idx_range]
+        average_x_cut = average_x[idx_range]
+
+        # Normalizacja intensywności głównej mapy
+        norm_da = copy(da)
+        norm_da .-= minimum(norm_da)
+        norm_da ./= maximum(norm_da)
+
+        pulses = collect(start:start+number-1)
+
+        # Styl
+        rc("font", size=8.0)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(7, 7))
+        subplots_adjust(left=0.16, bottom=0.15, right=0.90, top=0.95, wspace=0.0, hspace=0.0)
+
+        # Lewy panel - profil sum po binach
+        ax_left = subplot2grid((4,3), (0,0), rowspan=3)
+        minorticks_on()
+        plot(average_y, pulses, color="grey")
+        ylim(pulses[1], pulses[end])
+        xticks([])
+        ylabel("Fluctuation frequency (P/P₃)")
+        ytick_values = 0.0:0.1:0.5
+        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
+        yticks(ytick_positions, string.(ytick_values))
+
+        # Główny panel - mapa intensywności 2DFS (pełne dane, ale ograniczony zakres x)
+        ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
+        im = imshow(norm_da,
+                    origin="lower",
+                    cmap=cmap,
+                    interpolation="none",
+                    aspect="auto",
+                    extent=(minimum(mapped_x), maximum(mapped_x), pulses[1], pulses[end]),
+                    vmin=0.0,
+                    vmax=darkness)
+        #colorbar(im)
+        tick_params(left=false, labelleft=false)
+        xlabel("Fluctuation frequency (P/P2)")
+        xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
+
+        # Dolny panel - profil sum po pulsach (po osi pionowej 1/P3), z lustrzanym odbiciem
+        ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
+        minorticks_on()
+
+        # Sumowanie po pionie (1/P3)
+        power_profile = sum(da, dims=1)
+        power_profile = vec(power_profile)  # konwersja do wektora
+
+        # Rysujemy profil (szary) i jego odbicie (pomarańczowe)
+        plot(mapped_x, power_profile, color="grey")
+        plot(-mapped_x, power_profile, color="orange", linestyle="--")
+
+        yticks([])
+        xlim(x_min, x_max)
+        xlabel("Fluctuation frequency (1/P2)")
+
+        # Ticki osi X: -120, 0, 120
+        xticks_vals = [x_min, 0, x_max]
+        xticks(xticks_vals, string.(xticks_vals))
+
+
+
+
+        savepath = "$outdir/$(name_mod)_2dfs.pdf"
+        println(savepath)
+        savefig(savepath)
+
+        if show_
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+
+        close()
+    end
+
+
+
+
 end  # module Plot
