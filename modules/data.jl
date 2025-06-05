@@ -267,71 +267,6 @@ module Data
     end
 
 
-    function process_psrfit_files(base_dir, output_dir)
-
-
-        #=
-        # Step 2: Create output subdirectory
-        output_subdir = joinpath(output_dir, name)
-        println(output_subdir)
-        if !isdir(output_subdir)
-            mkpath(output_subdir)
-            println("Created output directory: ", output_subdir)
-        end
-        =#
-
-
-        #=
-
-        # Step 3 create JSON file name
-        params_file = joinpath(output_subdir, "params.json")
-
-        #Step 3.5 Check if already processed
-        if isdir(output_subdir) && isfile(joinpath(output_subdir, "params.json"))
-            println("Skipping already processed catalogue: $name")
-            return
-        else
-            if isfile(params_file)
-                p = Tools.read_params(params_file)
-            else
-                p = Tools.default_params(params_file)
-                println("New file with parameters created: $params_file")
-            end
-        end
-
-        # Step 4: Find second-level catalogue
-        second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
-        println("Second-level catalogue found: ", second_catalogue)
-  
-        # Step 5 combining .spCF into one
-        output_file = joinpath(output_subdir, "converted.spCF")
-        out_txt = add_psrfiles(second_catalogue, output_file; txt=true)
-
-        # Step 6: Debase the combined ASCII file using pmod
-        debase(out_txt, params_file, p)
-
-        # Step 7: Load combined data
-        combined_data = Data.load_ascii(out_txt)
-   
-        
-
-        # Step 10: Plot
-        Plot.single(combined_data, output_subdir; darkness=0.5, bin_st= p["bin_st"], bin_end= p["bin_end"], start= p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod=name_mod, show_=false)
-
-        Plot.lrfs(combined_data, output_subdir; darkness=0.1, start= p["pulse_start"], bin_st= p["bin_st"], bin_end= p["bin_end"], name_mod=name_mod, change_fftphase=false, show_=false)
-
-        =#
-
-        #Plot.average(combined_data, output_subdir; bin_st=p["bin_st"], bin_end=p["bin_end"], number=(p["pulse_end"]-p["pulse_start"]), name_mod=name_mod, show_=false)
-        
-        #=
-        Plot.single(combined_data, output_subdir, darkness=0.5, bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
-        Plot.lrfs(combined_data, output_subdir, darkness=0.1, start=1, bin_st=bin_st, bin_end=bin_end, name_mod=name_mod, change_fftphase=false, show_=false)
-        Plot.average(combined_data, output_subdir,bin_st=bin_st, bin_end=bin_end, number=nothing, name_mod=name_mod, show_=false)
-        =#
-    end
-    
-
     function process_all_data(outdir; base_root="/home/psr/data/new")
         # Get all subdirectories in base_root
         dirs = filter(isdir, readdir(base_root, join=true))
@@ -343,13 +278,13 @@ module Data
     
         for dir in dirs
             name = basename(dir)  # Extract directory name -> pulsar name
-
-            println("#"^79*"\n")
-            println("#"^79*"\n")
-            println("#"^79*"\n")
-            println("Processing pulsar: ", name)
             data_dir = joinpath(dir, readdir(dir)[1]) # one level in
             out_dir = joinpath(outdir, name)
+
+            println("#"^79)
+            println("#"^79)
+            println("#"^79)
+            println("Processing pulsar: ", name)
 
             if !isdir(out_dir)
                 mkpath(out_dir)
