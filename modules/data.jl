@@ -163,7 +163,8 @@ module Data
 
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
-            run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
+            run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+            #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
             # Read captured output to get bin_st and bin_end
             output = read("pmod_output.txt", String)
@@ -186,7 +187,8 @@ module Data
                 Tools.save_params(params_file, params)
             end
         else
-            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
+            #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
         end
     end
 
@@ -301,8 +303,10 @@ module Data
         output_file = joinpath(output_subdir, "converted.spCF")
         out_txt = add_psrfiles(second_catalogue, output_file; txt=true)
 
+        # Step 6: Debase the combined ASCII file using pmod
+        debase(out_txt, params_file, p)
 
-
+        #=
         # Step 8: Debase the combined ASCII file using pmod
         #debased_file = replace(out_txt, ".txt" => ".debase.gg")
         run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
@@ -325,6 +329,8 @@ module Data
         Tools.save_params(params_file, p)
         println("Parameters updated and saved to $params_file")
         rm("pmod_output.txt")  # Cleanup 
+        =#
+
 
         # Step 9: Load combined data
         combined_data = Data.load_ascii(out_txt)
