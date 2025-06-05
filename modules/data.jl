@@ -298,6 +298,7 @@ module Data
 
 
     function process_all_data(outdir; base_root="/home/psr/data/new")
+        println("TUU0")
         # Get all subdirectories in base_root
         dirs = filter(isdir, readdir(base_root, join=true))
     
