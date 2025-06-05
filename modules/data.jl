@@ -287,9 +287,13 @@ module Data
         second_catalogue = joinpath(base_dir, readdir(base_dir)[1])
         println("Second-level catalogue found: ", second_catalogue)
    
-        
-        println(second_catalogue)
-        return 
+        output_file = joinpath(output_subdir, "converted.spCF")
+        add_psrfiles(second_catalogue, output_file)
+
+        #println(second_catalogue)
+        #println()
+        #return
+        #=
         # Step 5: Find .spCF files
         spcf_files = filter(f -> occursin("spCF", f), readdir(second_catalogue, join=true))
         Data.sort!(spcf_files)
@@ -299,6 +303,8 @@ module Data
         file_names = [joinpath(name, file) for file in spcf_files]
 
         run(pipeline(`psradd $file_names -o $output_file`, stderr="errs.txt"))
+        =#
+        
         out_txt = replace(output_file ,".spCF" => ".txt")
 
 
