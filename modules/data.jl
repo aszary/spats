@@ -344,9 +344,9 @@ module Data
         for dir in dirs
             name = basename(dir)  # Extract directory name -> pulsar name
 
-            println(79 ^ "#" *"\n")
-            println(79 ^ "#" *"\n")
-            println(79 ^ "#" *"\n")
+            println("#"^79*"\n")
+            println("#"^79*"\n")
+            println("#"^79*"\n")
             println("Processing pulsar: ", name)
             data_dir = joinpath(base_dir, readdir(base_dir)[1]) # one level in
             out_dir = joinpath(output_dir, pulsar_name)
