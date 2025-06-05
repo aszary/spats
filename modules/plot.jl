@@ -409,8 +409,8 @@ module Plot
         xlabel("Fluctuation frequency (1/P2)")
 
         # Ticki osi X: -120, 0, 120
-        xticks_vals = [x_min, 0, x_max]
-        xticks(xticks_vals, string.(xticks_vals))
+        #xticks_vals = [x_min, 0, x_max]
+        #xticks(xticks_vals, string.(xticks_vals))
 
 
 
