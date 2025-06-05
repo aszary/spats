@@ -265,12 +265,14 @@ module Plot
 
 
     function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=false)
+
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
+
         da = data[start:start+number-1,bin_st:bin_end]
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
@@ -324,6 +326,8 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/$(name_mod)_p3fold.pdf")
         println("$outdir/$(name_mod)_p3fold.pdf")
+        savefig("$outdir/$(name_mod)_p3fold.png")
+        println("$outdir/$(name_mod)_p3fold.png")
         if show_ == true
             show()
             println("Press Enter to close the figure.")
@@ -333,38 +337,12 @@ module Plot
     end
 
 
-   function twodfs(data, outdir; start=1, number=100, cmap="viridis", darkness=0.07, name_mod="PSR_NAME", show_=false)
+   function twodfs(data, outdir; cmap="viridis", darkness=0.07, name_mod="PSR_NAME", show_=false)
 
+        # TODO clean this !!!
         num, bins = size(data)
-        if number === nothing
-            number = num - start + 1
-        end
-        if bin_st === nothing
-            bin_st = 1
-        end
-        if bin_end === nothing
-            bin_end = bins
-        end
 
-        da = data[start:start+number-1, bin_st:bin_end]
-
-        # Pełny zakres binów (bin_st:bin_end)
-        bin_indices = collect(bin_st:bin_end)
-        nb = length(bin_indices)
-        center = (nb + 1) / 2
-
-        # Odwrócenie danych na osi X:
-        da = da[:, end:-1:1]
-
-        # Mapowanie na oś X (bez zmian lub też odwrócone):
-        mapped_x = [(i - center) * 720 / (nb - 1) for i in 1:nb]
-        # albo, jeśli trzeba
-        # mapped_x = reverse([(i - center) * 720 / (nb - 1) for i in 1:nb])
-
-
-        # Ograniczenie zakresu wyświetlania na osi x do -120 ... +120
-        x_min = -360
-        x_max = 360
+        da = data #[start:start+number-1, bin_st:bin_end]
 
         # Profile boczne
         average_x = sum(da, dims=1)[1, :]
