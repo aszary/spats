@@ -341,6 +341,9 @@ module Plot
 
         # TODO clean this !!!
         num, bins = size(data)
+        println(num)
+        println(bins)
+
 
         da = data #[start:start+number-1, bin_st:bin_end]
 
@@ -367,13 +370,15 @@ module Plot
         # Lewy panel - profil sum po binach
         ax_left = subplot2grid((4,3), (0,0), rowspan=3)
         minorticks_on()
+        println(size(average_y))
+        println(size(average_y))
         plot(average_y, pulses, color="grey")
-        ylim(pulses[1], pulses[end])
-        xticks([])
+        #ylim(pulses[1], pulses[end])
+        #xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
-        ytick_values = 0.0:0.1:0.5
-        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
-        yticks(ytick_positions, string.(ytick_values))
+        #ytick_values = 0.0:0.1:0.5
+        #ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
+        #yticks(ytick_positions, string.(ytick_values))
 
         # Główny panel - mapa intensywności 2DFS (pełne dane, ale ograniczony zakres x)
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
