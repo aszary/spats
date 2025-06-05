@@ -305,7 +305,8 @@ module Data
             println("No data found in $base_root. Exiting...")
             return
         end
-    
+        
+        println("TUU")
         for dir in dirs
             name = basename(dir)  # Extract directory name -> pulsar name
             data_dir = joinpath(dir, readdir(dir)[1]) # one level in
