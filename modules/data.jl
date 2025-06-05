@@ -281,9 +281,7 @@ module Data
             data_dir = joinpath(dir, readdir(dir)[1]) # one level in
             out_dir = joinpath(outdir, name)
 
-            println("#"^79)
-            println("#"^79)
-            println("#"^79)
+            println("\n\n"*"#"^79*"\n"*"#"^79*"\n"*"#"^79)
             println("Processing pulsar: ", name)
 
             if !isdir(out_dir)
