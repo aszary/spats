@@ -163,7 +163,7 @@ module Data
 
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
-            run(pipeline(`pmod -oformat ASCII -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+            run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
             #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
             # Read captured output to get bin_st and bin_end
@@ -187,7 +187,7 @@ module Data
                 Tools.save_params(params_file, params)
             end
         else
-            run(pipeline(`pmod -oformat ASCII -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
         end
     end
