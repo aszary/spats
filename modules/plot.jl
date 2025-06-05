@@ -354,7 +354,7 @@ module Plot
         norm_da .-= minimum(norm_da)
         norm_da ./= maximum(norm_da)
 
-        pulses = collect(start:start+number-1)
+        pulses = num
 
         # Styl
         rc("font", size=8.0)
