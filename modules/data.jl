@@ -320,7 +320,7 @@ module Data
             end
 
             process_psrdata(data_dir, out_dir)
-            Plot.plot_psrdata(out_dir)
+            #Plot.plot_psrdata(out_dir)
 
         end
     end
