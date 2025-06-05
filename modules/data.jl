@@ -163,7 +163,7 @@ module Data
 
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
-            run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+            run(pipeline(`pmod -oformat ASCII -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
             #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
             # Read captured output to get bin_st and bin_end
@@ -187,7 +187,7 @@ module Data
                 Tools.save_params(params_file, params)
             end
         else
-            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
+            run(pipeline(`pmod -oformat ASCII -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
         end
     end
@@ -199,7 +199,7 @@ module Data
     function twodfs_lrfs(debased_file, params_file, p; detect=false)
 
         # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
+        run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
 
         if p["p3"] == -1.0 || detect == true
             # Find P3
@@ -267,7 +267,7 @@ module Data
     end
 
 
-    function process_psrfit_files(base_dir, output_dir; name_mod=nothing)
+    function process_psrfit_files(base_dir, output_dir)
 
         pulsar_name = basename(base_dir)
         data_dir = joinpath(base_dir, readdir(base_dir)[1]) # one level in
@@ -277,6 +277,9 @@ module Data
             mkpath(out_dir)
             println("Created output directory: ", out_dir)
         end
+
+        process_psrdata(data_dir, out_dir)
+
 
         #=
         # Step 2: Create output subdirectory
@@ -288,7 +291,6 @@ module Data
         end
         =#
 
-        process_psrdata(data_dir, out_dir)
 
         #=
 
@@ -341,22 +343,19 @@ module Data
     end
     
 
-    """
-
-    """
     function process_all_data(outdir; base_root="/home/psr/data/new")
         # Get all subdirectories in base_root
-        catalogues = filter(isdir, readdir(base_root, join=true))
+        dirs = filter(isdir, readdir(base_root, join=true))
     
-        if isempty(catalogues)
+        if isempty(dirs)
             println("No data found in $base_root. Exiting...")
             return
         end
     
-        for catalogue in catalogues
-            name = basename(catalogue)  # Extract directory name -> pulsar name
-            println("Processing catalogue: ", name)
-            process_psrfit_files(catalogue, outdir, name_mod=name)
+        for dir in dirs
+            name = basename(dir)  # Extract directory name -> pulsar name
+            println("Processing pulsar: ", name)
+            process_psrfit_files(dir, outdir)
         end
     end
 
