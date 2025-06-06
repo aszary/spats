@@ -348,7 +348,9 @@ module Plot
 
         # side panels 
         sum_left = sum(da, dims=2)[:, 1]
-        y_left = range(0, 0.5, length=num)
+        sum_left .-= minimum(sum_left)
+        sum_left ./= maximum(sum_left)
+        y_left = range(0, 0.5, length=num) # TODO check this
         #y_left = Functions.fftshift(fftfreq(num))
         sum_bottom = sum(da, dims=1)[1, :]
         x_bottom = Functions.fftshift(fftfreq(bins))  
