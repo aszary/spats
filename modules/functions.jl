@@ -65,11 +65,14 @@ module Functions
         return best_ybins
     end
 
-    
-    function fftshift(x)
-        n = size(x, 1)
-        m = size(x, 2)
-        return circshift(x, (div(n,2), div(m,2)))
+   
+    """
+        fftshift(x::AbstractVector)
+
+    Shift zero frequency to the center for 1D FFT output.
+    """
+    function fftshift(x::AbstractVector)
+        return circshift(x, div(length(x), 2))
     end
 
 
