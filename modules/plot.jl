@@ -353,6 +353,8 @@ module Plot
         y_left = range(0, 0.5, length=num) # TODO check this
         #y_left = Functions.fftshift(fftfreq(num))
         sum_bottom = sum(da, dims=1)[1, :]
+        sum_bottom .-= minimum(sum_bottom)
+        sum_bottom ./= maximum(sum_bottom)
         x_bottom = Functions.fftshift(fftfreq(bins))  
 
         println(size(y_left))
@@ -372,8 +374,8 @@ module Plot
         minorticks_on()
         plot(sum_left, y_left, color="grey")
         ylim(y_left[1], y_left[end])
-        #xticks([0.5, 1.0])
-        #xlim(1.1, -0.1)
+        xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
  
 
         #ylim(pulses[1], pulses[end])
