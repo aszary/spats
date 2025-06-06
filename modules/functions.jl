@@ -62,9 +62,14 @@ module Functions
                 best_ybins = ybins
             end
         end
-
         return best_ybins
+    end
 
+    
+    function fftshift(x)
+        n = size(x, 1)
+        m = size(x, 2)
+        return circshift(x, (div(n,2), div(m,2)))
     end
 
 

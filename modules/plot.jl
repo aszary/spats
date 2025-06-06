@@ -348,9 +348,9 @@ module Plot
 
         # side panels 
         sum_left = sum(da, dims=2)[:, 1]
-        y_left = fftfreq(num)
+        y_left = Functions.fftshift(fftfreq(num))
         sum_bottom = sum(da, dims=1)[1, :]
-        x_bottom = fftfreq(bins)  
+        x_bottom = Functions.fftshift(fftfreq(bins))  
 
         println(size(y_left))
         println(size(x_bottom))
