@@ -303,10 +303,10 @@ module Data
         p = params
 
         # fix and remove
-        #d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
-        #Plot.twodfs(d2, data_dir; name_mod="pulsar", show_=true) # TODO fix/clean this
+        d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
+        Plot.twodfs(d2, data_dir; name_mod="pulsar", show_=true) # TODO fix/clean this
 
-        #return
+        return
 
         
         # ASCII single pulses
