@@ -373,7 +373,6 @@ module Plot
         # Main panel - 2DFS
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         im = imshow(da,origin="lower", cmap=cmap, interpolation="none", aspect="auto")
-        colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Fluctuation frequency (P/P2)")
 
