@@ -368,6 +368,11 @@ module Plot
         ax_left = subplot2grid((4,3), (0,0), rowspan=3)
         minorticks_on()
         plot(sum_left, y_left, color="grey")
+        ylim(y_left[1]-0.5, y_left[end]+0.5)
+        #xticks([0.5, 1.0])
+        #xlim(1.1, -0.1)
+ 
+
         #ylim(pulses[1], pulses[end])
         #xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
