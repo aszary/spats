@@ -346,7 +346,7 @@ module Plot
 
         da = data 
 
-        # Profile boczne
+        # side panels 
         average_x = sum(da, dims=1)[1, :]
         average_y = sum(da, dims=2)[:, 1]
 
@@ -359,12 +359,10 @@ module Plot
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
-        # Lewy panel - profil sum po binach
+        # left panel
         ax_left = subplot2grid((4,3), (0,0), rowspan=3)
         minorticks_on()
-        println(size(average_y))
-        println(size(average_y))
-        #plot(average_y, pulses, color="grey")
+        plot(average_y, color="grey")
         #ylim(pulses[1], pulses[end])
         #xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
@@ -372,43 +370,26 @@ module Plot
         #ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
         #yticks(ytick_positions, string.(ytick_values))
 
-        # Główny panel - mapa intensywności 2DFS (pełne dane, ale ograniczony zakres x)
+        # Main panel - 2DFS
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
-        im = imshow(da,
-                    origin="lower",
-                    cmap=cmap,
-                    interpolation="none",
-                    aspect="auto")
-        #colorbar(im)
+        im = imshow(da,origin="lower", cmap=cmap, interpolation="none", aspect="auto")
+        colorbar(im)
         tick_params(left=false, labelleft=false)
         xlabel("Fluctuation frequency (P/P2)")
-        #xlim(x_min, x_max)  # Ograniczenie widoku do -120..120
 
-        # Dolny panel - profil sum po pulsach (po osi pionowej 1/P3), z lustrzanym odbiciem
+        # Bottom panel
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
+        plot(average_x, color="grey")
         minorticks_on()
 
-        # Sumowanie po pionie (1/P3)
-        #power_profile = sum(da, dims=1)
-        #power_profile = vec(power_profile)  # konwersja do wektora
 
-        # Rysujemy profil (szary) i jego odbicie (pomarańczowe)
-        #plot(mapped_x, power_profile, color="grey")
-        #plot(-mapped_x, power_profile, color="orange", linestyle="--")
-
-        yticks([])
-        #xlim(x_min, x_max)
         xlabel("Fluctuation frequency (1/P2)")
-
-        # Ticki osi X: -120, 0, 120
-        #xticks_vals = [x_min, 0, x_max]
-        #xticks(xticks_vals, string.(xticks_vals))
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
         savefig(savepath)
 
-        if show_
+        if show_ == true
             show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
