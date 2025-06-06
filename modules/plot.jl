@@ -341,9 +341,9 @@ module Plot
 
         # TODO clean this !!!
         num, bins = size(data)
-        println("NUM, BINS: $num $bins")
+        #println("NUM, BINS: $num $bins")
 
-
+        # main panel
         da = data 
 
         # side panels 
@@ -351,6 +351,10 @@ module Plot
         y_left = fftfreq(num)
         sum_bottom = sum(da, dims=1)[1, :]
         x_bottom = fftfreq(bins)  
+
+        println(size(y_left))
+        println(size(x_bottom))
+
 
         # plot style
         rc("font", size=7.)
