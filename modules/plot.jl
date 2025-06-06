@@ -376,14 +376,7 @@ module Plot
         ylim(y_left[1], y_left[end])
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
- 
-
-        #ylim(pulses[1], pulses[end])
-        #xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
-        #ytick_values = 0.0:0.1:0.5
-        #ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
-        #yticks(ytick_positions, string.(ytick_values))
 
         # Main panel - 2DFS
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
@@ -393,9 +386,9 @@ module Plot
 
         # Bottom panel
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
-        plot(x_bottom, sum_bottom, color="grey")
         minorticks_on()
-
+        plot(x_bottom, sum_bottom, color="grey")
+        yticks([0., 0.5])
         xlabel("Fluctuation frequency (1/P2)")
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
