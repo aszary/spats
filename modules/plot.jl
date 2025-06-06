@@ -343,12 +343,14 @@ module Plot
         num, bins = size(data)
         println("NUM, BINS: $num $bins")
 
+
         da = data 
 
         # side panels 
-        sum_bottom = sum(da, dims=1)[1, :]
         sum_left = sum(da, dims=2)[:, 1]
-
+        y_left = fftfreq(num)
+        sum_bottom = sum(da, dims=1)[1, :]
+        x_bottom = fftfreq(bins)  
 
         # plot style
         rc("font", size=7.)
@@ -361,7 +363,7 @@ module Plot
         # left panel
         ax_left = subplot2grid((4,3), (0,0), rowspan=3)
         minorticks_on()
-        plot(sum_left, color="grey")
+        plot(sum_left, y_left, color="grey")
         #ylim(pulses[1], pulses[end])
         #xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
@@ -377,7 +379,7 @@ module Plot
 
         # Bottom panel
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
-        plot(sum_bottom, color="grey")
+        plot(x_bottom, sum_bottom, color="grey")
         minorticks_on()
 
         xlabel("Fluctuation frequency (1/P2)")
