@@ -387,7 +387,7 @@ module Plot
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         im = imshow(da,origin="lower", cmap=cmap, interpolation="none", aspect="auto")
         tick_params(left=false, labelleft=false)
-        xlabel("Fluctuation frequency (P/P2)")
+        #xlabel("Fluctuation frequency (P/P2)")
 
         # Bottom panel
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
@@ -395,7 +395,7 @@ module Plot
         plot(x_bottom, sum_bottom, color="grey")
         yticks([0., 0.5])
         xlim(-signal_width/2,signal_width/2)
-        xlabel("Fluctuation frequency (1/P2)")
+        xlabel("Fluctuation frequency (P/P_2)")
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
