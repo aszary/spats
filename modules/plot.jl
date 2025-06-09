@@ -397,8 +397,8 @@ module Plot
         xlim(-signal_width/2,signal_width/2)
         if !isnothing(average)
             println(size(xbottom))
-            println(size(average[st:end]))
-            plot(xbottom, average[st:end], color="red")
+            println(size(average[st:en]))
+            plot(xbottom, average[st:en], color="red")
         end
         xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
