@@ -394,7 +394,7 @@ module Plot
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
         plot(xbottom, sum_bottom, color="grey")
-        plot(-xbottom, sum_bottom, color="orange")
+        plot(-xbottom, sum_bottom, color="orange", ls="--")
         yticks([0., 0.5])
         xlim(-signal_width/2,signal_width/2)
         xlabel(raw"Fluctuation frequency $(P/P_2)$")
