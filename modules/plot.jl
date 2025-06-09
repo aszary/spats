@@ -355,7 +355,7 @@ module Plot
         # main panel
         da = data 
 
-        # side panels 
+        # side panels data
         sum_left = sum(da, dims=2)[:, 1]
         sum_left .-= minimum(sum_left)
         sum_left ./= maximum(sum_left)
@@ -364,7 +364,6 @@ module Plot
         sum_bottom .-= minimum(sum_bottom)
         sum_bottom ./= maximum(sum_bottom)
         xbottom = range(-nbin / 2, nbin/2, length=bins) 
-
 
         # plot style
         rc("font", size=7.)
