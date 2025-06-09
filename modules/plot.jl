@@ -345,8 +345,8 @@ module Plot
 
         st = p["bin_st"]
         en = p["bin_end"]
-        signal_width = en - st + 1 # same as bins? think so...
         nbin = p["nbin"]
+        signal_width = en - st + 1
 
 
         #println("NUM, BINS: $num $bins")
@@ -394,6 +394,7 @@ module Plot
         minorticks_on()
         plot(x_bottom, sum_bottom, color="grey")
         yticks([0., 0.5])
+        xlim(-signal_width/2,signal_width/2)
         xlabel("Fluctuation frequency (1/P2)")
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
