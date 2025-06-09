@@ -397,7 +397,7 @@ module Plot
         yticks([0., 0.5])
         xlim(-signal_width/2,signal_width/2)
         if !isnothing(average)
-            plolt(xbottom, average[st:end], color="red")
+            plot(xbottom, average[st:end], color="red")
         end
         xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
