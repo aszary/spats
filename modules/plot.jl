@@ -337,11 +337,17 @@ module Plot
     end
 
 
-   function twodfs(data, outdir; cmap="viridis", darkness=0.07, name_mod="PSR_NAME", show_=false)
+   function twodfs(data, outdir; params, cmap="viridis", darkness=0.07, name_mod="PSR_NAME", show_=false)
+
+        p = params
+
+        st = p["bin_st"]
+        en = p["bin_end"]
+        println("$st $en")
 
         # TODO clean this !!!
         num, bins = size(data)
-        #println("NUM, BINS: $num $bins")
+        println("NUM, BINS: $num $bins")
 
         # main panel
         da = data 
@@ -355,7 +361,7 @@ module Plot
         sum_bottom = sum(da, dims=1)[1, :]
         sum_bottom .-= minimum(sum_bottom)
         sum_bottom ./= maximum(sum_bottom)
-        x_bottom = Functions.fftshift(fftfreq(bins))  
+        x_bottom = 
 
         println(size(y_left))
         println(size(x_bottom))
