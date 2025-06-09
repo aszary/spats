@@ -317,7 +317,6 @@ module Data
         d5 = Data.load_ascii(joinpath(data_dir, "pulsar.debase.p3fold"))
         Plot.p3fold(d5, data_dir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=false, repeat_num=4)
  
-
     end
 
 

@@ -348,10 +348,10 @@ module Plot
         nbin = p["nbin"]
         signal_width = en - st + 1
 
-        println("NUM, BINS: $num $bins")
-        println("$st $en")
+        #println("NUM, BINS: $num $bins")
+        #println("$st $en")
 
-        # main panel
+        # main panel data
         da = data 
 
         # side panels data
@@ -397,8 +397,8 @@ module Plot
         xlim(-signal_width/2,signal_width/2)
         if !isnothing(average)
             ave = average[st:en]
-            xave = collect(range(-signal_width/2, signal_width/2, length=length(ave)))
-            plot(xave, ave, color="red", lw=0.5, ls=":")
+            xave = collect(range(-signal_width/2, signal_width/2, length=length(ave))) # are you sure?
+            plot(xave, ave, color="red", lw=0.3, ls=":")
         end
         xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
