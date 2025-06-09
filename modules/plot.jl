@@ -395,7 +395,7 @@ module Plot
         plot(x_bottom, sum_bottom, color="grey")
         yticks([0., 0.5])
         xlim(-signal_width/2,signal_width/2)
-        xlabel("Fluctuation frequency (P/P_2)")
+        xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
