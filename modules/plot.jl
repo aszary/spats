@@ -348,9 +348,8 @@ module Plot
         nbin = p["nbin"]
         signal_width = en - st + 1
 
-
-        #println("NUM, BINS: $num $bins")
-        #println("$st $en")
+        println("NUM, BINS: $num $bins")
+        println("$st $en")
 
         # main panel
         da = data 
