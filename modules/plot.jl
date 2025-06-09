@@ -381,13 +381,14 @@ module Plot
         ylim(y_left[1], y_left[end])
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
-        ylabel("Fluctuation frequency (P/P₃)")
+        ylabel(raw"Fluctuation frequency $(P/P_3)$")
 
         # Main panel - 2DFS
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         im = imshow(da,origin="lower", cmap=cmap, interpolation="none", aspect="auto")
         tick_params(left=false, labelleft=false)
-        #xlabel("Fluctuation frequency (P/P2)")
+        xlim(-signal_width/2,signal_width/2)
+        #xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
         # Bottom panel
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
