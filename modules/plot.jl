@@ -359,11 +359,11 @@ module Plot
         sum_left = sum(da, dims=2)[:, 1]
         sum_left .-= minimum(sum_left)
         sum_left ./= maximum(sum_left)
-        y_left = range(0, 0.5, length=num) # check this # should be fine
+        yleft = range(0, 0.5, length=num) # check this # should be fine
         sum_bottom = sum(da, dims=1)[1, :]
         sum_bottom .-= minimum(sum_bottom)
         sum_bottom ./= maximum(sum_bottom)
-        x_bottom = range(-nbin / 2, nbin/2, length=bins) 
+        xbottom = range(-nbin / 2, nbin/2, length=bins) 
 
 
         # plot style
@@ -377,8 +377,8 @@ module Plot
         # left panel
         ax_left = subplot2grid((4,3), (0,0), rowspan=3)
         minorticks_on()
-        plot(sum_left, y_left, color="grey")
-        ylim(y_left[1], y_left[end])
+        plot(sum_left, yleft, color="grey")
+        ylim(yleft[1], yleft[end])
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
         ylabel(raw"Fluctuation frequency $(P/P_3)$")
@@ -393,7 +393,7 @@ module Plot
         # Bottom panel
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         minorticks_on()
-        plot(x_bottom, sum_bottom, color="grey")
+        plot(xbottom, sum_bottom, color="grey")
         yticks([0., 0.5])
         xlim(-signal_width/2,signal_width/2)
         xlabel(raw"Fluctuation frequency $(P/P_2)$")
