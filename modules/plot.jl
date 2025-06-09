@@ -341,13 +341,16 @@ module Plot
 
         p = params
 
+        num, bins = size(data)
+
         st = p["bin_st"]
         en = p["bin_end"]
-        println("$st $en")
+        signal_width = en - st + 1 # same as bins? think so...
+        nbin = p["nbin"]
 
-        # TODO clean this !!!
-        num, bins = size(data)
-        println("NUM, BINS: $num $bins")
+
+        #println("NUM, BINS: $num $bins")
+        #println("$st $en")
 
         # main panel
         da = data 
@@ -356,15 +359,11 @@ module Plot
         sum_left = sum(da, dims=2)[:, 1]
         sum_left .-= minimum(sum_left)
         sum_left ./= maximum(sum_left)
-        y_left = range(0, 0.5, length=num) # TODO check this
-        #y_left = Functions.fftshift(fftfreq(num))
+        y_left = range(0, 0.5, length=num) # check this # should be fine
         sum_bottom = sum(da, dims=1)[1, :]
         sum_bottom .-= minimum(sum_bottom)
         sum_bottom ./= maximum(sum_bottom)
-        x_bottom = 
-
-        println(size(y_left))
-        println(size(x_bottom))
+        x_bottom = range(-nbin / 2, nbin/2, length=bins) 
 
 
         # plot style
