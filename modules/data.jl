@@ -302,13 +302,6 @@ module Data
 
         p = params
 
-        # fix and remove
-        d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
-        Plot.twodfs(d2, data_dir, p; name_mod="pulsar", show_=true) # TODO fix/clean this
-
-        return
-
-        
         # ASCII single pulses
         convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
         d = load_ascii(joinpath(data_dir, "pulsar.debase.txt"))
@@ -318,13 +311,12 @@ module Data
 
         # 2DFS
         d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
-        Plot.twodfs(d2, data_dir; name_mod="pulsar") # TODO fix/clean this
+        Plot.twodfs(d2, data_dir, p; name_mod="pulsar", show_=false, average=Tools.average_profile(d))
 
         # P3-folded
         d5 = Data.load_ascii(joinpath(data_dir, "pulsar.debase.p3fold"))
         Plot.p3fold(d5, data_dir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=false, repeat_num=4)
  
-
 
     end
 

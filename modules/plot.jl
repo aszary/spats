@@ -337,7 +337,7 @@ module Plot
     end
 
 
-   function twodfs(data, outdir, params; cmap="viridis", darkness=0.07, name_mod="PSR_NAME", show_=false)
+   function twodfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME", show_=false, average=nothing)
 
         p = params
 
@@ -384,7 +384,7 @@ module Plot
 
         # Main panel - 2DFS
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
-        im = imshow(da,origin="lower", cmap=cmap, interpolation="none", aspect="auto", extent=[xbottom[1], xbottom[end], yleft[1], yleft[end]])
+        im = imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", extent=[xbottom[1], xbottom[end], yleft[1], yleft[end]], vmax=darkness*maximum(da))
         tick_params(left=false, labelleft=false)
         xlim(-signal_width/2,signal_width/2)
         #xlabel(raw"Fluctuation frequency $(P/P_2)$")
@@ -396,6 +396,9 @@ module Plot
         plot(-xbottom, sum_bottom, color="orange", ls="--")
         yticks([0., 0.5])
         xlim(-signal_width/2,signal_width/2)
+        if !isnothing(average)
+            plolt(xbottom, average[st:end], color="red")
+        end
         xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
