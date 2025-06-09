@@ -398,7 +398,7 @@ module Plot
         if !isnothing(average)
             ave = average[st:en]
             xave = collect(range(-signal_width/2, signal_width/2, length=length(ave)))
-            plot(xave, ave, color="red")
+            plot(xave, ave, color="red", lw=0.5, ls=":")
         end
         xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
