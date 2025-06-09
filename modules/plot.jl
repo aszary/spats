@@ -337,7 +337,7 @@ module Plot
     end
 
 
-   function twodfs(data, outdir; params, cmap="viridis", darkness=0.07, name_mod="PSR_NAME", show_=false)
+   function twodfs(data, outdir, params; cmap="viridis", darkness=0.07, name_mod="PSR_NAME", show_=false)
 
         p = params
 
