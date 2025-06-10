@@ -571,9 +571,26 @@ module Plot
         amp = abs.(lrfs_complex)
 
 
-        
+        # Side panels
+        profile = mean(real.(lrfs_complex), dims=1)[1, :]
+        spectrum = sum(amp, dims=2)[:, 1]
 
         
+        # FFT phase at peak frequency
+        peak = argmax(spectrum)
+        phase = rad2deg.(angle.(lrfs_complex[peak, :]))
+
+        # Phase unwrapping
+        for i in 1:length(phase)-1
+            while abs(phase[i+1] - phase[i]) > 180
+                if phase[i+1] > phase[i]
+                    phase[i+1] -= 360
+                else
+                    phase[i+1] += 360
+                end
+            end
+        end
+
 
         # Styl plotu
         rc("font", size=7)
