@@ -544,7 +544,15 @@ module Plot
     function lrfs(data, outdir, params; start=1, number=nothing, bin_st=nothing, bin_end=nothing,
                        cmap="viridis", darkness=0.5, name_mod="0", show_=false)
 
+        p = params
+
+        st = p["bin_st"]
+        en = p["bin_end"]
+                      
+
         data = data[:,:,1] # this is bad
+        #data = data[:,:,1] # real
+        #data = data[:,:,2] # imaginery
 
         num, cols = size(data)
         if number === nothing
