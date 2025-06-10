@@ -544,6 +544,8 @@ module Plot
     function lrfs(data, outdir, params; start=1, number=nothing, bin_st=nothing, bin_end=nothing,
                        cmap="viridis", darkness=0.5, name_mod="0", show_=false)
 
+        data = data[:,:,1] # this is bad
+
         num, cols = size(data)
         if number === nothing
             number = num - start + 1
