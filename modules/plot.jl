@@ -541,7 +541,7 @@ module Plot
 
     # TODO start here
 
-    function lrfs(data, outdir; start=1, number=nothing, bin_st=nothing, bin_end=nothing,
+    function lrfs(data, outdir, params; start=1, number=nothing, bin_st=nothing, bin_end=nothing,
                        cmap="viridis", darkness=0.5, name_mod="0", show_=false)
 
         num, cols = size(data)
