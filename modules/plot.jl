@@ -561,34 +561,19 @@ module Plot
         lrfs_complex = reshape(ComplexF64.(real_part + imag_part * im), num, bins)
 
         
+         # X-axis: longitude
+        longitude = collect(range(-180, 180, length=bins))  # or based on bin range
 
-        # Intensywność i częstotliwości (zakładam, że oś 1 to puls, oś 2 to longitude)
-        intensity = sum(abs.(lrfs_complex), dims=2)[:]
-        freq = collect(0:length(intensity)-1) ./ length(intensity)
+        # Y-axis: fluctuation frequency
+        y = collect(0:(num - 1)) ./ num
 
-        # Znajdź peak i P3
-        peak = argmax(intensity)
-        println("\tpeak freq $(freq[peak])")
-        println("\tpeak P3 $(1/freq[peak])")
+         # Amplitude (main panel)
+        amp = abs.(lrfs_complex)
 
-        # Faza dla linii peak
-        phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
 
-        # Ustalanie długości podłużnej
-        db = bins
-        dl = 360. * db / (cols ÷ 2)  # zakładam, że połowa kolumn to biny
-        longitude = collect(range(-dl/2, dl/2, length=db))
+        
 
-        # Unwrap fazy (korekta ciągłości)
-        for i in 1:length(phase_)-1
-            while abs(phase_[i+1] - phase_[i]) > 180
-                if phase_[i+1] > phase_[i]
-                    phase_[i+1] -= 360
-                else
-                    phase_[i+1] += 360
-                end
-            end
-        end
+        
 
         # Styl plotu
         rc("font", size=7)
