@@ -541,18 +541,22 @@ module Plot
 
     # TODO start here
 
-    function lrfs(data, outdir, params; start=1, number=nothing, bin_st=nothing, bin_end=nothing,
-                       cmap="viridis", darkness=0.5, name_mod="0", show_=false)
+    function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME", show_=false)
 
         p = params
 
         st = p["bin_st"]
         en = p["bin_end"]
-                      
+        num, _= size(data)
+        bins = en - st + 1
 
-        data = data[:,:,1] # this is bad
-        #data = data[:,:,1] # real
-        #data = data[:,:,2] # imaginery
+                      
+        
+        # Separate real and imaginary parts
+        real_part = data[:, 1]
+        imag_part = data[:, 2]
+
+
 
         num, cols = size(data)
         if number === nothing
