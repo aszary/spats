@@ -355,4 +355,11 @@ module Data
         end
     end
 
+    function clean(data)
+        # four polarisation data
+
+
+
+    end
+
 end # module
