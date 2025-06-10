@@ -355,13 +355,13 @@ module Plot
         da = data 
 
         # side panels data
-        sum_left = sum(da, dims=2)[:, 1]
-        sum_left .-= minimum(sum_left)
-        sum_left ./= maximum(sum_left)
+        sum_left = Functions.normalize(sum(da, dims=2)[:, 1])
+        #sum_left .-= minimum(sum_left)
+        #sum_left ./= maximum(sum_left)
         yleft = range(0, 0.5, length=num) # check this # should be fine
-        sum_bottom = sum(da, dims=1)[1, :]
-        sum_bottom .-= minimum(sum_bottom)
-        sum_bottom ./= maximum(sum_bottom)
+        sum_bottom = Functions.normalize(sum(da, dims=1)[1, :])
+        #sum_bottom .-= minimum(sum_bottom)
+        #sum_bottom ./= maximum(sum_bottom)
         xbottom = range(-nbin / 2, nbin/2, length=bins) 
 
         # plot style

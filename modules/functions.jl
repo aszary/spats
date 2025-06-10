@@ -66,4 +66,18 @@ module Functions
     end
 
 
+    """
+        normalize(data)
+
+    Normalize numeric data to range [0,1] using min-max normalization.
+    Modifies input array in-place.
+
+    # Arguments
+    - `data`: Numeric array to normalize
+    """
+    function normalize(data)
+        data .-= minimum(data)
+        data ./= maximum(data)
+    end
+
 end  # module Functions
