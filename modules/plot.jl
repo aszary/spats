@@ -600,63 +600,38 @@ module Plot
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0.0, hspace=0.0)
 
-        # Górny panel: faza FFT
-        ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
-        scatter(longitude, phase_, marker=".", c="grey", s=3)
-        ax_phase.xaxis.set_label_position("top")
-        ax_phase.xaxis.set_ticks_position("top")
-        xlabel("Phase \$(^\\circ)\$")
-        #ylabel("FFT phase \$(^\\circ)\$")
-
-        # Pobierz aktualny zakres osi Y
-        ylims = ax_phase.get_ylim()
-        ymin, ymax = ylims
-
-        # Ustal pozycje ticków równomiernie od ymin do ymax
-        nticks = 9  # bo mamy 9 wartości od -180 do 180 co 45 stopni
-        ytick_positions = range(ymin, ymax, length=nticks)
-
-        # Ustaw ticki na tych pozycjach, ale etykiety -180, -135, ..., 180
-        ytick_labels = string.(-180:45:180)
-
-        ax_phase.set_yticks(collect(ytick_positions))
-        ax_phase.set_yticklabels(ytick_labels)
-
-        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
-
-
-
-        # --- LEWY PANEL: intensywność vs częstotliwość ---
-        pulses = collect(start:start+number-1)
-        average_y = sum(abs.(lrfs_complex[start:start+number-1, :]), dims=2)[:,1]
-
-        ax_intensity = subplot2grid((5, 3), (1, 0), rowspan=3)
-        plot(average_y, pulses, color="grey")
-        ylim(pulses[1], pulses[end])
-        xticks([])
+        # Left panel: fluctuation spectrum
+        ax_left = subplot2grid((4,3), (0,0), rowspan=3)
+        plot(spectrum, y, color="grey")
+        ylim(y[1], y[end])
+        xticks([maximum(spectrum)])
+        xlim(maximum(spectrum) * 1.1, -0.1)
         ylabel("Fluctuation frequency (P/P₃)")
 
-        # Tick marks Y (0.0 do 0.5 co 0.1)
-        ytick_values = 0.0:0.1:0.5
-        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
-        yticks(ytick_positions, string.(ytick_values))
+        # Main panel: LRFS map
+        ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
+        imshow(amp, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+            extent=[longitude[1], longitude[end], y[1], y[end]],
+            vmax=darkness * maximum(amp))
+        tick_params(left=false, labelleft=false)
+        xlabel("Longitude (°)")
 
-        # --- GŁÓWNY PANEL: mapa LRFS ---
-        ax_lrfs = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
-        imshow(abs.(lrfs_complex), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
-            vmax=darkness * maximum(abs.(lrfs_complex)))
-        tick_params(labelleft=false, labelbottom=false)
+        # Top panel: phase
+        ax_phase = axes([0.17, 0.94, 0.82, 0.05])  # manual position
+        scatter(longitude, phase, s=2, c="grey")
+        xticks([])
+        yticks([-180, -90, 0, 90, 180])
+        ylabel("Phase (°)", labelpad=10)
 
-        # --- DOLNY PANEL: średni profil ---
-        ax_profile = subplot2grid((5, 3), (4, 1), colspan=2)
-        average_profile = mean(real.(lrfs_complex), dims=1)[:]
-        plot(longitude, average_profile, c="grey")
+        # Bottom panel: mean profile
+        ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
+        plot(longitude, profile, color="grey")
         axvline(x=0.0, ls=":", c="black")
         yticks([])
         xlim(longitude[1], longitude[end])
-        xlabel("longitude \$(^\\circ)\$")
+        xlabel("Longitude (°)")
 
-        # Zapis
+        # Save
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
 
@@ -665,9 +640,10 @@ module Plot
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
-
         close()
     end
+
+        
 
 
 
