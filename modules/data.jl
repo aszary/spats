@@ -310,11 +310,11 @@ module Data
 
         # 2DFS
         d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
-        Plot.twodfs(d2, data_dir, p; name_mod="pulsar", show_=true, average=Tools.average_profile(d))
+        Plot.twodfs(d2, data_dir, p; name_mod="pulsar", show_=false, average=Tools.average_profile(d))
 
         # LRFS
         d3 = load_ascii(joinpath(data_dir, "pulsar.debase.lrfs"))
-        Plot.lrfs(d3, data_dir, p; name_mod="pulsar", show_=true)
+        Plot.lrfs(d3, data_dir, p; name_mod="pulsar", show_=false)
 
         # P3-folded
         d5 = Data.load_ascii(joinpath(data_dir, "pulsar.debase.p3fold"))
