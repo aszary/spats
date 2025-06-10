@@ -557,24 +557,10 @@ module Plot
         imag_part = data[:, 2]
 
 
+        # Reconstruct complex data
+        lrfs_complex = reshape(ComplexF64.(real_part + imag_part * im), num, bins)
 
-        num, cols = size(data)
-        if number === nothing
-            number = num - start + 1
-        end
-
-        if bin_st === nothing
-            bin_st = 1
-        end
-        if bin_end === nothing
-            bin_end = (cols - 3) ÷ 2  # zakładam: 3 kolumny nagłówkowe + (Re,Im)*bin_count
-        end
-
-        # Rekonstrukcja zespolonych danych
-        bins = bin_end - bin_st + 1
-        lrfs_complex = ComplexF64[
-            data[i, 4 + 2*(b-1)] + im * data[i, 5 + 2*(b-1)] for i in 1:num, b in bin_st:bin_end
-        ]
+        
 
         # Intensywność i częstotliwości (zakładam, że oś 1 to puls, oś 2 to longitude)
         intensity = sum(abs.(lrfs_complex), dims=2)[:]
