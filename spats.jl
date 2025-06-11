@@ -4,8 +4,7 @@ module SpaTs
     using JSON
 
     using PyCall
-    matplotlib = pyimport("matplotlib")
-    matplotlib.use("TkAgg")
+    matplotlib = pyimport("matplotlib").use("TkAgg")
 
 
     include("modules/data.jl")
