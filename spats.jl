@@ -35,10 +35,13 @@ module SpaTs
 
 
     function process_psrdata(indir, outdir)
-        p = Data.process_psrdata(indir, outdir)
-        folded = Data.load_ascii(joinpath(outdir, "pulsar.debase.p3fold"))
-        Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=true, repeat_num=4)
+        #p = Data.process_psrdata(indir, outdir)
+        Data.convert_psrfit_ascii(joinpath(outdir, "pulsar.debase.gg"), joinpath(outdir, "pulsar.debase.txt"))
         
+        #folded = Data.load_ascii(joinpath(outdir, "pulsar.debase.p3fold"))
+        #Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=true, repeat_num=4)
+        
+
     end
 
 
