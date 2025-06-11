@@ -40,7 +40,7 @@ module SpaTs
         p = Tools.read_params(joinpath(outdir, "params.json"))
         d4 = Data.load_ascii_all(joinpath(outdir, "pulsar.debase.txt"))
         d1 = Data.clean(d4)
-        Plot.single(d1, outdir; darkness=0.5, number=200, bin_st=p["bin_st"], bin_end=p["bin_end"], start=210, name_mod="pulsar", show_=false)
+        Plot.single(d1, outdir; darkness=0.5, number=200, bin_st=p["bin_st"], bin_end=p["bin_end"], start=210, name_mod="pulsar", show_=true)
         
         #folded = Data.load_ascii(joinpath(outdir, "pulsar.debase.p3fold"))
         #Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=true, repeat_num=4)
