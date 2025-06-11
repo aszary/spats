@@ -2,7 +2,7 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
-
+    ENV["MPLBACKEND"] = "TkAgg"
     using PyCall
     matplotlib = pyimport("matplotlib").use("TkAgg")
 
