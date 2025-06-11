@@ -358,6 +358,8 @@ module Data
     function clean(data)
         # four polarisation data
 
+        println(size(data))
+
         return data[:,:,1]
 
     end
