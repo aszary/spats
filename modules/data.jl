@@ -356,7 +356,7 @@ module Data
     end
 
 
-    function clean(data, threshold=0.7)
+    function clean(data, threshold=0.9)
         # four polarisation data
         num, bins, npol = size(data)
         data_clean = zeros(num, bins)
