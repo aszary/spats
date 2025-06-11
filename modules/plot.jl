@@ -119,7 +119,8 @@ module Plot
         println("$outdir/$(name_mod)_single.png")
         savefig("$outdir/$(name_mod)_single.png")
         if show_ == true
-            PyPlot.display_figs()
+            #PyPlot.display_figs()
+            show()
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
