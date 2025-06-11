@@ -366,7 +366,7 @@ module Data
                 U = data[i, j, 3]
                 L = sqrt(Q^2 + U^2)
                 if L / I > threshold
-                    #data_clean[i, j] = I
+                    data_clean[i, j] = I
                 end
                 #println(L)
             end
