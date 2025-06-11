@@ -3,6 +3,10 @@ module SpaTs
     using Glob
     using JSON
 
+    matplotlib = pyimport("matplotlib")
+    matplotlib.use("TkAgg")
+
+
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
