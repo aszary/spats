@@ -355,6 +355,7 @@ module Data
         end
     end
 
+
     function clean(data, threshold=0.7)
         # four polarisation data
         num, bins, npol = size(data)
@@ -368,12 +369,9 @@ module Data
                 if L / I > threshold
                     data_clean[i, j] = I
                 end
-                #println(L)
             end
         end
-
         return data_clean
-
     end
 
 end # module
