@@ -355,12 +355,24 @@ module Data
         end
     end
 
-    function clean(data)
+    function clean(data, threshold=0.5)
         # four polarisation data
+        num, bins, npol = size(data)
+        data_clean = zeros(num, bins)
+        for i in 1:num
+            for j in 1:bins 
+                I = data[i, j, 1]
+                Q = data[i, j, 2]
+                U = data[i, j, 3]
+                L = sqrt(Q^2 + U^2)
+                if L / I > threshold
+                    #data_clean[i, j] = I
+                end
+                #println(L)
+            end
+        end
 
-        println(size(data))
-
-        return data[:,:,1]
+        return data_clean
 
     end
 
