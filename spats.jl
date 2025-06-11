@@ -3,6 +3,7 @@ module SpaTs
     using Glob
     using JSON
 
+    using PyCall
     matplotlib = pyimport("matplotlib")
     matplotlib.use("TkAgg")
 
