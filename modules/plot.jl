@@ -7,9 +7,10 @@ module Plot
     using PyPlot
     using PyCall
     using Printf
+    matplotlib = pyimport("matplotlib")
+    matplotlib.use("TkAgg")
     @pyimport matplotlib.patches as patch
-    
-    PyPlot.matplotlib.use("Tkagg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
+    #PyPlot.matplotlib.use("TkAgg") # DOES NOT WORK on ozStar! had to set backend in matplotlib by hand
     #PyPlot.matplotlib.use("qt5agg")
     using Peaks
     using Glob
