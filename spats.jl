@@ -11,7 +11,6 @@ module SpaTs
     function main()
         vpmout = "/home/psr/output/"
         #Data.process_all_data(vpmout)
-        Data.plot_psrdata(vpmout)
         Data.combine_4page(vpmout)
         
     end

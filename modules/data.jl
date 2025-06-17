@@ -358,32 +358,42 @@ module Data
     end
 
 function combine_4page(outdir::String)
-      png_paths = sort([
-        joinpath(root, file)
-        for (root, _, files) in walkdir(outdir)
-            for file in files
-                if endswith(lowercase(file), ".png")])
 
-        pulsar_name = splitpath(outdir)[end]
-        output_pdf_path = joinpath(outdir, "$(pulsar_name)_4.pdf")
-
-        pages, fig = Figure[], nothing
-        for (i, path) in enumerate(png_paths)
-            if (i - 1) % 4 == 0
-                fig !== nothing && push!(pages, fig)
-                fig = Figure(resolution = (800, 800))
+    png_paths= String[]
+    for (root, _, files) in walkdir(outdir)
+        for file in files
+            if endswith(lowercase(file), ".png")
+                full_path = joinpath(root, file)
+                push!(png_paths, full_path)
             end
-
-            row, col = div((i - 1), 2) % 2 + 1, (i - 1) % 2 + 1
-            ax = Axis(fig[row, col])
-            image!(ax, load(path))
-            ax.title = basename(path)
-
         end
-        fig !== nothing && push!(pages, fig)
-        CairoMakie.save(output_pdf_path, pages...)
+    end
 
-        println("Saved: $output_pdf_path")
+    sort!(png_paths)
+
+    pulsar_name = splitpath(outdir)[end]
+    output_pdf_path = joinpath(outdir, "$(pulsar_name)_4.pdf")
+
+    pages, fig = Figure[], nothing
+    for (i, path) in enumerate(png_paths)
+        if (i - 1) % 4 == 0
+            fig !== nothing && push!(pages, fig)
+            fig = Figure(resolution = (800, 800))
+        end
+
+        row, col = div((i - 1), 2) % 2 + 1, (i - 1) % 2 + 1
+        ax = Axis(fig[row, col])
+        image!(ax, load(path))
+        ax.title = basename(path)
+
+    end
+
+    if fig !== nothing 
+         push!(pages, fig)
+    end
+    CairoMakie.save(output_pdf_path, pages...)
+
+    println("Saved: $output_pdf_path")
        # println(raw"pdfunite $(find /home/psr/output/ -type f -name '*_4.pdf' | sort) /home/psr/final_combined.pdf")
     
 end
