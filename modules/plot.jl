@@ -542,44 +542,52 @@ module Plot
     # TODO start here
 
     function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME", show_=false, change_fftphase=true)
-
         p = params
         bin_st = p["bin_st"]
         bin_end = p["bin_end"]
         num, bins = size(data)
-        data = data[:, bin_st:bin_end]
 
-        # Reconstruct complex data
-        lrfs_complex = reshape(ComplexF64.(data[:, 1] + data[:, 2] * im), num, :)
+        @assert bin_st >= 1 && bin_end <= bins "bin_st and bin_end are out of bounds"
 
-        # Power spectrum and profile
+        signal_width = bin_end - bin_st + 1
+
+        # Construct complex LRFS from interleaved real and imaginary parts
+        real_part = data[:, bin_st:bin_end-1]
+        imag_part = data[:, bin_st+1:bin_end]
+        lrfs_complex = ComplexF64.(real_part .+ imag_part .* im)
+
+        # Amplitude map
         amp = abs.(lrfs_complex)
+
+        # Mean profile along pulse numbers
         profile = mean(real.(lrfs_complex), dims=1)[1, :]
+
+        # Total power spectrum (summed over longitude bins)
         spectrum = sum(amp, dims=2)[:, 1]
 
-        # Frequency axis
+        # Fluctuation frequency axis
         freq = collect(0:(num-1)) ./ num
-        peak = argmax(spectrum[2:end]) + 1  # skip zero freq
+        peak = argmax(spectrum[2:end]) + 1
         println("\tPeak freq: $(freq[peak]), P3 = $(1/freq[peak])")
 
-        # Phase
+        # Phase at the peak frequency
         phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
 
-        # Longitude axis
-        db = bin_end - bin_st + 1
-        dl = 360. * db / bins
-        longitude = collect(range(-dl/2., dl/2., length=db))
-        println("Longitude resolution = $(longitude[2]-longitude[1]) deg")
+        # Longitude axis (degrees)
+        dl = 360 * signal_width / bins
+        longitude = collect(range(-dl/2, dl/2, length=signal_width-1))
 
-        # Fix phase continuity
+        println("Longitude resolution = $(longitude[2] - longitude[1]) deg")
+
+        # Unwrap phase for visual continuity
         if change_fftphase
             for i in 1:length(phase_)-1
                 changed = true
                 while changed
                     changed = false
                     dp  = abs(phase_[i+1] - phase_[i])
-                    dpp = abs(phase_[i+1]+360. - phase_[i])
-                    dpm = abs(phase_[i+1]-360. - phase_[i])
+                    dpp = abs(phase_[i+1] + 360 - phase_[i])
+                    dpm = abs(phase_[i+1] - 360 - phase_[i])
                     if dpp < dp
                         phase_[i+1] += 360
                         changed = true
@@ -591,7 +599,7 @@ module Plot
             end
         end
 
-        # Plot
+        # Plotting settings
         rc("font", size=7)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
@@ -599,7 +607,7 @@ module Plot
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
-        # Left panel: fluctuation spectrum
+        # Left panel: power spectrum
         ax_left = subplot2grid((4,3), (0,0), rowspan=3)
         plot(spectrum, freq, color="grey")
         ylim(freq[1], freq[end])
@@ -607,7 +615,7 @@ module Plot
         xlim(maximum(spectrum)*1.1, -0.1)
         ylabel("Fluctuation frequency (P/P₃)")
 
-        # Main panel: LRFS
+        # Main panel: amplitude map
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         imshow(amp, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
             extent=[longitude[1], longitude[end], freq[1], freq[end]],
@@ -615,14 +623,14 @@ module Plot
         tick_params(left=false, labelleft=false)
         xlabel("Longitude (°)")
 
-        # Phase panel
+        # Top phase panel
         ax_phase = axes([0.17, 0.94, 0.82, 0.05])
         scatter(longitude, phase_, s=2, c="grey")
         xticks([])
         yticks([-180, -90, 0, 90, 180])
         ylabel("Phase (°)", labelpad=10)
 
-        # Profile panel
+        # Bottom panel: mean profile
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         plot(longitude, profile, color="grey")
         axvline(x=0.0, ls=":", c="black")
@@ -630,7 +638,7 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("Longitude (°)")
 
-        # Save
+        # Save to files
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
 
@@ -641,6 +649,7 @@ module Plot
         end
         close()
     end
+
 
 
         
