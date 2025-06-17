@@ -542,7 +542,7 @@ module Plot
     # TODO start here
 
     function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME", show_=false, change_fftphase=true)
-
+        p = params
         bin_st = p["bin_st"]
         bin_end = p["bin_end"]
         num, bins = size(data)
