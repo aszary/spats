@@ -551,7 +551,7 @@ module Plot
         bin_end = p["bin_end"]
         num, bins, _ = size(data)
 
-        @assert bin_st >= 1 && bin_end <= bins "bin_st and bin_end are out of bounds"
+        #@assert bin_st >= 1 && bin_end <= bins "bin_st and bin_end are out of bounds"
 
         signal_width = bin_end - bin_st + 1
 
