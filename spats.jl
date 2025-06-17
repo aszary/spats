@@ -12,7 +12,7 @@ module SpaTs
         #vpmout = "/home/psr/output/"
         #Data.process_all_data(vpmout)
         Data.combine_4page(vpmout)
-
+        
     end
 
 end # module
