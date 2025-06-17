@@ -607,7 +607,7 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 4.33071))  # 8cm × 11cm
+        figure(figsize=(6, 7))  # 8cm × 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         # Left panel: power spectrum
