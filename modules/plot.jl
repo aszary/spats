@@ -551,9 +551,11 @@ module Plot
 
         signal_width = bin_end - bin_st + 1
 
-        # Construct complex LRFS from interleaved real and imaginary parts
-        real_part = data[:, bin_st:bin_end-1]
-        imag_part = data[:, bin_st+1:bin_end]
+        # Assume LRFS is stored in 3D array: (time, bins, real/imag pairs)
+        # Extract only the real and imaginary parts (e.g., channel 1 = real, 2 = imag)
+        real_part = data[:, bin_st:bin_end-1, 1]  # e.g. index 1 = real part
+        imag_part = data[:, bin_st+1:bin_end, 2]  # e.g. index 2 = imaginary part
+
         lrfs_complex = ComplexF64.(real_part .+ imag_part .* im)
 
         # Amplitude map
