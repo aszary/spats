@@ -546,28 +546,29 @@ module Plot
         bin_st = p["bin_st"]
         bin_end = p["bin_end"]
 
-
-        # Check whether data has 3 dimensions - if yes - get real + imag
+        # Check whether data has 3 dimensions - if yes, extract real + imag parts
         if ndims(data) == 3
-            # We assume: 1 = real, 2 = imag 
+            # We assume: 1 = real, 2 = imag
             real_part = data[:, :, 1]
             imag_part = data[:, :, 2]
             data = complex.(real_part, imag_part)
         end
 
         num, bins = size(data)
-        data = data[:, bin_st:bin_end]
 
-
-        # Safety in case we get out of the index
+        # Clamp bin_st and bin_end to valid range before slicing
         bin_st = clamp(bin_st, 1, bins)
         bin_end = clamp(bin_end, bin_st, bins)
-
         data = data[:, bin_st:bin_end]
 
+        # Reshape to complex 2D array if still in real-imag matrix format
+        # (Note: this block may be unnecessary now, as we already built complex above)
+        # Keep just in case other formats are used
+        if eltype(data) <: Real
+            data = reshape(ComplexF64.(data[:, 1] + data[:, 2] * im), num, :)
+        end
 
-        # Reconstruct complex data
-        lrfs_complex = reshape(ComplexF64.(data[:, 1] + data[:, 2] * im), num, :)
+        lrfs_complex = data
 
         # Power spectrum and profile
         amp = abs.(lrfs_complex)
@@ -576,10 +577,10 @@ module Plot
 
         # Frequency axis
         freq = collect(0:(num-1)) ./ num
-        peak = argmax(spectrum[2:end]) + 1  # skip zero freq
+        peak = argmax(spectrum[2:end]) + 1  # skip zero frequency
         println("\tPeak freq: $(freq[peak]), P3 = $(1/freq[peak])")
 
-        # Phase
+        # Phase at the peak fluctuation frequency
         phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
 
         # Longitude axis
@@ -595,8 +596,8 @@ module Plot
                 while changed
                     changed = false
                     dp  = abs(phase_[i+1] - phase_[i])
-                    dpp = abs(phase_[i+1]+360. - phase_[i])
-                    dpm = abs(phase_[i+1]-360. - phase_[i])
+                    dpp = abs(phase_[i+1] + 360. - phase_[i])
+                    dpm = abs(phase_[i+1] - 360. - phase_[i])
                     if dpp < dp
                         phase_[i+1] += 360
                         changed = true
@@ -624,7 +625,7 @@ module Plot
         xlim(maximum(spectrum)*1.1, -0.1)
         ylabel("Fluctuation frequency (P/P₃)")
 
-        # Main panel: LRFS
+        # Main panel: LRFS map
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         imshow(amp, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
             extent=[longitude[1], longitude[end], freq[1], freq[end]],
@@ -632,14 +633,14 @@ module Plot
         tick_params(left=false, labelleft=false)
         xlabel("Longitude (°)")
 
-        # Phase panel
+        # Top panel: phase
         ax_phase = axes([0.17, 0.94, 0.82, 0.05])
         scatter(longitude, phase_, s=2, c="grey")
         xticks([])
         yticks([-180, -90, 0, 90, 180])
         ylabel("Phase (°)", labelpad=10)
 
-        # Profile panel
+        # Bottom panel: average profile
         ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
         plot(longitude, profile, color="grey")
         axvline(x=0.0, ls=":", c="black")
@@ -647,10 +648,11 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("Longitude (°)")
 
-        # Save
+        # Save figures
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
 
+        # Show if requested
         if show_
             show()
             println("Press Enter to close the figure.")
@@ -658,6 +660,7 @@ module Plot
         end
         close()
     end
+
 
         
 
