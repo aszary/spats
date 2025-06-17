@@ -545,9 +545,21 @@ module Plot
         p = params
         bin_st = p["bin_st"]
         bin_end = p["bin_end"]
-        num, bins = size(data)
 
-        # Zabezpieczenie przed wyjściem poza zakres
+
+        # Check whether data has 3 dimensions - if yes - get real + imag
+        if ndims(data) == 3
+            # We assume: 1 = real, 2 = imag 
+            real_part = data[:, :, 1]
+            imag_part = data[:, :, 2]
+            data = complex.(real_part, imag_part)
+        end
+
+        num, bins = size(data)
+        data = data[:, bin_st:bin_end]
+
+
+        # Safety in case we get out of the index
         bin_st = clamp(bin_st, 1, bins)
         bin_end = clamp(bin_end, bin_st, bins)
 
