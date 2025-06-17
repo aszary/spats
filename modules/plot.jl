@@ -618,13 +618,11 @@ module Plot
         xlim(maximum(spectrum)*1.1, -0.1)
         ylabel("Fluctuation frequency (P/P₃)")
 
-        # Main panel: amplitude map
+        # === Main panel: simple LRFS===
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
-        imshow(amp, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
-            extent=[longitude[1], longitude[end], freq[1], freq[end]],
-            vmax=darkness * maximum(amp))
-        tick_params(left=false, labelleft=false)
-        xlabel("Longitude (°)")
+        imshow(abs.(lrfs_complex), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+            vmax=darkness * maximum(abs.(lrfs_complex)))
+        tick_params(left=false, labelleft=false, bottom=false, labelbottom=false)
 
         # Top panel: phase
         ax_phase = axes([0.17, 0.94, 0.82, 0.05])
@@ -652,6 +650,7 @@ module Plot
         end
         close()
     end
+
 
 
 
