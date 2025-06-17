@@ -2,6 +2,8 @@ module Data
     using Glob
     using FITSIO
     using ProgressMeter
+    using CairoMakie 
+    using FileIO
 
     include("functions.jl")
     include("tools.jl")
@@ -354,17 +356,14 @@ module Data
 
         end
     end
-    using CairoMakie, FileIO
 
-
-function combine_pngs_in_subdirs(base_output_dir::String)
-    for (dirpath, _, _) in walkdir(base_output_dir)
-        png_paths = sort(filter(f -> endswith(lowercase(f), ".png"),
-            collect(walkdir(dirpath)) do (root, _, files)
-                joinpath.(root, files)
-            end |> Iterators.flatten))
-
-        isempty(png_paths) && continue
+function combine_4page(outdir::String)
+      png_paths = sort([
+        joinpath(root, file)
+        for (root, _, files) in walkdir(outdir)
+        for file in files
+        if endswith(lowercase(file), ".png")
+    ])
 
         pulsar_name = splitpath(dirpath)[end]
         output_pdf_path = joinpath(dirpath, "$(pulsar_name)_4.pdf")
