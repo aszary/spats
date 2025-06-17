@@ -572,6 +572,7 @@ module Plot
         #tick_params(labeltop=false, labelbottom=true)
         println("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.pdf")
+        savefig("$outdir/$(name_mod)_lrfs.png")
         savefig("$outdir/$(name_mod)_lrfs.svg")
         if show_ == true
             show()

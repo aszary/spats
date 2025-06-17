@@ -157,7 +157,7 @@ end
         
 
         # Step 8: Debase the combined ASCII file using pmod
-       # debased_file = replace(out_txt, ".txt" => ".debase.gg")
+        debased_file = replace(out_txt, ".txt" => ".debase.gg")
         #run(pipeline(`pmod -device "/xw" -debase $out_txt`, `tee pmod_output.txt`))
     
         # Read captured output and cleanup
@@ -525,7 +525,6 @@ function combine_pngs_to_pdf(output_dir::String)
     ])
 
     if isempty(png_paths)
-        println("No PNG files found in $output_dir")
         return
     end
 
@@ -549,15 +548,8 @@ function combine_pngs_to_pdf(output_dir::String)
         row = div((i - 1), 2) % 2 + 1
         col = (i - 1) % 2 + 1
         ax = Axis(fig[row, col])
-
-        try
-            img = load(path)
-            image!(ax, img)
-            ax.title = basename(path)
-        catch e
-            @warn "Failed to load image: $path" exception=(e, catch_backtrace())
-            ax.title = "Error: $(basename(path))"
-        end
+        image!(ax, load(path))
+        ax.title = basename(path)
     end
 
     if fig !== nothing
@@ -566,16 +558,16 @@ function combine_pngs_to_pdf(output_dir::String)
 
     # Save each figure as separate PDF pages
     pdf_paths = String[]
-    for (idx, page) in enumerate(pages)
-        pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_page_$(idx).pdf")
+    for (k, page) in enumerate(pages)
+        pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_page_$(k).pdf")
         CairoMakie.save(pdf_path, page)
         push!(pdf_paths, pdf_path)
     end
 
-    println("Saved individual PDF pages to: $output_pdf_dir")
 
 
-    
+    #= One comand on kopernik
+
     # Now combine all PDFs into one using pdfunite
     combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
     try
@@ -584,7 +576,8 @@ function combine_pngs_to_pdf(output_dir::String)
     println("Running command: ", cmd)
     run(cmd)
     println("Combined PDF created at: $combined_pdf_path")
-    
+    =#
+
     # Remove individual pdf files after combining
     for pdf in pdf_paths
         try
