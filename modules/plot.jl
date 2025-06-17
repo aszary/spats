@@ -603,7 +603,6 @@ module Plot
         end
 
         # === Plotting ===
-        using PyPlot
         rc("font", size=7)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
