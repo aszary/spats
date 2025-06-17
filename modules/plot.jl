@@ -556,9 +556,10 @@ module Plot
         signal_width = bin_end - bin_st + 1
 
         # === Extract complex LRFS ===
-        real_part = data[:, bin_st:bin_end-1, 1]  # real
-        imag_part = data[:, bin_st+1:bin_end, 2]  # imaginary (shifted)
-        lrfs_complex = ComplexF64.(real_part .+ imag_part .* im)
+        # Take the same bin range for both real and imaginary parts to form a complex matrix (num x signal_width)
+        real_part = data[:, bin_st:bin_end, 1]  # real part
+        imag_part = data[:, bin_st:bin_end, 2]  # imaginary part
+        lrfs_complex = ComplexF64.(real_part .+ imag_part .* im)  # complex LRFS matrix
 
         # === Amplitude (main panel) ===
         amp = abs.(lrfs_complex)
@@ -571,15 +572,16 @@ module Plot
 
         # === Frequency axis ===
         freq = collect(0:(num-1)) ./ num
-        peak = argmax(spectrum[2:end]) + 1  # skip DC (freq=0)
+        peak = argmax(spectrum[2:end]) + 1  # skip DC component at freq=0
         println("\tPeak freq: $(freq[peak]), P3 = $(1/freq[peak])")
 
-        # === Phase at peak ===
-        phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
+        # === Phase at peak frequency ===
+        phase_ = rad2deg.(angle.(lrfs_complex[peak, :]))
 
         # === Longitude axis ===
+        # The longitude axis has the same length as signal_width and is centered around zero
         dl = 360 * signal_width / bins
-        longitude = range(-dl/2, dl/2, length=signal_width - 1)
+        longitude = range(-dl/2, dl/2, length=signal_width)
         println("Longitude resolution = $(longitude[2] - longitude[1]) deg")
 
         # === Phase unwrapping ===
@@ -602,12 +604,12 @@ module Plot
             end
         end
 
-        # === Plotting ===
+        # === Plotting settings ===
         rc("font", size=7)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(6, 7))  # ~15.24 cm × 17.78 cm
+        figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
         subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         # --- LEFT PANEL: intensity vs frequency ---
@@ -617,16 +619,16 @@ module Plot
         xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
 
-        # Optional: add custom Y ticks (0.0 to 0.5 every 0.1)
+        # --- Custom Y ticks (0.0 to 0.5 every 0.1) ---
         ytick_values = 0.0:0.1:0.5
         ytick_positions = freq[1] .+ ytick_values .* (freq[end] - freq[1]) / 0.5
         yticks(ytick_positions, string.(ytick_values))
 
         # --- MAIN PANEL: LRFS map ---
         ax_main = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
-        imshow(abs.(lrfs_complex), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+        imshow(amp, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
             extent=[longitude[1], longitude[end], freq[1], freq[end]],
-            vmax=darkness * maximum(abs.(lrfs_complex)))
+            vmax=darkness * maximum(amp))
         tick_params(labelleft=false, labelbottom=false)
 
         # --- TOP PANEL: phase ---
@@ -644,8 +646,7 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("Longitude (°)")
 
-
-        # === Save ===
+        # === Save figures ===
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
 
@@ -656,6 +657,8 @@ module Plot
         end
         close()
     end
+
+
 
 
 
