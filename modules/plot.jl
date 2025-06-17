@@ -614,7 +614,8 @@ module Plot
         tick_params(labelleft=false, labelbottom=false)
 
         # --- TOP PANEL: phase ---
-        ax_phase = axes([0.17, 0.94, 0.82, 0.05])
+        ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
+        #ax_phase = axes([0.17, 0.94, 0.82, 0.05])
         scatter(longitude, phase_, s=2, c="grey")
         xticks([])
         yticks([-180, -90, 0, 90, 180])
