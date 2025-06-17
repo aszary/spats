@@ -607,37 +607,43 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(6, 7))  # 8cm × 11cm
+        figure(figsize=(6, 7))  # ~15.24 cm × 17.78 cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
-        # Left panel: power spectrum
-        ax_left = subplot2grid((4,3), (0,0), rowspan=3)
+        # --- LEFT PANEL: intensity vs frequency ---
+        ax_left = subplot2grid((5, 3), (1, 0), rowspan=3)
         plot(spectrum, freq, color="grey")
         ylim(freq[1], freq[end])
-        xticks([maximum(spectrum)])
-        xlim(maximum(spectrum)*1.1, -0.1)
+        xticks([])
         ylabel("Fluctuation frequency (P/P₃)")
 
-        # === Main panel: simple LRFS===
-        ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
-        imshow(abs.(lrfs_complex), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
-            vmax=darkness * maximum(abs.(lrfs_complex)))
-        tick_params(left=false, labelleft=false, bottom=false, labelbottom=false)
+        # Optional: add custom Y ticks (0.0 to 0.5 every 0.1)
+        ytick_values = 0.0:0.1:0.5
+        ytick_positions = freq[1] .+ ytick_values .* (freq[end] - freq[1]) / 0.5
+        yticks(ytick_positions, string.(ytick_values))
 
-        # Top panel: phase
+        # --- MAIN PANEL: LRFS map ---
+        ax_main = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
+        imshow(abs.(lrfs_complex), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+            extent=[longitude[1], longitude[end], freq[1], freq[end]],
+            vmax=darkness * maximum(abs.(lrfs_complex)))
+        tick_params(labelleft=false, labelbottom=false)
+
+        # --- TOP PANEL: phase ---
         ax_phase = axes([0.17, 0.94, 0.82, 0.05])
         scatter(longitude, phase_, s=2, c="grey")
         xticks([])
         yticks([-180, -90, 0, 90, 180])
         ylabel("Phase (°)", labelpad=10)
 
-        # Bottom panel: mean profile
-        ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
+        # --- BOTTOM PANEL: mean profile ---
+        ax_bottom = subplot2grid((5, 3), (4, 1), colspan=2)
         plot(longitude, profile, color="grey")
         axvline(x=0.0, ls=":", c="black")
         yticks([])
         xlim(longitude[1], longitude[end])
         xlabel("Longitude (°)")
+
 
         # === Save ===
         savefig("$outdir/$(name_mod)_lrfs.pdf")
