@@ -541,47 +541,48 @@ module Plot
 
     # TODO start here
 
-    function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME", show_=false, change_fftphase=true)
+    function lrfs(data, outdir, params;
+              cmap="viridis", darkness=0.5, name_mod="PSR_NAME",
+              show_=false, change_fftphase=true)
+
+        # === Parameters and shape ===
         p = params
         bin_st = p["bin_st"]
         bin_end = p["bin_end"]
-        num, bins = size(data)
+        num, bins, _ = size(data)
 
         @assert bin_st >= 1 && bin_end <= bins "bin_st and bin_end are out of bounds"
 
         signal_width = bin_end - bin_st + 1
 
-        # Assume LRFS is stored in 3D array: (time, bins, real/imag pairs)
-        # Extract only the real and imaginary parts (e.g., channel 1 = real, 2 = imag)
-        real_part = data[:, bin_st:bin_end-1, 1]  # e.g. index 1 = real part
-        imag_part = data[:, bin_st+1:bin_end, 2]  # e.g. index 2 = imaginary part
-
+        # === Extract complex LRFS ===
+        real_part = data[:, bin_st:bin_end-1, 1]  # real
+        imag_part = data[:, bin_st+1:bin_end, 2]  # imaginary (shifted)
         lrfs_complex = ComplexF64.(real_part .+ imag_part .* im)
 
-        # Amplitude map
+        # === Amplitude (main panel) ===
         amp = abs.(lrfs_complex)
 
-        # Mean profile along pulse numbers
+        # === Mean profile (bottom panel) ===
         profile = mean(real.(lrfs_complex), dims=1)[1, :]
 
-        # Total power spectrum (summed over longitude bins)
+        # === Power spectrum (left panel) ===
         spectrum = sum(amp, dims=2)[:, 1]
 
-        # Fluctuation frequency axis
+        # === Frequency axis ===
         freq = collect(0:(num-1)) ./ num
-        peak = argmax(spectrum[2:end]) + 1
+        peak = argmax(spectrum[2:end]) + 1  # skip DC (freq=0)
         println("\tPeak freq: $(freq[peak]), P3 = $(1/freq[peak])")
 
-        # Phase at the peak frequency
+        # === Phase at peak ===
         phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
 
-        # Longitude axis (degrees)
+        # === Longitude axis ===
         dl = 360 * signal_width / bins
-        longitude = collect(range(-dl/2, dl/2, length=signal_width-1))
-
+        longitude = range(-dl/2, dl/2, length=signal_width - 1)
         println("Longitude resolution = $(longitude[2] - longitude[1]) deg")
 
-        # Unwrap phase for visual continuity
+        # === Phase unwrapping ===
         if change_fftphase
             for i in 1:length(phase_)-1
                 changed = true
@@ -601,12 +602,13 @@ module Plot
             end
         end
 
-        # Plotting settings
+        # === Plotting ===
+        using PyPlot
         rc("font", size=7)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        figure(figsize=(3.14961, 4.33071))  # 8cm × 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         # Left panel: power spectrum
@@ -625,7 +627,7 @@ module Plot
         tick_params(left=false, labelleft=false)
         xlabel("Longitude (°)")
 
-        # Top phase panel
+        # Top panel: phase
         ax_phase = axes([0.17, 0.94, 0.82, 0.05])
         scatter(longitude, phase_, s=2, c="grey")
         xticks([])
@@ -640,7 +642,7 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("Longitude (°)")
 
-        # Save to files
+        # === Save ===
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
 
@@ -651,6 +653,7 @@ module Plot
         end
         close()
     end
+
 
 
 
