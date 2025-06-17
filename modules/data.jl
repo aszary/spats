@@ -364,8 +364,8 @@ function combine_4page(outdir::String)
             for file in files
                 if endswith(lowercase(file), ".png")])
 
-        pulsar_name = splitpath(dirpath)[end]
-        output_pdf_path = joinpath(dirpath, "$(pulsar_name)_4.pdf")
+        pulsar_name = splitpath(outdir)[end]
+        output_pdf_path = joinpath(outdir, "$(pulsar_name)_4.pdf")
 
         pages, fig = Figure[], nothing
         for (i, path) in enumerate(png_paths)
