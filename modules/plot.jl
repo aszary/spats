@@ -543,11 +543,16 @@ module Plot
 
     function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME", show_=false, change_fftphase=true)
 
-        p = params
         bin_st = p["bin_st"]
         bin_end = p["bin_end"]
         num, bins = size(data)
+
+        # Zabezpieczenie przed wyjściem poza zakres
+        bin_st = clamp(bin_st, 1, bins)
+        bin_end = clamp(bin_end, bin_st, bins)
+
         data = data[:, bin_st:bin_end]
+
 
         # Reconstruct complex data
         lrfs_complex = reshape(ComplexF64.(data[:, 1] + data[:, 2] * im), num, :)
