@@ -361,9 +361,8 @@ function combine_4page(outdir::String)
       png_paths = sort([
         joinpath(root, file)
         for (root, _, files) in walkdir(outdir)
-        for file in files
-        if endswith(lowercase(file), ".png")
-    ])
+            for file in files
+                if endswith(lowercase(file), ".png")])
 
         pulsar_name = splitpath(dirpath)[end]
         output_pdf_path = joinpath(dirpath, "$(pulsar_name)_4.pdf")
@@ -386,7 +385,7 @@ function combine_4page(outdir::String)
 
         println("Saved: $output_pdf_path")
        # println(raw"pdfunite $(find /home/psr/output/ -type f -name '*_4.pdf' | sort) /home/psr/final_combined.pdf")
-    end
+    
 end
 
 
