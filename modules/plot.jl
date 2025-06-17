@@ -255,6 +255,7 @@ module Plot
         println("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
+        savefig("$outdir/$(name_mod)_lrfs.png")
         if show_ == true
             show()
             println("Press Enter to close the figure.")
@@ -398,7 +399,9 @@ module Plot
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
         savefig(savepath)
-
+        savepath2 = "$outdir/$(name_mod)_2dfs.png"
+        println(savepath2)
+        savefig(savepath2)
         if show_ == true
             show()
             println("Press Enter to close the figure.")

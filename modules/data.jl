@@ -354,5 +354,42 @@ module Data
 
         end
     end
+    using CairoMakie, FileIO
+
+
+function combine_pngs_in_subdirs(base_output_dir::String)
+    for (dirpath, _, _) in walkdir(base_output_dir)
+        png_paths = sort(filter(f -> endswith(lowercase(f), ".png"),
+            collect(walkdir(dirpath)) do (root, _, files)
+                joinpath.(root, files)
+            end |> Iterators.flatten))
+
+        isempty(png_paths) && continue
+
+        pulsar_name = splitpath(dirpath)[end]
+        output_pdf_path = joinpath(dirpath, "$(pulsar_name)_4.pdf")
+
+        pages, fig = Figure[], nothing
+        for (i, path) in enumerate(png_paths)
+            if (i - 1) % 4 == 0
+                fig !== nothing && push!(pages, fig)
+                fig = Figure(resolution = (800, 800))
+            end
+
+            row, col = div((i - 1), 2) % 2 + 1, (i - 1) % 2 + 1
+            ax = Axis(fig[row, col])
+            image!(ax, load(path))
+            ax.title = basename(path)
+
+        end
+        fig !== nothing && push!(pages, fig)
+
+        CairoMakie.save(output_pdf_path, pages...)
+        println("Saved: $output_pdf_path")
+        println("pdfunite $(find /home/psr/output/ -type f -name '*_4.pdf' | sort) /home/psr/final_combined.pdf")
+    end
+end
+
+
 
 end # module
