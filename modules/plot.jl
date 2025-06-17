@@ -541,110 +541,94 @@ module Plot
 
     # TODO start here
 
-    function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME", show_=false)
+    function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME", show_=false, change_fftphase=true)
+
         p = params
         bin_st = p["bin_st"]
         bin_end = p["bin_end"]
+        num, bins = size(data)
+        data = data[:, bin_st:bin_end]
 
-        num, cols = size(data)
-        # Safety clamp for bin range
-        bin_st = clamp(bin_st, 1, cols)
-        bin_end = clamp(bin_end, bin_st, cols)
+        # Reconstruct complex data
+        lrfs_complex = reshape(ComplexF64.(data[:, 1] + data[:, 2] * im), num, :)
 
-        # Reconstruct complex data from columns 1 and 2
-        lrfs_complex = ComplexF64.(data[:, 1], data[:, 2])
-
-        # Select bins range (if relevant, depends on data structure)
-        # If data is only 2 columns, bin range may be irrelevant - wtedy pomijamy
-
-        # Compute amplitude and frequency axis
+        # Power spectrum and profile
         amp = abs.(lrfs_complex)
-        freq = collect(0:num-1) ./ num
+        profile = mean(real.(lrfs_complex), dims=1)[1, :]
+        spectrum = sum(amp, dims=2)[:, 1]
 
-        # Power spectrum
-        spectrum = amp
-
-        # Find peak
-        peak = argmax(spectrum[2:end]) + 1
+        # Frequency axis
+        freq = collect(0:(num-1)) ./ num
+        peak = argmax(spectrum[2:end]) + 1  # skip zero freq
         println("\tPeak freq: $(freq[peak]), P3 = $(1/freq[peak])")
 
-        # Phase unwrap
-        phase_ = rad2deg.(angle.(lrfs_complex))
+        # Phase
+        phase_ = rad2deg.(angle.(view(lrfs_complex, peak, :)))
 
-        # Longitude axis - If doesn't exist we can skip it or make it base on params file.
-        longitude = collect(range(-180, 180, length=num))
+        # Longitude axis
+        db = bin_end - bin_st + 1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+        println("Longitude resolution = $(longitude[2]-longitude[1]) deg")
 
-        # Unwrap phase continuity (simple)
-        for i in 1:length(phase_)-1
-            while abs(phase_[i+1] - phase_[i]) > 180
-                if phase_[i+1] > phase_[i]
-                    phase_[i+1] -= 360
-                else
-                    phase_[i+1] += 360
+        # Fix phase continuity
+        if change_fftphase
+            for i in 1:length(phase_)-1
+                changed = true
+                while changed
+                    changed = false
+                    dp  = abs(phase_[i+1] - phase_[i])
+                    dpp = abs(phase_[i+1]+360. - phase_[i])
+                    dpm = abs(phase_[i+1]-360. - phase_[i])
+                    if dpp < dp
+                        phase_[i+1] += 360
+                        changed = true
+                    elseif dpm < dp
+                        phase_[i+1] -= 360
+                        changed = true
+                    end
                 end
             end
         end
 
-
-        # Compute longitude axis
-        db = bins
-        dl = 360. * db / (cols ÷ 2)  # assuming half of the columns are bins
-        longitude = collect(range(-dl/2, dl/2, length=db))
-
-        # Plot settings
+        # Plot
         rc("font", size=7)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(6, 6))
-        subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0.0, hspace=0.0)
+        figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
+        subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
-        # Top panel: FFT phase
-        ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
-        scatter(longitude, phase_, marker=".", c="grey", s=3)
-        ax_phase.xaxis.set_label_position("top")
-        ax_phase.xaxis.set_ticks_position("top")
-        xlabel("Phase \\(^\\circ\\)")
-
-        ylims = ax_phase.get_ylim()
-        ymin, ymax = ylims
-        nticks = 9
-        ytick_positions = range(ymin, ymax, length=nticks)
-        ytick_labels = string.(-180:45:180)
-
-        ax_phase.set_yticks(collect(ytick_positions))
-        ax_phase.set_yticklabels(ytick_labels)
-
-        tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
-
-        # Left panel: intensity vs. fluctuation frequency
-        pulses = collect(start:start+number-1)
-        average_y = sum(abs.(lrfs_complex[start:start+number-1, :]), dims=2)[:,1]
-
-        ax_intensity = subplot2grid((5, 3), (1, 0), rowspan=3)
-        plot(average_y, pulses, color="grey")
-        ylim(pulses[1], pulses[end])
-        xticks([])
+        # Left panel: fluctuation spectrum
+        ax_left = subplot2grid((4,3), (0,0), rowspan=3)
+        plot(spectrum, freq, color="grey")
+        ylim(freq[1], freq[end])
+        xticks([maximum(spectrum)])
+        xlim(maximum(spectrum)*1.1, -0.1)
         ylabel("Fluctuation frequency (P/P₃)")
 
-        ytick_values = 0.0:0.1:0.5
-        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
-        yticks(ytick_positions, string.(ytick_values))
+        # Main panel: LRFS
+        ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
+        imshow(amp, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+            extent=[longitude[1], longitude[end], freq[1], freq[end]],
+            vmax=darkness * maximum(amp))
+        tick_params(left=false, labelleft=false)
+        xlabel("Longitude (°)")
 
-        # Main panel: LRFS map
-        ax_lrfs = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
-        imshow(abs.(lrfs_complex), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
-            vmax=darkness * maximum(abs.(lrfs_complex)))
-        tick_params(labelleft=false, labelbottom=false)
+        # Phase panel
+        ax_phase = axes([0.17, 0.94, 0.82, 0.05])
+        scatter(longitude, phase_, s=2, c="grey")
+        xticks([])
+        yticks([-180, -90, 0, 90, 180])
+        ylabel("Phase (°)", labelpad=10)
 
-        # Bottom panel: mean profile
-        ax_profile = subplot2grid((5, 3), (4, 1), colspan=2)
-        average_profile = mean(real.(lrfs_complex), dims=1)[:]
-        plot(longitude, average_profile, c="grey")
+        # Profile panel
+        ax_bottom = subplot2grid((4,3), (3,1), colspan=2)
+        plot(longitude, profile, color="grey")
         axvline(x=0.0, ls=":", c="black")
         yticks([])
         xlim(longitude[1], longitude[end])
-        xlabel("longitude \\(^\\circ\\)")
+        xlabel("Longitude (°)")
 
         # Save
         savefig("$outdir/$(name_mod)_lrfs.pdf")
@@ -655,7 +639,6 @@ module Plot
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
-
         close()
     end
 
