@@ -543,7 +543,7 @@ module Plot
 
     function lrfs(data, outdir, params;
               cmap="viridis", darkness=0.5, name_mod="PSR_NAME",
-              show_=false, change_fftphase=true)
+              show_=false)
 
         # === Parameters and shape ===
         p = params
@@ -584,25 +584,7 @@ module Plot
         longitude = range(-dl/2, dl/2, length=signal_width)
         println("Longitude resolution = $(longitude[2] - longitude[1]) deg")
 
-        # === Phase unwrapping ===
-        if change_fftphase
-            for i in 1:length(phase_)-1
-                changed = true
-                while changed
-                    changed = false
-                    dp  = abs(phase_[i+1] - phase_[i])
-                    dpp = abs(phase_[i+1] + 360 - phase_[i])
-                    dpm = abs(phase_[i+1] - 360 - phase_[i])
-                    if dpp < dp
-                        phase_[i+1] += 360
-                        changed = true
-                    elseif dpm < dp
-                        phase_[i+1] -= 360
-                        changed = true
-                    end
-                end
-            end
-        end
+
 
         # === Plotting settings ===
         rc("font", size=7)
