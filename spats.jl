@@ -51,9 +51,7 @@ module SpaTs
         # ADD Data.twodfs_lrfs...
         Data.twodfs_lrfs(debased_file, outdir, p)
         # TODO read file  pulsar.debase.lrfs (but make file name based on debased_file)
-        println(debased_file)
         lrfs_file = replace(debased_file, "gg"=>"lrfs")
-        println(lrfs_file)
         data = Data.load_ascii_all(lrfs_file)
         Plot.lrfs(data, outdir, p; darkness=0.3, name_mod="pulsar", show_=true)
 
