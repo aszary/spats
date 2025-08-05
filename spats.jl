@@ -54,7 +54,9 @@ module SpaTs
         lrfs_file = replace(debased_file, "gg"=>"lrfs")
         data = Data.load_ascii_all(lrfs_file)
         Plot.lrfs(data, outdir, p; darkness=0.3, name_mod="pulsar", show_=true)
-
+        2dfs_file = replace(debased_file, "gg"=>"1.2dfs")
+        data_2dfs = Data.load_ascii_all(2dfs_file)
+        Plot.twodfs(data_2dfs, outdir, p; darkness=0.3, name_mod="pulsar", show_=true)
         #folded = Data.load_ascii(joinpath(outdir, "pulsar.debase.p3fold"))
         #Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=true, repeat_num=4)        
 
