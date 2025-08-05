@@ -252,9 +252,9 @@ module Plot
         xlim(longitude[1], longitude[end])
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
-        println("$outdir/$(name_mod)_lrfs.pdf")
-        savefig("$outdir/$(name_mod)_lrfs.pdf")
-        savefig("$outdir/$(name_mod)_lrfs.svg")
+        println("$outdir/$(name_mod)_lrfs_obsolete.pdf")
+        savefig("$outdir/$(name_mod)_lrfs_obsolete.pdf")
+        savefig("$outdir/$(name_mod)_lrf_obsolete.svg")
         if show_ == true
             show()
             println("Press Enter to close the figure.")
