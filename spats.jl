@@ -35,8 +35,8 @@ module SpaTs
 
 
     function test3(indir, outdir)
-        #p = Data.process_psrdata(indir, outdir)
-        #Data.convert_psrfit_ascii(joinpath(outdir, "pulsar.debase.gg"), joinpath(outdir, "pulsar.debase.txt"))
+        p = Data.process_psrdata(indir, outdir)
+        Data.convert_psrfit_ascii(joinpath(outdir, "pulsar.debase.gg"), joinpath(outdir, "pulsar.debase.txt"))
         p = Tools.read_params(joinpath(outdir, "params.json"))
         d4 = Data.load_ascii_all(joinpath(outdir, "pulsar.debase.txt"))
         d1 = Data.clean(d4; threshold=0.31)
