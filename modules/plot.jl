@@ -541,8 +541,7 @@ module Plot
 
     # TODO start here
 
-    function lrfs(data, outdir, params;
-              cmap="viridis", darkness=0.5, name_mod="PSR_NAME",
+    function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME",
               show_=false)
 
         # === Parameters and shape ===
