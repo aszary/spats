@@ -549,7 +549,7 @@ module Plot
         p = params
         bin_st = p["bin_st"]
         bin_end = p["bin_end"]
-        num, bins, _ = size(data)
+        num, bins = size(data)
 
         #@assert bin_st >= 1 && bin_end <= bins "bin_st and bin_end are out of bounds"
 
