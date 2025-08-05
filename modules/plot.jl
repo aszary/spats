@@ -629,8 +629,10 @@ module Plot
         xlabel("Longitude (°)")
 
         # === Save figures ===
+        println("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.pdf")
         savefig("$outdir/$(name_mod)_lrfs.svg")
+        savefig("$outdir/$(name_mod)_lrfs.png")
 
         if show_
             show()
