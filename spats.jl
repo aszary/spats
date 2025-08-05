@@ -52,6 +52,9 @@ module SpaTs
         Data.twodfs_lrfs(debased_file, outdir, p)
         # TODO read file  pulsar.debase.lrfs (but make file name based on debased_file)
         #data =  coś("pulsar.debase.lrfs")
+        data = Data.load_ascii_all(lrfs_file)
+
+
         Plot.lrfs(data, outdir, p; darkness=0.3, name_mod="pulsar", show_=true)
 
         #folded = Data.load_ascii(joinpath(outdir, "pulsar.debase.p3fold"))
