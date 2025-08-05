@@ -355,4 +355,43 @@ module Data
         end
     end
 
+    """
+        clean(data; threshold=0.7)
+
+    Filter polarization data based on the ratio of linear polarization to intensity.
+
+    # Arguments
+    - `data`: 3D array with dimensions (num, bins, npol) containing polarization data
+    - `data[:, :, 1]`: Stokes I intensity
+    - `data[:, :, 2]`: Stokes Q parameter  
+    - `data[:, :, 3]`: Stokes U parameter
+    - `threshold`: filtering threshold (default 0.7) - minimum value for L/I ratio
+
+    # Returns
+    - `data_clean`: 2D array containing only intensity I for points meeting the L/I > threshold criterion
+
+    # Description
+    The function calculates linear polarization L = √(Q² + U²) for each data point and retains 
+    only those points where the ratio of linear polarization to intensity exceeds the given threshold.
+    """
+    function clean(data; threshold=0.7)
+        # four polarisation data
+        num, bins, npol = size(data)
+        data_clean = zeros(num, bins)
+        for i in 1:num
+            for j in 1:bins 
+                I = data[i, j, 1]
+                Q = data[i, j, 2]
+                U = data[i, j, 3]
+                L = sqrt(Q^2 + U^2)
+                if L / I > threshold
+                    data_clean[i, j] = I
+                end
+            end
+        end
+        return data_clean
+    end
+
+
+
 end # module
