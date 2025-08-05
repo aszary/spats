@@ -48,8 +48,6 @@ module SpaTs
 
     end
 
-
-
     function process_psrdata(indir, outdir)
         p = Data.process_psrdata(indir, outdir)
         folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
