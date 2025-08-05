@@ -52,6 +52,8 @@ module SpaTs
         Data.twodfs_lrfs(debased_file, outdir, p)
         # TODO read file  pulsar.debase.lrfs (but make file name based on debased_file)
         #data =  coś("pulsar.debase.lrfs")
+        println(debased_file)
+        lrfs_file = debased_file.replace()
         data = Data.load_ascii_all(lrfs_file)
 
 
