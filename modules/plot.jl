@@ -346,7 +346,7 @@ module Plot
         st = p["bin_st"]
         en = p["bin_end"]
         nbin = p["nbin"]
-        signal_width = en - st + 1
+        signal_width = en - st + 1 # TODO make proper range 
 
         # main panel data
         da = data 
