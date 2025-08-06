@@ -343,7 +343,13 @@ module Data
             println("\n\n"*"#"^79*"\n"*"#"^79*"\n"*"#"^79)
             println("Processing pulsar: ", name)
             println(out_dir)
-            #exit()
+            
+            # TODO temporatory fix
+            if isfile(joinpath(out_dir,"pulsar_single.pdf"))
+                println("SKIPPING pulsar #name !!!!")
+                return
+            end
+
             # Creates out_dir if does not exists...
             if !isdir(out_dir)
                 mkpath(out_dir)
