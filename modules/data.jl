@@ -355,13 +355,17 @@ module Data
                 mkpath(out_dir)
                 println("Created output directory: ", out_dir)
             end
-           
-            # process data
-            p = process_psrdata(data_dir, out_dir)
-            
-            # plot data
-            plot_psrdata(out_dir, p)
 
+            # TODO temporatory fix
+            try
+                # process data
+                p = process_psrdata(data_dir, out_dir)
+            
+                # plot data
+                plot_psrdata(out_dir, p)
+            catch
+                println("ERROR in pulsar $name !!!!\n\n")
+            end
         end
     end
 
