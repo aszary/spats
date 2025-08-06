@@ -388,7 +388,7 @@ module Plot
         plot(xbottom, sum_bottom, color="grey")
         plot(-xbottom, sum_bottom, color="orange", ls="--")
         yticks([0., 0.5])
-        xlim(-signal_width/2,signal_width/2)
+        #xlim(-signal_width/2,signal_width/2)
         if !isnothing(average)
             ave = average[st:en]
             xave = collect(range(-signal_width/2, signal_width/2, length=length(ave))) # this is probably wrong..
