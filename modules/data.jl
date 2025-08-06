@@ -372,40 +372,54 @@ module Data
 
 
     function combine_pngs_to_pdf(out_dir::String)
-    # Collect PNG files recursively and sort
-    png_paths = sort([
-        joinpath(root, file)
-        for (root, _, files) in walkdir(out_dir)
-        for file in files
-        if endswith(lowercase(file), ".png")
-    ])
+        # Collect PNG files recursively and sort
+        png_paths = sort([
+            joinpath(root, file)
+            for (root, _, files) in walkdir(out_dir)
+            for file in files
+            if endswith(lowercase(file), ".png")
+        ])
 
-    if isempty(png_paths)
-        return
-    end
-
-    pulsar_name = splitpath(out_dir)[end]
-
-    # Output directory for PDFs (adjust path to your aszary location)
-    output_pdf_dir = "/home/psr/output/"
-    mkpath(output_pdf_dir)
-
-    pages = Makie.Figure[]
-    fig = nothing
-
-    for (i, path) in enumerate(png_paths)
-        if (i - 1) % 4 == 0
-            if fig !== nothing
-                push!(pages, fig)
-            end
-            fig = Figure(resolution = (800, 800))
+        if isempty(png_paths)
+            return
         end
 
-        row = div((i - 1), 2) % 2 + 1
-        col = (i - 1) % 2 + 1
-        ax = Axis(fig[row, col])
-        image!(ax, load(path))
-        ax.title = basename(path)
+        pulsar_name = splitpath(out_dir)[end]
+
+        # Output directory for PDFs (adjust path to your aszary location)
+        output_pdf_dir = "/home/psr/output/"
+        mkpath(output_pdf_dir)
+
+        pages = Makie.Figure[]
+        fig = nothing
+
+        for (i, path) in enumerate(png_paths)
+            if (i - 1) % 4 == 0
+                if fig !== nothing
+                    push!(pages, fig)
+                end
+                fig = Figure(resolution = (800, 800))
+            end
+
+            row = div((i - 1), 2) % 2 + 1
+            col = (i - 1) % 2 + 1
+            ax = Axis(fig[row, col])
+            image!(ax, load(path))
+            ax.title = basename(path)
+        end
+
+        if fig !== nothing
+            push!(pages, fig)
+        end
+
+        # Save each figure as separate PDF pages
+        pdf_paths = String[]
+        for (k, page) in enumerate(pages)
+            pdf_path = joinpath(output_pdf_dir, "full $(pulsar_name)_page_$(k).pdf")
+            CairoMakie.save(pdf_path, page)
+            push!(pdf_paths, pdf_path)
+        end
+
     end
 
     if fig !== nothing
@@ -448,16 +462,6 @@ module Data
     The function calculates linear polarization L = √(Q² + U²) for each data point and retains 
     only those points where the ratio of linear polarization to intensity exceeds the given threshold.
     """
-
-
-
-
-
-
-
-
-
-
     function clean(data; threshold=0.7)
         # four polarisation data
         num, bins, npol = size(data)
