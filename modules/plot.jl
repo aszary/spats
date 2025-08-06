@@ -381,7 +381,7 @@ module Plot
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         im = imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", extent=[xbottom[1], xbottom[end], yleft[1], yleft[end]], vmax=darkness*maximum(da))
         tick_params(left=false, labelleft=false)
-        xlim(-signal_width-40,signal_width+40)
+        xlim(-signal_width,signal_width)
         #xlim(st-512, en - 512)
         #xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
@@ -391,7 +391,7 @@ module Plot
         plot(xbottom, sum_bottom, color="grey")
         plot(-xbottom, sum_bottom, color="orange", ls="--")
         yticks([0., 0.5])
-        xlim(-signal_width-40,signal_width+40)
+        xlim(-signal_width,signal_width)
         #xlim(st-512, en - 512)
         if !isnothing(average)
             ave = average[st:en]
