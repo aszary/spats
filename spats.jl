@@ -35,8 +35,8 @@ module SpaTs
 
 
     function test3(indir, outdir)
-        #p = Data.process_psrdata(indir, outdir)
-        #Data.convert_psrfit_ascii(joinpath(outdir, "pulsar.debase.gg"), joinpath(outdir, "pulsar.debase.txt"))
+        p = Data.process_psrdata(indir, outdir)
+        Data.convert_psrfit_ascii(joinpath(outdir, "pulsar.debase.gg"), joinpath(outdir, "pulsar.debase.txt"))
 
         outfile="pulsar.spCF"
         outfile = joinpath(outdir, outfile)
@@ -46,18 +46,16 @@ module SpaTs
         d4 = Data.load_ascii_all(joinpath(outdir, "pulsar.debase.txt"))
         d1 = Data.clean(d4; threshold=0.0031)
         Plot.single(d1, outdir; darkness=0.5, number=200, bin_st=p["bin_st"], bin_end=p["bin_end"], start=210, name_mod="pulsar", show_=true)
-        #Plot.lrfs_obsolete(d1, outdir; darkness=0.3, start=210, name_mod="pulsar", bin_st=p["bin_st"], bin_end=p["bin_end"], show_=true)
-        # ADD Data.twodfs_lrfs...
+        Plot.lrfs_obsolete(d1, outdir; darkness=0.3, start=210, name_mod="pulsar", bin_st=p["bin_st"], bin_end=p["bin_end"], show_=true)
         Data.twodfs_lrfs(debased_file, outdir, p)
-        # TODO read file  pulsar.debase.lrfs (but make file name based on debased_file)
         lrfs_file = replace(debased_file, "gg"=>"lrfs")
         data = Data.load_ascii_all(lrfs_file)
-        #Plot.lrfs(data, outdir, p; darkness=0.3, name_mod="pulsar", show_=true)
+        Plot.lrfs(data, outdir, p; darkness=0.3, name_mod="pulsar", show_=true)
         twodfs_file = replace(debased_file, "gg"=>"1.2dfs")
         data_2dfs = Data.load_ascii_all(twodfs_file)
         Plot.twodfs(data_2dfs, outdir, p; darkness=0.3, name_mod="pulsar", show_=true)
-        #folded = Data.load_ascii(joinpath(outdir, "pulsar.debase.p3fold"))
-        #Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=true, repeat_num=4)        
+        folded = Data.load_ascii(joinpath(outdir, "pulsar.debase.p3fold"))
+        Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=true, repeat_num=4)        
 
     end
 
@@ -75,10 +73,11 @@ module SpaTs
 
         #test(vpmout)
         #test2(vpmout)
-        test3("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        #test3("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
+        #test3("/home/psr/data/new/J1744-1610/2020-06-12-20:00:13/", vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
 
-        #Data.process_all_data(vpmout)
+        Data.process_all_data(vpmout)
 
     end
 

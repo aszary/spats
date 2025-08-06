@@ -343,19 +343,30 @@ module Data
 
             println("\n\n"*"#"^79*"\n"*"#"^79*"\n"*"#"^79)
             println("Processing pulsar: ", name)
+            println(out_dir)
             
+            # TODO temporatory fix
+            if isfile(joinpath(out_dir,"pulsar_single.pdf"))
+                println("SKIPPING pulsar $name !!!!\n\n")
+                continue 
+            end
+
             # Creates out_dir if does not exists...
             if !isdir(out_dir)
                 mkpath(out_dir)
                 println("Created output directory: ", out_dir)
             end
-           
-            # process data
-            p = process_psrdata(data_dir, out_dir)
-            
-            # plot data
-            plot_psrdata(out_dir, p)
 
+            # TODO temporatory fix
+            try
+                # process data
+                p = process_psrdata(data_dir, out_dir)
+            
+                # plot data
+                plot_psrdata(out_dir, p)
+            catch
+                println("ERROR in pulsar $name !!!!\n\n")
+            end
         end
     end
 

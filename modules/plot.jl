@@ -346,8 +346,9 @@ module Plot
         st = p["bin_st"]
         en = p["bin_end"]
         nbin = p["nbin"]
-        println("num $num bins $bins")
-        signal_width = nbin * (en - st + 1) / bins # en - st + 1 # TODO make proper range 
+        #signal_width = bin * (en - st + 1) / bins # en - st + 1 # TODO make proper range 
+        #signal_width = (en - st + 1) / bins # en - st + 1 # TODO make proper range 
+        signal_width = (en - st + 1) 
 
         # main panel data
         da = data 
@@ -379,7 +380,8 @@ module Plot
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         im = imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", extent=[xbottom[1], xbottom[end], yleft[1], yleft[end]], vmax=darkness*maximum(da))
         tick_params(left=false, labelleft=false)
-        xlim(-signal_width/2,signal_width/2)
+        xlim(-signal_width,signal_width)
+        #xlim(st-512, en - 512)
         #xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
         # Bottom panel
@@ -388,7 +390,8 @@ module Plot
         plot(xbottom, sum_bottom, color="grey")
         plot(-xbottom, sum_bottom, color="orange", ls="--")
         yticks([0., 0.5])
-        xlim(-signal_width/2,signal_width/2)
+        xlim(-signal_width,signal_width)
+        #xlim(st-512, en - 512)
         if !isnothing(average)
             ave = average[st:en]
             xave = collect(range(-signal_width/2, signal_width/2, length=length(ave))) # this is probably wrong..
@@ -399,6 +402,7 @@ module Plot
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
         savefig(savepath)
+        savefig(replace(savepath, "pdf"=>"png"))
 
         if show_ == true
             show()
