@@ -347,7 +347,7 @@ module Plot
         en = p["bin_end"]
         nbin = p["nbin"]
         println("num $num bins $bins")
-        signal_width = en - st + 1 # TODO make proper range 
+        signal_width = nbin * (en - st + 1) / bins # en - st + 1 # TODO make proper range 
 
         # main panel data
         da = data 
