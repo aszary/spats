@@ -384,7 +384,7 @@ module Data
             return
         end
 
-        pulsar_name = splitpath(out_dir)[end]
+        pulsar_name = basename(out_dir)
 
         # Output directory for PDFs (adjust path to your aszary location)
         output_pdf_dir = "/home/psr/output/"
@@ -415,7 +415,7 @@ module Data
         # Save each figure as separate PDF pages
         pdf_paths = String[]
         for (k, page) in enumerate(pages)
-            pdf_path = joinpath(output_pdf_dir, "full $(pulsar_name)_page_$(k).pdf")
+            pdf_path = joinpath(output_pdf_dir, "full_$(pulsar_name)_page_$(k).pdf")
             CairoMakie.save(pdf_path, page)
             push!(pdf_paths, pdf_path)
         end
