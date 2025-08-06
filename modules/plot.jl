@@ -379,7 +379,7 @@ module Plot
         ax_main = subplot2grid((4,3), (0,1), rowspan=3, colspan=2)
         im = imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto", extent=[xbottom[1], xbottom[end], yleft[1], yleft[end]], vmax=darkness*maximum(da))
         tick_params(left=false, labelleft=false)
-        xlim(-signal_width/2,signal_width/2)
+        #xlim(-signal_width/2,signal_width/2)
         #xlabel(raw"Fluctuation frequency $(P/P_2)$")
 
         # Bottom panel
