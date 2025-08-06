@@ -402,6 +402,7 @@ module Plot
         savepath = "$outdir/$(name_mod)_2dfs.pdf"
         println(savepath)
         savefig(savepath)
+        savefig(replace(savepath, "pdf"=>"png"))
 
         if show_ == true
             show()
