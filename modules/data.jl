@@ -423,6 +423,16 @@ module Data
     end
 
 
+    #= 
+    combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
+    try
+    cmd_args = vcat(["pdfunite"], pdf_paths, [combined_pdf_path])
+    cmd = Cmd(cmd_args)
+    println("Running command: ", cmd)
+    run(cmd)
+    println("Combined PDF created at: $combined_pdf_path")
+    =#
+
 
     """
         clean(data; threshold=0.7)
