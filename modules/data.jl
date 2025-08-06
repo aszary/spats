@@ -359,33 +359,12 @@ module Data
         end
     end
 
-    """
-        clean(data; threshold=0.7)
 
-    Filter polarization data based on the ratio of linear polarization to intensity.
-
-    # Arguments
-    - `data`: 3D array with dimensions (num, bins, npol) containing polarization data
-    - `data[:, :, 1]`: Stokes I intensity
-    - `data[:, :, 2]`: Stokes Q parameter  
-    - `data[:, :, 3]`: Stokes U parameter
-    - `threshold`: filtering threshold (default 0.7) - minimum value for L/I ratio
-
-    # Returns
-    - `data_clean`: 2D array containing only intensity I for points meeting the L/I > threshold criterion
-
-    # Description
-    The function calculates linear polarization L = √(Q² + U²) for each data point and retains 
-    only those points where the ratio of linear polarization to intensity exceeds the given threshold.
-    """
-
-
-
-    function combine_pngs_to_pdf(outdir::String)
+    function combine_pngs_to_pdf(out_dir::String)
     # Collect PNG files recursively and sort
     png_paths = sort([
         joinpath(root, file)
-        for (root, _, files) in walkdir(outdir)
+        for (root, _, files) in walkdir(out_dir)
         for file in files
         if endswith(lowercase(file), ".png")
     ])
@@ -394,7 +373,7 @@ module Data
         return
     end
 
-    pulsar_name = splitpath(outdir)[end]
+    pulsar_name = splitpath(out_dir)[end]
 
     # Output directory for PDFs (adjust path to your aszary location)
     output_pdf_dir = "/home/psr/output/"
@@ -425,10 +404,43 @@ module Data
     # Save each figure as separate PDF pages
     pdf_paths = String[]
     for (k, page) in enumerate(pages)
-        pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_page_$(k).pdf")
+        pdf_path = joinpath(output_pdf_dir, "full $(name)_page_$(k).pdf")
         CairoMakie.save(pdf_path, page)
         push!(pdf_paths, pdf_path)
     end
+
+
+
+
+
+
+
+
+
+
+    """
+        clean(data; threshold=0.7)
+
+    Filter polarization data based on the ratio of linear polarization to intensity.
+
+    # Arguments
+    - `data`: 3D array with dimensions (num, bins, npol) containing polarization data
+    - `data[:, :, 1]`: Stokes I intensity
+    - `data[:, :, 2]`: Stokes Q parameter  
+    - `data[:, :, 3]`: Stokes U parameter
+    - `threshold`: filtering threshold (default 0.7) - minimum value for L/I ratio
+
+    # Returns
+    - `data_clean`: 2D array containing only intensity I for points meeting the L/I > threshold criterion
+
+    # Description
+    The function calculates linear polarization L = √(Q² + U²) for each data point and retains 
+    only those points where the ratio of linear polarization to intensity exceeds the given threshold.
+    """
+
+
+
+
 
 
 
