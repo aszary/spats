@@ -421,7 +421,8 @@ module Data
         end
 
         combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
-        cmd_args = vcat(["pdfunite"], replace(pdf_paths, "/home/psr/output/"=>""), [replace(combined_pdf_path, "/home/psr/output/"=>"")])
+        
+        cmd_args = vcat(["pdfunite"], replace.(pdf_paths, "/home/psr/output/"=>""), [replace(combined_pdf_path, "/home/psr/output/"=>"")])
         cmd = Cmd(cmd_args)
         println("Running command: ", cmd)
         #run(cmd)
