@@ -346,8 +346,8 @@ module Data
             
             # TODO temporatory fix
             if isfile(joinpath(out_dir,"pulsar_single.pdf"))
-                println("SKIPPING pulsar #name !!!!\n\n")
-                return
+                println("SKIPPING pulsar $name !!!!\n\n")
+                break
             end
 
             # Creates out_dir if does not exists...
