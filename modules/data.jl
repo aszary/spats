@@ -435,14 +435,7 @@ module Data
     end
 
 
-
-
-
-
-
-
-
-
+    
     """
         clean(data; threshold=0.7)
 
