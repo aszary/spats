@@ -346,7 +346,7 @@ module Data
             
             # TODO temporatory fix
             if isfile(joinpath(out_dir,"pulsar_single.pdf"))
-                println("SKIPPING pulsar #name !!!!")
+                println("SKIPPING pulsar #name !!!!\n\n")
                 return
             end
 
