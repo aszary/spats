@@ -415,7 +415,7 @@ module Data
         # Save each figure as separate PDF pages
         pdf_paths = String[]
         for (k, page) in enumerate(pages)
-            pdf_path = joinpath(output_pdf_dir, "full $(name)_page_$(k).pdf")
+            pdf_path = joinpath(output_pdf_dir, "full $(pulsar_name)_page_$(k).pdf")
             CairoMakie.save(pdf_path, page)
             push!(pdf_paths, pdf_path)
         end
