@@ -343,7 +343,7 @@ module Data
             println("\n\n"*"#"^79*"\n"*"#"^79*"\n"*"#"^79)
             println("Processing pulsar: ", name)
             println(out_dir)
-            exit()
+            #exit()
             # Creates out_dir if does not exists...
             if !isdir(out_dir)
                 mkpath(out_dir)
