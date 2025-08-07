@@ -400,18 +400,29 @@ module Data
                 fig = Figure(resolution = (800, 200 * images_per_page), padding = 0)
             end
             
-            ax = Axis(fig[local_index, 1];
-            xticksvisible = false,
-            yticksvisible = false,
-            xgridvisible = false,
-            ygridvisible = false,
-            leftspinevisible = false,
-            rightspinevisible = false,
-            topspinevisible = false,
-            bottomspinevisible = false,
-            xlabelvisible = false,
-            ylabelvisible = false,
-            titlevisible = false,
+
+        for (i, path) in enumerate(png_paths)
+                if (i - 1) % 4 == 0
+                    if fig !== nothing
+                        push!(pages, fig)
+                    end
+                    fig = Figure(resolution = (800, 800))
+                end
+
+                row = div((i - 1), 2) % 2 + 1
+                col = (i - 1) % 2 + 1
+                ax = Axis(fig[local_index, 1];
+                xticksvisible = false,
+                yticksvisible = false,
+                xgridvisible = false,
+                ygridvisible = false,
+                leftspinevisible = false,
+                rightspinevisible = false,
+                topspinevisible = false,
+                bottomspinevisible = false,
+                xlabelvisible = false,
+                ylabelvisible = false,
+                titlevisible = false,
         )
             image!(ax, load(path))
         end
