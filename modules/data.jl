@@ -414,8 +414,8 @@ module Data
                 rightspinevisible = false,
                 topspinevisible = false, 
                 bottomspinevisible = false,
-                xlabelsvisible = false, 
-                ylabelsvisible = false,
+                xlabelvisible = false, 
+                ylabelvisible = false,
                 titlevisible = false,
             )
 
