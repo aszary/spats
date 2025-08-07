@@ -399,14 +399,20 @@ module Data
                 fig !== nothing && push!(pages, fig)
                 fig = Figure(resolution = (800, 200 * images_per_page), padding = 0)
             end
-
+            
             ax = Axis(fig[local_index, 1];
-                xticks = false, yticks = false,
-                xgridvisible = false, ygridvisible = false,
-                topspinevisible = false, bottomspinevisible = false,
-                leftspinevisible = false, rightspinevisible = false,
-                title = "", padding = 0)
-
+            xticksvisible = false,
+            yticksvisible = false,
+            xgridvisible = false,
+            ygridvisible = false,
+            leftspinevisible = false,
+            rightspinevisible = false,
+            topspinevisible = false,
+            bottomspinevisible = false,
+            xlabelvisible = false,
+            ylabelvisible = false,
+            titlevisible = false,
+        )
             image!(ax, load(path))
         end
 
