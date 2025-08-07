@@ -374,7 +374,6 @@ module Data
 
 
     function combine_pngs_to_pdf(out_dir::String)
-        using CairoMakie, FileIO
 
         # Collect and sort PNG files recursively
         png_paths = sort([
