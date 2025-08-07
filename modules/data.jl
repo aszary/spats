@@ -371,8 +371,12 @@ module Data
     end
 
 
+
+
     function combine_pngs_to_pdf(out_dir::String)
-        # Collect PNG files recursively and sort
+        using CairoMakie, FileIO
+
+        # Collect and sort PNG files recursively
         png_paths = sort([
             joinpath(root, file)
             for (root, _, files) in walkdir(out_dir)
@@ -380,70 +384,54 @@ module Data
             if endswith(lowercase(file), ".png")
         ])
 
-        if isempty(png_paths)
-            return
-        end
+        isempty(png_paths) && return
 
         pulsar_name = basename(out_dir)
-
-        # Output directory for PDFs (adjust path to your aszary location)
         output_pdf_dir = "/home/psr/output/"
         mkpath(output_pdf_dir)
 
-        pages, fig = Figure[], nothing
+        pages = Figure[]
+        pdf_paths = String[]
         images_per_page = 4
 
         for (i, path) in enumerate(png_paths)
-            local_index = (i - 1) % images_per_page + 1
-            if local_index == 1
-                fig !== nothing && push!(pages, fig)
-                fig = Figure(resolution = (800, 200 * images_per_page), padding = 0)
+            page_index = div(i - 1, images_per_page) + 1
+            position_in_page = (i - 1) % images_per_page
+
+            if position_in_page == 0
+                fig = Figure(size = (800, 800))
+                fig.layout.padding = 0
             end
-        end  
 
-        for (i, path) in enumerate(png_paths)
-                if (i - 1) % 4 == 0
-                    if fig !== nothing
-                        push!(pages, fig)
-                    end
-                    fig = Figure(resolution = (800, 800))
-                end
+            row = div(position_in_page, 2) + 1
+            col = mod(position_in_page, 2) + 1
 
-                row = div((i - 1), 2) % 2 + 1
-                col = (i - 1) % 2 + 1
-                ax = Axis(fig[local_index, 1];
-                xticksvisible = false,
-                yticksvisible = false,
-                xgridvisible = false,
-                ygridvisible = false,
-                leftspinevisible = false,
-                rightspinevisible = false,
-                topspinevisible = false,
-                bottomspinevisible = false,
-                xlabelvisible = false,
-                ylabelvisible = false,
+            ax = Axis(fig[row, col];
+                xticksvisible = false, yticksvisible = false,
+                xgridvisible = false, ygridvisible = false,
+                leftspinevisible = false, rightspinevisible = false,
+                topspinevisible = false, bottomspinevisible = false,
+                xlabelvisible = false, ylabelvisible = false,
                 titlevisible = false,
-        )
+            )
+
             image!(ax, load(path))
+
+            if (i % images_per_page == 0) || (i == length(png_paths))
+                push!(pages, fig)
+                pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_page_$(page_index).pdf")
+                CairoMakie.save(pdf_path, fig)
+                push!(pdf_paths, pdf_path)
+            end
         end
 
-        fig !== nothing && push!(pages, fig)
-
-        for (k, page) in enumerate(pages)
-            CairoMakie.save(joinpath(output_pdf_dir, "$(pulsar_name)_page_$(k).pdf"), page)
-        end
-    
+        # Combine all PDF pages into one file using pdfunite
         combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
-        
-        cmd_args = vcat(["pdfunite"], replace.(png_paths, "/home/psr/output/"=>""), [replace(combined_pdf_path, "/home/psr/output/"=>"")])
-        cmd = Cmd(cmd_args)
-        println("Running command: ", cmd)
-        #run(cmd)
+        cmd_args = vcat(["pdfunite"], pdf_paths, [combined_pdf_path])
+        println("Running command: ", join(cmd_args, " "))
+        #run(`$(cmd_args...)`)
         #println("Combined PDF created at: $combined_pdf_path")
-
-
     end
-
 
 
     """
