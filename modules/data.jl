@@ -399,18 +399,23 @@ module Data
             position_in_page = (i - 1) % images_per_page
 
             if position_in_page == 0
-                fig = Figure(size = (800, 800))
+                fig = Figure(size = (400, 400))
             end
 
             row = div(position_in_page, 2) + 1
             col = mod(position_in_page, 2) + 1
 
             ax = Axis(fig[row, col];
-                xticksvisible = false, yticksvisible = false,
-                xgridvisible = false, ygridvisible = false,
-                leftspinevisible = false, rightspinevisible = false,
-                topspinevisible = false, bottomspinevisible = false,
-                xlabelvisible = false, ylabelvisible = false,
+                xticksvisible = false, 
+                yticksvisible = false,
+                xgridvisible = false, 
+                ygridvisible = false,
+                leftspinevisible = false, 
+                rightspinevisible = false,
+                topspinevisible = false, 
+                bottomspinevisible = false,
+                xlabelsvisible = false, 
+                ylabelsvisible = false,
                 titlevisible = false,
             )
 
