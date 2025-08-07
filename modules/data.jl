@@ -390,36 +390,32 @@ module Data
         output_pdf_dir = "/home/psr/output/"
         mkpath(output_pdf_dir)
 
-        pages = Makie.Figure[]
-        fig = nothing
+        pages, fig = Figure[], nothing
+        images_per_page = 4
 
         for (i, path) in enumerate(png_paths)
-            if (i - 1) % 4 == 0
-                if fig !== nothing
-                    push!(pages, fig)
-                end
-                fig = Figure(resolution = (800, 800))
+            local_index = (i - 1) % images_per_page + 1
+            if local_index == 1
+                fig !== nothing && push!(pages, fig)
+                fig = Figure(resolution = (800, 200 * images_per_page), padding = 0)
             end
 
-            row = div((i - 1), 2) % 2 + 1
-            col = (i - 1) % 2 + 1
-            ax = Axis(fig[row, col])
+            ax = Axis(fig[local_index, 1];
+                xticks = false, yticks = false,
+                xgridvisible = false, ygridvisible = false,
+                topspinevisible = false, bottomspinevisible = false,
+                leftspinevisible = false, rightspinevisible = false,
+                title = "", padding = 0)
+
             image!(ax, load(path))
-            ax.title = basename(path)
         end
 
-        if fig !== nothing
-            push!(pages, fig)
-        end
+        fig !== nothing && push!(pages, fig)
 
-        # Save each figure as separate PDF pages
-        pdf_paths = String[]
         for (k, page) in enumerate(pages)
-            pdf_path = joinpath(output_pdf_dir, "full_$(pulsar_name)_page_$(k).pdf")
-            CairoMakie.save(pdf_path, page)
-            push!(pdf_paths, pdf_path)
+            CairoMakie.save(joinpath(output_pdf_dir, "$(pulsar_name)_page_$(k).pdf"), page)
         end
-
+    
         combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
         
         cmd_args = vcat(["pdfunite"], replace.(pdf_paths, "/home/psr/output/"=>""), [replace(combined_pdf_path, "/home/psr/output/"=>"")])
