@@ -392,6 +392,7 @@ module Data
         pages = Figure[]
         pdf_paths = String[]
         images_per_page = 4
+        fig=nothing
 
         for (i, path) in enumerate(png_paths)
             page_index = div(i - 1, images_per_page) + 1
