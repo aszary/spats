@@ -399,7 +399,12 @@ module Data
 
             if position_in_page == 0
                 fig = Figure(size = (800, 800))
-                fig.layout.padding = 0
+                fig.layout.hgap = 0
+                fig.layout.vgap = 0
+                fig.layout.topgap = 0
+                fig.layout.bottomgap = 0
+                fig.layout.leftgap = 0
+                fig.layout.rightgap = 0
             end
 
             row = div(position_in_page, 2) + 1
