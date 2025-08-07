@@ -399,7 +399,7 @@ module Data
                 fig !== nothing && push!(pages, fig)
                 fig = Figure(resolution = (800, 200 * images_per_page), padding = 0)
             end
-            
+        end  
 
         for (i, path) in enumerate(png_paths)
                 if (i - 1) % 4 == 0
