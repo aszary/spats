@@ -423,14 +423,15 @@ module Data
 
             if (i % images_per_page == 0) || (i == length(png_paths))
                 push!(pages, fig)
-                pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_page_$(page_index).pdf")
-                CairoMakie.save(pdf_path, fig)
-                push!(pdf_paths, pdf_path)
+                pdf_full_path = joinpath(output_pdf_dir, "$(pulsar_name)_page_$(page_index).pdf")
+                pdf_name = "$(pulsar_name)_page_$(page_index).pdf"
+                CairoMakie.save(pdf_full_path, fig)
+                push!(pdf_paths, pdf_name)
             end
         end
 
         # Combine all PDF pages into one file using pdfunite
-        combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
+        combined_pdf_path = joinpath(output_pdf_dir, "combined.pdf")
         cmd_args = vcat(["pdfunite"], pdf_paths, [combined_pdf_path])
         println("Running command: ", join(cmd_args, " "))
         write("convert.txt", join(cmd_args, " "))
