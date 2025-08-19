@@ -433,6 +433,7 @@ module Data
         combined_pdf_path = joinpath(output_pdf_dir, "$(pulsar_name)_combined.pdf")
         cmd_args = vcat(["pdfunite"], pdf_paths, [combined_pdf_path])
         println("Running command: ", join(cmd_args, " "))
+        write("convert.txt", join(cmd_args, " "))
         #run(`$(cmd_args...)`)
         #println("Combined PDF created at: $combined_pdf_path")
     end
