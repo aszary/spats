@@ -376,42 +376,28 @@ module Data
 
         for (i,pulsar) in enumerate(pulsars)
 
-            fig = Figure(resolution = (1200, 900))
+            fig = Figure(resolution = (1100, 900))
             img1 = load(joinpath(paths[i], "pulsar_single.png"))
             img2 = load(joinpath(paths[i], "pulsar_lrfs.png"))
             img3 = load(joinpath(paths[i], "pulsar_2dfs.png"))
             img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
 
-            # Dodaj obrazy do subplotów
             ax1 = Axis(fig[1, 1])
             ax2 = Axis(fig[1, 2])
             ax3 = Axis(fig[2, 1])
             ax4 = Axis(fig[2, 2])
 
-            # Wyświetl obrazy
             image!(ax1, rotr90(img1))
             image!(ax2, rotr90(img2))
             image!(ax3, rotr90(img3))
             image!(ax4, rotr90(img4))
 
-            # Ukryj osie (opcjonalnie)
             hidedecorations!(ax1)
             hidedecorations!(ax2)
             hidedecorations!(ax3)
             hidedecorations!(ax4)
 
-            # Pokaż wykres
-            display(fig)
-            show(fig)
-            save(joinpath(outdir, "plot.pdf"), fig)
-            println("Press Enter to close the figure.")
-            readline(stdin; keep=false)
-
-            #png_files = glob("*.png", paths[i])
-            #println(pulsar)
-            #println(paths[i])
-            #println(png_files)
-            return
+            save(joinpath(outdir, "page_$i.pdf"), fig)
         end
 
 
