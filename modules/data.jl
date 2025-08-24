@@ -402,6 +402,9 @@ module Data
 
             # Pokaż wykres
             display(fig)
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
 
             #png_files = glob("*.png", paths[i])
             #println(pulsar)
