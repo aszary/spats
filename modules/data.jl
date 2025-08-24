@@ -417,9 +417,17 @@ module Data
             push!(pdfs, filename)
         end
 
-        println(pdfs)
-
-
+        # combine pdfs
+        doc = PDFDoc(pdfs[1])
+        # add all pulsars
+        for pdf_file in pdfs[2:end]
+            temp_doc = PDFDoc(pdf_file)
+            for page_num in 1:length(temp_doc)
+                page = pdfdocgetpage(temp_doc, page_num)
+            end
+        end
+        # save result 
+        save(doc, "all_pulsars.pdf")
 
     end
 
