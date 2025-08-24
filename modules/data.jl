@@ -419,7 +419,8 @@ module Data
 
         # combine pdfs
         cmd = vcat(["pdfunite"], pdfs, ["all.pdf"])
-        println(cmd)
+        write("convert.txt", join(cmd, " "))
+        println(join(cmd, " "))
 
     end
 
