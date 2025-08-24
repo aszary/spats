@@ -370,7 +370,12 @@ module Data
         end
     end
 
+    function combine_pngs(outdir)
+        pulsars = filter(isdir, readdir(outdir))
+        println(pulsars)
 
+
+    end
 
 
     function combine_pngs_to_pdf(out_dir::String)

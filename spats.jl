@@ -78,7 +78,8 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
 
         #Data.process_all_data(vpmout)
-        Data.combine_pngs_to_pdf(vpmout)
+        #Data.combine_pngs_to_pdf(vpmout)
+        Data.combine_pngs(vpmout)
 
     end
 
