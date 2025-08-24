@@ -377,6 +377,10 @@ module Data
         for (i,pulsar) in enumerate(pulsars)
 
             fig = Figure(resolution = (1100, 900))
+            img1 = nothing
+            img2 = nothing  
+            img3 = nothing
+            img4 = nothing
             try
                 img1 = load(joinpath(paths[i], "pulsar_single.png"))
                 img2 = load(joinpath(paths[i], "pulsar_lrfs.png"))
