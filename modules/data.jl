@@ -371,6 +371,7 @@ module Data
     end
 
     function combine_pngs(outdir)
+        println(outdir)
         pulsars = filter(isdir, readdir(outdir))
         println(pulsars)
 
