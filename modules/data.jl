@@ -402,7 +402,8 @@ module Data
 
             # Pokaż wykres
             display(fig)
-            show()
+            show(fig)
+            save(joinpath(outdir, "plot.pdf"), fig)
             println("Press Enter to close the figure.")
             readline(stdin; keep=false)
 
