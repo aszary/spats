@@ -375,6 +375,9 @@ module Data
         paths = filter(isdir, readdir(outdir, join=true))
         pulsars = basename.(paths)
 
+        pdfs = []
+
+        # create pdf for all pulsars
         for (i,pulsar) in enumerate(pulsars)
 
             img1 = nothing
@@ -409,8 +412,12 @@ module Data
             hidedecorations!(ax3)
             hidedecorations!(ax4)
 
-            save(joinpath(outdir, "page_$i.pdf"), fig)
+            filename = joinpath(outdir, "page_$i.pdf")
+            save(filename, fig)
+            push!(pdfs, filename)
         end
+
+        println(pdfs)
 
 
 
