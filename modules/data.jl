@@ -380,20 +380,6 @@ module Data
         # create pdf for all pulsars
         for (i,pulsar) in enumerate(pulsars)
 
-            img1 = nothing
-            img2 = nothing  
-            img3 = nothing
-            img4 = nothing
-            try
-                img1 = load(joinpath(paths[i], "pulsar_single.png"))
-                img2 = load(joinpath(paths[i], "pulsar_lrfs.png"))
-                img3 = load(joinpath(paths[i], "pulsar_2dfs.png"))
-                img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
-            catch e
-                println("No images for $pulsar Fix it!")
-                continue
-            end
-
             fig = Figure(size = (1100, 900))
             Label(fig[0, :], text = pulsar, fontsize = 20, tellwidth = false)
 
@@ -402,10 +388,30 @@ module Data
             ax3 = Axis(fig[2, 1])
             ax4 = Axis(fig[2, 2])
 
-            image!(ax1, rotr90(img1))
-            image!(ax2, rotr90(img2))
-            image!(ax3, rotr90(img3))
-            image!(ax4, rotr90(img4))
+            try
+                img1 = load(joinpath(paths[i], "pulsar_single.png"))
+                image!(ax1, rotr90(img1))
+            catch e
+                println("No pulsar_single.png for $pulsar")
+            end
+            try
+                img2 = load(joinpath(paths[i], "pulsar_lrfs.png"))
+                image!(ax2, rotr90(img2))
+            catch e
+                println("No pulsar_lrfs.png for $pulsar")
+            end
+            try
+                img3 = load(joinpath(paths[i], "pulsar_2dfs.png"))
+                image!(ax3, rotr90(img3))
+            catch e
+                println("No pulsar_2dfs.png for $pulsar")
+            end
+            try
+                img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
+                image!(ax4, rotr90(img4))
+            catch e
+                println("No pulsar_p3fold.png for $pulsar")
+            end
 
             hidedecorations!(ax1)
             hidedecorations!(ax2)
