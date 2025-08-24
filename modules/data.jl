@@ -376,11 +376,16 @@ module Data
 
         for (i,pulsar) in enumerate(pulsars)
 
-            png_files = glob("*.png", paths[i])
-            println(pulsar)
-            println(paths[i])
-            println(png_files)
-
+            fig = Figure(resolution = (1200, 900))
+            img1 = load(joinpath(paths[i], "pulsar_single.png"))
+            img2 = load(joinpath(paths[i], "pulsar_lrfs.png"))
+            img3 = load(joinpath(paths[i], "pulsar_2dfs.png"))
+            img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
+            #png_files = glob("*.png", paths[i])
+            #println(pulsar)
+            #println(paths[i])
+            #println(png_files)
+            return
         end
 
 
