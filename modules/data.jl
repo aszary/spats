@@ -374,8 +374,12 @@ module Data
         paths = filter(isdir, readdir(outdir, join=true))
         pulsars = basename.(paths)
 
-        png_files = glob("*.png", paths[1])
-        println(size(png_files))
+        for (i,pulsar) in enumerate(pulsars)
+
+            png_files = glob("*.png", paths[i])
+            println(size(png_files))
+
+        end
 
 
 
