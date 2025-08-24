@@ -380,7 +380,7 @@ module Data
         # create pdf for all pulsars
         for (i,pulsar) in enumerate(pulsars)
 
-            fig = Figure(size = (1000, 1300))
+            fig = Figure(size = (700, 1000))
             Label(fig[0, :], text = pulsar, fontsize = 20, tellwidth = false)
 
             ax1 = Axis(fig[1, 1])
