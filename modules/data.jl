@@ -371,11 +371,12 @@ module Data
     end
 
     function combine_pngs(outdir)
-        println(outdir)
         paths = filter(isdir, readdir(outdir, join=true))
         pulsars = basename.(paths)
-        println(paths)
-        println(pulsars)
+
+        png_files = glob("*.png", paths[1])
+        println(png_files)
+
 
 
     end
