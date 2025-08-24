@@ -377,10 +377,14 @@ module Data
         for (i,pulsar) in enumerate(pulsars)
 
             fig = Figure(resolution = (1100, 900))
-            img1 = load(joinpath(paths[i], "pulsar_single.png"))
-            img2 = load(joinpath(paths[i], "pulsar_lrfs.png"))
-            img3 = load(joinpath(paths[i], "pulsar_2dfs.png"))
-            img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
+            try
+                img1 = load(joinpath(paths[i], "pulsar_single.png"))
+                img2 = load(joinpath(paths[i], "pulsar_lrfs.png"))
+                img3 = load(joinpath(paths[i], "pulsar_2dfs.png"))
+                img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
+            catch e
+                println("No images for $pulsar. Fix it!")
+            end
 
             ax1 = Axis(fig[1, 1])
             ax2 = Axis(fig[1, 2])
