@@ -376,7 +376,6 @@ module Data
 
         for (i,pulsar) in enumerate(pulsars)
 
-            fig = Figure(resolution = (1100, 900))
             img1 = nothing
             img2 = nothing  
             img3 = nothing
@@ -390,6 +389,8 @@ module Data
                 println("No images for $pulsar. Fix it!")
                 continue
             end
+
+            fig = Figure(size = (1100, 900))
 
             ax1 = Axis(fig[1, 1])
             ax2 = Axis(fig[1, 2])
