@@ -384,6 +384,7 @@ module Data
                 img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
             catch e
                 println("No images for $pulsar. Fix it!")
+                continue
             end
 
             ax1 = Axis(fig[1, 1])
