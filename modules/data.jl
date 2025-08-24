@@ -375,6 +375,7 @@ module Data
         paths = filter(isdir, readdir(outdir, join=true))
         pulsars = basename.(paths)
         println(paths)
+        println(pulsars)
 
 
     end
