@@ -377,6 +377,8 @@ module Data
         for (i,pulsar) in enumerate(pulsars)
 
             png_files = glob("*.png", paths[i])
+            println(pulsar)
+            println(paths[i])
             println(size(png_files))
 
         end
