@@ -381,6 +381,28 @@ module Data
             img2 = load(joinpath(paths[i], "pulsar_lrfs.png"))
             img3 = load(joinpath(paths[i], "pulsar_2dfs.png"))
             img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
+
+            # Dodaj obrazy do subplotów
+            ax1 = Axis(fig[1, 1])
+            ax2 = Axis(fig[1, 2])
+            ax3 = Axis(fig[2, 1])
+            ax4 = Axis(fig[2, 2])
+
+            # Wyświetl obrazy
+            image!(ax1, rotr90(img1))
+            image!(ax2, rotr90(img2))
+            image!(ax3, rotr90(img3))
+            image!(ax4, rotr90(img4))
+
+            # Ukryj osie (opcjonalnie)
+            hidedecorations!(ax1)
+            hidedecorations!(ax2)
+            hidedecorations!(ax3)
+            hidedecorations!(ax4)
+
+            # Pokaż wykres
+            display(fig)
+
             #png_files = glob("*.png", paths[i])
             #println(pulsar)
             #println(paths[i])
