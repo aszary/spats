@@ -414,7 +414,7 @@ module Data
 
             filename = joinpath(outdir, "page_$i.pdf")
             save(filename, fig)
-            push!(pdfs, filename)
+            push!(pdfs, basename(filename))
         end
 
         # combine pdfs
