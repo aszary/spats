@@ -379,7 +379,7 @@ module Data
             png_files = glob("*.png", paths[i])
             println(pulsar)
             println(paths[i])
-            println(size(png_files))
+            println(png_files)
 
         end
 
