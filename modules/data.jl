@@ -375,7 +375,7 @@ module Data
         pulsars = basename.(paths)
 
         png_files = glob("*.png", paths[1])
-        println(png_files)
+        println(size(png_files))
 
 
 
