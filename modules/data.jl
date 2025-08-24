@@ -3,6 +3,7 @@ module Data
     using FITSIO
     using ProgressMeter
     using CairoMakie, FileIO
+    using PDFIO
 
     include("functions.jl")
     include("tools.jl")
