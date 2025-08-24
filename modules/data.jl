@@ -386,11 +386,12 @@ module Data
                 img3 = load(joinpath(paths[i], "pulsar_2dfs.png"))
                 img4 = load(joinpath(paths[i], "pulsar_p3fold.png"))
             catch e
-                println("No images for $pulsar. Fix it!")
+                println("No images for $pulsar Fix it!")
                 continue
             end
 
             fig = Figure(size = (1100, 900))
+            Label(fig[0, :], text = pulsar, fontsize = 20, tellwidth = false)
 
             ax1 = Axis(fig[1, 1])
             ax2 = Axis(fig[1, 2])
