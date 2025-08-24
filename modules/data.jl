@@ -380,7 +380,7 @@ module Data
         # create pdf for all pulsars
         for (i,pulsar) in enumerate(pulsars)
 
-            fig = Figure(size = (1100, 900))
+            fig = Figure(size = (1000, 1300))
             Label(fig[0, :], text = pulsar, fontsize = 20, tellwidth = false)
 
             ax1 = Axis(fig[1, 1])
@@ -388,6 +388,7 @@ module Data
             ax3 = Axis(fig[2, 1])
             ax4 = Axis(fig[2, 2])
 
+            # load images
             try
                 img1 = load(joinpath(paths[i], "pulsar_single.png"))
                 image!(ax1, rotr90(img1))
