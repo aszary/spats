@@ -388,6 +388,8 @@ module Data
         pulsar_name = basename(out_dir)
         output_pdf_dir = "/home/psr/output/"
         mkpath(output_pdf_dir)
+        println(output_pdf_dir)
+        return
 
         pages = Figure[]
         pdf_paths = String[]
