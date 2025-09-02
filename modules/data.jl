@@ -537,7 +537,9 @@ module Data
     end
 
 
-
+    """
+    just some cleaning..
+    """
     function remove_folders(dirname)
         # Get all subdirectories in dirname
         dirs = filter(isdir, readdir(dirname, join=true))
@@ -547,11 +549,9 @@ module Data
             filename = basename(files[1])
             if length(files)==1 && filename=="params.json"
                 println(basename(dir))
+                rm(dir, recursive=true)
             end
         end
-
-
-
     end
 
 
