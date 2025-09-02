@@ -331,7 +331,7 @@ module Data
     function process_all_data(outdir; base_root="/home/psr/data/new")
         # Get all subdirectories in base_root
         dirs = filter(isdir, readdir(base_root, join=true))
-    
+
         if isempty(dirs)
             println("No data found in $base_root. Exiting...")
             return
@@ -534,6 +534,18 @@ module Data
             end
         end
         return data_clean
+    end
+
+
+
+    function remove_folders(dirname)
+        # Get all subdirectories in dirname
+        dirs = filter(isdir, readdir(dirname, join=true))
+        println(dirs)
+
+
+
+
     end
 
 
