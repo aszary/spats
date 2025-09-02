@@ -60,9 +60,10 @@ module SpaTs
     end
 
     function J1539_6322_Sard(indir, outdir)
+        #=
         p = Data.process_psrdata(indir, outdir)
         Data.convert_psrfit_ascii(joinpath(outdir, "pulsar.debase.gg"), joinpath(outdir, "pulsar.debase.txt"))
-
+        =#
         outfile="pulsar.spCF"
         outfile = joinpath(outdir, outfile)
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
