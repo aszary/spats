@@ -69,7 +69,7 @@ module SpaTs
 
         p = Tools.read_params(joinpath(outdir, "params.json"))
         d4 = Data.load_ascii_all(joinpath(outdir, "pulsar.debase.txt"))
-        d1 = Data.clean(d4; threshold=0.91)
+        d1 = Data.clean(d4; threshold=0.001)
         Plot.single(d1, outdir; darkness=0.3, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=210, name_mod="pulsar", show_=true)
     end
 
