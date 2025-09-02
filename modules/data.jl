@@ -544,9 +544,10 @@ module Data
         for dir in dirs
             # Get all files in the subdirectory
             files = filter(isfile, readdir(dir, join=true))
-
-            println(dir)
-            println(files)
+            filename = basename(files[1])
+            if length(files==1) && filename=="params.json"
+                println(basename(dir))
+            end
         end
 
 
