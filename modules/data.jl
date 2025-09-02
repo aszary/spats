@@ -542,7 +542,11 @@ module Data
         # Get all subdirectories in dirname
         dirs = filter(isdir, readdir(dirname, join=true))
         for dir in dirs
+            # Get all files in the subdirectory
+            files = filter(isfile, readdir(dir, join=true))
+
             println(dir)
+            println(files)
         end
 
 
