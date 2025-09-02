@@ -541,8 +541,9 @@ module Data
     function remove_folders(dirname)
         # Get all subdirectories in dirname
         dirs = filter(isdir, readdir(dirname, join=true))
-        println(dirs)
-
+        for dir in dirs
+            println(dir)
+        end
 
 
 
