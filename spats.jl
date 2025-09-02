@@ -59,11 +59,12 @@ module SpaTs
 
     end
 
+    """
+    For Sardinia poster
+    """
     function J1539_6322_Sard(indir, outdir)
-        #=
         p = Data.process_psrdata(indir, outdir)
         Data.convert_psrfit_ascii(joinpath(outdir, "pulsar.debase.gg"), joinpath(outdir, "pulsar.debase.txt"))
-        =#
         outfile="pulsar.spCF"
         outfile = joinpath(outdir, outfile)
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
@@ -91,9 +92,9 @@ module SpaTs
         #test3("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #test3("/home/psr/data/new/J1744-1610/2020-06-12-20:00:13/", vpmout)
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
+        #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
 
-        #Data.process_all_data(vpmout)
+        Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
         #Data.combine_pngs(vpmout)
         
