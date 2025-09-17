@@ -95,8 +95,8 @@ module SpaTs
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
 
         #Data.process_all_data(vpmout)
-        Data.combine_pngs_to_pdf(vpmout)
-        #Data.combine_pngs(vpmout)
+        #Data.combine_pngs_to_pdf(vpmout)
+        Data.combine_pngs(vpmout)
         
         #Data.remove_folders(vpmout)
 
