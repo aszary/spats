@@ -564,27 +564,19 @@ module Data
         println(keep_dirs, " ", length(keep_dirs))
 
         # Pobierz wszystkie katalogi
-        all_dirs = filter(isdir, readdir(data_dir))
+        all_dirs = filter(isdir, readdir(data_dir, join=true))
 
         println(all_dirs)
         return
-        # Pokaż co zostanie usunięte
-        to_remove = filter(d -> d ∉ keep_dirs, all_dirs)
-        println("Katalogi do usunięcia:")
-        foreach(println, to_remove)
 
-        # Poproś o potwierdzenie
-        print("\nKontynuować? (tak/nie): ")
-        if readline() == "tak"
-            for dir in to_remove
+        # Usuń katalogi, których nie ma na liście
+        for dir in all_dirs
+            dir_name = basename(dir)
+            if dir_name ∉ keep_dirs
                 println("Usuwam: $dir")
                 rm(dir, recursive=true, force=true)
             end
-            println("Gotowe!")
-        else
-            println("Anulowano")
         end
-
         
     end
 
