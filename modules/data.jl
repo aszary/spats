@@ -562,11 +562,12 @@ module Data
         keep_dirs = Set(readlines(interesting_filename))
 
         println(keep_dirs, " ", length(keep_dirs))
-        return
 
         # Pobierz wszystkie katalogi
         all_dirs = filter(isdir, readdir())
 
+        println(all_dirs)
+        return
         # Pokaż co zostanie usunięte
         to_remove = filter(d -> d ∉ keep_dirs, all_dirs)
         println("Katalogi do usunięcia:")
