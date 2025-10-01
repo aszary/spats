@@ -567,14 +567,13 @@ module Data
         all_dirs = filter(isdir, readdir(data_dir, join=true))
 
         println(length(all_dirs))
-        return
 
         # Usuń katalogi, których nie ma na liście
         for dir in all_dirs
             dir_name = basename(dir)
             if dir_name ∉ keep_dirs
                 println("Usuwam: $dir")
-                rm(dir, recursive=true, force=true)
+                #rm(dir, recursive=true, force=true)
             end
         end
         
