@@ -566,7 +566,7 @@ module Data
         # Pobierz wszystkie katalogi
         all_dirs = filter(isdir, readdir(data_dir, join=true))
 
-        println(all_dirs)
+        println(length(all_dirs))
         return
 
         # Usuń katalogi, których nie ma na liście
