@@ -538,7 +538,7 @@ module Data
 
 
     """
-    just some cleaning..
+    just some quick cleaning..
     """
     function remove_folders(dirname)
         # Get all subdirectories in dirname
