@@ -554,6 +554,39 @@ module Data
         end
     end
 
+    """
+    some more cleaning
+    """
+    function remove_notinteresting(interesting_filename)
+
+        keep_dirs = Set(readlines(interesting_filename))
+
+        println(keep_dirs)
+        return
+
+        # Pobierz wszystkie katalogi
+        all_dirs = filter(isdir, readdir())
+
+        # Pokaż co zostanie usunięte
+        to_remove = filter(d -> d ∉ keep_dirs, all_dirs)
+        println("Katalogi do usunięcia:")
+        foreach(println, to_remove)
+
+        # Poproś o potwierdzenie
+        print("\nKontynuować? (tak/nie): ")
+        if readline() == "tak"
+            for dir in to_remove
+                println("Usuwam: $dir")
+                rm(dir, recursive=true, force=true)
+            end
+            println("Gotowe!")
+        else
+            println("Anulowano")
+        end
+
+        
+    end
+
 
 
 end # module
