@@ -557,14 +557,14 @@ module Data
     """
     some more cleaning
     """
-    function remove_notinteresting(interesting_filename)
+    function remove_notinteresting(interesting_filename, data_dir)
 
         keep_dirs = Set(readlines(interesting_filename))
 
         println(keep_dirs, " ", length(keep_dirs))
 
         # Pobierz wszystkie katalogi
-        all_dirs = filter(isdir, readdir())
+        all_dirs = filter(isdir, readdir(data_dir))
 
         println(all_dirs)
         return
