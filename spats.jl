@@ -96,10 +96,10 @@ module SpaTs
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
-        #Data.combine_pngs(vpmout)
+        Data.combine_pngs(vpmout)
         
         #Data.remove_folders(vpmout)
-        Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
+        #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
     end
 
 end # module
