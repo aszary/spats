@@ -561,7 +561,7 @@ module Data
 
         keep_dirs = Set(readlines(interesting_filename))
 
-        println(keep_dirs)
+        println(keep_dirs, " ", length(keep_dirs))
         return
 
         # Pobierz wszystkie katalogi
