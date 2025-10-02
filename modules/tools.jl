@@ -56,6 +56,7 @@ module Tools
         end
         pulses = collect(1:pulse_num)
         println("1-----")
+        println(intensity)
         mi = minimum(intensity)
         println("2-----")
         if mi < 0
