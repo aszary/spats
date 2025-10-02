@@ -320,12 +320,10 @@ module Data
         # LRFS
         d3 = load_ascii_all(joinpath(data_dir, "pulsar.debase.lrfs"))
         Plot.lrfs(d3, data_dir, p; name_mod="pulsar", show_=false)
-        println("1----")
+
         # P3-folded
         d5 = Data.load_ascii(joinpath(data_dir, "pulsar.debase.p3fold"))
-        println("2----")
         Plot.p3fold(d5, data_dir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="pulsar", show_=false, repeat_num=4)
-        println("3----")
  
     end
 
