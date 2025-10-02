@@ -78,8 +78,8 @@ module SpaTs
     function process_psrdata(indir, outdir)
         p = Data.process_psrdata(indir, outdir)
         Data.plot_psrdata(outdir, p)
-        folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
-        Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="test", show_=true, repeat_num=4)
+        #folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
+        #Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="test", show_=true, repeat_num=4)
         
     end
 
@@ -95,7 +95,8 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
 
-        process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153")
+        #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153")
+        process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242")
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
