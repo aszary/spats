@@ -77,7 +77,7 @@ module SpaTs
 
     function process_psrdata(indir, outdir)
         p = Data.process_psrdata(indir, outdir)
-        Data.plot_psrdata(out_dir, p)
+        Data.plot_psrdata(outdir, p)
         folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
         Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="test", show_=true, repeat_num=4)
         
