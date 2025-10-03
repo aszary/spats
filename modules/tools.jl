@@ -2125,7 +2125,9 @@ module Tools
             "nsubint" => nothing,
             "p3" => -1.0,
             "p3_error" => -1.0,
-            "p3_ybins" => nothing
+            "p3_ybins" => nothing,
+            "clean_threshold" => 0.7,
+            "_clean_threshold" => "threshold for polarization cleaning"
         )
         f = open(filename, "w")
         JSON.print(f, p)
