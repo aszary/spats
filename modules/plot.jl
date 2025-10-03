@@ -269,7 +269,7 @@ module Plot
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
-            println("number $number")
+            println("number $number $num $start")
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
