@@ -276,8 +276,6 @@ module Plot
 
         da = data[start:start+number-1,bin_st:bin_end]
         average = Tools.average_profile(da)
-        println("p3fold")
-        println(data[start:start+number-1,bin_st:bin_end], " ", start, " ", start+number-1, " $bin_st $bin_end", )
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
         intensity ./= maximum(intensity)
