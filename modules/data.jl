@@ -298,6 +298,14 @@ module Data
         # calculate p3-folded profile
         run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
+        # TODO remove below old p3fold for tests
+        println("DE $debased_file")
+        
+        #folded = Tools.p3fold(data, p["p3_ybins"], 1)
+        #Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=400, bin_end=600, start=1, name_mod="J1319_p3fold", show_=true)
+
+
+
         return p
     end
 
