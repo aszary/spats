@@ -97,8 +97,8 @@ module SpaTs
 
         #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153")
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242")
-        process_psrdata(vpmout*"J0630-2834", vpmout*"J0630-2834")
-        #process_psrdata(vpmout*"J0820-1350", vpmout*"J0820-1350")
+        #process_psrdata(vpmout*"J0630-2834", vpmout*"J0630-2834")
+        process_psrdata(vpmout*"J0820-1350", vpmout*"J0820-1350")
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
