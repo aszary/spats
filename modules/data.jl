@@ -298,7 +298,7 @@ module Data
         # calculate p3-folded profile
         run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
-        # TODO remove below old p3fold for tests
+        # TODO remove below old p3fold and other tests
         println("DE $debased_file")
         # all data
         da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
