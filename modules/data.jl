@@ -307,6 +307,7 @@ module Data
         folded = Tools.p3fold(da0, p["p3"],  p["p3_ybins"])
         Plot.single(folded, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold", show_=true, repeat_num=4)
 
+        println("Polarization cleaning threshold: ", p["clean_threshold"])
         # polarisation cleaning
         da = Data.load_ascii_all(replace(debased_file, ".gg"=>".txt"))  
         da2 = clean(da; threshold=p["clean_threshold"]) 
