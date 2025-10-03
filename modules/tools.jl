@@ -55,10 +55,7 @@ module Tools
             intensity[i] = sum(data[i, :])
         end
         pulses = collect(1:pulse_num)
-        println("1-----")
-        println(intensity)
         mi = minimum(intensity)
-        println("2-----")
         if mi < 0
             intensity .+= -mi
         end
