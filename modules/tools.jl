@@ -2077,6 +2077,7 @@ module Tools
         data = data[start_ind+1:end, :]
     
         folded_ = zeros(Float64, ybins, size(data, 2))
+        println("SIZE fo.", size(folded_))
     
         dp3 = p3 / ybins
     
