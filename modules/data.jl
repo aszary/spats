@@ -303,7 +303,7 @@ module Data
         da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
         Plot.single(da0, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
         da = Data.load_ascii_all(replace(debased_file, ".gg"=>".txt"))  
-        da2 = clean(da) 
+        da2 = clean(da; threshold=0.5) 
         Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="cleaned", show_=true)
 
         folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
