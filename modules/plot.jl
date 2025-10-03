@@ -67,14 +67,22 @@ module Plot
     end
 
 
-    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false)
+    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false, repeat_num=nothing)
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
+
         da = data[start:start+number-1,bin_st:bin_end]
+
+        if repeat_num !== nothing
+            # repeat data
+            da = repeat(da, repeat_num)
+
+        end
+
         average = Tools.average_profile(da)
         intensity, pulses = Tools.intensity_pulses(da)
         intensity .-= minimum(intensity)
