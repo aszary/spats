@@ -300,11 +300,12 @@ module Data
 
         # TODO remove below old p3fold for tests
         println("DE $debased_file")
+        da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
+        Plot.single(da0, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
         da = Data.load_ascii_all(replace(debased_file, ".gg"=>".txt"))  
-        Plot.single(da, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
         da2 = clean(da) 
         Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="cleaned", show_=true)
-        
+
         data = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
         folded = Tools.p3fold(data, p["p3"],  p["p3_ybins"])
         Plot.single(folded, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold", show_=true)
