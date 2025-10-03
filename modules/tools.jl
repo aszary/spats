@@ -2075,7 +2075,7 @@ module Tools
         end
     
         data = data[start_ind+1:end, :]
-    
+        println("ybins $ybins")
         folded_ = zeros(Float64, ybins, size(data, 2))
         println("SIZE fo.", size(folded_))
     
