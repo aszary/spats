@@ -303,9 +303,9 @@ module Data
         data = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
         folded = Tools.p3fold(data, p["p3_ybins"], 1)
         println(size(folded))
-        #= 
         Plot.single(folded, outdir; darkness=0.5, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold", show_=true)
 
+        #= 
         =#
 
         return p
