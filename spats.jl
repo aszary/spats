@@ -95,10 +95,12 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
 
-        process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
+        #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
         #process_psrdata(vpmout*"J0630-2834", vpmout*"J0630-2834") # not nice
         #process_psrdata(vpmout*"J0820-1350", vpmout*"J0820-1350") # nice
+
+        process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # not nice
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
