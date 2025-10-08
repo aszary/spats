@@ -102,7 +102,7 @@ module SpaTs
 
         #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
         #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
-        process_psrdata(vpmout*"J0823+0159", vpmout*"J0823+0159") # 
+        process_psrdata(vpmout*"J0823+0159", vpmout*"J0823+0159") #  single pulses are nice, but p3folds no
 
 
         #Data.process_all_data(vpmout)
