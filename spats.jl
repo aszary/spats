@@ -100,7 +100,9 @@ module SpaTs
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
         #process_psrdata(vpmout*"J0820-1350", vpmout*"J0820-1350") # nice
 
-        process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # not nice
+        #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
+        process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
+
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
