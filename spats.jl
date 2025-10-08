@@ -86,7 +86,7 @@ module SpaTs
 
     function main()
         # output directory for VPM
-        vpmout = "/home/psr/data/"
+        vpmout = "/home/psr/data/OUTPUT/maciej/"
 
         #test(vpmout)
         #test2(vpmout)
