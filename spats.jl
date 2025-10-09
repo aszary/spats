@@ -97,10 +97,10 @@ module SpaTs
 
         #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
         #process_psrdata(vpmout*"J0630-2834", vpmout*"J0630-2834") # not nice
-        #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
+        process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
         #process_psrdata(vpmout*"J0820-1350", vpmout*"J0820-1350") # nice
 
-        process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
+        #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
         #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
         #process_psrdata(vpmout*"J0823+0159", vpmout*"J0823+0159") #  nice single pulses, but p3folds no
         #process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
