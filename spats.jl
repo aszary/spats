@@ -104,7 +104,9 @@ module SpaTs
         #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
         #process_psrdata(vpmout*"J0823+0159", vpmout*"J0823+0159") #  nice single pulses, but p3folds no
         #process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
-        process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") #
+        process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") # single bad, p3folds bad, P3 stable
+        #process_psrdata(vpmout*"", vpmout*"") #
+
 
 
 
