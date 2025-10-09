@@ -96,7 +96,7 @@ module SpaTs
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
 
         #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153")
-        process_psrdata(vpmout*"J0255-5304", vpmout*"J0255-5304")
+        process_psrdata(vpmout*"J1703-1846", vpmout*"J1703-1846")
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
