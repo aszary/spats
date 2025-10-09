@@ -2126,7 +2126,7 @@ module Tools
             "p3" => -1.0,
             "p3_error" => -1.0,
             "p3_ybins" => nothing,
-            "clean_threshold" => 0.7,
+            "clean_threshold" => 0.5,
             "_clean_threshold" => "threshold for polarization cleaning"
         )
         f = open(filename, "w")
