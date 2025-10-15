@@ -338,12 +338,12 @@ module Data
         Plot.single(d, data_dir; darkness=0.5, bin_st= p["bin_st"], bin_end=p["bin_end"], start=p["pulse_start"], number= (p["pulse_end"] - p["pulse_start"]), name_mod="pulsar", show_=true)
 
         # 2DFS
-        d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
-        Plot.twodfs(d2, data_dir, p; name_mod="pulsar", show_=true, average=Tools.average_profile(d))
+        #d2 = load_ascii(joinpath(data_dir, "pulsar.debase.1.2dfs"))
+        #Plot.twodfs(d2, data_dir, p; name_mod="pulsar", show_=true, average=Tools.average_profile(d))
 
         # LRFS
-        d3 = load_ascii_all(joinpath(data_dir, "pulsar.debase.lrfs"))
-        Plot.lrfs(d3, data_dir, p; name_mod="pulsar", show_=true)
+        #d3 = load_ascii_all(joinpath(data_dir, "pulsar.debase.lrfs"))
+        #Plot.lrfs(d3, data_dir, p; name_mod="pulsar", show_=true)
 
         # P3-folded
         d5 = Data.load_ascii(joinpath(data_dir, "pulsar.debase.p3fold"))
