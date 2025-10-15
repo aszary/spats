@@ -333,7 +333,7 @@ module Plot
         xlabel("longitude \$(^\\circ)\$")
         #tick_params(labeltop=false, labelbottom=true)
         savefig("$outdir/$(name_mod)_p3fold.pdf")
-        println("$outdir/$(name_mod)_p3fold.pdf")s
+        println("$outdir/$(name_mod)_p3fold.pdf")
         savefig("$outdir/$(name_mod)_p3fold.png")
         println("$outdir/$(name_mod)_p3fold.png")
         if show_ == true
