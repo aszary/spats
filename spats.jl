@@ -141,7 +141,7 @@ module SpaTs
         process_psrdata(vpmout*"J1821+1715", vpmout*"J1821+1715") 
         process_psrdata(vpmout*"J0952-3839", vpmout*"J0952-3839")
         process_psrdata(vpmout*"J1638-3815", vpmout*"J1638-3815") 
-        s
+        
 
 
         #Data.process_all_data(vpmout)
