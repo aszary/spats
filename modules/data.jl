@@ -298,6 +298,18 @@ module Data
         # calculate p3-folded profile
         run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
+
+        println("Polarization cleaning threshold: ", p["clean_threshold"])
+        # polarisation cleaning
+        da = Data.load_ascii_all(replace(debased_file, ".gg"=>".txt"))  
+        da2 = clean(da; threshold=p["clean_threshold"]) 
+        Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="cleaned", show_=true)
+
+        folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
+        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_clean", show_=true, repeat_num=4)
+
+
+
         return p
     end
 
