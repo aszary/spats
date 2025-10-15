@@ -110,6 +110,7 @@ module SpaTs
         #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
 
         process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") 
+        """
         process_psrdata(vpmout*"J0108-1431", vpmout*"J0108-1431") 
         process_psrdata(vpmout*"J0856-6137", vpmout*"J0856-6137") 
         process_psrdata(vpmout*"J2046+1540", vpmout*"J2046+1540")
@@ -140,7 +141,7 @@ module SpaTs
         process_psrdata(vpmout*"J1821+1715", vpmout*"J1821+1715") 
         process_psrdata(vpmout*"J0952-3839", vpmout*"J0952-3839")
         process_psrdata(vpmout*"J1638-3815", vpmout*"J1638-3815") 
-
+        """
 
 
         #Data.process_all_data(vpmout)
