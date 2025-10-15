@@ -67,7 +67,7 @@ module Plot
     end
 
 
-    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=false, repeat_num=nothing)
+    function single(data, outdir; start=1, number=100, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="PSR_NAME", show_=true, repeat_num=nothing)
         num, bins = size(data)
         if number == nothing
             number = num - start  # missing one?
@@ -272,7 +272,7 @@ module Plot
     end
 
 
-    function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=false)
+    function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=true)
 
         num, bins = size(data)
         if number == nothing
