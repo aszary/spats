@@ -294,7 +294,7 @@ module Data
         debase(outfile, params_file, p)
 
         # Calculate 2dfs and lrfs
-        twodfs_lrfs(debased_file, params_file, p; detect=true)
+        twodfs_lrfs(debased_file, params_file, p; detect=false)
 
         # calculate p3-folded profile
         println("P3-folding with:")
