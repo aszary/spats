@@ -194,8 +194,6 @@ module Data
     function debase(outfile, params_file, params)
 
 
-        println("\nOUT 3\n", outfile)
-
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
             run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
@@ -221,9 +219,7 @@ module Data
                 params["bin_end"] = bin_end
                 Tools.save_params(params_file, params)
             end
-            println("OUT 2", outfile)
         else
-            println("OUT ", outfile)
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
         end
@@ -298,7 +294,7 @@ module Data
         debase(outfile, params_file, p)
 
         # Calculate 2dfs and lrfs
-        twodfs_lrfs(debased_file, params_file, p; detect=false)
+        twodfs_lrfs(debased_file, params_file, p; detect=true)
 
         # calculate p3-folded profile
         println("P3-folding with:")
