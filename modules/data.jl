@@ -233,6 +233,7 @@ module Data
     debased_file ??
     """
     function twodfs_lrfs(debased_file, params_file, p; detect=false)
+        println("\n\n TUTAJ\n\n", debased_file)
 
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
