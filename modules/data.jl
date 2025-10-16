@@ -219,6 +219,7 @@ module Data
                 Tools.save_params(params_file, params)
             end
         else
+            println("OUT ", outfile)
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
         end
@@ -291,9 +292,6 @@ module Data
 
         # debase the data
         debase(outfile, params_file, p)
-
-        println(outfile)
-        println(debased_file)
 
         # Calculate 2dfs and lrfs
         twodfs_lrfs(debased_file, params_file, p; detect=false)
