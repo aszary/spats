@@ -193,6 +193,9 @@ module Data
     """
     function debase(outfile, params_file, params)
 
+
+        println("\nOUT 3\n", outfile)
+
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
             run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
@@ -218,6 +221,7 @@ module Data
                 params["bin_end"] = bin_end
                 Tools.save_params(params_file, params)
             end
+            println("OUT 2", outfile)
         else
             println("OUT ", outfile)
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
