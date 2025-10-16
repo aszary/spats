@@ -109,7 +109,7 @@ module SpaTs
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731") #
-        process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
+        #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
 
 
         #Data.process_all_data(vpmout)
@@ -117,7 +117,7 @@ module SpaTs
         #Data.combine_pngs(vpmout)
         
         #Data.remove_folders(vpmout)
-        #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
+        Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
     end
 
 end # module
