@@ -117,7 +117,7 @@ module SpaTs
         #Data.combine_pngs(vpmout)
         
         #Data.remove_folders(vpmout)
-        Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
+        #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
     end
 
 end # module
