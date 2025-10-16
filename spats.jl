@@ -108,7 +108,7 @@ module SpaTs
         #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
-
+        """
         process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") 
         
         process_psrdata(vpmout*"J0108-1431", vpmout*"J0108-1431") 
@@ -141,8 +141,8 @@ module SpaTs
         process_psrdata(vpmout*"J1821+1715", vpmout*"J1821+1715") 
         process_psrdata(vpmout*"J0952-3839", vpmout*"J0952-3839")
         process_psrdata(vpmout*"J1638-3815", vpmout*"J1638-3815") 
-        
-
+        """
+        process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") 
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
