@@ -411,6 +411,9 @@ module Data
             ax2 = Axis(fig[1, 2])
             ax3 = Axis(fig[2, 1])
             ax4 = Axis(fig[2, 2])
+            ax5 = Axis(fig[3, 1])
+            ax6 = Axis(fig[3, 2])
+
 
             # load images
             try
@@ -437,11 +440,27 @@ module Data
             catch e
                 println("No pulsar_p3fold.png for $pulsar")
             end
+            try
+                img5 = load(joinpath(paths[i], "all_single.png"))
+                image!(ax5, rotr90(img5))
+            catch e
+                println("No  all_single.png for $pulsar")
+            end
+            try
+                img6 = load(joinpath(paths[i], "p3fold_single.png"))
+                image!(ax6, rotr90(img6))
+            catch e
+                println("No p3fold_single.png for $pulsar")
+            end
+
 
             hidedecorations!(ax1)
             hidedecorations!(ax2)
             hidedecorations!(ax3)
             hidedecorations!(ax4)
+            hidedecorations!(ax5)
+            hidedecorations!(ax6)
+
 
             filename = joinpath(outdir, "page_$i.pdf")
             save(filename, fig)
