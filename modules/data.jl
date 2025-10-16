@@ -234,8 +234,6 @@ module Data
     """
     function twodfs_lrfs(debased_file, params_file, p; detect=false)
 
-        cmd = `pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`
-
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
 
@@ -306,6 +304,7 @@ module Data
 
         # TODO remove below old p3fold and other tests
         println("DE $debased_file")
+        #= 
         # all data
         da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
         Plot.single(da0, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
@@ -322,7 +321,6 @@ module Data
         folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
         Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_clean", show_=true, repeat_num=4)
 
-        #= 
         =#
 
         return p
