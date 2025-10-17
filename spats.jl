@@ -142,7 +142,12 @@ module SpaTs
         process_psrdata(vpmout*"J0952-3839", vpmout*"J0952-3839")
         process_psrdata(vpmout*"J1638-3815", vpmout*"J1638-3815") 
         """
-        process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") 
+        #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") 
+
+        process_psrdata(vpmout*"J1741-0840", vpmout*"J1741-0840")
+        process_psrdata(vpmout*"J1651-5222", vpmout*"J1651-5222")
+        process_psrdata(vpmout*"J1901-0906", vpmout*"J1901-0906")
+
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
