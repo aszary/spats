@@ -225,7 +225,8 @@ module Data
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
-            println(outfile)
+            println("OUT ", replace(outfile, ".spCF"=>"debase.gg"))
+
             # ASCII single pulses
             convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
         end
