@@ -656,6 +656,7 @@ module Data
         # Calculate 2dfs and lrfs
         twodfs_lrfs(debased_file, params_file, p; detect=false)
 
+        process_data_andrzej(debased_file, outdir, p)
         #=
         # calculate p3-folded profile
         println("P3-folding with:")
