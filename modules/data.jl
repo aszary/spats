@@ -650,10 +650,10 @@ module Data
             get_nsubint(outfile, params_file, p)
         end
 
-        #=
         # debase the data
         debase(outfile, params_file, p)
 
+        #=
         # Calculate 2dfs and lrfs
         twodfs_lrfs(debased_file, params_file, p; detect=false)
 
