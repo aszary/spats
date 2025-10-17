@@ -78,10 +78,14 @@ module SpaTs
     function process_psrdata(indir, outdir)
         p = Data.process_psrdata(indir, outdir)
         Data.plot_psrdata(outdir, p)
-        #folded = Data.load_ascii(outdir*"/pulsar.debase.p3fold")
-        #Plot.p3fold(folded, outdir; start=3, bin_st=p["bin_st"]-20, bin_end=p["bin_end"]+20, name_mod="test", show_=true, repeat_num=4)
-        
     end
+
+     function process_psrdata_new(indir, outdir)
+        p = Data.process_psrdata_new(indir, outdir)
+        #Data.plot_psrdata(outdir, p)
+    end
+
+   
 
 
     function main()
@@ -103,7 +107,7 @@ module SpaTs
         #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
         #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
         #process_psrdata(vpmout*"J0823+0159", vpmout*"J0823+0159") #  nice single pulses, but p3folds no
-        process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
+        #process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
         #process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") # single bad, p3folds bad, P3 stable
         #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
@@ -111,6 +115,7 @@ module SpaTs
         #process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731") #
         #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
 
+        process_psrdata_new(vpmout*"J1842-0359", vpmout*"test") #  nice single pulses, nice P. p3fold
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
