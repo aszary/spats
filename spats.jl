@@ -107,7 +107,7 @@ module SpaTs
         #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
         #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
         #process_psrdata(vpmout*"J0823+0159", vpmout*"J0823+0159") #  nice single pulses, but p3folds no
-        #process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
+        process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
         #process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") # single bad, p3folds bad, P3 stable
         #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
@@ -115,7 +115,7 @@ module SpaTs
         #process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731") #
         #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
 
-        process_psrdata_new(vpmout*"J1842-0359", vpmout*"test") #  nice single pulses, nice P. p3fold
+        #process_psrdata_new(vpmout*"J1842-0359", vpmout*"test") #  nice single pulses, nice P. p3fold
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
