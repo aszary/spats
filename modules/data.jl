@@ -656,7 +656,8 @@ module Data
         # Calculate 2dfs and lrfs
         twodfs_lrfs(debased_file, params_file, p; detect=false)
 
-        process_data_andrzej(debased_file, outdir, p)
+        run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
+        #process_data_andrzej(debased_file, outdir, p)
         #=
         # calculate p3-folded profile
         println("P3-folding with:")
