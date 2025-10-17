@@ -225,7 +225,6 @@ module Data
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
-            #println("OUT ", replace(outfile, ".spCF"=>".debase.gg"))
             # ASCII single pulses
             convert_psrfit_ascii(replace(outfile, ".spCF"=>".debase.gg"), replace(outfile, ".spCF"=>".debase.txt"))
         end
@@ -658,7 +657,7 @@ module Data
         debase(outfile, params_file, p)
 
         # Calculate 2dfs and lrfs
-        #twodfs_lrfs(debased_file, params_file, p; detect=false)
+        twodfs_lrfs(debased_file, params_file, p; detect=false)
 
         process_data_andrzej(debased_file, outdir, p)
         #=
