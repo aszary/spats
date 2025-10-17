@@ -265,6 +265,33 @@ module Data
 
 
     """
+    Process data with my old routines
+    """
+    function process_data_andrzej(debased_file, p)
+
+        println("DE $debased_file")
+        # all data
+        da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
+        Plot.single(da0, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
+
+        folded = Tools.p3fold(da0, p["p3"],  p["p3_ybins"])
+        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold", show_=true, repeat_num=4)
+
+        println("Polarization cleaning threshold: ", p["clean_threshold"])
+        # polarisation cleaning
+        da = Data.load_ascii_all(replace(debased_file, ".gg"=>".txt"))  
+        da2 = clean(da; threshold=p["clean_threshold"]) 
+        Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="cleaned", show_=true)
+
+        folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
+        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_clean", show_=true, repeat_num=4)
+
+        
+    end
+
+
+
+    """
     Process data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json")
@@ -302,26 +329,7 @@ module Data
         println("pfold -p3fold_norefine -p3fold \"$(p["p3"]) $(p["p3_ybins"])\" -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" -onpulsed \"/NULL\" -p3foldd \"/NULL\" -w -oformat ascii $debased_file")
         run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
 
-        # TODO remove below old p3fold and other tests
-        println("DE $debased_file")
-        # all data
-        da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
-        Plot.single(da0, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
-
-        folded = Tools.p3fold(da0, p["p3"],  p["p3_ybins"])
-        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold", show_=true, repeat_num=4)
-
-        println("Polarization cleaning threshold: ", p["clean_threshold"])
-        # polarisation cleaning
-        da = Data.load_ascii_all(replace(debased_file, ".gg"=>".txt"))  
-        da2 = clean(da; threshold=p["clean_threshold"]) 
-        Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="cleaned", show_=true)
-
-        folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
-        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_clean", show_=true, repeat_num=4)
-
-        #= 
-        =#
+        process_data_andrzej(debased_file, p)
 
         return p
     end
