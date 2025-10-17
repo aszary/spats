@@ -219,9 +219,14 @@ module Data
                 params["bin_end"] = bin_end
                 Tools.save_params(params_file, params)
             end
+            # ASCII single pulses
+            convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
+
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
+            # ASCII single pulses
+            convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
         end
     end
 
@@ -339,8 +344,6 @@ module Data
 
         p = params
 
-        # ASCII single pulses
-        convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
         d = load_ascii(joinpath(data_dir, "pulsar.debase.txt"))
 
         # Single pulses
@@ -654,9 +657,8 @@ module Data
         debase(outfile, params_file, p)
 
         # Calculate 2dfs and lrfs
-        twodfs_lrfs(debased_file, params_file, p; detect=false)
+        #twodfs_lrfs(debased_file, params_file, p; detect=false)
 
-        run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
         #process_data_andrzej(debased_file, outdir, p)
         #=
         # calculate p3-folded profile
