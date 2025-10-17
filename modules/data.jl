@@ -220,15 +220,14 @@ module Data
                 Tools.save_params(params_file, params)
             end
             # ASCII single pulses
-            convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
+            convert_psrfit_ascii(replace(outfile, ".spCF"=>".debase.gg"), replace(outfile, ".spCF"=>".debase.txt"))
 
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
-            println("OUT ", replace(outfile, ".spCF"=>"debase.gg"))
-
+            #println("OUT ", replace(outfile, ".spCF"=>".debase.gg"))
             # ASCII single pulses
-            convert_psrfit_ascii(joinpath(data_dir, "pulsar.debase.gg"), joinpath(data_dir, "pulsar.debase.txt"))
+            convert_psrfit_ascii(replace(outfile, ".spCF"=>".debase.gg"), replace(outfile, ".spCF"=>".debase.txt"))
         end
     end
 
