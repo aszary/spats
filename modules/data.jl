@@ -196,6 +196,7 @@ module Data
 
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
+            println("\nOUT $outfile \n")
             run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
             #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
