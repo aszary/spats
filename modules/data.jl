@@ -657,7 +657,7 @@ module Data
         debase(outfile, params_file, p)
 
         # Calculate 2dfs and lrfs
-        twodfs_lrfs(debased_file, params_file, p; detect=false)
+        #twodfs_lrfs(debased_file, params_file, p; detect=false)
 
         process_data_andrzej(debased_file, outdir, p)
         #=
