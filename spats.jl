@@ -154,9 +154,10 @@ module SpaTs
 
 
 
-
+        #=
         process_psrdata(vpmout*"J1904+1011", vpmout*"J1904+1011")
         process_psrdata(vpmout*"J1720-0212", vpmout*"J1720-0212")
+        =#
         process_psrdata(vpmout*"J1655-3048", vpmout*"J1655-3048")
         process_psrdata(vpmout*"J0711+0931", vpmout*"J0711+0931")
         process_psrdata(vpmout*"J1850+0026", vpmout*"J1850+0026")
