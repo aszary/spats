@@ -86,8 +86,8 @@ module SpaTs
 
     function main()
         # output directory for VPM
-        vpmout = "/home/psr/output/"
-
+        #vpmout = "/home/psr/output/"
+        vpmout = "/home/psr/data/OUTPUT/maciej/"
         #test(vpmout)
         #test2(vpmout)
         #test3("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
@@ -144,10 +144,38 @@ module SpaTs
         """
         #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") 
 
-        process_psrdata(vpmout*"J1741-0840", vpmout*"J1741-0840")
-        process_psrdata(vpmout*"J1651-5222", vpmout*"J1651-5222")
-        process_psrdata(vpmout*"J1901-0906", vpmout*"J1901-0906")
+       #process_psrdata(vpmout*"J1741-0840", vpmout*"J1741-0840")
+        #process_psrdata(vpmout*"J1651-5222", vpmout*"J1651-5222")
+        #process_psrdata(vpmout*"J1901-0906", vpmout*"J1901-0906")
 
+
+        process_psrdata(vpmout*"J1904+1011", vpmout*"J1904+1011")
+        process_psrdata(vpmout*"J1720-0212", vpmout*"J1720-0212")
+        process_psrdata(vpmout*"J1655-3048", vpmout*"J1655-3048")
+        process_psrdata(vpmout*"J0711+0931", vpmout*"J0711+0931")
+        #fix lower no cleaan  po bin end "_clean_threshold":"threshold for polarization cleaning","p3_ybins":XXX,"clean_threshold":0.5,"
+        process_psrdata(vpmout*"J1850+0026", vpmout*"J1850+0026")
+        process_psrdata(vpmout*"J1745-0129", vpmout*"J1745-0129")
+        process_psrdata(vpmout*"J1512-5431", vpmout*"J1512-5431")
+        process_psrdata(vpmout*"J1844-0433", vpmout*"J1844-0433")
+        process_psrdata(vpmout*"J1137-6700", vpmout*"J1137-6700")
+        process_psrdata(vpmout*"J1945-0040", vpmout*"J1945-0040")
+        process_psrdata(vpmout*"J1809-0119", vpmout*"J1809-0119")
+        #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345")
+        process_psrdata(vpmout*"J1534-4428", vpmout*"J1534-4428")
+        process_psrdata(vpmout*"J1857+0057", vpmout*"J1857+0057")
+        process_psrdata(vpmout*"J1750-3503", vpmout*"J1750-3503")
+        process_psrdata(vpmout*"J1036-6559", vpmout*"J1036-6559")
+        process_psrdata(vpmout*"J1627-5936", vpmout*"J1627-5936")
+        process_psrdata(vpmout*"J1645+1012", vpmout*"J1645+1012")
+        process_psrdata(vpmout*"J0812-3905", vpmout*"J0812-3905")
+        process_psrdata(vpmout*"J1903+2225", vpmout*"J1903+2225")
+        process_psrdata(vpmout*"J1035-6345", vpmout*"J1035-6345")
+        process_psrdata(vpmout*"J1703-4442", vpmout*"J1703-4442")
+        process_psrdata(vpmout*"J1547-5750", vpmout*"J1547-5750")
+        process_psrdata(vpmout*"J1926-0652", vpmout*"J1926-0652")
+        process_psrdata(vpmout*"J1927+0911", vpmout*"J1927+0911")
+        process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731")
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
