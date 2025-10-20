@@ -167,7 +167,7 @@ module SpaTs
         process_psrdata(vpmout*"J1137-6700", vpmout*"J1137-6700")
         process_psrdata(vpmout*"J1945-0040", vpmout*"J1945-0040")
         process_psrdata(vpmout*"J1809-0119", vpmout*"J1809-0119")
-        =#
+        
         process_psrdata(vpmout*"J1944+1755", vpmout*"J1944+1755")
         process_psrdata(vpmout*"J1727-2739", vpmout*"J1727-2739")
         process_psrdata(vpmout*"J0725-1635", vpmout*"J0725-1635")
@@ -192,6 +192,7 @@ module SpaTs
         process_psrdata(vpmout*"J1926-0652", vpmout*"J1926-0652")
         process_psrdata(vpmout*"J1927+0911", vpmout*"J1927+0911")
         process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010")
+        =#
         process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731")
 
         #Data.process_all_data(vpmout)
