@@ -117,12 +117,13 @@ module SpaTs
         #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731") #
         #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
+        process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
 
         #process_psrdata_new(vpmout*"J1842-0359", vpmout*"test") #  nice single pulses, nice P. p3fold
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
-        Data.combine_pngs(vpmout)
+        #Data.combine_pngs(vpmout)
         
         #Data.remove_folders(vpmout)
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
