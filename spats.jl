@@ -86,7 +86,7 @@ module SpaTs
 
     function main()
         # output directory for VPM
-        vpmout = "/home/psr/output/"
+        vpmout = "/home/psr/data/OUTPUT/andrzej"
 
         #test(vpmout)
         #test2(vpmout)
@@ -107,9 +107,9 @@ module SpaTs
         #process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") # single bad, p3folds bad, P3 stable
         #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
-        process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
-
-
+        #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
+        process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") 
+        
 
 
         #Data.process_all_data(vpmout)
