@@ -693,11 +693,13 @@ module Data
             get_nsubint(low_filename, params_file, p)
         end
 
-        return p, debased_file, outdir
 
 
         # debase the data
-        debase(outfile, params_file, p)
+        debase(low_filename, params_file, p)
+
+        return p, debased_file, outdir
+
 
         # Calculate 2dfs and lrfs
         twodfs_lrfs(debased_file, params_file, p; detect=false)
