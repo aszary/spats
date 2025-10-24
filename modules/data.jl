@@ -663,7 +663,7 @@ module Data
 
 
     """
-    Process multifrequancy data with PSRCHIVE and PSRSALSA
+    Process multifrequency data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
 
@@ -680,8 +680,12 @@ module Data
             p = Tools.read_params(params_file)
         end
 
-        # add all .spCF files 
+        # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
+
+        # divide to two frequencies
+        multifrequency_split(outfile)
+
 
         return p, debased_file, outdir
 
@@ -705,7 +709,11 @@ module Data
         return p, debased_file, outdir
     end
 
+    function multifrequency_split(spCf16_file)
+        println(spCf16_file)
 
+
+    end
 
 
 
