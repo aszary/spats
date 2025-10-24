@@ -684,15 +684,17 @@ module Data
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
         # divide to two frequencies
-        multifrequency_split(outfile)
+        low_filename, high_filename = multifrequency_split(outfile)
 
 
-        return p, debased_file, outdir
 
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
-            get_nsubint(outfile, params_file, p)
+            get_nsubint(low_filename, params_file, p)
         end
+
+        return p, debased_file, outdir
+
 
         # debase the data
         debase(outfile, params_file, p)
@@ -721,8 +723,9 @@ module Data
 
         run(pipeline(`pdv -A -F $high`, stdout=high_txt, stderr="errs.txt"))
         run(pipeline(`pdv -A -F $low`, stdout=low_txt, stderr="errs.txt"))
-        println("done")
+        #println("done")
         # change -t to -A to get frequancy information
+        return low, high
 
     end
 
