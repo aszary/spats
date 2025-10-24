@@ -134,17 +134,21 @@ module Data
     files: list of files to add (filenames only)
     txt: convert to txt?
     """
-    function add_psrfiles(indir, outfile; files=nothing, txt=false)
+    function add_psrfiles(indir, outfile; files=nothing, sixteen=false)
 
         if files === nothing
             # Find all .spCF files in the input directory
-            files = filter(f -> endswith(f, ".spCF"), readdir(indir))
+            if sixteen == false
+                files = filter(f -> endswith(f, ".spCF"), readdir(indir))
+            else
+                files = filter(f -> endswith(f, ".spCf16"), readdir(indir))
+            end
         end
         
         # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
         sort!(files, by = f -> begin
             # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
-            m = match(r"_(\d+)-(\d+)\.spCF$", f)
+            m = match(r"_(\d+)-(\d+)\.spC(?:F|f16)$", f)
             if isnothing(m)
                 return typemax(Int)  # Files without proper format go to the end
             else
@@ -153,7 +157,7 @@ module Data
         end)
     
         if isempty(files)
-            error("No .spCF files found in directory: $indir")
+            error("No .spCF or .spCf16 files found in directory: $indir")
         end
     
         println("Processing files in order:")
@@ -165,15 +169,6 @@ module Data
 
         # connecting all files
         run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
-
-        if txt == true
-            out_txt = replace(outfile ,".spCF" => ".txt")
-            Data.convert_psrfit_ascii(outfile, out_txt)
-            rm(outfile) #cleanup .spCF file 
-            return out_txt
-        else
-            return outfile
-        end
 
     end
 

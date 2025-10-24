@@ -81,11 +81,10 @@ module SpaTs
         Data.process_data_andrzej(debased_file, outdir, p)
     end
 
-    function process_psrdata_new(indir, outdir)
-        # TODO make some tests here
+    function process_psrdata16(indir, outdir)
         p, debased_file, outdir = Data.process_psrdata(indir, outdir)
         #Data.plot_psrdata(outdir, p)
-        Data.process_data_andrzej(debased_file, outdir, p)
+        #Data.process_data_andrzej(debased_file, outdir, p)
     end
 
    
@@ -117,10 +116,10 @@ module SpaTs
         #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
         #process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731") #
         #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
-        process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
-        #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834") # start diging there...
+        #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834") #
 
-        #process_psrdata_new(vpmout*"J1842-0359", vpmout*"test") #  nice single pulses, nice P. p3fold
+        process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
+        #process_psrdata16(vpmout*"J1414-6802", vpmout*"J1414-6802_16") # start diging there...
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
