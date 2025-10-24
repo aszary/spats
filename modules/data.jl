@@ -683,7 +683,8 @@ module Data
         # add all .spCF files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
-        return
+        return p, debased_file, outdir
+
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
             get_nsubint(outfile, params_file, p)
