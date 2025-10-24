@@ -82,7 +82,7 @@ module SpaTs
     end
 
     function process_psrdata16(indir, outdir)
-        p, debased_file, outdir = Data.process_psrdata(indir, outdir)
+        p, debased_file, outdir = Data.process_psrdata16(indir, outdir)
         #Data.plot_psrdata(outdir, p)
         #Data.process_data_andrzej(debased_file, outdir, p)
     end
