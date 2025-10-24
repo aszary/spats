@@ -697,7 +697,13 @@ module Data
 
         # debase the data
         debase(low_filename, params_file, p)
-        debase(high_filename, params_file, p)
+        debased_filename = replace(low_filename, ".low"=>".debase.gg")
+        println(low_filename)
+        println(debased_filename)
+        
+        # TODO mv pulsar.debase.gg to low...
+        
+        #debase(high_filename, params_file, p)
 
         return p, debased_file, outdir
 
