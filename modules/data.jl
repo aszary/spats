@@ -719,6 +719,7 @@ module Data
 
         run(pipeline(`pdv -A -F pulsar.high`, stdout="pulsar_high.txt", stderr="errs.txt"))
         run(pipeline(`pdv -A -F pulsar.low`, stdout="pulsar_low.txt", stderr="errs.txt"))
+        println("done")
         # change -t to -A to get frequancy information
 
     end
