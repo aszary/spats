@@ -711,14 +711,16 @@ module Data
 
     function multifrequency_split(spCf16_file)
         println(spCf16_file)
-        #low = replace(spCf16_file, "pulsar"=>"pulsar_low")
-        #high = replace(spCf16_file, "pulsar"=>"pulsar_high")
+        low = replace(spCf16_file, ".spCf16"=>".low")
+        low_txt = replace(spCf16_file, ".spCf16"=>"_low.txt")
+        high = replace(spCf16_file, ".spCf16"=>".high")
+        high_txt = replace(spCf16_file, ".spCf16"=>"_high.txt")
 
         run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
         run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
 
-        run(pipeline(`pdv -A -F pulsar.high`, stdout="pulsar_high.txt", stderr="errs.txt"))
-        run(pipeline(`pdv -A -F pulsar.low`, stdout="pulsar_low.txt", stderr="errs.txt"))
+        run(pipeline(`pdv -A -F $high`, stdout=high_txt, stderr="errs.txt"))
+        run(pipeline(`pdv -A -F $low`, stdout=low_txt, stderr="errs.txt"))
         println("done")
         # change -t to -A to get frequancy information
 
