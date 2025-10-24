@@ -697,6 +697,7 @@ module Data
 
         # debase the data
         debase(low_filename, params_file, p)
+        debase(high_filename, params_file, p)
 
         return p, debased_file, outdir
 
