@@ -771,13 +771,13 @@ module Data
                 Tools.save_params(params_file, params)
             end
             # ASCII single pulses
-            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>".low_debase.txt"))
+            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
 
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $low`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
             # ASCII single pulses
-            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>".low_debase.txt"))
+            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
         end
     end
 
