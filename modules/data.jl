@@ -219,13 +219,13 @@ module Data
                 Tools.save_params(params_file, params)
             end
             # ASCII single pulses
-            convert_psrfit_ascii(replace(outfile, ".spCF"=>".debase.gg"), replace(outfile, ".spCF"=>".debase.txt"))
+            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
 
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $infile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
             # ASCII single pulses
-            convert_psrfit_ascii(replace(outfile, ".spCF"=>".debase.gg"), replace(outfile, ".spCF"=>".debase.txt"))
+            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
         end
     end
 
