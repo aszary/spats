@@ -4,6 +4,7 @@ module Data
     using ProgressMeter
     using CairoMakie, FileIO
     using PDFIO
+    using Statistics
 
     include("functions.jl")
     include("tools.jl")
