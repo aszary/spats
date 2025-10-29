@@ -743,13 +743,11 @@ module Data
     """
     function debase_16(low, high, params_file, params)
 
-
-        return
-
+        # find bin_st and bin_end based on low frequency file
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
-            println("pmod -device \"/xw\" -debase $infile")
-            run(pipeline(`pmod -device "/xw" -debase $infile`, `tee pmod_output.txt`))
+            println("pmod -device \"/xw\" -debase $low")
+            run(pipeline(`pmod -device "/xw" -debase $low`, `tee pmod_output.txt`))
             #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
             # Read captured output to get bin_st and bin_end
@@ -773,13 +771,13 @@ module Data
                 Tools.save_params(params_file, params)
             end
             # ASCII single pulses
-            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
+            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>".low_debase.txt"))
 
         else
-            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $infile`))
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $low`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
             # ASCII single pulses
-            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
+            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>".low_debase.txt"))
         end
     end
 
