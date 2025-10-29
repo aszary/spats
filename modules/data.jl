@@ -699,6 +699,9 @@ module Data
         da1 = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         da2 = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
 
+        println("SZ 1", size(da1))
+        println("SZ 2", size(da2))
+
         Plot.single(da1, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
         Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
 
