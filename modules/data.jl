@@ -218,13 +218,13 @@ module Data
                 Tools.save_params(params_file, params)
             end
             # ASCII single pulses
-            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
+            #convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
 
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $infile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
             # ASCII single pulses
-            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
+            #convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
         end
     end
 
@@ -698,7 +698,7 @@ module Data
 
 
         # debase the data
-        #debase(high_filename, params_file, p)
+        debase(high_filename, params_file, p)
         #debased_filename = replace(low_filename, ".low"=>".debase.gg")
         # TODO TODO 
         # TODO mv pulsar.debase.gg to low...
