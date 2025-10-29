@@ -187,9 +187,8 @@ module Data
     Debase the data
 
     # Arguments
-    - `namemod` : modify filename (for multifrequency runs - 16)
     """
-    function debase(infile, params_file, params, namemod=nothing)
+    function debase(infile, params_file, params)
 
 
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
@@ -699,10 +698,8 @@ module Data
 
 
         # debase the data
-        debase(low_filename, params_file, p)
-        debased_filename = replace(low_filename, ".low"=>".debase.gg")
-        println(low_filename)
-        println(debased_filename)
+        #debase(low_filename, params_file, p)
+        #debased_filename = replace(low_filename, ".low"=>".debase.gg")
         # TODO TODO 
         # TODO mv pulsar.debase.gg to low...
         
