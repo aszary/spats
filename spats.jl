@@ -81,8 +81,8 @@ module SpaTs
         Data.process_data_andrzej(debased_file, outdir, p)
     end
 
-    function process_psrdata16(indir, outdir)
-        p, debased_file, outdir = Data.process_psrdata16(indir, outdir)
+    function process_psrdata_16(indir, outdir)
+        p, debased_file, outdir = Data.process_psrdata_16(indir, outdir)
         #Data.plot_psrdata(outdir, p)
         #Data.process_data_andrzej(debased_file, outdir, p)
     end
@@ -120,7 +120,7 @@ module SpaTs
 
         #process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
         #process_psrdata("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_test") # start diging there...
-        process_psrdata16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
+        process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)

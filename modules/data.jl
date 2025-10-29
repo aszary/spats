@@ -666,7 +666,7 @@ module Data
     """
     Process multifrequency data with PSRCHIVE and PSRSALSA
     """
-    function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
+    function process_psrdata_16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
 
         # full paths
         params_file = joinpath(outdir, params_file)
