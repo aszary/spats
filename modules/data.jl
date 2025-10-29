@@ -706,7 +706,7 @@ module Data
 
         difference = da1_norm .- da2_norm
         =#
-
+#=
 # Normalizacja każdego wiersza (pulsu) osobno
 da1_norm = similar(da1)
 da2_norm = similar(da2)
@@ -715,6 +715,13 @@ for i in 1:size(da1, 1)
     da1_norm[i, :] = da1[i, :] ./ mean(da1[i, :])
     da2_norm[i, :] = da2[i, :] ./ mean(da2[i, :])
 end
+
+difference = da1_norm .- da2_norm
+=#
+
+# Normalizacja każdej macierzy osobno do zakresu [0, 1]
+da1_norm = (da1 .- minimum(da1)) ./ (maximum(da1) - minimum(da1))
+da2_norm = (da2 .- minimum(da2)) ./ (maximum(da2) - minimum(da2))
 
 difference = da1_norm .- da2_norm
 
