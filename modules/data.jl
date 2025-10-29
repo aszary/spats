@@ -185,14 +185,17 @@ module Data
     
     """
     Debase the data
+
+    # Arguments
+    - `namemod` : modify filename (for multifrequency runs - 16)
     """
-    function debase(outfile, params_file, params)
+    function debase(infile, params_file, params, namemod=nothing)
 
 
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
-            println("pmod -device \"/xw\" -debase $outfile")
-            run(pipeline(`pmod -device "/xw" -debase $outfile`, `tee pmod_output.txt`))
+            println("pmod -device \"/xw\" -debase $infile")
+            run(pipeline(`pmod -device "/xw" -debase $infile`, `tee pmod_output.txt`))
             #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
             # Read captured output to get bin_st and bin_end
@@ -219,7 +222,7 @@ module Data
             convert_psrfit_ascii(replace(outfile, ".spCF"=>".debase.gg"), replace(outfile, ".spCF"=>".debase.txt"))
 
         else
-            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $outfile`))
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $infile`))
             #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
             # ASCII single pulses
             convert_psrfit_ascii(replace(outfile, ".spCF"=>".debase.gg"), replace(outfile, ".spCF"=>".debase.txt"))
@@ -694,8 +697,6 @@ module Data
             get_nsubint(low_filename, params_file, p)
         end
 
-
-        return p, debased_file, outdir
 
         # debase the data
         debase(low_filename, params_file, p)
