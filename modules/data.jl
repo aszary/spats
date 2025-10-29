@@ -218,7 +218,7 @@ module Data
                 Tools.save_params(params_file, params)
             end
             # ASCII single pulses
-            #convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
+            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
 
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $infile`))
@@ -696,7 +696,7 @@ module Data
             get_nsubint(low_filename, params_file, p)
         end
 
-
+        chmod(high_filename, 0o444) # read-only
         # debase the data
         debase(high_filename, params_file, p)
         #debased_filename = replace(low_filename, ".low"=>".debase.gg")
