@@ -597,4 +597,80 @@ module Data
 
 
 
+
+
+    
+    function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
+
+        # full paths
+        params_file = joinpath(outdir, params_file)
+        outfile = joinpath(outdir, outfile)
+        debased_file = replace(outfile, ".spCF" => ".debase.gg")
+
+        # check if params_file exists if not creating default one
+        if !isfile(params_file)
+            println("File $params_file does not exist, creating default one.")
+            p = Tools.default_params(params_file)
+        else
+            p = Tools.read_params(params_file)
+        end
+
+        # add all .spCf16 files 
+        add_psrfiles(indir, outfile; files=files, sixteen=true)
+
+        # divide to two frequencies
+        low_filename, high_filename = multifrequency_split(outfile)
+
+
+
+        # gets number of single pulses if needed
+        if isnothing(p["nsubint"])
+            get_nsubint(low_filename, params_file, p)
+        end
+
+
+
+        # debase the data
+        debase(low_filename, params_file, p)
+        debased_filename = replace(low_filename, ".low"=>".debase.gg")
+        println(low_filename)
+        println(debased_filename)
+        # TODO TODO 
+        # TODO mv pulsar.debase.gg to low...
+        
+        #debase(high_filename, params_file, p)
+
+        return p, debased_file, outdir
+
+
+        # Calculate 2dfs and lrfs
+        twodfs_lrfs(debased_file, params_file, p; detect=false)
+
+        # calculate p3-folded profile
+        println("P3-folding with:")
+        # TODO experiment here
+        println("pfold -p3fold_noonpulse -p3fold \"$(p["p3"]) $(p["p3_ybins"])\" -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" -onpulsed \"/NULL\" -p3foldd \"/NULL\" -w -oformat ascii $debased_file")
+        run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
+
+        return p, debased_file, outdir
+    end
+
+    function multifrequency_split(spCf16_file)
+        println(spCf16_file)
+        low = replace(spCf16_file, ".spCf16"=>".low")
+        low_txt = replace(spCf16_file, ".spCf16"=>"_low.txt")
+        high = replace(spCf16_file, ".spCf16"=>".high")
+        high_txt = replace(spCf16_file, ".spCf16"=>"_high.txt")
+
+        run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
+        run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
+
+        run(pipeline(`pdv -A -F $high`, stdout=high_txt, stderr="errs.txt"))
+        run(pipeline(`pdv -A -F $low`, stdout=low_txt, stderr="errs.txt"))
+        #println("done")
+        # change -t to -A to get frequancy information
+        return low, high
+
+    end
+
 end # module
