@@ -696,7 +696,7 @@ module Data
             get_nsubint(low_filename, params_file, p)
         end
 
-        chmod(high_filename, 0o444) # read-only
+        chmod(high_filename, 0o644) # read-only
         # debase the data
         debase(high_filename, params_file, p)
         #debased_filename = replace(low_filename, ".low"=>".debase.gg")
