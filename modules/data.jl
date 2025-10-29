@@ -676,17 +676,11 @@ module Data
 
 function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
 
-    # --- Full paths ---
+    # --- full paths ---
     params_file = joinpath(outdir, params_file)
     outfile = joinpath(outdir, outfile)
 
-    # --- Ensure output directory exists ---
-    if !isdir(outdir)
-        println("Output directory $outdir does not exist. Creating it.")
-        mkpath(outdir)
-    end
-
-    # --- Load or create params.json ---
+    # --- check if params_file exists; if not, create default ---
     if !isfile(params_file)
         println("File $params_file does not exist, creating default one.")
         p = Tools.default_params(params_file)
@@ -694,104 +688,68 @@ function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16"
         p = Tools.read_params(params_file)
     end
 
-    # --- Combine all input files into one .spCf16 file ---
+    # --- add all .spCf16 files ---
     add_psrfiles(indir, outfile; files=files)
 
-    # --- Split into low/high frequency halves ---
-    low_filename, high_filename = multifrequency_split(outfile)
-
-    # --- Get number of single pulses if needed ---
+    # --- get number of single pulses if needed ---
     if isnothing(p["nsubint"])
-        get_nsubint(low_filename, params_file, p)
+        get_nsubint(outfile, params_file, p)
     end
 
-    # --- Debase LOW file ---
-    debase(low_filename, params_file, p)
-    default_debased = joinpath(outdir, "pulsar.debase.gg")
+    # --- split to low/high halves ---
+    low_file, high_file = multifrequency_split(outfile)
+
+    # --- debase LOW ---
+    println("\n>>> Debasing LOW half...")
+    debase(low_file, params_file, p)
     low_debased = replace(outfile, ".spCf16" => "_low.debase.gg")
-
-    if isfile(default_debased)
-        println("Renaming $default_debased → $low_debased")
-        mv(default_debased, low_debased; force=true)
-    else
-        println("Warning: expected debased file $default_debased not found after low-frequency debase.")
-    end
-
-    # --- Debase HIGH file ---
-    debase(high_filename, params_file, p)
     default_debased = joinpath(outdir, "pulsar.debase.gg")
-    high_debased = replace(outfile, ".spCf16" => "_high.debase.gg")
-
     if isfile(default_debased)
-        println("Renaming $default_debased → $high_debased")
-        mv(default_debased, high_debased; force=true)
-    else
-        println("Warning: expected debased file $default_debased not found after high-frequency debase.")
+        mv(default_debased, low_debased; force=true)
     end
 
-    # --- Run analysis/plotting for both ---
-    analyze_and_plot(low_debased, params_file, p, outdir; label="low")
-    analyze_and_plot(high_debased, params_file, p, outdir; label="high")
+    # --- debase HIGH ---
+    println("\n>>> Debasing HIGH half...")
+    debase(high_file, params_file, p)
+    high_debased = replace(outfile, ".spCf16" => "_high.debase.gg")
+    if isfile(default_debased)
+        mv(default_debased, high_debased; force=true)
+    end
 
-    return p, low_debased, high_debased, outdir
+    # --- analyze both halves ---
+    analyze_psrhalf(low_debased, outdir, p; label="low")
+    analyze_psrhalf(high_debased, outdir, p; label="high")
+
+    return p
 end
 
 
-# ===================================================================
-# Helper: run 2DFS/LRFS, P3-fold, and plotting sequence
-# ===================================================================
-function analyze_and_plot(debased_file, params_file, p, outdir; label="")
-    println("\n--- Analyzing $(basename(debased_file)) ---")
+function analyze_psrhalf(debased_file, outdir, p; label="")
+    println("\n>>> Processing $(basename(debased_file)) [$label]")
 
-    # Calculate 2DFS and LRFS
-    twodfs_lrfs(debased_file, params_file, p; detect=false)
+    # --- 2DFS + LRFS ---
+    twodfs_lrfs(debased_file, joinpath(outdir, "params.json"), p; detect=false)
 
-    # P3-folding
-    println("P3-folding for $label:")
-    println("pfold -p3fold_norefine -p3fold \"$(p["p3"]) $(p["p3_ybins"])\" -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" -onpulsed \"/NULL\" -p3foldd \"/NULL\" -w -oformat ascii $debased_file")
+    # --- P3-folding ---
+    println("P3-folding [$label] with pfold...")
     run(pipeline(`pfold -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
 
-    # Load and plot
+    # --- Load and plot all data ---
     da0 = Data.load_ascii(replace(debased_file, ".gg" => ".txt"))
-    Plot.single(da0, outdir;
-        darkness=0.7,
-        bin_st=p["bin_st"],
-        bin_end=p["bin_end"],
-        name_mod="all_$label",
-        show_=true
-    )
+    Plot.single(da0, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all_$label", show_=true)
 
     folded = Tools.p3fold(da0, p["p3"], p["p3_ybins"])
-    Plot.single(folded, outdir;
-        darkness=0.97,
-        bin_st=p["bin_st"],
-        bin_end=p["bin_end"],
-        name_mod="p3fold_$label",
-        show_=true,
-        repeat_num=4
-    )
+    Plot.single(folded, outdir; darkness=0.97, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_$label", show_=true, repeat_num=4)
 
     println("Polarization cleaning threshold: ", p["clean_threshold"])
     da = Data.load_ascii_all(replace(debased_file, ".gg" => ".txt"))
     da2 = clean(da; threshold=p["clean_threshold"])
-    Plot.single(da2, outdir;
-        darkness=0.7,
-        bin_st=p["bin_st"],
-        bin_end=p["bin_end"],
-        name_mod="cleaned_$label",
-        show_=true
-    )
+    Plot.single(da2, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="cleaned_$label", show_=true)
 
     folded_clean = Tools.p3fold(da2, p["p3"], p["p3_ybins"])
-    Plot.single(folded_clean, outdir;
-        darkness=0.97,
-        bin_st=p["bin_st"],
-        bin_end=p["bin_end"],
-        name_mod="p3fold_clean_$label",
-        show_=true,
-        repeat_num=4
-    )
+    Plot.single(folded_clean, outdir; darkness=0.97, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_clean_$label", show_=true, repeat_num=4)
 end
+
 
 
 
