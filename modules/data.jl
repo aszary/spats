@@ -743,7 +743,7 @@ module Data
     """
     function debase_16(low, high, params_file, params)
 
-        # find bin_st and bin_end based on low frequency file
+        # finding bin_st and bin_end based on low frequency file
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
             println("pmod -device \"/xw\" -debase $low")
@@ -779,6 +779,10 @@ module Data
             # ASCII single pulses
             convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
         end
+        # change low frequency psrfit filename
+        mv(replace(low, ".low"=>".debase.gg"), replace(low, "pulsar.low"=>"pulsar_low.debase.gg"), force=true)
+
+
     end
 
 
