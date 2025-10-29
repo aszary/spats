@@ -609,7 +609,7 @@ module Data
 
 
 
-#=
+#=S
 
     function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
 
@@ -676,17 +676,17 @@ module Data
 
 function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
 
-    # --- full paths ---
+    # --- Full paths ---
     params_file = joinpath(outdir, params_file)
     outfile = joinpath(outdir, outfile)
 
-    # ensure output directory exists
+    # --- Ensure output directory exists ---
     if !isdir(outdir)
         println("Output directory $outdir does not exist. Creating it.")
         mkpath(outdir)
     end
 
-    # --- load or create params.json ---
+    # --- Load or create params.json ---
     if !isfile(params_file)
         println("File $params_file does not exist, creating default one.")
         p = Tools.default_params(params_file)
@@ -694,21 +694,22 @@ function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16"
         p = Tools.read_params(params_file)
     end
 
-    # --- combine input files into one .spCf16 file ---
+    # --- Combine all input files into one .spCf16 file ---
     add_psrfiles(indir, outfile; files=files)
 
-    # --- split data into low / high frequency halves ---
+    # --- Split into low/high frequency halves ---
     low_filename, high_filename = multifrequency_split(outfile)
 
-    # --- get number of single pulses if not already set ---
+    # --- Get number of single pulses if needed ---
     if isnothing(p["nsubint"])
         get_nsubint(low_filename, params_file, p)
     end
 
-    # --- debase low file ---
+    # --- Debase LOW file ---
     debase(low_filename, params_file, p)
     default_debased = joinpath(outdir, "pulsar.debase.gg")
-    low_debased = replace(low_filename, ".low" => ".debase.gg")
+    low_debased = replace(outfile, ".spCf16" => "_low.debase.gg")
+
     if isfile(default_debased)
         println("Renaming $default_debased → $low_debased")
         mv(default_debased, low_debased; force=true)
@@ -716,10 +717,11 @@ function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16"
         println("Warning: expected debased file $default_debased not found after low-frequency debase.")
     end
 
-    # --- debase high file ---
+    # --- Debase HIGH file ---
     debase(high_filename, params_file, p)
     default_debased = joinpath(outdir, "pulsar.debase.gg")
-    high_debased = replace(high_filename, ".high" => ".debase.gg")
+    high_debased = replace(outfile, ".spCf16" => "_high.debase.gg")
+
     if isfile(default_debased)
         println("Renaming $default_debased → $high_debased")
         mv(default_debased, high_debased; force=true)
@@ -727,24 +729,25 @@ function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16"
         println("Warning: expected debased file $default_debased not found after high-frequency debase.")
     end
 
-    # --- run analysis and plotting for both frequency bands ---
+    # --- Run analysis/plotting for both ---
     analyze_and_plot(low_debased, params_file, p, outdir; label="low")
     analyze_and_plot(high_debased, params_file, p, outdir; label="high")
 
-    return p, outdir
+    return p, low_debased, high_debased, outdir
 end
 
 
 # ===================================================================
-# Helper function: run 2DFS/LRFS, P3-fold, and plotting sequence
+# Helper: run 2DFS/LRFS, P3-fold, and plotting sequence
 # ===================================================================
 function analyze_and_plot(debased_file, params_file, p, outdir; label="")
+    println("\n--- Analyzing $(basename(debased_file)) ---")
+
     # Calculate 2DFS and LRFS
-    println("\n--- Running 2DFS/LRFS for $label ---")
     twodfs_lrfs(debased_file, params_file, p; detect=false)
 
     # P3-folding
-    println("\n--- Running P3-folding for $label ---")
+    println("P3-folding for $label:")
     println("pfold -p3fold_norefine -p3fold \"$(p["p3"]) $(p["p3_ybins"])\" -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" -onpulsed \"/NULL\" -p3foldd \"/NULL\" -w -oformat ascii $debased_file")
     run(pipeline(`pfold -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`, stderr="errs.txt"))
 
