@@ -702,10 +702,10 @@ module Data
         difference = da2 .- da1
 
 
-        Plot.single(da1, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="low", show_=true)
-        Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
+        Plot.single(da1, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="low", show_=true)
+        Plot.single(da2, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
 
-        Plot.single(difference, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
+        Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
 
 
         # TODO mv pulsar.debase.gg to low...
