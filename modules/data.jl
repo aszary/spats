@@ -699,7 +699,10 @@ module Data
         da1 = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         da2 = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
 
-        difference = da2 .- da1
+        da1_norm = da1 ./ mean(da1)
+        da2_norm = da2 ./ mean(da2)
+
+        difference = da1_norm .- da2_norm
 
 
         Plot.single(da1, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="low", show_=true)
