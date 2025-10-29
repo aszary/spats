@@ -673,7 +673,6 @@ module Data
         # full paths
         params_file = joinpath(outdir, params_file)
         outfile = joinpath(outdir, outfile)
-        debased_file = replace(outfile, ".spCF" => ".debase.gg")
 
         # check if params_file exists if not creating default one
         if !isfile(params_file)
@@ -689,8 +688,6 @@ module Data
         # divide to two frequencies
         low_filename, high_filename = multifrequency_split(outfile)
 
-
-
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
             get_nsubint(low_filename, params_file, p)
@@ -698,12 +695,38 @@ module Data
 
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
-        # TODO TODO 
+
+        da1 = Data.load_ascii(replace(low, ".low"=>"_low_debase.txt"))
+        da2 = Data.load_ascii(replace(high, ".high"=>"_high_debase.txt"))
+
+        Plot.single(da1, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
+        Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
+
+
+
         # TODO mv pulsar.debase.gg to low...
         
-        #debase(high_filename, params_file, p)
 
-        return p, debased_file, outdir
+        return p, nothing, outdir
+
+        da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
+        Plot.single(da0, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
+
+        folded = Tools.p3fold(da0, p["p3"],  p["p3_ybins"])
+        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold", show_=true, repeat_num=4)
+
+        println("Polarization cleaning threshold: ", p["clean_threshold"])
+        # polarisation cleaning
+        da = Data.load_ascii_all(replace(debased_file, ".gg"=>".txt"))  
+        da2 = clean(da; threshold=p["clean_threshold"]) 
+        Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="cleaned", show_=true)
+
+        folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
+        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_clean", show_=true, repeat_num=4)
+
+
+
+
 
 
         # Calculate 2dfs and lrfs
@@ -788,7 +811,6 @@ module Data
         convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), replace(high, ".high"=>"_high_debase.txt"))
         # changing high frequency psrfit filename
         mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
-
 
     end
 
