@@ -134,7 +134,18 @@ module Data
     files: list of files to add (filenames only)
     txt: convert to txt?
     """
-    function add_psrfiles(indir, outfile; files=nothing, txt=false)
+    function add_psrfiles(indir, outfile; files=nothing, sixteen=false,)
+
+
+                if files === nothing
+            # Find all .spCF files in the input directory
+            if sixteen == false
+                files = filter(f -> endswith(f, ".spCF"), readdir(indir))
+            else
+                files = filter(f -> endswith(f, ".spCf16"), readdir(indir))
+            end
+        end
+
 
         if files === nothing
             # Find all .spCF files in the input directory
@@ -599,7 +610,7 @@ module Data
 
 
 
-    
+
     function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
 
         # full paths
