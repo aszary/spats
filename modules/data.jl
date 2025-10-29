@@ -779,8 +779,15 @@ module Data
             # ASCII single pulses
             convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
         end
-        # change low frequency psrfit filename
+
+        # changing low frequency psrfit filename
         mv(replace(low, ".low"=>".debase.gg"), replace(low, "pulsar.low"=>"pulsar_low.debase.gg"), force=true)
+
+        # high frequency runs
+        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $high`))
+        convert_psrfit_ascii(replace(hgih, ".high"=>".debase.gg"), replace(high, ".high"=>"_high_debase.txt"))
+        # changing high frequency psrfit filename
+        mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
 
 
     end
