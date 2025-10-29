@@ -134,7 +134,7 @@ module Data
     files: list of files to add (filenames only)
     txt: convert to txt?
     """
-    function add_psrfiles(indir, outfile; files=nothing, sixteen=false,)
+    function add_psrfiles(indir, outfile; files=nothing, sixteen=false, txt=false)
 
 
                 if files === nothing
