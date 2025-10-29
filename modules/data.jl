@@ -785,7 +785,7 @@ module Data
 
         # high frequency runs
         run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $high`))
-        convert_psrfit_ascii(replace(hgih, ".high"=>".debase.gg"), replace(high, ".high"=>"_high_debase.txt"))
+        convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), replace(high, ".high"=>"_high_debase.txt"))
         # changing high frequency psrfit filename
         mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
 
