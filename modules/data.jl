@@ -696,8 +696,8 @@ module Data
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
 
-        da1 = Data.load_ascii(replace(low, ".low"=>"_low_debase.txt"))
-        da2 = Data.load_ascii(replace(high, ".high"=>"_high_debase.txt"))
+        da1 = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
+        da2 = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
 
         Plot.single(da1, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
         Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
