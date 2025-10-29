@@ -695,6 +695,7 @@ module Data
         end
 
 
+        return p, debased_file, outdir
 
         # debase the data
         debase(low_filename, params_file, p)
