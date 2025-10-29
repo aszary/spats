@@ -119,7 +119,6 @@ module Data
     Converts PSRFIT file to ASCII (using PSRCHIVE tools)
     """
     function convert_psrfit_ascii(infile, outfile)
-        println("IN OUT $infile $outfile")
         run(pipeline(`pdv -t -F $infile`, stdout="$outfile", stderr="errs.txt"))
         # change -t to -A to get frequancy information
         #@showprogress 1 for i in 1:pn  # psrchive indexing
@@ -697,10 +696,8 @@ module Data
             get_nsubint(low_filename, params_file, p)
         end
 
-        chmod(high_filename, 0o644) # read-only
         # debase the data
-        debase(high_filename, params_file, p)
-        #debased_filename = replace(low_filename, ".low"=>".debase.gg")
+        debase_16(low_filename, high_filename, params_file, p)
         # TODO TODO 
         # TODO mv pulsar.debase.gg to low...
         
@@ -738,6 +735,54 @@ module Data
         return low, high
 
     end
+
+    """
+    Debase the data
+
+    # Arguments
+    """
+    function debase_16(low, high, params_file, params)
+
+
+        return
+
+        if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
+
+            println("pmod -device \"/xw\" -debase $infile")
+            run(pipeline(`pmod -device "/xw" -debase $infile`, `tee pmod_output.txt`))
+            #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
+
+            # Read captured output to get bin_st and bin_end
+            output = read("pmod_output.txt", String)
+            rm("pmod_output.txt")  # cleanup
+
+            # Extract onpulse values
+            m = match(r"-onpulse '(.+) (.+)'", output)
+            if !isnothing(m)
+                bin_st, bin_end = parse.(Int, m.captures)
+                # Check if onpulse region length is even
+                region_length = bin_end - bin_st + 1
+                if region_length % 2 != 0
+                    println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                    bin_end -= 1
+                    println("Adjusted onpulse range: $bin_st to $bin_end")
+                end
+                println("Found onpulse range: $bin_st to $bin_end")
+                params["bin_st"] = bin_st
+                params["bin_end"] = bin_end
+                Tools.save_params(params_file, params)
+            end
+            # ASCII single pulses
+            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
+
+        else
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $infile`))
+            #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
+            # ASCII single pulses
+            convert_psrfit_ascii(replace(infile, ".spCF"=>".debase.gg"), replace(infile, ".spCF"=>".debase.txt"))
+        end
+    end
+
 
 
 
