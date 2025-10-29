@@ -718,10 +718,20 @@ end
 
 difference = da1_norm .- da2_norm
 =#
-
+#=
 # Normalizacja każdej macierzy osobno do zakresu [0, 1]
 da1_norm = (da1 .- minimum(da1)) ./ (maximum(da1) - minimum(da1))
 da2_norm = (da2 .- minimum(da2)) ./ (maximum(da2) - minimum(da2))
+
+difference = da1_norm .- da2_norm
+=#
+
+# Przykład: normalizacja względem średniej z pierwszych 100 binów
+baseline1 = mean(da1[:, 1:100])
+baseline2 = mean(da2[:, 1:100])
+
+da1_norm = da1 .- baseline1
+da2_norm = da2 .- baseline2
 
 difference = da1_norm .- da2_norm
 
