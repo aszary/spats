@@ -761,8 +761,8 @@ difference = da1_norm .- da2_norm
 
 
 
-        #twodfs_lrfs(replace(low_filename, ".low"=>"_low.debase.gg"), params_file, p; detect=true)
-        #twodfs_lrfs(high_filename, params_file, p; detect=true)
+        twodfs_lrfs(replace(low_filename, ".low"=>"_low.debase.gg"), params_file, p; detect=true)
+        twodfs_lrfs(high_filename, params_file, p; detect=true)
 
 
         return p, nothing, outdir
