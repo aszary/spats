@@ -706,7 +706,7 @@ module Data
 
         difference = da1_norm .- da2_norm
         =#
-#=
+
 # Normalizacja każdego wiersza (pulsu) osobno
 da1_norm = similar(da1)
 da2_norm = similar(da2)
@@ -717,7 +717,7 @@ for i in 1:size(da1, 1)
 end
 
 difference = da1_norm .- da2_norm
-=#
+
 #=
 # Normalizacja każdej macierzy osobno do zakresu [0, 1]
 da1_norm = (da1 .- minimum(da1)) ./ (maximum(da1) - minimum(da1))
@@ -736,22 +736,27 @@ da2_norm = da2 .- baseline2
 
 difference = da1_norm .- da2_norm
 =#
-
+#=
 # Normalizacja do średniej=0, odchylenie standardowe=1
 da1_norm = (da1 .- mean(da1)) ./ std(da1)
 da2_norm = (da2 .- mean(da2)) ./ std(da2)
 
 difference = da1_norm .- da2_norm
+=#
+
+        #Plot.single(da1, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="low", show_=true)
+        #Plot.single(da2, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
+        #Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="difference", show_=true)
 
 
-        Plot.single(da1, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="low", show_=true)
-        Plot.single(da2, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
-
-        Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="difference", show_=true)
-
+        # TODO TODO
 
         # TODO mv pulsar.debase.gg to low...
-        
+
+        # Calculate 2dfs and lrfs
+        twodfs_lrfs(low_filename, params_file, p; detect=true)
+        twodfs_lrfs(high_filename, params_file, p; detect=true)
+
 
         return p, nothing, outdir
 
