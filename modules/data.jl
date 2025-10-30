@@ -700,14 +700,13 @@ module Data
         da1 = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         da2 = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
 
-        #=
         da1_norm = da1 ./ mean(da1)
         da2_norm = da2 ./ mean(da2)
 
         difference = da1_norm .- da2_norm
-        =#
 
 # Normalizacja każdego wiersza (pulsu) osobno
+#=
 da1_norm = similar(da1)
 da2_norm = similar(da2)
 
@@ -717,6 +716,7 @@ for i in 1:size(da1, 1)
 end
 
 difference = da1_norm .- da2_norm
+=#
 
 #=
 # Normalizacja każdej macierzy osobno do zakresu [0, 1]
