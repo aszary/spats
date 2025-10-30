@@ -754,7 +754,8 @@ difference = da1_norm .- da2_norm
         # TODO mv pulsar.debase.gg to low...
 
         # Calculate 2dfs and lrfs
-        twodfs_lrfs(low_filename, params_file, p; detect=true)
+        println(low_filename)
+        #twodfs_lrfs(low_filename, params_file, p; detect=true)
         #twodfs_lrfs(high_filename, params_file, p; detect=true)
 
 
