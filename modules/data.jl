@@ -754,8 +754,14 @@ difference = da1_norm .- da2_norm
         # TODO mv pulsar.debase.gg to low...
 
         # Calculate 2dfs and lrfs
-        println(replace(low_filename, ".low"=>"_low.debase.gg"))
-        twodfs_lrfs(replace(low_filename, ".low"=>"_low.debase.gg"), params_file, p; detect=true)
+        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
+        println(low_debase)
+
+        run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $low_debase`,  stderr="errs.txt"))
+
+
+
+        #twodfs_lrfs(replace(low_filename, ".low"=>"_low.debase.gg"), params_file, p; detect=true)
         #twodfs_lrfs(high_filename, params_file, p; detect=true)
 
 
