@@ -809,9 +809,9 @@ difference = da1_norm .- da2_norm
         run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
         run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
 
-        # fscrunch                
-        run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
-        run(pipeline(`pam -F -e low $low`,stderr="errs.txt"))
+        # fscrunch #TODO work on that               
+        #run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
+        #run(pipeline(`pam -F -e low $low`,stderr="errs.txt"))
 
         run(pipeline(`pdv -A -F $high`, stdout=high_txt, stderr="errs.txt"))
         run(pipeline(`pdv -A -F $low`, stdout=low_txt, stderr="errs.txt"))
