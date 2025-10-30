@@ -756,6 +756,7 @@ difference = da1_norm .- da2_norm
         # Calculate 2dfs and lrfs
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         println(low_debase)
+        println("pspec -w -oformat ASCII -2dfs -lrfs -profd \"/NULL\" -onpulsed \"/NULL\" -2dfsd \"/NULL\" -lrfsd \"/NULL\" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $low_debase")
         run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $low_debase`,  stderr="errs.txt"))
 
 
