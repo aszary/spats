@@ -755,7 +755,7 @@ difference = da1_norm .- da2_norm
 
         # Calculate 2dfs and lrfs
         twodfs_lrfs(low_filename, params_file, p; detect=true)
-        twodfs_lrfs(high_filename, params_file, p; detect=true)
+        #twodfs_lrfs(high_filename, params_file, p; detect=true)
 
 
         return p, nothing, outdir
