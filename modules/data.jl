@@ -703,31 +703,25 @@ module Data
         high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
         twodfs_lrfs(high_debase, params_file, p; detect=false)
 
-        da1 = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
-        da2 = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
+        da_low = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
+        da_high = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
 
         # low freq
-        folded = Tools.p3fold(da1, p["p3"],  p["p3_ybins"])
-        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
+        folded_low = Tools.p3fold(da_low, p["p3"],  p["p3_ybins"])
+        Plot.single(folded_low, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
 
         # high freq 
-        folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
-        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
+        folded_high = Tools.p3fold(da_high, p["p3"],  p["p3_ybins"])
+        Plot.single(folded_high, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
 
 
-
-
-
-
-
-
-
-
-
-        da1_norm = da1 ./ mean(da1)
-        da2_norm = da2 ./ mean(da2)
+        da1_norm = folded_low ./ mean(folded_low)
+        da2_norm = folded_high ./ mean(folded_high)
 
         difference = da1_norm .- da2_norm
+        
+        Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="difference", show_=true)
+
 
 # Normalizacja każdego wiersza (pulsu) osobno
 #=
