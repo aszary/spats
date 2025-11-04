@@ -697,8 +697,32 @@ module Data
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
 
+        # Calculate 2dfs and lrfs => finds P3
+        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
+        twodfs_lrfs(low_debase, params_file, p; detect=false)
+        high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
+        twodfs_lrfs(high_debase, params_file, p; detect=false)
+
         da1 = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         da2 = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
+
+        # low freq
+        folded = Tools.p3fold(da1, p["p3"],  p["p3_ybins"])
+        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
+
+        # high freq 
+        folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
+        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
+
+
+
+
+
+
+
+
+
+
 
         da1_norm = da1 ./ mean(da1)
         da2_norm = da2 ./ mean(da2)
@@ -748,23 +772,9 @@ difference = da1_norm .- da2_norm
         #Plot.single(da2, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
         #Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="difference", show_=true)
 
-        # Calculate 2dfs and lrfs
-        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
-        twodfs_lrfs(low_debase, params_file, p; detect=true)
-        high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
-        twodfs_lrfs(high_debase, params_file, p; detect=true)
-
         return p, nothing, outdir
 
         # TODO TODO
-
-        # TODO mv pulsar.debase.gg to low...
-
-        # Calculate 2dfs and lrfs
-        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
-        println(low_debase)
-        println("pspec -w -oformat ASCII -2dfs -lrfs -profd \"/NULL\" -onpulsed \"/NULL\" -2dfsd \"/NULL\" -lrfsd \"/NULL\" -nfft $(p["nfft"]) -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" $low_debase")
-        run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $low_debase`,  stderr="errs.txt"))
 
 
 
