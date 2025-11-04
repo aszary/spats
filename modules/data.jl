@@ -719,8 +719,8 @@ module Data
         da2_norm = folded_high ./ mean(folded_high)
 
         difference = da1_norm .- da2_norm
-        
-        Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="difference", show_=true)
+
+        Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="difference", show_=true)
 
 
 # Normalizacja każdego wiersza (pulsu) osobno
