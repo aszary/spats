@@ -748,6 +748,7 @@ difference = da1_norm .- da2_norm
         Plot.single(da2, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
         Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="difference", show_=true)
 
+        return p, nothing, outdir
 
         # TODO TODO
 
@@ -765,7 +766,6 @@ difference = da1_norm .- da2_norm
         #twodfs_lrfs(high_filename, params_file, p; detect=true)
 
 
-        return p, nothing, outdir
 
         da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
         Plot.single(da0, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
@@ -799,6 +799,7 @@ difference = da1_norm .- da2_norm
         return p, debased_file, outdir
     end
 
+
     function multifrequency_split(spCf16_file)
         println(spCf16_file)
         low = replace(spCf16_file, ".spCf16"=>".low")
@@ -809,9 +810,9 @@ difference = da1_norm .- da2_norm
         run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
         run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
 
-        # fscrunch #TODO work on that               
-        #run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
-        #run(pipeline(`pam -F -e low $low`,stderr="errs.txt"))
+        # fscrunch
+        run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
+        run(pipeline(`pam -F -e low $low`,stderr="errs.txt"))
 
         run(pipeline(`pdv -A -F $high`, stdout=high_txt, stderr="errs.txt"))
         run(pipeline(`pdv -A -F $low`, stdout=low_txt, stderr="errs.txt"))
@@ -820,6 +821,7 @@ difference = da1_norm .- da2_norm
         return low, high
 
     end
+
 
     """
     Debase the data
