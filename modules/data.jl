@@ -703,81 +703,26 @@ module Data
         high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
         twodfs_lrfs(high_debase, params_file, p; detect=false)
 
-        da_low = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
-        da_high = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
-
         # low freq
+        da_low = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         folded_low = Tools.p3fold(da_low, p["p3"],  p["p3_ybins"])
-        #Plot.single(folded_low, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
+        Plot.single(folded_low, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
 
         # high freq 
+        da_high = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
         folded_high = Tools.p3fold(da_high, p["p3"],  p["p3_ybins"])
-        #Plot.single(folded_high, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
+        Plot.single(folded_high, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
 
-
-        da1 = folded_low
-        da2 = folded_high
-
-da1_norm = (da1 .- minimum(da1)) ./ (maximum(da1) - minimum(da1))
-da2_norm = (da2 .- minimum(da2)) ./ (maximum(da2) - minimum(da2))
-
-        difference = da1_norm .- da2_norm
-
-        Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=nothing, name_mod="difference", show_=true)
-
-
-# Normalizacja każdego wiersza (pulsu) osobno
-#=
-da1_norm = similar(da1)
-da2_norm = similar(da2)
-
-for i in 1:size(da1, 1)
-    da1_norm[i, :] = da1[i, :] ./ mean(da1[i, :])
-    da2_norm[i, :] = da2[i, :] ./ mean(da2[i, :])
-end
-
-difference = da1_norm .- da2_norm
-=#
-
-#=
-# Normalizacja każdej macierzy osobno do zakresu [0, 1]
-da1_norm = (da1 .- minimum(da1)) ./ (maximum(da1) - minimum(da1))
-da2_norm = (da2 .- minimum(da2)) ./ (maximum(da2) - minimum(da2))
-
-difference = da1_norm .- da2_norm
-=#
-
-#=
-# Przykład: normalizacja względem średniej z pierwszych 100 binów
-baseline1 = mean(da1[:, 1:100])
-baseline2 = mean(da2[:, 1:100])
-
-da1_norm = da1 .- baseline1
-da2_norm = da2 .- baseline2
-
-difference = da1_norm .- da2_norm
-=#
-#=
-# Normalizacja do średniej=0, odchylenie standardowe=1
-da1_norm = (da1 .- mean(da1)) ./ std(da1)
-da2_norm = (da2 .- mean(da2)) ./ std(da2)
-
-difference = da1_norm .- da2_norm
-=#
-
-        #Plot.single(da1, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="low", show_=true)
-        #Plot.single(da2, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
-        #Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="difference", show_=true)
 
         return p, nothing, outdir
 
-        # TODO TODO
+        # TODO TODO TODO
+
 
 
 
         #twodfs_lrfs(replace(low_filename, ".low"=>"_low.debase.gg"), params_file, p; detect=true)
         #twodfs_lrfs(high_filename, params_file, p; detect=true)
-
 
 
         da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
@@ -794,10 +739,6 @@ difference = da1_norm .- da2_norm
 
         folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
         Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_clean", show_=true, repeat_num=4)
-
-
-
-
 
 
         # Calculate 2dfs and lrfs
@@ -820,8 +761,11 @@ difference = da1_norm .- da2_norm
         high = replace(spCf16_file, ".spCf16"=>".high")
         high_txt = replace(spCf16_file, ".spCf16"=>"_high.txt")
 
-        run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
-        run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
+        #run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
+        #run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
+
+        run(pipeline(`paz -Z 0-12 -e high $spCf16_file`,stderr="errs.txt"))
+        run(pipeline(`paz -Z 3-15 -e low $spCf16_file`,stderr="errs.txt"))
 
         # fscrunch
         run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
