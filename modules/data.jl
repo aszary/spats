@@ -748,6 +748,10 @@ difference = da1_norm .- da2_norm
         Plot.single(da2, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="high", show_=true)
         Plot.single(difference, outdir; darkness=0.7, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, number=150, name_mod="difference", show_=true)
 
+        # Calculate 2dfs and lrfs
+        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
+        twodfs_lrfs(low_debase, params_file, p; detect=false)
+
         return p, nothing, outdir
 
         # TODO TODO
