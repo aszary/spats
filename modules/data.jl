@@ -708,15 +708,23 @@ module Data
 
         # low freq
         folded_low = Tools.p3fold(da_low, p["p3"],  p["p3_ybins"])
-        Plot.single(folded_low, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
+        #Plot.single(folded_low, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
 
         # high freq 
         folded_high = Tools.p3fold(da_high, p["p3"],  p["p3_ybins"])
-        Plot.single(folded_high, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
+        #Plot.single(folded_high, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
 
 
-        da1_norm = folded_low ./ mean(folded_low)
-        da2_norm = folded_high ./ mean(folded_high)
+        da1 = folded_low
+        da2 = folded_high
+
+da1_norm = similar(da1)
+da2_norm = similar(da2)
+
+for i in 1:size(da1, 1)
+    da1_norm[i, :] = da1[i, :] ./ mean(da1[i, :])
+    da2_norm[i, :] = da2[i, :] ./ mean(da2[i, :])
+end
 
         difference = da1_norm .- da2_norm
 
