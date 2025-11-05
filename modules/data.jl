@@ -711,7 +711,7 @@ module Data
 
         # high freq 
         da_high = Data.load_ascii_all(replace(high_filename, ".high"=>"_high_debase.txt"))
-        da_high = clean(da_high; threshold=0.3) 
+        da_high = clean(da_high; threshold=0.7) 
         folded_high = Tools.p3fold(da_high, p["p3"],  p["p3_ybins"])
         Plot.single(folded_high, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
 
