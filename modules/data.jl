@@ -705,15 +705,15 @@ module Data
 
         # low freq
         da_low = Data.load_ascii_all(replace(low_filename, ".low"=>"_low_debase.txt"))
-        da_low = clean(da_low; threshold=0.9) 
+        da_low = clean(da_low; threshold=0.7) 
         folded_low = Tools.p3fold(da_low, p["p3"],  p["p3_ybins"])
-        Plot.single(folded_low, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
+        Plot.single(folded_low, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
 
         # high freq 
         da_high = Data.load_ascii_all(replace(high_filename, ".high"=>"_high_debase.txt"))
-        da_high = clean(da_high; threshold=0.9) 
+        da_high = clean(da_high; threshold=0.5) 
         folded_high = Tools.p3fold(da_high, p["p3"],  p["p3_ybins"])
-        Plot.single(folded_high, outdir; darkness=0.5, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
+        Plot.single(folded_high, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
 
 
         return p, nothing, outdir
