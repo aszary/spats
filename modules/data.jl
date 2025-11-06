@@ -236,36 +236,50 @@ module Data
     # ADD description!
     debased_file ??
     """
-    function twodfs_lrfs(debased_file, params_file, p; detect=false)
+function twodfs_lrfs(debased_file, params_file, p; detect=false)
 
-        # Calculate 2dfs and lrfs
-        run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
+    # Calculate 2DFS and LRFS
+    run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`, stderr="errs.txt"))
 
-        if p["p3"] == -1.0 || detect == true
-            # Find P3
-            run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
+    # Detect P3 if not known or if forced
+    if p["p3"] == -1.0 || detect == true
+        println("Running pspecDetect to find P3 value...")
+        run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
 
-            # Read captured output
-            output = read("pspecDetect_output.txt", String)
-            rm("pspecDetect_output.txt")  # cleanup
+        # Read captured output
+        output = read("pspecDetect_output.txt", String)
+        rm("pspecDetect_output.txt", force=true)  # cleanup
 
-            # Extract P3 value from the last occurrence
-            p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
-            if !isempty(p3_matches)
-                last_match = p3_matches[end]
-                p3_value = parse(Float64, last_match.captures[1])
-                p3_error = parse(Float64, last_match.captures[2])
-                println("Found P3 = $p3_value ± $p3_error P0")
-            end
+        # Extract P3 value from the last occurrence in pspecDetect output
+        p3_matches = collect(eachmatch(r"P3\[P0\]\s*=\s*(\d+\.\d+)\s*\+-\s*(\d+\.\d+)", output))
 
+        if !isempty(p3_matches)
+            last_match = p3_matches[end]
+            p3_value = parse(Float64, last_match.captures[1])
+            p3_error = parse(Float64, last_match.captures[2])
+            println("✅ Found P3 = $p3_value ± $p3_error P0")
+        else
+            println("⚠️  No P3 value detected — using fallback values (NaN).")
+            p3_value = NaN
+            p3_error = NaN
+        end
+
+        # Calculate ybins if P3 is valid
+        if isnan(p3_value)
+            println("⚠️  Skipping ybins calculation because P3 is NaN.")
+            ybins = 0
+        else
             ybins = Functions.find_ybins(p3_value)
             println("Number of ybins: $ybins")
-            p["p3"] = p3_value
-            p["p3_error"] = p3_error
-            p["p3_ybins"] = ybins
-            Tools.save_params(params_file, p)
         end
+
+        # Save results into params
+        p["p3"] = p3_value
+        p["p3_error"] = p3_error
+        p["p3_ybins"] = ybins
+        Tools.save_params(params_file, p)
     end
+end
 
 
     """
