@@ -772,6 +772,10 @@ end
         run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
         run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
 
+        run(pipeline(`pdv -F -e $high`, stdout=high_txt, stderr="errs.txt"))
+        run(pipeline(`pdv -F -e $low`, stdout=low_txt, stderr="errs.txt"))
+
+
         run(pipeline(`pdv -A -F $high`, stdout=high_txt, stderr="errs.txt"))
         run(pipeline(`pdv -A -F $low`, stdout=low_txt, stderr="errs.txt"))
         #println("done")
