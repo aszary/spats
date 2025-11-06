@@ -707,7 +707,7 @@ module Data
         da_low = Data.load_ascii_all(replace(low_filename, ".low"=>"_low_debase.txt"))
         da_low = clean(da_low; threshold=p["clean_threshold"]) 
         folded_low = Tools.p3fold(da_low, p["p3"],  p["p3_ybins"])
-        Plot.single(folded_low, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=5, name_mod="p3fold_low", show_=true, repeat_num=4)
+        Plot.single(folded_low, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=0, name_mod="p3fold_low", show_=true, repeat_num=4)
 
         # high freq 
         da_high = Data.load_ascii_all(replace(high_filename, ".high"=>"_high_debase.txt"))
