@@ -688,6 +688,19 @@ module Data
 
         # divide to two frequencies
         low_filename, high_filename = multifrequency_split(outfile)
+        # Correct central frequencies for each subband
+        meta_low = read(`pdv -A -F $low_filename`, String)
+        freqs_low = parse.(Float64, split(meta_low))
+        low_cfreq = mean(freqs_low)
+
+        meta_high = read(`pdv -A -F $high_filename`, String)
+        freqs_high = parse.(Float64, split(meta_high))
+        high_cfreq = mean(freqs_high)
+
+        println("Computed central freqs: low = $low_cfreq, high = $high_cfreq")
+
+        run(`pam -c $low_cfreq -m $low_filename`)
+        run(`pam -c $high_cfreq -m $high_filename`)
 
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
