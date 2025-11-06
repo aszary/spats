@@ -675,6 +675,11 @@ module Data
         params_file = joinpath(outdir, params_file)
         outfile = joinpath(outdir, outfile)
 
+        # if no catalog
+        if !isdir(outdir)
+            mkdir(outdir)
+        end
+
         # check if params_file exists if not creating default one
         if !isfile(params_file)
             println("File $params_file does not exist, creating default one.")
