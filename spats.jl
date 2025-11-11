@@ -120,7 +120,19 @@ module SpaTs
 
         #process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
         #process_psrdata("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_test") # start diging there...
-        process_psrdata_16("/home/psr/data/new/J1232-4742/2020-04-11-22:21:18/", vpmout*"J1232-4742_16") # start diging there...
+        #process_psrdata_16("/home/psr/data/new/J1232-4742/2020-04-11-22:21:18/", vpmout*"J1232-4742_16") # start diging there...
+        process_psrdata_16("/home/psr/data/new/J1741-0840/2019-11-05-16:44:10/", vpmout*"J1741-0840_16")
+        process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16")
+        process_psrdata_16("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_16")
+        process_psrdata_16("/home/psr/data/new/J1902+0556/2020-01-05-08:37:25/", vpmout*"J1902+0556_16")
+        process_psrdata_16("/home/psr/data/new/J1404+1159/2020-03-30-02:48:21/", vpmout*"J1404+1159_16")
+        process_psrdata_16("/home/psr/data/new/J1232-4742/2020-04-11-22:21:18/", vpmout*"J1232-4742_16")
+        process_psrdata_16("/home/psr/data/new/J1720-2933/2019-10-31-16:27:2/", vpmout*"J1720-2933_16")
+        process_psrdata_16("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout*"J1919+0134_16")
+        process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
+        process_psrdata_16("/home/psr/data/new/J1519-6106/2020-03-10-23:22:34/", vpmout*"J1519-6106_16")
+        process_psrdata_16("/home/psr/data/new/J1951+1123/2020-07-13-01:17:20/", vpmout*"J1951+1123_16")
+        process_psrdata_16("/home/psr/data/new/J1821+1715/2020-06-08-02:20:21/", vpmout*"J1821+1715_16")
         
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
