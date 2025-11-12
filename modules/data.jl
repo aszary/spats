@@ -788,11 +788,11 @@ module Data
         high = replace(spCf16_file, ".spCf16"=>".high")
         high_txt = replace(spCf16_file, ".spCf16"=>"_high.txt")
 
-        #run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
-        #run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
+        run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
+        run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
 
-        run(pipeline(`paz -Z 0-12 -e high $spCf16_file`,stderr="errs.txt"))
-        run(pipeline(`paz -Z 3-15 -e low $spCf16_file`,stderr="errs.txt"))
+        #run(pipeline(`paz -Z 0-12 -e high $spCf16_file`,stderr="errs.txt"))
+        #run(pipeline(`paz -Z 3-15 -e low $spCf16_file`,stderr="errs.txt"))
 
         # fscrunch
         run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
