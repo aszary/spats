@@ -127,10 +127,10 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J0711+0931/2020-07-04-09:47:10", vpmout*"J0711+0931_16") # start diging there... # start diging there... 
         #process_psrdata_16("/home/psr/data/new/J1944+1755/2020-07-13-00:03:52", vpmout*"J1944+1755_16")
         process_psrdata_16("/home/psr/data/new/J1727-2739/2019-11-26-16:01:01", vpmout*"J1727-2739_16")
-        process_psrdata_16("/home/psr/data/new/J0725-1635/2019-10-27-23:06:09", vpmout*"J0725-1635_16")
-        process_psrdata_16("/home/psr/data/new/J1807+0756/2020-06-07-22:03:05", vpmout*"J1807+0756_16")
-        process_psrdata_16("/home/psr/data/new/J1220-6318/2019-07-25-17:28:57", vpmout*"J1220-6318_16")
-        process_psrdata_16("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12", vpmout*"J1750-3503_16")
+        #process_psrdata_16("/home/psr/data/new/J0725-1635/2019-10-27-23:06:09", vpmout*"J0725-1635_16")
+        #process_psrdata_16("/home/psr/data/new/J1807+0756/2020-06-07-22:03:05", vpmout*"J1807+0756_16") #zapping needed 
+        #process_psrdata_16("/home/psr/data/new/J1220-6318/2019-07-25-17:28:57", vpmout*"J1220-6318_16")
+        #process_psrdata_16("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12", vpmout*"J1750-3503_16")
         process_psrdata_16("/home/psr/data/new/J1903+2225/2020-08-20-20:53:16", vpmout*"J1903+2225_16")
         process_psrdata_16("/home/psr/data/new/J1927+0911/2020-05-18-03:14:48", vpmout*"J1927+0911_16")
         #Data.process_all_data(vpmout)
