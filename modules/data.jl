@@ -708,13 +708,21 @@ module Data
         high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
         twodfs_lrfs(high_debase, params_file, p; detect=false)
 
-        # low freq
+        # single pulses - low
+        da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
+        Plot.single(da_lo, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
+
+        # single pulses - high
+        da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
+        Plot.single(da_hi, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
+
+        # low freq p3-fold with cleaning
         da_low = Data.load_ascii_all(replace(low_filename, ".low"=>"_low_debase.txt"))
         da_low = clean(da_low; threshold=p["clean_threshold"]) 
         folded_low = Tools.p3fold(da_low, p["p3"],  p["p3_ybins"])
         Plot.single(folded_low, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
 
-        # high freq 
+        # high freq p3-fold with cleaning
         da_high = Data.load_ascii_all(replace(high_filename, ".high"=>"_high_debase.txt"))
         da_high = clean(da_high; threshold=p["clean_threshold"]) 
         folded_high = Tools.p3fold(da_high, p["p3"],  p["p3_ybins"])
