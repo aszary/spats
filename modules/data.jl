@@ -702,6 +702,15 @@ module Data
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
 
+         # single pulses - low
+        da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
+        Plot.single(da_lo, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
+
+        # single pulses - high
+        da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
+        Plot.single(da_hi, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
+
+
         # Calculate 2dfs and lrfs => finds P3
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         twodfs_lrfs(low_debase, params_file, p; detect=false)
