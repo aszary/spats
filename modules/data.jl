@@ -907,8 +907,8 @@ module Data
 
         shifts, corr_values = find_shift_per_pulse(normalize_per_pulse(l), normalize_per_pulse(h))
 
-        println("Średnie przesunięcie: $(mean(shifts)) binów")
-        println("Median przesunięcia: $(median(shifts)) binów")
+        println("Mean shift: $(mean(shifts)) bins")
+        println("Median shift: $(median(shifts)) bins")
 
     end
 
