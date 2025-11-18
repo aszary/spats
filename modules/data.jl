@@ -900,9 +900,9 @@ module Data
         h = Data.load_ascii(high)
         #Plot.p3fold(h, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high_$(type)_analyse", show_=true, repeat_num=1)
  
-        diff = normalize_01(l) .- normalize_01(h)
+        #diff = normalize_01(l) .- normalize_01(h)
+        diff = normalize_per_pulse(l) .- normalize_per_pulse(h)
         Plot.p3fold(diff, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_high_$(type)_analyse", show_=true, repeat_num=1)
-
 
 
 
@@ -913,6 +913,17 @@ function normalize_01(data)
     min_val = minimum(data)
     max_val = maximum(data)
     return (data .- min_val) ./ (max_val - min_val)
+end
+
+function normalize_per_pulse(data)
+    normalized = similar(data)
+    for i in 1:size(data, 1)
+        pulse = data[i, :]
+        min_val = minimum(pulse)
+        max_val = maximum(pulse)
+        normalized[i, :] = (pulse .- min_val) ./ (max_val - min_val)
+    end
+    return normalized
 end
 
 
