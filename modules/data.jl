@@ -5,6 +5,7 @@ module Data
     using CairoMakie, FileIO
     using PDFIO
     using Statistics
+    using FFTW
 
     include("functions.jl")
     include("tools.jl")
@@ -894,17 +895,20 @@ module Data
 
         #println(low)
         l = Data.load_ascii(low)
-        Plot.p3fold(l, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_$(type)_analyse", show_=true, repeat_num=1)
+        #Plot.p3fold(l, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_$(type)_analyse", show_=true, repeat_num=1)
 
         #println(high)
         h = Data.load_ascii(high)
-        Plot.p3fold(h, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high_$(type)_analyse", show_=true, repeat_num=1)
+        #Plot.p3fold(h, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high_$(type)_analyse", show_=true, repeat_num=1)
  
         #diff = normalize_01(l) .- normalize_01(h)
         diff = normalize_per_pulse(l) .- normalize_per_pulse(h)
-        Plot.p3fold(diff, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_high_$(type)_analyse", show_=true, repeat_num=1)
+        #Plot.p3fold(diff, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_high_$(type)_analyse", show_=true, repeat_num=1)
 
+        shifts, corr_values = find_shift_per_pulse(data1_norm, data2_norm)
 
+        println("Średnie przesunięcie: $(mean(shifts)) binów")
+        println("Median przesunięcia: $(median(shifts)) binów")
 
     end
 
@@ -925,6 +929,34 @@ function normalize_per_pulse(data)
     end
     return normalized
 end
+
+
+function find_shift_per_pulse(data1, data2)
+    n_pulses = size(data1, 1)
+    shifts = zeros(Int, n_pulses)
+    correlations = zeros(n_pulses)
+    
+    for i in 1:n_pulses
+        # Cross-correlation
+        ccf = ifft(fft(data1[i, :]) .* conj.(fft(data2[i, :])))
+        ccf = real.(ccf)
+        
+        # Znajdź maksimum
+        max_idx = argmax(ccf)
+        correlations[i] = ccf[max_idx]
+        
+        # Przelicz na przesunięcie (z uwzględnieniem wraparound)
+        n_bins = length(ccf)
+        shifts[i] = max_idx - 1
+        if shifts[i] > n_bins ÷ 2
+            shifts[i] = shifts[i] - n_bins
+        end
+    end
+    
+    return shifts, correlations
+end
+
+
 
 
 end # module
