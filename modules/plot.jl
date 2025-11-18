@@ -665,15 +665,17 @@ module Plot
             plot(high[i, p["bin_st"]:p["bin_end"]])
 
             show()
-            println("Press Enter to close the figure.")
-            readline(stdin; keep=false)
-            
+            println("Press Enter for next pulse, 'q' to quit.")
+            user_input = readline(stdin; keep=false)
             close()
-
+            
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
 
         end
 
-   
 
     end
 
