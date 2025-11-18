@@ -885,6 +885,9 @@ module Data
     """
     function analyse_p3folds_16(indir, type)
 
+        # parameters file 
+        p = Tools.read_params(joinpath(indir, "params.json"))
+
         # low, high frequancy filename end
         low = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
         high = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
