@@ -892,17 +892,15 @@ module Data
         low = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
         high = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
 
-        println(low)
+        #println(low)
         l = Data.load_ascii(low)
         #Plot.p3fold(l, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_$(type)_analyse", show_=true, repeat_num=1)
-        println(size(l))
- 
 
-        println(high)
+        #println(high)
         h = Data.load_ascii(high)
         #Plot.p3fold(h, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high_$(type)_analyse", show_=true, repeat_num=1)
  
-        diff = l .- h
+        diff = normalize_01(l) .- normalize_01(h)
         Plot.p3fold(diff, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_high_$(type)_analyse", show_=true, repeat_num=1)
 
 
@@ -910,6 +908,12 @@ module Data
 
     end
 
+
+function normalize_01(data)
+    min_val = minimum(data)
+    max_val = maximum(data)
+    return (data .- min_val) ./ (max_val - min_val)
+end
 
 
 end # module
