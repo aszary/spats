@@ -905,7 +905,7 @@ module Data
         diff = normalize_per_pulse(l) .- normalize_per_pulse(h)
         #Plot.p3fold(diff, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_high_$(type)_analyse", show_=true, repeat_num=1)
 
-        shifts, corr_values = find_shift_per_pulse(data1_norm, data2_norm)
+        shifts, corr_values = find_shift_per_pulse(normalize_per_pulse(l), normalize_per_pulse(h))
 
         println("Średnie przesunięcie: $(mean(shifts)) binów")
         println("Median przesunięcia: $(median(shifts)) binów")
