@@ -757,8 +757,7 @@ module Data
 
         return p, nothing, outdir
 
-        # TODO TODO TODO
-
+        # TODO TODO TODO remove the rest?
 
 
 
@@ -876,6 +875,29 @@ module Data
 
     end
 
+
+    """
+    Analyse p3folds
+
+    # Arguments
+    - `indir`: data input directory
+    - `type`: type of p3folds "refine" or "norefine" filenames are based on that
+ 
+    """
+    function analyse_p3folds_16(indir, type)
+
+        # low, high frequancy filename end
+        low = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
+        high = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
+
+        println(low)
+        println(high)
+
+
+
+
+
+    end
 
 
 
