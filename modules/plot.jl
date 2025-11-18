@@ -655,15 +655,14 @@ module Plot
     end
 
 
-    function analyse_p3folds(low, high)
+    function analyse_p3folds(low, high, p)
         pulses, bins = size(low)
-        println(pulses)
         for i in 1:pulses
 
 
             figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
-            plot(low[i, :])
-            plot(high[i, :])
+            plot(low[i, p["bin_st"]:p["bin_end"]])
+            plot(high[i, p["bin_st"]:p["bin_end"]])
 
             show()
             println("Press Enter to close the figure.")
