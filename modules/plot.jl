@@ -552,7 +552,6 @@ module Plot
     ##########################################################################
     ##########################################################################
 
-    # TODO start here
 
     function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME",
               show_=false)
@@ -656,13 +655,16 @@ module Plot
     end
 
 
+    function analyse_p3folds(low, high)
+        pulses, bins = size(low)
+        println(pulses)
+        for i in 1:pulses
 
+        end
 
+   
 
-
-
-        
-
+    end
 
 
 
