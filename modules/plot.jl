@@ -660,6 +660,18 @@ module Plot
         println(pulses)
         for i in 1:pulses
 
+
+            figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
+            plot(low[i, :])
+            plot(high[i, :])
+
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+            
+            close()
+
+
         end
 
    
