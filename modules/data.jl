@@ -895,6 +895,7 @@ module Data
         println(low)
         l = Data.load_ascii(low)
         Plot.p3fold(l, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_$(type)_analyse", show_=true, repeat_num=1)
+        println(size(l))
  
 
         println(high)
