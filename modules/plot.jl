@@ -681,5 +681,77 @@ module Plot
 
 
 
+function analyse_p3foldss(low, high, p)
+    pulses, bins = size(low)
+    
+    # Define model: sum of two Gaussian functions
+    @. model(x, p) = p[1] * exp(-((x - p[2])^2) / (2 * p[3]^2)) + 
+                     p[4] * exp(-((x - p[5])^2) / (2 * p[6]^2))
+    
+    for i in 1:pulses
+        # Extract data in the range bin_st:bin_end
+        x_data = p["bin_st"]:p["bin_end"]
+        y_low = low[i, p["bin_st"]:p["bin_end"]]
+        y_high = high[i, p["bin_st"]:p["bin_end"]]
+        
+        figure(figsize=(6, 7))
+        
+        # Subplot for low
+        subplot(2, 1, 1)
+        plot(x_data, y_low, "b.", label="Low data")
+        
+        # Initial parameters for fitting [amp1, mean1, sigma1, amp2, mean2, sigma2]
+        # Find two maxima as starting points
+        max_idx = argmax(y_low)
+        p0_low = [maximum(y_low), x_data[max_idx], 10.0, 
+                  maximum(y_low)*0.5, x_data[max_idx]+20, 10.0]
+        
+        try
+            fit_low = curve_fit(model, collect(x_data), y_low, p0_low)
+            plot(x_data, model(collect(x_data), fit_low.param), "r-", label="Fit", linewidth=2)
+            title("Low - Pulse $i")
+            legend()
+        catch e
+            println("Fit failed for low data, pulse $i: $e")
+            title("Low - Pulse $i (fit failed)")
+        end
+        
+        # Subplot for high
+        subplot(2, 1, 2)
+        plot(x_data, y_high, "b.", label="High data")
+        
+        max_idx = argmax(y_high)
+        p0_high = [maximum(y_high), x_data[max_idx], 10.0,
+                   maximum(y_high)*0.5, x_data[max_idx]+20, 10.0]
+        
+        try
+            fit_high = curve_fit(model, collect(x_data), y_high, p0_high)
+            plot(x_data, model(collect(x_data), fit_high.param), "r-", label="Fit", linewidth=2)
+            title("High - Pulse $i")
+            legend()
+            
+            # Optional: print fitting parameters
+            println("High fit params: A1=$(fit_high.param[1]), μ1=$(fit_high.param[2]), σ1=$(fit_high.param[3])")
+            println("                A2=$(fit_high.param[4]), μ2=$(fit_high.param[5]), σ2=$(fit_high.param[6])")
+        catch e
+            println("Fit failed for high data, pulse $i: $e")
+            title("High - Pulse $i (fit failed)")
+        end
+        
+        tight_layout()
+        show()
+        
+        println("Press Enter for next pulse, 'q' to quit.")
+        user_input = readline(stdin; keep=false)
+        close()
+        
+        if lowercase(strip(user_input)) == "q"
+            println("Exiting analysis.")
+            break
+        end
+    end
+end    
+
+
 
 end  # module Plot
