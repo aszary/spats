@@ -681,7 +681,7 @@ module Plot
 
 
 
-function analyse_p3foldss(low, high, p)
+function analyse_p3folds2(low, high, p)
     pulses, bins = size(low)
     
     # Define model: sum of two Gaussian functions
