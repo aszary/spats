@@ -912,6 +912,7 @@ module Data
         println("Mean shift: $(mean(shifts)) bins")
         println("Median shift: $(median(shifts)) bins")
 
+        Plot.analyse_p3folds(nl, nh, p)
         Plot.analyse_p3folds2(nl, nh, p)
 
     end
