@@ -132,7 +132,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1220-6318/2019-07-25-17:28:57", vpmout*"J1220-6318_16")
         #process_psrdata_16("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12", vpmout*"J1750-3503_16")
         process_psrdata_16("/home/psr/data/new/J1903+2225/2020-08-20-20:53:16", vpmout*"J1903+2225_16") # was redone 
-        process_psrdata_16("/home/psr/data/new/J1927+0911/2020-05-18-03:14:48", vpmout*"J1927+0911_16") # was redone 
+        #process_psrdata_16("/home/psr/data/new/J1927+0911/2020-05-18-03:14:48", vpmout*"J1927+0911_16") # was redone 
 
 
 
