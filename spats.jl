@@ -92,7 +92,7 @@ module SpaTs
 
     function main()
         # output directory for VPM
-        vpmout = "/home/psr/output/"
+        vpmout = "/home/psr/data/OUTPUT/czarek/"
 
         #test(vpmout)
         #test2(vpmout)
@@ -120,21 +120,23 @@ module SpaTs
 
         #process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
         #process_psrdata("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_test") # start diging there...
-        #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
-        #process_psrdata_16("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/", vpmout*"J0820-1350_16")
-        #Data.analyse_p3folds_16(vpmout*"J0820-1350_16", "norefine")
+        
         #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
         #process_psrdata_16("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_16") 
-        #process_psrdata_16("/home/psr/data/new/J1514-4834/2019-12-16-08:22:16/", vpmout*"J1514-4834_16")
-        #process_psrdata_16("/home/psr/data/new/J0034-0721/2019-10-18-22:29:51/", vpmout*"J0034-0721_16")
-        #process_psrdata_16("/home/psr/data/new/J0823+0159/2019-11-05-23:33:48/", vpmout*"J0823+0159_16")
-        #process_psrdata_16("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_16")
-        #process_psrdata_16("/home/psr/data/new/J1034-3224/2019-10-19-07:31:26/", vpmout*"J1034-3224_16")
-        #process_psrdata_16("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_16")
-        #process_psrdata_16("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_16")
-        #Data.analyse_p3folds_16(vpmout*"J1555-3134_16", "refine")
-        process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
+        #process_psrdata_16("/home/psr/data/new/J1720-0212/2019-09-29-12:53:17", vpmout*"J1720-0212_16") # start diging there...
+        #process_psrdata_16("/home/psr/data/new/J0711+0931/2020-07-04-09:47:10", vpmout*"J0711+0931_16") # start diging there... # start diging there... 
+        #process_psrdata_16("/home/psr/data/new/J1944+1755/2020-07-13-00:03:52", vpmout*"J1944+1755_16")
+        #process_psrdata_16("/home/psr/data/new/J1727-2739/2019-11-26-16:01:01", vpmout*"J1727-2739_16") #was redone
+        #process_psrdata_16("/home/psr/data/new/J0725-1635/2019-10-27-23:06:09", vpmout*"J0725-1635_16")
+        #process_psrdata_16("/home/psr/data/new/J1807+0756/2020-06-07-22:03:05", vpmout*"J1807+0756_16") #zapping needed 
+        #process_psrdata_16("/home/psr/data/new/J1220-6318/2019-07-25-17:28:57", vpmout*"J1220-6318_16")
+        #process_psrdata_16("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12", vpmout*"J1750-3503_16")
+        #process_psrdata_16("/home/psr/data/new/J1903+2225/2020-08-20-20:53:16", vpmout*"J1903+2225_16") # was redone 
+        #process_psrdata_16("/home/psr/data/new/J1927+0911/2020-05-18-03:14:48", vpmout*"J1927+0911_16") # was redone 
+        #process_psrdata_16("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16", vpmout*"J1539-6322_16")
 
+        Data.analyse_p3folds_16(vpmout*"J1539-6322_16", "refine")
+        
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
         #Data.combine_pngs(vpmout)
