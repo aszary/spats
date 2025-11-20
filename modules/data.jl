@@ -871,7 +871,82 @@ module Data
 
     end
 
+        function analyse_p3folds_16(indir, type)
 
+                # parameters file 
+                p = Tools.read_params(joinpath(indir, "params.json"))
+
+                # low, high frequancy filename end
+                low = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
+                high = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
+
+                #println(low)
+                l = Data.load_ascii(low)
+                Plot.p3fold(l, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_$(type)_analyse", show_=true, repeat_num=1)
+
+                #println(high)
+                h = Data.load_ascii(high)
+                Plot.p3fold(h, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high_$(type)_analyse", show_=true, repeat_num=1)
+        
+                #diff = normalize_01(l) .- normalize_01(h)
+                diff = normalize_per_pulse(l) .- normalize_per_pulse(h)
+                Plot.p3fold(diff, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_high_$(type)_analyse", show_=true, repeat_num=1)
+
+                nl = normalize_per_pulse(l)
+                nh = normalize_per_pulse(h)
+                shifts, corr_values = find_shift_per_pulse(nl, nh)
+
+                println("Mean shift: $(mean(shifts)) bins")
+                println("Median shift: $(median(shifts)) bins")
+
+                Plot.analyse_p3folds(nl, nh, p)
+                Plot.analyse_p3folds2(nl, nh, p)
+
+            end
+
+
+        function normalize_01(data)
+            min_val = minimum(data)
+            max_val = maximum(data)
+            return (data .- min_val) ./ (max_val - min_val)
+        end
+
+        function normalize_per_pulse(data)
+            normalized = similar(data)
+            for i in 1:size(data, 1)
+                pulse = data[i, :]
+                min_val = minimum(pulse)
+                max_val = maximum(pulse)
+                normalized[i, :] = (pulse .- min_val) ./ (max_val - min_val)
+            end
+            return normalized
+        end
+
+
+        function find_shift_per_pulse(data1, data2)
+            n_pulses = size(data1, 1)
+            shifts = zeros(Int, n_pulses)
+            correlations = zeros(n_pulses)
+            
+            for i in 1:n_pulses
+                # Cross-correlation
+                ccf = ifft(fft(data1[i, :]) .* conj.(fft(data2[i, :])))
+                ccf = real.(ccf)
+                
+                # Znajdź maksimum
+                max_idx = argmax(ccf)
+                correlations[i] = ccf[max_idx]
+                
+                # Przelicz na przesunięcie (z uwzględnieniem wraparound)
+                n_bins = length(ccf)
+                shifts[i] = max_idx - 1
+                if shifts[i] > n_bins ÷ 2
+                    shifts[i] = shifts[i] - n_bins
+                end
+            end
+            
+            return shifts, correlations
+        end
 
 
 end # module

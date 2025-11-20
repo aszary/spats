@@ -655,6 +655,287 @@ module Plot
         close()
     end
 
+        function analyse_p3folds(low, high, p)
+        pulses, bins = size(low)
+        for i in 1:pulses
+
+
+            figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
+            plot(low[i, p["bin_st"]:p["bin_end"]])
+            plot(high[i, p["bin_st"]:p["bin_end"]])
+
+            show()
+            println("Press Enter for next pulse, 'q' to quit.")
+            user_input = readline(stdin; keep=false)
+            close()
+            
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
+
+        end
+
+
+    end
+
+
+
+function analyse_p3folds2(low, high, p)
+    pulses, bins = size(low)
+    
+    # Define model: sum of two Gaussian functions
+    @. model(x, p) = p[1] * exp(-((x - p[2])^2) / (2 * p[3]^2)) + 
+                     p[4] * exp(-((x - p[5])^2) / (2 * p[6]^2))
+    
+    for i in 1:pulses
+        # Extract data in the range bin_st:bin_end
+        x_data = p["bin_st"]:p["bin_end"]
+        y_low = low[i, p["bin_st"]:p["bin_end"]]
+        y_high = high[i, p["bin_st"]:p["bin_end"]]
+        
+        figure(figsize=(6, 7))
+        
+        # Subplot for low
+        subplot(2, 1, 1)
+        plot(x_data, y_low, "b.", label="Low data")
+        
+        # Initial parameters for fitting [amp1, mean1, sigma1, amp2, mean2, sigma2]
+        # Find two maxima as starting points
+        max_idx = argmax(y_low)
+        p0_low = [maximum(y_low), x_data[max_idx], 10.0, 
+                  maximum(y_low)*0.5, x_data[max_idx]+20, 10.0]
+        
+        try
+            fit_low = curve_fit(model, collect(x_data), y_low, p0_low)
+            plot(x_data, model(collect(x_data), fit_low.param), "r-", label="Fit", linewidth=2)
+            title("Low - Pulse $i")
+            legend()
+        catch e
+            println("Fit failed for low data, pulse $i: $e")
+            title("Low - Pulse $i (fit failed)")
+        end
+        
+        # Subplot for high
+        subplot(2, 1, 2)
+        plot(x_data, y_high, "b.", label="High data")
+        
+        max_idx = argmax(y_high)
+        p0_high = [maximum(y_high), x_data[max_idx], 10.0,
+                   maximum(y_high)*0.5, x_data[max_idx]+20, 10.0]
+        
+        try
+            fit_high = curve_fit(model, collect(x_data), y_high, p0_high)
+            plot(x_data, model(collect(x_data), fit_high.param), "r-", label="Fit", linewidth=2)
+            title("High - Pulse $i")
+            legend()
+            
+            # Optional: print fitting parameters
+            println("High fit params: A1=$(fit_high.param[1]), μ1=$(fit_high.param[2]), σ1=$(fit_high.param[3])")
+            println("                A2=$(fit_high.param[4]), μ2=$(fit_high.param[5]), σ2=$(fit_high.param[6])")
+        catch e
+            println("Fit failed for high data, pulse $i: $e")
+            title("High - Pulse $i (fit failed)")
+        end
+        
+        tight_layout()
+        show()
+        
+        println("Press Enter for next pulse, 'q' to quit.")
+        user_input = readline(stdin; keep=false)
+        close()
+        
+        if lowercase(strip(user_input)) == "q"
+            println("Exiting analysis.")
+            break
+        end
+    end
+end    
+
+
+
+    function test_track_subpulses_snr_new(data, outdir, p2, snrfile; pulse_snr=7, thresh=5, bin_st=350, bin_end=650, off_st=20, off_end=320, name_mod="X", show_=true)
+        """ New approch based on S/N of the pulse"""
+        pulse_num, bins = size(data)
+
+        f = open(snrfile)
+        snrs = []
+        for line in readlines(f)
+            push!(snrs, parse(Float64, line))
+        end
+
+        # pick random pulse with thresh tolerance tol
+        tol = 0.1
+        pulse = nothing
+        while pulse == nothing
+                pu = rand(1:pulse_num)
+                #println(snrs[pu])
+                if (snrs[pu] > pulse_snr - tol) && (snrs[pu] < pulse_snr + tol)
+                    pulse = pu
+                end
+        end
+        #pulse = rand(1:pulse_num)
+        pulse = 1012 # looks good
+        println("pulse S/N: ", snrs[pulse])
+        # olds
+        #pulses = [544, 725]
+        #pulses = [38, 725]
+
+        # detect peaks (copied from Tools.track_subpulses_snr)
+        p2_bins = floor(Int, p2 / 360 * bins)
+        peaks = [] # [p1, p2, p3...]
+        σ = p2_bins / 2 / 2.35482
+        kernel = Tools.gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+
+        #i = pulse # kk - index
+        #y = view(data, i, on_st:on_end)
+
+        y = view(data, pulse, :)
+        (mi, ma) = extrema(y)
+        #y = (y .- mi) / (ma - mi)
+        y = y ./ ma # this is much much better!
+
+        # convolution with Gaussian
+        res = Tools.conv(y, kernel)
+        (mi, ma) = extrema(res)
+        res = (res .- mi) / (ma - mi)
+        re = res[floor(Int,p2_bins/2)+1:end-floor(Int, p2_bins/2)]
+
+        # auto correlation # just for some tests..
+        #=
+        resa = crosscor(y, y, collect(floor(Int,-length(y)/2):floor(Int,length(y)/2)))
+        (mi, ma) = extrema(resa)
+        resa = (resa .- mi) / (ma - mi)
+        rea = resa[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
+        =#
+
+        peak = Tools.peaks(re)
+        # new syntax?
+        ma, pa = peakprom(Maxima(), re, floor(Int, p2_bins/4))
+        #ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
+        #ma, pa = peakprom(re, Maxima(), p2_bins/2)
+        inds = sortperm(pa, rev=true)
+
+        peaks = []
+        yys = []
+        xyys = []
+        psnrs = []
+        for ii in inds
+            st = floor(Int, ma[ii] - p2_bins / 2)
+            en = ceil(Int, ma[ii] + p2_bins / 2)
+            if (st >= bin_st) && (en <= bin_end)
+                #println(y)
+                yy = y[st:en]
+                signal = Tools.simps(yy , collect(st:en))
+                #signal2 = trapz(collect(st:en), yy) # should work
+                #yy3 = y[st:en] .- minimum(y[st:en]) # nope
+                #signal3 = Tools.simps(yy3 , collect(st:en))
+
+                #nn = y[off_st:off_st+(en-st)]
+                nn = y[off_st:off_end]
+                noise = std(nn) * (en-st)^0.5
+                #nn2 = y[off_st:off_st+(en-st)]
+                #noise2 = std(nn2) * (en-st)^0.5
+                #nn3 = y[off_st:off_end] .- minimum(y[off_st:off_end]) # nope
+                #noise3 = std(nn3) * (en-st)^0.5
+
+                #println("S/N (3)", signal3 / noise3) # nope
+                println("S/N ", signal / noise)
+
+                if signal / noise > thresh
+                    push!(peaks, ma[ii])
+                    push!(psnrs, signal/noise)
+                    push!(yys, yy)
+                    push!(xyys, collect(range(st/bins*360, en/bins*360, length=length(yy))))
+                end
+            #if (re[ma[ii]] >= 0.5) &&  (ma[ii] > bin_st) && (ma[ii] < bin_end)
+            #    push!(peaks, ma[ii])
+            end
+        end
+
+
+        # Pulse longitude
+        longitude = collect(range(bin_st/bins * 360, bin_end/bins*360, length=bin_end+1-bin_st))
+
+        # save data for classes
+        y = view(data, pulse, bin_st:bin_end)
+        (mi, ma) = extrema(y)
+        y = y ./ ma # this is much much better!
+        f = open("output/pulse.txt", "w")
+        write(f, "# longitude, intensity\n")
+        for i in 1:length(longitude)
+            write(f, "$(longitude[i]) $(y[i])\n")
+        end
+        close(f)
+        ko = re[bin_st:bin_end]
+        f = open("output/convolution.txt", "w")
+        write(f, "# longitude, intensity\n")
+        for i in 1:length(longitude)
+            write(f, "$(longitude[i]) $(ko[i])\n")
+        end
+        close(f)
+        f = open("output/data.txt", "w")
+        write(f, "Pulse S/N: $(round(Int, snrs[pulse]))\n")
+        write(f, "Peaks: [$(peaks[1]/bins*360), $(peaks[2]/bins*360)]\n")
+        write(f, "S/Ns: [$(round(psnrs[1], digits=1)), $(round(psnrs[2], digits=1))] ")
+        close(f)
+        for i in 1:length(yys)
+            f = open("output/subpulse_$i.txt", "w")
+            write(f, "# longitude, intensity")
+            for j in 1:length(xyys[i])
+                write(f, "$(xyys[i][j]) $(yys[i][j])\n")
+                #plot(xyys[i], yys[i], c="tab:green", lw=2, alpha=0.5)
+            end
+            close(f)
+        end
+
+
+        println("pulse: ", pulse)
+        println("peaks: ", peaks)
+
+        rc("font", size=7.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        #figure(figsize=(3.14961, 2.362205), frameon=true)  # 8cm x 6 cm
+        figure(figsize=(3.14961, 1.946563744), frameon=true)  # 8cm x 4.94427191 cm (golden)
+        subplots_adjust(left=0.165, bottom=0.19, right=0.99, top=0.99, wspace=0.0, hspace=0.0)
+
+        minorticks_on()
+        y = view(data, pulse, bin_st:bin_end)
+        (mi, ma) = extrema(y)
+        y = y ./ ma # this is much much better!
+        plot(longitude, y, c="black", lw=0.5)
+        plot(longitude, re[bin_st:bin_end], c="tab:red")
+        for i in 1:length(yys)
+            plot(xyys[i], yys[i], c="tab:green", lw=2, alpha=0.5)
+        end
+        #plot(longitude, ress_acorr[2][bin_st:bin_end], c="tab:blue") # for tests only
+        #axhline(y=thresh2[2], ls=":", lw=0.7, c="tab:green")
+        for p in peaks
+            axvline(x=p / bins * 360, c="tab:blue", ls="--")
+        end
+        xlim(longitude[1], longitude[end])
+        yticks([-0.5, 0.0, 0.5])
+        text(195, 0.87, "pulse S/N \$\\approx\$ $(round(Int, snrs[pulse]))", size=7)
+        for i in 1:length(psnrs)
+            text(peaks[i]/bins*360+2, -0.5, "S/N = $(round(psnrs[i], digits=1))", ha="center", size=6)
+        end
+
+        ylabel("intensity (a. u.)")
+        xlabel("longitude \$(^\\circ)\$")
+
+        filename = "$outdir/$(name_mod)_track_subpulses_new.pdf"
+        println(filename)
+        savefig(filename)
+        if show_ == true
+            show()
+            readline(stdin; keep=false)
+        end
+        PyPlot.close()
+
+    end
+
 
 
 
