@@ -132,7 +132,8 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1034-3224/2019-10-19-07:31:26/", vpmout*"J1034-3224_16")
         #process_psrdata_16("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_16")
         #process_psrdata_16("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_16")
-        Data.analyse_p3folds_16(vpmout*"J1555-3134_16", "refine")
+        #Data.analyse_p3folds_16(vpmout*"J1555-3134_16", "refine")
+        process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
