@@ -134,7 +134,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1821+1715/2020-06-08-02:20:21/", vpmout*"J1821+1715_16")
         #process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
         #process_psrdata_16("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout*"J1919+0134_16")
-        Data.analyse_p3folds_16(vpmout*"J1821+1715_16", "refine")
+        Data.analyse_p3folds_16(vpmout*"J1919+0134_16", "refine")
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
