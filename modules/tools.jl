@@ -2158,6 +2158,11 @@ module Tools
 
         pulses, bins = size(data)
 
+        p2_bins = floor(Int, p2 / 360 * bins)
+        σ = p2_bins / 2 / 2.35482
+        kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+
+
         for i in 1:pulses
             y = view(data, i, :) # single pulse
 
@@ -2166,6 +2171,10 @@ module Tools
             #y = (y .- mi) / (ma - mi)
             y = y ./ ma # this is much much better!
 
+            # convolution with gauss function
+            res = conv(y, kernel)
+            (mi, ma) = extrema(res)
+            res = (res .- mi) / (ma - mi)
 
 
             PyPlot.close()
