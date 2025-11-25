@@ -2199,8 +2199,8 @@ module Tools
 
                 PyPlot.close()
 
-                for (j,ind) in enumerate(pks["indices"])
-                    scatter([ind],[pks["heights"][j]])
+                for (j,ind) in enumerate(pks[:indices])
+                    scatter([ind],[pks[:heights][j]])
                 end
 
                 plot(y, c="black")
