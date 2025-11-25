@@ -2182,22 +2182,31 @@ module Tools
             # removes boundry artifacts => re and y should have the same sizes
             half_kernel = div(p2_bins, 2)
             re = res[half_kernel+1:end-half_kernel]
-            #re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)] 
 
-            println(length(y))
-            println(length(re))
+            snr = snrs[i]
 
-            PyPlot.close()
+            if snr > thresh
 
-            plot(y, c="black")
-            plot(re, c="red")
-            
-            xlim(on_st, on_end)
-            
-            show()
-            st = readline(stdin; keep=false)
-            if st == "q"
-                break
+
+
+
+
+                println(length(y))
+                println(length(re))
+
+                PyPlot.close()
+
+                plot(y, c="black")
+                plot(re, c="red")
+                
+                xlim(on_st, on_end)
+                
+                show()
+                st = readline(stdin; keep=false)
+                if st == "q"
+                    break
+                end
+
             end
 
 
