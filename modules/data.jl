@@ -926,11 +926,16 @@ module Data
         debase_16(low_filename, high_filename, params_file, p)
         =#
 
+        println(low_filename)
+        return
+
+
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         Tools.generate_snr(low_debase) 
         low_snrfile = low_debase * ".snr.txt"
 
         # single pulses low
+        da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         
 
