@@ -922,12 +922,13 @@ module Data
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
 
-        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
-        Tools.generate_snr(low_debase) 
         =#
+        low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
+
+        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
+        #Tools.generate_snr(low_debase) 
         low_snrfile = low_debase * ".snr.txt"
 
-        low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
         # single pulses low
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         
