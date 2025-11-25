@@ -927,7 +927,7 @@ module Data
         # single pulses low
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         
-        Plot.test_track_subpulses_snr_new(da_lo, outdir, 10, low_snrfile, bin_st=p["bin_st"], bin_end=p["bin_end"])
+        #Plot.test_track_subpulses_snr_new(da_lo, outdir, 10, low_snrfile, bin_st=p["bin_st"], bin_end=p["bin_end"])
 
         high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
         Tools.generate_snr(high_debase) 
