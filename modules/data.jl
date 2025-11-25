@@ -910,10 +910,13 @@ module Data
         #=
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
+        =#
 
         # divide to two frequencies
         low_filename, high_filename = multifrequency_split(outfile)
 
+        # speeding up
+        #=
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
             get_nsubint(low_filename, params_file, p)
