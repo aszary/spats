@@ -2174,9 +2174,13 @@ module Tools
             # convolution with gauss function
             res = conv(y, kernel)
             (mi, ma) = extrema(res)
-            res = (res .- mi) / (ma - mi)
-            re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
+            # full convolution result
+            res = (res .- mi) / (ma - mi) 
+            # removes boundry artifacts => re and y should have the same sizes
+            re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)] 
 
+            println(length(y))
+            println(length(re))
 
             PyPlot.close()
 
