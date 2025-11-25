@@ -922,8 +922,13 @@ module Data
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         Tools.generate_snr(low_debase) 
+        low_snrfile = low_debase * ".snr.txt"
+
+        Plot.test_track_subpulses_snr_new(l, outdir, 10, low_snrfile, bin_st=p["bin_st"], bin_end=p["bin_end"])
+
         high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
         Tools.generate_snr(high_debase) 
+        high_snrfile = high_debase * ".snr.txt"
  
 
         return 
