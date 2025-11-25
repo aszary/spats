@@ -907,7 +907,6 @@ module Data
         end
 
         # speeding up
-        #=
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
@@ -922,7 +921,10 @@ module Data
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
 
-        =#
+        # speeding end here
+
+        twodfs_lrfs(low_debase, params_file, p; detect=false) # just to detect p2
+
         low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
