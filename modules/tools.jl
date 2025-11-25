@@ -2158,6 +2158,32 @@ module Tools
 
         pulses, bins = size(data)
 
+        for i in 1:pulses
+            y = view(data, i, :) # single pulse
+
+            # normalize the data
+            (mi, ma) = extrema(y)
+            #y = (y .- mi) / (ma - mi)
+            y = y ./ ma # this is much much better!
+
+
+
+            PyPlot.close()
+
+            plot(y, c="black")
+            
+            
+
+            
+            show()
+            st = readline(stdin; keep=false)
+            if st == "q"
+                break
+            end
+
+
+        end
+
 
 
     end
