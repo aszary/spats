@@ -2159,6 +2159,9 @@ module Tools
         pulses, bins = size(data)
 
         p2_bins = floor(Int, p2 / 360 * bins)
+        if p2_bins % 2 == 0
+            p2_bins += 1  # we force an odd length
+        end
         σ = p2_bins / 2 / 2.35482
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
