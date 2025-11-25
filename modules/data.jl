@@ -921,15 +921,15 @@ module Data
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
 
-        # speeding end here
-
-        twodfs_lrfs(low_debase, params_file, p; detect=false) # just to detect p2
+        # speeding ends here
 
         low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         #Tools.generate_snr(low_debase) 
         low_snrfile = low_debase * ".snr.txt"
+
+        twodfs_lrfs(low_debase, params_file, p; detect=false) # just to detect p2
 
         # single pulses low
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
