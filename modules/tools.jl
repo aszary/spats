@@ -2188,7 +2188,7 @@ module Tools
             if snr > thresh
 
 
-                indices, heights = findmaxima(y)
+                indices, heights = findmaxima(re)
 
 
 
