@@ -626,48 +626,6 @@ module Data
 
 
     """
-    Process data with PSRCHIVE and PSRSALSA
-    """
-    function process_psrdata_new(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json")
-
-        # full paths
-        params_file = joinpath(outdir, params_file)
-        outfile = joinpath(outdir, outfile)
-        debased_file = replace(outfile, ".spCF" => ".debase.gg")
-
-        # check if params_file exists if not creating default one
-        if !isfile(params_file)
-            println("File $params_file does not exist, creating default one.")
-            p = Tools.default_params(params_file)
-        else
-            p = Tools.read_params(params_file)
-        end
-
-        # add all .spCF files 
-        add_psrfiles(indir, outfile; files=files)
-
-        # gets number of single pulses if needed
-        if isnothing(p["nsubint"])
-            get_nsubint(outfile, params_file, p)
-        end
-
-        # debase the data
-        debase(outfile, params_file, p)
-
-        # Calculate 2dfs and lrfs
-        twodfs_lrfs(debased_file, params_file, p; detect=false)
-
-        # calculate p3-folded profile
-        println("P3-folding with:")
-        # TODO experiment here
-        println("pfold -p3fold_norefine -p3fold \"$(p["p3"]) $(p["p3_ybins"])\" -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" -onpulsed \"/NULL\" -p3foldd \"/NULL\" -w -oformat ascii $debased_file")
-        run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-
-        return p, debased_file, outdir
-    end
-
-
-    """
     Process multifrequency data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata_16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
@@ -752,45 +710,9 @@ module Data
         mv(replace(high_debase, ".gg"=>".p3fold"), replace(high_debase, ".gg"=>".p3fold_norefine"), force=true)
         d5 = Data.load_ascii(replace(high_debase, ".gg"=>".p3fold_norefine"))
         Plot.p3fold(d5, outdir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high_norefine", show_=true, repeat_num=4)
- 
-
 
         return p, nothing, outdir
 
-        # TODO TODO TODO remove the rest?
-
-
-
-        #twodfs_lrfs(replace(low_filename, ".low"=>"_low.debase.gg"), params_file, p; detect=true)
-        #twodfs_lrfs(high_filename, params_file, p; detect=true)
-
-
-        da0 = Data.load_ascii(replace(debased_file, ".gg"=>".txt"))  
-        Plot.single(da0, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="all", show_=true)
-
-        folded = Tools.p3fold(da0, p["p3"],  p["p3_ybins"])
-        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold", show_=true, repeat_num=4)
-
-        println("Polarization cleaning threshold: ", p["clean_threshold"])
-        # polarisation cleaning
-        da = Data.load_ascii_all(replace(debased_file, ".gg"=>".txt"))  
-        da2 = clean(da; threshold=p["clean_threshold"]) 
-        Plot.single(da2, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="cleaned", show_=true)
-
-        folded = Tools.p3fold(da2, p["p3"],  p["p3_ybins"])
-        Plot.single(folded, outdir; darkness=0.97, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_clean", show_=true, repeat_num=4)
-
-
-        # Calculate 2dfs and lrfs
-        twodfs_lrfs(debased_file, params_file, p; detect=false)
-
-        # calculate p3-folded profile
-        println("P3-folding with:")
-        # TODO experiment here
-        println("pfold -p3fold_noonpulse -p3fold \"$(p["p3"]) $(p["p3_ybins"])\" -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" -onpulsed \"/NULL\" -p3foldd \"/NULL\" -w -oformat ascii $debased_file")
-        run(pipeline(`pfold  -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debased_file`,  stderr="errs.txt"))
-
-        return p, debased_file, outdir
     end
 
 
@@ -918,48 +840,90 @@ module Data
     end
 
 
-function normalize_01(data)
-    min_val = minimum(data)
-    max_val = maximum(data)
-    return (data .- min_val) ./ (max_val - min_val)
-end
-
-function normalize_per_pulse(data)
-    normalized = similar(data)
-    for i in 1:size(data, 1)
-        pulse = data[i, :]
-        min_val = minimum(pulse)
-        max_val = maximum(pulse)
-        normalized[i, :] = (pulse .- min_val) ./ (max_val - min_val)
+    function normalize_01(data)
+        min_val = minimum(data)
+        max_val = maximum(data)
+        return (data .- min_val) ./ (max_val - min_val)
     end
-    return normalized
-end
 
-
-function find_shift_per_pulse(data1, data2)
-    n_pulses = size(data1, 1)
-    shifts = zeros(Int, n_pulses)
-    correlations = zeros(n_pulses)
-    
-    for i in 1:n_pulses
-        # Cross-correlation
-        ccf = ifft(fft(data1[i, :]) .* conj.(fft(data2[i, :])))
-        ccf = real.(ccf)
-        
-        # Znajdź maksimum
-        max_idx = argmax(ccf)
-        correlations[i] = ccf[max_idx]
-        
-        # Przelicz na przesunięcie (z uwzględnieniem wraparound)
-        n_bins = length(ccf)
-        shifts[i] = max_idx - 1
-        if shifts[i] > n_bins ÷ 2
-            shifts[i] = shifts[i] - n_bins
+    function normalize_per_pulse(data)
+        normalized = similar(data)
+        for i in 1:size(data, 1)
+            pulse = data[i, :]
+            min_val = minimum(pulse)
+            max_val = maximum(pulse)
+            normalized[i, :] = (pulse .- min_val) ./ (max_val - min_val)
         end
+        return normalized
     end
-    
-    return shifts, correlations
-end
+
+
+    function find_shift_per_pulse(data1, data2)
+        n_pulses = size(data1, 1)
+        shifts = zeros(Int, n_pulses)
+        correlations = zeros(n_pulses)
+        
+        for i in 1:n_pulses
+            # Cross-correlation
+            ccf = ifft(fft(data1[i, :]) .* conj.(fft(data2[i, :])))
+            ccf = real.(ccf)
+            
+            # Znajdź maksimum
+            max_idx = argmax(ccf)
+            correlations[i] = ccf[max_idx]
+            
+            # Przelicz na przesunięcie (z uwzględnieniem wraparound)
+            n_bins = length(ccf)
+            shifts[i] = max_idx - 1
+            if shifts[i] > n_bins ÷ 2
+                shifts[i] = shifts[i] - n_bins
+            end
+        end
+        
+        return shifts, correlations
+    end
+
+
+    """
+    Process multifrequency data with PSRCHIVE and PSRSALSA single pulse analysis
+    """
+    function process_psrdata_single(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
+
+        # full paths
+        params_file = joinpath(outdir, params_file)
+        outfile = joinpath(outdir, outfile)
+
+        # if no catalog
+        if !isdir(outdir)
+            mkdir(outdir)
+        end
+
+        # check if params_file exists if not creating default one
+        if !isfile(params_file)
+            println("File $params_file does not exist, creating default one.")
+            p = Tools.default_params(params_file)
+        else
+            p = Tools.read_params(params_file)
+        end
+
+        # add all .spCf16 files 
+        add_psrfiles(indir, outfile; files=files, sixteen=true)
+
+        # divide to two frequencies
+        low_filename, high_filename = multifrequency_split(outfile)
+
+        # gets number of single pulses if needed
+        if isnothing(p["nsubint"])
+            get_nsubint(low_filename, params_file, p)
+        end
+
+        # debase the data
+        debase_16(low_filename, high_filename, params_file, p)
+
+
+        return 
+    end
+
 
 
 

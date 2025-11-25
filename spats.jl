@@ -83,11 +83,11 @@ module SpaTs
 
     function process_psrdata_16(indir, outdir)
         p, debased_file, outdir = Data.process_psrdata_16(indir, outdir)
-        #Data.plot_psrdata(outdir, p)
-        #Data.process_data_andrzej(debased_file, outdir, p)
     end
 
-   
+    function process_psrdata_single(indir, outdir)
+        Data.process_psrdata_single(indir, outdir)
+    end
 
 
     function main()
@@ -118,9 +118,9 @@ module SpaTs
         #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
         #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834") #
 
+        #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
         #process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
         #process_psrdata("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_test") # start diging there...
-        #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
         #process_psrdata_16("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/", vpmout*"J0820-1350_16")
         #Data.analyse_p3folds_16(vpmout*"J0820-1350_16", "norefine")
         #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
@@ -133,7 +133,10 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_16")
         #process_psrdata_16("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_16")
         #Data.analyse_p3folds_16(vpmout*"J1555-3134_16", "refine")
-        process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
+        #process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
+
+        process_psrdata_single("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
+
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
