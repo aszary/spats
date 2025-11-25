@@ -920,6 +920,11 @@ module Data
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
 
+        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
+        Tools.generate_snr(low_debase) 
+        high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
+        Tools.generate_snr(high_debase) 
+ 
 
         return 
     end
