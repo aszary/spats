@@ -2177,7 +2177,9 @@ module Tools
             # full convolution result
             res = (res .- mi) / (ma - mi) 
             # removes boundry artifacts => re and y should have the same sizes
-            re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)] 
+            half_kernel = div(p2_bins, 2)
+            re = res[half_kernel+1:end-half_kernel]
+            #re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)] 
 
             println(length(y))
             println(length(re))
