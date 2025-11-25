@@ -2190,8 +2190,7 @@ module Tools
             PyPlot.close()
 
             plot(y, c="black")
-            plot(res, c="red")
-            plot(re, c="blue")
+            plot(re, c="red")
             
             xlim(on_st, on_end)
             
