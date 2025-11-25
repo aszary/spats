@@ -2188,9 +2188,11 @@ module Tools
             if snr > thresh
 
 
-                indices, heights = findmaxima(re)
+                pks = findmaxima(re)
+                pks = peakproms(pks)
+                pks = peakwidths(pks)
 
-
+                println(pks)
 
                 println(length(y))
                 println(length(re))
