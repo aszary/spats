@@ -2172,7 +2172,7 @@ module Tools
 
             plot(y, c="black")
             
-            xlims(on_st, on_end)
+            xlim(on_st, on_end)
             
             show()
             st = readline(stdin; keep=false)
