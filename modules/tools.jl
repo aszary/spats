@@ -2140,7 +2140,16 @@ module Tools
     end
 
 
+    """ 
+    Track subpulses based on S/N of the signal 
+    new version 
+    """
+    function track_subpulses_snr3(data, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=3)
 
+
+
+
+    end
     
 
 end  # module Tools
