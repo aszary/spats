@@ -2175,12 +2175,14 @@ module Tools
             res = conv(y, kernel)
             (mi, ma) = extrema(res)
             res = (res .- mi) / (ma - mi)
+            re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
 
 
             PyPlot.close()
 
             plot(y, c="black")
             plot(res, c="red")
+            plot(re, c="blue")
             
             xlim(on_st, on_end)
             
