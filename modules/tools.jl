@@ -2187,7 +2187,6 @@ module Tools
 
             if snr > thresh
 
-
                 pks = findmaxima(re)
                 pks = peakproms(pks)
                 pks = peakwidths(pks)
