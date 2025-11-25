@@ -910,13 +910,10 @@ module Data
         #=
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
-        =#
 
         # divide to two frequencies
         low_filename, high_filename = multifrequency_split(outfile)
 
-        # speeding up
-        #=
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
             get_nsubint(low_filename, params_file, p)
@@ -926,9 +923,7 @@ module Data
         debase_16(low_filename, high_filename, params_file, p)
         =#
 
-        println(low_filename)
-        return
-
+        low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         Tools.generate_snr(low_debase) 
@@ -936,11 +931,12 @@ module Data
 
         # single pulses low
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
-        da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         
 
         Tools.track_subpulses_snr3(da_lo, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
         #Plot.test_track_subpulses_snr_new(da_lo, outdir, 10, low_snrfile, bin_st=p["bin_st"], bin_end=p["bin_end"]) # too complicated?? requires a lot of debuging
+        
+        return
 
         high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
         Tools.generate_snr(high_debase) 
