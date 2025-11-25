@@ -906,6 +906,8 @@ module Data
             p = Tools.read_params(params_file)
         end
 
+        # speeding up
+        #=
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
@@ -919,6 +921,7 @@ module Data
 
         # debase the data
         debase_16(low_filename, high_filename, params_file, p)
+        =#
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         Tools.generate_snr(low_debase) 
