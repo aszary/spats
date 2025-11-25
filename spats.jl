@@ -135,7 +135,7 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J1555-3134_16", "refine")
         #process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
 
-        process_psrdata_single("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
+        process_psrdata_single("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_single")
 
 
         #Data.process_all_data(vpmout)
