@@ -2180,6 +2180,7 @@ module Tools
             PyPlot.close()
 
             plot(y, c="black")
+            plot(res, c="red")
             
             xlim(on_st, on_end)
             
