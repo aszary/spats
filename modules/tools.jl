@@ -2188,6 +2188,7 @@ module Tools
             if snr > thresh
 
 
+                indices, heights = findmaxima(y)
 
 
 
@@ -2195,6 +2196,10 @@ module Tools
                 println(length(re))
 
                 PyPlot.close()
+
+                for (j,ind) in enumerate(indices)
+                    scatter([ind],[heights[j]])
+                end
 
                 plot(y, c="black")
                 plot(re, c="red")
