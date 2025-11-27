@@ -937,7 +937,7 @@ module Data
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
         
 
-        Tools.track_subpulses_snr3(da_lo, 9.5, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
+        Tools.track_subpulses_snr3(da_lo, 2, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
         #Plot.test_track_subpulses_snr_new(da_lo, outdir, 10, low_snrfile, bin_st=p["bin_st"], bin_end=p["bin_end"]) # too complicated?? requires a lot of debuging
         
         return
