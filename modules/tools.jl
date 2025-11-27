@@ -2163,7 +2163,7 @@ module Tools
         if p2_bins % 2 == 0
             p2_bins += 1  # we force an odd length
         end
-        σ = p2_bins / 2 / 2.35482 /10
+        σ = p2_bins / 2 / 2.35482 /5
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
 
