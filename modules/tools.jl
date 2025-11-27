@@ -2184,6 +2184,8 @@ module Tools
             half_kernel = div(p2_bins, 2)
             re = res[half_kernel+1:end-half_kernel]
 
+            sq = savitzky_golay(y, 11, 3)
+
             snr = snrs[i]
 
             if snr > thresh
@@ -2205,6 +2207,7 @@ module Tools
 
                 plot(y, c="black")
                 plot(re, c="red")
+                plot(sg.y, c="blue")
                 
                 xlim(on_st, on_end)
                 
