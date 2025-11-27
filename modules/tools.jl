@@ -2202,7 +2202,7 @@ module Tools
                 PyPlot.close()
 
                 for (j,ind) in enumerate(pks[:indices])
-                    scatter([ind-1],[pks[:heights][j]])
+                    scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                 end
 
                 plot(y, c="black")
