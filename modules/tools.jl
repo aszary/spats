@@ -10,6 +10,7 @@ module Tools
     using CubicSplines
     using Trapz
     using JSON
+    using SavitzkyGolay
 
     using PyPlot
     using DSP
