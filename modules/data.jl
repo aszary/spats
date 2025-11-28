@@ -925,7 +925,9 @@ module Data
         =#
         # speeding ends here
 
+        # TODO remove those two
         low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
+        high_filename = "/home/psr/output/J2139+2242_single/pulsar.high"
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         #Tools.generate_snr(low_debase) 
