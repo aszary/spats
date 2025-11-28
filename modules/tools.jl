@@ -2200,7 +2200,6 @@ module Tools
             re2 = res2[half_kernel+1:end-half_kernel]
             sg2 = savitzky_golay(y2, 11, 3)
 
-
             snr = snrs[i]
 
             if snr > thresh
@@ -2209,7 +2208,8 @@ module Tools
                 pks = peakproms(pks)
                 pks = peakwidths(pks)
 
-                println(pks)
+                #println(pks)
+                println(keys(pks))
 
                 PyPlot.close()
 
