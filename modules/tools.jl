@@ -2147,13 +2147,11 @@ module Tools
     """
     function track_subpulses_snr3(data, data2, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=3)
 
-        #=
         f = open(snrfile)
         snrs = []
         for line in readlines(f)
             push!(snrs, parse(Float64, line))
         end
-        =#
 
         println("obs. SNR (no?): ", round(sum(snrs) / sqrt(size(snrs)[1])))
         println("mean SNR: ", mean(snrs))

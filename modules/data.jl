@@ -928,7 +928,7 @@ module Data
         #high_filename = "/home/psr/output/J2139+2242_single/pulsar.high"
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
-        #Tools.generate_snr(low_debase) 
+        Tools.generate_snr(low_debase) 
         low_snrfile = low_debase * ".snr.txt"
 
         # twodfs_lrfs(low_debase, params_file, p; detect=false) # just to detect p2
@@ -937,7 +937,7 @@ module Data
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
 
         high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
-        #Tools.generate_snr(high_debase) 
+        Tools.generate_snr(high_debase) 
         high_snrfile = high_debase * ".snr.txt"
  
         # single pulses high 
