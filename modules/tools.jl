@@ -2210,6 +2210,7 @@ module Tools
 
                 #println(pks)
                 println(keys(pks))
+                println(pks[:proms])
 
                 PyPlot.close()
 
