@@ -118,6 +118,7 @@ module SpaTs
         #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
         #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834") #
 
+        # checking multifrequency offsets
         #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
         #process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
         #process_psrdata("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_test") # start diging there...
@@ -135,7 +136,9 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J1555-3134_16", "refine")
         #process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
 
-        process_psrdata_single("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_single")
+        # checking single pulses offset
+        #process_psrdata_single("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_single")
+        process_psrdata_single("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/", vpmout*"J0820-1350_single")
 
 
         #Data.process_all_data(vpmout)
