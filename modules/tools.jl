@@ -2186,6 +2186,21 @@ module Tools
 
             sg = savitzky_golay(y, 11, 3)
 
+            # work with data2
+            y2 = view(data2, i, :) # single pulse
+            # normalize the data
+            (mi, ma) = extrema(y2)
+            y2 = y2 ./ ma
+            res2 = conv(y2, kernel)
+            (mi, ma) = extrema(res2)
+            # full convolution result
+            res2 = (res2 .- mi) / (ma - mi) 
+            # removes boundry artifacts => re and y should have the same sizes
+            half_kernel = div(p2_bins, 2)
+            re2 = res2[half_kernel+1:end-half_kernel]
+            sg2 = savitzky_golay(y2, 11, 3)
+
+
             snr = snrs[i]
 
             if snr > thresh
@@ -2196,9 +2211,6 @@ module Tools
 
                 println(pks)
 
-                println(length(y))
-                println(length(re))
-
                 PyPlot.close()
 
                 for (j,ind) in enumerate(pks[:indices])
@@ -2208,6 +2220,9 @@ module Tools
                 plot(y, c="black")
                 plot(re, c="red")
                 plot(sg.y, c="blue")
+
+
+                plot(y2, c="C1")
                 
                 xlim(on_st, on_end)
                 
