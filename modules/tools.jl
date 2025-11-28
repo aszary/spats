@@ -2219,10 +2219,11 @@ module Tools
 
                 plot(y, c="black")
                 plot(re, c="red")
-                plot(sg.y, c="blue")
+                #plot(sg.y, c="blue")
 
 
                 plot(y2, c="C1")
+                plot(re2, c="C2")
                 
                 xlim(on_st, on_end)
                 
