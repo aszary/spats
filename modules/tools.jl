@@ -2163,7 +2163,7 @@ module Tools
         if p2_bins % 2 == 0
             p2_bins += 1  # we force an odd length
         end
-        σ = p2_bins / 2 / 2.35482 / 5
+        σ = p2_bins / 2 / 2.35482
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
 
@@ -2210,20 +2210,20 @@ module Tools
 
                 #println(pks)
                 println(keys(pks))
-                println(pks[:proms])
+                #println(pks[:proms])
 
                 PyPlot.close()
 
                 for (j,ind) in enumerate(pks[:indices])
-                    scatter([ind-1],[pks[:heights][j]]) # why ind-1?
+                    #scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                 end
 
-                plot(y, c="black")
+                #plot(y, c="black")
                 plot(re, c="red")
                 #plot(sg.y, c="blue")
 
 
-                plot(y2, c="C1")
+                #plot(y2, c="C1")
                 plot(re2, c="C2")
                 
                 xlim(on_st, on_end)
