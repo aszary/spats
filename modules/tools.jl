@@ -2226,7 +2226,7 @@ module Tools
                 plot(y2, c="C1")
                 #plot(re2, c="C2")
                 
-                #xlim(on_st, on_end)
+                xlim(on_st, on_end)
                 
                 show()
                 st = readline(stdin; keep=false)
