@@ -2218,15 +2218,15 @@ module Tools
                     #scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                 end
 
-                #plot(y, c="black")
-                plot(re, c="red")
+                plot(y, c="black")
+                #plot(re, c="red")
                 #plot(sg.y, c="blue")
 
 
-                #plot(y2, c="C1")
-                plot(re2, c="C2")
+                plot(y2, c="C1")
+                #plot(re2, c="C2")
                 
-                xlim(on_st, on_end)
+                #xlim(on_st, on_end)
                 
                 show()
                 st = readline(stdin; keep=false)
