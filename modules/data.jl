@@ -931,7 +931,7 @@ module Data
         Tools.generate_snr(low_debase) 
         low_snrfile = low_debase * ".snr.txt"
 
-        twodfs_lrfs(low_debase, params_file, p; detect=false) # just to detect p2
+        #twodfs_lrfs(low_debase, params_file, p; detect=false) # just to detect p2
 
         # single pulses low
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
@@ -943,7 +943,7 @@ module Data
         # single pulses high 
         da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
 
-        Tools.track_subpulses_snr3(da_lo, da_hi, 5, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
+        Tools.track_subpulses_snr3(da_lo, da_hi, 20, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
 
         return 
     end
