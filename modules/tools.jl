@@ -2208,6 +2208,10 @@ module Tools
                 pks = peakproms(pks)
                 pks = peakwidths(pks)
 
+                pks2 = findmaxima(re2)
+                pks2 = peakproms(pks2)
+                pks2 = peakwidths(pks2)
+
                 #println(pks)
                 println(keys(pks))
                 #println(pks[:proms])
@@ -2217,6 +2221,11 @@ module Tools
                 for (j,ind) in enumerate(pks[:indices])
                     scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                 end
+
+                for (j,ind) in enumerate(pks2[:indices])
+                    scatter([ind-1],[pks2[:heights][j]]) # why ind-1?
+                end
+
 
                 plot(y, c="black", lw=1)
                 plot(re, c="red")
