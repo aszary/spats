@@ -907,6 +907,7 @@ module Data
         end
 
         # speeding up
+
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
@@ -943,7 +944,7 @@ module Data
         # single pulses high 
         da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
 
-        Tools.track_subpulses_snr3(da_lo, da_hi, 2, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
+        Tools.track_subpulses_snr3(da_lo, da_hi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
 
         return 
     end
