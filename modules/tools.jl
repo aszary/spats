@@ -2215,10 +2215,10 @@ module Tools
                 PyPlot.close()
 
                 for (j,ind) in enumerate(pks[:indices])
-                    #scatter([ind-1],[pks[:heights][j]]) # why ind-1?
+                    scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                 end
 
-                plot(y, c="black", lw=3)
+                plot(y, c="black", lw=1)
                 plot(re, c="red")
                 #plot(sg.y, c="blue")
 
