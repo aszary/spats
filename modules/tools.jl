@@ -2216,7 +2216,7 @@ module Tools
                 println(keys(pks))
                 #println(pks[:proms])
                 
-                println(size(sg))
+                println(keys(sg))
 
                 PyPlot.close()
 
@@ -2229,8 +2229,8 @@ module Tools
                 end
 
 
-                plot(y, c="black", lw=1)
-                #plot(sg, c="black", lw=1)
+                #plot(y, c="black", lw=1)
+                plot(sg.y, c="black", lw=1)
                 plot(re, c="red")
                 #plot(sg.y, c="blue")
 
