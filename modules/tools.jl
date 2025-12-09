@@ -2227,12 +2227,13 @@ module Tools
                 end
 
 
-                plot(y, c="black", lw=1)
+                #plot(y, c="black", lw=1)
+                plot(sg, c="black", lw=1)
                 plot(re, c="red")
                 #plot(sg.y, c="blue")
 
 
-                plot(y2, c="C1", lw=3)
+                plot(y2, c="C1", lw=1)
                 plot(re2, c="C2")
                 
                 #xlim(on_st, on_end) # if full
