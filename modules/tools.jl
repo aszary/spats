@@ -2216,7 +2216,6 @@ module Tools
                 println(keys(pks))
                 #println(pks[:proms])
                 
-                println(keys(sg))
 
                 PyPlot.close()
 
