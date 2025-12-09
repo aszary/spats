@@ -2168,7 +2168,7 @@ module Tools
 
 
         for i in 1:pulses
-            y = view(data, i, :) # single pulse
+            y = view(data, i, on_st:on_end) # single pulse
 
             # normalize the data
             (mi, ma) = extrema(y)
@@ -2187,7 +2187,7 @@ module Tools
             sg = savitzky_golay(y, 11, 3)
 
             # work with data2
-            y2 = view(data2, i, :) # single pulse
+            y2 = view(data2, i, on_st:on_end) # single pulse
             # normalize the data
             (mi, ma) = extrema(y2)
             y2 = y2 ./ ma
@@ -2235,7 +2235,7 @@ module Tools
                 plot(y2, c="C1", lw=3)
                 plot(re2, c="C2")
                 
-                xlim(on_st, on_end)
+                #xlim(on_st, on_end) # if full
                 
                 show()
                 st = readline(stdin; keep=false)
