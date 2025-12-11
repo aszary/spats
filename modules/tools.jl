@@ -2184,7 +2184,7 @@ module Tools
             half_kernel = div(p2_bins, 2)
             re = res[half_kernel+1:end-half_kernel]
 
-            sg = savitzky_golay(y, 21, 3)
+            sg = savitzky_golay(y, 51, 3)
 
             # work with data2
             y2 = view(data2, i, on_st:on_end) # single pulse
@@ -2198,7 +2198,7 @@ module Tools
             # removes boundry artifacts => re and y should have the same sizes
             half_kernel = div(p2_bins, 2)
             re2 = res2[half_kernel+1:end-half_kernel]
-            sg2 = savitzky_golay(y2, 11, 3)
+            sg2 = savitzky_golay(y2, 7, 3)
 
             snr = snrs[i]
 
