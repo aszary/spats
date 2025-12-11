@@ -2232,13 +2232,13 @@ module Tools
 
 
                 plot(y, c="black", lw=1)
-                plot(sg.y, c="black", lw=3, alpha=0.5)
+                #plot(sg.y, c="black", lw=3, alpha=0.5)
                 plot(re, c="red")
                 #plot(sg.y, c="blue")
 
 
                 plot(y2, c="C1", lw=1)
-                plot(sg2.y, c="C1", lw=3, alpha=0.5)
+                #plot(sg2.y, c="C1", lw=3, alpha=0.5)
                 plot(re2, c="C2")
                 
                 #xlim(on_st, on_end) # if full
