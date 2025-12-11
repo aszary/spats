@@ -306,6 +306,13 @@ module Data
         outfile = joinpath(outdir, outfile)
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
 
+        # ensure directory exists
+        params_dir = dirname(params_file)
+        if !isdir(params_dir)
+            println("Directory $params_dir does not exist, creating it.")
+            mkpath(params_dir)
+        end
+
         # check if params_file exists if not creating default one
         if !isfile(params_file)
             println("File $params_file does not exist, creating default one.")
