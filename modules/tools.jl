@@ -2184,7 +2184,7 @@ module Tools
             half_kernel = div(p2_bins, 2)
             re = res[half_kernel+1:end-half_kernel]
 
-            sg = savitzky_golay(y, 21, 2)
+            sg = savitzky_golay(y, 21, 3)
 
             # work with data2
             y2 = view(data2, i, on_st:on_end) # single pulse
@@ -2238,6 +2238,7 @@ module Tools
 
 
                 plot(y2, c="C1", lw=1)
+                plot(sg2.y, c="C1", lw=3, alpha=0.5)
                 plot(re2, c="C2")
                 
                 #xlim(on_st, on_end) # if full
