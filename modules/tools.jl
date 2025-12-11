@@ -2184,7 +2184,7 @@ module Tools
             half_kernel = div(p2_bins, 2)
             re = res[half_kernel+1:end-half_kernel]
 
-            sg = savitzky_golay(y, 11, 3)
+            sg = savitzky_golay(y, 11, 2)
 
             # work with data2
             y2 = view(data2, i, on_st:on_end) # single pulse
