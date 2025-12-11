@@ -2227,7 +2227,7 @@ module Tools
 
                 for (j,ind) in enumerate(pks2[:indices])
                     scatter([ind-1],[pks2[:heights][j]]) # why ind-1?
-                    plot([ind-1, ind-1],[pks2[:heights][j], pks2[:heights][j]-pks2[:proms][j]], c="blue")
+                    plot([ind-1, ind-1],[pks2[:heights][j], pks2[:heights][j]-pks2[:proms][j]], c="C2")
                 end
 
 
