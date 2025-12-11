@@ -2214,7 +2214,8 @@ module Tools
 
                 #println(pks)
                 println(keys(pks))
-                #println(pks[:proms])
+                println(pks[:proms])
+                println(pks[:widths])
                 
 
                 PyPlot.close()
