@@ -2232,7 +2232,7 @@ module Tools
 
 
                 plot(y, c="black", lw=1)
-                #plot(sg.y, c="black", lw=1)
+                plot(sg.y, c="black", lw=3, alpha=0.5)
                 plot(re, c="red")
                 #plot(sg.y, c="blue")
 
