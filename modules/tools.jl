@@ -2260,9 +2260,9 @@ module Tools
                 
                 #xlim(on_st, on_end) # if full
                 
-                #show()
-                #st = readline(stdin; keep=false)
-                st = 1
+                show()
+                st = readline(stdin; keep=false)
+                #st = 1
                 if st == "q"
                     break
                 end
