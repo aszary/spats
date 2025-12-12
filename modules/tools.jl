@@ -2221,14 +2221,14 @@ module Tools
                 PyPlot.close()
 
                 for (j,ind) in enumerate(pks[:indices])
-                    if pks[:proms][j] > 0.5
+                    if pks[:proms][j] > 0.3
                         scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                         plot([ind-1, ind-1],[pks[:heights][j], pks[:heights][j]-pks[:proms][j]], c="red")
                     end
                 end
 
                 for (j,ind) in enumerate(pks2[:indices])
-                    if pks2[:proms][j] > 0.5
+                    if pks2[:proms][j] > 0.3
                         scatter([ind-1],[pks2[:heights][j]]) # why ind-1?
                         plot([ind-1, ind-1],[pks2[:heights][j], pks2[:heights][j]-pks2[:proms][j]], c="C2")
                     end
