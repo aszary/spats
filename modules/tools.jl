@@ -2166,10 +2166,15 @@ module Tools
         σ = p2_bins / 2 / 2.35482 # why like that?
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
-        #pulse_st = 
+        pulse_st = 100
+        pulse_end = 110
 
+        pu_1 = []
+        loc_1 = []
+        pu_2 = []
+        loc_2 = []
 
-        for i in 1:10 #pulses
+        for i in pulse_st:pulse_end # pulses
             y = view(data, i, on_st:on_end) # single pulse
 
             # normalize the data
@@ -2225,16 +2230,20 @@ module Tools
                 PyPlot.close()
 
                 for (j,ind) in enumerate(pks[:indices])
-                    if pks[:proms][j] > 0.3
+                    if pks[:proms][j] > 0.5
                         scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                         plot([ind-1, ind-1],[pks[:heights][j], pks[:heights][j]-pks[:proms][j]], c="red")
+                        push!(pu_1, i)
+                        push!(loc_1, on_st+ ind-1)
                     end
                 end
 
                 for (j,ind) in enumerate(pks2[:indices])
-                    if pks2[:proms][j] > 0.3
+                    if pks2[:proms][j] > 0.5
                         scatter([ind-1],[pks2[:heights][j]]) # why ind-1?
                         plot([ind-1, ind-1],[pks2[:heights][j], pks2[:heights][j]-pks2[:proms][j]], c="C2")
+                        push!(pu_2, i)
+                        push!(loc_2, on_st + ind-1)
                     end
                 end
 
@@ -2268,10 +2277,12 @@ module Tools
 
         subplot2grid((1, 2), (0, 0))
         imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
+        scatter(loc_1, pu_1, marker="x", color="C1", s=50)
 
 
         subplot2grid((1, 2), (0, 1))
         imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
+        scatter(loc_2, pu_2, marker="x", color="C2", s=50)
 
         PyPlot.show()
         st = readline(stdin; keep=false)
