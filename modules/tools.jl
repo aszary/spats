@@ -2210,7 +2210,7 @@ module Tools
             snr = snrs[i]
 
             # just maximum finding
-            val, idx = findmax(y2)
+            val, idx = findmax(y)
             println("Max. val=$val i=$idx pulse=$i")
             push!(pu_1, i)
             push!(loc_1, idx)
@@ -2286,8 +2286,8 @@ module Tools
         figure()
 
         subplot2grid((1, 2), (0, 0))
-        imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
-        scatter(loc_1, pu_1, marker="x", color="C1", s=50)
+        imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        scatter(loc_1 .+0.5, pu_1.+0.5, marker="x", color="C1", s=50)
 
 
         subplot2grid((1, 2), (0, 1))
