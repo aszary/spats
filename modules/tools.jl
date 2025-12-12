@@ -2180,7 +2180,7 @@ module Tools
             # normalize the data
             (mi, ma) = extrema(y)
             #y = (y .- mi) / (ma - mi)
-            y = y ./ ma # this is much much better!
+            #y = y ./ ma # this is much much better!
 
             # convolution with gauss function
             res = conv(y, kernel)
@@ -2197,7 +2197,7 @@ module Tools
             y2 = view(data2, i, on_st:on_end) # single pulse
             # normalize the data
             (mi, ma) = extrema(y2)
-            y2 = y2 ./ ma
+            #y2 = y2 ./ ma
             res2 = conv(y2, kernel)
             (mi, ma) = extrema(res2)
             # full convolution result
