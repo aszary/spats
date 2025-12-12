@@ -2296,7 +2296,7 @@ module Tools
 
 
         subplot2grid((1, 2), (0, 1))
-        imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[on_st, on_end, 1, pulses])
+        imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st, 1, pulses])
         scatter(loc_2, pu_2, marker="x", color="C2", s=50)
 
         PyPlot.show()
