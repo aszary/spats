@@ -2210,7 +2210,7 @@ module Tools
             snr = snrs[i]
 
             # just maximum finding
-            val, idx = findmax(y)
+            val, idx = findmax(y2)
             println("Max. val=$val i=$idx pulse=$i")
             push!(pu_1, i)
             push!(loc_1, idx)
