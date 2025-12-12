@@ -951,7 +951,7 @@ module Data
         # single pulses high 
         da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
 
-        Tools.track_subpulses_snr3(da_lo, da_hi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
+        Tools.track_subpulses_snr3(da_lo, da_hi, 5, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
 
         return 
     end
