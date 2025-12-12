@@ -2218,9 +2218,6 @@ module Tools
             push!(pu_2, i)
             push!(loc_2, idx2)
 
-
-
-
             #=
             if snr > thresh
 
@@ -2283,7 +2280,6 @@ module Tools
             end
             =#
 
-
         end
 
         PyPlot.close()
@@ -2292,12 +2288,12 @@ module Tools
         subplot2grid((1, 2), (0, 0))
         imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
         scatter(loc_1, pu_1, marker="x", color="C1", s=50)
-        scatter([69], [247], marker="x", color="C3", s=50)
 
 
         subplot2grid((1, 2), (0, 1))
         imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st, 1, pulses+1])
         scatter(loc_2 .+ 0.5, pu_2 .+0.5, marker="x", color="C2", s=50)
+        scatter([69], [247], marker="x", color="C3", s=50)
 
         PyPlot.show()
         st = readline(stdin; keep=false)
