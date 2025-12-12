@@ -2210,7 +2210,6 @@ module Tools
             snr = snrs[i]
 
             # just maximum finding
-            #=
             val, idx = findmax(y)
             println("Max. val=$val i=$idx pulse=$i")
             push!(pu_1, i)
@@ -2218,7 +2217,10 @@ module Tools
             val2, idx2 = findmax(y2)
             push!(pu_2, i)
             push!(loc_2, idx2)
+            #=
             =#
+
+            #=
             if snr > thresh
 
                 pks = findmaxima(re)
@@ -2278,7 +2280,6 @@ module Tools
                 end
 
             end
-            #=
             =#
 
         end
