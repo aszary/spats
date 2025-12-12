@@ -2249,6 +2249,7 @@ module Tools
                 
                 #show()
                 #st = readline(stdin; keep=false)
+                st = 1
                 if st == "q"
                     break
                 end
