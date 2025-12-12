@@ -2167,7 +2167,7 @@ module Tools
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
 
-        for i in 1:pulses
+        for i in 1:100 #pulses
             y = view(data, i, on_st:on_end) # single pulse
 
             # normalize the data
@@ -2182,9 +2182,9 @@ module Tools
             res = (res .- mi) / (ma - mi) 
             # removes boundry artifacts => re and y should have the same sizes
             half_kernel = div(p2_bins, 2)
-            re = res[half_kernel+1:end-half_kernel]
+            re = res[half_kernel+1:end-half_kernel] # this is why ind-1?
 
-            sg = savitzky_golay(y, 21, 3)
+            #sg = savitzky_golay(y, 21, 3)
 
             # work with data2
             y2 = view(data2, i, on_st:on_end) # single pulse
@@ -2197,8 +2197,8 @@ module Tools
             res2 = (res2 .- mi) / (ma - mi) 
             # removes boundry artifacts => re and y should have the same sizes
             half_kernel = div(p2_bins, 2)
-            re2 = res2[half_kernel+1:end-half_kernel]
-            sg2 = savitzky_golay(y2, 21, 3)
+            re2 = res2[half_kernel+1:end-half_kernel] # this is why ind-1?
+            #sg2 = savitzky_golay(y2, 21, 3)
 
             snr = snrs[i]
 
@@ -2206,16 +2206,17 @@ module Tools
 
                 pks = findmaxima(re)
                 pks = peakproms(pks)
-                pks = peakwidths(pks)
+                #pks = peakwidths(pks)
 
                 pks2 = findmaxima(re2)
                 pks2 = peakproms(pks2)
-                pks2 = peakwidths(pks2)
+                #pks2 = peakwidths(pks2)
 
                 #println(pks)
                 println(keys(pks))
-                println(pks[:proms])
-                println(pks[:widths])
+                
+                #println(pks[:proms])
+                #println(pks[:widths])
                 
 
                 PyPlot.close()
