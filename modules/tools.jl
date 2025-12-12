@@ -2163,7 +2163,7 @@ module Tools
         if p2_bins % 2 == 0
             p2_bins += 1  # we force an odd length
         end
-        σ = p2_bins / 2 / 2.35482
+        σ = p2_bins / 2 / 2.35482 # why like that?
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
 
@@ -2265,7 +2265,7 @@ module Tools
         figure()
 
         subplot2grid((1, 2), (0, 0))
-        imshow(data, origin="lower", cmap="viridis", interpolation="none", aspect="auto")
+        imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
 
 
         subplot2grid((1, 2), (0, 1))
