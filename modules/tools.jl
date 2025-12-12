@@ -2291,6 +2291,7 @@ module Tools
         subplot2grid((1, 2), (0, 0))
         imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
         scatter(loc_1, pu_1, marker="x", color="C1", s=50)
+        scatter([69], [247], marker="x", color="C3", s=50)
 
 
         subplot2grid((1, 2), (0, 1))
