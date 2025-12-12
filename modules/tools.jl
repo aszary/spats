@@ -2269,7 +2269,7 @@ module Tools
 
 
         subplot2grid((1, 2), (0, 1))
-        imshow(data2, origin="lower", cmap="viridis", interpolation="none", aspect="auto")
+        imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
 
         PyPlot.show()
         st = readline(stdin; keep=false)
