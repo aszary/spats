@@ -2213,6 +2213,7 @@ module Tools
                 #pks2 = peakwidths(pks2)
 
                 #println(pks)
+                println(i)
                 println(keys(pks))
                 
                 #println(pks[:proms])
@@ -2258,11 +2259,17 @@ module Tools
             end
 
 
-
-
-
         end
+        figure()
 
+        subplot2grid((1, 2), (0, 0))
+        imshow(data, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+
+
+        subplot2grid((1, 2), (0, 0))
+        imshow(data2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+
+        show()
 
 
     end
