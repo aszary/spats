@@ -2263,11 +2263,11 @@ module Tools
         figure()
 
         subplot2grid((1, 2), (0, 0))
-        imshow(data, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+        imshow(data, origin="lower", cmap=cmap, interpolation="none", aspect="auto")
 
 
         subplot2grid((1, 2), (0, 0))
-        imshow(data2, origin="lower", cmap=cmap, interpolation="none", aspect="auto",  vmax=darkness*maximum(da))
+        imshow(data2, origin="lower", cmap=cmap, interpolation="none", aspect="auto")
 
         show()
 
