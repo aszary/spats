@@ -2268,7 +2268,7 @@ module Tools
         imshow(data, origin="lower", cmap="viridis", interpolation="none", aspect="auto")
 
 
-        subplot2grid((1, 2), (0, 0))
+        subplot2grid((1, 2), (0, 1))
         imshow(data2, origin="lower", cmap="viridis", interpolation="none", aspect="auto")
 
         PyPlot.show()
