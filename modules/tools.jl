@@ -2167,7 +2167,7 @@ module Tools
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
         pulse_st = 1
-        pulse_end = 10
+        pulse_end = 100
 
         pu_1 = []
         loc_1 = []
@@ -2210,6 +2210,7 @@ module Tools
             snr = snrs[i]
 
             # just maximum finding
+            #=
             val, idx = findmax(y)
             println("Max. val=$val i=$idx pulse=$i")
             push!(pu_1, i)
@@ -2217,7 +2218,7 @@ module Tools
             val2, idx2 = findmax(y2)
             push!(pu_2, i)
             push!(loc_2, idx2)
-
+            =#
             if snr > thresh
 
                 pks = findmaxima(re)
@@ -2269,9 +2270,9 @@ module Tools
                 
                 #xlim(on_st, on_end) # if full
                 
-                show()
-                st = readline(stdin; keep=false)
-                #st = 1
+                #show()
+                #st = readline(stdin; keep=false)
+                st = 1
                 if st == "q"
                     break
                 end
