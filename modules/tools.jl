@@ -2211,7 +2211,7 @@ module Tools
 
             # just maximum finding
             val, idx = findmax(y)
-            println("Max. val=$val i=$idx")
+            println("Max. val=$val i=$idx pulse=$i")
             push!(pu_1, i)
             push!(loc_1, idx)
             val2, idx2 = findmax(y2)
