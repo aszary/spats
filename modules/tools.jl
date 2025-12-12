@@ -2157,6 +2157,9 @@ module Tools
         println("mean SNR: ", mean(snrs))
         println("median SNR: ", median(snrs))
 
+        data = integrate(data, 8)
+        data2 = integrate(data, 8)
+
         pulses, bins = size(data)
 
         p2_bins = floor(Int, p2 / 360 * bins)
@@ -2218,7 +2221,6 @@ module Tools
             push!(pu_2, i)
             push!(loc_2, idx2)
 
-            #=
             if snr > thresh
 
                 pks = findmaxima(re)
@@ -2278,6 +2280,7 @@ module Tools
                 end
 
             end
+            #=
             =#
 
         end
