@@ -2166,7 +2166,7 @@ module Tools
         σ = p2_bins / 2 / 2.35482 # why like that?
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
-        pulse_st = 250
+        pulse_st = 240
         pulse_end = 260
 
         pu_1 = []
