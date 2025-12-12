@@ -2157,6 +2157,9 @@ module Tools
         println("mean SNR: ", mean(snrs))
         println("median SNR: ", median(snrs))
 
+        data = integrate(data, 2)
+        data2 = integrate(data, 2)
+
         pulses, bins = size(data)
 
         p2_bins = floor(Int, p2 / 360 * bins)
@@ -2300,6 +2303,24 @@ module Tools
         st = readline(stdin; keep=false)
 
 
+    end
+
+
+    """
+    function integrates / adds (pulses_num) single pulses
+    """
+    function integrate(data, pulses_num)
+        pulses, bins = size(data)
+        groups = div(pulses, pulses_num)
+        result = zeros(groups, bins)
+    
+        for g in 1:groups
+            start_idx = (g - 1) * pulses_num + 1
+            end_idx = g * pulses_num
+            result[g, :] = sum(data[start_idx:end_idx, :], dims=1)
+        end
+        
+        return result
     end
     
 
