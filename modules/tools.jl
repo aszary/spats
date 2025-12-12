@@ -2157,8 +2157,8 @@ module Tools
         println("mean SNR: ", mean(snrs))
         println("median SNR: ", median(snrs))
 
-        data = integrate(data, 8)
-        data2 = integrate(data, 8)
+        data = integrate(data, 16)
+        data2 = integrate(data, 16)
 
         pulses, bins = size(data)
 
