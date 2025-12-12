@@ -2234,7 +2234,7 @@ module Tools
                         scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                         plot([ind-1, ind-1],[pks[:heights][j], pks[:heights][j]-pks[:proms][j]], c="red")
                         push!(pu_1, i)
-                        push!(loc_1, on_st+ ind-1)
+                        push!(loc_1, ind-1)
                     end
                 end
 
@@ -2243,7 +2243,7 @@ module Tools
                         scatter([ind-1],[pks2[:heights][j]]) # why ind-1?
                         plot([ind-1, ind-1],[pks2[:heights][j], pks2[:heights][j]-pks2[:proms][j]], c="C2")
                         push!(pu_2, i)
-                        push!(loc_2, on_st + ind-1)
+                        push!(loc_2, ind-1)
                     end
                 end
 
