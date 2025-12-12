@@ -2260,6 +2260,8 @@ module Tools
 
 
         end
+
+        PyPlot.close()
         figure()
 
         subplot2grid((1, 2), (0, 0))
@@ -2269,7 +2271,7 @@ module Tools
         subplot2grid((1, 2), (0, 0))
         imshow(data2, origin="lower", cmap="viridis", interpolation="none", aspect="auto")
 
-        show()
+        PyPlot.show()
         st = readline(stdin; keep=false)
 
 
