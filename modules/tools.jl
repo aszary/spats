@@ -2293,7 +2293,7 @@ module Tools
         subplot2grid((1, 2), (0, 1))
         imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st, 1, pulses+1])
         scatter(loc_2 .+ 0.5, pu_2 .+0.5, marker="x", color="C2", s=50)
-        scatter([69], [247], marker="x", color="C3", s=50)
+        scatter([69.5], [247.5], marker="x", color="C3", s=50)
 
         PyPlot.show()
         st = readline(stdin; keep=false)
