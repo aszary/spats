@@ -2270,6 +2270,7 @@ module Tools
         imshow(data2, origin="lower", cmap="viridis", interpolation="none", aspect="auto")
 
         show()
+        st = readline(stdin; keep=false)
 
 
     end
