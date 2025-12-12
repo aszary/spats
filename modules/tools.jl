@@ -2209,6 +2209,18 @@ module Tools
 
             snr = snrs[i]
 
+            # just maximum finding
+            val, idx = findmax(y)
+            push!(pu_1, i)
+            push!(loc_1, idx)
+            val2, idx2 = findmax(y2)
+            push!(pu_2, i)
+            push!(loc_2, idx2)
+
+
+
+
+            #=
             if snr > thresh
 
                 pks = findmaxima(re)
@@ -2233,7 +2245,7 @@ module Tools
                     if pks[:proms][j] > 0.5
                         scatter([ind-1],[pks[:heights][j]]) # why ind-1?
                         plot([ind-1, ind-1],[pks[:heights][j], pks[:heights][j]-pks[:proms][j]], c="red")
-                        push!(pu_1, i)
+                        push!(pu_1,i)
                         push!(loc_1, ind-1)
                     end
                 end
@@ -2271,6 +2283,7 @@ module Tools
 
 
         end
+        =#
 
         PyPlot.close()
         figure()
