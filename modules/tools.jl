@@ -2210,6 +2210,7 @@ module Tools
             snr = snrs[i]
 
             # just maximum finding
+            #=
             val, idx = findmax(y)
             println("Max. val=$val i=$idx pulse=$i")
             push!(pu_1, i)
@@ -2217,10 +2218,8 @@ module Tools
             val2, idx2 = findmax(y2)
             push!(pu_2, i)
             push!(loc_2, idx2)
-            #=
             =#
 
-            #=
             if snr > thresh
 
                 pks = findmaxima(re)
@@ -2259,6 +2258,7 @@ module Tools
                     end
                 end
 
+            #=
 
                 plot(y, c="black", lw=1)
                 #plot(sg.y, c="black", lw=3, alpha=0.5)
@@ -2279,8 +2279,8 @@ module Tools
                     break
                 end
 
-            end
             =#
+            end
 
         end
 
@@ -2295,7 +2295,6 @@ module Tools
         subplot2grid((1, 2), (0, 1))
         imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
         scatter(loc_2 .+ 0.5, pu_2 .+0.5, marker="x", color="C2", s=50)
-        scatter([69.5], [248.5], marker="x", color="C3", s=50)
         println()
 
         PyPlot.show()
