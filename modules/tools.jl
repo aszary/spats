@@ -2296,6 +2296,7 @@ module Tools
         imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
         scatter(loc_2 .+ 0.5, pu_2 .+0.5, marker="x", color="C2", s=50)
         println()
+        grid(true, linestyle="-", linewidth=1, c="white")
 
         PyPlot.show()
         st = readline(stdin; keep=false)
