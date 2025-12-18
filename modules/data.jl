@@ -814,7 +814,6 @@ module Data
         # changing high frequency psrfit filename
         mv(replace(mid, ".mid"=>".debase.gg"), replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
 
-
     end
 
 
