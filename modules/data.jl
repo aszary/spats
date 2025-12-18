@@ -760,7 +760,7 @@ module Data
 
     # Arguments
     """
-    function debase_16(low, high, params_file, params)
+    function debase_16(low, high, mid, params_file, params)
 
         # finding bin_st and bin_end based on low frequency file
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
@@ -807,6 +807,13 @@ module Data
         convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), replace(high, ".high"=>"_high_debase.txt"))
         # changing high frequency psrfit filename
         mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
+
+        # mid frequency runs
+        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $mid`))
+        convert_psrfit_ascii(replace(mid, ".mid"=>".debase.gg"), replace(mid, ".mid"=>"_mid_debase.txt"))
+        # changing high frequency psrfit filename
+        mv(replace(mid, ".mid"=>".debase.gg"), replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
+
 
     end
 
@@ -932,7 +939,7 @@ module Data
         end
 
         # debase the data
-        debase_16(low_filename, high_filename, params_file, p)
+        debase_16(low_filename, high_filename, mid_filename, params_file, p)
 
         # speeding ends here
         #=
@@ -961,9 +968,7 @@ module Data
         # single pulses mid 
         da_mi = Data.load_ascii(replace(mid_filename, ".mid"=>"_mid_debase.txt"))
 
-       
-
-        Tools.track_subpulses_snr3(da_lo, da_hi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
+        Tools.track_subpulses_snr3(da_lo, da_hi, da_mi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
 
         return 
     end
