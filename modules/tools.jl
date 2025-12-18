@@ -2290,13 +2290,14 @@ module Tools
         subplot2grid((1, 2), (0, 0))
         imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
         scatter(loc_1 .+0.5, pu_1.+0.5, marker="x", color="C1", s=50)
+        grid(true, linestyle="-", linewidth=1, c="white", which="both")
 
 
         subplot2grid((1, 2), (0, 1))
         imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
         scatter(loc_2 .+ 0.5, pu_2 .+0.5, marker="x", color="C2", s=50)
         println()
-        grid(true, linestyle="-", linewidth=1, c="white")
+        grid(true, linestyle="-", linewidth=1, c="white", which="both")
 
         PyPlot.show()
         st = readline(stdin; keep=false)
