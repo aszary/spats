@@ -2299,6 +2299,7 @@ module Tools
 
         PyPlot.show()
         st = readline(stdin; keep=false)
+        PyPlot.close()
 
 
     end
