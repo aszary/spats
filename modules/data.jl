@@ -738,7 +738,8 @@ module Data
 
         run(pipeline(`paz -Z 0-12 -e high $spCf16_file`,stderr="errs.txt"))
         run(pipeline(`paz -Z 3-15 -e low $spCf16_file`,stderr="errs.txt"))
-        run(pipeline(`paz -Z 0-8 -Z 9-15 -e mid $spCf16_file`,stderr="errs.txt"))
+        #run(pipeline(`paz -Z 0-6 -Z 9-15 -e mid $spCf16_file`,stderr="errs.txt"))
+        run(pipeline(`paz -Z 0-0 -e mid $spCf16_file`,stderr="errs.txt"))
 
         # fscrunch
         run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
