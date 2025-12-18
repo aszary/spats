@@ -2242,8 +2242,8 @@ module Tools
 
                 for (j,ind) in enumerate(pks[:indices])
                     if pks[:proms][j] > 0.5
-                        scatter([ind-1],[pks[:heights][j]]) # why ind-1?
-                        plot([ind-1, ind-1],[pks[:heights][j], pks[:heights][j]-pks[:proms][j]], c="red")
+                        #scatter([ind-1],[pks[:heights][j]]) # why ind-1?
+                        #plot([ind-1, ind-1],[pks[:heights][j], pks[:heights][j]-pks[:proms][j]], c="red")
                         push!(pu_1,i)
                         push!(loc_1, ind-1)
                     end
@@ -2251,8 +2251,8 @@ module Tools
 
                 for (j,ind) in enumerate(pks2[:indices])
                     if pks2[:proms][j] > 0.5
-                        scatter([ind-1],[pks2[:heights][j]]) # why ind-1?
-                        plot([ind-1, ind-1],[pks2[:heights][j], pks2[:heights][j]-pks2[:proms][j]], c="C2")
+                        #scatter([ind-1],[pks2[:heights][j]]) # why ind-1?
+                        #plot([ind-1, ind-1],[pks2[:heights][j], pks2[:heights][j]-pks2[:proms][j]], c="C2")
                         push!(pu_2, i)
                         push!(loc_2, ind-1)
                     end
@@ -2290,13 +2290,14 @@ module Tools
         subplot2grid((1, 2), (0, 0))
         imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
         scatter(loc_1 .+0.5, pu_1.+0.5, marker="x", color="C1", s=50)
+        minorticks_on()
         grid(true, linestyle="-", linewidth=1, c="white", which="both")
 
 
         subplot2grid((1, 2), (0, 1))
         imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
         scatter(loc_2 .+ 0.5, pu_2 .+0.5, marker="x", color="C2", s=50)
-        println()
+        minorticks_on()
         grid(true, linestyle="-", linewidth=1, c="white", which="both")
 
         PyPlot.show()
