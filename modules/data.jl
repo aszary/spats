@@ -658,7 +658,7 @@ module Data
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
         # divide to two frequencies
-        low_filename, high_filename = multifrequency_split(outfile)
+        low_filename, high_filename, mid_filename = multifrequency_split(outfile)
 
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
@@ -725,26 +725,32 @@ module Data
 
     function multifrequency_split(spCf16_file)
         println(spCf16_file)
+
         low = replace(spCf16_file, ".spCf16"=>".low")
         low_txt = replace(spCf16_file, ".spCf16"=>"_low.txt")
         high = replace(spCf16_file, ".spCf16"=>".high")
         high_txt = replace(spCf16_file, ".spCf16"=>"_high.txt")
+        mid = replace(spCf16_file, ".spCf16"=>".mid")
+        mid_txt = replace(spCf16_file, ".spCf16"=>"_mid.txt")
 
         #run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
         #run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
 
         run(pipeline(`paz -Z 0-12 -e high $spCf16_file`,stderr="errs.txt"))
         run(pipeline(`paz -Z 3-15 -e low $spCf16_file`,stderr="errs.txt"))
+        run(pipeline(`paz -Z 0-6 -Z 9-15 -e mid $spCf16_file`,stderr="errs.txt"))
 
         # fscrunch
         run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
         run(pipeline(`pam -F -e low $low`,stderr="errs.txt"))
+        run(pipeline(`pam -F -e mid $mid`,stderr="errs.txt"))
 
         run(pipeline(`pdv -A -F $high`, stdout=high_txt, stderr="errs.txt"))
         run(pipeline(`pdv -A -F $low`, stdout=low_txt, stderr="errs.txt"))
+        run(pipeline(`pdv -A -F $mid`, stdout=mid_txt, stderr="errs.txt"))
         #println("done")
         # change -t to -A to get frequancy information
-        return low, high
+        return low, high, mid
 
     end
 
@@ -914,12 +920,11 @@ module Data
         end
 
         # speeding up
-        #=
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
         # divide to two frequencies
-        low_filename, high_filename = multifrequency_split(outfile)
+        low_filename, high_filename, mid_filename = multifrequency_split(outfile)
 
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
@@ -930,10 +935,12 @@ module Data
         debase_16(low_filename, high_filename, params_file, p)
 
         # speeding ends here
+        #=
         =#
         # TODO remove those two
-        low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
-        high_filename = "/home/psr/output/J2139+2242_single/pulsar.high"
+        #low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
+        #high_filename = "/home/psr/output/J2139+2242_single/pulsar.high"
+        #mid_filename = "/home/psr/output/J2139+2242_single/pulsar.mid"
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         Tools.generate_snr(low_debase) 
@@ -950,6 +957,11 @@ module Data
  
         # single pulses high 
         da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
+
+        # single pulses mid 
+        da_mi = Data.load_ascii(replace(mid_filename, ".mid"=>"_mid_debase.txt"))
+
+       
 
         Tools.track_subpulses_snr3(da_lo, da_hi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
 

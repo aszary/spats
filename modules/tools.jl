@@ -2145,7 +2145,7 @@ module Tools
     Track subpulses based on S/N of the signal 
     new version 
     """
-    function track_subpulses_snr3(data, data2, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=3)
+    function track_subpulses_snr3(data, data2, data_mid, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=3)
 
         f = open(snrfile)
         snrs = []
@@ -2295,7 +2295,8 @@ module Tools
 
 
         subplot2grid((1, 2), (0, 1))
-        imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        #imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        imshow(data_mid[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
         scatter(loc_2 .+ 0.5, pu_2 .+0.5, marker="x", color="C2", s=50)
         #minorticks_on()
         grid(true, linestyle="-", linewidth=1, c="white", which="both")
