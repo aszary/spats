@@ -2321,14 +2321,14 @@ module Tools
 
         pulses, bins = size(data)
 
-        #data = rebin(data, 2)
+        data = rebin(data, 8)
 
         PyPlot.close()
         figure()
 
         #subplot2grid((1, 3), (0, 0))
         #imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
-        imshow(data[:,:], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        imshow(data[:,:], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
  
         PyPlot.show()
         st = readline(stdin; keep=false)
