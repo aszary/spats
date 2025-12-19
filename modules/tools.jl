@@ -2321,7 +2321,7 @@ module Tools
 
         pulses, bins = size(data)
 
-        data = rebin(data, 2)
+        data = rebin(data, 4)
 
         PyPlot.close()
         figure()
