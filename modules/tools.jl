@@ -2321,11 +2321,14 @@ module Tools
 
         pulses, bins = size(data)
 
+        #data = rebin(data, 2)
+
         PyPlot.close()
         figure()
 
         #subplot2grid((1, 3), (0, 0))
-        imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        #imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        imshow(data[:,:], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
  
         PyPlot.show()
         st = readline(stdin; keep=false)
@@ -2347,6 +2350,26 @@ module Tools
             start_idx = (g - 1) * pulses_num + 1
             end_idx = g * pulses_num
             result[g, :] = sum(data[start_idx:end_idx, :], dims=1)
+        end
+        
+        return result
+    end
+
+
+    """
+    rebin(data, bins_num)
+
+    Reduces the number of bins by summing adjacent bins into groups of `bins_num`.
+    """
+    function rebin(data, bins_num)
+        pulses, bins = size(data)
+        groups = div(bins, bins_num)
+        result = zeros(pulses, groups)
+        
+        for g in 1:groups
+            start_idx = (g - 1) * bins_num + 1
+            end_idx = g * bins_num
+            result[:, g] = sum(data[:, start_idx:end_idx], dims=2)
         end
         
         return result
