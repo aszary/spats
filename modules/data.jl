@@ -927,6 +927,7 @@ module Data
         end
 
         # speeding up
+        #=
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
@@ -942,12 +943,11 @@ module Data
         debase_16(low_filename, high_filename, mid_filename, params_file, p)
 
         # speeding ends here
-        #=
         =#
         # TODO remove those two
-        #low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
-        #high_filename = "/home/psr/output/J2139+2242_single/pulsar.high"
-        #mid_filename = "/home/psr/output/J2139+2242_single/pulsar.mid"
+        low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
+        high_filename = "/home/psr/output/J2139+2242_single/pulsar.high"
+        mid_filename = "/home/psr/output/J2139+2242_single/pulsar.mid"
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         Tools.generate_snr(low_debase) 

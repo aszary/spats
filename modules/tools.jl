@@ -2167,7 +2167,7 @@ module Tools
         kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
 
         pulse_st = 1
-        pulse_end = 1000
+        pulse_end = 150
 
         pu_1 = []
         loc_1 = []
