@@ -761,8 +761,10 @@ module Data
 
     # Arguments
     """
-    function debase_16(low, high, mid, params_file, params)
 
+
+    function debase_16(low, high, mid, params_file, params)
+        params_dict = Dict{String,Any}()
         # finding bin_st and bin_end based on low frequency file
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
