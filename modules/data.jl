@@ -763,18 +763,19 @@ module Data
     """
 
 
-    function debase_16(low, high, mid, params_file, params::Dict{String,Any})
-    # jeśli params pusty, ustaw domyślne wartości
-    if isempty(params)
-        params["bin_st"] = nothing
-        params["bin_end"] = nothing
-    end
-        # finding bin_st and bin_end based on low frequency file
-        if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
-            println("pmod -device \"/xw\" -debase $low")
-            run(pipeline(`pmod -device "/xw" -debase $low`, `tee pmod_output.txt`))
-            #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
+    function debase_16(low_file, high_file, mid_file, params_file, params_dict)
+        # jeśli słownik pusty, ustaw domyślne wartości
+        if isempty(params_dict)
+            params_dict["bin_st"] = nothing
+            params_dict["bin_end"] = nothing
+        end
+
+        # finding bin_st and bin_end based on low frequency file
+        if isnothing(params_dict["bin_st"]) || isnothing(params_dict["bin_end"])
+
+            println("pmod -device \"/xw\" -debase $low_file")
+            run(pipeline(`pmod -device "/xw" -debase $low_file`, `tee pmod_output.txt`))
 
             # Read captured output to get bin_st and bin_end
             output = read("pmod_output.txt", String)
@@ -784,44 +785,35 @@ module Data
             m = match(r"-onpulse '(.+) (.+)'", output)
             if !isnothing(m)
                 bin_st, bin_end = parse.(Int, m.captures)
-                # Check if onpulse region length is even
                 region_length = bin_end - bin_st + 1
                 if region_length % 2 != 0
                     println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
                     bin_end -= 1
-                    println("Adjusted onpulse range: $bin_st to $bin_end")
                 end
                 println("Found onpulse range: $bin_st to $bin_end")
-                params["bin_st"] = bin_st
-                params["bin_end"] = bin_end
-                Tools.save_params(params_file, params)
+                params_dict["bin_st"] = bin_st
+                params_dict["bin_end"] = bin_end
+                Tools.save_params(params_file, params_dict)
             end
-            # ASCII single pulses
-            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
+
+            convert_psrfit_ascii(replace(low_file, ".low"=>".debase.gg"), replace(low_file, ".low"=>"_low_debase.txt"))
 
         else
-            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $low`))
-            #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
-            # ASCII single pulses
-            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
+            run(pipeline(`pmod -onpulse "$(params_dict["bin_st"]) $(params_dict["bin_end"])" -device "/NULL" -debase $low_file`))
+            convert_psrfit_ascii(replace(low_file, ".low"=>".debase.gg"), replace(low_file, ".low"=>"_low_debase.txt"))
         end
 
-        # changing low frequency psrfit filename
-        mv(replace(low, ".low"=>".debase.gg"), replace(low, "pulsar.low"=>"pulsar_low.debase.gg"), force=true)
+        mv(replace(low_file, ".low"=>".debase.gg"), replace(low_file, "pulsar.low"=>"pulsar_low.debase.gg"), force=true)
 
-        # high frequency runs
-        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $high`))
-        convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), replace(high, ".high"=>"_high_debase.txt"))
-        # changing high frequency psrfit filename
-        mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
+        run(pipeline(`pmod -onpulse "$(params_dict["bin_st"]) $(params_dict["bin_end"])" -device "/NULL" -debase $high_file`))
+        convert_psrfit_ascii(replace(high_file, ".high"=>".debase.gg"), replace(high_file, ".high"=>"_high_debase.txt"))
+        mv(replace(high_file, ".high"=>".debase.gg"), replace(high_file, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
 
-        # mid frequency runs
-        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $mid`))
-        convert_psrfit_ascii(replace(mid, ".mid"=>".debase.gg"), replace(mid, ".mid"=>"_mid_debase.txt"))
-        # changing high frequency psrfit filename
-        mv(replace(mid, ".mid"=>".debase.gg"), replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
-
+        run(pipeline(`pmod -onpulse "$(params_dict["bin_st"]) $(params_dict["bin_end"])" -device "/NULL" -debase $mid_file`))
+        convert_psrfit_ascii(replace(mid_file, ".mid"=>".debase.gg"), replace(mid_file, ".mid"=>"_mid_debase.txt"))
+        mv(replace(mid_file, ".mid"=>".debase.gg"), replace(mid_file, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
     end
+
 
 
     """
