@@ -646,7 +646,7 @@ module Data
             mkdir(outdir)
         end
 
-        # check if params_file exists if not creating default one
+        # check if params_file exists, if not create default one
         if !isfile(params_file)
             println("File $params_file does not exist, creating default one.")
             p = Tools.default_params(params_file)
@@ -657,7 +657,7 @@ module Data
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
-        # divide to two frequencies
+        # divide to three frequencies
         low_filename, high_filename, mid_filename = multifrequency_split(outfile)
 
         # gets number of single pulses if needed
@@ -666,61 +666,52 @@ module Data
         end
 
         # debase the data
-        debase_16(low_filename, mid_filename, high_filename, params_file, p)
+        low_txt, high_txt, mid_txt = debase_16(low_filename, high_filename, mid_filename, params_file, p)
 
-        # Calculate 2dfs and lrfs => finds P3
-        low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
-        twodfs_lrfs(low_debase, params_file, p; detect=false)
-        high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
-        twodfs_lrfs(high_debase, params_file, p; detect=false)
+        # Calculate 2DFS and LRFS
+        twodfs_lrfs(low_txt, params_file, p; detect=false)
+        twodfs_lrfs(high_txt, params_file, p; detect=false)
 
         # single pulses - low
-        da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
+        da_lo = Data.load_ascii(low_txt)
         Plot.single(da_lo, outdir; darkness=0.7, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
 
         # single pulses - high
-        da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
+        da_hi = Data.load_ascii(high_txt)
         Plot.single(da_hi, outdir; darkness=0.7, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
 
+        # single pulses - mid
+        da_mid = Data.load_ascii(mid_txt)
+        Plot.single(da_mid, outdir; darkness=0.7, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="mid", show_=true)
+
         # low freq p3-fold with cleaning
-        da_low = Data.load_ascii_all(replace(low_filename, ".low"=>"_low_debase.txt"))
+        da_low = Data.load_ascii_all(low_txt)
         da_low = clean(da_low; threshold=p["clean_threshold"]) 
-        folded_low = Tools.p3fold(da_low, p["p3"],  p["p3_ybins"])
+        folded_low = Tools.p3fold(da_low, p["p3"], p["p3_ybins"])
         Plot.single(folded_low, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_low", show_=true, repeat_num=4)
 
         # high freq p3-fold with cleaning
-        da_high = Data.load_ascii_all(replace(high_filename, ".high"=>"_high_debase.txt"))
+        da_high = Data.load_ascii_all(high_txt)
         da_high = clean(da_high; threshold=p["clean_threshold"]) 
-        folded_high = Tools.p3fold(da_high, p["p3"],  p["p3_ybins"])
+        folded_high = Tools.p3fold(da_high, p["p3"], p["p3_ybins"])
         Plot.single(folded_high, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
 
         # PSRSALSA p3folding low freq
-        run(pipeline(`pfold -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $low_debase`,  stderr="errs.txt"))
-        mv(replace(low_debase, ".gg"=>".p3fold"), replace(low_debase, ".gg"=>".p3fold_refine"), force=true)
-        d5 = Data.load_ascii(replace(low_debase, ".gg"=>".p3fold_refine"))
+        run(pipeline(`pfold -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $low_txt`,  stderr="errs.txt"))
+        mv(replace(low_txt, ".txt"=>".p3fold"), replace(low_txt, ".txt"=>".p3fold_refine"), force=true)
+        d5 = Data.load_ascii(replace(low_txt, ".txt"=>".p3fold_refine"))
         Plot.p3fold(d5, outdir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low", show_=true, repeat_num=4)
-        # norefine
-        #println("pfold -p3fold_norefine -p3fold \"$(p["p3"]) $(p["p3_ybins"])\" -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" -onpulsed \"/NULL\" -p3foldd \"/NULL\" -w -oformat ascii $low_debase")
-        run(pipeline(`pfold -p3fold_norefine -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $low_debase`,  stderr="errs.txt"))
-        mv(replace(low_debase, ".gg"=>".p3fold"), replace(low_debase, ".gg"=>".p3fold_norefine"), force=true)
-        d5 = Data.load_ascii(replace(low_debase, ".gg"=>".p3fold_norefine"))
-        Plot.p3fold(d5, outdir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_norefine", show_=true, repeat_num=4)
- 
+
         # PSRSALSA p3folding high freq
-        run(pipeline(`pfold -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $high_debase`,  stderr="errs.txt"))
-        #run(pipeline(`pfold -p3fold_nritt 50 -p3fold_cpb 50 -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $high_debase`,  stderr="errs.txt"))
-        mv(replace(high_debase, ".gg"=>".p3fold"), replace(high_debase, ".gg"=>".p3fold_refine"), force=true)
-        d5 = Data.load_ascii(replace(high_debase, ".gg"=>".p3fold_refine"))
+        run(pipeline(`pfold -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $high_txt`,  stderr="errs.txt"))
+        mv(replace(high_txt, ".txt"=>".p3fold"), replace(high_txt, ".txt"=>".p3fold_refine"), force=true)
+        d5 = Data.load_ascii(replace(high_txt, ".txt"=>".p3fold_refine"))
         Plot.p3fold(d5, outdir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high", show_=true, repeat_num=4)
-        # norefine
-        run(pipeline(`pfold -p3fold_norefine -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $high_debase`,  stderr="errs.txt"))
-        mv(replace(high_debase, ".gg"=>".p3fold"), replace(high_debase, ".gg"=>".p3fold_norefine"), force=true)
-        d5 = Data.load_ascii(replace(high_debase, ".gg"=>".p3fold_norefine"))
-        Plot.p3fold(d5, outdir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high_norefine", show_=true, repeat_num=4)
 
         return p, nothing, outdir
 
     end
+
 
 
     function multifrequency_split(spCf16_file)
@@ -758,11 +749,14 @@ module Data
 
     """
     Debase the data
+
+    # Arguments
     """
     function debase_16(low, high, mid, params_file, params)
 
         # --- low ---
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
+            println("pmod -device \"/xw\" -debase $low")
             run(pipeline(`pmod -device "/xw" -debase $low`, `tee pmod_output.txt`))
             output = read("pmod_output.txt", String)
             rm("pmod_output.txt")
@@ -778,28 +772,25 @@ module Data
             end
         end
 
-        # generate .debase.gg
-        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $low`))
         # convert to ASCII
         low_txt = replace(low, ".low"=>"_low_debase.txt")
         convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), low_txt)
         mv(replace(low, ".low"=>".debase.gg"), replace(low, "pulsar.low"=>"pulsar_low.debase.gg"), force=true)
 
         # --- high ---
-        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $high`))
         high_txt = replace(high, ".high"=>"_high_debase.txt")
+        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $high`))
         convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), high_txt)
         mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
 
         # --- mid ---
-        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $mid`))
         mid_txt = replace(mid, ".mid"=>"_mid_debase.txt")
+        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $mid`))
         convert_psrfit_ascii(replace(mid, ".mid"=>".debase.gg"), mid_txt)
         mv(replace(mid, ".mid"=>".debase.gg"), replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
 
-        return low_txt, high_txt, mid_txt  # <-- zwracamy ścieżki do ASCII
+        return low_txt, high_txt, mid_txt  # <-- tylko dodane, nic nie usuwamy
     end
-
 
 
 
