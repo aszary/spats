@@ -760,48 +760,41 @@ module Data
     """
     function debase_16(low::String, high::String, mid::String, params_file::String, params::Dict{String, Any})
 
-        # jeśli brak bin_st/bin_end w params, uruchamiamy pmod interaktywnie raz
-        if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
-            println("pmod -device \"/xw\" -debase $low (interactive)")
-            run(pipeline(`pmod -device "/xw" -debase $low`, `tee pmod_output.txt`))
-            
-            # odczytujemy output
-            output = read("pmod_output.txt", String)
-            rm("pmod_output.txt")  # sprzątanie
+        # funkcja pomocnicza do uruchamiania pmod i konwersji na ASCII
+        run_debase(file::String, freq_label::String) = begin
+            outfile = replace(file, r"\.(low|mid|high)" => ".debase.gg")
 
-            # parsujemy onpulse
-            m = match(r"-onpulse '(.+) (.+)'", output)
-            if !isnothing(m)
-                bin_st, bin_end = parse.(Int, m.captures)
-                # jeśli długość regionu nieparzysta, zmniejszamy bin_end
-                region_length = bin_end - bin_st + 1
-                if region_length % 2 != 0
-                    println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end.")
-                    bin_end -= 1
-                    println("Adjusted onpulse range: $bin_st to $bin_end")
+            if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
+                println("pmod -device \"/xw\" -debase $file")
+                run(pipeline(`pmod -device "/xw" -debase $file`, `tee pmod_output.txt`))
+                output = read("pmod_output.txt", String)
+                rm("pmod_output.txt")
+
+                m = match(r"-onpulse '(.+) (.+)'", output)
+                if !isnothing(m)
+                    bin_st, bin_end = parse.(Int, m.captures)
+                    # zapewniamy parzystą długość regionu
+                    region_length = bin_end - bin_st + 1
+                    if region_length % 2 != 0
+                        println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                        bin_end -= 1
+                        println("Adjusted onpulse range: $bin_st to $bin_end")
+                    end
+                    println("Found onpulse range: $bin_st to $bin_end")
+                    params["bin_st"] = bin_st
+                    params["bin_end"] = bin_end
+                    Tools.save_params(params_file, params)
                 end
-                println("Found onpulse range: $bin_st to $bin_end")
-                params["bin_st"] = bin_st
-                params["bin_end"] = bin_end
-                Tools.save_params(params_file, params)
+
+                # konwersja na ASCII
+                convert_psrfit_ascii(outfile, replace(file, r"\.(low|mid|high)" => "_$(freq_label)_debase.txt"))
+
             else
-                error("Nie udało się znaleźć onpulse w pmod output")
+                run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $file`))
+                convert_psrfit_ascii(outfile, replace(file, r"\.(low|mid|high)" => "_$(freq_label)_debase.txt"))
             end
-        end
 
-        # funkcja pomocnicza: generuje debase i ASCII, zmienia nazwę
-        function run_debase(file::String, freq_label::String)
-            outfile = replace(file, "."*freq_label => ".debase.gg")
-            txtfile = replace(file, "."*freq_label => "_"*freq_label*"_debase.txt")
-
-            # wywołanie pmod z onpulse
-            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $file`))
-
-            # generowanie ASCII
-            convert_psrfit_ascii(outfile, txtfile)
-
-            
-            # zmiana nazwy pliku .debase.gg
+            # bezpieczne przenoszenie pliku
             newfile = replace(outfile, "pulsar."*freq_label => "pulsar_"*freq_label*".debase.gg")
             if outfile != newfile
                 if isfile(outfile)
@@ -812,14 +805,15 @@ module Data
             else
                 println("Skipping mv: source and destination are the same")
             end
+        end
 
-
-        # low, mid i high
+        # uruchamiamy dla wszystkich częstotliwości
         run_debase(low, "low")
         run_debase(mid, "mid")
         run_debase(high, "high")
 
     end
+
 
 
 
