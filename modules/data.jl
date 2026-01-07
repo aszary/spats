@@ -778,6 +778,15 @@ module Data
             end
         end
 
+        src_file = replace(low, ".low"=>".debase.gg")
+        dst_file = replace(low, "pulsar.low"=>"pulsar_low.debase.gg")
+
+        if isfile(src_file)
+            mv(src_file, dst_file, force=true)
+        else
+            println("Warning: debase output file not found: $src_file")
+        end
+
         # convert to ASCII
         low_txt = replace(low, ".low"=>"_low_debase.txt")
         convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), low_txt)
