@@ -758,53 +758,62 @@ module Data
 
     # Arguments
     """
-    function debase_16(low, high, mid, params_file, params)
+    function debase_16(low::String, high::String, mid::String, params_file::String, params::Dict{String, Any})
 
-        # --- low ---
+        # jeśli brak bin_st/bin_end w params, uruchamiamy pmod interaktywnie raz
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
-            println("pmod -device \"/xw\" -debase $low")
+            println("pmod -device \"/xw\" -debase $low (interactive)")
             run(pipeline(`pmod -device "/xw" -debase $low`, `tee pmod_output.txt`))
+            
+            # odczytujemy output
             output = read("pmod_output.txt", String)
-            rm("pmod_output.txt")
+            rm("pmod_output.txt")  # sprzątanie
+
+            # parsujemy onpulse
             m = match(r"-onpulse '(.+) (.+)'", output)
             if !isnothing(m)
                 bin_st, bin_end = parse.(Int, m.captures)
-                if (bin_end - bin_st + 1) % 2 != 0
+                # jeśli długość regionu nieparzysta, zmniejszamy bin_end
+                region_length = bin_end - bin_st + 1
+                if region_length % 2 != 0
+                    println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end.")
                     bin_end -= 1
+                    println("Adjusted onpulse range: $bin_st to $bin_end")
                 end
+                println("Found onpulse range: $bin_st to $bin_end")
                 params["bin_st"] = bin_st
                 params["bin_end"] = bin_end
                 Tools.save_params(params_file, params)
+            else
+                error("Nie udało się znaleźć onpulse w pmod output")
             end
         end
 
-        src_file = replace(low, ".low"=>".debase.gg")
-        dst_file = replace(low, "pulsar.low"=>"pulsar_low.debase.gg")
+        # funkcja pomocnicza: generuje debase i ASCII, zmienia nazwę
+        function run_debase(file::String, freq_label::String)
+            outfile = replace(file, "."*freq_label => ".debase.gg")
+            txtfile = replace(file, "."*freq_label => "_"*freq_label*"_debase.txt")
 
-        if isfile(src_file)
-            mv(src_file, dst_file, force=true)
-        else
-            println("Warning: debase output file not found: $src_file")
+            # wywołanie pmod z onpulse
+            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $file`))
+
+            # generowanie ASCII
+            convert_psrfit_ascii(outfile, txtfile)
+
+            # zmiana nazwy pliku .debase.gg
+            newfile = replace(outfile, "pulsar."*freq_label => "pulsar_"*freq_label*".debase.gg")
+            if isfile(outfile)
+                mv(outfile, newfile, force=true)
+            else
+                println("Warning: debase output file not found: $outfile")
+            end
         end
 
-        # convert to ASCII
-        low_txt = replace(low, ".low"=>"_low_debase.txt")
-        convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), low_txt)
-        mv(replace(low, ".low"=>".debase.gg"), replace(low, "pulsar.low"=>"pulsar_low.debase.gg"), force=true)
+        # low, mid i high
+        run_debase(low, "low")
+        run_debase(mid, "mid")
+        run_debase(high, "high")
 
-        # --- high ---
-        high_txt = replace(high, ".high"=>"_high_debase.txt")
-        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $high`))
-        convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), high_txt)
-        mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
-
-        # --- mid ---
-        mid_txt = replace(mid, ".mid"=>"_mid_debase.txt")
-        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $mid`))
-        convert_psrfit_ascii(replace(mid, ".mid"=>".debase.gg"), mid_txt)
-        mv(replace(mid, ".mid"=>".debase.gg"), replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
-
-        return low_txt, high_txt, mid_txt  # <-- tylko dodane, nic nie usuwamy
     end
 
 
