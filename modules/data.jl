@@ -758,8 +758,6 @@ module Data
 
     """
     Debase the data
-
-    # Arguments
     """
     function debase_16(low, high, mid, params_file, params)
 
@@ -768,7 +766,6 @@ module Data
 
             println("pmod -device \"/xw\" -debase $low")
             run(pipeline(`pmod -device "/xw" -debase $low`, `tee pmod_output.txt`))
-            #run(pipeline(`pmod -device "/xw" -iformat PSRFITS -debase $outfile`, `tee pmod_output.txt`))
 
             # Read captured output to get bin_st and bin_end
             output = read("pmod_output.txt", String)
@@ -790,32 +787,48 @@ module Data
                 params["bin_end"] = bin_end
                 Tools.save_params(params_file, params)
             end
+
             # ASCII single pulses
             convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
 
         else
             run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $low`))
-            #run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -iformat PSRFITS -debase $outfile`))
-            # ASCII single pulses
             convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
         end
 
-        # changing low frequency psrfit filename
-        mv(replace(low, ".low"=>".debase.gg"), replace(low, "pulsar.low"=>"pulsar_low.debase.gg"), force=true)
+        # =====================
+        # Move/rename files only if src != dst
+        # =====================
 
-        # high frequency runs
+        # low frequency
+        src = replace(low, ".low"=>".debase.gg")
+        dst = replace(low, "pulsar.low"=>"pulsar_low.debase.gg")
+        if src != dst
+            mv(src, dst, force=true)
+        end
+
+        # high frequency
         run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $high`))
         convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), replace(high, ".high"=>"_high_debase.txt"))
-        # changing high frequency psrfit filename
-        mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
 
-        # mid frequency runs
+        src = replace(high, ".high"=>".debase.gg")
+        dst = replace(high, "pulsar.high"=>"pulsar_high.debase.gg")
+        if src != dst
+            mv(src, dst, force=true)
+        end
+
+        # mid frequency
         run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $mid`))
         convert_psrfit_ascii(replace(mid, ".mid"=>".debase.gg"), replace(mid, ".mid"=>"_mid_debase.txt"))
-        # changing high frequency psrfit filename
-        mv(replace(mid, ".mid"=>".debase.gg"), replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
+
+        src = replace(mid, ".mid"=>".debase.gg")
+        dst = replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg")
+        if src != dst
+            mv(src, dst, force=true)
+        end
 
     end
+
 
 
     """
