@@ -654,6 +654,12 @@ module Data
             p = Tools.read_params(params_file)
         end
 
+        # ensure clean_threshold exists
+        if !haskey(p, "clean_threshold")
+            p["clean_threshold"] = 0.05
+        end
+
+
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
