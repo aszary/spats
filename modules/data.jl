@@ -797,9 +797,12 @@ module Data
                     bin_end -= 1
                 end
                 println("Found onpulse range: $bin_st to $bin_end")
-                params_dict["bin_st"] = bin_st
-                params_dict["bin_end"] = bin_end
-                Tools.save_params(params_file, params_dict)
+                
+                # Wczytaj cały plik parametrów i zaktualizuj tylko bin_st/bin_end
+                params = Tools.read_params(params_file)  # pełny słownik
+                params["bin_st"] = bin_st
+                params["bin_end"] = bin_end
+                Tools.save_params(params_file, params)  # zapisz cały słownik
             end
 
             convert_psrfit_ascii(replace(low_file, ".low"=>".debase.gg"), replace(low_file, ".low"=>"_low_debase.txt"))
@@ -819,6 +822,7 @@ module Data
         convert_psrfit_ascii(replace(mid_file, ".mid"=>".debase.gg"), replace(mid_file, ".mid"=>"_mid_debase.txt"))
         mv(replace(mid_file, ".mid"=>".debase.gg"), replace(mid_file, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
     end
+
 
 
 
