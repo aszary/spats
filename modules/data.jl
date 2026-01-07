@@ -800,14 +800,19 @@ module Data
             # generowanie ASCII
             convert_psrfit_ascii(outfile, txtfile)
 
+            
             # zmiana nazwy pliku .debase.gg
             newfile = replace(outfile, "pulsar."*freq_label => "pulsar_"*freq_label*".debase.gg")
-            if isfile(outfile)
-                mv(outfile, newfile, force=true)
+            if outfile != newfile
+                if isfile(outfile)
+                    mv(outfile, newfile, force=true)
+                else
+                    println("Warning: debase output file not found: $outfile")
+                end
             else
-                println("Warning: debase output file not found: $outfile")
+                println("Skipping mv: source and destination are the same")
             end
-        end
+
 
         # low, mid i high
         run_debase(low, "low")
