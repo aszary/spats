@@ -138,7 +138,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_16")
         #process_psrdata_16("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_16")
         #Data.analyse_p3folds_16(vpmout*"J1555-3134_16", "refine")
-        process_psrdata_16("/home/psrdata/uhf/J0820-1350/2020-07-11-10:30:12/816/single/", vpmout*"J0820-1350_16_UHF")
+        process_psrdata_16("/home/psrdata/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single", vpmout*"J0820-1350_16_UHF")
 
 
         # checking single pulses offset
