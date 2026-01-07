@@ -667,8 +667,11 @@ module Data
 
         # debase the data
         #debase_16(low_filename, high_filename, params_file, p)
-        params_dict = Dict{String, Any}()  # pusty słownik, jeśli nie masz nic w nim
+        params_dict = Dict{String, Any}()
         debase_16(low_filename, high_filename, mid_filename, params_file, params_dict)
+        # odczytanie z pliku po debase
+        p = Tools.read_params(params_file)
+
 
         #debase_16(indir, outdir, outfile, params_dict, "single")
 
