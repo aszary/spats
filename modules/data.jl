@@ -763,8 +763,12 @@ module Data
     """
 
 
-    function debase_16(low, high, mid, params_file, params)
-        params_dict = Dict{String,Any}()
+    function debase_16(low, high, mid, params_file, params::Dict{String,Any})
+    # jeśli params pusty, ustaw domyślne wartości
+    if isempty(params)
+        params["bin_st"] = nothing
+        params["bin_end"] = nothing
+    end
         # finding bin_st and bin_end based on low frequency file
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
 
