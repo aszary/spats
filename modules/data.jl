@@ -667,7 +667,10 @@ module Data
 
         # debase the data
         #debase_16(low_filename, high_filename, params_file, p)
-        debase_16(indir, outdir, outfile, params_dict, "single")
+        params_dict = Dict{String, Any}()  # pusty słownik, jeśli nie masz nic w nim
+        debase_16(low_filename, high_filename, mid_filename, params_file, params_dict)
+
+        #debase_16(indir, outdir, outfile, params_dict, "single")
 
         # Calculate 2dfs and lrfs => finds P3
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
