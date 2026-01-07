@@ -761,73 +761,45 @@ module Data
     """
     function debase_16(low, high, mid, params_file, params)
 
-        # finding bin_st and bin_end based on low frequency file
+        # --- low ---
         if isnothing(params["bin_st"]) || isnothing(params["bin_end"])
-
-            println("pmod -device \"/xw\" -debase $low")
             run(pipeline(`pmod -device "/xw" -debase $low`, `tee pmod_output.txt`))
-
-            # Read captured output to get bin_st and bin_end
             output = read("pmod_output.txt", String)
-            rm("pmod_output.txt")  # cleanup
-
-            # Extract onpulse values
+            rm("pmod_output.txt")
             m = match(r"-onpulse '(.+) (.+)'", output)
             if !isnothing(m)
                 bin_st, bin_end = parse.(Int, m.captures)
-                # Check if onpulse region length is even
-                region_length = bin_end - bin_st + 1
-                if region_length % 2 != 0
-                    println("Warning: Onpulse region length ($region_length) is not even. Adjusting bin_end to make it even.")
+                if (bin_end - bin_st + 1) % 2 != 0
                     bin_end -= 1
-                    println("Adjusted onpulse range: $bin_st to $bin_end")
                 end
-                println("Found onpulse range: $bin_st to $bin_end")
                 params["bin_st"] = bin_st
                 params["bin_end"] = bin_end
                 Tools.save_params(params_file, params)
             end
-
-            # ASCII single pulses
-            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
-
-        else
-            run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $low`))
-            convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), replace(low, ".low"=>"_low_debase.txt"))
         end
 
-        # =====================
-        # Move/rename files only if src != dst
-        # =====================
+        # generate .debase.gg
+        run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $low`))
+        # convert to ASCII
+        low_txt = replace(low, ".low"=>"_low_debase.txt")
+        convert_psrfit_ascii(replace(low, ".low"=>".debase.gg"), low_txt)
+        mv(replace(low, ".low"=>".debase.gg"), replace(low, "pulsar.low"=>"pulsar_low.debase.gg"), force=true)
 
-        # low frequency
-        src = replace(low, ".low"=>".debase.gg")
-        dst = replace(low, "pulsar.low"=>"pulsar_low.debase.gg")
-        if src != dst
-            mv(src, dst, force=true)
-        end
-
-        # high frequency
+        # --- high ---
         run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $high`))
-        convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), replace(high, ".high"=>"_high_debase.txt"))
+        high_txt = replace(high, ".high"=>"_high_debase.txt")
+        convert_psrfit_ascii(replace(high, ".high"=>".debase.gg"), high_txt)
+        mv(replace(high, ".high"=>".debase.gg"), replace(high, "pulsar.high"=>"pulsar_high.debase.gg"), force=true)
 
-        src = replace(high, ".high"=>".debase.gg")
-        dst = replace(high, "pulsar.high"=>"pulsar_high.debase.gg")
-        if src != dst
-            mv(src, dst, force=true)
-        end
-
-        # mid frequency
+        # --- mid ---
         run(pipeline(`pmod -onpulse "$(params["bin_st"]) $(params["bin_end"])" -device "/NULL" -debase $mid`))
-        convert_psrfit_ascii(replace(mid, ".mid"=>".debase.gg"), replace(mid, ".mid"=>"_mid_debase.txt"))
+        mid_txt = replace(mid, ".mid"=>"_mid_debase.txt")
+        convert_psrfit_ascii(replace(mid, ".mid"=>".debase.gg"), mid_txt)
+        mv(replace(mid, ".mid"=>".debase.gg"), replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg"), force=true)
 
-        src = replace(mid, ".mid"=>".debase.gg")
-        dst = replace(mid, "pulsar.mid"=>"pulsar_mid.debase.gg")
-        if src != dst
-            mv(src, dst, force=true)
-        end
-
+        return low_txt, high_txt, mid_txt  # <-- zwracamy ścieżki do ASCII
     end
+
 
 
 
