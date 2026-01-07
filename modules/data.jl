@@ -637,6 +637,12 @@ module Data
     """
     function process_psrdata_16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
 
+        # If no specific files are provided, automatically gather all .spCf16 files in the input directory
+        if files === nothing
+            # readdir with join=true returns full paths
+            files = filter(x -> endswith(x, ".spCf16"), readdir(indir, join=true))
+        end
+
         # full paths
         params_file = joinpath(outdir, params_file)
         outfile = joinpath(outdir, outfile)
