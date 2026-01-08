@@ -687,11 +687,11 @@ function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", pa
 
         # single pulses - low
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
-        Plot.single(da_lo, outdir; darkness=0.7, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
+        Plot.single(da_lo, outdir; darkness=0.7, number=138, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
 
         # single pulses - high
         da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
-        Plot.single(da_hi, outdir; darkness=0.7, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
+        Plot.single(da_hi, outdir; darkness=0.7, number=138, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
 
         # low freq p3-fold with cleaning
         da_low = Data.load_ascii_all(replace(low_filename, ".low"=>"_low_debase.txt"))
