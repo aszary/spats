@@ -697,7 +697,7 @@ module Data
         da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
         Plot.single(da_hi, outdir; darkness=0.7, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
 
-        # low freq p3-fold with cleaning
+       """ # low freq p3-fold with cleaning
         da_low = Data.load_ascii_all(replace(low_filename, ".low"=>"_low_debase.txt"))
         da_low = clean(da_low; threshold=p["clean_threshold"]) 
         folded_low = Tools.p3fold(da_low, p["p3"],  p["p3_ybins"])
@@ -708,7 +708,7 @@ module Data
         da_high = clean(da_high; threshold=p["clean_threshold"]) 
         folded_high = Tools.p3fold(da_high, p["p3"],  p["p3_ybins"])
         Plot.single(folded_high, outdir; darkness=0.9, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="p3fold_high", show_=true, repeat_num=4)
-
+        """
         # PSRSALSA p3folding low freq
         run(pipeline(`pfold -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $low_debase`,  stderr="errs.txt"))
         mv(replace(low_debase, ".gg"=>".p3fold"), replace(low_debase, ".gg"=>".p3fold_refine"), force=true)
