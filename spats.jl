@@ -98,7 +98,7 @@ module SpaTs
         #test2(vpmout)
         
         
-        process_psrdata("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single/", vpmout*"J0823+0159_uhf")# uhf
+        #process_psrdata("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single/", vpmout*"J0823+0159_uhf")# uhf
         process_psrdata_16("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single/", vpmout*"J0823+0159_16_uhf") 
 
 
