@@ -102,7 +102,7 @@ module SpaTs
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
 
         # uhf data
-        #process_psrdata("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single/", vpmout*"J0820-1350_uhf")
+        process_psrdata("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single/", vpmout*"J0820-1350_uhf")
         #process_psrdata("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single", vpmout*"J0823+0159_uhf")
 
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
@@ -121,7 +121,8 @@ module SpaTs
         #process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731") #
         #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
         #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834") #
-
+        #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834")
+        
         # checking multifrequency offsets
         #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
         #process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
@@ -149,7 +150,7 @@ module SpaTs
         #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single") 
         #process_psrdata_single("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_single") # weak signal no offset
         #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
-        process_psrdata_16("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single", vpmout*"J0820-1350_16_UHF")
+        #process_psrdata_16("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single", vpmout*"J0820-1350_16_UHF")
 
 
 
