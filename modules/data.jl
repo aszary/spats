@@ -969,7 +969,7 @@ module Data
         da_mi = Data.load_ascii(replace(mid_filename, ".mid"=>"_mid_debase.txt"))
 
         #Tools.track_subpulses_snr3(da_lo, da_hi, da_mi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
-        Tools.track_subpulses_manual(da_lo, on_st=p["bin_st"], on_end=p["bin_end"])
+        Tools.track_subpulses_manual(da_mi, on_st=p["bin_st"], on_end=p["bin_end"])
 
         return 
     end
