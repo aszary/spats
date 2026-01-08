@@ -927,7 +927,6 @@ module Data
         end
 
         # speeding up
-        #=
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
@@ -943,11 +942,11 @@ module Data
         debase_16(low_filename, high_filename, mid_filename, params_file, p)
 
         # speeding ends here
-        =#
-        # TODO remove those two
-        low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
-        high_filename = "/home/psr/output/J2139+2242_single/pulsar.high"
-        mid_filename = "/home/psr/output/J2139+2242_single/pulsar.mid"
+
+        # comment those three if speeding up is off
+        #low_filename = "/home/psr/output/J2139+2242_single/pulsar.low"
+        #high_filename = "/home/psr/output/J2139+2242_single/pulsar.high"
+        #mid_filename = "/home/psr/output/J2139+2242_single/pulsar.mid"
 
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         Tools.generate_snr(low_debase) 
@@ -968,8 +967,10 @@ module Data
         # single pulses mid 
         da_mi = Data.load_ascii(replace(mid_filename, ".mid"=>"_mid_debase.txt"))
 
-        #Tools.track_subpulses_snr3(da_lo, da_hi, da_mi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
-        Tools.track_subpulses_manual(da_mi, on_st=p["bin_st"], on_end=p["bin_end"])
+        Tools.track_subpulses_snr3(da_lo, da_hi, da_mi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
+        
+        # TODO single pulse detection work starts here
+        #Tools.track_subpulses_manual(da_mi, on_st=p["bin_st"], on_end=p["bin_end"])
 
         return 
     end
