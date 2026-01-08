@@ -299,12 +299,19 @@ module Data
     """
     Process data with PSRCHIVE and PSRSALSA
     """
-    function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json")
+function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json")
 
         # full paths
         params_file = joinpath(outdir, params_file)
         outfile = joinpath(outdir, outfile)
         debased_file = replace(outfile, ".spCF" => ".debase.gg")
+
+        # ensure directory exists
+        params_dir = dirname(params_file)
+        if !isdir(params_dir)
+            println("Directory $params_dir does not exist, creating it.")
+            mkpath(params_dir)
+        end
 
         # check if params_file exists if not creating default one
         if !isfile(params_file)
@@ -315,7 +322,19 @@ module Data
         end
 
         # add all .spCF files 
+        # NEW / FIXED: auto-detect PSRSALSA files
+        if files === nothing
+            files = filter(
+                f -> endswith(f, ".spCF") || endswith(f, ".spCf16"),
+                readdir(indir; join=true)
+            )
+        end
+
+
         add_psrfiles(indir, outfile; files=files)
+
+        # add all .spCF files 
+        #add_psrfiles(indir, outfile; files=files)
 
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
@@ -336,7 +355,6 @@ module Data
 
         return p, debased_file, outdir
     end
-
 
     function plot_psrdata(data_dir, params)
 
