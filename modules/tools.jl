@@ -2321,6 +2321,18 @@ module Tools
 
         pulses, bins = size(data)
 
+        max = maximum(data)
+        thre = 0.7
+
+        for i in 1:pulses
+            for j in 1:bins
+                if data[i, j] < thre * max
+                    data[i,j] = 0
+                end
+            end
+
+        end
+
         #data = rebin(data, 3)
 
         PyPlot.close()
