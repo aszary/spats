@@ -322,11 +322,14 @@ module Data
         end
 
         # add all .spCF files 
-        # NEW: automatically collect input files if not provided
+        # NEW / FIXED: auto-detect PSRSALSA files
         if files === nothing
-            # We assume PSRCHIVE input, adjust extension if needed
-            files = filter(f -> endswith(f, ".fits"), readdir(indir; join=true))
+            files = filter(
+                f -> endswith(f, ".spCF") || endswith(f, ".spCf16"),
+                readdir(indir; join=true)
+            )
         end
+
 
         add_psrfiles(indir, outfile; files=files)
 
