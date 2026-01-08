@@ -104,6 +104,7 @@ module SpaTs
         # uhf data
         #process_psrdata("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single/", vpmout*"J0820-1350_uhf")
         #process_psrdata("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single", vpmout*"J0823+0159_uhf")
+        process_psrdata("/home/psr/data/uhf/J1720-2933/2020-07-20-16:47:17/816/single", vpmout*"J1720-2933_uhf")
 
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
         #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
@@ -150,7 +151,7 @@ module SpaTs
         #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single") 
         #process_psrdata_single("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_single") # weak signal no offset
         #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
-        process_psrdata_16("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single", vpmout*"J0820-1350_16_UHF")
+        #process_psrdata_16("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single", vpmout*"J0820-1350_16_UHF")
 
 
 
