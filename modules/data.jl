@@ -322,7 +322,16 @@ module Data
         end
 
         # add all .spCF files 
+        # NEW: automatically collect input files if not provided
+        if files === nothing
+            # We assume PSRCHIVE input, adjust extension if needed
+            files = filter(f -> endswith(f, ".fits"), readdir(indir; join=true))
+        end
+
         add_psrfiles(indir, outfile; files=files)
+
+        # add all .spCF files 
+        #add_psrfiles(indir, outfile; files=files)
 
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
