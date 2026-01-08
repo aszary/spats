@@ -239,9 +239,10 @@ module Data
     """
     function twodfs_lrfs(debased_file, params_file, p; detect=false)
 
+        println("lrfs_2dfs")
         # Calculate 2dfs and lrfs
         run(pipeline(`pspec -w -oformat ASCII -2dfs -lrfs -profd "/NULL" -onpulsed "/NULL" -2dfsd "/NULL" -lrfsd "/NULL" -nfft $(p["nfft"]) -onpulse "$(p["bin_st"]) $(p["bin_end"])" $debased_file`,  stderr="errs.txt"))
-
+        println("DZIAŁA")
         if p["p3"] == -1.0 || detect == true
             # Find P3
             run(pipeline(`pspecDetect -v -device "/xw" $debased_file`, `tee pspecDetect_output.txt`))
