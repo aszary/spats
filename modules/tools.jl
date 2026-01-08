@@ -2251,6 +2251,127 @@ module Tools
 
 
     end
+
+
+
+
+
+
+function track_subpulses_snr4(data, data2, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=3)
+
+
+    # === read SNR file ===
+    snrs = Float64[]
+    open(snrfile) do f
+        for line in eachline(f)
+            push!(snrs, parse(Float64, line))
+        end
+    end
+
+    println("obs. SNR (no?): ", round(sum(snrs) / sqrt(length(snrs))))
+    println("mean SNR: ", mean(snrs))
+    println("median SNR: ", median(snrs))
+
+    pulses, bins = size(data)
+
+    # === kernel ===
+    p2_bins = floor(Int, p2 / 360 * bins)
+    iseven(p2_bins) && (p2_bins += 1)
+
+    σ = p2_bins / 2 / 2.35482
+    kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+    half_kernel = div(p2_bins, 2)
+
+    for i in 1:pulses
+
+        # ================= LOW =================
+        y = copy(view(data, i, :))
+
+        baseline = median(y[off_st:off_end])
+        y .-= baseline
+
+        # auto polarity fix (J2139+2242 case)
+        if abs(minimum(y[on_st:on_end])) > maximum(y[on_st:on_end])
+            y .*= -1
+        end
+
+
+        y ./= maximum(abs.(y))
+
+        sg = savitzky_golay(y, 11, 3)
+        ys = sg.y
+
+        res = conv(ys, kernel)
+        (mi, ma) = extrema(res)
+        res = (res .- mi) / (ma - mi)
+        re = res[half_kernel+1:end-half_kernel]
+
+        # ================= HIGH =================
+        y2 = copy(view(data2, i, :))
+
+        #median baseline 
+        baseline2 = median(y2[off_st:off_end])
+        y2 .-= baseline2
+
+        if abs(minimum(y2[on_st:on_end])) > maximum(y2[on_st:on_end])
+            y2 .*= -1
+        end
+
+        y2 ./= maximum(abs.(y2))
+
+        sg2 = savitzky_golay(y2, 11, 3)
+        y2s = sg2.y
+
+        res2 = conv(y2s, kernel)
+        (mi2, ma2) = extrema(res2)
+        res2 = (res2 .- mi2) / (ma2 - mi2)
+        re2 = res2[half_kernel+1:end-half_kernel]
+
+        snr = snrs[i]
+
+        if snr > thresh
+
+            # === peaks LOW ===
+            pks = findmaxima(re)
+            pks = peakproms(pks)
+            pks = peakwidths(pks)
+
+            # === peaks HIGH ===
+            pks2 = findmaxima(re2)
+            pks2 = peakproms(pks2)
+            pks2 = peakwidths(pks2)
+
+            println(keys(pks))
+
+            # === plotting  ===
+            PyPlot.close()
+
+            for (j, ind) in enumerate(pks[:indices])
+                scatter([ind-1], [pks[:heights][j]])
+            end
+
+            for (j, ind) in enumerate(pks2[:indices])
+                scatter([ind-1], [pks2[:heights][j]])
+            end
+
+            plot(y,  c="black", lw=1)
+            plot(re, c="red")
+
+            plot(y2,  c="C1", lw=3)
+            plot(re2, c="C2")
+
+            xlim(on_st, on_end)
+            show()
+
+            st = readline(stdin; keep=false)
+            st == "q" && break
+        end
+    end
+
+end
+
+
+
     
 
 end  # module Tools
