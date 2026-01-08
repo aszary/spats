@@ -98,7 +98,7 @@ module SpaTs
         #test2(vpmout)
         
         
-        process_psrdata(vpmout*"/J0823+0159/2023-02-27-20:38:58/816/single", vpmout*"J0823+0159_uhf") # uhf
+        process_psrdata(vpmout*"J0823+0159/2023-02-27-20:38:58/816/single", vpmout*"J0823+0159_uhf") # uhf
         #process_psrdata(vpmout*"J0630-2834", vpmout*"J0630-2834") # not nice
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
         #process_psrdata(vpmout*"J0820-1350", vpmout*"J0820-1350") # nice
