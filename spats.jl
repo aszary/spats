@@ -92,38 +92,21 @@ module SpaTs
 
     function main()
         # output directory for VPM
-        vpmout = "/home/psr/output/"
+        vpmout = "/home/psr/data/uhf/"
 
         #test(vpmout)
         #test2(vpmout)
-        #test3("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        #test3("/home/psr/data/new/J1744-1610/2020-06-12-20:00:13/", vpmout)
-        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
-
-        #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
+        
+        
+        process_psrdata(vpmout*"/J0823+0159/2023-02-27-20:38:58/816/single", vpmout*"J0823+0159_uhf") # uhf
         #process_psrdata(vpmout*"J0630-2834", vpmout*"J0630-2834") # not nice
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
         #process_psrdata(vpmout*"J0820-1350", vpmout*"J0820-1350") # nice
 
         #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
-        #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
-        #process_psrdata(vpmout*"J0823+0159", vpmout*"J0823+0159") #  nice single pulses, but p3folds no
-        #process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
-        #process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") # single bad, p3folds bad, P3 stable
-        #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
-        #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
-        #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
-        #process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731") #
-        #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
-        #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834") #
 
-        # checking multifrequency offsets
-        #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
-        #process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
-        #process_psrdata("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_test") # start diging there...
-        #process_psrdata_16("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/", vpmout*"J0820-1350_16")
-        #Data.analyse_p3folds_16(vpmout*"J0820-1350_16", "norefine")
+
+
         #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
         #process_psrdata_16("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_16") 
         #process_psrdata_16("/home/psr/data/new/J1514-4834/2019-12-16-08:22:16/", vpmout*"J1514-4834_16")
@@ -137,15 +120,10 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
 
         # checking single pulses offset
-        process_psrdata_single("/home/psr/data/new/J0823+0159/2019-11-05-23:33:48/", vpmout*"J0823+0159_single") # no visible offset
-        #process_psrdata_single("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/", vpmout*"J0820-1350_single") # very bad no signal at least at the beginning
-        #process_psrdata_single("/home/psr/data/new/J0823+0159/2019-11-05-23:33:48/", vpmout*"J0823+0159_single")
-        #process_psrdata_single("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_single")
-        #process_psrdata_single("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_single") # no offset
-        #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single") 
-        #process_psrdata_single("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_single") # weak signal no offset
-        #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
 
+
+        #process_psrdata_single("/home/psr/data/new/J0823+0159/2019-11-05-23:33:48/", vpmout*"J0823+0159_single") # no visible offset
+        
 
 
 
