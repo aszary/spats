@@ -2322,7 +2322,7 @@ module Tools
         pulses, bins = size(data)
 
         max = maximum(data)
-        thre = 0.3
+        thre = 0.0
 
         for i in 1:pulses
             for j in 1:bins
