@@ -1992,7 +1992,7 @@ module Tools
         p = Dict(
             "nbin" => 1024,
             "_nbin" => "Number of pulse phase bins",
-            "nfft" => 256,
+            "nfft" => 128,
             "_nfft" => "Set size of fft's [default=256]",
             "bin_st" => nothing,
             "bin_end" => nothing,
