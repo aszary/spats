@@ -104,9 +104,10 @@ module SpaTs
         #process_psrdata("/home/psr/data/uhf/J0823+0159/2020-07-11-10:39:23/816/single", vpmout*"J0823+0159_2_uhf")# uhf
         #process_psrdata_16("/home/psr/data/uhf/J0823+0159/2020-07-11-10:39:23/816/single", vpmout*"J0823+0159_2_16_uhf") 
 
-        process_psrdata("/home/psr/data/uhf/J1220-6318/2020-07-11-13:14:06/816/single", vpmout*"J1220-6318_uhf")# uhf
-        process_psrdata_16("/home/psr/data/uhf/J1220-6318/2020-07-11-13:14:06/816/single", vpmout*"J1220-6318_16_uhf")
+        process_psrdata("/home/psr/data/uhf/J1807+0756/2021-12-23-10:55:00/816/single", vpmout*"J1807+0756_uhf")# uhf
+        process_psrdata_16("/home/psr/data/uhf/J1807+0756/2021-12-23-10:55:00/816/single", vpmout*"J1807+0756_16_uhf")
         #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
+
 
 
 
