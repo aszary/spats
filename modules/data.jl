@@ -666,7 +666,7 @@ module Data
         end
 
         # debase the data
-        debase_16(low_filename, high_filename, params_file, p)
+        debase_16(low_filename, high_filename, mid_filename, params_file, p)
 
         # Calculate 2dfs and lrfs => finds P3
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
