@@ -107,7 +107,8 @@ module SpaTs
         #process_psrdata("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf")
         # uhf mutifrequency
         # TODO work on that one
-        process_psrdata_16("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf_16") 
+        #process_psrdata_16("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf_16") 
+        Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "refine")
 
 
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
