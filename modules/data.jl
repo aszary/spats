@@ -668,13 +668,11 @@ module Data
         # debase the data
         debase_16(low_filename, high_filename, mid_filename, params_file, p)
 
-        println("START")
         # Calculate 2dfs and lrfs => finds P3
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
         twodfs_lrfs(low_debase, params_file, p; detect=false)
         high_debase = replace(high_filename, ".high"=>"_high.debase.gg")
         twodfs_lrfs(high_debase, params_file, p; detect=false)
-        println("END")
 
         # single pulses - low
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
