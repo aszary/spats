@@ -656,6 +656,32 @@ module Plot
 
     # TODO TODO TODO test and remove/clean below
 
+    function analyse_single(low, high, mid, p)
+        pulses, bins = size(low)
+        for i in 1:pulses
+
+            figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
+            plot(low[i, p["bin_st"]:p["bin_end"]], label="low")
+            plot(high[i, p["bin_st"]:p["bin_end"]], label="high")
+            plot(mid[i, p["bin_st"]:p["bin_end"]], label="mid")
+
+            legend()
+
+            show()
+            println("Press Enter for next pulse, 'q' to quit.")
+            user_input = readline(stdin; keep=false)
+            close()
+            
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
+
+        end
+
+    end
+
+
     function analyse_p3folds(low, high, p)
         pulses, bins = size(low)
         for i in 1:pulses
