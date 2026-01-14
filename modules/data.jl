@@ -659,7 +659,8 @@ module Data
 
         # TODO TODO add zapping here
         println("ZAPPING subints starts")
-        run(pipeline(`paz -m -S "49 194" -S "532 580" -S "880 982" $outfile`))
+        #run(pipeline(`paz -m -S "49 194" -S "532 580" -S "880 982" $outfile`)) # looks nice but changes pulse order messes up p3-folds # offset still visible
+        run(pipeline(`paz -m -W "49 194" -W "532 580" -W "880 982" $outfile`)) # zero weights 
         println("ZAPPING subints ends")
 
         # divide to two frequencies
