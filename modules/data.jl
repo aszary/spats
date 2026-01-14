@@ -659,7 +659,7 @@ module Data
 
         # TODO TODO add zapping here
         println("ZAPPING starts")
-        run(pipeline(`paz -m -S -Z 0-900 $outfile`))
+        run(pipeline(`paz -m -S -z 0-900 $outfile`))
         println("ZAPPING ends")
 
         # divide to two frequencies
