@@ -659,7 +659,7 @@ module Data
 
         # TODO TODO add zapping here
         println("ZAPPING subints starts")
-        run(pipeline(`paz -m -S "0 500" $outfile`))
+        #run(pipeline(`paz -m -S "0 500" $outfile`))
         println("ZAPPING subints ends")
 
         # divide to two frequencies
