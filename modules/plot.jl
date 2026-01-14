@@ -656,9 +656,9 @@ module Plot
 
     # TODO TODO TODO test and remove/clean below
 
-    function analyse_single(low, high, mid, p)
+    function analyse_single(low, high, mid, p; pulse_start=1)
         pulses, bins = size(low)
-        for i in 1:pulses
+        for i in pulse_start:pulses
 
             figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
             plot(low[i, p["bin_st"]:p["bin_end"]], label="low")
