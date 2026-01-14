@@ -656,6 +656,8 @@ module Data
 
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
+        println(outfile)
+        return
 
         # divide to two frequencies
         low_filename, high_filename, mid_filename = multifrequency_split(outfile)
