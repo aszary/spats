@@ -969,7 +969,7 @@ module Data
 
         Tools.track_subpulses_snr3(da_lo, da_hi, da_mi, 10, low_snrfile, on_st=p["bin_st"], on_end=p["bin_end"])
         
-        Plot.analyse_single(da_lo, da_hi, da_mi, p; pulse_start=200)
+        Plot.analyse_single(da_lo, da_hi, da_mi, p; pulse_start=250)
 
         # TODO single pulse detection work starts here
         #Tools.track_subpulses_manual(da_mi, on_st=p["bin_st"], on_end=p["bin_end"])

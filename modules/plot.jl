@@ -661,9 +661,9 @@ module Plot
         for i in pulse_start:pulses
 
             figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
-            plot(low[i, p["bin_st"]:p["bin_end"]], label="low", lw=2, alpha=0.7)
-            plot(high[i, p["bin_st"]:p["bin_end"]], label="high", lw=2, alpha=0.7)
-            plot(mid[i, p["bin_st"]:p["bin_end"]], label="mid", lw=2, alpha=0.7)
+            plot(low[i, p["bin_st"]:p["bin_end"]], label="low", lw=2, alpha=0.77)
+            plot(high[i, p["bin_st"]:p["bin_end"]], label="high", lw=2, alpha=0.77)
+            #plot(mid[i, p["bin_st"]:p["bin_end"]], label="mid", lw=2, alpha=0.77)
 
             legend()
 
