@@ -658,7 +658,9 @@ module Data
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
         # TODO TODO add zapping here
+        println("ZAPPING starts")
         run(pipeline(`paz -S -z 0-900 $outfile`))
+        println("ZAPPING ends")
 
         # divide to two frequencies
         low_filename, high_filename, mid_filename = multifrequency_split(outfile)
