@@ -658,15 +658,15 @@ module Data
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
         # TODO TODO zapping here add zaping parameter to the function
-        println(p["zaps"])
+        println("ZAPPING subints starts")
         if !isnothing(p["zaps"])
-            println(p["zaps"])
+            run(pipeline(`paz -m -w "$p["zaps"]" $outfile`)) # zero weights  # this is the way
+            #println(p["zaps"])
         end
         return
 
-        println("ZAPPING subints starts")
         ##run(pipeline(`paz -m -S "49 194" -S "532 580" -S "880 982" $outfile`)) # looks nice but changes pulse order messes up p3-folds # offset still visible
-        run(pipeline(`paz -m -W "49 194" -W "532 580" -W "880 982" $outfile`)) # zero weights  # this is the way
+        #run(pipeline(`paz -m -W "49 194" -W "532 580" -W "880 982" $outfile`)) # zero weights  # this is the way
         println("ZAPPING subints ends")
 
         # divide to two frequencies
