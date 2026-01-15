@@ -2003,7 +2003,8 @@ module Tools
             "p3_error" => -1.0,
             "p3_ybins" => nothing,
             "clean_threshold" => 0.5,
-            "_clean_threshold" => "threshold for polarization cleaning"
+            "_clean_threshold" => "threshold for polarization cleaning",
+            "zaps" => nothing
         )
         f = open(filename, "w")
         JSON.print(f, p)
