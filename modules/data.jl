@@ -660,7 +660,7 @@ module Data
         # TODO TODO zapping here add zaping parameter to the function
         println("ZAPPING subints starts")
         if !isnothing(p["zaps"])
-            run(pipeline(`paz -m -w "$p["zaps"]" $outfile`)) # zero weights  # this is the way
+            run(pipeline(`paz -m -w "$(p["zaps"])" $outfile`)) # zero weights  # this is the way
             #println(p["zaps"])
         end
         return
