@@ -657,6 +657,9 @@ module Data
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
+        println(p["zaps"])
+        return
+
         # TODO TODO zapping here add zaping parameter to the function
         println("ZAPPING subints starts")
         ##run(pipeline(`paz -m -S "49 194" -S "532 580" -S "880 982" $outfile`)) # looks nice but changes pulse order messes up p3-folds # offset still visible
