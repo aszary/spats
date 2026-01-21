@@ -117,7 +117,11 @@ module SpaTs
 
         # work on pulsar J2139+2242
         #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
-        Data.analyse_p3folds_16(vpmout*"J2139+2242_16", "norefine")
+        #Data.analyse_p3folds_16(vpmout*"J2139+2242_16", "norefine")
+
+        # work on pulsar J1807+0756
+        process_psrdata_16("/home/psr/data/new/J1807+0756/2020-06-07-22:03:05/", vpmout*"J1807+0756_16")
+
 
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
         #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
