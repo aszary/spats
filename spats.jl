@@ -157,7 +157,8 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/uhf/J1919+0134/2020-08-03-21:54:15/816/single", vpmout*"J1919+0134_16_UHF")
         #process_psrdata_16("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single", vpmout*"J0820-1350_16_UHF")
         #process_psrdata_16("/home/psr//data/new/J0820-1350/2020-01-11-01:05:56/", vpmout*"J0820-1350_16")
-        Data.analyse_p3folds_16(vpmout*"J0820-1350_16", "norefine")
+        #Data.analyse_p3folds_16(vpmout*"J0820-1350_16", "norefine")
+        Data.analyse_p3folds_16(vpmout*"J1539-6322_16", "norefine")
 
         #Data.process_all_data(vpmout)
         #Data.combine_pngs_to_pdf(vpmout)
