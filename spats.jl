@@ -153,9 +153,9 @@ module SpaTs
         #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
         #process_psrdata_16("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single", vpmout*"J0823+0159_16_UHF") 
         process_psrdata_16("/home/psr/data/uhf/J1555-3134/2020-07-25-23:09:56/816/single", vpmout*"J1555-3134_16_UHF")
-        process_psrdata_16("/home/psr/data/uhf/J1720-2933/2020-07-20-16:47:17/816/single", vpmout*"J1720-2933_16_UHF")
-        process_psrdata_16("/home/psr/data/uhf/J1919+0134/2020-08-03-21:54:15/816/single", vpmout*"J1919+0134_16_UHF")
-        process_psrdata_16("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single", vpmout*"J0820-1350_16_UHF")
+        #process_psrdata_16("/home/psr/data/uhf/J1720-2933/2020-07-20-16:47:17/816/single", vpmout*"J1720-2933_16_UHF")
+        #process_psrdata_16("/home/psr/data/uhf/J1919+0134/2020-08-03-21:54:15/816/single", vpmout*"J1919+0134_16_UHF")
+        #process_psrdata_16("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single", vpmout*"J0820-1350_16_UHF")
 
 
 
