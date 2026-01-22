@@ -98,25 +98,17 @@ module SpaTs
         #test2(vpmout)
         
         
-        process_psrdata("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single/", vpmout*"J0823+0159_uhf")# uhf
-        process_psrdata_16("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single/", vpmout*"J0823+0159_16_uhf") 
+        #process_psrdata("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single/", vpmout*"J0823+0159_uhf")# uhf
+        #process_psrdata_16("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single/", vpmout*"J0823+0159_16_uhf") 
 
-        process_psrdata("/home/psr/data/uhf/J0823+0159/2020-07-11-10:39:23/816/single", vpmout*"J0823+0159_2_uhf")# uhf
-        process_psrdata_16("/home/psr/data/uhf/J0823+0159/2020-07-11-10:39:23/816/single", vpmout*"J0823+0159_2_16_uhf") 
+        #process_psrdata("/home/psr/data/uhf/J0823+0159/2020-07-11-10:39:23/816/single", vpmout*"J0823+0159_2_uhf")# uhf
+        #process_psrdata_16("/home/psr/data/uhf/J0823+0159/2020-07-11-10:39:23/816/single", vpmout*"J0823+0159_2_16_uhf") 
 
-
-        process_psrdata("/home/psr/data/uhf/J1821+1715/2021-12-23-11:01:03/816/single", vpmout*"J1821+1715_uhf")# uhf
-        process_psrdata_16("/home/psr/data/uhf/J1821+1715/2021-12-23-11:01:03/816/single", vpmout*"J1821+1715_16_uhf")
+        process_psrdata_16("/home/psr/data/new/J0725-1635/2019-10-27-23:06:09", vpmout*"J0725-1635_16")# uhf
+        Data.analyse_p3folds_16(vpmout*"J0725-1635_16", "norefine")
         #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
 
-        process_psrdata("/home/psr/data/uhf/J1807+0756/2021-12-23-10:55:00/816/single", vpmout*"J1807+0756_uhf")# uhf
-        process_psrdata_16("/home/psr/data/uhf/J1807+0756/2021-12-23-10:55:00/816/single", vpmout*"J1807+0756_16_uhf")
-
-
-        process_psrdata("/home/psr/data/uhf/J1220-6318/2020-07-11-13:14:06/816/single", vpmout*"J1220-6318_uhf")# uhf
-        process_psrdata_16("/home/psr/data/uhf/J1220-6318/2020-07-11-13:14:06/816/single", vpmout*"J1220-6318_16_uhf")
-
-
+           # J0725-1635
 
         #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
 
