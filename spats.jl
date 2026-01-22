@@ -169,7 +169,8 @@ module SpaTs
         #process_psrdata_single("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_single") # weak signal no offset
         #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
         #process_psrdata_16("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout*"J1919+0134_16") # visible offset
-        Data.analyse_p3folds_16(vpmout*"J1919+0134_16", "refine")
+        #Data.analyse_p3folds_16(vpmout*"J1919+0134_16", "refine")
+        process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16") # visible offset
 
 
         #Data.process_all_data(vpmout)
