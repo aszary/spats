@@ -105,10 +105,12 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/uhf/J0823+0159/2020-07-11-10:39:23/816/single", vpmout*"J0823+0159_2_16_uhf") 
 
         #process_psrdata_16("/home/psr/data/new/J1821+1715/2020-06-08-02:20:21", vpmout*"J1821+1715_16")# uhf
-        Data.analyse_p3folds_16(vpmout*"J1821+1715_16", "norefine")
+        #Data.analyse_p3folds_16(vpmout*"J1821+1715_16", "norefine")
         #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
 
            # J0725-1635
+        process_psrdata_16("/home/psr/data/new/J1220-6318/2019-07-25-17:28:57", vpmout*"J1220-6318_16")# uhf
+        Data.analyse_p3folds_16(vpmout*"J1220-6318_16", "norefine")
 
         #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
 
