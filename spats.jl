@@ -110,7 +110,7 @@ module SpaTs
 
            # J0725-1635
         process_psrdata_16("/home/psr/data/new/J1220-6318/2019-07-25-17:28:57", vpmout*"J1220-6318_16")# uhf
-        Data.analyse_p3folds_16(vpmout*"J1220-6318_16", "norefine")
+        Data.analyse_p3folds_16(vpmout*"J1220-6318_16", "refine")
 
         #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
 
