@@ -2,8 +2,8 @@ module Data
     using Glob
     using FITSIO
     using ProgressMeter
-    using CairoMakie, FileIO
-    using PDFIO
+    """using CairoMakie, FileIO
+    using PDFIO """
     using Statistics
     using FFTW
 
