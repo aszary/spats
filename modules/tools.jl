@@ -1988,11 +1988,11 @@ module Tools
     """
     Write default parameters to a JSON file
     """
-    function default_params(filename)
+        function default_params(filename)
         p = Dict(
             "nbin" => 1024,
             "_nbin" => "Number of pulse phase bins",
-            "nfft" => 128,
+            "nfft" => 256,
             "_nfft" => "Set size of fft's [default=256]",
             "bin_st" => nothing,
             "bin_end" => nothing,
@@ -2003,7 +2003,8 @@ module Tools
             "p3_error" => -1.0,
             "p3_ybins" => nothing,
             "clean_threshold" => 0.5,
-            "_clean_threshold" => "threshold for polarization cleaning"
+            "_clean_threshold" => "threshold for polarization cleaning",
+            "zaps" => nothing
         )
         f = open(filename, "w")
         JSON.print(f, p)
