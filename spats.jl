@@ -123,8 +123,8 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1807+0756/2020-06-07-22:03:05/", vpmout*"J1807+0756_16")
         #Data.analyse_p3folds_16(vpmout*"J1807+0756_16", "refine")
 
-        #Data.p3fold_psrdata(vpmout*"J1539-6322_16")
-        Data.analyse_p3folds_16(vpmout*"J1539-6322_16", "norefine")
+        Data.p3fold_psrdata(vpmout*"J1539-6322_16")
+        #Data.analyse_p3folds_16(vpmout*"J1539-6322_16", "norefine")
 
 
         #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
