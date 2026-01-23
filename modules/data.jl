@@ -999,7 +999,7 @@ module Data
         high_debase = replace(low, ".high"=>"_high.debase.gg")
 
         # PSRSALSA p3folding low freq
-        run(pipeline(`pfold -p3fold_smooth -p3fold_norefine -p3fold_nritt 1 -p3fold_cpb 1 -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $low_debase`,  stderr="errs.txt"))
+        run(pipeline(`pfold -p3fold_norefine -p3fold_nritt 1 -p3fold_cpb 1 -p3fold "$(p["p3"]) $(p["p3_ybins"])" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $low_debase`,  stderr="errs.txt"))
         mv(replace(low_debase, ".gg"=>".p3fold"), replace(low_debase, ".gg"=>".p3fold_refine"), force=true)
         d5 = Data.load_ascii(replace(low_debase, ".gg"=>".p3fold_refine"))
         Plot.p3fold(d5, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low", show_=true, repeat_num=4)
