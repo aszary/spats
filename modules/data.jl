@@ -742,13 +742,16 @@ module Data
 
         #run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
         #run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
-
-        run(pipeline(`paz -Z 0-12 -e high $spCf16_file`,stderr="errs.txt"))
-        run(pipeline(`paz -Z 3-15 -e low $spCf16_file`,stderr="errs.txt"))
-        run(pipeline(`paz -Z 0-6 -Z 9-15 -e mid $spCf16_file`,stderr="errs.txt"))
-        #run(pipeline(`paz -Z 0-0 -e mid $spCf16_file`,stderr="errs.txt"))
-
         
+        # 3 channels  
+        #run(pipeline(`paz -Z 0-12 -e high $spCf16_file`,stderr="errs.txt"))
+        #run(pipeline(`paz -Z 3-15 -e low $spCf16_file`,stderr="errs.txt"))
+        #run(pipeline(`paz -Z 0-6 -Z 9-15 -e mid $spCf16_file`,stderr="errs.txt")) # 2 channels?
+
+        # 6 channels  
+        run(pipeline(`paz -Z 0-9 -e high $spCf16_file`,stderr="errs.txt"))
+        run(pipeline(`paz -Z 6-15 -e low $spCf16_file`,stderr="errs.txt"))
+        run(pipeline(`paz -Z 0-4 -Z 11-15 -e mid $spCf16_file`,stderr="errs.txt"))
 
         # fscrunch
         run(pipeline(`pam -F -e high $high`,stderr="errs.txt"))
