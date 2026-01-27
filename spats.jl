@@ -125,7 +125,7 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J1807+0756_16", "refine")
 
         # work on pulsar J1919+0134
-        process_psrdata_16("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout*"J1919+0134_16")
+        #process_psrdata_16("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout*"J1919+0134_16")
         Data.analyse_p3folds_16(vpmout*"J1919+0134_16", "refine")
 
         # work on pulsar J1539-6322 # play with p3folds
