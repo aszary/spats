@@ -164,7 +164,11 @@ module SpaTs
 
         # work on pulsar J1901-0906 P3=5
         #process_psrdata_16("/home/psr/data/new/J1901-0906/2019-12-16-13:57:56/", vpmout*"J1901-0906_16b")
-        Data.analyse_p3folds_16(vpmout*"J1901-0906_16b", "norefine")
+        #Data.analyse_p3folds_16(vpmout*"J1901-0906_16b", "norefine")
+
+        # work on pulsar J1703-1846
+        process_psrdata_16("/home/psr/data/new/J1703-1846/2019-11-05-16:26:36/", vpmout*"J1703-1846_16")
+        #Data.analyse_p3folds_16(vpmout*"J1703-1846_16", "norefine")
 
 
       
