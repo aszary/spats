@@ -668,8 +668,15 @@ function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", pa
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
+        if !isnothing(p["zaps"])
+            println("ZAPPING subints starts")
+            run(pipeline(`paz -m -w "$(p["zaps"])" $outfile`)) # zero weights  # this is the way
+            println("ZAPPING subints ends")
+        end
+        #run(pipeline(`paz -m -W "49 194" -W "532 580" -W "880 982" $outfile`)) # zero weights  # this is the way
+
         # divide to two frequencies
-        low_filename, high_filename = multifrequency_split(outfile)
+        low_filename, high_filename, mid_filename = multifrequency_split(outfile)
 
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
@@ -677,7 +684,7 @@ function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", pa
         end
 
         # debase the data
-        debase_16(low_filename, high_filename, params_file, p)
+        debase_16(low_filename, high_filename, mid_filename, params_file, p)
 
         # Calculate 2dfs and lrfs => finds P3
         low_debase = replace(low_filename, ".low"=>"_low.debase.gg")
@@ -687,11 +694,11 @@ function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", pa
 
         # single pulses - low
         da_lo = Data.load_ascii(replace(low_filename, ".low"=>"_low_debase.txt"))
-        Plot.single(da_lo, outdir; darkness=0.7, number=138, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
+        Plot.single(da_lo, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="low", show_=true)
 
         # single pulses - high
         da_hi = Data.load_ascii(replace(high_filename, ".high"=>"_high_debase.txt"))
-        Plot.single(da_hi, outdir; darkness=0.7, number=138, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
+        Plot.single(da_hi, outdir; darkness=0.7, number=nothing, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="high", show_=true)
 
         # low freq p3-fold with cleaning
         da_low = Data.load_ascii_all(replace(low_filename, ".low"=>"_low_debase.txt"))
