@@ -183,8 +183,8 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J0034-0721_16", "norefine")
 
         # work on pulsar J1034-3224
-        process_psrdata_16("/home/psr/data/new/J1034-3224/2019-10-19-07:31:26/", vpmout*"J1034-3224_16")
-        #Data.analyse_p3folds_16(vpmout*"J1034-3224_16", "norefine")
+        #process_psrdata_16("/home/psr/data/new/J1034-3224/2019-10-19-07:31:26/", vpmout*"J1034-3224_16")
+        Data.analyse_p3folds_16(vpmout*"J1034-3224_16", "norefine")
 
 
 
