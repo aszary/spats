@@ -676,7 +676,7 @@ function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", pa
         #run(pipeline(`paz -m -W "49 194" -W "532 580" -W "880 982" $outfile`)) # zero weights  # this is the way
 
         # divide to two frequencies
-        low_filename, high_filename, mid_filename = multifrequency_split(outfile)
+        low_filename, high_filename = multifrequency_split(outfile)
 
         # gets number of single pulses if needed
         if isnothing(p["nsubint"])
