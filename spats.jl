@@ -180,8 +180,8 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J1414-6802_16", "norefine")
         #process_psrdata_16("/home/psr/data/new/J2046+1540/2019-11-26-17:18:47/", vpmout*"J2046+1540_16") # visible offset
         #Data.analyse_p3folds_16(vpmout*"J2046+1540_16", "norefine")
-        process_psrdata_16("/home/psr/data/new/J2253+1516/2019-11-26-19:10:49/", vpmout*"J2253+1516_16") # visible offset
-        Data.analyse_p3folds_16(vpmout*"J2253+1516_16", "norefine")
+        process_psrdata_16("/home/psr/data/new/J0459-0210/2019-11-12-22:15:58/", vpmout*"J0459-0210_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J0459-0210_16", "norefine")
 
 
         #Data.process_all_data(vpmout)
