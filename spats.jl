@@ -180,8 +180,54 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J1414-6802_16", "norefine")
         #process_psrdata_16("/home/psr/data/new/J2046+1540/2019-11-26-17:18:47/", vpmout*"J2046+1540_16") # visible offset
         #Data.analyse_p3folds_16(vpmout*"J2046+1540_16", "norefine")
-        process_psrdata_16("/home/psr/data/new/J0459-0210/2019-11-12-22:15:58/", vpmout*"J0459-0210_16") # visible offset
-        Data.analyse_p3folds_16(vpmout*"J0459-0210_16", "norefine")
+        #process_psrdata_16("/home/psr/data/new/J0459-0210/2019-11-12-22:15:58/", vpmout*"J0459-0210_16") # visible offset
+        #Data.analyse_p3folds_16(vpmout*"J0459-0210_16", "norefine")
+        process_psrdata_16("/data/new/J0952-3839/2019-11-05-23:49:43/", vpmout*"J0952-3839_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J0952-3839_16", "norefine")
+
+        process_psrdata_16("/data/new/J1638-3815/2019-12-14-12:29:48/", vpmout*"J1638-3815_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1638-3815_16", "norefine")
+
+        process_psrdata_16("/data/new/J1904+1011/2020-03-23-03:26:19/", vpmout*"J1904+1011_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1904+1011_16", "norefine")
+
+        process_psrdata_16("/data/new/J1720-0212/2019-09-29-12:53:17/", vpmout*"J1720-0212_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1720-0212_16", "norefine")
+
+        process_psrdata_16("/data/new/J1655-3048/2020-01-03-03:08:21/", vpmout*"J1655-3048_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1655-3048_16", "norefine")
+
+        process_psrdata_16("/data/new/J0711+0931/2020-07-04-09:47:10/", vpmout*"J0711+0931_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J0711+0931_16", "norefine")
+
+        process_psrdata_16("/data/new/J1850+0026/2019-11-12-16:15:11/", vpmout*"J1850+0026_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1850+0026_16", "norefine")
+
+        process_psrdata_16("/data/new/J1745-0129/2020-05-24-21:29:24/", vpmout*"J1745-0129_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1745-0129_16", "norefine")
+
+        process_psrdata_16("/data/new/J1512-5431/2020-04-11-23:16:42/", vpmout*"J1512-5431_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1512-5431_16", "norefine")
+
+        process_psrdata_16("/data/new/J1844-0433/2020-01-21-08:30:46/", vpmout*"J1844-0433_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1844-0433_16", "norefine")
+
+        process_psrdata_16("/data/new/J1137-6700/2019-11-06-00:36:02/", vpmout*"J1137-6700_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1137-6700_16", "norefine")
+
+        process_psrdata_16("/data/new/J1945-0040/2020-02-02-13:12:44/", vpmout*"J1945-0040_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1945-0040_16", "norefine")
+
+        process_psrdata_16("/data/new/J1809-0119/2020-06-12-20:17:19/", vpmout*"J1809-0119_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1809-0119_16", "norefine")
+
+        process_psrdata_16("/data/new/J1944+1755/2020-07-13-00:03:52/", vpmout*"J1944+1755_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1944+1755_16", "norefine")
+
+        process_psrdata_16("/data/new/J1727-2739/2019-11-26-16:01:01/", vpmout*"J1727-2739_16") # visible offset
+        Data.analyse_p3folds_16(vpmout*"J1727-2739_16", "norefine")
+
+
 
 
         #Data.process_all_data(vpmout)
