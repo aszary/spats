@@ -224,7 +224,7 @@ module SpaTs
 
         # work on pulsar J1857+0057
         #process_psrdata_16("/home/psr/data/new/J1857+0057/2020-02-03-06:00:48/", vpmout*"J1857+0057_16")
-        Data.analyse_p3folds_16(vpmout*"J1857+0057_16", "norefine")
+        Data.analyse_p3folds_16(vpmout*"J1857+0057_16", "refine")
 
 
 
