@@ -110,7 +110,7 @@ module SpaTs
         #process_psrdata_single("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_single")
         #process_psrdata_16("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_16")
         #Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "refine")
-        #Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "norefine")
+        Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "norefine")
             # uhf
         #process_psrdata("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf")
             # uhf multifrequency
@@ -224,7 +224,7 @@ module SpaTs
 
         # work on pulsar J1857+0057
         #process_psrdata_16("/home/psr/data/new/J1857+0057/2020-02-03-06:00:48/", vpmout*"J1857+0057_16")
-        Data.analyse_p3folds_16(vpmout*"J1857+0057_16", "norefine")
+        #Data.analyse_p3folds_16(vpmout*"J1857+0057_16", "norefine")
 
 
 
