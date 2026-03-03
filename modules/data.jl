@@ -6,6 +6,7 @@ module Data
     using PDFIO
     using Statistics
     using FFTW
+    using DelimitedFiles
 
     include("functions.jl")
     include("tools.jl")
