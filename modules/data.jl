@@ -873,7 +873,7 @@ module Data
         bins = 1:length(p1)
 
         writedlm(joinpath(indir,"p_low.txt"), hcat(bins, p1), ' ')
-        writedlm(joinpath(indir,"p_high.txt"), hcat(bins, p1), ' ')
+        writedlm(joinpath(indir,"p_high.txt"), hcat(bins, p2), ' ')
 
 
         println(size(nl))
