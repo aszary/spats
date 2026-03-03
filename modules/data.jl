@@ -869,7 +869,7 @@ module Data
         profile_idx = 1
         p1 = nl[profile_idx, :]
         p2 = nh[profile_idx, :]
-        bins = 1:length(profile)
+        bins = 1:length(p1)
 
         writedlm(joinpath(indir,"p_low.txt"), hcat(bins, p1), ' ')
         writedlm(joinpath(indir,"p_high.txt"), hcat(bins, p1), ' ')
