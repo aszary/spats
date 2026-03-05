@@ -110,9 +110,9 @@ module SpaTs
 
     
 
-        process_psrdata_16("/home/psr/data/new/J1547-5750/2020-02-25-22:10:30", vpmout*"J1547-5750_16")
+        process_psrdata_16("/home/psr/data/new/J1036-6559/2020-04-11-22:02:22", vpmout*"J1036-6559_16")
         
-        Data.analyse_p3folds_16(vpmout*"J1547-5750_16", "norefine")
+        Data.analyse_p3folds_16(vpmout*"J1036-6559_16", "norefine")
 
         #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
 
