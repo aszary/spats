@@ -777,6 +777,15 @@ module Plot
         end
     end    
 
+    function analyse_p3folds3(low, high, p)
+        pulses, bins = size(low)
+
+        # TODO work here...
+
+
+
+    end    
+
 
 
 end  # module Plot
