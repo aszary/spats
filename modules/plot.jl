@@ -788,6 +788,7 @@ module Plot
             x_data = p["bin_st"]:p["bin_end"]
             y_low = low[i, p["bin_st"]:p["bin_end"]]
             y_high = high[i, p["bin_st"]:p["bin_end"]]
+
             #=
             # Tutaj fity nie działają...
             x_data = collect(1:bins)
@@ -801,7 +802,7 @@ module Plot
             fit_h = GaussianFit.fit_gaussians(x_data, y_high, 3)
             GaussianFit.print_fit_summary(fit_h, 3; label="1523 MHz", nbin=1024, period=1.0)
 
-            return
+            #return
 
 
 
