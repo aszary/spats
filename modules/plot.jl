@@ -808,10 +808,17 @@ module Plot
 
 
             figure(figsize=(6, 7))
-            
+
             # Subplot for low
             plot(x_data, y_low, label="Low data")
             plot(x_data, y_high, label="High data")
+            if fit_l.converged
+                plot(x_data, fit_l.yfit, "--", label="Fit low", color="blue")
+            end
+            if fit_h.converged
+                plot(x_data, fit_h.yfit, "--", label="Fit high", color="orange")
+            end
+            legend()
 
             xlim(p["bin_st"], p["bin_end"])
            
