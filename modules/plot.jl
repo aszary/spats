@@ -796,7 +796,7 @@ module Plot
 
             fit_l = GaussianFit.fit_gaussians(x_data, y_low, 3)
             #GaussianFit.print_fit_summary(fit_l, 3; label="1023 MHz", nbin=1024, period=1)
-            fit_h = GaussianFit.fit_gaussians(x_data, y_high, 3)
+            #fit_h = GaussianFit.fit_gaussians(x_data, y_high, 3)
             #GaussianFit.print_fit_summary(fit_h, 3; label="1523 MHz", nbin=1024, period=1)
 
 
