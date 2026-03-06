@@ -806,7 +806,7 @@ module Plot
 
 
             # Component offsets
-            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024, period=P)
+            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024, period=1.0)
                 @printf("G%d: %+.3f ± %.3f bins = %+.3f° = %+.3f ms\n",
                     o.component, o.offset_bins, o.offset_err, o.offset_deg, o.offset_ms)
             end
