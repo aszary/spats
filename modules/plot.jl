@@ -798,7 +798,7 @@ module Plot
 
 
             # Auto-select best N by AIC
-            best, n, aics = GaussianFit.best_ngaussians(x_data, y_low; max_n=5)
+            best, n, aics = GaussianFit.best_ngaussians(x_data, y_low; max_n=10)
             println("Best N = $n  (AIC = $(round(aics[n], digits=1)))")
             return
 
