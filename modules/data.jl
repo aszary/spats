@@ -6,7 +6,7 @@ module Data
     using PDFIO
     using Statistics
     using FFTW
-    using DelimitedFiles
+    using DelimitedFiles, Printf
 
     include("functions.jl")
     include("tools.jl")
