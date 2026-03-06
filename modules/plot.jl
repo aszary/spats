@@ -794,7 +794,7 @@ module Plot
             y_low = low[i, :]
             y_high = high[i, :]
 
-            println(size(xdata))
+            println(size(x_data))
             println(size(y_low))
             println(size(y_high))
  
