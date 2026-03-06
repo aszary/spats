@@ -247,10 +247,10 @@ module SpaTs
 
         process_psrdata_16("/home/psr/data/new/J1527-5552/2019-12-14-11:39:20/", vpmout*"J1527-5552_16") # visible offset
         Data.analyse_p3folds_16(vpmout*"J1527-5552_16", "norefine")
-"""
+
         process_psrdata_16("/home/psr/data/new/J1543-0620/2019-11-12-15:38:00/", vpmout*"J1543-0620_16") # visible offset
         Data.analyse_p3folds_16(vpmout*"J1543-0620_16", "norefine")
-
+"""
         process_psrdata_16("/home/psr/data/new/J1654-3710/2020-03-08-05:08:42/", vpmout*"J1654-3710_16") # visible offset
         Data.analyse_p3folds_16(vpmout*"J1654-3710_16", "norefine")
 
