@@ -790,7 +790,7 @@ module Plot
             y_low = low[i, p["bin_st"]:p["bin_end"]]
             y_high = high[i, p["bin_st"]:p["bin_end"]]
             =#
-            x_data = 1:bins
+            x_data = collect(1:bins)
             y_low = low[i, :]
             y_high = high[i, :]
 
