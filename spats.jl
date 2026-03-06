@@ -226,7 +226,7 @@ module SpaTs
 
         #process_psrdata_16("/home/psr/data/new/J1727-2739/2019-11-26-16:01:01/", vpmout*"J1727-2739_16") # visible offset
         #Data.analyse_p3folds_16(vpmout*"J1727-2739_16", "norefine")
-"""
+
         process_psrdata_16("/home/psr/data/new/J0624-0424/2019-11-18-21:52:33/", vpmout*"J0624-0424_16") # visible offset
         Data.analyse_p3folds_16(vpmout*"J0624-0424_16", "norefine")
 
@@ -248,9 +248,6 @@ module SpaTs
         process_psrdata_16("/home/psr/data/new/J1527-5552/2019-12-14-11:39:20/", vpmout*"J1527-5552_16") # visible offset
         Data.analyse_p3folds_16(vpmout*"J1527-5552_16", "norefine")
 
-        process_psrdata_16("/home/psr/data/new/J1543-0620/2019-11-12-15:38:00/", vpmout*"J1543-0620_16") # visible offset
-        Data.analyse_p3folds_16(vpmout*"J1543-0620_16", "norefine")
-"""
         process_psrdata_16("/home/psr/data/new/J1654-3710/2020-03-08-05:08:42/", vpmout*"J1654-3710_16") # visible offset
         Data.analyse_p3folds_16(vpmout*"J1654-3710_16", "norefine")
 
@@ -259,9 +256,6 @@ module SpaTs
 
         process_psrdata_16("/home/psr/data/new/J1733-4005/2019-05-20-23:10:31/", vpmout*"J1733-4005_16") # visible offset
         Data.analyse_p3folds_16(vpmout*"J1733-4005_16", "norefine")
-
-        process_psrdata_16("/home/psr/data/new/J1823-3106/2019-11-01-13:48:20/", vpmout*"J1823-3106_16") # visible offset
-        Data.analyse_p3folds_16(vpmout*"J1823-3106_16", "norefine")
 
         process_psrdata_16("/home/psr/data/new/J1837+1221/2020-04-07-01:36:24/", vpmout*"J1837+1221_16") # visible offset
         Data.analyse_p3folds_16(vpmout*"J1837+1221_16", "norefine")
