@@ -794,17 +794,13 @@ module Plot
             y_low = low[i, :]
             y_high = high[i, :]
 
-            println(size(x_data))
-            println(size(y_low))
-            println(size(y_high))
- 
-
-            
             figure(figsize=(6, 7))
             
             # Subplot for low
             plot(x_data, y_low, label="Low data")
             plot(x_data, y_high, label="High data")
+
+            xlims(p["bin_st"], p["bin_end"])
            
            
             tight_layout()
