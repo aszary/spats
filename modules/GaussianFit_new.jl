@@ -118,8 +118,12 @@ function fit_gaussians(x::AbstractVector, y::AbstractVector, n::Int;
     try
         fit    = curve_fit(model, x, y, p0_val; lower=lo, upper=hi)
         params = coef(fit)
-        cov    = estimate_covar(fit)
-        errors = sqrt.(max.(diag(cov), 0.0))
+        errors = try
+            cov = estimate_covar(fit)
+            sqrt.(max.(diag(cov), 0.0))
+        catch
+            fill(NaN, length(params))
+        end
 
         yfit      = model(x, params)
         residuals = y .- yfit
