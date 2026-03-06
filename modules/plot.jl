@@ -783,6 +783,31 @@ module Plot
 
         # TODO work here...
 
+        for i in 1:pulses
+            # Extract data in the range bin_st:bin_end
+            x_data = p["bin_st"]:p["bin_end"]
+            y_low = low[i, p["bin_st"]:p["bin_end"]]
+            y_high = high[i, p["bin_st"]:p["bin_end"]]
+            
+            figure(figsize=(6, 7))
+            
+            # Subplot for low
+            plot(x_data, y_low, label="Low data")
+            plot(x_data, y_high, label="High data")
+           
+           
+            tight_layout()
+            show()
+            
+            println("Press Enter for next pulse, 'q' to quit.")
+            user_input = readline(stdin; keep=false)
+            close()
+            
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
+        end
 
 
     end    

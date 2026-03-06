@@ -929,7 +929,7 @@ module Data
         Plot.analyse_p3folds3(nl, nh, p)
 
 
-        println(size(nl))
+        #println(size(nl))
 
 
     end
