@@ -814,9 +814,17 @@ module Plot
             plot(x_data, y_high, label="High data")
             if fit_l.converged
                 plot(x_data, fit_l.yfit, "--", label="Fit low", color="blue")
+                for (j, c) in enumerate(fit_l.components)
+                    plot(x_data, fit_l.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
+                         ":", color="blue", alpha=0.6, label="Low G$j")
+                end
             end
             if fit_h.converged
                 plot(x_data, fit_h.yfit, "--", label="Fit high", color="orange")
+                for (j, c) in enumerate(fit_h.components)
+                    plot(x_data, fit_h.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
+                         ":", color="orange", alpha=0.6, label="High G$j")
+                end
             end
             legend()
 
