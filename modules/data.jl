@@ -884,6 +884,56 @@ module Data
     end
 
 
+    """
+    Analyse p3folds
+
+    # Arguments
+    - `indir`: data input directory
+    - `type`: type of p3folds "refine" or "norefine" filenames are based on that
+ 
+    """
+    function analyse_p3folds_16_new(indir, type)
+
+        # parameters file 
+        p = Tools.read_params(joinpath(indir, "params.json"))
+
+        # low, high frequancy filename end
+        low = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
+        high = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
+
+        #println(low)
+        l = Data.load_ascii(low)
+        #Plot.p3fold(l, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_$(type)_analyse", show_=true, repeat_num=1)
+
+        #println(high)
+        h = Data.load_ascii(high)
+        #Plot.p3fold(h, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_high_$(type)_analyse", show_=true, repeat_num=1)
+ 
+        #diff = normalize_01(l) .- normalize_01(h)
+        diff = normalize_per_pulse(l) .- normalize_per_pulse(h)
+        #Plot.p3fold(diff, indir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=0.9, name_mod="pulsar_low_high_$(type)_analyse", show_=true, repeat_num=1)
+
+        nl = normalize_per_pulse(l)
+        nh = normalize_per_pulse(h)
+        #=
+        profile_idx = 1
+        p1 = nl[profile_idx, :]
+        p2 = nh[profile_idx, :]
+        bins = 1:length(p1)
+
+        writedlm(joinpath(indir,"p_low.txt"), hcat(bins, p1), ' ')
+        writedlm(joinpath(indir,"p_high.txt"), hcat(bins, p2), ' ')
+        =#
+        # TODO work here...
+
+        println(size(nl))
+
+
+    end
+
+
+
+
     function normalize_01(data)
         min_val = minimum(data)
         max_val = maximum(data)
