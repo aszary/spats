@@ -785,9 +785,16 @@ module Plot
 
         for i in 1:pulses
             # Extract data in the range bin_st:bin_end
+            #=
             x_data = p["bin_st"]:p["bin_end"]
             y_low = low[i, p["bin_st"]:p["bin_end"]]
             y_high = high[i, p["bin_st"]:p["bin_end"]]
+            =#
+            x_data = 1:pulses
+            y_low = low[i, :]
+            y_high = high[i, :]
+ 
+
             
             figure(figsize=(6, 7))
             
