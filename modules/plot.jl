@@ -800,7 +800,7 @@ module Plot
             plot(x_data, y_low, label="Low data")
             plot(x_data, y_high, label="High data")
 
-            xlims(p["bin_st"], p["bin_end"])
+            xlim(p["bin_st"], p["bin_end"])
            
            
             tight_layout()
