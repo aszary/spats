@@ -11,7 +11,6 @@ module Data
     include("functions.jl")
     include("tools.jl")
     include("plot.jl")
-    include("GaussianFit.jl")
 
 
     """
@@ -927,7 +926,7 @@ module Data
         =#
         # TODO work here...
 
-
+        Plot.analyse_p3folds3(nl, nh, p)
 
 
         println(size(nl))
