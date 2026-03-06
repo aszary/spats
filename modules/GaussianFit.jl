@@ -2,6 +2,7 @@ module GaussianFit
 
 using LsqFit
 using LinearAlgebra: diag
+using Printf
 
 export fit_gaussians, best_ngaussians, component_offsets, print_fit_summary
 
