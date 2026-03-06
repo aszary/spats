@@ -794,6 +794,13 @@ module Plot
             y_low = low[i, :]
             y_high = high[i, :]
 
+            fit_l = fit_gaussians(x_data, y_low, 3)
+            print_fit_summary(fit_l, 3; label="1023 MHz", nbin=1024, period=1)
+            fit_h = fit_gaussians(x_data, y_high, 3)
+            print_fit_summary(fit_h, 3; label="1523 MHz", nbin=1024, period=1)
+
+
+
             figure(figsize=(6, 7))
             
             # Subplot for low
