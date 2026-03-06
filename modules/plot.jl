@@ -795,10 +795,16 @@ module Plot
             y_low = low[i, :]
             y_high = high[i, :]
             =#
+
+
+            # Auto-select best N by AIC
+            best, n, aics = best_ngaussians(bins, y_low; max_n=5)
+            println("Best N = $n  (AIC = $(round(aics[n], digits=1)))")
+            return
+
             n_comp = 4
             fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
             #println(fit_l)
-            println(fit_l.components)
             GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024, period=1.0)
             fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
             GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024, period=1.0)
