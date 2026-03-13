@@ -44,11 +44,24 @@ function _auto_p0(x::AbstractVector, y::AbstractVector, n::Int)
     baseline_est = minimum(y)
     p0 = [baseline_est]
     residual = copy(y) .- baseline_est
+    x_range  = maximum(x) - minimum(x)
     for _ in 1:n
-        idx     = argmax(residual)
-        A_est   = residual[idx]
-        mu_est  = x[idx]
-        sig_est = (maximum(x) - minimum(x)) / (4 * n)
+        idx    = argmax(residual)
+        A_est  = residual[idx]
+        mu_est = x[idx]
+
+        # Estimate sigma from FWHM of the current peak in the residual
+        half  = A_est / 2.0
+        left  = findlast(i -> residual[i] < half, 1:idx)
+        right_rel = findfirst(i -> residual[i] < half, idx:length(residual))
+        right = isnothing(right_rel) ? nothing : idx - 1 + right_rel
+        if !isnothing(left) && !isnothing(right)
+            fwhm    = x[right] - x[left]
+            sig_est = max(fwhm / 2.355, 1.0)
+        else
+            sig_est = x_range / (4 * n)
+        end
+
         append!(p0, [A_est, mu_est, sig_est])
         residual .-= _gauss.(x, A_est, mu_est, sig_est)
         residual   = max.(residual, 0.0)
