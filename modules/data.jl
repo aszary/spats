@@ -984,7 +984,8 @@ module Data
         end
         axislegend(ax1)
         save(joinpath(indir, "gaussian_offsets_timeseries_$(type).png"), fig1)
-        println(">>> Timeseries plot saved to: gaussian_offsets_timeseries_$(type).png")
+        save(joinpath(indir, "gaussian_offsets_timeseries_$(type).pdf"), fig1)
+        println(">>> Timeseries plot saved to: gaussian_offsets_timeseries_$(type).png / .pdf")
 
         # Wykres 2: Histogramy offsetów
         fig2 = Figure(size = (900, 300))
@@ -1003,7 +1004,8 @@ module Data
             end
         end
         save(joinpath(indir, "gaussian_offsets_histogram_$(type).png"), fig2)
-        println(">>> Histogram plot saved to: gaussian_offsets_histogram_$(type).png")
+        save(joinpath(indir, "gaussian_offsets_histogram_$(type).pdf"), fig2)
+        println(">>> Histogram plot saved to: gaussian_offsets_histogram_$(type).png / .pdf")
 
         # Zapis do CSV
         out_path = joinpath(indir, "gaussian_offsets_robust_$(type).csv")
