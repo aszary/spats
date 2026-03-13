@@ -815,7 +815,7 @@ module Plot
 
 
 
-            figure(figsize=(6, 9))
+            figure(figsize=(6, 7))
 
             # Subplot for low
             low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
