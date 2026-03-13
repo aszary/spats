@@ -786,6 +786,101 @@ module Plot
 
     end    
 
+    using PyPlot # Zakładam użycie PyPlot na podstawie Twojego fragmentu
 
+using PyPlot
+using Printf
+
+"""
+    analyse_fft_offsets(low, high, p; method=:standard)
+
+Analiza przesunięć fazowych między dwiema częstotliwościami dla każdego impulsu.
+Wykorzystuje parametry z pliku JSON (bin_st, bin_end, pulse_start/end).
+"""
+function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict; method=:standard)
+    # Wyciąganie zakresów z JSON (obsługa 'nothing')
+    b_st = isnothing(p["bin_st"]) ? 1 : p["bin_st"]
+    b_end = isnothing(p["bin_end"]) ? size(low, 2) : p["bin_end"]
+    p_st = p["pulse_start"]
+    p_end = min(p["pulse_end"], size(low, 1))
+    
+    bin_range = b_st:b_end
+    pulse_indices = p_st:p_end
+    
+    # Kontener na wyniki
+    results = (idx=Int[], off=Float64[], err=Float64[])
+
+    println("\n" * "─"^50)
+    @printf("Analiza FFT [%s] | Biny: %d-%d | Impulsy: %d-%d\n", 
+            string(method), b_st, b_end, p_st, p_end)
+    println("─"^50)
+
+    for i in pulse_indices
+        y_low = low[i, bin_range]
+        y_high = high[i, bin_range]
+        
+        # Obliczanie przesunięcia z bootstrapem (n_boot=100 dla szybkości)
+        boot = FFTCrossCorr.bootstrap_uncertainty(
+            y_high, y_low, method; 
+            n_boot=100, 
+            period_s=get(p, "period_s", 1.0)
+        )
+
+        push!(results.idx, i)
+        push!(results.off, boot.offset_deg)
+        push!(results.err, boot.σ_deg)
+
+        # Log do konsoli co 10 impulsów
+        if i % 10 == 0
+            @printf("Pulse %4d: %+7.3f° ± %.3f°\n", i, boot.offset_deg, boot.σ_deg)
+        end
+    end
+
+    # Wykres końcowy
+    figure(figsize=(10, 5))
+    errorbar(results.idx, results.off, yerr=results.err, fmt="o", 
+             markersize=4, capsize=2, color="#1976D2", ecolor="#BBDEFB")
+    axhline(0.0, color="red", linestyle="--", alpha=0.5)
+    xlabel("Numer impulsu")
+    ylabel("Przesunięcie fazowe (°)")
+    title("Stabilność przesunięcia częstotliwościowego (Metoda: $method)")
+    grid(true, alpha=0.3)
+    tight_layout()
+    show()
+
+    return results
+end
+
+"""
+    analyse_p3_folds(low, high, p; method=:phase_slope)
+
+Dodatkowo składa (fold) wyniki przesunięć względem okresu P3.
+"""
+function analyse_p3_folds_FFT(low::AbstractMatrix, high::AbstractMatrix, p::Dict; method=:phase_slope)
+    # Wykonujemy standardową analizę
+    base_res = analyse_fft_offsets(low, high, p; method=method)
+    
+    p3 = p["p3"]
+    if p3 <= 0
+        println("Parametr P3 nie jest ustawiony (<= 0). Pomijam składanie fazowe.")
+        return base_res
+    end
+
+    # Obliczanie fazy P3 dla każdego impulsu: (numer % p3) / p3
+    phases = [(idx - 1) % p3 / p3 for idx in base_res.idx]
+
+    figure(figsize=(8, 5))
+    scatter(phases, base_res.off, c=base_res.idx, cmap="viridis", alpha=0.7)
+    colorbar(label="Numer impulsu")
+    
+    xlabel("Faza dryfu (P3 phase)")
+    ylabel("Offset między częstotliwościami (°)")
+    title("Zależność offsetu od fazy dryfu P3 ($p3 impulsów)")
+    grid(true, ls=":")
+    tight_layout()
+    show()
+
+    return (base_res..., p3_phases=phases)
+end
 
 end  # module Plot
