@@ -807,8 +807,8 @@ module Plot
 
             # Component offsets
             for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
-                @printf("G%d: lon=%.2f°  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
-                    o.component, o.longitude, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
+                @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
+                    o.component, o.longitude, o.longitude_bin, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
             end
 
             #return

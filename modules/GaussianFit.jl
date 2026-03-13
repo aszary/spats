@@ -253,6 +253,7 @@ function component_offsets(fit_high, fit_low; nbin::Int = 1024)
         offset_deg     = (ch[i].mu - cl[i].mu) / nbin * 360.0,
         offset_deg_err = sqrt(ch[i].mu_err^2 + cl[i].mu_err^2) / nbin * 360.0,
         longitude      = (ch[i].mu + cl[i].mu) / 2.0 / nbin * 360.0,
+        longitude_bin  = (ch[i].mu + cl[i].mu) / 2.0,
     ) for i in 1:nh]
 end
 
