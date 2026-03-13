@@ -932,174 +932,104 @@ module Data
         
         l_matrix = load_ascii(low_path)
         h_matrix = load_ascii(high_path)
+
+        # Obliczamy profil średni (zintegrowany) z P3 foldów - to drastycznie redukuje szum
+        mean_l = dropdims(mean(l_matrix, dims=1), dims=1)
+        mean_h = dropdims(mean(h_matrix, dims=1), dims=1)
         
-        n_pulses, n_bins = size(l_matrix)
+        n_bins = length(mean_l)
         bins = collect(1.0:n_bins)
 
-        println(">>> Starting ROBUST Gaussian Analysis: ", indir)
+        println(">>> Starting Integrated Gaussian Analysis (High SNR): ", indir)
 
-        # 2. KROK 1: Dopasowanie profilu średniego (High SNR)
-        # To nam da idealne parametry startowe (p0) dla pojedynczych pulsów
-        mean_l = dropdims(mean(l_matrix, dims=1), dims=1)
-        
-        # --- SMART GUESS: Znajdź szczyt profilu ---
-        max_val, max_idx = findmax(mean_l)
+        # Normalizacja
+        norm_l = normalize_02(mean_l)
+        norm_h = normalize_02(mean_h)
+
+        # --- SMART GUESS dla Low Freq ---
+        max_val, max_idx = findmax(norm_l)
         est_width = 15.0 # szacunkowa szerokość w binach
         
-        # Inicjalizacja: G1 (lewo), G2 (centrum/max), G3 (prawo)
-        # [amp, mu, sig] x 3
-        initial_guess = [
+        p0_guess = [
             0.5 * max_val, Float64(max_idx) - est_width, est_width,
             1.0 * max_val, Float64(max_idx),             est_width,
             0.5 * max_val, Float64(max_idx) + est_width, est_width
         ]
         
-        println("--- Fitting average profile to find anchor parameters ---")
-        avg_fit_l = fit_gaussians(bins, normalize_02(mean_l), 3; p0=initial_guess)
-        p0_stable = sort_gaussians_params(avg_fit_l.param) # Sortujemy i ustalamy jako wzorzec
+        println("--- Fitting Integrated Low Frequency Profile ---")
+        fit_l = fit_gaussians(bins, norm_l, 3; p0=p0_guess)
+        params_l = sort_gaussians_params(fit_l.param)
 
-        # --- DIAGNOSTYKA 1: Rysujemy dopasowanie do średniego profilu ---
-        println("--- Generating diagnostic plot for average profile ---")
-        fig_avg = Figure(size=(900, 500))
-        ax_avg = Axis(fig_avg[1,1], title="Średni profil: dekompozycja na składowe (G1, G2, G3)", xlabel="Biny", ylabel="Norm. amplituda")
-        
-        # Dane
-        y_avg_norm = normalize_02(mean_l)
-        scatter!(ax_avg, bins, y_avg_norm, color=:gray, markersize=2, label="Dane (Low Freq)")
-        lines!(ax_avg, bins, gaussian_model(bins, p0_stable), color=:black, linewidth=2, label="Suma")
-        
+        println("--- Fitting Integrated High Frequency Profile ---")
+        # Jako startowe dla High używamy dopasowanych z Low (zazwyczaj są blisko)
+        fit_h = fit_gaussians(bins, norm_h, 3; p0=params_l)
+        params_h = sort_gaussians_params(fit_h.param)
+
+        # Obliczanie offsetów
+        offsets = ComponentOffset[]
+        for k in 1:3
+            mu_l = params_l[3*(k-1)+2]
+            mu_h = params_h[3*(k-1)+2]
+            push!(offsets, ComponentOffset(mu_h - mu_l))
+        end
+
+        # --- Rysowanie Wyników ---
+        println("\n--- Plotting Integrated Results ---")
+        fig = Figure(size = (1000, 800))
         colors = [:red, :green, :blue]
-        for i in 1:3
-            # Wyciągamy parametry i-tego Gaussa
-            p_comp = p0_stable[3*(i-1)+1 : 3*i]
-            y_comp = gaussian_model(bins, p_comp)
-            lines!(ax_avg, bins, y_comp, color=colors[i], linewidth=2, label="G$i")
-            band!(ax_avg, bins, zeros(length(bins)), y_comp, color=(colors[i], 0.1))
-        end
-        axislegend(ax_avg)
-        save(joinpath(indir, "gaussian_fit_average.pdf"), fig_avg)
-        println(">>> Average profile fit saved to: gaussian_fit_average.pdf")
 
-        # 3. KROK 2: Analiza wiersz po wierszu
-        offsets = fill(NaN, n_pulses, 3)
+        # Panel 1: Low Freq
+        ax1 = Axis(fig[1, 1], title="Low Frequency (Integrated)", xlabel="Biny", ylabel="Intensywność")
+        scatter!(ax1, bins, norm_l, color=:gray, markersize=3, label="Dane")
+        lines!(ax1, bins, gaussian_model(bins, params_l), color=:black, linewidth=2, label="Model")
+        for k in 1:3
+            lines!(ax1, bins, gaussian_model(bins, params_l[3*(k-1)+1:3*k]), color=colors[k], linestyle=:dash, linewidth=2, label="G$k")
+        end
+        axislegend(ax1)
+
+        # Panel 2: High Freq
+        ax2 = Axis(fig[2, 1], title="High Frequency (Integrated)", xlabel="Biny", ylabel="Intensywność")
+        scatter!(ax2, bins, norm_h, color=:gray, markersize=3, label="Dane")
+        lines!(ax2, bins, gaussian_model(bins, params_h), color=:black, linewidth=2, label="Model")
+        for k in 1:3
+            lines!(ax2, bins, gaussian_model(bins, params_h[3*(k-1)+1:3*k]), color=colors[k], linestyle=:dash, linewidth=2, label="G$k")
+        end
+        axislegend(ax2)
+
+        # Panel 3: Porównanie pozycji (znormalizowane do 1 dla czytelności pozycji)
+        ax3 = Axis(fig[3, 1], title="Przesunięcie komponentów (Ciągła=Low, Przerywana=High)", xlabel="Biny")
+        for k in 1:3
+            p_l_k = params_l[3*(k-1)+1:3*k]
+            p_h_k = params_h[3*(k-1)+1:3*k]
+            
+            # Rysujemy same "górki" znormalizowane do 1, żeby widzieć przesunięcie centrum
+            y_l = gaussian_model(bins, p_l_k) ./ maximum(gaussian_model(bins, p_l_k))
+            y_h = gaussian_model(bins, p_h_k) ./ maximum(gaussian_model(bins, p_h_k))
+            
+            lines!(ax3, bins, y_l, color=colors[k], linewidth=2, label="L G$k")
+            lines!(ax3, bins, y_h, color=colors[k], linestyle=:dash, linewidth=2, label="H G$k")
+            
+            # Wypisz offset na wykresie
+            off_val = offsets[k].offset_bins
+            text!(ax3, params_l[3*(k-1)+2], 0.5, text=@sprintf("Δ=%.2f", off_val), color=colors[k], fontsize=14, align=(:center, :bottom))
+        end
+        axislegend(ax3, position=:rt)
         
-        # Przygotowanie do rysowania przykładów (Diagnostic 2)
-        example_fig = Figure(size=(1000, 1200))
-        example_count = 0
-        max_examples = 5
-
-        println("--- Starting pulse-by-pulse analysis ---")
-        for i in 1:n_pulses
-            row_l = l_matrix[i, :]
-            row_h = h_matrix[i, :]
-
-            # Filtr SNR - pomijamy nulle i bardzo słabe sygnały
-            if maximum(row_l) < 4 * std(row_l[1:50]) continue end # używamy początku profilu jako tła
-
-            try
-                # Dopasowujemy oba profile używając p0_stable
-                norm_l = normalize_02(row_l)
-                norm_h = normalize_02(row_h)
-                
-                f_l = fit_gaussians(bins, norm_l, 3; p0=p0_stable)
-                f_h = fit_gaussians(bins, norm_h, 3; p0=p0_stable)
-                
-                # Sortujemy parametry, żeby G1 zawsze był z lewej
-                p_l = sort_gaussians_params(f_l.param)
-                p_h = sort_gaussians_params(f_h.param)
-                
-                # Zbieranie przykładów do wykresu (dla pierwszych kilku silnych pulsów)
-                if example_count < max_examples && i > 10 && i % 20 == 0
-                    example_count += 1
-                    ax_ex = Axis(example_fig[example_count, 1], title="Puls #$i (Low Freq) - Fit Check", xlabel="Biny")
-                    scatter!(ax_ex, bins, norm_l, color=:gray, markersize=2)
-                    lines!(ax_ex, bins, gaussian_model(bins, p_l), color=:black)
-                    for k in 1:3
-                        lines!(ax_ex, bins, gaussian_model(bins, p_l[3*(k-1)+1:3*k]), color=colors[k], linewidth=1.5)
-                    end
-                end
-
-                # Obliczanie offsetów ręcznie na posortowanych parametrach
-                off_data = ComponentOffset[]
-                for k in 1:3
-                   push!(off_data, ComponentOffset(p_h[3*(k-1)+2] - p_l[3*(k-1)+2]))
-                end
-
-                for c in 1:3
-                    offsets[i, c] = off_data[c].offset_bins
-                end
-            catch
-                continue # Ignorujemy błędy zbieżności w pojedynczych wierszach
-            end
-
-            if i % 100 == 0 @printf("Progress: %d/%d\r", i, n_pulses) end
-        end
-
-        if example_count > 0
-            save(joinpath(indir, "gaussian_fits_examples.pdf"), example_fig)
-            println(">>> Example pulse fits saved to: gaussian_fits_examples.pdf")
-        end
-
-        # 4. Rysowanie, statystyki i zapis
-        println("\n--- Plotting and Analysis Results ---")
-
-        # Wykres 1: Szeregi czasowe offsetów
-        fig1 = Figure(size = (1000, 600))
-        ax1 = Axis(fig1[1, 1], xlabel="Numer pulsu", ylabel="Offset (biny) [High - Low]", 
-                   title="Zmiana offsetu w czasie dla składowych G1, G2, G3",
-                   xgridvisible=true, ygridvisible=true)
-        colors = [:red, :green, :blue]
+        out_name_base = "gaussian_fit_integrated_$(type)"
+        save(joinpath(indir, out_name_base * ".pdf"), fig)
+        save(joinpath(indir, out_name_base * ".png"), fig)
+        println(">>> Saved integrated fit plot: " * out_name_base)
         
-        for c in 1:3
-            valid_points = [(i, offsets[i, c]) for i in 1:n_pulses if !isnan(offsets[i, c])]
-            if !isempty(valid_points)
-                pulses = [p[1] for p in valid_points]
-                offset_vals = [p[2] for p in valid_points]
-                scatter!(ax1, pulses, offset_vals, label="G$c", color=(colors[c], 0.6), markersize=8, strokewidth=0.5, strokecolor=:black)
-            end
+        # Raportowanie
+        println("\n--- Integrated Fit Results ---")
+        for k in 1:3
+             @printf("Component G%d Offset: %.4f bins\n", k, offsets[k].offset_bins)
         end
-        
-        # Dynamiczne skalowanie osi Y (odrzucanie ekstremalnych błędów)
-        all_valid = filter(!isnan, offsets[:])
-        if !isempty(all_valid)
-            ylims!(ax1, quantile(all_valid, 0.02) - 5, quantile(all_valid, 0.98) + 5)
-        end
-        
-        axislegend(ax1, position=:rt)
-        save(joinpath(indir, "gaussian_offsets_timeseries_$(type).png"), fig1)
-        save(joinpath(indir, "gaussian_offsets_timeseries_$(type).pdf"), fig1)
-        println(">>> Timeseries plot saved to: gaussian_offsets_timeseries_$(type).png / .pdf")
-
-        # Wykres 2: Histogramy offsetów
-        fig2 = Figure(size = (900, 300))
-        valid_counts = [count(!isnan, offsets[:, c]) for c in 1:3]
-
-        for c in 1:3
-            ax = Axis(fig2[1, c], xlabel="Offset (biny)", ylabel="Gęstość", xgridvisible=true, ygridvisible=true)
-            vals = filter(!isnan, offsets[:, c])
-            if !isempty(vals)
-                mean_val = mean(vals)
-                std_val = std(vals)
-                
-                hist!(ax, vals, bins=30, color=(colors[c], 0.6), strokewidth=1, strokecolor=colors[c], normalization=:pdf)
-                
-                # Rysowanie krzywej teoretycznej
-                x_rng = range(minimum(vals), maximum(vals), length=100)
-                y_gauss = @. 1/(std_val * sqrt(2π)) * exp(-0.5 * ((x_rng - mean_val)/std_val)^2)
-                lines!(ax, x_rng, y_gauss, color=:black, linewidth=2, linestyle=:dash)
-
-                ax.title = @sprintf("G%d (N=%d)\nμ=%.2f, σ=%.2f", c, valid_counts[c], mean_val, std_val)
-            else
-                ax.title = "G$c (N=0)"
-            end
-        end
-        save(joinpath(indir, "gaussian_offsets_histogram_$(type).png"), fig2)
-        save(joinpath(indir, "gaussian_offsets_histogram_$(type).pdf"), fig2)
-        println(">>> Histogram plot saved to: gaussian_offsets_histogram_$(type).png / .pdf")
 
         # Zapis do CSV
-        out_path = joinpath(indir, "gaussian_offsets_robust_$(type).csv")
-        writedlm(out_path, [collect(1:n_pulses) offsets], ',')
+        out_path = joinpath(indir, "gaussian_offsets_integrated_$(type).csv")
+        csv_data = [k offsets[k].offset_bins for k in 1:3]
+        writedlm(out_path, csv_data, ',')
         println(">>> Data saved to: ", out_path)
 
         return offsets
