@@ -819,7 +819,7 @@ module Plot
             end
 
 
-
+            #=
 
 
             figure(figsize=(6, 7))
@@ -881,7 +881,7 @@ module Plot
             end
  
 
-
+            =#
 
 
         end
@@ -897,7 +897,7 @@ module Plot
                          color=colors[mod1(comp, length(colors))],
                          label="G$comp")
             end
-            ylim(-0.5, 1.5)
+            #ylim(-0.5, 1.5)
             axhline(0.0, color="gray", lw=0.8, ls="--")
             minorticks_on()
             xlabel("Longitude (°)")
