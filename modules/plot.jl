@@ -819,7 +819,7 @@ module Plot
             end
 
 
-            #=
+
 
 
             figure(figsize=(6, 7))
@@ -881,7 +881,7 @@ module Plot
             end
  
 
-            =#
+
 
 
         end
