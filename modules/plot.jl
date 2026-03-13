@@ -893,6 +893,7 @@ module Plot
                          color=colors[mod1(comp, length(colors))],
                          label="G$comp")
             end
+            ylim(-5, 5)
             axhline(0.0, color="gray", lw=0.8, ls="--")
             xlabel("Longitude (°)")
             ylabel("Offset (°)")
