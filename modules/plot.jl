@@ -845,13 +845,13 @@ module Plot
             subplot(2, 1, 2)
             if fit_l.converged
                 for (j, c) in enumerate(fit_l.components)
-                    scatter([c.mu], [c.A], color=low_colors[mod1(j, length(low_colors))],
+                    scatter([c.mu], [fit_l.baseline + c.A], color=low_colors[mod1(j, length(low_colors))],
                             marker="o", s=60, label="Low G$j", zorder=3)
                 end
             end
             if fit_h.converged
                 for (j, c) in enumerate(fit_h.components)
-                    scatter([c.mu], [c.A], color=high_colors[mod1(j, length(high_colors))],
+                    scatter([c.mu], [fit_h.baseline + c.A], color=high_colors[mod1(j, length(high_colors))],
                             marker="s", s=60, label="High G$j", zorder=3)
                 end
             end
