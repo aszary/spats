@@ -896,7 +896,7 @@ module Plot
             minorticks_on()
             xlabel("Longitude (°)")
             ylabel("Offset (°)")
-            title("Longitude vs. dispersion offset")
+            title("Longitude vs. offset")
             legend()
             tight_layout()
             show()
