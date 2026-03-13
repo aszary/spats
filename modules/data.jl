@@ -8,6 +8,7 @@ module Data
     using FFTW
     using .GaussianFit
     using LsqFit, DSP 
+    using DelimitedFiles, Printf
     
     include("functions.jl")
     include("tools.jl")
@@ -874,56 +875,92 @@ module Data
 
     
 
-    function analyse_p3folds_with_gaussians(l_matrix, h_matrix, p, period)
-        n_pulses, n_bins = size(l_matrix)
-        offsets = fill(NaN, n_pulses, 3) # Używamy NaN dla pustych rzędów
-        
-        # 1. Oblicz profil średni, aby znaleźć "bazowe" pozycje składowych
-        mean_l = dropdims(mean(l_matrix, dims=1), dims=1)
-        # Znajdź parametry startowe (p0) z profilu średniego
-        # p0 to [amp1, mu1, sig1, amp2, mu2, sig2, ...]
-        # Tutaj możesz podać szacunkowe biny dla J1842: np. [0.5, 450, 20, 0.8, 560, 20, 0.5, 590, 20]
-        p0_guess = [0.5, 450.0, 15.0, 0.8, 565.0, 15.0, 0.5, 590.0, 15.0]
 
+
+
+    """
+    Główna funkcja wywoływana ze SpaTs.main()
+    """
+    function analyse_offsets_gauss(indir, type, period)
+        # 1. Wczytanie parametrów i danych
+        p = Tools.read_params(joinpath(indir, "params.json"))
+        low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
+        high_path = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
+        
+        l_matrix = load_ascii(low_path)
+        h_matrix = load_ascii(high_path)
+        
+        n_pulses, n_bins = size(l_matrix)
         bins = collect(1.0:n_bins)
 
+        println(">>> Starting ROBUST Gaussian Analysis: ", indir)
+
+        # 2. KROK 1: Dopasowanie profilu średniego (High SNR)
+        # To nam da idealne parametry startowe (p0) dla pojedynczych pulsów
+        mean_l = dropdims(mean(l_matrix, dims=1), dims=1)
+        # Wstępne zgadywanie pozycji dla 3 składowych (można dostosować)
+        # [amp, mu, sig, amp, mu, sig, amp, mu, sig]
+        initial_guess = [0.5, 450.0, 15.0, 0.8, 565.0, 15.0, 0.5, 590.0, 15.0]
+        
+        println("--- Fitting average profile to find anchor parameters ---")
+        avg_fit_l = fit_gaussians(bins, normalize_01(mean_l), 3; p0=initial_guess)
+        p0_stable = avg_fit_l.param # To są nasze "złote" parametry startowe
+
+        # 3. KROK 2: Analiza wiersz po wierszu
+        offsets = fill(NaN, n_pulses, 3)
+
         for i in 1:n_pulses
-            # 2. Pobierz wiersze i sprawdź SNR
             row_l = l_matrix[i, :]
             row_h = h_matrix[i, :]
-            
-            if maximum(row_l) < 3 * std(row_l) || maximum(row_h) < 3 * std(row_h)
-                continue # Pomiń jeśli sygnał jest zbyt słaby (nulling)
-            end
 
-            # 3. Normalizacja i lekkie wygładzenie (opcjonalne)
-            nl = (row_l .- minimum(row_l)) ./ (maximum(row_l) - minimum(row_l))
-            nh = (row_h .- minimum(row_h)) ./ (maximum(row_h) - minimum(row_h))
+            # Filtr SNR - pomijamy nulle i bardzo słabe sygnały
+            if maximum(row_l) < 4 * std(row_l[1:100]) continue end # używamy początku profilu jako tła
 
             try
-                # 4. Dopasowanie z użyciem p0_guess jako punktu startowego
-                # To sprawi, że algorytm nie "zgubi się" w szumie
-                fit_l = fit_gaussians(bins, nl, 3; p0=p0_guess)
-                fit_h = fit_gaussians(bins, nh, 3; p0=p0_guess)
+                # Dopasowujemy oba profile używając p0_stable
+                f_l = fit_gaussians(bins, normalize_01(row_l), 3; p0=p0_stable)
+                f_h = fit_gaussians(bins, normalize_01(row_h), 3; p0=p0_stable)
                 
-                # 5. Oblicz offsety
-                comp_off = component_offsets(fit_h, fit_l; nbin=n_bins, period=period)
+                # Obliczanie offsetów przez funkcję z modułu GaussianFit
+                off_data = component_offsets(f_h, f_l; nbin=n_bins, period=period)
                 
-                for comp in 1:3
-                    offsets[i, comp] = comp_off[comp].offset_bins
+                for c in 1:3
+                    offsets[i, c] = off_data[c].offset_bins
                 end
-            catch e
-                # Jeśli dopasowanie się nie uda, w macierzy zostanie NaN
-                continue
+            catch
+                continue # Ignorujemy błędy zbieżności w pojedynczych wierszach
             end
 
-            if i % 100 == 0
-                @printf("Przetworzono %d / %d rzędów...\n", i, n_pulses)
+            if i % 100 == 0 @printf("Progress: %d/%d\r", i, n_pulses) end
+        end
+
+        # 4. Statystyki i zapis
+        println("\n--- Analysis Results ---")
+        valid_counts = [count(!isnan, offsets[:, c]) for c in 1:3]
+        
+        for c in 1:3
+            vals = filter(!isnan, offsets[:, c])
+            if !isempty(vals)
+                @printf("G%d: %.3f ± %.3f bins (based on %d pulses)\n", 
+                        c, mean(vals), std(vals), valid_counts[c])
             end
         end
-        
+
+        # Zapis do CSV
+        out_path = joinpath(indir, "gaussian_offsets_robust_$(type).csv")
+        writedlm(out_path, [collect(1:n_pulses) offsets], ',')
+        println(">>> Data saved to: ", out_path)
+
         return offsets
     end
+
+    # Pomocnicza normalizacja wewnątrz modułu
+    function normalize_01(vec)
+        m, M = minimum(vec), maximum(vec)
+        return (vec .- m) ./ (M - m)
+    end
+
+    
 
 
     function normalize_01(data)

@@ -274,6 +274,7 @@ module SpaTs
 
 
 
+        # J1842-0359 - robust gaussian offset analysis
         Data.analyse_offsets_gauss(vpmout*"J1842-0359_16", "norefine", 1.841)
 
 
