@@ -815,12 +815,13 @@ module Plot
 
 
 
-            figure(figsize=(6, 7))
+            figure(figsize=(6, 9))
 
             # Subplot for low
             low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
             high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
 
+            subplot(2, 1, 1)
             plot(x_data, y_low,  color="steelblue",  lw=1.2, alpha=0.7, label="Low data")
             plot(x_data, y_high, color="darkorange",  lw=1.2, alpha=0.7, label="High data")
             if fit_l.converged
@@ -838,10 +839,28 @@ module Plot
                 end
             end
             legend()
-
             xlim(p["bin_st"], p["bin_end"])
-           
-           
+
+            # Bottom panel: mu vs amplitude for each component
+            subplot(2, 1, 2)
+            if fit_l.converged
+                for (j, c) in enumerate(fit_l.components)
+                    scatter([c.mu], [c.A], color=low_colors[mod1(j, length(low_colors))],
+                            marker="o", s=60, label="Low G$j", zorder=3)
+                end
+            end
+            if fit_h.converged
+                for (j, c) in enumerate(fit_h.components)
+                    scatter([c.mu], [c.A], color=high_colors[mod1(j, length(high_colors))],
+                            marker="s", s=60, label="High G$j", zorder=3)
+                end
+            end
+            xlabel("μ (bin)")
+            ylabel("Amplituda")
+            title("Komponenty: μ vs amplituda")
+            legend()
+            xlim(p["bin_st"], p["bin_end"])
+
             tight_layout()
             show()
             
