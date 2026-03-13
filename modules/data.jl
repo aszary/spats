@@ -6,8 +6,39 @@ module Data
     using PDFIO
     using Statistics
     using FFTW
-    include("GaussianFit.jl")
-    using .GaussianFit
+    
+    # --- Implementacja funkcji dopasowania Gaussowskiego (inline) ---
+    struct ComponentOffset
+        offset_bins::Float64
+    end
+
+    function gaussian_model(x, p)
+        y = zeros(eltype(x), length(x))
+        n = length(p) ÷ 3
+        for i in 1:n
+            amp = p[3*(i-1)+1]
+            mu  = p[3*(i-1)+2]
+            sig = p[3*(i-1)+3]
+            @. y += amp * exp(-0.5 * ((x - mu) / sig)^2)
+        end
+        return y
+    end
+
+    function fit_gaussians(x, y, n::Int; p0)
+        return curve_fit((x, p) -> gaussian_model(x, p), x, y, p0)
+    end
+
+    function component_offsets(fit_h, fit_l; nbin=1024, period=1.0)
+        offsets = ComponentOffset[]
+        n = length(fit_h.param) ÷ 3
+        for i in 1:n
+            mu_h = fit_h.param[3*(i-1)+2]
+            mu_l = fit_l.param[3*(i-1)+2]
+            push!(offsets, ComponentOffset(mu_h - mu_l))
+        end
+        return offsets
+    end
+
     using LsqFit, DSP 
     using DelimitedFiles, Printf
     
