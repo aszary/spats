@@ -996,7 +996,6 @@ module Data
         if bin_st > 1; norm_l_roi[1:Int(bin_st)] .= 0; end
         if bin_end < n_bins; norm_l_roi[Int(bin_end):end] .= 0; end
 
-        detected_peaks = find_peaks_simple(norm_l_roi, threshold=0.20) # Wyższy próg, tylko silne piki
         detected_peaks = find_peaks_simple(norm_l_roi, threshold=0.15, window=7) # Większe okno wygładzania
         
         # Jeśli nie wykryto, zakładamy 1 główny pik
@@ -1017,7 +1016,6 @@ module Data
         lower_bounds = Float64[]
         upper_bounds = Float64[]
         
-        est_width = (bin_end - bin_st) / 8.0 # Startowa szerokość zależna od szerokości pulsu
         est_width = (bin_end - bin_st) / 10.0 # Węższe startowe, żeby nie zlewały się od razu
         
         for (pos, amp) in detected_peaks[1:n_comps]
