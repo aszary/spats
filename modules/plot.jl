@@ -800,15 +800,15 @@ module Plot
             n_comp = 4
             fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
             #println(fit_l)
-            GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024, period=1.0)
+            GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
             fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
-            GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024, period=1.0)
+            GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024)
 
 
             # Component offsets
-            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024, period=1.0)
-                @printf("G%d: %+.3f ± %.3f bins = %+.3f° = %+.3f ms\n",
-                    o.component, o.offset_bins, o.offset_err, o.offset_deg, o.offset_ms)
+            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
+                @printf("G%d: %+.3f ± %.3f bins = %+.3f°\n",
+                    o.component, o.offset_bins, o.offset_err, o.offset_deg)
             end
 
             #return

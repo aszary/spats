@@ -221,7 +221,7 @@ function best_ngaussians(x::AbstractVector, y::AbstractVector; max_n::Int = 4)
 end
 
 """
-    component_offsets(fit_high, fit_low; nbin=1024, period=nothing) -> Vector
+    component_offsets(fit_high, fit_low; nbin=1024) -> Vector
 
 Compute the phase offset between matched Gaussian components of two profiles
 observed at different radio frequencies.
@@ -230,14 +230,11 @@ observed at different radio frequencies.
 - `fit_high` : result of `fit_gaussians` for the high-frequency profile
 - `fit_low`  : result of `fit_gaussians` for the low-frequency profile
 - `nbin`     : number of phase bins per period (default 1024)
-- `period`   : pulsar spin period in seconds; used to convert offset to ms
 
 # Returns a Vector of NamedTuples with fields:
-`component, mu_high, mu_low, offset_bins, offset_err, offset_deg, offset_ms`
+`component, mu_high, mu_low, offset_bins, offset_err, offset_deg`
 """
-function component_offsets(fit_high, fit_low;
-                            nbin::Int = 1024,
-                            period::Union{Float64, Nothing} = nothing)
+function component_offsets(fit_high, fit_low; nbin::Int = 1024)
 
     nh = length(fit_high.components)
     nl = length(fit_low.components)
@@ -254,23 +251,17 @@ function component_offsets(fit_high, fit_low;
         offset_bins = ch[i].mu - cl[i].mu,
         offset_err  = sqrt(ch[i].mu_err^2 + cl[i].mu_err^2),
         offset_deg  = (ch[i].mu - cl[i].mu) / nbin * 360.0,
-        offset_ms   = isnothing(period) ? NaN :
-                      (ch[i].mu - cl[i].mu) / nbin * period * 1e3,
     ) for i in 1:nh]
 end
 
 """
-    print_fit_summary(fit, n; label="", nbin=1024, period=nothing)
+    print_fit_summary(fit, n; label="", nbin=1024)
 
 Print a human-readable summary of a `fit_gaussians` result.
-
-Optionally converts component centres to degrees and milliseconds
-when `nbin` and `period` are provided.
 """
 function print_fit_summary(fit, n::Int;
                             label::String = "",
-                            nbin::Int = 1024,
-                            period::Union{Float64, Nothing} = nothing)
+                            nbin::Int = 1024)
     isempty(label) || println("=== $label ===")
     @printf("  N components : %d\n",   n)
     @printf("  RMS          : %.5f\n", fit.rms)
@@ -280,11 +271,8 @@ function print_fit_summary(fit, n::Int;
     println()
     for (i, c) in enumerate(fit.components)
         deg = c.mu / nbin * 360.0
-        ms  = isnothing(period) ? NaN : c.mu / nbin * period * 1e3
         @printf("  G%-2d  A     = %.4f ± %.4f\n", i, c.A, c.A_err)
-        @printf("       mu    = %.2f ± %.2f bins  (%.2f°", c.mu, c.mu_err, deg)
-        isnothing(period) || @printf(" / %.2f ms", ms)
-        println(")")
+        @printf("       mu    = %.2f ± %.2f bins  (%.2f°)\n", c.mu, c.mu_err, deg)
         @printf("       sigma = %.2f ± %.2f bins\n", c.sigma, c.sigma_err)
     end
 end
