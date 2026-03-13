@@ -68,8 +68,9 @@ Return default lower and upper parameter bounds for `n` Gaussians:
 function _default_bounds(x::AbstractVector, y::AbstractVector, n::Int)
     xmin, xmax = minimum(x), maximum(x)
     ymax       = maximum(y)
-    lower = vcat([0.0],    repeat([0.0,   xmin, 1.0                ], n))
-    upper = vcat([ymax],   repeat([2*ymax, xmax, (xmax - xmin) / 2.0], n))
+    sigma_max = (xmax - xmin) / (1.5 * n)
+    lower = vcat([0.0],    repeat([0.0,    xmin, 1.0      ], n))
+    upper = vcat([ymax],   repeat([2*ymax, xmax, sigma_max], n))
     return lower, upper
 end
 
