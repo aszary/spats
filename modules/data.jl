@@ -65,7 +65,6 @@ module Data
         for i in 2:len-1
             # Sprawdzamy czy to lokalne maksimum w wygładzonym sygnale
             if smoothed[i] > smoothed[i-1] && smoothed[i] > smoothed[i+1] && smoothed[i] > threshold
-                push!(peaks, (i, smoothed[i]))
                 push!(peaks, (i, data[i])) # Zapisujemy oryginalną amplitudę w tym miejscu
             end
         end
@@ -1245,6 +1244,7 @@ module Data
             xgridvisible=true, ygridvisible=true)
         
         phases = 1:n_phases
+        has_plots = false
         for k in 1:n_comps
             vals = phase_offsets[:, k]
             # Filtrujemy NaN do rysowania
@@ -1252,9 +1252,14 @@ module Data
             if any(mask)
                 lines!(ax_ph, phases[mask], vals[mask], label="G$k", color=safe_colors[k], linewidth=2)
                 scatter!(ax_ph, phases[mask], vals[mask], color=safe_colors[k], markersize=8)
+                has_plots = true
             end
         end
-        axislegend(ax_ph)
+        if has_plots
+            axislegend(ax_ph)
+        else
+            text!(ax_ph, 0.5, 0.5, text="No valid data points (low SNR or fit fail)", align=(:center, :center))
+        end
         
         save(joinpath(indir, "gaussian_offsets_phase_resolved_$(type).pdf"), fig_phase)
         println(">>> Phase-resolved plot saved: gaussian_offsets_phase_resolved_$(type).pdf")
