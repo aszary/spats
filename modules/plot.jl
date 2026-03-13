@@ -818,7 +818,8 @@ module Plot
                 push!(offset_data[o.component].err, o.offset_deg_err)
             end
 
-            #=
+            
+
 
             figure(figsize=(6, 7))
 
@@ -877,7 +878,10 @@ module Plot
                 println("Exiting analysis.")
                 break
             end
-            =#
+ 
+
+
+            
         end
 
         # Final plot: longitude vs. offset for each component
