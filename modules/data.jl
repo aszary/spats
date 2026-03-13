@@ -904,7 +904,7 @@ module Data
         initial_guess = [0.5, 450.0, 15.0, 0.8, 565.0, 15.0, 0.5, 590.0, 15.0]
         
         println("--- Fitting average profile to find anchor parameters ---")
-        avg_fit_l = fit_gaussians(bins, normalize_01(mean_l), 3; p0=initial_guess)
+        avg_fit_l = fit_gaussians(bins, normalize_02(mean_l), 3; p0=initial_guess)
         p0_stable = avg_fit_l.param # To są nasze "złote" parametry startowe
 
         # 3. KROK 2: Analiza wiersz po wierszu
@@ -919,8 +919,8 @@ module Data
 
             try
                 # Dopasowujemy oba profile używając p0_stable
-                f_l = fit_gaussians(bins, normalize_01(row_l), 3; p0=p0_stable)
-                f_h = fit_gaussians(bins, normalize_01(row_h), 3; p0=p0_stable)
+                f_l = fit_gaussians(bins, normalize_02(row_l), 3; p0=p0_stable)
+                f_h = fit_gaussians(bins, normalize_02(row_h), 3; p0=p0_stable)
                 
                 # Obliczanie offsetów przez funkcję z modułu GaussianFit
                 off_data = component_offsets(f_h, f_l; nbin=n_bins, period=period)
@@ -956,7 +956,7 @@ module Data
     end
 
     # Pomocnicza normalizacja wewnątrz modułu
-    function normalize_01(vec)
+    function normalize_02(vec)
         m, M = minimum(vec), maximum(vec)
         return (vec .- m) ./ (M - m)
     end
