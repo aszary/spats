@@ -977,9 +977,32 @@ module Data
         fit_l = fit_gaussians(bins, norm_l, 3; p0=p0_guess, lower=lower_bounds, upper=upper_bounds)
         params_l = sort_gaussians_params(fit_l.param)
 
-        println("--- Fitting Integrated High Frequency Profile ---")
-        # Jako startowe dla High używamy dopasowanych z Low (zazwyczaj są blisko)
-        fit_h = fit_gaussians(bins, norm_h, 3; p0=params_l, lower=lower_bounds, upper=upper_bounds)
+        # --- NEW: Wstępne dopasowanie przesunięcia (Cross-Correlation) ---
+        println("--- Aligning High Frequency Profile (CCF) ---")
+        # Obliczamy przesunięcie globalne High względem Low
+        ccf_val = real.(ifft(fft(norm_h) .* conj.(fft(norm_l))))
+        max_idx = argmax(ccf_val)
+        global_shift = max_idx - 1
+        if global_shift > n_bins ÷ 2
+            global_shift -= n_bins
+        end
+        println(">>> Detected global profile shift (High vs Low): ", global_shift, " bins")
+
+        # Aktualizujemy punkty startowe dla High o wykryte przesunięcie
+        p0_h = copy(params_l)
+        for k in 1:3
+            idx = 3*(k-1) + 2 # indeksy pozycji mu: 2, 5, 8
+            new_pos = p0_h[idx] + global_shift
+            
+            # Obsługa zawijania (wrapping) pozycji
+            if new_pos < 1.0 new_pos += n_bins end
+            if new_pos > n_bins new_pos -= n_bins end
+            
+            p0_h[idx] = clamp(new_pos, 2.0, Float64(n_bins)-2.0)
+        end
+
+        println("--- Fitting Integrated High Frequency Profile (smart start) ---")
+        fit_h = fit_gaussians(bins, norm_h, 3; p0=p0_h, lower=lower_bounds, upper=upper_bounds)
         params_h = sort_gaussians_params(fit_h.param)
 
         # Obliczanie offsetów
@@ -987,7 +1010,10 @@ module Data
         for k in 1:3
             mu_l = params_l[3*(k-1)+2]
             mu_h = params_h[3*(k-1)+2]
-            push!(offsets, ComponentOffset(mu_h - mu_l))
+            # Obliczanie najkrótszej różnicy (uwzględnia cykliczność)
+            diff = mu_h - mu_l
+            diff = mod(diff + n_bins/2, n_bins) - n_bins/2
+            push!(offsets, ComponentOffset(diff))
         end
 
         # --- Rysowanie Wyników ---
