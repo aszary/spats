@@ -7,6 +7,7 @@ module Data
     using Statistics
     using FFTW
     using DelimitedFiles
+    using Printf
 
     include("functions.jl")
     include("tools.jl")
