@@ -818,8 +818,6 @@ module Plot
                 push!(offset_data[o.component].err, o.offset_deg_err)
             end
 
-            #return
-
             #=
 
             figure(figsize=(6, 7))
@@ -895,6 +893,7 @@ module Plot
             end
             ylim(-5, 5)
             axhline(0.0, color="gray", lw=0.8, ls="--")
+            minorticks_on()
             xlabel("Longitude (°)")
             ylabel("Offset (°)")
             title("Longitude vs. dispersion offset")
