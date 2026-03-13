@@ -692,7 +692,6 @@ module Data
         # add all .spCf16 files 
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
-        if !isnothing(p["zaps"])
         if haskey(p, "zaps") && !isnothing(p["zaps"])
             println("ZAPPING subints starts")
             run(pipeline(`paz -m -w "$(p["zaps"])" $outfile`)) # zero weights  # this is the way
