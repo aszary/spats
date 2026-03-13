@@ -971,7 +971,9 @@ module Data
 
         # Wykres 1: Szeregi czasowe offsetów
         fig1 = Figure(size = (800, 600))
-        ax1 = Axis(fig1[1, 1], xlabel="Numer pulsu", ylabel="Offset (biny)", title="Offsety komponentów w czasie (typ: $(type))")
+        ax1 = Axis(fig1[1, 1], xlabel="Numer pulsu", ylabel="Offset (biny)", 
+                   title="Offsety komponentów w czasie (typ: $(type))",
+                   xgridvisible=true, ygridvisible=true)
         colors = [:red, :green, :blue]
         
         for c in 1:3
@@ -979,7 +981,7 @@ module Data
             if !isempty(valid_points)
                 pulses = [p[1] for p in valid_points]
                 offset_vals = [p[2] for p in valid_points]
-                scatter!(ax1, pulses, offset_vals, label="G$c", color=colors[c], markersize=4)
+                scatter!(ax1, pulses, offset_vals, label="G$c", color=(colors[c], 0.7), markersize=12, strokewidth=1, strokecolor=:black)
             end
         end
         axislegend(ax1)
@@ -992,12 +994,19 @@ module Data
         valid_counts = [count(!isnan, offsets[:, c]) for c in 1:3]
 
         for c in 1:3
-            ax = Axis(fig2[1, c], xlabel="Offset (biny)", ylabel="Liczba")
+            ax = Axis(fig2[1, c], xlabel="Offset (biny)", ylabel="Gęstość", xgridvisible=true, ygridvisible=true)
             vals = filter(!isnan, offsets[:, c])
             if !isempty(vals)
-                hist!(ax, vals, bins=20, color=colors[c])
                 mean_val = mean(vals)
                 std_val = std(vals)
+                
+                hist!(ax, vals, bins=30, color=(colors[c], 0.6), strokewidth=1, strokecolor=colors[c], normalization=:pdf)
+                
+                # Rysowanie krzywej teoretycznej
+                x_rng = range(minimum(vals), maximum(vals), length=100)
+                y_gauss = @. 1/(std_val * sqrt(2π)) * exp(-0.5 * ((x_rng - mean_val)/std_val)^2)
+                lines!(ax, x_rng, y_gauss, color=:black, linewidth=2, linestyle=:dash)
+
                 ax.title = @sprintf("G%d (N=%d)\nμ=%.2f, σ=%.2f", c, valid_counts[c], mean_val, std_val)
             else
                 ax.title = "G$c (N=0)"
