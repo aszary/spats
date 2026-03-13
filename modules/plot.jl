@@ -820,6 +820,9 @@ module Plot
 
 
 
+            #=
+
+
             figure(figsize=(6, 7))
 
             # Subplot for low
@@ -880,9 +883,9 @@ module Plot
 
             
 
+            =#
 
 
-            
 
         end
 
