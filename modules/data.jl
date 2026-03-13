@@ -1027,7 +1027,6 @@ module Data
             # Bounds - ściśle wewnątrz bin_st/bin_end
             # Bounds - Ograniczamy szerokość (Sigma), żeby Gauss nie "zjadał" całego tła
             append!(lower_bounds, [0.0, bin_st_fit, 0.5])                         
-            append!(upper_bounds, [5.0, bin_end_fit, Float64(bin_end - bin_st)/1.5]) 
             append!(upper_bounds, [2.0, bin_end_fit, Float64(bin_end - bin_st)/3.0]) 
         end
 
