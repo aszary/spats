@@ -973,18 +973,35 @@ module Data
         norm_l = normalize_vec(mean_l)
         norm_h = normalize_vec(mean_h)
 
-        # --- 2. Automatyczna detekcja liczby komponentów ---
-        # Analizujemy profil Low Freq (zazwyczaj szerszy/wyraźniejszy)
-        detected_peaks = find_peaks_simple(norm_l, threshold=0.15)
+        # --- 2. Automatyczna detekcja liczby komponentów i obszaru on-pulse ---
+        # Pobieramy zakres on-pulse, aby nie dopasowywać szumu
+        bin_st = get(p, "bin_st", 1)
+        bin_end = get(p, "bin_end", n_bins)
+        if isnothing(bin_st) bin_st = 1 end
+        if isnothing(bin_end) bin_end = n_bins end
+        
+        # Marginesy dla dopasowania (zapas)
+        bin_st_fit = max(1.0, Float64(bin_st) - 5.0)
+        bin_end_fit = min(Float64(n_bins), Float64(bin_end) + 5.0)
+        
+        println(">>> Fitting constrained to On-Pulse region: $(Int(bin_st)) - $(Int(bin_end))")
+
+        # Analizujemy profil Low Freq (zazwyczaj szerszy/wyraźniejszy) tylko w oknie on-pulse
+        norm_l_roi = copy(norm_l)
+        if bin_st > 1; norm_l_roi[1:Int(bin_st)] .= 0; end
+        if bin_end < n_bins; norm_l_roi[Int(bin_end):end] .= 0; end
+
+        detected_peaks = find_peaks_simple(norm_l_roi, threshold=0.20) # Wyższy próg, tylko silne piki
         
         # Jeśli nie wykryto, zakładamy 1 główny pik
         if isempty(detected_peaks)
-            max_val, max_idx = findmax(norm_l)
+            max_val, max_idx = findmax(norm_l_roi)
+            if max_val == 0; max_val, max_idx = findmax(norm_l); end # fallback
             push!(detected_peaks, (max_idx, max_val))
         end
         
-        # Ograniczamy do max 5 komponentów, sortujemy po pozycji (od lewej do prawej)
-        n_comps = min(length(detected_peaks), 5)
+        # Ograniczamy do max 3 komponentów (lewy, środek, prawy) - aby uniknąć dopasowywania szumu
+        n_comps = min(length(detected_peaks), 3)
         sort!(detected_peaks, by=x->x[1]) # sortuj po pozycji (bin)
         
         println(">>> Automatically detected $n_comps Gaussian component(s) at bins: ", [p[1] for p in detected_peaks])
@@ -994,15 +1011,15 @@ module Data
         lower_bounds = Float64[]
         upper_bounds = Float64[]
         
-        est_width = n_bins / 20.0 # Startowa szerokość ~5% profilu
+        est_width = (bin_end - bin_st) / 8.0 # Startowa szerokość zależna od szerokości pulsu
         
         for (pos, amp) in detected_peaks[1:n_comps]
             # p0: [Amp, Mu, Sigma]
             push!(p0_guess, amp, Float64(pos), est_width)
             
-            # Bounds
-            append!(lower_bounds, [0.0, 1.0, 0.5])                         # Min: Amp>0, Pos>1, Sig>0.5
-            append!(upper_bounds, [2.0, Float64(n_bins), Float64(n_bins)/4.0]) # Max: Amp<2, Pos<N, Sig<1/4 profilu
+            # Bounds - ściśle wewnątrz bin_st/bin_end
+            append!(lower_bounds, [0.0, bin_st_fit, 0.5])                         
+            append!(upper_bounds, [5.0, bin_end_fit, Float64(bin_end - bin_st)/1.5]) 
         end
 
         # --- 3. Dopasowanie Profilu Średniego (Integrated) ---
