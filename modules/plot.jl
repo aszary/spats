@@ -781,7 +781,8 @@ module Plot
     function analyse_p3folds3(low, high, p)
         pulses, bins = size(low)
 
-        # TODO work here...
+        # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
+        offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
 
         for i in 1:pulses
             # Extract data in the range bin_st:bin_end
@@ -809,11 +810,17 @@ module Plot
             for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
                 @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
                     o.component, o.longitude, o.longitude_bin, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
+                if !haskey(offset_data, o.component)
+                    offset_data[o.component] = (lon=Float64[], off=Float64[], err=Float64[])
+                end
+                push!(offset_data[o.component].lon, o.longitude)
+                push!(offset_data[o.component].off, o.offset_deg)
+                push!(offset_data[o.component].err, o.offset_deg_err)
             end
 
             #return
 
-
+            #=
 
             figure(figsize=(6, 7))
 
@@ -872,10 +879,30 @@ module Plot
                 println("Exiting analysis.")
                 break
             end
+            =#
         end
 
+        # Final plot: longitude vs. offset for each component
+        if !isempty(offset_data)
+            figure(figsize=(8, 5))
+            colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0"]
+            for comp in sort(collect(keys(offset_data)))
+                d = offset_data[comp]
+                errorbar(d.lon, d.off, yerr=d.err,
+                         fmt="o", capsize=4, lw=1.2,
+                         color=colors[mod1(comp, length(colors))],
+                         label="G$comp")
+            end
+            axhline(0.0, color="gray", lw=0.8, ls="--")
+            xlabel("Longitude (°)")
+            ylabel("Offset (°)")
+            title("Longitude vs. dispersion offset")
+            legend()
+            tight_layout()
+            show()
+        end
 
-    end    
+    end
 
 
 
