@@ -6,6 +6,7 @@ module Data
     using PDFIO
     using Statistics
     using FFTW
+    include("GaussianFit.jl")
     using .GaussianFit
     using LsqFit, DSP 
     using DelimitedFiles, Printf
