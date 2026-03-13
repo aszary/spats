@@ -1028,7 +1028,7 @@ module Data
 
         # Zapis do CSV
         out_path = joinpath(indir, "gaussian_offsets_integrated_$(type).csv")
-        csv_data = [k offsets[k].offset_bins for k in 1:3]
+        csv_data = hcat(1:3, [offsets[k].offset_bins for k in 1:3])
         writedlm(out_path, csv_data, ',')
         println(">>> Data saved to: ", out_path)
 
