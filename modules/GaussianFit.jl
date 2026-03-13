@@ -243,16 +243,19 @@ function component_offsets(fit_high, fit_low;
     nl = length(fit_low.components)
     @assert nh == nl "Number of components must match ($nh vs $nl)"
 
+    # Sort both by mu so components at similar positions are matched together
+    ch = sort(fit_high.components, by = c -> c.mu)
+    cl = sort(fit_low.components,  by = c -> c.mu)
+
     return [(
         component   = i,
-        mu_high     = fit_high.components[i].mu,
-        mu_low      = fit_low.components[i].mu,
-        offset_bins = fit_high.components[i].mu - fit_low.components[i].mu,
-        offset_err  = sqrt(fit_high.components[i].mu_err^2 +
-                           fit_low.components[i].mu_err^2),
-        offset_deg  = (fit_high.components[i].mu - fit_low.components[i].mu) / nbin * 360.0,
+        mu_high     = ch[i].mu,
+        mu_low      = cl[i].mu,
+        offset_bins = ch[i].mu - cl[i].mu,
+        offset_err  = sqrt(ch[i].mu_err^2 + cl[i].mu_err^2),
+        offset_deg  = (ch[i].mu - cl[i].mu) / nbin * 360.0,
         offset_ms   = isnothing(period) ? NaN :
-                      (fit_high.components[i].mu - fit_low.components[i].mu) / nbin * period * 1e3,
+                      (ch[i].mu - cl[i].mu) / nbin * period * 1e3,
     ) for i in 1:nh]
 end
 
