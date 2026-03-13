@@ -156,6 +156,7 @@ module SpaTs
         # work on pulsar J1741-0840
         #process_psrdata_16("/home/psr/data/new/J1741-0840/2019-11-05-16:44:10/", vpmout*"J1741-0840_16")
         #Data.analyse_p3folds_16(vpmout*"J1741-0840_16", "norefine")
+        Data.analyse_p3folds_16_new(vpmout*"J1741-0840_16", "norefine")
 
         # work on pulsar J1651-5222
         #process_psrdata_16("/home/psr/data/new/J1651-5222/2019-10-31-15:25:01/", vpmout*"J1651-5222_16")
@@ -206,7 +207,7 @@ module SpaTs
         # work on pulsar J1232-4742
         #process_psrdata_16("/home/psr/data/new/J1232-4742/2020-04-11-22:21:18/", vpmout*"J1232-4742_16")
         #Data.analyse_p3folds_16(vpmout*"J1232-4742_16", "norefine")
-        Data.analyse_p3folds_16_new(vpmout*"J1232-4742_16", "norefine")
+        #Data.analyse_p3folds_16_new(vpmout*"J1232-4742_16", "norefine")
 
 
         # work on pulsar J1900-7951

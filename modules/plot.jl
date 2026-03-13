@@ -819,7 +819,6 @@ module Plot
             end
 
 
-            #=
 
             figure(figsize=(6, 7))
 
@@ -878,9 +877,12 @@ module Plot
                 println("Exiting analysis.")
                 break
             end
- 
 
-        =#
+            
+
+
+
+            
 
         end
 
