@@ -798,7 +798,7 @@ module Plot
             =#
 
 
-            n_comp = 4
+            n_comp = 2
             fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
             #println(fit_l)
             GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
@@ -881,7 +881,7 @@ module Plot
  
 
 
-            
+
         end
 
         # Final plot: longitude vs. offset for each component
