@@ -693,6 +693,7 @@ module Data
         add_psrfiles(indir, outfile; files=files, sixteen=true)
 
         if !isnothing(p["zaps"])
+        if haskey(p, "zaps") && !isnothing(p["zaps"])
             println("ZAPPING subints starts")
             run(pipeline(`paz -m -w "$(p["zaps"])" $outfile`)) # zero weights  # this is the way
             println("ZAPPING subints ends")
@@ -966,17 +967,44 @@ module Data
             if i % 100 == 0 @printf("Progress: %d/%d\r", i, n_pulses) end
         end
 
-        # 4. Statystyki i zapis
-        println("\n--- Analysis Results ---")
-        valid_counts = [count(!isnan, offsets[:, c]) for c in 1:3]
+        # 4. Rysowanie, statystyki i zapis
+        println("\n--- Plotting and Analysis Results ---")
+
+        # Wykres 1: Szeregi czasowe offsetów
+        fig1 = Figure(size = (800, 600))
+        ax1 = Axis(fig1[1, 1], xlabel="Numer pulsu", ylabel="Offset (biny)", title="Offsety komponentów w czasie (typ: $(type))")
+        colors = [:red, :green, :blue]
         
         for c in 1:3
-            vals = filter(!isnan, offsets[:, c])
-            if !isempty(vals)
-                @printf("G%d: %.3f ± %.3f bins (based on %d pulses)\n", 
-                        c, mean(vals), std(vals), valid_counts[c])
+            valid_points = [(i, offsets[i, c]) for i in 1:n_pulses if !isnan(offsets[i, c])]
+            if !isempty(valid_points)
+                pulses = [p[1] for p in valid_points]
+                offset_vals = [p[2] for p in valid_points]
+                scatter!(ax1, pulses, offset_vals, label="G$c", color=colors[c], markersize=4)
             end
         end
+        axislegend(ax1)
+        save(joinpath(indir, "gaussian_offsets_timeseries_$(type).png"), fig1)
+        println(">>> Timeseries plot saved to: gaussian_offsets_timeseries_$(type).png")
+
+        # Wykres 2: Histogramy offsetów
+        fig2 = Figure(size = (900, 300))
+        valid_counts = [count(!isnan, offsets[:, c]) for c in 1:3]
+
+        for c in 1:3
+            ax = Axis(fig2[1, c], xlabel="Offset (biny)", ylabel="Liczba")
+            vals = filter(!isnan, offsets[:, c])
+            if !isempty(vals)
+                hist!(ax, vals, bins=20, color=colors[c])
+                mean_val = mean(vals)
+                std_val = std(vals)
+                ax.title = @sprintf("G%d (N=%d)\nμ=%.2f, σ=%.2f", c, valid_counts[c], mean_val, std_val)
+            else
+                ax.title = "G$c (N=0)"
+            end
+        end
+        save(joinpath(indir, "gaussian_offsets_histogram_$(type).png"), fig2)
+        println(">>> Histogram plot saved to: gaussian_offsets_histogram_$(type).png")
 
         # Zapis do CSV
         out_path = joinpath(indir, "gaussian_offsets_robust_$(type).csv")
