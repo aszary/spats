@@ -24,8 +24,12 @@ module Data
         return y
     end
 
-    function fit_gaussians(x, y, n::Int; p0)
-        return curve_fit((x, p) -> gaussian_model(x, p), x, y, p0)
+    function fit_gaussians(x, y, n::Int; p0, lower=Float64[], upper=Float64[])
+        if isempty(lower) || isempty(upper)
+            return curve_fit((x, p) -> gaussian_model(x, p), x, y, p0)
+        else
+            return curve_fit((x, p) -> gaussian_model(x, p), x, y, p0; lower=lower, upper=upper)
+        end
     end
 
     function component_offsets(fit_h, fit_l; nbin=1024, period=1.0)
@@ -946,23 +950,36 @@ module Data
         norm_l = normalize_02(mean_l)
         norm_h = normalize_02(mean_h)
 
+        # Definiujemy granice (bounds), aby uniknąć niefizycznych dopasowań (np. offset -200000)
+        lower_bounds = Float64[]
+        upper_bounds = Float64[]
+        for _ in 1:3
+            push!(lower_bounds, 0.0)              # Min Amplituda
+            push!(lower_bounds, 1.0)              # Min Pozycja (bin 1)
+            push!(lower_bounds, 1.0)              # Min Szerokość (sigma)
+            
+            push!(upper_bounds, 10.0)             # Max Amplituda (zapas)
+            push!(upper_bounds, Float64(n_bins))  # Max Pozycja (koniec profilu)
+            push!(upper_bounds, Float64(n_bins)/3.0) # Max Szerokość (unikamy tła)
+        end
+
         # --- SMART GUESS dla Low Freq ---
         max_val, max_idx = findmax(norm_l)
         est_width = 15.0 # szacunkowa szerokość w binach
         
         p0_guess = [
-            0.5 * max_val, Float64(max_idx) - est_width, est_width,
+            0.5 * max_val, max(1.0, Float64(max_idx) - est_width), est_width,
             1.0 * max_val, Float64(max_idx),             est_width,
-            0.5 * max_val, Float64(max_idx) + est_width, est_width
+            0.5 * max_val, min(Float64(n_bins), Float64(max_idx) + est_width), est_width
         ]
         
         println("--- Fitting Integrated Low Frequency Profile ---")
-        fit_l = fit_gaussians(bins, norm_l, 3; p0=p0_guess)
+        fit_l = fit_gaussians(bins, norm_l, 3; p0=p0_guess, lower=lower_bounds, upper=upper_bounds)
         params_l = sort_gaussians_params(fit_l.param)
 
         println("--- Fitting Integrated High Frequency Profile ---")
         # Jako startowe dla High używamy dopasowanych z Low (zazwyczaj są blisko)
-        fit_h = fit_gaussians(bins, norm_h, 3; p0=params_l)
+        fit_h = fit_gaussians(bins, norm_h, 3; p0=params_l, lower=lower_bounds, upper=upper_bounds)
         params_h = sort_gaussians_params(fit_h.param)
 
         # Obliczanie offsetów
