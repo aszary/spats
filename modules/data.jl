@@ -55,15 +55,18 @@ module Data
     end
     
     # Prosta funkcja do znajdowania szczytów (zastępuje findpeaks z DSP)
-    function find_peaks_simple(data; threshold=0.1)
+    function find_peaks_simple(data; threshold=0.1, window=5)
         peaks = Tuple{Int, Float64}[]
         len = length(data)
-        # Wygładzanie prostą średnią ruchomą (okno 3) dla redukcji szumu przed szukaniem
-        smoothed = [mean(data[max(1, i-1):min(len, i+1)]) for i in 1:len]
+        half_win = window ÷ 2
+        # Wygładzanie prostą średnią ruchomą dla redukcji szumu przed szukaniem
+        smoothed = [mean(data[max(1, i-half_win):min(len, i+half_win)]) for i in 1:len]
         
         for i in 2:len-1
+            # Sprawdzamy czy to lokalne maksimum w wygładzonym sygnale
             if smoothed[i] > smoothed[i-1] && smoothed[i] > smoothed[i+1] && smoothed[i] > threshold
                 push!(peaks, (i, smoothed[i]))
+                push!(peaks, (i, data[i])) # Zapisujemy oryginalną amplitudę w tym miejscu
             end
         end
         # Sortuj malejąco po wysokości
@@ -72,8 +75,10 @@ module Data
     end
     
     # Funkcja normalizująca wektor do zakresu 0-1
+    # Funkcja normalizująca wektor (skalowanie amplitudy, bez przesuwania zera!)
     function normalize_vec(v)
-        return (v .- minimum(v)) ./ (maximum(v) - minimum(v))
+        # Zakładamy, że baseline jest już odjęty (bliski 0)
+        return v ./ maximum(v)
     end
 
     using LsqFit, DSP 
@@ -992,6 +997,7 @@ module Data
         if bin_end < n_bins; norm_l_roi[Int(bin_end):end] .= 0; end
 
         detected_peaks = find_peaks_simple(norm_l_roi, threshold=0.20) # Wyższy próg, tylko silne piki
+        detected_peaks = find_peaks_simple(norm_l_roi, threshold=0.15, window=7) # Większe okno wygładzania
         
         # Jeśli nie wykryto, zakładamy 1 główny pik
         if isempty(detected_peaks)
@@ -1012,14 +1018,17 @@ module Data
         upper_bounds = Float64[]
         
         est_width = (bin_end - bin_st) / 8.0 # Startowa szerokość zależna od szerokości pulsu
+        est_width = (bin_end - bin_st) / 10.0 # Węższe startowe, żeby nie zlewały się od razu
         
         for (pos, amp) in detected_peaks[1:n_comps]
             # p0: [Amp, Mu, Sigma]
             push!(p0_guess, amp, Float64(pos), est_width)
             
             # Bounds - ściśle wewnątrz bin_st/bin_end
+            # Bounds - Ograniczamy szerokość (Sigma), żeby Gauss nie "zjadał" całego tła
             append!(lower_bounds, [0.0, bin_st_fit, 0.5])                         
             append!(upper_bounds, [5.0, bin_end_fit, Float64(bin_end - bin_st)/1.5]) 
+            append!(upper_bounds, [2.0, bin_end_fit, Float64(bin_end - bin_st)/3.0]) 
         end
 
         # --- 3. Dopasowanie Profilu Średniego (Integrated) ---
@@ -1111,6 +1120,70 @@ module Data
         end
         writedlm(out_path, csv_data, ',')
 
+        # --- 5. Wykres P3 vs Longitude ---
+        println("\n--- P3 vs Longitude Analysis ---")
+        
+        # Próbujemy wczytać LRFS (najlepiej dla Low Freq)
+        lrfs_file = joinpath(indir, "pulsar_low.debase.lrfs")
+        if !isfile(lrfs_file)
+            # Fallback dla 16-kanałowych, nazwa może być inna w zależności od pipeline'u
+            lrfs_file = joinpath(indir, "pulsar.debase.lrfs") 
+        end
+
+        p3_values = Float64[]
+        long_values = Float64[]
+
+        if isfile(lrfs_file)
+            println("Loading LRFS file: $lrfs_file")
+            lrfs_data = load_ascii_all(lrfs_file) # (Freq, Bin, Pol)
+            n_freqs, n_lrfs_bins, n_pols = size(lrfs_data)
+            
+            # Oś częstotliwości (0 do 0.5 cpp)
+            freqs = range(0.0, 0.5, length=n_freqs)
+            
+            for k in 1:n_comps
+                # 1. Średnia Longitude (w binach)
+                mu_l = params_l[3*(k-1)+2]
+                mu_h = params_h[3*(k-1)+2]
+                phi_avg = (mu_l + mu_h) / 2.0
+                
+                # 2. Wyznacz P3 dla tej składowej (z LRFS)
+                # Mapujemy pozycję na bin LRFS (zakładając tę samą szerokość okna on-pulse)
+                b_idx = round(Int, phi_avg)
+                b_idx = clamp(b_idx, 1, n_lrfs_bins)
+                
+                # Widmo w tym punkcie (Stokes I)
+                spectrum = lrfs_data[:, b_idx, 1]
+                
+                # Znajdź szczyt (pomijając DC i bardzo niskie częstotliwości)
+                valid_range = 3:n_freqs 
+                if !isempty(valid_range)
+                    max_i = argmax(spectrum[valid_range]) + (valid_range[1] - 1)
+                    peak_freq = freqs[max_i]
+                    
+                    if peak_freq > 0.01 # Zabezpieczenie przed dzieleniem przez ~0
+                        p3_val = 1.0 / peak_freq
+                        push!(p3_values, p3_val)
+                        push!(long_values, phi_avg)
+                        @printf("Component G%d: Phi_avg=%.2f, Local P3=%.4f (P0)\n", k, phi_avg, p3_val)
+                    end
+                end
+            end
+            
+            # Rysowanie
+            if !isempty(p3_values)
+                fig_p3 = Figure(size = (700, 500))
+                ax_p3 = Axis(fig_p3[1, 1], title="Modulation Period (P3) vs Longitude", xlabel="Longitude (bins)", ylabel="P3 (P0 units)", xgridvisible=true, ygridvisible=true)
+                
+                scatter!(ax_p3, long_values, p3_values, color=:red, markersize=15, label="Components")
+                
+                save(joinpath(indir, "p3_vs_longitude_$(type).pdf"), fig_p3)
+                println(">>> P3 vs Longitude plot saved: p3_vs_longitude_$(type).pdf")
+            end
+        else
+            println("LRFS file not found ($lrfs_file). Skipping P3 plot.")
+        end
+
         # --- 4. Analiza fazowa P3 (Phase-resolved) ---
         println("\n--- Starting Phase-Resolved Analysis (per P3 bin) ---")
         
@@ -1130,6 +1203,14 @@ module Data
             try
                 n_l_row = normalize_vec(row_l)
                 n_h_row = normalize_vec(row_h)
+                
+                # Tu też odejmujemy baseline, jeśli to możliwe, dla lepszego fita
+                if !isempty(off_pulse_indices)
+                    b_l = median(n_l_row[off_pulse_indices])
+                    b_h = median(n_h_row[off_pulse_indices])
+                    n_l_row .-= b_l
+                    n_h_row .-= b_h
+                end
 
                 # Fit Low: Startujemy z parametrów średnich (params_l) aby zachować tożsamość komponentów
                 # Ale pozwalamy na lekkie zmiany
