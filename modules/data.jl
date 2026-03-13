@@ -894,80 +894,45 @@ module Data
     """
 function analyse_p3folds_16_new(indir, type)
 
-    # parameters file 
+    # 1. Wczytanie parametrów
     p = Tools.read_params(joinpath(indir, "params.json"))
 
-    # low, high frequency filename end
-    low  = joinpath(indir, "pulsar_low.debase.p3fold_"  * type)
-    high = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
+    # 2. Przygotowanie ścieżek i ładowanie danych
+    low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
+    high_path = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
 
-    l = Data.load_ascii(low)
-    h = Data.load_ascii(high)
+    l = Data.load_ascii(low_path)
+    h = Data.load_ascii(high_path)
 
+    # 3. Normalizacja (FFT najlepiej działa na danych o podobnej skali)
     nl = normalize_per_pulse(l)
     nh = normalize_per_pulse(h)
 
-    nrows, nbin = size(nl)
-    period_s    = p["period_s"]   # upewnij się że masz to w params.json
+    # --- TUTAJ WSTAWIAMY NOWĄ LOGIKĘ ---
 
-    println("Analysing $nrows profiles, $nbin bins each")
+    # Sprawdzamy czy moduł FFTCrossCorr jest dostępny
+    # Wybieramy metodę :phase_slope, bo jest najodporniejsza na szum w danych P3
+    println(">>> Rozpoczynam analizę FFT dla typu: $type")
+    
+    # Wywołujemy funkcję, którą przygotowaliśmy wcześniej
+    # analyse_p3_folds automatycznie sprawdzi p["p3"] i zrobi wykresy
+    fft_results = analyse_p3_folds(nl, nh, p; method=:phase_slope)
 
-    # --- offset for every row of p3-fold ---
-    offsets_bins = Vector{Float64}(undef, nrows)
-    offsets_deg  = Vector{Float64}(undef, nrows)
-    offsets_ms   = Vector{Float64}(undef, nrows)
-
-    for i in 1:nrows
-        prof_h = nh[i, :]
-        prof_l = nl[i, :]
-
-        # skip empty / null rows (all zeros)
-        if sum(abs.(prof_h)) < 1e-10 || sum(abs.(prof_l)) < 1e-10
-            offsets_bins[i] = NaN
-            offsets_deg[i]  = NaN
-            offsets_ms[i]   = NaN
-            continue
-        end
-
-        results = FFTCrossCorr.xcorr_all(prof_h, prof_l;
-                                          nbin=nbin, period_s=period_s)
-
-        # use phase_slope as primary method (most noise-robust)
-        offsets_bins[i] = results.phase_slope.offset_bins
-        offsets_deg[i]  = results.phase_slope.offset_deg
-        offsets_ms[i]   = results.phase_slope.offset_ms
-    end
-
-    # --- average profile offset (reference value) ---
-    mean_prof_h = vec(mean(nh, dims=1))
-    mean_prof_l = vec(mean(nl, dims=1))
-    mean_results = FFTCrossCorr.xcorr_all(mean_prof_h, mean_prof_l;
-                                           nbin=nbin, period_s=period_s)
-    FFTCrossCorr.print_offset_summary(mean_results; label="mean profile ($type)")
-
-    # --- summary stats (ignoring NaN rows) ---
-    valid        = .!isnan.(offsets_bins)
-    mean_off     = mean(offsets_bins[valid])
-    std_off      = std(offsets_bins[valid])
-    println("Per-row offsets ($type):  mean = $(round(mean_off, digits=3)) bins" *
-            "  ±  $(round(std_off, digits=3)) bins  [$(sum(valid)) valid rows]")
-
-    # --- save results ---
-    outfile = joinpath(indir, "offsets_$(type).txt")
-    open(outfile, "w") do io
-        println(io, "# row  offset_bins  offset_deg  offset_ms")
-        for i in 1:nrows
-            @printf(io, "%4d  %+9.4f  %+9.4f  %+9.4f\n",
-                    i, offsets_bins[i], offsets_deg[i], offsets_ms[i])
+    # Opcjonalnie: Zapisanie wyników do pliku tekstowego w folderze indir
+    open(joinpath(indir, "fft_offsets_$(type).txt"), "w") do io
+        println(io, "# Pulse_Idx  Offset_Deg  Error_Deg")
+        for i in 1:length(fft_results.idx)
+            @printf(io, "%d  %.4f  %.4f\n", 
+                    fft_results.idx[i], fft_results.off[i], fft_results.err[i])
         end
     end
-    println("Saved → $outfile")
 
-    return (offsets_bins=offsets_bins,
-            offsets_deg=offsets_deg,
-            offsets_ms=offsets_ms,
-            mean_results=mean_results)
+    println(">>> Analiza zakończona. Wyniki zapisano w fft_offsets_$(type).txt")
+    
+    return fft_results
 end
+
+ 
 
 
 
