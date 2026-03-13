@@ -7,6 +7,7 @@ module Data
     using Statistics
     using FFTW
     using .GaussianFit
+    using LsqFit, DSP 
     
     include("functions.jl")
     include("tools.jl")
@@ -871,41 +872,55 @@ module Data
     end
 
 
+    
+
     function analyse_p3folds_with_gaussians(l_matrix, h_matrix, p, period)
-        n_pulses = size(l_matrix, 1)
-        n_bins = size(l_matrix, 2)
+        n_pulses, n_bins = size(l_matrix)
+        offsets = fill(NaN, n_pulses, 3) # Używamy NaN dla pustych rzędów
         
-        # Przygotuj tablice na wyniki dla 3 składowych
-        # Każdy wiersz to jeden wiersz p3-foldu, kolumny to G1, G2, G3
-        offsets = zeros(n_pulses, 3) 
-        
-        # Normalizacja
-        nl = normalize_per_pulse(l_matrix)
-        nh = normalize_per_pulse(h_matrix)
-        
-        bins = collect(1:n_bins)
+        # 1. Oblicz profil średni, aby znaleźć "bazowe" pozycje składowych
+        mean_l = dropdims(mean(l_matrix, dims=1), dims=1)
+        # Znajdź parametry startowe (p0) z profilu średniego
+        # p0 to [amp1, mu1, sig1, amp2, mu2, sig2, ...]
+        # Tutaj możesz podać szacunkowe biny dla J1842: np. [0.5, 450, 20, 0.8, 560, 20, 0.5, 590, 20]
+        p0_guess = [0.5, 450.0, 15.0, 0.8, 565.0, 15.0, 0.5, 590.0, 15.0]
+
+        bins = collect(1.0:n_bins)
 
         for i in 1:n_pulses
-            # 1. Dopasuj gaussiany do wiersza z niskiej i wysokiej częstotliwości
-            # Używamy n=3, bo tak ustaliliśmy dla J1842
-            fit_l = fit_gaussians(bins, nl[i, :], 3)
-            fit_h = fit_gaussians(bins, nh[i, :], 3)
+            # 2. Pobierz wiersze i sprawdź SNR
+            row_l = l_matrix[i, :]
+            row_h = h_matrix[i, :]
             
-            # 2. Oblicz offsety dla każdej składowej
-            comp_off = component_offsets(fit_h, fit_l; nbin=n_bins, period=period)
-            
-            for comp in 1:3
-                offsets[i, comp] = comp_off[comp].offset_bins
+            if maximum(row_l) < 3 * std(row_l) || maximum(row_h) < 3 * std(row_h)
+                continue # Pomiń jeśli sygnał jest zbyt słaby (nulling)
             end
-            
-            if i % 50 == 0
-                println("Przetworzono $i / $n_pulses wierszy...")
+
+            # 3. Normalizacja i lekkie wygładzenie (opcjonalne)
+            nl = (row_l .- minimum(row_l)) ./ (maximum(row_l) - minimum(row_l))
+            nh = (row_h .- minimum(row_h)) ./ (maximum(row_h) - minimum(row_h))
+
+            try
+                # 4. Dopasowanie z użyciem p0_guess jako punktu startowego
+                # To sprawi, że algorytm nie "zgubi się" w szumie
+                fit_l = fit_gaussians(bins, nl, 3; p0=p0_guess)
+                fit_h = fit_gaussians(bins, nh, 3; p0=p0_guess)
+                
+                # 5. Oblicz offsety
+                comp_off = component_offsets(fit_h, fit_l; nbin=n_bins, period=period)
+                
+                for comp in 1:3
+                    offsets[i, comp] = comp_off[comp].offset_bins
+                end
+            catch e
+                # Jeśli dopasowanie się nie uda, w macierzy zostanie NaN
+                continue
+            end
+
+            if i % 100 == 0
+                @printf("Przetworzono %d / %d rzędów...\n", i, n_pulses)
             end
         end
-
-        # Teraz masz macierz 'offsets', gdzie możesz sprawdzić:
-        # mean(offsets[:, 1]) - średni offset lewej składowej
-        # std(offsets[:, 1])  - błąd/rozrzut lewej składowej
         
         return offsets
     end
