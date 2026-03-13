@@ -53,6 +53,28 @@ module Data
         sort!(comps, by = x -> x[2]) # sortuj po pozycji mu (center)
         return vcat(comps...)
     end
+    
+    # Prosta funkcja do znajdowania szczytów (zastępuje findpeaks z DSP)
+    function find_peaks_simple(data; threshold=0.1)
+        peaks = Tuple{Int, Float64}[]
+        len = length(data)
+        # Wygładzanie prostą średnią ruchomą (okno 3) dla redukcji szumu przed szukaniem
+        smoothed = [mean(data[max(1, i-1):min(len, i+1)]) for i in 1:len]
+        
+        for i in 2:len-1
+            if smoothed[i] > smoothed[i-1] && smoothed[i] > smoothed[i+1] && smoothed[i] > threshold
+                push!(peaks, (i, smoothed[i]))
+            end
+        end
+        # Sortuj malejąco po wysokości
+        sort!(peaks, by=x->x[2], rev=true)
+        return peaks
+    end
+    
+    # Funkcja normalizująca wektor do zakresu 0-1
+    function normalize_vec(v)
+        return (v .- minimum(v)) ./ (maximum(v) - minimum(v))
+    end
 
     using LsqFit, DSP 
     using DelimitedFiles, Printf
@@ -929,7 +951,7 @@ module Data
     Główna funkcja wywoływana ze SpaTs.main()
     """
     function analyse_offsets_gauss(indir, type, period)
-        # 1. Wczytanie parametrów i danych
+        # --- 1. Konfiguracja i Wczytanie danych ---
         p = Tools.read_params(joinpath(indir, "params.json"))
         low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
         high_path = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
@@ -938,8 +960,9 @@ module Data
         h_matrix = load_ascii(high_path)
 
         # Obliczamy profil średni (zintegrowany) z P3 foldów - to drastycznie redukuje szum
-        mean_l = dropdims(mean(l_matrix, dims=1), dims=1)
-        mean_h = dropdims(mean(h_matrix, dims=1), dims=1)
+        # Używamy dims=1 aby uśrednić po fazach P3
+        mean_l = vec(mean(l_matrix, dims=1))
+        mean_h = vec(mean(h_matrix, dims=1))
         
         n_bins = length(mean_l)
         bins = collect(1.0:n_bins)
@@ -947,86 +970,88 @@ module Data
         println(">>> Starting Integrated Gaussian Analysis (High SNR): ", indir)
 
         # Normalizacja
-        norm_l = normalize_02(mean_l)
-        norm_h = normalize_02(mean_h)
+        norm_l = normalize_vec(mean_l)
+        norm_h = normalize_vec(mean_h)
 
-        # Definiujemy granice (bounds), aby uniknąć niefizycznych dopasowań (np. offset -200000)
+        # --- 2. Automatyczna detekcja liczby komponentów ---
+        # Analizujemy profil Low Freq (zazwyczaj szerszy/wyraźniejszy)
+        detected_peaks = find_peaks_simple(norm_l, threshold=0.15)
+        
+        # Jeśli nie wykryto, zakładamy 1 główny pik
+        if isempty(detected_peaks)
+            max_val, max_idx = findmax(norm_l)
+            push!(detected_peaks, (max_idx, max_val))
+        end
+        
+        # Ograniczamy do max 5 komponentów, sortujemy po pozycji (od lewej do prawej)
+        n_comps = min(length(detected_peaks), 5)
+        sort!(detected_peaks, by=x->x[1]) # sortuj po pozycji (bin)
+        
+        println(">>> Automatically detected $n_comps Gaussian component(s) at bins: ", [p[1] for p in detected_peaks])
+
+        # Generowanie parametrów startowych (p0) i granic (bounds)
+        p0_guess = Float64[]
         lower_bounds = Float64[]
         upper_bounds = Float64[]
-        for _ in 1:3
-            push!(lower_bounds, 0.0)              # Min Amplituda
-            push!(lower_bounds, 1.0)              # Min Pozycja (bin 1)
-            push!(lower_bounds, 1.0)              # Min Szerokość (sigma)
+        
+        est_width = n_bins / 20.0 # Startowa szerokość ~5% profilu
+        
+        for (pos, amp) in detected_peaks[1:n_comps]
+            # p0: [Amp, Mu, Sigma]
+            push!(p0_guess, amp, Float64(pos), est_width)
             
-            push!(upper_bounds, 10.0)             # Max Amplituda (zapas)
-            push!(upper_bounds, Float64(n_bins))  # Max Pozycja (koniec profilu)
-            push!(upper_bounds, Float64(n_bins)/3.0) # Max Szerokość (unikamy tła)
+            # Bounds
+            append!(lower_bounds, [0.0, 1.0, 0.5])                         # Min: Amp>0, Pos>1, Sig>0.5
+            append!(upper_bounds, [2.0, Float64(n_bins), Float64(n_bins)/4.0]) # Max: Amp<2, Pos<N, Sig<1/4 profilu
         end
 
-        # --- SMART GUESS dla Low Freq ---
-        max_val, max_idx = findmax(norm_l)
-        est_width = 15.0 # szacunkowa szerokość w binach
-        
-        p0_guess = [
-            0.5 * max_val, max(1.0, Float64(max_idx) - est_width), est_width,
-            1.0 * max_val, Float64(max_idx),             est_width,
-            0.5 * max_val, min(Float64(n_bins), Float64(max_idx) + est_width), est_width
-        ]
-        
+        # --- 3. Dopasowanie Profilu Średniego (Integrated) ---
         println("--- Fitting Integrated Low Frequency Profile ---")
-        fit_l = fit_gaussians(bins, norm_l, 3; p0=p0_guess, lower=lower_bounds, upper=upper_bounds)
+        fit_l = fit_gaussians(bins, norm_l, n_comps; p0=p0_guess, lower=lower_bounds, upper=upper_bounds)
         params_l = sort_gaussians_params(fit_l.param)
 
-        # --- NEW: Wstępne dopasowanie przesunięcia (Cross-Correlation) ---
+        # Wyrównanie zgrubne (CCF) dla High Freq
         println("--- Aligning High Frequency Profile (CCF) ---")
-        # Obliczamy przesunięcie globalne High względem Low
         ccf_val = real.(ifft(fft(norm_h) .* conj.(fft(norm_l))))
-        max_idx = argmax(ccf_val)
-        global_shift = max_idx - 1
-        if global_shift > n_bins ÷ 2
-            global_shift -= n_bins
-        end
+        global_shift = argmax(ccf_val) - 1
+        if global_shift > n_bins ÷ 2; global_shift -= n_bins; end
         println(">>> Detected global profile shift (High vs Low): ", global_shift, " bins")
 
-        # Aktualizujemy punkty startowe dla High o wykryte przesunięcie
+        # Startowe dla High = parametry z Low + globalne przesunięcie
         p0_h = copy(params_l)
-        for k in 1:3
-            idx = 3*(k-1) + 2 # indeksy pozycji mu: 2, 5, 8
+        for k in 1:n_comps
+            idx = 3*(k-1) + 2
             new_pos = p0_h[idx] + global_shift
-            
-            # Obsługa zawijania (wrapping) pozycji
-            if new_pos < 1.0 new_pos += n_bins end
-            if new_pos > n_bins new_pos -= n_bins end
-            
+            if new_pos < 1.0; new_pos += n_bins; end
+            if new_pos > n_bins; new_pos -= n_bins; end
             p0_h[idx] = clamp(new_pos, 2.0, Float64(n_bins)-2.0)
         end
 
-        println("--- Fitting Integrated High Frequency Profile (smart start) ---")
-        fit_h = fit_gaussians(bins, norm_h, 3; p0=p0_h, lower=lower_bounds, upper=upper_bounds)
+        println("--- Fitting Integrated High Frequency Profile ---")
+        fit_h = fit_gaussians(bins, norm_h, n_comps; p0=p0_h, lower=lower_bounds, upper=upper_bounds)
         params_h = sort_gaussians_params(fit_h.param)
 
-        # Obliczanie offsetów
+        # Obliczanie offsetów dla średniego profilu
         offsets = ComponentOffset[]
-        for k in 1:3
+        for k in 1:n_comps
             mu_l = params_l[3*(k-1)+2]
             mu_h = params_h[3*(k-1)+2]
-            # Obliczanie najkrótszej różnicy (uwzględnia cykliczność)
             diff = mu_h - mu_l
             diff = mod(diff + n_bins/2, n_bins) - n_bins/2
             push!(offsets, ComponentOffset(diff))
         end
 
-        # --- Rysowanie Wyników ---
-        println("\n--- Plotting Integrated Results ---")
-        fig = Figure(size = (1000, 800))
-        colors = [:red, :green, :blue]
+        # --- Rysowanie: Profil Średni ---
+        fig = Figure(size = (1000, 900))
+        colors = [:red, :green, :blue, :orange, :purple] # Zapas kolorów
+        safe_colors = [colors[mod(i-1, length(colors))+1] for i in 1:n_comps]
 
         # Panel 1: Low Freq
         ax1 = Axis(fig[1, 1], title="Low Frequency (Integrated)", xlabel="Biny", ylabel="Intensywność")
         scatter!(ax1, bins, norm_l, color=:gray, markersize=3, label="Dane")
         lines!(ax1, bins, gaussian_model(bins, params_l), color=:black, linewidth=2, label="Model")
-        for k in 1:3
-            lines!(ax1, bins, gaussian_model(bins, params_l[3*(k-1)+1:3*k]), color=colors[k], linestyle=:dash, linewidth=2, label="G$k")
+        for k in 1:n_comps
+            lines!(ax1, bins, gaussian_model(bins, params_l[3*(k-1)+1:3*k]), color=safe_colors[k], linestyle=:dash, linewidth=2, label="G$k")
         end
         axislegend(ax1)
 
@@ -1034,50 +1059,124 @@ module Data
         ax2 = Axis(fig[2, 1], title="High Frequency (Integrated)", xlabel="Biny", ylabel="Intensywność")
         scatter!(ax2, bins, norm_h, color=:gray, markersize=3, label="Dane")
         lines!(ax2, bins, gaussian_model(bins, params_h), color=:black, linewidth=2, label="Model")
-        for k in 1:3
-            lines!(ax2, bins, gaussian_model(bins, params_h[3*(k-1)+1:3*k]), color=colors[k], linestyle=:dash, linewidth=2, label="G$k")
+        for k in 1:n_comps
+            lines!(ax2, bins, gaussian_model(bins, params_h[3*(k-1)+1:3*k]), color=safe_colors[k], linestyle=:dash, linewidth=2, label="G$k")
         end
         axislegend(ax2)
 
-        # Panel 3: Porównanie pozycji (znormalizowane do 1 dla czytelności pozycji)
-        ax3 = Axis(fig[3, 1], title="Przesunięcie komponentów (Ciągła=Low, Przerywana=High)", xlabel="Biny")
-        for k in 1:3
+        # Panel 3: Porównanie komponentów
+        ax3 = Axis(fig[3, 1], title="Przesunięcie średnie (Ciągła=Low, Przerywana=High)", xlabel="Biny")
+        for k in 1:n_comps
             p_l_k = params_l[3*(k-1)+1:3*k]
             p_h_k = params_h[3*(k-1)+1:3*k]
             
-            # Rysujemy same "górki" znormalizowane do 1, żeby widzieć przesunięcie centrum
+            # Rysujemy znormalizowane gauss'y
             y_l = gaussian_model(bins, p_l_k) ./ maximum(gaussian_model(bins, p_l_k))
             y_h = gaussian_model(bins, p_h_k) ./ maximum(gaussian_model(bins, p_h_k))
             
-            lines!(ax3, bins, y_l, color=colors[k], linewidth=2, label="L G$k")
-            lines!(ax3, bins, y_h, color=colors[k], linestyle=:dash, linewidth=2, label="H G$k")
-            
-            # Wypisz offset na wykresie
+            lines!(ax3, bins, y_l, color=safe_colors[k], linewidth=2, label="L G$k")
+            lines!(ax3, bins, y_h, color=safe_colors[k], linestyle=:dash, linewidth=2, label="H G$k")
             off_val = offsets[k].offset_bins
-            text!(ax3, params_l[3*(k-1)+2], 0.5, text=@sprintf("Δ=%.2f", off_val), color=colors[k], fontsize=14, align=(:center, :bottom))
+            text!(ax3, params_l[3*(k-1)+2], 0.5, text=@sprintf("Δ=%.2f", off_val), color=safe_colors[k], fontsize=14, align=(:center, :bottom))
         end
-        axislegend(ax3, position=:rt)
         
         out_name_base = "gaussian_fit_integrated_$(type)"
         save(joinpath(indir, out_name_base * ".pdf"), fig)
-        save(joinpath(indir, out_name_base * ".png"), fig)
-        println(">>> Saved integrated fit plot: " * out_name_base)
         
-        # Raportowanie
-        println("\n--- Integrated Fit Results ---")
-        for k in 1:3
-             @printf("Component G%d Offset: %.4f bins\n", k, offsets[k].offset_bins)
-        end
-
-        # Zapis do CSV
+        # Zapis statystyk średnich
         out_path = joinpath(indir, "gaussian_offsets_integrated_$(type).csv")
-        csv_data = Matrix{Any}(undef, 3, 2)
-        for k in 1:3
+        csv_data = Matrix{Any}(undef, n_comps, 2)
+        println("\n--- Integrated Fit Results ---")
+        for k in 1:n_comps
+             @printf("Component G%d Offset: %.4f bins\n", k, offsets[k].offset_bins)
             csv_data[k, 1] = k
             csv_data[k, 2] = offsets[k].offset_bins
         end
         writedlm(out_path, csv_data, ',')
-        println(">>> Data saved to: ", out_path)
+
+        # --- 4. Analiza fazowa P3 (Phase-resolved) ---
+        println("\n--- Starting Phase-Resolved Analysis (per P3 bin) ---")
+        
+        n_phases = size(l_matrix, 1)
+        phase_offsets = fill(NaN, n_phases, n_comps)
+        
+        # Pętla po wierszach (fazach P3)
+        for i in 1:n_phases
+            row_l = vec(l_matrix[i, :])
+            row_h = vec(h_matrix[i, :])
+            
+            # Warunek SNR: jeśli max wiersza jest mały w porównaniu do szumu średniego
+            if maximum(row_l) < 0.2 * maximum(mean_l) 
+                continue 
+            end
+
+            try
+                n_l_row = normalize_vec(row_l)
+                n_h_row = normalize_vec(row_h)
+
+                # Fit Low: Startujemy z parametrów średnich (params_l) aby zachować tożsamość komponentów
+                # Ale pozwalamy na lekkie zmiany
+                f_l = fit_gaussians(bins, n_l_row, n_comps; p0=params_l, lower=lower_bounds, upper=upper_bounds)
+                
+                # Fit High: Startujemy z parametrów średnich (params_h)
+                f_h = fit_gaussians(bins, n_h_row, n_comps; p0=params_h, lower=lower_bounds, upper=upper_bounds)
+                
+                # Wyciągnij parametry (zakładamy, że kolejność się zachowała dzięki dobremu p0)
+                pl = f_l.param
+                ph = f_h.param
+                
+                for k in 1:n_comps
+                    mu_l_ph = pl[3*(k-1)+2]
+                    mu_h_ph = ph[3*(k-1)+2]
+                    
+                    diff = mu_h_ph - mu_l_ph
+                    diff = mod(diff + n_bins/2, n_bins) - n_bins/2
+                    
+                    # Odrzucamy absurdalne skoki (np. > 20% szerokości pulsu od średniej)
+                    if abs(diff) < n_bins * 0.2
+                        phase_offsets[i, k] = diff
+                    end
+                end
+            catch
+                # Błąd dopasowania w danej fazie - ignorujemy
+            end
+        end
+
+        # --- Rysowanie: Offset vs Faza P3 ---
+        fig_phase = Figure(size = (900, 600))
+        ax_ph = Axis(fig_phase[1, 1], 
+            title="Offset między częstotliwościami w funkcji fazy P3", 
+            xlabel="Faza P3 (nr wiersza)", ylabel="Offset (biny) [High - Low]",
+            xgridvisible=true, ygridvisible=true)
+        
+        phases = 1:n_phases
+        for k in 1:n_comps
+            vals = phase_offsets[:, k]
+            # Filtrujemy NaN do rysowania
+            mask = .!isnan.(vals)
+            if any(mask)
+                lines!(ax_ph, phases[mask], vals[mask], label="G$k", color=safe_colors[k], linewidth=2)
+                scatter!(ax_ph, phases[mask], vals[mask], color=safe_colors[k], markersize=8)
+            end
+        end
+        axislegend(ax_ph)
+        
+        save(joinpath(indir, "gaussian_offsets_phase_resolved_$(type).pdf"), fig_phase)
+        println(">>> Phase-resolved plot saved: gaussian_offsets_phase_resolved_$(type).pdf")
+        
+        # Zapis danych fazowych do CSV
+        out_ph_csv = joinpath(indir, "gaussian_offsets_phase_resolved_$(type).csv")
+        # Nagłówek i dane
+        open(out_ph_csv, "w") do io
+            println(io, "Phase_Bin," * join(["G$(k)_Offset" for k in 1:n_comps], ","))
+            for i in 1:n_phases
+                line = ["$i"]
+                for k in 1:n_comps
+                    push!(line, @sprintf("%.4f", phase_offsets[i, k]))
+                end
+                println(io, join(line, ","))
+            end
+        end
 
         return offsets
     end
