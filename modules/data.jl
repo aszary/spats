@@ -879,7 +879,7 @@ module Data
 
         println(size(nl))
 
-        Plot.analyse_p3folds(nl, nh, p)
+        #Plot.analyse_p3folds(nl, nh, p)
         Plot.analyse_p3folds2(nl, nh, p)
 
     end
