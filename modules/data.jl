@@ -917,20 +917,13 @@ function analyse_p3folds_16_new(indir, type)
     
     # Wywołujemy funkcję, którą przygotowaliśmy wcześniej
     # analyse_p3_folds automatycznie sprawdzi p["p3"] i zrobi wykresy
-    fft_results = Plot.analyse_p3folds(nl, nh, p; method=:phase_slope)
+     Plot.analyse_fft_offsets(nl, nh, p; method=:phase_slope)
 
-    # Opcjonalnie: Zapisanie wyników do pliku tekstowego w folderze indir
-    open(joinpath(indir, "fft_offsets_$(type).txt"), "w") do io
-        println(io, "# Pulse_Idx  Offset_Deg  Error_Deg")
-        for i in 1:length(fft_results.idx)
-            @printf(io, "%d  %.4f  %.4f\n", 
-                    fft_results.idx[i], fft_results.off[i], fft_results.err[i])
-        end
-    end
+
 
     println(">>> Analiza zakończona. Wyniki zapisano w fft_offsets_$(type).txt")
     
-    return fft_results
+    
 end
 
  
