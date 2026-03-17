@@ -11,7 +11,7 @@ Methods available:
 
 Units: bins, degrees, milliseconds.
 """
-module FFTCrossCorr
+module FFT
 
 using FFTW
 using Statistics: mean, std
