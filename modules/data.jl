@@ -879,7 +879,7 @@ module Data
 
         println(size(nl))
 
-        #Plot.analyse_p3folds(nl, nh, p)
+        Plot.analyse_p3folds(nl, nh, p)
         Plot.analyse_p3folds2(nl, nh, p)
 
     end
@@ -917,7 +917,7 @@ function analyse_p3folds_16_new(indir, type)
     
     # Wywołujemy funkcję, którą przygotowaliśmy wcześniej
     # analyse_p3_folds automatycznie sprawdzi p["p3"] i zrobi wykresy
-    fft_results = analyse_p3_folds(nl, nh, p; method=:phase_slope)
+    fft_results = analyse_p3folds(nl, nh, p)
 
     # Opcjonalnie: Zapisanie wyników do pliku tekstowego w folderze indir
     open(joinpath(indir, "fft_offsets_$(type).txt"), "w") do io
