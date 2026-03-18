@@ -210,9 +210,12 @@ the off-pulse RMS), recomputes the offset, and returns the standard deviation.
 - `method` : `:standard`, `:phase_corr`, or `:phase_slope`
 - `n_boot` : number of bootstrap iterations (default 1000)
 """
+
+
+
 function bootstrap_uncertainty(prof_high::AbstractVector, prof_low::AbstractVector,
                                 method::Symbol=:standard;
-                                n_boot::Int=1000,
+                                n_boot::Int=100,
                                 nbin::Union{Int,Nothing}=nothing,
                                 period_s::Float64=1.0,
                                 kw...)
@@ -220,14 +223,17 @@ function bootstrap_uncertainty(prof_high::AbstractVector, prof_low::AbstractVect
     N    = length(prof_high)
     Nb   = isnothing(nbin) ? N : nbin
 
-    # Estimate noise from lowest 20% of bins (proxy for off-pulse)
+    # Estymacja szumu
     noise_h = std(sort(prof_high)[1:max(1, N÷5)])
     noise_l = std(sort(prof_low )[1:max(1, N÷5)])
 
     offsets = Vector{Float64}(undef, n_boot)
     for i in 1:n_boot
+        # Dodajemy losowy szum (Bootstrap)
         ph = prof_high .+ noise_h .* randn(N)
         pl = prof_low  .+ noise_l .* randn(N)
+        
+        # Wybór metody
         offsets[i] = if method == :standard
             xcorr_fft(ph, pl; phase_corr=false)
         elseif method == :phase_corr
@@ -235,16 +241,34 @@ function bootstrap_uncertainty(prof_high::AbstractVector, prof_low::AbstractVect
         elseif method == :phase_slope
             xcorr_phase_slope(ph, pl; kw...)
         else
-            error("Unknown method: $method. Use :standard, :phase_corr, or :phase_slope.")
+            error("Unknown method: $method")
         end
     end
 
+    # --- KLUCZOWA POPRAWKA TUTAJ ---
     offset_mean = mean(offsets)
-    σ_bins      = std(offsets)
+    # Przeliczamy ŚREDNIĄ na stopnie i ms
+    off_deg, off_ms = _convert(offset_mean, Nb, period_s)
+    
+    σ_bins = std(offsets)
+    # Przeliczamy BŁĄD (sigma) na stopnie i ms
     σ_deg, σ_ms = _convert(σ_bins, Nb, period_s)
 
-    return (offset_bins=offset_mean, σ_bins=σ_bins, σ_deg=σ_deg, σ_ms=σ_ms)
+    # Zwracamy wszystkie pola, których szuka funkcja plotująca
+    return (
+        offset_bins = offset_mean, 
+        offset_deg  = off_deg,     # To pole było brakujące!
+        offset_ms   = off_ms,      # To też się przyda
+        σ_bins      = σ_bins, 
+        σ_deg       = σ_deg, 
+        σ_ms        = σ_ms
+    )
 end
+
+
+
+
+
 
 
 """
