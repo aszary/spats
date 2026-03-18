@@ -797,8 +797,24 @@ using Printf
 Analiza przesunięć fazowych między dwiema częstotliwościami dla każdego impulsu.
 Wykorzystuje parametry z pliku JSON (bin_st, bin_end, pulse_start/end).
 """
-function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict; method=:standard)
-    # Wyciąganie zakresów z JSON (obsługa 'nothing')
+
+"""
+    analyse_fft_offsets(low, high, p; method=:standard, manual_period=nothing)
+
+Analizuje przesunięcia. Jeśli `p` nie ma "period_s", używa `manual_period`.
+"""
+function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict; 
+                            method=:standard, manual_period=nothing)
+    
+    # 1. Rozwiązanie problemu braku okresu
+    # Szukamy w słowniku, jeśli nie ma - bierzemy z argumentu, jeśli tam też nic - domyślnie 1.0
+    period = get(p, "period_s", manual_period)
+    if isnothing(period)
+        period = 1.0
+        @warn "Brak 'period_s' w parametrach i nie podano manual_period. Wyniki w 'ms' będą niewiarygodne (użyto 1.0s)."
+    end
+
+    # 2. Zakresy binów i impulsów
     b_st = isnothing(p["bin_st"]) ? 1 : p["bin_st"]
     b_end = isnothing(p["bin_end"]) ? size(low, 2) : p["bin_end"]
     p_st = p["pulse_start"]
@@ -806,38 +822,36 @@ function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict;
     
     bin_range = b_st:b_end
     pulse_indices = p_st:p_end
+    nbin_actual = length(bin_range)
     
-    # Kontener na wyniki
     results = (idx=Int[], off=Float64[], err=Float64[])
 
-    println("\n" * "─"^50)
-    @printf("Analiza FFT [%s] | Biny: %d-%d | Impulsy: %d-%d\n", 
-            string(method), b_st, b_end, p_st, p_end)
-    println("─"^50)
+    println("\n" * "─"^60)
+    @printf("Analiza FFT [%s] | Okres: %.4fs | Biny: %d\n", string(method), period, nbin_actual)
+    println("─"^60)
 
     for i in pulse_indices
         y_low = low[i, bin_range]
         y_high = high[i, bin_range]
         
-        # Obliczanie przesunięcia z bootstrapem (n_boot=100 dla szybkości)
-
-
-        # TODO : NIE MA PERIOD W PARAMSJSON NIGDZIE 
+        # Przekazujemy ustalony okres do bootstrapu
         boot = FFT.bootstrap_uncertainty(
             y_high, y_low, method; 
             n_boot=100, 
-            period_s=get(p, "period_s", 1.0)
+            period_s=period,
+            nbin=nbin_actual # ważne: informujemy o faktycznej liczbie binów w oknie
         )
 
         push!(results.idx, i)
         push!(results.off, boot.offset_deg)
         push!(results.err, boot.σ_deg)
 
-        # Log do konsoli co 10 impulsów
         if i % 10 == 0
-            @printf("Pulse %4d: %+7.3f° ± %.3f°\n", i, boot.offset_deg, boot.σ_deg)
+            @printf("Pulse %4d: %+7.3f° ± %.3f° (%+.3f ms)\n", 
+                    i, boot.offset_deg, boot.σ_deg, boot.offset_ms)
         end
-    end
+    end 
+    
 
     # Wykres końcowy
     figure(figsize=(10, 5))
