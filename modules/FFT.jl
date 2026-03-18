@@ -223,17 +223,17 @@ function bootstrap_uncertainty(prof_high::AbstractVector, prof_low::AbstractVect
     N    = length(prof_high)
     Nb   = isnothing(nbin) ? N : nbin
 
-    # Estymacja szumu
+    # Estimate noise from lowest 20% of bins (proxy for off-pulse)
     noise_h = std(sort(prof_high)[1:max(1, N÷5)])
     noise_l = std(sort(prof_low )[1:max(1, N÷5)])
 
     offsets = Vector{Float64}(undef, n_boot)
     for i in 1:n_boot
-        # Dodajemy losowy szum (Bootstrap)
+        # Random noise bootstrap method
         ph = prof_high .+ noise_h .* randn(N)
         pl = prof_low  .+ noise_l .* randn(N)
         
-        # Wybór metody
+        # Method
         offsets[i] = if method == :standard
             xcorr_fft(ph, pl; phase_corr=false)
         elseif method == :phase_corr
@@ -245,20 +245,19 @@ function bootstrap_uncertainty(prof_high::AbstractVector, prof_low::AbstractVect
         end
     end
 
-    # --- KLUCZOWA POPRAWKA TUTAJ ---
     offset_mean = mean(offsets)
-    # Przeliczamy ŚREDNIĄ na stopnie i ms
+    # mean offset to deg
     off_deg, off_ms = _convert(offset_mean, Nb, period_s)
     
     σ_bins = std(offsets)
-    # Przeliczamy BŁĄD (sigma) na stopnie i ms
+    #error calculation to deg and ms
     σ_deg, σ_ms = _convert(σ_bins, Nb, period_s)
 
-    # Zwracamy wszystkie pola, których szuka funkcja plotująca
+    
     return (
         offset_bins = offset_mean, 
-        offset_deg  = off_deg,     # To pole było brakujące!
-        offset_ms   = off_ms,      # To też się przyda
+        offset_deg  = off_deg,     
+        offset_ms   = off_ms,      
         σ_bins      = σ_bins, 
         σ_deg       = σ_deg, 
         σ_ms        = σ_ms

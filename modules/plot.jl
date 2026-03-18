@@ -777,6 +777,7 @@ module Plot
         end
     end    
 
+
     function analyse_p3folds3(low, high, p)
         pulses, bins = size(low)
 
@@ -791,18 +792,153 @@ module Plot
 using PyPlot
 using Printf
 
+
+
+
+
+
+function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict; 
+                            method=:standard, manual_period=nothing)
+    
+    # Parametry i okres
+    period = get(p, "period_s", manual_period)
+    period = isnothing(period) ? 1.0 : period
+
+    b_st = isnothing(p["bin_st"]) ? 1 : p["bin_st"]
+    b_end = isnothing(p["bin_end"]) ? size(low, 2) : p["bin_end"]
+    p_st = p["pulse_start"]
+    p_end = min(p["pulse_end"], size(low, 1))
+    
+    bin_range = b_st:b_end
+    x_data = collect(bin_range)
+    pulse_indices = p_st:p_end
+    
+    results = (idx=Int[], off=Float64[], err=Float64[])
+
+    println("\n" * "─"^60)
+    @printf("Analiza FFT [%s] | Biny: %d | Impulsy: %d-%d\n", string(method), length(bin_range), p_st, p_end)
+    println("─"^60)
+
+    for i in pulse_indices
+        y_low = low[i, bin_range]
+        y_high = high[i, bin_range]
+        
+        # Obliczanie przesunięcia
+        boot = FFTCrossCorr.bootstrap_uncertainty(
+            y_high, y_low, method; 
+            n_boot=100, period_s=period, nbin=length(bin_range)
+        )
+
+        push!(results.idx, i)
+        push!(results.off, boot.offset_deg)
+        push!(results.err, boot.σ_deg)
+
+        # --- SEKCJA PLOTOWANIA ---
+        figure(figsize=(7, 8))
+        
+        # Panel 1: Surowe dane i położenie szczytów
+        subplot(2, 1, 1)
+        plot(x_data, y_low,  color="#2196F3", label="Low Freq", lw=1.5)
+        plot(x_data, y_high, color="#FF9800", label="High Freq", lw=1.5, alpha=0.8)
+        
+        # Zaznaczamy wierzchołki pionowymi liniami
+        axvline(x_data[argmax(y_low)],  color="#1565C0", ls="--", alpha=0.5)
+        axvline(x_data[argmax(y_high)], color="#E65100", ls="--", alpha=0.5)
+        
+        title("Pulse $i: Raw Profiles\nOffset: $(round(boot.offset_deg, digits=3))° ± $(round(boot.σ_deg, digits=3))°")
+        ylabel("Amplituda")
+        legend()
+        grid(true, alpha=0.2)
+
+        # Panel 2: Sprawdzenie dopasowania (Shift check)
+        # Przesuwamy profil 'high' o wyliczony offset kołowo, żeby zobaczyć czy nałoży się na 'low'
+        # To jest wizualny dowód, że FFT zadziałało poprawnie.
+        subplot(2, 1, 2)
+        shift_bins = Int(round(boot.offset_bins))
+        y_high_shifted = circshift(y_high, -shift_bins) # Minus, bo offset high->low
+        
+        plot(x_data, y_low, color="#2196F3", label="Low (Ref)", lw=1)
+        plot(x_data, y_high_shifted, color="red", label="High (Shifted)", lw=2, alpha=0.6)
+        
+        title("Visual Alignment Check (Shift: $shift_bins bins)")
+        xlabel("Bin")
+        ylabel("Amplituda")
+        legend()
+        grid(true, alpha=0.2)
+
+        tight_layout()
+        show()
+
+        # Interakcja
+        @printf("Pulse %4d: %+7.3f° ± %.3f° | Enter=Next, q=Quit\n", i, boot.offset_deg, boot.σ_deg)
+        user_input = readline(stdin; keep=false)
+        close()
+        
+        if lowercase(strip(user_input)) == "q"
+            println("Exiting analysis.")
+            break
+        end
+    end 
+    
+    return results
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#=
+
+
+dzialalo ale sam wynik wyzje z plotem moze zadziala
     analyse_fft_offsets(low, high, p; method=:standard)
 
 Analiza przesunięć fazowych między dwiema częstotliwościami dla każdego impulsu.
 Wykorzystuje parametry z pliku JSON (bin_st, bin_end, pulse_start/end).
-"""
 
-"""
+
     analyse_fft_offsets(low, high, p; method=:standard, manual_period=nothing)
 
 Analizuje przesunięcia. Jeśli `p` nie ma "period_s", używa `manual_period`.
-"""
+
+=#
+
+
 function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict; 
                             method=:standard, manual_period=nothing)
     
@@ -899,5 +1035,6 @@ function analyse_p3_folds_FFT(low::AbstractMatrix, high::AbstractMatrix, p::Dict
 
     return (base_res..., p3_phases=phases)
 end
+"""
 
 end  # module Plot
