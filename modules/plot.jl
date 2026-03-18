@@ -27,8 +27,6 @@ module Plot
     include("functions.jl")
     include("FFT.jl")
 
-    """
-
     function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
         num, bins = size(data)
         if number == nothing
