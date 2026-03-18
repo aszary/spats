@@ -1003,6 +1003,8 @@ function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict;
 
     return results
 end
+"""
+
 
 """
     analyse_p3_folds(low, high, p; method=:phase_slope)
@@ -1035,6 +1037,6 @@ function analyse_p3_folds_FFT(low::AbstractMatrix, high::AbstractMatrix, p::Dict
 
     return (base_res..., p3_phases=phases)
 end
-"""
+
 
 end  # module Plot
