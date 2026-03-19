@@ -950,7 +950,7 @@ module Data
             mean_l_roi[Int(bin_end)+1:end] .= 0.0
             mean_h_roi[Int(bin_end)+1:end] .= 0.0
         end
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.10, n_comp=n_comp)
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.15, n_comp=n_comp)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
         # Counter for valid phases

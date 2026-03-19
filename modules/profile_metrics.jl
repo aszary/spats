@@ -104,8 +104,9 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     results = []
     for p in selected_peaks
         # 2. Define the Component Window Boundaries
-        # Stop scanning outwards when we hit a local minimum or signal drops below 30% of peak
-        cut_off = p_ref[p] * 0.3
+        # Stop scanning outwards when we hit a local minimum or signal drops below the 5% noise floor.
+        # This ensures we integrate the *entire* physical component, not just the tip.
+        cut_off = 0.05
         
         left = p
         while left > 1 && p_ref[left] > cut_off && p_ref[left-1] <= p_ref[left]

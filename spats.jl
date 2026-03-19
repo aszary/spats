@@ -275,7 +275,7 @@ module SpaTs
 
         # J1842-0359 - robust fourier/barycenter offset analysis
         # Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine", 1.841; n_comp=3)
-        Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine", 0.3635; n_comp=3)
+        Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine", 0.3635; n_comp=2)
 
 
 
