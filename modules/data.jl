@@ -15,8 +15,6 @@ module Data
     include("plot.jl")
     include("profile_metrics.jl")
     using .ProfileMetrics
-    include("gaussian_fit.jl")
-    using .GaussianFit
 
 
     """
@@ -1040,140 +1038,90 @@ module Data
         long_values = Float64[]
 
         if isfile(lrfs_file)
-            println("Loading LRFS file: $lrfs_file")
-            lrfs_data = load_ascii_all(lrfs_file) # (Freq, Bin, Pol)
+            lrfs_data = load_ascii_all(lrfs_file) 
             n_freqs, n_lrfs_bins, n_pols = size(lrfs_data)
-            
-            # Oś częstotliwości (0 do 0.5 cpp)
             freqs = range(0.0, 0.5, length=n_freqs)
             
             for k in 1:n_comps
-                # 1. Średnia Longitude (w binach)
-                mu_l = fit_l.components[k].mu
-                mu_h = fit_h.components[k].mu
-                phi_avg = (mu_l + mu_h) / 2.0 
+                phi_avg = (comps[k].com_low + comps[k].com_high) / 2.0
+                b_idx = clamp(round(Int, phi_avg), 1, n_lrfs_bins)
                 
-                # 2. Wyznacz P3 dla tej składowej (z LRFS)
-                # Mapujemy pozycję na bin LRFS (zakładając tę samą szerokość okna on-pulse)
-                b_idx = round(Int, phi_avg)
-                b_idx = clamp(b_idx, 1, n_lrfs_bins)
-                
-                # Widmo w tym punkcie (Stokes I)
                 spectrum = lrfs_data[:, b_idx, 1]
-                
-                # Znajdź szczyt (pomijając DC i bardzo niskie częstotliwości)
                 valid_range = 3:n_freqs 
                 if !isempty(valid_range)
                     max_i = argmax(spectrum[valid_range]) + (valid_range[1] - 1)
                     peak_freq = freqs[max_i]
-                    
-                    if peak_freq > 0.01 # Zabezpieczenie przed dzieleniem przez ~0
-                        p3_val = 1.0 / peak_freq
-                        push!(p3_values, p3_val)
+                    if peak_freq > 0.01
+                        push!(p3_values, 1.0 / peak_freq)
                         push!(long_values, phi_avg)
-                        @printf("Component G%d: Phi_avg=%.2f, Local P3=%.4f (P0)\n", k, phi_avg, p3_val)
                     end
                 end
             end
             
-            # Rysowanie
             if !isempty(p3_values)
                 fig_p3 = Figure(size = (700, 500))
-                ax_p3 = Axis(fig_p3[1, 1], title="Modulation Period (P3) vs Longitude", xlabel="Longitude (bins)", ylabel="P3 (P0 units)", xgridvisible=true, ygridvisible=true)
-                
-                scatter!(ax_p3, long_values, p3_values, color=:red, markersize=15, label="Components")
-                
-                save(joinpath(indir, "$(pulsar_name)_p3_vs_longitude_$(type).pdf"), fig_p3)
-                println(">>> P3 vs Longitude plot saved: $(pulsar_name)_p3_vs_longitude_$(type).pdf")
+                ax_p3 = Axis(fig_p3[1, 1], title="Modulation Period (P3) vs Phase", xlabel="Phase (bins)", ylabel="P3 (P0 units)", xgridvisible=true, ygridvisible=true)
+                scatter!(ax_p3, long_values, p3_values, color=:red, markersize=15)
+                save(joinpath(indir, "$(pulsar_name)_fourier_p3_vs_phase_$(type).pdf"), fig_p3)
             end
-        else
-            println("LRFS file not found ($lrfs_file). Skipping P3 plot.")
         end
 
-        # --- 4. Analiza fazowa P3 (Phase-resolved) ---
+        # --- 6. Phase-resolved P3 Analysis ---
         println("\n--- Starting Phase-Resolved Analysis (per P3 bin) ---")
-        
         n_phases = size(l_matrix, 1)
         phase_offsets = fill(NaN, n_phases, n_comps)
+        windows = [(c.left_bound, c.right_bound) for c in comps]
         
-        # Pętla po wierszach (fazach P3)
         for i in 1:n_phases
             row_l = vec(l_matrix[i, :])
             row_h = vec(h_matrix[i, :])
             
-            # Warunek SNR: jeśli max wiersza jest mały w porównaniu do szumu średniego
+            # SNR condition: if row max is small compared to the integrated peak
             if maximum(row_l) < 0.2 * maximum(mean_l) 
                 continue 
             end
 
-            try
-                n_l_row = normalize_01(row_l)
-                n_h_row = normalize_01(row_h)
-                
-                # Fit Low: Startujemy z parametrów średnich (params_l) aby zachować tożsamość komponentów
-                f_l = GaussianFit.fit_gaussians(bins, n_l_row, n_comps; p0=fit_l.params)
-                
-                # Fit High: Startujemy z parametrów średnich (params_h)
-                f_h = GaussianFit.fit_gaussians(bins, n_h_row, n_comps; p0=fit_h.params)
-                
-                if f_l.converged && f_h.converged
-                    for k in 1:n_comps
-                        diff = f_h.components[k].mu - f_l.components[k].mu
-                        diff = mod(diff + n_bins/2, n_bins) - n_bins/2
-                        
-                        if abs(diff) < n_bins * 0.2
-                            phase_offsets[i, k] = diff
-                        end
-                    end
+            offsets_fixed = ProfileMetrics.component_barycenters_fixed_windows(row_l, row_h, windows)
+            for k in 1:n_comps
+                if !isnan(offsets_fixed[k]) && abs(offsets_fixed[k]) < n_bins * 0.2
+                    phase_offsets[i, k] = offsets_fixed[k]
                 end
-            catch
-                # Błąd dopasowania w danej fazie - ignorujemy
             end
         end
 
-        # --- Rysowanie: Offset vs Faza P3 ---
+        # --- Plotting: Phase-Resolved Offsets ---
         fig_phase = Figure(size = (900, 600))
-        ax_ph = Axis(fig_phase[1, 1], 
-            title="Offset między częstotliwościami w funkcji fazy P3", 
-            xlabel="Faza P3 (nr wiersza)", ylabel="Offset (biny) [High - Low]",
-            xgridvisible=true, ygridvisible=true)
+        ax_ph = Axis(fig_phase[1, 1], title="Phase-Resolved Offset (Fourier/Barycenter)", xlabel="P3 Phase (Row)", ylabel="Offset (bins)", xgridvisible=true, ygridvisible=true)
         
         phases = 1:n_phases
         has_plots = false
         for k in 1:n_comps
             vals = phase_offsets[:, k]
-            # Filtrujemy NaN do rysowania
             mask = .!isnan.(vals)
             if any(mask)
-                lines!(ax_ph, phases[mask], vals[mask], label="G$k", color=safe_colors[k], linewidth=2)
+                lines!(ax_ph, phases[mask], vals[mask], label="C$k", color=safe_colors[k], linewidth=2)
                 scatter!(ax_ph, phases[mask], vals[mask], color=safe_colors[k], markersize=8)
                 has_plots = true
             end
         end
-        if has_plots
-            axislegend(ax_ph)
-        else
-            text!(ax_ph, 0.5, 0.5, text="No valid data points (low SNR or fit fail)", align=(:center, :center))
-        end
+        if has_plots; axislegend(ax_ph); end
         
-        save(joinpath(indir, "$(pulsar_name)_gaussian_offsets_phase_resolved_$(type).pdf"), fig_phase)
-        println(">>> Phase-resolved plot saved: $(pulsar_name)_gaussian_offsets_phase_resolved_$(type).pdf")
-        
-        # Zapis danych fazowych do CSV
-        out_ph_csv = joinpath(indir, "$(pulsar_name)_gaussian_offsets_phase_resolved_$(type).csv")
-        # Nagłówek i dane
+        save(joinpath(indir, "$(pulsar_name)_fourier_phase_resolved_$(type).pdf"), fig_phase)
+
+        # Save phase-resolved data to CSV
+        out_ph_csv = joinpath(indir, "$(pulsar_name)_fourier_phase_resolved_$(type).csv")
         open(out_ph_csv, "w") do io
-            println(io, "Phase_Bin," * join(["G$(k)_Offset" for k in 1:n_comps], ","))
+            println(io, "Phase_Bin," * join(["C$(k)_Offset" for k in 1:n_comps], ","))
             for i in 1:n_phases
                 line = ["$i"]
                 for k in 1:n_comps
-                    push!(line, @sprintf("%.4f", phase_offsets[i, k]))
+                    push!(line, isnan(phase_offsets[i, k]) ? "NaN" : @sprintf("%.4f", phase_offsets[i, k]))
                 end
                 println(io, join(line, ","))
             end
         end
 
-        return offsets_raw
+        return comps
     end
 
     # Pomocnicza normalizacja wewnątrz modułu

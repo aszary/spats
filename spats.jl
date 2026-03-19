@@ -274,9 +274,9 @@ module SpaTs
 
 
 
-        # J1842-0359 - robust gaussian offset analysis
-        # Data.analyse_offsets_gauss(vpmout*"J1842-0359_16", "norefine", 1.841)
-        Data.analyse_offsets_gauss(vpmout*"J1539-6322_16", "norefine", 0.3635)
+        # J1842-0359 - robust fourier/barycenter offset analysis
+        # Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine", 1.841)
+        Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine", 0.3635)
 
 
 
