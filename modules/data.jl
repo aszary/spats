@@ -6,6 +6,7 @@ module Data
     using PDFIO
     using Statistics
     using FFTW
+    using PyPlot
     
     using LsqFit, DSP 
     using DelimitedFiles, Printf
