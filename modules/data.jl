@@ -881,10 +881,11 @@ module Data
 
 
     """
-    Główna funkcja wywoływana ze SpaTs.main()
+    Main function called from SpaTs.main() for robust offset analysis.
+    Uses non-parametric Fourier Phase Gradient and Barycenter methods.
     """
-    function analyse_offsets_gauss(indir, type, period)
-        # --- 1. Konfiguracja i Wczytanie danych ---
+    function analyse_offsets(indir, type, period)
+        # --- 1. Configuration and Data Loading ---
         p = Tools.read_params(joinpath(indir, "params.json"))
         low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
         high_path = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
@@ -892,23 +893,23 @@ module Data
         l_matrix = load_ascii(low_path)
         h_matrix = load_ascii(high_path)
 
-        # Obliczamy profil średni (zintegrowany) z P3 foldów - to drastycznie redukuje szum
-        # Używamy dims=1 aby uśrednić po fazach P3
+        # Calculate the mean (integrated) profile from P3 folds to reduce noise
+        # We use dims=1 to average across P3 phases
         mean_l = vec(mean(l_matrix, dims=1))
         mean_h = vec(mean(h_matrix, dims=1))
         
         n_bins = length(mean_l)
         bins = collect(1.0:n_bins)
 
-        println(">>> Starting Integrated Gaussian Analysis (High SNR): ", indir)
+        println(">>> Starting Integrated Analysis (Fourier/Barycenter): ", indir)
         pulsar_name = basename(rstrip(indir, '/'))
 
-        # Normalizacja
+        # Normalization
         norm_l = normalize_01(mean_l)
         norm_h = normalize_01(mean_h)
 
-        # --- 2. Automatyczna detekcja liczby komponentów i obszaru on-pulse ---
-        # Pobieramy zakres on-pulse, aby nie dopasowywać szumu
+        # --- 2. On-pulse Region Extraction ---
+        # Fetch the on-pulse range to avoid fitting noise
         bin_st = get(p, "bin_st", 1)
         bin_end = get(p, "bin_end", n_bins)
         if isnothing(bin_st) bin_st = 1 end
@@ -918,114 +919,79 @@ module Data
         bin_st_fit = max(1.0, Float64(bin_st) - 5.0)
         bin_end_fit = min(Float64(n_bins), Float64(bin_end) + 5.0)
         
-        println(">>> Fitting constrained to On-Pulse region: $(Int(bin_st)) - $(Int(bin_end))")
+        println(">>> Analysis constrained to On-Pulse region: $(Int(bin_st)) - $(Int(bin_end))")
 
-        # Region of interest for fitting (masking out noise)
+        # Region of interest masking (zeroing out noise outside the on-pulse region)
         norm_l_roi = copy(norm_l)
         if bin_st > 1; norm_l_roi[1:Int(bin_st)] .= 0; end
         if bin_end < n_bins; norm_l_roi[Int(bin_end):end] .= 0; end
 
-        # --- 3. Dopasowanie Profilu Średniego (Integrated) ---
-        println("--- Fitting Integrated Low Frequency Profile ---")
-        # Smart search for the best model directly using our new module
-        fit_l, n_comps, _ = GaussianFit.best_ngaussians(bins, norm_l_roi; max_n=3)
-        GaussianFit.print_fit_summary(fit_l, n_comps, label="Low Freq")
-        
-        if !fit_l.converged
-            println("WARNING: Integrated profile fit failed!")
-        end
-
-        # Wyrównanie zgrubne (CCF) dla High Freq
-        println("--- Aligning High Frequency Profile (CCF) ---")
-        ccf_val = real.(ifft(fft(norm_h) .* conj.(fft(norm_l))))
-        global_shift = argmax(ccf_val) - 1
-        if global_shift > n_bins ÷ 2; global_shift -= n_bins; end
-        println(">>> Detected global profile shift (High vs Low): ", global_shift, " bins")
-
-        # Startowe parametry dla High jako przesunięte z Low
-        p0_h = copy(fit_l.params)
-        for i in 1:n_comps
-            mu_idx = 3*(i-1) + 3 # +3 because [baseline, A1, mu1, sig1, A2...]
-            p0_h[mu_idx] = clamp(p0_h[mu_idx] + global_shift, 2.0, Float64(n_bins)-2.0)
-        end
-        
-        # Mask High profile outside ROI similarly
         norm_h_roi = copy(norm_h)
         if bin_st > 1; norm_h_roi[1:Int(bin_st)] .= 0; end
         if bin_end < n_bins; norm_h_roi[Int(bin_end):end] .= 0; end
 
-        println("--- Fitting Integrated High Frequency Profile ---")
-        fit_h = GaussianFit.fit_gaussians(bins, norm_h_roi, n_comps; p0=p0_h)
-        GaussianFit.print_fit_summary(fit_h, n_comps, label="High Freq")
+        # --- 3. Global Offset (Fourier Phase Gradient) ---
+        global_offset = ProfileMetrics.global_fourier_shift(norm_l_roi, norm_h_roi)
+        @printf(">>> Global Fourier Shift (High vs Low): %.4f bins\n", global_offset)
 
-        # Obliczanie offsetów dla średniego profilu
-        offsets_raw = GaussianFit.component_offsets(fit_h, fit_l; nbin=n_bins)
+        # --- 4. Component Offsets (Barycenter) ---
+        println("--- Calculating Component Barycenters ---")
+        comps = ProfileMetrics.component_barycenters(norm_l_roi, norm_h_roi; threshold=0.15)
+        n_comps = length(comps)
+        println(">>> Detected $n_comps components using Barycenter Method.")
 
-        # --- Rysowanie: Profil Średni ---
+        # --- Plotting: Integrated Profile ---
         fig = Figure(size = (1000, 900))
-        colors = [:red, :green, :blue, :orange, :purple] # Zapas kolorów
-        safe_colors = [colors[mod(i-1, length(colors))+1] for i in 1:n_comps]
+        colors = [:red, :green, :blue, :orange, :purple]
+        safe_colors = [colors[mod(i-1, length(colors))+1] for i in 1:max(1, n_comps)]
 
         # Panel 1: Low Freq
-        ax1 = Axis(fig[1, 1], title="Low Frequency (Integrated)", xlabel="Biny", ylabel="Intensywność")
-        scatter!(ax1, bins, norm_l, color=:gray, markersize=3, label="Dane")
-        if fit_l.converged
-            lines!(ax1, bins, fit_l.yfit, color=:black, linewidth=2, label="Model")
-            comps_y_l = GaussianFit.evaluate_components(bins, fit_l)
-            for k in 1:n_comps
-                lines!(ax1, bins, comps_y_l[k] .+ fit_l.baseline, color=safe_colors[k], linestyle=:dash, linewidth=2, label="G$k")
-            end
+        ax1 = Axis(fig[1, 1], title="Low Frequency (Integrated)", xlabel="Phase (bins)", ylabel="Normalized Intensity")
+        lines!(ax1, bins, norm_l, color=:black, linewidth=2, label="Low Data")
+        
+        # Panel 2: High Freq
+        ax2 = Axis(fig[2, 1], title="High Frequency (Integrated)", xlabel="Phase (bins)", ylabel="Normalized Intensity")
+        lines!(ax2, bins, norm_h, color=:black, linewidth=2, label="High Data")
+        
+        for (k, c) in enumerate(comps)
+            # Shade component windows and mark the center of mass
+            vspan!(ax1, c.left_bound, c.right_bound, color=(safe_colors[k], 0.2))
+            scatter!(ax1, [c.com_low], [norm_l[round(Int, c.com_low)]], color=safe_colors[k], markersize=12)
+            
+            vspan!(ax2, c.left_bound, c.right_bound, color=(safe_colors[k], 0.2))
+            scatter!(ax2, [c.com_high], [norm_h[round(Int, c.com_high)]], color=safe_colors[k], markersize=12)
+            
+            @printf("Component %d: Offset = %.4f bins\n", k, c.offset)
         end
         axislegend(ax1)
-
-        # Panel 2: High Freq
-        ax2 = Axis(fig[2, 1], title="High Frequency (Integrated)", xlabel="Biny", ylabel="Intensywność")
-        scatter!(ax2, bins, norm_h, color=:gray, markersize=3, label="Dane")
-        if fit_h.converged
-            lines!(ax2, bins, fit_h.yfit, color=:black, linewidth=2, label="Model")
-            comps_y_h = GaussianFit.evaluate_components(bins, fit_h)
-            for k in 1:n_comps
-                lines!(ax2, bins, comps_y_h[k] .+ fit_h.baseline, color=safe_colors[k], linestyle=:dash, linewidth=2, label="G$k")
-            end
-        end
         axislegend(ax2)
 
-        # Panel 3: Porównanie komponentów
-        ax3 = Axis(fig[3, 1], title="Przesunięcie średnie (Ciągła=Low, Przerywana=High)", xlabel="Biny")
-        if fit_l.converged && fit_h.converged
-            for k in 1:n_comps
-                cl = fit_l.components[k]
-                ch = fit_h.components[k]
-                # Znormalizowane komponenty (wysokość ~ 1.0)
-                y_l = comps_y_l[k] ./ max(1e-5, cl.A)
-                y_h = comps_y_h[k] ./ max(1e-5, ch.A)
-                
-                lines!(ax3, bins, y_l, color=safe_colors[k], linewidth=2, label="L G$k")
-                lines!(ax3, bins, y_h, color=safe_colors[k], linestyle=:dash, linewidth=2, label="H G$k")
-                
-                # Wrapped offset
-                diff = mod(offsets_raw[k].offset_bins + n_bins/2, n_bins) - n_bins/2
-                text!(ax3, cl.mu, 0.5, text=@sprintf("Δ=%.2f", diff), color=safe_colors[k], fontsize=14, align=(:center, :bottom))
-            end
+        # Panel 3: Profile Comparison
+        ax3 = Axis(fig[3, 1], title="Profile Comparison (Solid=Low, Dashed=High)", xlabel="Phase (bins)")
+        lines!(ax3, bins, norm_l, color=:gray, linewidth=2, label="Low")
+        lines!(ax3, bins, norm_h, color=:black, linestyle=:dash, linewidth=2, label="High")
+        
+        out_name_base = "$(pulsar_name)_integrated_offsets_$(type)"
+        for (k, c) in enumerate(comps)
+            text!(ax3, c.com_low, 0.5, text=@sprintf("Δ=%.2f", c.offset), color=safe_colors[k], fontsize=14, align=(:center, :bottom))
         end
         
-        out_name_base = "$(pulsar_name)_gaussian_fit_integrated_$(type)"
+        out_name_base = "$(pulsar_name)_integrated_offsets_$(type)"
         save(joinpath(indir, out_name_base * ".pdf"), fig)
         
-        # Zapis statystyk średnich
-        out_path = joinpath(indir, "$(pulsar_name)_gaussian_offsets_integrated_$(type).csv")
-        csv_data = Matrix{Any}(undef, n_comps, 2)
-        println("\n--- Integrated Fit Results ---")
+        # Save integrated fit statistics to CSV
+        out_path = joinpath(indir, "$(pulsar_name)_integrated_offsets_$(type).csv")
+        csv_data = Matrix{Any}(undef, n_comps + 1, 2)
+        csv_data[1, 1] = "Global_Fourier"
+        csv_data[1, 2] = global_offset
         for k in 1:n_comps
-             diff = mod(offsets_raw[k].offset_bins + n_bins/2, n_bins) - n_bins/2
-             @printf("Component G%d Offset: %.4f bins\n", k, diff)
-            csv_data[k, 1] = k
-            csv_data[k, 2] = diff
+            csv_data[k+1, 1] = "Component_$k"
+            csv_data[k+1, 2] = comps[k].offset
         end
         writedlm(out_path, csv_data, ',')
 
-        # --- 5. Wykres P3 vs Longitude ---
-        println("\n--- P3 vs Longitude Analysis ---")
+        # --- 5. P3 vs Phase Analysis ---
+        println("\n--- P3 vs Phase Analysis ---")
         
         # Próbujemy wczytać LRFS (najlepiej dla Low Freq)
         lrfs_file = joinpath(indir, "pulsar_low.debase.lrfs")
@@ -1038,7 +1004,7 @@ module Data
         long_values = Float64[]
 
         if isfile(lrfs_file)
-            lrfs_data = load_ascii_all(lrfs_file) 
+            lrfs_data = load_ascii_all(lrfs_file) # (Freq, Bin, Pol)
             n_freqs, n_lrfs_bins, n_pols = size(lrfs_data)
             freqs = range(0.0, 0.5, length=n_freqs)
             
@@ -1076,7 +1042,6 @@ module Data
             row_l = vec(l_matrix[i, :])
             row_h = vec(h_matrix[i, :])
             
-            # SNR condition: if row max is small compared to the integrated peak
             if maximum(row_l) < 0.2 * maximum(mean_l) 
                 continue 
             end
@@ -1107,17 +1072,29 @@ module Data
         if has_plots; axislegend(ax_ph); end
         
         save(joinpath(indir, "$(pulsar_name)_fourier_phase_resolved_$(type).pdf"), fig_phase)
-
-        # Save phase-resolved data to CSV
+        
+        # Save phase-resolved data to CSV (Filtering NaN rows)
         out_ph_csv = joinpath(indir, "$(pulsar_name)_fourier_phase_resolved_$(type).csv")
         open(out_ph_csv, "w") do io
             println(io, "Phase_Bin," * join(["C$(k)_Offset" for k in 1:n_comps], ","))
             for i in 1:n_phases
-                line = ["$i"]
+                # Check if all components are NaN
+                all_nan = true
                 for k in 1:n_comps
-                    push!(line, isnan(phase_offsets[i, k]) ? "NaN" : @sprintf("%.4f", phase_offsets[i, k]))
+                    if !isnan(phase_offsets[i, k])
+                        all_nan = false
+                        break
+                    end
                 end
-                println(io, join(line, ","))
+                
+                # Only write the row if it contains at least one valid measurement
+                if !all_nan
+                    line = ["$i"]
+                    for k in 1:n_comps
+                        push!(line, isnan(phase_offsets[i, k]) ? "NaN" : @sprintf("%.4f", phase_offsets[i, k]))
+                    end
+                    println(io, join(line, ","))
+                end
             end
         end
 
