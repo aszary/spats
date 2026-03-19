@@ -240,10 +240,15 @@ module SpaTs
 
         # work on pulsar J1137-6700 
         #process_psrdata_16("/home/psr/data/new/J1137-6700/2019-11-06-00:36:02/", vpmout*"J1137-6700_16")
-        Data.analyse_p3folds_16_new(vpmout*"J1137-6700_16", "norefine"; n_comp=2)
+        #Data.analyse_p3folds_16_new(vpmout*"J1137-6700_16", "norefine"; n_comp=2)
+
+        # work on pulsar J1903+2225 
+        process_psrdata_16("/home/psr/data/new/J1903+2225/2020-08-20-20:53:16/", vpmout*"J1903+2225_16")
+        #Data.analyse_p3folds_16_new(vpmout*"J1903+2225_16", "norefine"; n_comp=2)
 
 
-       
+
+        
 
 
         # work on pulsar J0959-4809
