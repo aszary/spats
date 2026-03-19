@@ -671,7 +671,7 @@ module Plot
             show()
             println("Press Enter for next pulse, 'q' to quit.")
             user_input = readline(stdin; keep=false)
-            close()
+            close("all")
             
             if lowercase(strip(user_input)) == "q"
                 println("Exiting analysis.")
@@ -695,7 +695,7 @@ module Plot
             show()
             println("Press Enter for next pulse, 'q' to quit.")
             user_input = readline(stdin; keep=false)
-            close()
+            close("all")
             
             if lowercase(strip(user_input)) == "q"
                 println("Exiting analysis.")
@@ -769,7 +769,7 @@ module Plot
             
             println("Press Enter for next pulse, 'q' to quit.")
             user_input = readline(stdin; keep=false)
-            close()
+            close("all")
             
             if lowercase(strip(user_input)) == "q"
                 println("Exiting analysis.")
@@ -871,7 +871,7 @@ module Plot
             
             println("Press Enter for next pulse, 'q' to quit.")
             user_input = readline(stdin; keep=false)
-            close()
+            close("all")
             
             if lowercase(strip(user_input)) == "q"
                 println("Exiting analysis.")
