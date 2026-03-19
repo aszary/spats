@@ -884,8 +884,14 @@ module Data
     """
     Main function called from SpaTs.main() for robust offset analysis.
     Uses non-parametric Fourier Phase Gradient and Barycenter methods.
+    
+    # Arguments
+    - `indir`: data input directory
+    - `type`: type of p3folds ("refine" or "norefine")
+    - `period`: pulsar period (not used currently, for future reference)
+    - `n_comp`: number of components to detect (default: 3)
     """
-    function analyse_offsets(indir, type, period)
+    function analyse_offsets(indir, type, period; n_comp=3)
         # --- 1. Configuration and Data Loading ---
         p = Tools.read_params(joinpath(indir, "params.json"))
         low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
@@ -937,62 +943,127 @@ module Data
 
         # --- 4. Component Offsets (Barycenter) ---
         println("--- Calculating Component Barycenters ---")
-        comps = ProfileMetrics.component_barycenters(norm_l_roi, norm_h_roi; threshold=0.15)
+        comps = ProfileMetrics.component_barycenters(norm_l_roi, norm_h_roi; threshold=0.15, n_comp=n_comp)
         n_comps = length(comps)
         println(">>> Detected $n_comps components using Barycenter Method.")
 
-        # --- Plotting: Offset vs. Mean Longitude ---
-        # Extract component data for plotting
+        # --- 5. Phase-Resolved Offsets (for each P3 phase bin) ---
+        println("--- Calculating Phase-Resolved Offsets ---")
+        n_phases = size(l_matrix, 1)
+        windows = [(c.left_bound, c.right_bound) for c in comps]
+        
+        # Storage for all phase-resolved offsets per component
+        all_phase_offsets = [Float64[] for _ in 1:n_comps]
+        all_longitudes = [Float64[] for _ in 1:n_comps]
+        
+        for i in 1:n_phases
+            row_l = vec(l_matrix[i, :])
+            row_h = vec(h_matrix[i, :])
+            
+            # Skip very weak phases
+            if maximum(row_l) < 0.2 * maximum(mean_l) 
+                continue 
+            end
+
+            # Normalize individual rows
+            row_l_norm = normalize_01(row_l)
+            row_h_norm = normalize_01(row_h)
+            
+            # Apply ROI masking
+            if bin_st > 1; row_l_norm[1:Int(bin_st)] .= 0; end
+            if bin_end < n_bins; row_l_norm[Int(bin_end):end] .= 0; end
+            if bin_st > 1; row_h_norm[1:Int(bin_st)] .= 0; end
+            if bin_end < n_bins; row_h_norm[Int(bin_end):end] .= 0; end
+            
+            # Calculate offsets for this phase
+            offsets_fixed = ProfileMetrics.component_barycenters_fixed_windows(row_l_norm, row_h_norm, windows)
+            
+            for k in 1:n_comps
+                if !isnan(offsets_fixed[k]) && abs(offsets_fixed[k]) < n_bins * 0.2
+                    lon = (comps[k].com_low + comps[k].com_high) / 2.0
+                    push!(all_phase_offsets[k], offsets_fixed[k])
+                    push!(all_longitudes[k], lon)
+                end
+            end
+        end
+
+        # --- Plotting: Offset vs. Mean Longitude (all phases + integrated) ---
+        # Color scheme for components
         colors = [:red, :green, :blue, :orange, :purple]
         safe_colors = [colors[mod(i-1, length(colors))+1] for i in 1:length(comps)]
         
-        # Calculate mean longitude (phase) averaged from both frequencies
-        # and error estimates based on component width
-        longitudes = [(c.com_low + c.com_high) / 2.0 for c in comps]
-        offsets = [c.offset for c in comps]
-        errors = [(c.right_bound - c.left_bound) / 25.0 for c in comps]  # Uncertainty based on component width
+        PyPlot.figure(figsize=(10, 7))
         
-        # Create figure with PyPlot for better control
-        PyPlot.figure(figsize=(8, 6))
+        # Plot ALL phase-resolved offsets (small, semi-transparent points)
+        for (k, c) in enumerate(comps)
+            if !isempty(all_phase_offsets[k])
+                PyPlot.scatter(all_longitudes[k], all_phase_offsets[k], 
+                        color=string(safe_colors[k]), alpha=0.3, s=20, 
+                        label="Component $k (all phases)")
+            end
+        end
         
-        # Plot offset vs longitude with error bars
+        # Overlay integrated offsets (larger, opaque points with error bars)
         for (k, c) in enumerate(comps)
             lon = (c.com_low + c.com_high) / 2.0
             err = (c.right_bound - c.left_bound) / 25.0
-            PyPlot.errorbar([lon], [c.offset], yerr=[err], fmt="o", 
-                    color=string(safe_colors[k]), capsize=4, capthick=1.2,
-                    markersize=10, label="Component $k", elinewidth=1.5, markeredgewidth=1)
+            PyPlot.errorbar([lon], [c.offset], yerr=[err], fmt="D", 
+                    color=string(safe_colors[k]), capsize=5, capthick=1.5,
+                    markersize=12, elinewidth=2.0, markeredgewidth=1.5,
+                    label="Component $k (integrated)", zorder=10)
         end
         
         # Add horizontal line at offset=0
-        PyPlot.axhline(0.0, color="gray", ls="--", lw=0.8)
+        PyPlot.axhline(0.0, color="gray", ls="--", lw=0.8, alpha=0.5)
         PyPlot.minorticks_on()
-        PyPlot.xlabel("Mean Longitude (bins)", fontsize=11)
-        PyPlot.ylabel("Offset (bins)", fontsize=11)
-        PyPlot.title("Offset vs. Mean Longitude (Fourier Phase Gradient + Barycenter)", fontsize=12)
-        PyPlot.legend(loc="best")
-        PyPlot.grid(true, which="major", alpha=0.3)
+        PyPlot.xlabel("Mean Longitude (bins)", fontsize=12, fontweight="bold")
+        PyPlot.ylabel("Offset (bins)", fontsize=12, fontweight="bold")
+        PyPlot.title("Offset vs. Mean Longitude\n(small points: all P3 phases, diamonds: integrated)", fontsize=13, fontweight="bold")
+        PyPlot.legend(loc="best", fontsize=9, framealpha=0.95)
+        PyPlot.grid(true, which="major", alpha=0.4)
         PyPlot.tight_layout()
         
         out_name_base = "$(pulsar_name)_offset_vs_longitude_$(type)"
-        PyPlot.savefig(joinpath(indir, out_name_base * ".pdf"))
-        println("Saved plot: $(out_name_base).pdf")
+        PyPlot.savefig(joinpath(indir, out_name_base * ".pdf"), dpi=150)
+        println("Saved plot: $(out_name_base).pdf (with all phase-resolved offsets)")
         PyPlot.close()
         
-        # Save integrated fit statistics to CSV
-        out_path = joinpath(indir, "$(pulsar_name)_offsets_$(type).csv")
+        # Save CSV with all phase-resolved offsets
+        out_path = joinpath(indir, "$(pulsar_name)_offsets_detailed_$(type).csv")
         open(out_path, "w") do io
-            println(io, "Component,Longitude_bins,Offset_bins,Offset_Error_bins")
-            println(io, "Global_Fourier,N/A,$global_offset,N/A")
+            # Header
+            header = "Phase_Index,Global_Fourier"
+            for k in 1:n_comps
+                header *= ",C$(k)_Longitude,C$(k)_Offset"
+            end
+            println(io, header)
+            
+            # Global offset in first row
+            line = "integrated,$global_offset"
             for (k, c) in enumerate(comps)
                 lon = (c.com_low + c.com_high) / 2.0
-                err = (c.right_bound - c.left_bound) / 25.0
-                @printf(io, "Component_%d,%.2f,%.4f,%.4f\n", k, lon, c.offset, err)
+                line *= ",$(lon),$(c.offset)"
+            end
+            println(io, line)
+            
+            # All phase-resolved offsets
+            n_max_phases = maximum(length(all_phase_offsets[k]) for k in 1:n_comps)
+            for i in 1:n_max_phases
+                line = "phase_$i,"
+                for k in 1:n_comps
+                    if i <= length(all_phase_offsets[k])
+                        line *= "$(all_longitudes[k][i]),$(all_phase_offsets[k][i])"
+                    else
+                        line *= "NaN,NaN"
+                    end
+                    if k < n_comps; line *= ","; end
+                end
+                println(io, line)
             end
         end
-        println("Saved CSV: $(pulsar_name)_offsets_$(type).csv")
+        println("Saved CSV: $(pulsar_name)_offsets_detailed_$(type).csv")
 
-        # --- 5. P3 vs Phase Analysis ---
+        # --- 6. P3 vs Phase Analysis ---
         println("\n--- P3 vs Phase Analysis ---")
         
         # Try to load LRFS (preferably for Low Freq)
@@ -1039,82 +1110,6 @@ module Data
                 PyPlot.savefig(joinpath(indir, "$(pulsar_name)_p3_vs_phase_$(type).pdf"))
                 println("Saved plot: $(pulsar_name)_p3_vs_phase_$(type).pdf")
                 PyPlot.close()
-            end
-        end
-
-        # --- 6. Phase-resolved P3 Analysis ---
-        println("\n--- Starting Phase-Resolved Analysis (per P3 bin) ---")
-        n_phases = size(l_matrix, 1)
-        phase_offsets = fill(NaN, n_phases, n_comps)
-        windows = [(c.left_bound, c.right_bound) for c in comps]
-        
-        for i in 1:n_phases
-            row_l = vec(l_matrix[i, :])
-            row_h = vec(h_matrix[i, :])
-            
-            if maximum(row_l) < 0.2 * maximum(mean_l) 
-                continue 
-            end
-
-            offsets_fixed = ProfileMetrics.component_barycenters_fixed_windows(row_l, row_h, windows)
-            for k in 1:n_comps
-                if !isnan(offsets_fixed[k]) && abs(offsets_fixed[k]) < n_bins * 0.2
-                    phase_offsets[i, k] = offsets_fixed[k]
-                end
-            end
-        end
-
-        # --- Plotting: Phase-Resolved Offsets ---
-        PyPlot.figure(figsize=(10, 6))
-        
-        phases = 1:n_phases
-        has_plots = false
-        for k in 1:n_comps
-            vals = phase_offsets[:, k]
-            mask = .!isnan.(vals)
-            if any(mask)
-                PyPlot.plot(phases[mask], vals[mask], label="Component $k", color=string(safe_colors[k]), 
-                     lw=2.0, marker="o", markersize=4)
-                has_plots = true
-            end
-        end
-        
-        if has_plots
-            PyPlot.axhline(0.0, color="gray", ls="--", lw=0.8)
-            PyPlot.minorticks_on()
-            PyPlot.xlabel("P3 Phase (Row index)", fontsize=11)
-            PyPlot.ylabel("Offset (bins)", fontsize=11)
-            PyPlot.title("Phase-Resolved Offset (Fourier/Barycenter)", fontsize=12)
-            PyPlot.legend(loc="best")
-            PyPlot.grid(true, which="major", alpha=0.3)
-            PyPlot.tight_layout()
-            PyPlot.savefig(joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).pdf"))
-            println("Saved plot: $(pulsar_name)_phase_resolved_$(type).pdf")
-            PyPlot.close()
-        end
-        
-        # Save phase-resolved data to CSV (Filtering NaN rows)
-        out_ph_csv = joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).csv")
-        open(out_ph_csv, "w") do io
-            println(io, "Phase_Bin," * join(["C$(k)_Offset" for k in 1:n_comps], ","))
-            for i in 1:n_phases
-                # Check if all components are NaN
-                all_nan = true
-                for k in 1:n_comps
-                    if !isnan(phase_offsets[i, k])
-                        all_nan = false
-                        break
-                    end
-                end
-                
-                # Only write the row if it contains at least one valid measurement
-                if !all_nan
-                    line = ["$i"]
-                    for k in 1:n_comps
-                        push!(line, isnan(phase_offsets[i, k]) ? "NaN" : @sprintf("%.4f", phase_offsets[i, k]))
-                    end
-                    println(io, join(line, ","))
-                end
             end
         end
 

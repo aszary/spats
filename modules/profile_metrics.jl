@@ -71,7 +71,7 @@ This completely avoids analytical curve-fitting (like Gaussians) which fails on 
 profiles. It mathematically isolates the "island" of each component and computes its true 
 balance point relative to the local noise floor.
 """
-function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.15)
+function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.15, n_comp=3)
     N = length(prof_ref)
     
     # Normalize copies to 0.0 - 1.0 range for robust thresholding
@@ -86,9 +86,9 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         end
     end
     
-    # Process up to the 3 strongest components
+    # Process up to n_comp strongest components
     sort!(peaks, by=p -> p_ref[p], rev=true)
-    selected_peaks = sort(peaks[1:min(length(peaks), 3)]) 
+    selected_peaks = sort(peaks[1:min(length(peaks), n_comp)]) 
     
     results = []
     for p in selected_peaks
