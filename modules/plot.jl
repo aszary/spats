@@ -778,7 +778,7 @@ module Plot
         end
     end    
 
-    function analyse_p3folds3(low, high, p, c_comp)
+    function analyse_p3folds3(low, high, p, n_comp)
         pulses, bins = size(low)
 
         # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
