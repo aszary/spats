@@ -993,8 +993,11 @@ module Data
                     continue
                 end
                 
-                # Convert X-axis (Longitude) to degrees properly centered at 0
-                lon_deg = (res.com_ref - center_bin) * bins_to_deg
+                # METODOLOGIA: Faza to średnia pomiędzy pozycją w niskiej a wysokiej częstotliwości,
+                # przeliczana bezpośrednio na stopnie geograficzne (dając zakres np. 175-190 deg)
+                com_low = res.com_ref
+                com_high = res.com_ref + res.offset
+                lon_deg = (com_low + com_high) / 2.0 * bins_to_deg
                 
                 offset_deg = res.offset * bins_to_deg
                 error_deg = (windows[comp_idx][2] - windows[comp_idx][1]) / 25.0 * bins_to_deg
@@ -1017,42 +1020,42 @@ module Data
         end
         
         # === PLOTTING: Like Gaussian method ===
-        colors = [:red, :green, :blue, :orange, :purple, :brown, :pink, :gray]
+        colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0", "#F44336", "#795548"]
         
-        PyPlot.figure(figsize=(12, 8))
+        PyPlot.figure(figsize=(8, 5))
         
-        for (comp_id, data) in offset_data
+        for comp_id in sort(collect(keys(offset_data)))
+            data = offset_data[comp_id]
             if isempty(data.off)
                 continue
             end
             
             # Color for this component
-            col = colors[mod(comp_id-1, length(colors))+1]
+            col = colors[mod1(comp_id, length(colors))]
             
-            # Plot all phase-resolved points (small, semi-transparent)
-            PyPlot.scatter(data.lon, data.off, 
-                    color=string(col), alpha=0.3, s=25, 
-                    label="Component $comp_id (phase-resolved)")
+            # Plot all phase-resolved points with individual errors
+            PyPlot.errorbar(data.lon, data.off, yerr=data.err, fmt="o", 
+                    color=col, alpha=0.4, markersize=4, capsize=2, lw=1.0, 
+                    label="C$comp_id (phases)")
             
-            # Overlay mean with error bar (larger, opaque)
+            # Overlay arithmetic mean with standard error
             lon_mean = mean(data.lon)
             off_mean = mean(data.off)
             off_err = std(data.off) / sqrt(length(data.off))
             
             PyPlot.errorbar([lon_mean], [off_mean], yerr=[off_err], fmt="D",
-                    color=string(col), capsize=5, capthick=2.0,
-                    markersize=14, elinewidth=2.5, markeredgewidth=2.0,
+                    color=col, capsize=5, capthick=2.0,
+                    markersize=10, elinewidth=2.5, markeredgecolor="black", markeredgewidth=1.2,
                     label="Component $comp_id (mean ± stderr)", zorder=10)
         end
         
-        PyPlot.axhline(0.0, color="gray", ls="--", lw=1.0, alpha=0.6)
+        PyPlot.axhline(0.0, color="gray", ls="--", lw=1.0, alpha=0.8)
         PyPlot.minorticks_on()
-        PyPlot.xlabel("Mean Longitude (degrees)", fontsize=13, fontweight="bold")
-        PyPlot.ylabel("Offset (degrees)", fontsize=13, fontweight="bold")
-        PyPlot.title("Fourier Method: Frequency-Dependent Offsets\n(small points: individual phases, diamonds: mean ± stderr)", 
-                fontsize=14, fontweight="bold")
-        PyPlot.legend(loc="best", fontsize=10, framealpha=0.95)
-        PyPlot.grid(true, which="major", alpha=0.4)
+        PyPlot.xlabel("Longitude (°)", fontsize=12)
+        PyPlot.ylabel("Offset (°)", fontsize=12)
+        PyPlot.title("Longitude vs. offset (Fourier/Barycenter Phase-Resolved)", fontsize=13)
+        PyPlot.legend(loc="best", fontsize=10)
+        PyPlot.grid(true, which="major", alpha=0.3)
         PyPlot.tight_layout()
         
         out_name = "$(pulsar_name)_fourier_offsets_$(type).pdf"
