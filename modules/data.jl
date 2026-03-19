@@ -901,10 +901,11 @@ module Data
         bins = collect(1.0:n_bins)
 
         println(">>> Starting Integrated Gaussian Analysis (High SNR): ", indir)
+        pulsar_name = basename(rstrip(indir, '/'))
 
         # Normalizacja
-        norm_l = normalize_vec(mean_l)
-        norm_h = normalize_vec(mean_h)
+        norm_l = normalize_01(mean_l)
+        norm_h = normalize_01(mean_h)
 
         # --- 2. Automatyczna detekcja liczby komponentów i obszaru on-pulse ---
         # Pobieramy zakres on-pulse, aby nie dopasowywać szumu
@@ -1008,11 +1009,11 @@ module Data
             end
         end
         
-        out_name_base = "gaussian_fit_integrated_$(type)"
+        out_name_base = "$(pulsar_name)_gaussian_fit_integrated_$(type)"
         save(joinpath(indir, out_name_base * ".pdf"), fig)
         
         # Zapis statystyk średnich
-        out_path = joinpath(indir, "gaussian_offsets_integrated_$(type).csv")
+        out_path = joinpath(indir, "$(pulsar_name)_gaussian_offsets_integrated_$(type).csv")
         csv_data = Matrix{Any}(undef, n_comps, 2)
         println("\n--- Integrated Fit Results ---")
         for k in 1:n_comps
@@ -1080,8 +1081,8 @@ module Data
                 
                 scatter!(ax_p3, long_values, p3_values, color=:red, markersize=15, label="Components")
                 
-                save(joinpath(indir, "p3_vs_longitude_$(type).pdf"), fig_p3)
-                println(">>> P3 vs Longitude plot saved: p3_vs_longitude_$(type).pdf")
+                save(joinpath(indir, "$(pulsar_name)_p3_vs_longitude_$(type).pdf"), fig_p3)
+                println(">>> P3 vs Longitude plot saved: $(pulsar_name)_p3_vs_longitude_$(type).pdf")
             end
         else
             println("LRFS file not found ($lrfs_file). Skipping P3 plot.")
@@ -1104,8 +1105,8 @@ module Data
             end
 
             try
-                n_l_row = normalize_vec(row_l)
-                n_h_row = normalize_vec(row_h)
+                n_l_row = normalize_01(row_l)
+                n_h_row = normalize_01(row_h)
                 
                 # Fit Low: Startujemy z parametrów średnich (params_l) aby zachować tożsamość komponentów
                 f_l = GaussianFit.fit_gaussians(bins, n_l_row, n_comps; p0=fit_l.params)
@@ -1153,11 +1154,11 @@ module Data
             text!(ax_ph, 0.5, 0.5, text="No valid data points (low SNR or fit fail)", align=(:center, :center))
         end
         
-        save(joinpath(indir, "gaussian_offsets_phase_resolved_$(type).pdf"), fig_phase)
-        println(">>> Phase-resolved plot saved: gaussian_offsets_phase_resolved_$(type).pdf")
+        save(joinpath(indir, "$(pulsar_name)_gaussian_offsets_phase_resolved_$(type).pdf"), fig_phase)
+        println(">>> Phase-resolved plot saved: $(pulsar_name)_gaussian_offsets_phase_resolved_$(type).pdf")
         
         # Zapis danych fazowych do CSV
-        out_ph_csv = joinpath(indir, "gaussian_offsets_phase_resolved_$(type).csv")
+        out_ph_csv = joinpath(indir, "$(pulsar_name)_gaussian_offsets_phase_resolved_$(type).csv")
         # Nagłówek i dane
         open(out_ph_csv, "w") do io
             println(io, "Phase_Bin," * join(["G$(k)_Offset" for k in 1:n_comps], ","))
