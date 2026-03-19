@@ -892,7 +892,7 @@ module Data
     - `type`: type of p3folds "refine" or "norefine" filenames are based on that
  
     """
-    function analyse_p3folds_16_new(indir, type)
+    function analyse_p3folds_16_new(indir, type; c_comp=3)
 
         # parameters file 
         p = Tools.read_params(joinpath(indir, "params.json"))
@@ -926,7 +926,7 @@ module Data
         =#
         # TODO work here...
 
-        Plot.analyse_p3folds3(nl, nh, p)
+        Plot.analyse_p3folds3(nl, nh, p, n_comp)
 
 
         #println(size(nl))

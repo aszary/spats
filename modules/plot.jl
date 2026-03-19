@@ -778,7 +778,7 @@ module Plot
         end
     end    
 
-    function analyse_p3folds3(low, high, p)
+    function analyse_p3folds3(low, high, p, c_comp)
         pulses, bins = size(low)
 
         # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
@@ -798,7 +798,6 @@ module Plot
             =#
 
 
-            n_comp = 1
             fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
             #println(fit_l)
             GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
