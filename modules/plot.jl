@@ -883,6 +883,21 @@ module Plot
 
         end
 
+        # Weighted mean offset per component
+        if !isempty(offset_data)
+            println("\n=== Weighted mean offsets ===")
+            for comp in sort(collect(keys(offset_data)))
+                d = offset_data[comp]
+                if isempty(d.err) || all(d.err .== 0.0)
+                    continue
+                end
+                w = 1.0 ./ (d.err .^ 2)
+                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d)",
+                    comp, sum(w .* d.off) / sum(w), 1.0 / sqrt(sum(w)), length(d.off)))
+            end
+            println()
+        end
+
         # Final plot: longitude vs. offset for each component
         if !isempty(offset_data)
             figure(figsize=(8, 5))
