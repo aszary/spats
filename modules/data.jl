@@ -895,12 +895,10 @@ module Data
         """
         Fourier-based component offset analysis (PHASE-RESOLVED).
         
-        Works like the Gaussian method: iterates through each P3 phase independently,
-        calculates barycenter offsets using Fourier method, and collects all measurements.
-        
-        Output axes:
-        - X: longitude in DEGREES (matching Gaussian method)
-        - Y: offset in DEGREES (not bins!)
+        Methodology (matching Gaussian approach):
+        1. Find components ONCE on integrated profile → fixed windows
+        2. For each P3 phase, calculate offsets within those fixed windows
+        3. Collect all measurements in degrees (like Gaussian output)
         """
         
         # --- 1. Configuration and Data Loading ---
@@ -927,25 +925,58 @@ module Data
         println(">>> On-Pulse region: bins $bin_st to $bin_end")
         
         # Conversion factor: bins to degrees
-        db = (bin_end + 1) - bin_st  # number of bins in ROI
-        dl = 360.0 * db / n_bins     # degrees per full period
         bins_to_deg = 360.0 / n_bins
-        
         println(">>> Degrees per bin: $(bins_to_deg)")
         
-        # --- Storage for per-phase offset data (like Gaussian method) ---
-        # offset_data[component] = (longitudes_deg, offsets_deg, errors_deg)
+        # === STEP 1: Find components on INTEGRATED profile ===
+        println("\n--- Step 1: Detecting components on integrated profile ---")
+        
+        mean_l = vec(mean(l_matrix, dims=1))
+        mean_h = vec(mean(h_matrix, dims=1))
+        
+        # Normalize integrated profiles
+        norm_l = normalize_01(mean_l)
+        norm_h = normalize_01(mean_h)
+        
+        # Apply ROI masking to integrated profiles
+        norm_l_roi = copy(norm_l)
+        norm_h_roi = copy(norm_h)
+        if bin_st > 1
+            norm_l_roi[1:Int(bin_st)-1] .= 0.0
+            norm_h_roi[1:Int(bin_st)-1] .= 0.0
+        end
+        if bin_end < n_bins
+            norm_l_roi[Int(bin_end)+1:end] .= 0.0
+            norm_h_roi[Int(bin_end)+1:end] .= 0.0
+        end
+        
+        # Detect components once (these windows are FIXED for all phases)
+        integrated_comps = ProfileMetrics.component_barycenters(norm_l_roi, norm_h_roi; threshold=0.10, n_comp=n_comp)
+        
+        if length(integrated_comps) == 0
+            println("ERROR: No components detected on integrated profile!")
+            return
+        end
+        
+        n_comps = length(integrated_comps)
+        println(">>> Detected $n_comps components on integrated profile")
+        
+        # Extract FIXED windows for each component (these stay constant across all phases)
+        windows = [(c.left_bound, c.right_bound) for c in integrated_comps]
+        
+        # Storage for phase-resolved data (component → vectors of longitudes, offsets, errors)
         offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
         
-        # Counter for valid phases
+        # === STEP 2: For each phase, calculate offsets in fixed windows ===
+        println("\n--- Step 2: Processing $n_phases P3 phases ---")
+        
         valid_phases = 0
         
-        # === MAIN LOOP: Process each P3 phase independently ===
         for phase_idx in 1:n_phases
             row_l = vec(l_matrix[phase_idx, :])
             row_h = vec(h_matrix[phase_idx, :])
             
-            # Normalize per row
+            # Normalize this phase
             row_l_norm = normalize_01(row_l)
             row_h_norm = normalize_01(row_h)
             
@@ -961,128 +992,132 @@ module Data
                 row_h_roi[Int(bin_end)+1:end] .= 0.0
             end
             
-            # Check if phase has minimum signal (not just noise)
+            # Check minimum signal
             if maximum(row_l_roi) < 0.05 || maximum(row_h_roi) < 0.05
                 continue
             end
             
             valid_phases += 1
             
-            # Find components using barycenter method
-            comps = ProfileMetrics.component_barycenters(row_l_roi, row_h_roi; threshold=0.10, n_comp=n_comp)
+            # Calculate offsets using FIXED windows from integrated profile
+            offsets_bins = ProfileMetrics.component_barycenters_fixed_windows(row_l_roi, row_h_roi, windows)
             
-            if length(comps) == 0
-                continue
-            end
-            
-            # For each component, calculate offset
-            for (comp_idx, c) in enumerate(comps)
-                # Center position (in bins)
-                mu_low_bin = c.com_low
-                mu_high_bin = c.com_high
-                
-                # Offset in bins
-                offset_bin = c.offset  # This is already (com_high - com_low)
-                
-                # Convert to degrees
-                lon_deg = (mu_low_bin + mu_high_bin) / 2.0 * bins_to_deg
-                offset_deg = offset_bin * bins_to_deg
-                error_deg = (c.right_bound - c.left_bound) / 25.0 * bins_to_deg
-                
-                # Store data
-                if !haskey(offset_data, comp_idx)
-                    offset_data[comp_idx] = (lon=Float64[], off=Float64[], err=Float64[])
+            # For each component, store this phase's measurements
+            for comp_id in 1:n_comps
+                if isnan(offsets_bins[comp_id])
+                    continue
                 end
-                push!(offset_data[comp_idx].lon, lon_deg)
-                push!(offset_data[comp_idx].off, offset_deg)
-                push!(offset_data[comp_idx].err, error_deg)
+                
+                # Get the integrated component to extract reference position
+                integrated_c = integrated_comps[comp_id]
+                
+                # Longitude in degrees (using integrated profile position as reference)
+                lon_deg = integrated_c.com_low * bins_to_deg
+                
+                # Offset in degrees
+                offset_deg = offsets_bins[comp_id] * bins_to_deg
+                
+                # Error in degrees
+                err_deg = (integrated_c.right_bound - integrated_c.left_bound) / 25.0 * bins_to_deg
+                
+                # Store
+                if !haskey(offset_data, comp_id)
+                    offset_data[comp_id] = (lon=Float64[], off=Float64[], err=Float64[])
+                end
+                push!(offset_data[comp_id].lon, lon_deg)
+                push!(offset_data[comp_id].off, offset_deg)
+                push!(offset_data[comp_id].err, err_deg)
             end
         end
         
         println(">>> Processed $valid_phases valid phases out of $n_phases")
-        println(">>> Components detected: $(length(offset_data))")
         
-        for (comp_id, data) in offset_data
-            println("    Component $comp_id: $(length(data.off)) measurements")
+        for comp_id in 1:n_comps
+            n_points = length(offset_data[comp_id].off)
+            println("    Component $comp_id: $n_points measurements")
         end
         
-        # === PLOTTING: Like Gaussian method ===
+        # === STEP 3: Plotting ===
+        println("\n--- Step 3: Creating plots ---")
+        
         colors = [:red, :green, :blue, :orange, :purple, :brown, :pink, :gray]
         
         PyPlot.figure(figsize=(12, 8))
         
-        for (comp_id, data) in offset_data
-            if isempty(data.off)
+        for comp_id in 1:n_comps
+            if !haskey(offset_data, comp_id) || isempty(offset_data[comp_id].off)
                 continue
             end
             
-            # Color for this component
+            data = offset_data[comp_id]
             col = colors[mod(comp_id-1, length(colors))+1]
             
-            # Plot all phase-resolved points (small, semi-transparent)
+            # Plot all phase-resolved measurements (small, semi-transparent)
             PyPlot.scatter(data.lon, data.off, 
-                    color=string(col), alpha=0.3, s=25, 
+                    color=string(col), alpha=0.3, s=30, 
                     label="Component $comp_id (phase-resolved)")
             
-            # Overlay mean with error bar (larger, opaque)
+            # Overlay mean ± stderr (large diamond)
             lon_mean = mean(data.lon)
             off_mean = mean(data.off)
             off_err = std(data.off) / sqrt(length(data.off))
             
             PyPlot.errorbar([lon_mean], [off_mean], yerr=[off_err], fmt="D",
-                    color=string(col), capsize=5, capthick=2.0,
-                    markersize=14, elinewidth=2.5, markeredgewidth=2.0,
+                    color=string(col), capsize=6, capthick=2.0,
+                    markersize=15, elinewidth=2.5, markeredgewidth=2.0,
                     label="Component $comp_id (mean ± stderr)", zorder=10)
         end
         
         PyPlot.axhline(0.0, color="gray", ls="--", lw=1.0, alpha=0.6)
         PyPlot.minorticks_on()
-        PyPlot.xlabel("Mean Longitude (degrees)", fontsize=13, fontweight="bold")
+        PyPlot.xlabel("Longitude (degrees)", fontsize=13, fontweight="bold")
         PyPlot.ylabel("Offset (degrees)", fontsize=13, fontweight="bold")
-        PyPlot.title("Fourier Method: Frequency-Dependent Offsets\n(small points: individual phases, diamonds: mean ± stderr)", 
+        PyPlot.title("Fourier Method: Frequency-Dependent Phase Offsets\n(points: individual P3 phases, diamonds: mean ± stderr)", 
                 fontsize=14, fontweight="bold")
         PyPlot.legend(loc="best", fontsize=10, framealpha=0.95)
-        PyPlot.grid(true, which="major", alpha=0.4)
+        PyPlot.grid(true, which="major", alpha=0.4, linestyle=":")
         PyPlot.tight_layout()
         
         out_name = "$(pulsar_name)_fourier_offsets_$(type).pdf"
         PyPlot.savefig(joinpath(indir, out_name), dpi=150)
-        println("Saved plot: $out_name")
+        println("Saved: $out_name")
         PyPlot.close()
         
-        # === CSV OUTPUT ===
+        # === STEP 4: CSV Output ===
+        println("\n--- Step 4: Writing CSV files ---")
+        
+        # Summary CSV
         csv_path = joinpath(indir, "$(pulsar_name)_fourier_offsets_$(type).csv")
         open(csv_path, "w") do io
-            # Header
-            println(io, "Component,N_Measurements,Mean_Longitude_deg,Mean_Offset_deg,Offset_Err_deg")
-            
-            # Data
-            for (comp_id, data) in offset_data
-                if !isempty(data.off)
-                    lon_mean = mean(data.lon)
+            println(io, "Component,N_Measurements,Longitude_deg,Mean_Offset_deg,Offset_Err_deg")
+            for comp_id in 1:n_comps
+                if haskey(offset_data, comp_id) && !isempty(offset_data[comp_id].off)
+                    data = offset_data[comp_id]
+                    lon = data.lon[1]  # All lon values are the same
                     off_mean = mean(data.off)
                     off_err = std(data.off) / sqrt(length(data.off))
-                    println(io, "$comp_id,$(length(data.off)),$lon_mean,$off_mean,$off_err")
+                    println(io, "$comp_id,$(length(data.off)),$lon,$off_mean,$off_err")
                 end
             end
         end
-        println("Saved CSV: $csv_path")
+        println("Saved: $csv_path")
         
-        # === DETAILED CSV (all phase-resolved points) ===
+        # Detailed CSV (all measurements)
         csv_detailed_path = joinpath(indir, "$(pulsar_name)_fourier_offsets_detailed_$(type).csv")
         open(csv_detailed_path, "w") do io
-            # Header
-            header = "Component,Longitude_deg,Offset_deg,Error_deg"
-            println(io, header)
-            
-            # Data: write all phase-resolved measurements
-            for (comp_id, data) in offset_data
-                for (lon, off, err) in zip(data.lon, data.off, data.err)
-                    println(io, "$comp_id,$lon,$off,$err")
+            println(io, "Component,Longitude_deg,Offset_deg,Error_deg")
+            for comp_id in 1:n_comps
+                if haskey(offset_data, comp_id)
+                    data = offset_data[comp_id]
+                    for (lon, off, err) in zip(data.lon, data.off, data.err)
+                        println(io, "$comp_id,$lon,$off,$err")
+                    end
                 end
             end
         end
-        println("Saved detailed CSV: $csv_detailed_path")
+        println("Saved: $csv_detailed_path")
+        
+        println("\n>>> Analysis complete!")
 
     end
 
