@@ -15,6 +15,8 @@ module Data
     include("plot.jl")
     include("profile_metrics.jl")
     using .ProfileMetrics
+    include("gaussian_fit.jl")
+    using .GaussianFit
 
 
     """
