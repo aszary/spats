@@ -7,85 +7,14 @@ module Data
     using Statistics
     using FFTW
     
-    # --- Implementacja funkcji dopasowania Gaussowskiego (inline) ---
-    struct ComponentOffset
-        offset_bins::Float64
-    end
-
-    function gaussian_model(x, p)
-        y = zeros(eltype(x), length(x))
-        n = length(p) ÷ 3
-        for i in 1:n
-            amp = p[3*(i-1)+1]
-            mu  = p[3*(i-1)+2]
-            sig = p[3*(i-1)+3]
-            @. y += amp * exp(-0.5 * ((x - mu) / sig)^2)
-        end
-        return y
-    end
-
-    function fit_gaussians(x, y, n::Int; p0, lower=Float64[], upper=Float64[])
-        if isempty(lower) || isempty(upper)
-            return curve_fit((x, p) -> gaussian_model(x, p), x, y, p0)
-        else
-            return curve_fit((x, p) -> gaussian_model(x, p), x, y, p0; lower=lower, upper=upper)
-        end
-    end
-
-    function component_offsets(fit_h, fit_l; nbin=1024, period=1.0)
-        offsets = ComponentOffset[]
-        n = length(fit_h.param) ÷ 3
-        for i in 1:n
-            mu_h = fit_h.param[3*(i-1)+2]
-            mu_l = fit_l.param[3*(i-1)+2]
-            push!(offsets, ComponentOffset(mu_h - mu_l))
-        end
-        return offsets
-    end
-    
-    # Funkcja pomocnicza do sortowania parametrów Gaussów (wymusza kolejność L->R)
-    function sort_gaussians_params(p)
-        n = length(p) ÷ 3
-        comps = []
-        for i in 1:n
-            push!(comps, p[3*(i-1)+1:3*i])
-        end
-        sort!(comps, by = x -> x[2]) # sortuj po pozycji mu (center)
-        return vcat(comps...)
-    end
-    
-    # Prosta funkcja do znajdowania szczytów (zastępuje findpeaks z DSP)
-    function find_peaks_simple(data; threshold=0.1, window=5)
-        peaks = Tuple{Int, Float64}[]
-        len = length(data)
-        half_win = window ÷ 2
-        # Wygładzanie prostą średnią ruchomą dla redukcji szumu przed szukaniem
-        smoothed = [mean(data[max(1, i-half_win):min(len, i+half_win)]) for i in 1:len]
-        
-        for i in 2:len-1
-            # Sprawdzamy czy to lokalne maksimum w wygładzonym sygnale
-            if smoothed[i] > smoothed[i-1] && smoothed[i] > smoothed[i+1] && smoothed[i] > threshold
-                push!(peaks, (i, data[i])) # Zapisujemy oryginalną amplitudę w tym miejscu
-            end
-        end
-        # Sortuj malejąco po wysokości
-        sort!(peaks, by=x->x[2], rev=true)
-        return peaks
-    end
-    
-    # Funkcja normalizująca wektor do zakresu 0-1
-    # Funkcja normalizująca wektor (skalowanie amplitudy, bez przesuwania zera!)
-    function normalize_vec(v)
-        # Zakładamy, że baseline jest już odjęty (bliski 0)
-        return v ./ maximum(v)
-    end
-
     using LsqFit, DSP 
     using DelimitedFiles, Printf
     
     include("functions.jl")
     include("tools.jl")
     include("plot.jl")
+    include("profile_metrics.jl")
+    using .ProfileMetrics
 
 
     """
@@ -990,47 +919,20 @@ module Data
         
         println(">>> Fitting constrained to On-Pulse region: $(Int(bin_st)) - $(Int(bin_end))")
 
-        # Analizujemy profil Low Freq (zazwyczaj szerszy/wyraźniejszy) tylko w oknie on-pulse
+        # Region of interest for fitting (masking out noise)
         norm_l_roi = copy(norm_l)
         if bin_st > 1; norm_l_roi[1:Int(bin_st)] .= 0; end
         if bin_end < n_bins; norm_l_roi[Int(bin_end):end] .= 0; end
 
-        detected_peaks = find_peaks_simple(norm_l_roi, threshold=0.15, window=7) # Większe okno wygładzania
-        
-        # Jeśli nie wykryto, zakładamy 1 główny pik
-        if isempty(detected_peaks)
-            max_val, max_idx = findmax(norm_l_roi)
-            if max_val == 0; max_val, max_idx = findmax(norm_l); end # fallback
-            push!(detected_peaks, (max_idx, max_val))
-        end
-        
-        # Ograniczamy do max 3 komponentów (lewy, środek, prawy) - aby uniknąć dopasowywania szumu
-        n_comps = min(length(detected_peaks), 3)
-        sort!(detected_peaks, by=x->x[1]) # sortuj po pozycji (bin)
-        
-        println(">>> Automatically detected $n_comps Gaussian component(s) at bins: ", [p[1] for p in detected_peaks])
-
-        # Generowanie parametrów startowych (p0) i granic (bounds)
-        p0_guess = Float64[]
-        lower_bounds = Float64[]
-        upper_bounds = Float64[]
-        
-        est_width = (bin_end - bin_st) / 10.0 # Węższe startowe, żeby nie zlewały się od razu
-        
-        for (pos, amp) in detected_peaks[1:n_comps]
-            # p0: [Amp, Mu, Sigma]
-            push!(p0_guess, amp, Float64(pos), est_width)
-            
-            # Bounds - ściśle wewnątrz bin_st/bin_end
-            # Bounds - Ograniczamy szerokość (Sigma), żeby Gauss nie "zjadał" całego tła
-            append!(lower_bounds, [0.0, bin_st_fit, 0.5])                         
-            append!(upper_bounds, [2.0, bin_end_fit, Float64(bin_end - bin_st)/3.0]) 
-        end
-
         # --- 3. Dopasowanie Profilu Średniego (Integrated) ---
         println("--- Fitting Integrated Low Frequency Profile ---")
-        fit_l = fit_gaussians(bins, norm_l, n_comps; p0=p0_guess, lower=lower_bounds, upper=upper_bounds)
-        params_l = sort_gaussians_params(fit_l.param)
+        # Smart search for the best model directly using our new module
+        fit_l, n_comps, _ = GaussianFit.best_ngaussians(bins, norm_l_roi; max_n=3)
+        GaussianFit.print_fit_summary(fit_l, n_comps, label="Low Freq")
+        
+        if !fit_l.converged
+            println("WARNING: Integrated profile fit failed!")
+        end
 
         # Wyrównanie zgrubne (CCF) dla High Freq
         println("--- Aligning High Frequency Profile (CCF) ---")
@@ -1039,29 +941,24 @@ module Data
         if global_shift > n_bins ÷ 2; global_shift -= n_bins; end
         println(">>> Detected global profile shift (High vs Low): ", global_shift, " bins")
 
-        # Startowe dla High = parametry z Low + globalne przesunięcie
-        p0_h = copy(params_l)
-        for k in 1:n_comps
-            idx = 3*(k-1) + 2
-            new_pos = p0_h[idx] + global_shift
-            if new_pos < 1.0; new_pos += n_bins; end
-            if new_pos > n_bins; new_pos -= n_bins; end
-            p0_h[idx] = clamp(new_pos, 2.0, Float64(n_bins)-2.0)
+        # Startowe parametry dla High jako przesunięte z Low
+        p0_h = copy(fit_l.params)
+        for i in 1:n_comps
+            mu_idx = 3*(i-1) + 3 # +3 because [baseline, A1, mu1, sig1, A2...]
+            p0_h[mu_idx] = clamp(p0_h[mu_idx] + global_shift, 2.0, Float64(n_bins)-2.0)
         end
+        
+        # Mask High profile outside ROI similarly
+        norm_h_roi = copy(norm_h)
+        if bin_st > 1; norm_h_roi[1:Int(bin_st)] .= 0; end
+        if bin_end < n_bins; norm_h_roi[Int(bin_end):end] .= 0; end
 
         println("--- Fitting Integrated High Frequency Profile ---")
-        fit_h = fit_gaussians(bins, norm_h, n_comps; p0=p0_h, lower=lower_bounds, upper=upper_bounds)
-        params_h = sort_gaussians_params(fit_h.param)
+        fit_h = GaussianFit.fit_gaussians(bins, norm_h_roi, n_comps; p0=p0_h)
+        GaussianFit.print_fit_summary(fit_h, n_comps, label="High Freq")
 
         # Obliczanie offsetów dla średniego profilu
-        offsets = ComponentOffset[]
-        for k in 1:n_comps
-            mu_l = params_l[3*(k-1)+2]
-            mu_h = params_h[3*(k-1)+2]
-            diff = mu_h - mu_l
-            diff = mod(diff + n_bins/2, n_bins) - n_bins/2
-            push!(offsets, ComponentOffset(diff))
-        end
+        offsets_raw = GaussianFit.component_offsets(fit_h, fit_l; nbin=n_bins)
 
         # --- Rysowanie: Profil Średni ---
         fig = Figure(size = (1000, 900))
@@ -1071,35 +968,44 @@ module Data
         # Panel 1: Low Freq
         ax1 = Axis(fig[1, 1], title="Low Frequency (Integrated)", xlabel="Biny", ylabel="Intensywność")
         scatter!(ax1, bins, norm_l, color=:gray, markersize=3, label="Dane")
-        lines!(ax1, bins, gaussian_model(bins, params_l), color=:black, linewidth=2, label="Model")
-        for k in 1:n_comps
-            lines!(ax1, bins, gaussian_model(bins, params_l[3*(k-1)+1:3*k]), color=safe_colors[k], linestyle=:dash, linewidth=2, label="G$k")
+        if fit_l.converged
+            lines!(ax1, bins, fit_l.yfit, color=:black, linewidth=2, label="Model")
+            comps_y_l = GaussianFit.evaluate_components(bins, fit_l)
+            for k in 1:n_comps
+                lines!(ax1, bins, comps_y_l[k] .+ fit_l.baseline, color=safe_colors[k], linestyle=:dash, linewidth=2, label="G$k")
+            end
         end
         axislegend(ax1)
 
         # Panel 2: High Freq
         ax2 = Axis(fig[2, 1], title="High Frequency (Integrated)", xlabel="Biny", ylabel="Intensywność")
         scatter!(ax2, bins, norm_h, color=:gray, markersize=3, label="Dane")
-        lines!(ax2, bins, gaussian_model(bins, params_h), color=:black, linewidth=2, label="Model")
-        for k in 1:n_comps
-            lines!(ax2, bins, gaussian_model(bins, params_h[3*(k-1)+1:3*k]), color=safe_colors[k], linestyle=:dash, linewidth=2, label="G$k")
+        if fit_h.converged
+            lines!(ax2, bins, fit_h.yfit, color=:black, linewidth=2, label="Model")
+            comps_y_h = GaussianFit.evaluate_components(bins, fit_h)
+            for k in 1:n_comps
+                lines!(ax2, bins, comps_y_h[k] .+ fit_h.baseline, color=safe_colors[k], linestyle=:dash, linewidth=2, label="G$k")
+            end
         end
         axislegend(ax2)
 
         # Panel 3: Porównanie komponentów
         ax3 = Axis(fig[3, 1], title="Przesunięcie średnie (Ciągła=Low, Przerywana=High)", xlabel="Biny")
-        for k in 1:n_comps
-            p_l_k = params_l[3*(k-1)+1:3*k]
-            p_h_k = params_h[3*(k-1)+1:3*k]
-            
-            # Rysujemy znormalizowane gauss'y
-            y_l = gaussian_model(bins, p_l_k) ./ maximum(gaussian_model(bins, p_l_k))
-            y_h = gaussian_model(bins, p_h_k) ./ maximum(gaussian_model(bins, p_h_k))
-            
-            lines!(ax3, bins, y_l, color=safe_colors[k], linewidth=2, label="L G$k")
-            lines!(ax3, bins, y_h, color=safe_colors[k], linestyle=:dash, linewidth=2, label="H G$k")
-            off_val = offsets[k].offset_bins
-            text!(ax3, params_l[3*(k-1)+2], 0.5, text=@sprintf("Δ=%.2f", off_val), color=safe_colors[k], fontsize=14, align=(:center, :bottom))
+        if fit_l.converged && fit_h.converged
+            for k in 1:n_comps
+                cl = fit_l.components[k]
+                ch = fit_h.components[k]
+                # Znormalizowane komponenty (wysokość ~ 1.0)
+                y_l = comps_y_l[k] ./ max(1e-5, cl.A)
+                y_h = comps_y_h[k] ./ max(1e-5, ch.A)
+                
+                lines!(ax3, bins, y_l, color=safe_colors[k], linewidth=2, label="L G$k")
+                lines!(ax3, bins, y_h, color=safe_colors[k], linestyle=:dash, linewidth=2, label="H G$k")
+                
+                # Wrapped offset
+                diff = mod(offsets_raw[k].offset_bins + n_bins/2, n_bins) - n_bins/2
+                text!(ax3, cl.mu, 0.5, text=@sprintf("Δ=%.2f", diff), color=safe_colors[k], fontsize=14, align=(:center, :bottom))
+            end
         end
         
         out_name_base = "gaussian_fit_integrated_$(type)"
@@ -1110,9 +1016,10 @@ module Data
         csv_data = Matrix{Any}(undef, n_comps, 2)
         println("\n--- Integrated Fit Results ---")
         for k in 1:n_comps
-             @printf("Component G%d Offset: %.4f bins\n", k, offsets[k].offset_bins)
+             diff = mod(offsets_raw[k].offset_bins + n_bins/2, n_bins) - n_bins/2
+             @printf("Component G%d Offset: %.4f bins\n", k, diff)
             csv_data[k, 1] = k
-            csv_data[k, 2] = offsets[k].offset_bins
+            csv_data[k, 2] = diff
         end
         writedlm(out_path, csv_data, ',')
 
@@ -1139,9 +1046,9 @@ module Data
             
             for k in 1:n_comps
                 # 1. Średnia Longitude (w binach)
-                mu_l = params_l[3*(k-1)+2]
-                mu_h = params_h[3*(k-1)+2]
-                phi_avg = (mu_l + mu_h) / 2.0
+                mu_l = fit_l.components[k].mu
+                mu_h = fit_h.components[k].mu
+                phi_avg = (mu_l + mu_h) / 2.0 
                 
                 # 2. Wyznacz P3 dla tej składowej (z LRFS)
                 # Mapujemy pozycję na bin LRFS (zakładając tę samą szerokość okna on-pulse)
@@ -1200,35 +1107,20 @@ module Data
                 n_l_row = normalize_vec(row_l)
                 n_h_row = normalize_vec(row_h)
                 
-                # Tu też odejmujemy baseline, jeśli to możliwe, dla lepszego fita
-                if !isempty(off_pulse_indices)
-                    b_l = median(n_l_row[off_pulse_indices])
-                    b_h = median(n_h_row[off_pulse_indices])
-                    n_l_row .-= b_l
-                    n_h_row .-= b_h
-                end
-
                 # Fit Low: Startujemy z parametrów średnich (params_l) aby zachować tożsamość komponentów
-                # Ale pozwalamy na lekkie zmiany
-                f_l = fit_gaussians(bins, n_l_row, n_comps; p0=params_l, lower=lower_bounds, upper=upper_bounds)
+                f_l = GaussianFit.fit_gaussians(bins, n_l_row, n_comps; p0=fit_l.params)
                 
                 # Fit High: Startujemy z parametrów średnich (params_h)
-                f_h = fit_gaussians(bins, n_h_row, n_comps; p0=params_h, lower=lower_bounds, upper=upper_bounds)
+                f_h = GaussianFit.fit_gaussians(bins, n_h_row, n_comps; p0=fit_h.params)
                 
-                # Wyciągnij parametry (zakładamy, że kolejność się zachowała dzięki dobremu p0)
-                pl = f_l.param
-                ph = f_h.param
-                
-                for k in 1:n_comps
-                    mu_l_ph = pl[3*(k-1)+2]
-                    mu_h_ph = ph[3*(k-1)+2]
-                    
-                    diff = mu_h_ph - mu_l_ph
-                    diff = mod(diff + n_bins/2, n_bins) - n_bins/2
-                    
-                    # Odrzucamy absurdalne skoki (np. > 20% szerokości pulsu od średniej)
-                    if abs(diff) < n_bins * 0.2
-                        phase_offsets[i, k] = diff
+                if f_l.converged && f_h.converged
+                    for k in 1:n_comps
+                        diff = f_h.components[k].mu - f_l.components[k].mu
+                        diff = mod(diff + n_bins/2, n_bins) - n_bins/2
+                        
+                        if abs(diff) < n_bins * 0.2
+                            phase_offsets[i, k] = diff
+                        end
                     end
                 end
             catch
@@ -1278,7 +1170,7 @@ module Data
             end
         end
 
-        return offsets
+        return offsets_raw
     end
 
     # Pomocnicza normalizacja wewnątrz modułu
