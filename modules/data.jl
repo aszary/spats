@@ -895,12 +895,15 @@ module Data
         """
         Fourier-based component offset analysis (PHASE-RESOLVED).
         
-        Works like the Gaussian method: iterates through each P3 phase independently,
-        calculates barycenter offsets using Fourier method, and collects all measurements.
+        Methodology:
+        - Global Shift: Computed via Fourier Phase Gradient (Shift Theorem).
+        - Component Centroids: Computed using Barycenter (Center of Mass) algorithm.
+          This provides a model-independent measure of the energy balance, 
+          which is physically robust for asymmetric pulsar profiles.
         
         Output axes:
-        - X: longitude in DEGREES (matching Gaussian method)
-        - Y: offset in DEGREES (not bins!)
+        - X: Longitude in DEGREES (matching standard pulsar timing literature)
+        - Y: Phase offset in DEGREES
         """
         
         # --- 1. Configuration and Data Loading ---
@@ -913,35 +916,32 @@ module Data
         
         n_phases, n_bins = size(l_matrix)
         
+        println("\n" * "="^60)
         println(">>> Starting Phase-Resolved Fourier Analysis: $indir")
         println(">>> P3-folded matrix size: $n_phases phases × $n_bins bins")
         
         pulsar_name = basename(rstrip(indir, '/'))
         
-        # Get on-pulse region
-        bin_st = get(p, "bin_st", 1)
+        # Get on-pulse region (Region of Interest)
+        bin_st  = get(p, "bin_st", 1)
         bin_end = get(p, "bin_end", n_bins)
-        if isnothing(bin_st) bin_st = 1 end
-        if isnothing(bin_end) bin_end = n_bins end
+        bin_st  = isnothing(bin_st) ? 1 : bin_st
+        bin_end = isnothing(bin_end) ? n_bins : bin_end
         
         println(">>> On-Pulse region: bins $bin_st to $bin_end")
         
-        # Conversion factor: bins to degrees
-        db = (bin_end + 1) - bin_st  # number of bins in ROI
-        dl = 360.0 * db / n_bins     # degrees per full period
+        # Conversion factors
+        db = (bin_end + 1) - bin_st
         bins_to_deg = 360.0 / n_bins
-        center_bin = (bin_st + bin_end) / 2.0
         
-        println(">>> Degrees per bin: $(bins_to_deg)")
+        println(">>> Degrees per bin: $(round(bins_to_deg, digits=4))°")
         
-        # --- Storage for per-phase offset data (like Gaussian method) ---
-        # offset_data[component] = (longitudes_deg, offsets_deg, errors_deg)
-        offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
-        
-        # --- Find Reference Components from Mean Profile ---
-        # This ensures components don't smear across the X-axis by assigning fixed boundaries
+        # --- 2. Integrated Profile Analysis (Global reference) ---
+        # We calculate the mean profile across all P3 phases to establish 
+        # a high-SNR reference for component windows.
         mean_l_roi = copy(normalize_01(vec(mean(l_matrix, dims=1))))
         mean_h_roi = copy(normalize_01(vec(mean(h_matrix, dims=1))))
+        
         if bin_st > 1
             mean_l_roi[1:Int(bin_st)-1] .= 0.0
             mean_h_roi[1:Int(bin_st)-1] .= 0.0
@@ -950,24 +950,129 @@ module Data
             mean_l_roi[Int(bin_end)+1:end] .= 0.0
             mean_h_roi[Int(bin_end)+1:end] .= 0.0
         end
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.15, n_comp=n_comp)
+        
+        # Global offset using Fourier method
+        global_offset_bins = ProfileMetrics.global_fourier_shift(mean_l_roi, mean_h_roi)
+        @printf(">>> Global Fourier Shift (High vs Low): %.4f bins\n", global_offset_bins)
+        
+        # Detect static component boundaries (Barycenters) on the integrated profile
+        # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.10, n_comp=n_comp)
+        n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
-        # Counter for valid phases
+        println(">>> Detected $n_comps components using Barycenter Method.")
+        
+        # --- 3. Plotting: Integrated Profile ---
+        # Switching entirely to PyPlot for uniformity and precision
+        PyPlot.figure(figsize=(10, 8))
+        colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0", "#F44336", "#795548"]
+        bins_arr = 1:n_bins
+        
+        PyPlot.subplot(3, 1, 1)
+        PyPlot.title("Low Frequency (Integrated Profile & Barycentric Windows)", fontsize=11)
+        PyPlot.plot(bins_arr, mean_l_roi, color="black", linewidth=1.5, label="Low Data")
+        PyPlot.ylabel("Normalized Intensity")
+        for (k, c) in enumerate(ref_comps)
+            col = colors[mod1(k, length(colors))]
+            PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.2)
+            PyPlot.scatter([c.com_low], [mean_l_roi[round(Int, c.com_low)]], color=col, s=40, zorder=5)
+        end
+        PyPlot.legend(loc="upper right", fontsize=9)
+        
+        PyPlot.subplot(3, 1, 2)
+        PyPlot.title("High Frequency (Integrated Profile & Barycentric Windows)", fontsize=11)
+        PyPlot.plot(bins_arr, mean_h_roi, color="black", linewidth=1.5, label="High Data")
+        PyPlot.ylabel("Normalized Intensity")
+        for (k, c) in enumerate(ref_comps)
+            col = colors[mod1(k, length(colors))]
+            PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.2)
+            PyPlot.scatter([c.com_high], [mean_h_roi[round(Int, c.com_high)]], color=col, s=40, zorder=5)
+        end
+        PyPlot.legend(loc="upper right", fontsize=9)
+        
+        PyPlot.subplot(3, 1, 3)
+        PyPlot.title("Profile Comparison (Solid=Low, Dashed=High)", fontsize=11)
+        PyPlot.plot(bins_arr, mean_l_roi, color="gray", linewidth=1.5, label="Low")
+        PyPlot.plot(bins_arr, mean_h_roi, color="black", linestyle="--", linewidth=1.5, label="High")
+        PyPlot.xlabel("Phase (bins)")
+        PyPlot.ylabel("Intensity")
+        for (k, c) in enumerate(ref_comps)
+            col = colors[mod1(k, length(colors))]
+            PyPlot.text(c.com_low, 0.5, @sprintf("Δ=%.3f bins", c.offset), color=col, fontsize=11, ha="center", va="bottom", fontweight="bold")
+        end
+        PyPlot.tight_layout()
+        PyPlot.savefig(joinpath(indir, "$(pulsar_name)_integrated_offsets_$(type).pdf"), dpi=150)
+        PyPlot.close()
+        
+        # Save integrated fit statistics to CSV
+        out_path = joinpath(indir, "$(pulsar_name)_integrated_offsets_$(type).csv")
+        csv_data = Matrix{Any}(undef, n_comps + 1, 2)
+        csv_data[1, 1] = "Global_Fourier"
+        csv_data[1, 2] = global_offset_bins
+        for k in 1:n_comps
+            csv_data[k+1, 1] = "Component_$k"
+            csv_data[k+1, 2] = ref_comps[k].offset
+        end
+        writedlm(out_path, csv_data, ',')
+
+        # --- 4. LRFS P3 vs Phase Analysis ---
+        println("\n--- P3 vs Phase Analysis ---")
+        lrfs_file = joinpath(indir, "pulsar_low.debase.lrfs")
+        if !isfile(lrfs_file)
+            lrfs_file = joinpath(indir, "pulsar.debase.lrfs") 
+        end
+
+        p3_values = Float64[]
+        long_values = Float64[]
+
+        if isfile(lrfs_file)
+            lrfs_data = load_ascii_all(lrfs_file) 
+            n_freqs, n_lrfs_bins, n_pols = size(lrfs_data)
+            freqs = range(0.0, 0.5, length=n_freqs)
+            
+            for k in 1:n_comps
+                phi_avg = (ref_comps[k].com_low + ref_comps[k].com_high) / 2.0
+                b_idx = clamp(round(Int, phi_avg), 1, n_lrfs_bins)
+                
+                spectrum = lrfs_data[:, b_idx, 1]
+                valid_range = 3:n_freqs 
+                if !isempty(valid_range)
+                    max_i = argmax(spectrum[valid_range]) + (valid_range[1] - 1)
+                    peak_freq = freqs[max_i]
+                    if peak_freq > 0.01
+                        push!(p3_values, 1.0 / peak_freq)
+                        push!(long_values, phi_avg)
+                    end
+                end
+            end
+            
+            if !isempty(p3_values)
+                PyPlot.figure(figsize=(7, 5))
+                PyPlot.title("Modulation Period (P3) vs Phase", fontsize=12)
+                PyPlot.scatter(long_values, p3_values, color="red", s=40)
+                PyPlot.xlabel("Phase (bins)")
+                PyPlot.ylabel("P3 (P0 units)")
+                PyPlot.grid(true, alpha=0.3)
+                PyPlot.tight_layout()
+                PyPlot.savefig(joinpath(indir, "$(pulsar_name)_fourier_p3_vs_phase_$(type).pdf"))
+                PyPlot.close()
+            end
+        end
+
+        # --- 5. Phase-Resolved P3 Analysis ---
+        println("\n--- Starting Phase-Resolved Analysis (per P3 bin) ---")
+        
+        # offset_data maps component ID to vectors of measurements
+        offset_data = Dict{Int, NamedTuple{(:lon, :off, :err, :snr), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
         valid_phases = 0
         
-        # === MAIN LOOP: Process each P3 phase independently ===
         for phase_idx in 1:n_phases
             row_l = vec(l_matrix[phase_idx, :])
             row_h = vec(h_matrix[phase_idx, :])
             
-            # Normalize per row
-            row_l_norm = normalize_01(row_l)
-            row_h_norm = normalize_01(row_h)
-            
-            # Apply ROI masking
-            row_l_roi = copy(row_l_norm)
-            row_h_roi = copy(row_h_norm)
+            row_l_roi = copy(normalize_01(row_l))
+            row_h_roi = copy(normalize_01(row_h))
             if bin_st > 1
                 row_l_roi[1:Int(bin_st)-1] .= 0.0
                 row_h_roi[1:Int(bin_st)-1] .= 0.0
@@ -977,51 +1082,55 @@ module Data
                 row_h_roi[Int(bin_end)+1:end] .= 0.0
             end
             
-            # Check if phase has minimum signal (not just noise)
+            # Simple SNR metric: signal peak vs standard deviation of off-pulse region
+            # We take a small sample outside the ROI to represent noise
+            off_pulse_l = row_l[1:max(1, bin_st-10)] 
+            noise_l = isempty(off_pulse_l) ? 1.0 : std(off_pulse_l)
+            snr_val = (maximum(row_l) - mean(off_pulse_l)) / (noise_l + 1e-6)
+            
+            # Skip noise-only phases (amplitude below 5% threshold)
             if maximum(row_l_roi) < 0.05 || maximum(row_h_roi) < 0.05
                 continue
             end
             
             valid_phases += 1
             
-            # Find components using fixed windows to ensure proper X-axis separation
+            # Compute phase-resolved barycenters strictly within the static integration windows
             comps = ProfileMetrics.component_barycenters_fixed_windows(row_l_roi, row_h_roi, windows)
             
-            # For each component, calculate offset
             for (comp_idx, res) in enumerate(comps)
+                # Ignore measurements where the offset is missing or wildly out of bounds
                 if isnan(res.offset) || abs(res.offset) > n_bins * 0.1
                     continue
                 end
                 
-                # METODOLOGIA: Faza to średnia pomiędzy pozycją w niskiej a wysokiej częstotliwości,
-                # przeliczana bezpośrednio na stopnie geograficzne (dając zakres np. 175-190 deg)
+                # METHODOLOGY: 
+                # Phase Longitude is the mean position between high and low frequencies, 
+                # converted to physical degrees (e.g. mapping to 175-190 deg range)
                 com_low = res.com_ref
                 com_high = res.com_ref + res.offset
                 lon_deg = (com_low + com_high) / 2.0 * bins_to_deg
                 
                 offset_deg = res.offset * bins_to_deg
+                # Approximate error based on integration window width
                 error_deg = (windows[comp_idx][2] - windows[comp_idx][1]) / 25.0 * bins_to_deg
                 
-                # Store data
                 if !haskey(offset_data, comp_idx)
-                    offset_data[comp_idx] = (lon=Float64[], off=Float64[], err=Float64[])
+                    offset_data[comp_idx] = (lon=Float64[], off=Float64[], err=Float64[], snr=Float64[])
                 end
                 push!(offset_data[comp_idx].lon, lon_deg)
                 push!(offset_data[comp_idx].off, offset_deg)
                 push!(offset_data[comp_idx].err, error_deg)
+                push!(offset_data[comp_idx].snr, snr_val)
             end
         end
         
         println(">>> Processed $valid_phases valid phases out of $n_phases")
-        println(">>> Components detected: $(length(offset_data))")
-        
-        for (comp_id, data) in offset_data
-            println("    Component $comp_id: $(length(data.off)) measurements")
+        for comp_id in sort(collect(keys(offset_data)))
+            println("    Component $comp_id: $(length(offset_data[comp_id].off)) measurements")
         end
         
-        # === PLOTTING: Like Gaussian method ===
-        colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0", "#F44336", "#795548"]
-        
+        # --- 6. Plotting: Phase-Resolved Offsets ---
         PyPlot.figure(figsize=(8, 5))
         
         for comp_id in sort(collect(keys(offset_data)))
@@ -1030,15 +1139,14 @@ module Data
                 continue
             end
             
-            # Color for this component
             col = colors[mod1(comp_id, length(colors))]
             
-            # Plot all phase-resolved points with individual errors
+            # Individual phase points
             PyPlot.errorbar(data.lon, data.off, yerr=data.err, fmt="o", 
                     color=col, alpha=0.4, markersize=4, capsize=2, lw=1.0, 
                     label="C$comp_id (phases)")
             
-            # Overlay arithmetic mean with standard error
+            # Mean and Standard Error for the component cloud
             lon_mean = mean(data.lon)
             off_mean = mean(data.off)
             off_err = std(data.off) / sqrt(length(data.off))
@@ -1046,31 +1154,28 @@ module Data
             PyPlot.errorbar([lon_mean], [off_mean], yerr=[off_err], fmt="D",
                     color=col, capsize=5, capthick=2.0,
                     markersize=10, elinewidth=2.5, markeredgecolor="black", markeredgewidth=1.2,
-                    label="Component $comp_id (mean ± stderr)", zorder=10)
+                    label="C$comp_id (mean ± stderr)", zorder=10)
         end
         
         PyPlot.axhline(0.0, color="gray", ls="--", lw=1.0, alpha=0.8)
         PyPlot.minorticks_on()
         PyPlot.xlabel("Longitude (°)", fontsize=12)
         PyPlot.ylabel("Offset (°)", fontsize=12)
-        PyPlot.title("Longitude vs. offset (Fourier/Barycenter Phase-Resolved)", fontsize=13)
+        PyPlot.title("Longitude vs. Offset (Fourier/Barycenter Phase-Resolved)", fontsize=13)
         PyPlot.legend(loc="best", fontsize=10)
         PyPlot.grid(true, which="major", alpha=0.3)
         PyPlot.tight_layout()
         
         out_name = "$(pulsar_name)_fourier_offsets_$(type).pdf"
         PyPlot.savefig(joinpath(indir, out_name), dpi=150)
-        println("Saved plot: $out_name")
         PyPlot.close()
         
-        # === CSV OUTPUT ===
+        # --- 7. Output to CSV ---
         csv_path = joinpath(indir, "$(pulsar_name)_fourier_offsets_$(type).csv")
         open(csv_path, "w") do io
-            # Header
             println(io, "Component,N_Measurements,Mean_Longitude_deg,Mean_Offset_deg,Offset_Err_deg")
-            
-            # Data
-            for (comp_id, data) in offset_data
+            for comp_id in sort(collect(keys(offset_data)))
+                data = offset_data[comp_id]
                 if !isempty(data.off)
                     lon_mean = mean(data.lon)
                     off_mean = mean(data.off)
@@ -1079,24 +1184,34 @@ module Data
                 end
             end
         end
-        println("Saved CSV: $csv_path")
         
-        # === DETAILED CSV (all phase-resolved points) ===
         csv_detailed_path = joinpath(indir, "$(pulsar_name)_fourier_offsets_detailed_$(type).csv")
         open(csv_detailed_path, "w") do io
-            # Header
-            header = "Component,Longitude_deg,Offset_deg,Error_deg"
-            println(io, header)
-            
-            # Data: write all phase-resolved measurements
-            for (comp_id, data) in offset_data
-                for (lon, off, err) in zip(data.lon, data.off, data.err)
-                    println(io, "$comp_id,$lon,$off,$err")
+            println(io, "Component,Longitude_deg,Offset_deg,Error_deg,Phase_SNR")
+            for comp_id in sort(collect(keys(offset_data)))
+                data = offset_data[comp_id]
+                for (lon, off, err, snr) in zip(data.lon, data.off, data.err, data.snr)
+                    println(io, "$comp_id,$lon,$off,$err,$snr")
                 end
             end
         end
-        println("Saved detailed CSV: $csv_detailed_path")
 
+        # --- 8. Component Separation (P2) Calculation ---
+        # P2 is the physical distance (longitude separation) between adjacent components.
+        if n_comps > 1
+            println("\n--- Component Separation (P2) ---")
+            for k in 1:(n_comps - 1)
+                if haskey(offset_data, k) && haskey(offset_data, k+1)
+                    lon1 = mean(offset_data[k].lon)
+                    lon2 = mean(offset_data[k+1].lon)
+                    p2_sep = abs(lon2 - lon1)
+                    @printf(">>> P2 between C%d and C%d: %.3f°\n", k, k+1, p2_sep)
+                end
+            end
+        end
+
+        println("="^60 * "\n")
+        return ref_comps
     end
 
     # Pomocnicza normalizacja wewnątrz modułu
@@ -1150,7 +1265,6 @@ module Data
         
         return shifts, correlations
     end
-
 
     """
     Process multifrequency data with PSRCHIVE and PSRSALSA single pulse analysis

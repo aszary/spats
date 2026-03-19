@@ -11,6 +11,10 @@ Calculates the global sub-bin phase offset between two profiles using the
 Fourier Phase Gradient Method (based on Taylor 1992 pulsar timing algorithm).
 This methodology is entirely non-parametric, shape-independent, and highly accurate.
 
+It leverages the Shift Theorem to calculate the global delay across the entire 
+frequency band of the profile's envelope, weighted by spectral power to minimize 
+the impact of high-frequency noise.
+
 Returns the shift in bins. A positive shift indicates that `prof_target` is 
 delayed (shifted to the right) relative to `prof_ref`.
 """
@@ -70,6 +74,10 @@ Calculates the Geometric Center of Mass (Barycenter) for individual pulse compon
 This completely avoids analytical curve-fitting (like Gaussians) which fails on asymmetric 
 profiles. It mathematically isolates the "island" of each component and computes its true 
 balance point relative to the local noise floor.
+
+Barycentric calculations provide a robust, non-parametric estimator for the centroid 
+of flux, making no assumptions about the intrinsic profile shape (e.g. skewness due 
+to scattering or intrinsic emission mechanisms).
 """
 function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.15, n_comp=3)
     N = length(prof_ref)
@@ -143,6 +151,9 @@ end
 """
 Calculates Center of Mass for a specific phase (row) using strictly pre-defined boundary windows.
 This ensures phase-resolved tracking doesn't artificially jump around due to noise fluctuations.
+
+It accurately measures the physical phase separation of flux between low and high 
+frequency sub-components without artificially constraining them into symmetrical bell curves.
 """
 function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_target::AbstractVector, windows)
     # Normalize with protection against flat profiles (zero amplitude)
