@@ -153,7 +153,7 @@ function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_targ
     
     # If profile is flat, return NaN for all windows (no signal to measure)
     if amp_ref ≈ 0.0 || amp_tar ≈ 0.0
-        return [NaN for _ in windows]
+        return [(com_ref=NaN, offset=NaN) for _ in windows]
     end
     
     p_ref = (prof_ref .- min_ref) ./ amp_ref
@@ -161,11 +161,15 @@ function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_targ
     
     return map(windows) do (left, right)
         x_win = left:right
-        m_ref = sum(max.(p_ref[x_win] .- min(p_ref[left], p_ref[right]), 0.0))
-        m_tar = sum(max.(p_tar[x_win] .- min(p_tar[left], p_tar[right]), 0.0))
-        com_ref = m_ref > 0 ? sum(x_win .* max.(p_ref[x_win] .- min(p_ref[left], p_ref[right]), 0.0)) / m_ref : NaN
-        com_tar = m_tar > 0 ? sum(x_win .* max.(p_tar[x_win] .- min(p_tar[left], p_tar[right]), 0.0)) / m_tar : NaN
-        return com_tar - com_ref
+        bg_ref = min(p_ref[left], p_ref[right])
+        bg_tar = min(p_tar[left], p_tar[right])
+        vals_ref = max.(p_ref[x_win] .- bg_ref, 0.0)
+        vals_tar = max.(p_tar[x_win] .- bg_tar, 0.0)
+        m_ref = sum(vals_ref)
+        m_tar = sum(vals_tar)
+        com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
+        com_tar = m_tar > 0 ? sum(x_win .* vals_tar) / m_tar : NaN
+        return (com_ref=com_ref, offset=com_tar - com_ref)
     end
 end
 
