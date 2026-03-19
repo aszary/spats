@@ -980,7 +980,7 @@ module Data
             
             for k in 1:n_comps
                 if !isnan(offsets_fixed[k]) && abs(offsets_fixed[k]) < n_bins * 0.2
-                    lon = (comps[k].com_low + comps[k].com_high) / 2.0
+                    lon = comps[k].com_low
                     push!(all_phase_offsets[k], offsets_fixed[k])
                     push!(all_longitudes[k], lon)
                 end
@@ -1005,7 +1005,7 @@ module Data
         
         # Overlay integrated offsets (larger, opaque points with error bars)
         for (k, c) in enumerate(comps)
-            lon = (c.com_low + c.com_high) / 2.0
+            lon = c.com_low
             err = (c.right_bound - c.left_bound) / 25.0
             PyPlot.errorbar([lon], [c.offset], yerr=[err], fmt="D", 
                     color=string(safe_colors[k]), capsize=5, capthick=1.5,
@@ -1041,7 +1041,7 @@ module Data
             # Global offset in first row
             line = "integrated,$global_offset"
             for (k, c) in enumerate(comps)
-                lon = (c.com_low + c.com_high) / 2.0
+                lon = c.com_low
                 line *= ",$(lon),$(c.offset)"
             end
             println(io, line)
@@ -1082,7 +1082,7 @@ module Data
             freqs = range(0.0, 0.5, length=n_freqs)
             
             for k in 1:n_comps
-                phi_avg = (comps[k].com_low + comps[k].com_high) / 2.0
+                phi_avg = comps[k].com_low
                 b_idx = clamp(round(Int, phi_avg), 1, n_lrfs_bins)
                 
                 spectrum = lrfs_data[:, b_idx, 1]
