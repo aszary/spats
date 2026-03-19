@@ -74,9 +74,20 @@ balance point relative to the local noise floor.
 function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.15, n_comp=3)
     N = length(prof_ref)
     
-    # Normalize copies to 0.0 - 1.0 range for robust thresholding
-    p_ref = (prof_ref .- minimum(prof_ref)) ./ (maximum(prof_ref) - minimum(prof_ref))
-    p_tar = (prof_target .- minimum(prof_target)) ./ (maximum(prof_target) - minimum(prof_target))
+    # Normalize copies to 0.0 - 1.0 range for robust thresholding (with protection against flat profiles)
+    min_ref, max_ref = minimum(prof_ref), maximum(prof_ref)
+    min_tar, max_tar = minimum(prof_target), maximum(prof_target)
+    
+    amp_ref = max_ref - min_ref
+    amp_tar = max_tar - min_tar
+    
+    # If profiles are flat, return empty result
+    if amp_ref ≈ 0.0 || amp_tar ≈ 0.0
+        return []
+    end
+    
+    p_ref = (prof_ref .- min_ref) ./ amp_ref
+    p_tar = (prof_target .- min_tar) ./ amp_tar
     
     # 1. Identify peaks using local maxima detection
     peaks = Int[]
@@ -133,8 +144,20 @@ Calculates Center of Mass for a specific phase (row) using strictly pre-defined 
 This ensures phase-resolved tracking doesn't artificially jump around due to noise fluctuations.
 """
 function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_target::AbstractVector, windows)
-    p_ref = (prof_ref .- minimum(prof_ref)) ./ (maximum(prof_ref) - minimum(prof_ref))
-    p_tar = (prof_target .- minimum(prof_target)) ./ (maximum(prof_target) - minimum(prof_target))
+    # Normalize with protection against flat profiles (zero amplitude)
+    min_ref, max_ref = minimum(prof_ref), maximum(prof_ref)
+    min_tar, max_tar = minimum(prof_target), maximum(prof_target)
+    
+    amp_ref = max_ref - min_ref
+    amp_tar = max_tar - min_tar
+    
+    # If profile is flat, return NaN for all windows (no signal to measure)
+    if amp_ref ≈ 0.0 || amp_tar ≈ 0.0
+        return [NaN for _ in windows]
+    end
+    
+    p_ref = (prof_ref .- min_ref) ./ amp_ref
+    p_tar = (prof_target .- min_tar) ./ amp_tar
     
     return map(windows) do (left, right)
         x_win = left:right

@@ -943,7 +943,7 @@ module Data
 
         # --- 4. Component Offsets (Barycenter) ---
         println("--- Calculating Component Barycenters ---")
-        comps = ProfileMetrics.component_barycenters(norm_l_roi, norm_h_roi; threshold=0.15, n_comp=n_comp)
+        comps = ProfileMetrics.component_barycenters(norm_l_roi, norm_h_roi; threshold=0.10, n_comp=n_comp)
         n_comps = length(comps)
         println(">>> Detected $n_comps components using Barycenter Method.")
 
@@ -960,8 +960,8 @@ module Data
             row_l = vec(l_matrix[i, :])
             row_h = vec(h_matrix[i, :])
             
-            # Skip very weak phases
-            if maximum(row_l) < 0.2 * maximum(mean_l) 
+            # Skip only extremely weak phases (less than 5% of mean profile)
+            if maximum(row_l) < 0.05 * maximum(mean_l) 
                 continue 
             end
 
@@ -979,13 +979,23 @@ module Data
             offsets_fixed = ProfileMetrics.component_barycenters_fixed_windows(row_l_norm, row_h_norm, windows)
             
             for k in 1:n_comps
-                if !isnan(offsets_fixed[k]) && abs(offsets_fixed[k]) < n_bins * 0.2
+                if !isnan(offsets_fixed[k]) && abs(offsets_fixed[k]) < n_bins * 0.5
                     lon = comps[k].com_low
                     push!(all_phase_offsets[k], offsets_fixed[k])
                     push!(all_longitudes[k], lon)
                 end
             end
         end
+
+        # --- DEBUG: Report on collected data ---
+        total_points = sum(length(all_phase_offsets[k]) for k in 1:n_comps)
+        println(">>> Phase-Resolved Offsets Summary:")
+        println("    Total phases processed: $n_phases")
+        for k in 1:n_comps
+            n_points = length(all_phase_offsets[k])
+            println("    Component $k: $n_points valid offsets")
+        end
+        println("    TOTAL DATA POINTS: $total_points")
 
         # --- Plotting: Offset vs. Mean Longitude (all phases + integrated) ---
         # Color scheme for components
