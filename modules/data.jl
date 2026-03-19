@@ -915,7 +915,7 @@ module Data
         if isnothing(bin_st) bin_st = 1 end
         if isnothing(bin_end) bin_end = n_bins end
         
-        # Marginesy dla dopasowania (zapas)
+        # Margins for fitting (buffer)
         bin_st_fit = max(1.0, Float64(bin_st) - 5.0)
         bin_end_fit = min(Float64(n_bins), Float64(bin_end) + 5.0)
         
@@ -940,47 +940,36 @@ module Data
         n_comps = length(comps)
         println(">>> Detected $n_comps components using Barycenter Method.")
 
-        # --- Plotting: Integrated Profile ---
-        fig = Figure(size = (1000, 900))
+        # --- Plotting: Offset vs. Mean Longitude ---
+        fig = Figure(size = (800, 600))
+        ax = Axis(fig[1, 1], title="Offset vs. Mean Longitude (Fourier/Barycenter)", 
+                  xlabel="Mean Longitude (bins)", ylabel="Offset (bins)", 
+                  xgridvisible=true, ygridvisible=true)
+        
         colors = [:red, :green, :blue, :orange, :purple]
-        safe_colors = [colors[mod(i-1, length(colors))+1] for i in 1:max(1, n_comps)]
-
-        # Panel 1: Low Freq
-        ax1 = Axis(fig[1, 1], title="Low Frequency (Integrated)", xlabel="Phase (bins)", ylabel="Normalized Intensity")
-        lines!(ax1, bins, norm_l, color=:black, linewidth=2, label="Low Data")
+        safe_colors = [colors[mod(i-1, length(colors))+1] for i in 1:length(comps)]
         
-        # Panel 2: High Freq
-        ax2 = Axis(fig[2, 1], title="High Frequency (Integrated)", xlabel="Phase (bins)", ylabel="Normalized Intensity")
-        lines!(ax2, bins, norm_h, color=:black, linewidth=2, label="High Data")
+        # Calculate errors for offsets (proportional to component width)
+        offsets = [c.offset for c in comps]
+        longitudes = [c.longitude_bin for c in comps]
+        errors = [(c.right_bound - c.left_bound) / 20.0 for c in comps]  # Approximate error based on width
         
         for (k, c) in enumerate(comps)
-            # Shade component windows and mark the center of mass
-            vspan!(ax1, c.left_bound, c.right_bound, color=(safe_colors[k], 0.2))
-            scatter!(ax1, [c.com_low], [norm_l[round(Int, c.com_low)]], color=safe_colors[k], markersize=12)
-            
-            vspan!(ax2, c.left_bound, c.right_bound, color=(safe_colors[k], 0.2))
-            scatter!(ax2, [c.com_high], [norm_h[round(Int, c.com_high)]], color=safe_colors[k], markersize=12)
-            
-            @printf("Component %d: Offset = %.4f bins\n", k, c.offset)
-        end
-        axislegend(ax1)
-        axislegend(ax2)
-
-        # Panel 3: Profile Comparison
-        ax3 = Axis(fig[3, 1], title="Profile Comparison (Solid=Low, Dashed=High)", xlabel="Phase (bins)")
-        lines!(ax3, bins, norm_l, color=:gray, linewidth=2, label="Low")
-        lines!(ax3, bins, norm_h, color=:black, linestyle=:dash, linewidth=2, label="High")
-        
-        out_name_base = "$(pulsar_name)_integrated_offsets_$(type)"
-        for (k, c) in enumerate(comps)
-            text!(ax3, c.com_low, 0.5, text=@sprintf("Δ=%.2f", c.offset), color=safe_colors[k], fontsize=14, align=(:center, :bottom))
+            scatter!(ax, [c.longitude_bin], [c.offset], color=safe_colors[k], markersize=12, label="Component $k")
+            text!(ax, c.longitude_bin + 2, c.offset, text=@sprintf("C%d: %.2f", k, c.offset), 
+                  color=safe_colors[k], fontsize=12, align=(:left, :center))
         end
         
-        out_name_base = "$(pulsar_name)_integrated_offsets_$(type)"
+        # Add error bars
+        errorbars!(ax, longitudes, offsets, errors; color=:black, whiskerwidth=10)
+        
+        axislegend(ax)
+        
+        out_name_base = "$(pulsar_name)_offset_vs_longitude_$(type)"
         save(joinpath(indir, out_name_base * ".pdf"), fig)
         
         # Save integrated fit statistics to CSV
-        out_path = joinpath(indir, "$(pulsar_name)_integrated_offsets_$(type).csv")
+        out_path = joinpath(indir, "$(pulsar_name)_offsets_$(type).csv")
         csv_data = Matrix{Any}(undef, n_comps + 1, 2)
         csv_data[1, 1] = "Global_Fourier"
         csv_data[1, 2] = global_offset
@@ -993,10 +982,10 @@ module Data
         # --- 5. P3 vs Phase Analysis ---
         println("\n--- P3 vs Phase Analysis ---")
         
-        # Próbujemy wczytać LRFS (najlepiej dla Low Freq)
+        # Try to load LRFS (preferably for Low Freq)
         lrfs_file = joinpath(indir, "pulsar_low.debase.lrfs")
         if !isfile(lrfs_file)
-            # Fallback dla 16-kanałowych, nazwa może być inna w zależności od pipeline'u
+            # Fallback for 16-channel, name may differ depending on pipeline
             lrfs_file = joinpath(indir, "pulsar.debase.lrfs") 
         end
 
@@ -1028,7 +1017,7 @@ module Data
                 fig_p3 = Figure(size = (700, 500))
                 ax_p3 = Axis(fig_p3[1, 1], title="Modulation Period (P3) vs Phase", xlabel="Phase (bins)", ylabel="P3 (P0 units)", xgridvisible=true, ygridvisible=true)
                 scatter!(ax_p3, long_values, p3_values, color=:red, markersize=15)
-                save(joinpath(indir, "$(pulsar_name)_fourier_p3_vs_phase_$(type).pdf"), fig_p3)
+                save(joinpath(indir, "$(pulsar_name)_p3_vs_phase_$(type).pdf"), fig_p3)
             end
         end
 
@@ -1071,10 +1060,10 @@ module Data
         end
         if has_plots; axislegend(ax_ph); end
         
-        save(joinpath(indir, "$(pulsar_name)_fourier_phase_resolved_$(type).pdf"), fig_phase)
+        save(joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).pdf"), fig_phase)
         
         # Save phase-resolved data to CSV (Filtering NaN rows)
-        out_ph_csv = joinpath(indir, "$(pulsar_name)_fourier_phase_resolved_$(type).csv")
+        out_ph_csv = joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).csv")
         open(out_ph_csv, "w") do io
             println(io, "Phase_Bin," * join(["C$(k)_Offset" for k in 1:n_comps], ","))
             for i in 1:n_phases
