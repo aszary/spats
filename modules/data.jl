@@ -953,30 +953,31 @@ module Data
         errors = [(c.right_bound - c.left_bound) / 25.0 for c in comps]  # Uncertainty based on component width
         
         # Create figure with PyPlot for better control
-        figure(figsize=(8, 6))
+        PyPlot.figure(figsize=(8, 6))
         
         # Plot offset vs longitude with error bars
         for (k, c) in enumerate(comps)
             lon = (c.com_low + c.com_high) / 2.0
             err = (c.right_bound - c.left_bound) / 25.0
-            errorbar([lon], [c.offset], yerr=[err], fmt="o", 
+            PyPlot.errorbar([lon], [c.offset], yerr=[err], fmt="o", 
                     color=string(safe_colors[k]), capsize=4, capthick=1.2,
                     markersize=10, label="Component $k", elinewidth=1.5, markeredgewidth=1)
         end
         
         # Add horizontal line at offset=0
-        axhline(0.0, color="gray", ls="--", lw=0.8)
-        minorticks_on()
-        xlabel("Mean Longitude (bins)", fontsize=11)
-        ylabel("Offset (bins)", fontsize=11)
-        title("Offset vs. Mean Longitude (Fourier Phase Gradient + Barycenter)", fontsize=12)
-        legend(loc="best")
-        grid(true, which="major", alpha=0.3)
-        tight_layout()
+        PyPlot.axhline(0.0, color="gray", ls="--", lw=0.8)
+        PyPlot.minorticks_on()
+        PyPlot.xlabel("Mean Longitude (bins)", fontsize=11)
+        PyPlot.ylabel("Offset (bins)", fontsize=11)
+        PyPlot.title("Offset vs. Mean Longitude (Fourier Phase Gradient + Barycenter)", fontsize=12)
+        PyPlot.legend(loc="best")
+        PyPlot.grid(true, which="major", alpha=0.3)
+        PyPlot.tight_layout()
         
         out_name_base = "$(pulsar_name)_offset_vs_longitude_$(type)"
-        savefig(joinpath(indir, out_name_base * ".pdf"))
+        PyPlot.savefig(joinpath(indir, out_name_base * ".pdf"))
         println("Saved plot: $(out_name_base).pdf")
+        PyPlot.close()
         
         # Save integrated fit statistics to CSV
         out_path = joinpath(indir, "$(pulsar_name)_offsets_$(type).csv")
@@ -1026,18 +1027,18 @@ module Data
             end
             
             if !isempty(p3_values)
-                figure(figsize=(8, 6))
-                errorbar(long_values, p3_values, fmt="o", color="red", capsize=5, 
+                PyPlot.figure(figsize=(8, 6))
+                PyPlot.errorbar(long_values, p3_values, fmt="o", color="red", capsize=5, 
                         markersize=10, elinewidth=1.5, markeredgewidth=1)
-                minorticks_on()
-                xlabel("Mean Longitude (bins)", fontsize=11)
-                ylabel("Modulation Period P3 (P0 units)", fontsize=11)
-                title("P3 vs Mean Longitude (Fourier-based)", fontsize=12)
-                grid(true, which="major", alpha=0.3)
-                tight_layout()
-                savefig(joinpath(indir, "$(pulsar_name)_p3_vs_phase_$(type).pdf"))
+                PyPlot.minorticks_on()
+                PyPlot.xlabel("Mean Longitude (bins)", fontsize=11)
+                PyPlot.ylabel("Modulation Period P3 (P0 units)", fontsize=11)
+                PyPlot.title("P3 vs Mean Longitude (Fourier-based)", fontsize=12)
+                PyPlot.grid(true, which="major", alpha=0.3)
+                PyPlot.tight_layout()
+                PyPlot.savefig(joinpath(indir, "$(pulsar_name)_p3_vs_phase_$(type).pdf"))
                 println("Saved plot: $(pulsar_name)_p3_vs_phase_$(type).pdf")
-                close()
+                PyPlot.close()
             end
         end
 
@@ -1064,7 +1065,7 @@ module Data
         end
 
         # --- Plotting: Phase-Resolved Offsets ---
-        figure(figsize=(10, 6))
+        PyPlot.figure(figsize=(10, 6))
         
         phases = 1:n_phases
         has_plots = false
@@ -1072,24 +1073,24 @@ module Data
             vals = phase_offsets[:, k]
             mask = .!isnan.(vals)
             if any(mask)
-                plot(phases[mask], vals[mask], label="Component $k", color=string(safe_colors[k]), 
+                PyPlot.plot(phases[mask], vals[mask], label="Component $k", color=string(safe_colors[k]), 
                      lw=2.0, marker="o", markersize=4)
                 has_plots = true
             end
         end
         
         if has_plots
-            axhline(0.0, color="gray", ls="--", lw=0.8)
-            minorticks_on()
-            xlabel("P3 Phase (Row index)", fontsize=11)
-            ylabel("Offset (bins)", fontsize=11)
-            title("Phase-Resolved Offset (Fourier/Barycenter)", fontsize=12)
-            legend(loc="best")
-            grid(true, which="major", alpha=0.3)
-            tight_layout()
-            savefig(joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).pdf"))
+            PyPlot.axhline(0.0, color="gray", ls="--", lw=0.8)
+            PyPlot.minorticks_on()
+            PyPlot.xlabel("P3 Phase (Row index)", fontsize=11)
+            PyPlot.ylabel("Offset (bins)", fontsize=11)
+            PyPlot.title("Phase-Resolved Offset (Fourier/Barycenter)", fontsize=12)
+            PyPlot.legend(loc="best")
+            PyPlot.grid(true, which="major", alpha=0.3)
+            PyPlot.tight_layout()
+            PyPlot.savefig(joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).pdf"))
             println("Saved plot: $(pulsar_name)_phase_resolved_$(type).pdf")
-            close()
+            PyPlot.close()
         end
         
         # Save phase-resolved data to CSV (Filtering NaN rows)
