@@ -941,43 +941,54 @@ module Data
         println(">>> Detected $n_comps components using Barycenter Method.")
 
         # --- Plotting: Offset vs. Mean Longitude ---
-        fig = Figure(size = (800, 600))
-        ax = Axis(fig[1, 1], title="Offset vs. Mean Longitude (Fourier/Barycenter)", 
-                  xlabel="Mean Longitude (bins)", ylabel="Offset (bins)", 
-                  xgridvisible=true, ygridvisible=true)
-        
+        # Extract component data for plotting
         colors = [:red, :green, :blue, :orange, :purple]
         safe_colors = [colors[mod(i-1, length(colors))+1] for i in 1:length(comps)]
         
-        # Calculate errors for offsets (proportional to component width)
+        # Calculate mean longitude (phase) averaged from both frequencies
+        # and error estimates based on component width
+        longitudes = [(c.com_low + c.com_high) / 2.0 for c in comps]
         offsets = [c.offset for c in comps]
-        longitudes = [c.longitude_bin for c in comps]
-        errors = [(c.right_bound - c.left_bound) / 20.0 for c in comps]  # Approximate error based on width
+        errors = [(c.right_bound - c.left_bound) / 25.0 for c in comps]  # Uncertainty based on component width
         
+        # Create figure with PyPlot for better control
+        figure(figsize=(8, 6))
+        
+        # Plot offset vs longitude with error bars
         for (k, c) in enumerate(comps)
-            scatter!(ax, [c.longitude_bin], [c.offset], color=safe_colors[k], markersize=12, label="Component $k")
-            text!(ax, c.longitude_bin + 2, c.offset, text=@sprintf("C%d: %.2f", k, c.offset), 
-                  color=safe_colors[k], fontsize=12, align=(:left, :center))
+            lon = (c.com_low + c.com_high) / 2.0
+            err = (c.right_bound - c.left_bound) / 25.0
+            errorbar([lon], [c.offset], yerr=[err], fmt="o", 
+                    color=string(safe_colors[k]), capsize=4, capthick=1.2,
+                    markersize=10, label="Component $k", elinewidth=1.5, markeredgewidth=1)
         end
         
-        # Add error bars
-        errorbars!(ax, longitudes, offsets, errors; color=:black, whiskerwidth=10)
-        
-        axislegend(ax)
+        # Add horizontal line at offset=0
+        axhline(0.0, color="gray", ls="--", lw=0.8)
+        minorticks_on()
+        xlabel("Mean Longitude (bins)", fontsize=11)
+        ylabel("Offset (bins)", fontsize=11)
+        title("Offset vs. Mean Longitude (Fourier Phase Gradient + Barycenter)", fontsize=12)
+        legend(loc="best")
+        grid(true, which="major", alpha=0.3)
+        tight_layout()
         
         out_name_base = "$(pulsar_name)_offset_vs_longitude_$(type)"
-        save(joinpath(indir, out_name_base * ".pdf"), fig)
+        savefig(joinpath(indir, out_name_base * ".pdf"))
+        println("Saved plot: $(out_name_base).pdf")
         
         # Save integrated fit statistics to CSV
         out_path = joinpath(indir, "$(pulsar_name)_offsets_$(type).csv")
-        csv_data = Matrix{Any}(undef, n_comps + 1, 2)
-        csv_data[1, 1] = "Global_Fourier"
-        csv_data[1, 2] = global_offset
-        for k in 1:n_comps
-            csv_data[k+1, 1] = "Component_$k"
-            csv_data[k+1, 2] = comps[k].offset
+        open(out_path, "w") do io
+            println(io, "Component,Longitude_bins,Offset_bins,Offset_Error_bins")
+            println(io, "Global_Fourier,N/A,$global_offset,N/A")
+            for (k, c) in enumerate(comps)
+                lon = (c.com_low + c.com_high) / 2.0
+                err = (c.right_bound - c.left_bound) / 25.0
+                @printf(io, "Component_%d,%.2f,%.4f,%.4f\n", k, lon, c.offset, err)
+            end
         end
-        writedlm(out_path, csv_data, ',')
+        println("Saved CSV: $(pulsar_name)_offsets_$(type).csv")
 
         # --- 5. P3 vs Phase Analysis ---
         println("\n--- P3 vs Phase Analysis ---")
@@ -1014,10 +1025,18 @@ module Data
             end
             
             if !isempty(p3_values)
-                fig_p3 = Figure(size = (700, 500))
-                ax_p3 = Axis(fig_p3[1, 1], title="Modulation Period (P3) vs Phase", xlabel="Phase (bins)", ylabel="P3 (P0 units)", xgridvisible=true, ygridvisible=true)
-                scatter!(ax_p3, long_values, p3_values, color=:red, markersize=15)
-                save(joinpath(indir, "$(pulsar_name)_p3_vs_phase_$(type).pdf"), fig_p3)
+                figure(figsize=(8, 6))
+                errorbar(long_values, p3_values, fmt="o", color="red", capsize=5, 
+                        markersize=10, elinewidth=1.5, markeredgewidth=1)
+                minorticks_on()
+                xlabel("Mean Longitude (bins)", fontsize=11)
+                ylabel("Modulation Period P3 (P0 units)", fontsize=11)
+                title("P3 vs Mean Longitude (Fourier-based)", fontsize=12)
+                grid(true, which="major", alpha=0.3)
+                tight_layout()
+                savefig(joinpath(indir, "$(pulsar_name)_p3_vs_phase_$(type).pdf"))
+                println("Saved plot: $(pulsar_name)_p3_vs_phase_$(type).pdf")
+                close()
             end
         end
 
@@ -1044,8 +1063,7 @@ module Data
         end
 
         # --- Plotting: Phase-Resolved Offsets ---
-        fig_phase = Figure(size = (900, 600))
-        ax_ph = Axis(fig_phase[1, 1], title="Phase-Resolved Offset (Fourier/Barycenter)", xlabel="P3 Phase (Row)", ylabel="Offset (bins)", xgridvisible=true, ygridvisible=true)
+        figure(figsize=(10, 6))
         
         phases = 1:n_phases
         has_plots = false
@@ -1053,14 +1071,25 @@ module Data
             vals = phase_offsets[:, k]
             mask = .!isnan.(vals)
             if any(mask)
-                lines!(ax_ph, phases[mask], vals[mask], label="C$k", color=safe_colors[k], linewidth=2)
-                scatter!(ax_ph, phases[mask], vals[mask], color=safe_colors[k], markersize=8)
+                plot(phases[mask], vals[mask], label="Component $k", color=string(safe_colors[k]), 
+                     lw=2.0, marker="o", markersize=4)
                 has_plots = true
             end
         end
-        if has_plots; axislegend(ax_ph); end
         
-        save(joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).pdf"), fig_phase)
+        if has_plots
+            axhline(0.0, color="gray", ls="--", lw=0.8)
+            minorticks_on()
+            xlabel("P3 Phase (Row index)", fontsize=11)
+            ylabel("Offset (bins)", fontsize=11)
+            title("Phase-Resolved Offset (Fourier/Barycenter)", fontsize=12)
+            legend(loc="best")
+            grid(true, which="major", alpha=0.3)
+            tight_layout()
+            savefig(joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).pdf"))
+            println("Saved plot: $(pulsar_name)_phase_resolved_$(type).pdf")
+            close()
+        end
         
         # Save phase-resolved data to CSV (Filtering NaN rows)
         out_ph_csv = joinpath(indir, "$(pulsar_name)_phase_resolved_$(type).csv")
