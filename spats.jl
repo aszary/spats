@@ -204,9 +204,9 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J2053-7200_16", "norefine")
 
         # work on pulsar J1512-5431 
-        process_psrdata_16("/home/psr/data/new/J1512-5431/2020-04-11-23:16:42/", vpmout*"J1512-5431_16")
+        #process_psrdata_16("/home/psr/data/new/J1512-5431/2020-04-11-23:16:42/", vpmout*"J1512-5431_16")
         #Data.analyse_p3folds_16(vpmout*"J1512-5431_16", "norefine")
-        #Data.analyse_p3folds_16_new(vpmout*"J1512-5431_16", "norefine", n_comp=2)
+        Data.analyse_p3folds_16_new(vpmout*"J1512-5431_16", "norefine", n_comp=2)
 
         # work on pulsar J1114-6100 
         #process_psrdata_16("/home/psr/data/new/J1114-6100/2019-10-19-08:30:30/", vpmout*"J1114-6100_16")
