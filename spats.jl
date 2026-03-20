@@ -275,11 +275,12 @@ module SpaTs
 
         # J1842-0359 - robust fourier/barycenter offset analysis
         #process_psrdata_16("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_16") # visible offset
-        Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine", 1.841; n_comp=4)
-        Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine", 0.3635; n_comp=2)
-        Data.analyse_offsets(vpmout*"J2139+2242_16", "norefine", 0.2569; n_comp=2)
-        #Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine")
-
+        #Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine", 1.841; n_comp=4)
+        #Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine", 0.3635; n_comp=2)
+        #Data.analyse_offsets(vpmout*"J2139+2242_16", "norefine", 0.2569; n_comp=2)
+        Data.analyse_offsets(vpmout*"J1232-4742_16", "norefine", 0.2971; n_comp=3)
+        Data.analyse_offsets(vpmout*"J1741-0840_16", "norefine", 0.1549; n_comp=2)
+        Data.analyse_offsets(vpmout*"J1512-5431_16", "norefine", 0.4078; n_comp=2)
 
 
 
