@@ -195,13 +195,19 @@ function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_targ
     return map(windows) do (left, right)
         x_win = left:right
         
-        # Use the local minimum of the window as the baseline instead of edge boundaries.
-        # This prevents discarding valid noisy subpulses that happen to sit on a slope.
-        bg_ref = minimum(p_ref[x_win])
-        bg_tar = minimum(p_tar[x_win])
+        local_ref = p_ref[x_win]
+        local_tar = p_tar[x_win]
         
-        vals_ref = p_ref[x_win] .- bg_ref
-        vals_tar = p_tar[x_win] .- bg_tar
+        min_r, max_r = minimum(local_ref), maximum(local_ref)
+        min_t, max_t = minimum(local_tar), maximum(local_tar)
+        
+        # CORE BARYCENTER: Ignore the bottom 25% of the local subpulse.
+        # This mimics a Gaussian fit by focusing on the stable peak and ignoring noisy tails.
+        bg_ref = min_r + 0.25 * (max_r - min_r)
+        bg_tar = min_t + 0.25 * (max_t - min_t)
+        
+        vals_ref = max.(local_ref .- bg_ref, 0.0)
+        vals_tar = max.(local_tar .- bg_tar, 0.0)
         m_ref = sum(vals_ref)
         m_tar = sum(vals_tar)
         com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
