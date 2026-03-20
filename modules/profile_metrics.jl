@@ -151,8 +151,6 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         bg_ref = min(p_ref[left], p_ref[right])
         m_ref = sum(max.(p_ref[x_win] .- bg_ref, 0.0))
         
-        com_ref = mass_ref > 0 ? sum(x_win .* vals_ref) / mass_ref : Float64(p)
-        
         bg_tar = min(p_tar[left], p_tar[right])
         m_tar = sum(max.(p_tar[x_win] .- bg_tar, 0.0))
         
