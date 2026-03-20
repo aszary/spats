@@ -106,7 +106,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     end
     
     # Filter peaks: enforce minimum topological distance 
-    min_dist = max(3, div(N, 40)) # Reduced further to allow close double-peaks
+    min_dist = max(3, div(N, 80)) # Significantly reduced to catch very close subcomponents
     peaks = Int[]
     sort!(raw_peaks, by=p -> p_ref[p], rev=true) # Start with highest
     for p in raw_peaks
@@ -124,7 +124,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     for p in selected_peaks
         # 2. Define the Component Window Boundaries
         # Scan outwards on raw data until we hit the noise floor or a local minimum
-        cut_off = 0.01
+        cut_off = 0.005 # 0.5% - go extremely deep into the noise floor
         
         left = p
         while left > 1 && p_ref[left] > cut_off && p_ref[left-1] <= p_ref[left]

@@ -956,8 +956,8 @@ module Data
         
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
-        # Threshold lowered to 0.02 (2%) to catch even faint outer components
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.02, n_comp=n_comp)
+        # Threshold lowered to 0.01 (1%) to catch any faint outer component
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.01, n_comp=n_comp)
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
@@ -1091,8 +1091,8 @@ module Data
             # Calculate true SNR inside the On-Pulse region
             snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
             
-            # Less rigorous threshold to allow more points (down to 0.5 sigma) on the plot
-            if snr_val < 0.5
+            # Practically disable SNR filtering to mimic Gaussian fitting density (allow down to 0.1 sigma)
+            if snr_val < 0.1
                 continue
             end
             
@@ -1116,8 +1116,8 @@ module Data
             
             for (comp_idx, res) in enumerate(comps)
                 # Ignore measurements where the offset is missing or wildly out of bounds
-                # Less rigorous bound for offset jumps (allow up to 15% of range)
-                if isnan(res.offset) || abs(res.offset) > n_bins * 0.15
+                # Massive tolerance for offset jumps (allow up to 30% of range) to plot noise clouds
+                if isnan(res.offset) || abs(res.offset) > n_bins * 0.30
                     continue
                 end
                 
