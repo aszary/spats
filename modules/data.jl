@@ -957,7 +957,7 @@ module Data
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
         # Literature-based topological component segmentation
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.005, n_comp=n_comp)
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.001, n_comp=n_comp)
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
@@ -1091,10 +1091,6 @@ module Data
             # Calculate true SNR inside the On-Pulse region
             snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
             
-            # Remove SNR filtering to process 100% of phases (forces identical density to Gaussian fit)
-            if snr_val < 0.0
-                continue
-            end
             
             # Normalize strictly inside the ROI
             min_l, max_l = minimum(row_l[roi_range]), maximum(row_l[roi_range])
@@ -1120,6 +1116,10 @@ module Data
                 # if isnan(res.offset) || abs(res.offset) > n_bins * 0.30
                 #     continue
                 # end
+                
+                if isnan(res.offset)
+                    continue
+                end
                 
                 # METHODOLOGY: 
                 # Phase Longitude is the mean position between high and low frequencies, 

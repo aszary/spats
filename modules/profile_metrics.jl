@@ -93,7 +93,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     p_tar = (prof_target .- min_tar) ./ (max_tar - min_tar + 1e-9)
     
     # 1. Create a Topological Map (Heavy smoothing to ignore noise wiggles, ONLY for boundary logic)
-    w_size = max(2, div(N, 50))
+    w_size = max(2, div(N, 100)) # Reduced smoothing to separate very close subcomponents
     smooth_ref = copy(p_ref)
     for i in 1:N
         start_idx = max(1, i - w_size)
@@ -110,7 +110,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     end
     
     # Filter peaks: extremely close overlaps
-    min_dist = max(3, div(N, 50))
+    min_dist = max(2, div(N, 100)) # Significantly reduced to allow very close peaks
     peaks = Int[]
     sort!(raw_peaks, by=p -> smooth_ref[p], rev=true) 
     for p in raw_peaks
