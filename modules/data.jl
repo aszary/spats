@@ -895,8 +895,8 @@ module Data
         Fourier-based component offset analysis (PHASE-RESOLVED).
         
         Methodology:
-        - Global Shift: Computed via Fourier Phase Gradient (Shift Theorem).
-        - Component Centroids: Computed using Barycenter (Center of Mass) algorithm.
+        - Global Shift: Computed via Fourier Phase Gradient.
+        - Component Offsets: Computed using Sub-bin Windowed Cross-Correlation (CCF).
           This provides a model-independent measure of the energy balance, 
           which is physically robust for asymmetric pulsar profiles.
         
@@ -956,13 +956,13 @@ module Data
         
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
-        # Threshold lowered to 0.01 (1%) to catch any faint outer component
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.01, n_comp=n_comp)
+        # Literature-based topological component segmentation
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.005, n_comp=n_comp)
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
         if isnothing(n_comp)
-            println(">>> AUTO-DETECT: Found $n_comps distinct components (max 4 allowed) using Barycenter Method.")
+            println(">>> AUTO-DETECT: Found $n_comps distinct components (max 6 allowed) using Topological CCF Method.")
         else
             println(">>> Detected $n_comps components (Requested max: $n_comp).")
         end
@@ -974,7 +974,7 @@ module Data
         bins_arr = 1:n_bins
         
         PyPlot.subplot(3, 1, 1)
-        PyPlot.title("Low Frequency (Integrated Profile & Barycentric Windows)", fontsize=11)
+        PyPlot.title("Low Frequency (Integrated Profile & Topological Windows)", fontsize=11)
         PyPlot.plot(bins_arr, mean_l_roi, color="black", linewidth=1.5, label="Low Data")
         PyPlot.ylabel("Normalized Intensity")
         for (k, c) in enumerate(ref_comps)
@@ -985,7 +985,7 @@ module Data
         PyPlot.legend(loc="upper right", fontsize=9)
         
         PyPlot.subplot(3, 1, 2)
-        PyPlot.title("High Frequency (Integrated Profile & Barycentric Windows)", fontsize=11)
+        PyPlot.title("High Frequency (Integrated Profile & Topological Windows)", fontsize=11)
         PyPlot.plot(bins_arr, mean_h_roi, color="black", linewidth=1.5, label="High Data")
         PyPlot.ylabel("Normalized Intensity")
         for (k, c) in enumerate(ref_comps)
@@ -1091,8 +1091,8 @@ module Data
             # Calculate true SNR inside the On-Pulse region
             snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
             
-            # Practically disable SNR filtering to mimic Gaussian fitting density (allow down to 0.1 sigma)
-            if snr_val < 0.1
+            # Remove SNR filtering to process 100% of phases (forces identical density to Gaussian fit)
+            if snr_val < 0.0
                 continue
             end
             
@@ -1116,10 +1116,10 @@ module Data
             
             for (comp_idx, res) in enumerate(comps)
                 # Ignore measurements where the offset is missing or wildly out of bounds
-                # Massive tolerance for offset jumps (allow up to 30% of range) to plot noise clouds
-                if isnan(res.offset) || abs(res.offset) > n_bins * 0.30
-                    continue
-                end
+                # (No CCF restriction, allow natural CCF bounds to show full statistical scatter)
+                # if isnan(res.offset) || abs(res.offset) > n_bins * 0.30
+                #     continue
+                # end
                 
                 # METHODOLOGY: 
                 # Phase Longitude is the mean position between high and low frequencies, 
@@ -1178,7 +1178,7 @@ module Data
         PyPlot.minorticks_on()
         PyPlot.xlabel("Longitude (°)", fontsize=12)
         PyPlot.ylabel("Offset (°)", fontsize=12)
-        PyPlot.title("Longitude vs. Offset (Fourier/Barycenter Phase-Resolved)", fontsize=13)
+        PyPlot.title("Longitude vs. Offset (Windowed CCF Phase-Resolved)", fontsize=13)
         PyPlot.legend(loc="best", fontsize=10)
         PyPlot.grid(true, which="major", alpha=0.3)
         PyPlot.tight_layout()

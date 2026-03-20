@@ -82,75 +82,82 @@ to scattering or intrinsic emission mechanisms).
 function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.10, n_comp=nothing)
     N = length(prof_ref)
     
-    # Normalize copies to 0.0 - 1.0 range for robust thresholding (with protection against flat profiles)
     min_ref, max_ref = minimum(prof_ref), maximum(prof_ref)
     min_tar, max_tar = minimum(prof_target), maximum(prof_target)
     
-    amp_ref = max_ref - min_ref
-    amp_tar = max_tar - min_tar
-    
-    # If profiles are flat, return empty result
-    if amp_ref ≈ 0.0 || amp_tar ≈ 0.0
+    if (max_ref - min_ref) ≈ 0.0 || (max_tar - min_tar) ≈ 0.0
         return []
     end
     
-    p_ref = (prof_ref .- min_ref) ./ amp_ref
-    p_tar = (prof_target .- min_tar) ./ amp_tar
+    p_ref = (prof_ref .- min_ref) ./ (max_ref - min_ref + 1e-9)
+    p_tar = (prof_target .- min_tar) ./ (max_tar - min_tar + 1e-9)
     
-    # 1. Identify peaks using strict local maxima detection on RAW integrated profile
+    # 1. Create a Topological Map (Heavy smoothing to ignore noise wiggles, ONLY for boundary logic)
+    w_size = max(2, div(N, 50))
+    smooth_ref = copy(p_ref)
+    for i in 1:N
+        start_idx = max(1, i - w_size)
+        end_idx = min(N, i + w_size)
+        smooth_ref[i] = mean(p_ref[start_idx:end_idx])
+    end
+    
+    # 2. Identify structural peaks on the topological map
     raw_peaks = Int[]
     for i in 2:N-1
-        if p_ref[i] > p_ref[i-1] && p_ref[i] > p_ref[i+1] && p_ref[i] > threshold
+        if smooth_ref[i] > smooth_ref[i-1] && smooth_ref[i] > smooth_ref[i+1] && smooth_ref[i] > threshold
             push!(raw_peaks, i)
         end
     end
     
-    # Filter peaks: enforce minimum topological distance 
-    min_dist = max(3, div(N, 80)) # Significantly reduced to catch very close subcomponents
+    # Filter peaks: extremely close overlaps
+    min_dist = max(3, div(N, 50))
     peaks = Int[]
-    sort!(raw_peaks, by=p -> p_ref[p], rev=true) # Start with highest
+    sort!(raw_peaks, by=p -> smooth_ref[p], rev=true) 
     for p in raw_peaks
         if all(abs(p - ep) > min_dist for ep in peaks)
             push!(peaks, p)
         end
     end
     
-    # Enforce a hard limit of 4 components in auto-detect mode
-    limit = isnothing(n_comp) ? 4 : n_comp
+    # Enforce a hard limit (literature standard usually evaluates up to 6 distinct subcomponents)
+    limit = isnothing(n_comp) ? 6 : n_comp
     max_comps = min(length(peaks), limit)
     selected_peaks = sort(peaks[1:max_comps]) 
     
     results = []
-    for p in selected_peaks
-        # 2. Define the Component Window Boundaries
-        # Scan outwards on raw data until we hit the noise floor or a local minimum
-        cut_off = 0.005 # 0.5% - go extremely deep into the noise floor
+    for i in 1:length(selected_peaks)
+        p = selected_peaks[i]
+        
+        # 3. Define Watershed Boundaries (Local Minima Valleys)
+        left_limit = i > 1 ? selected_peaks[i-1] : 1
+        right_limit = i < length(selected_peaks) ? selected_peaks[i+1] : N
         
         left = p
-        while left > 1 && p_ref[left] > cut_off && p_ref[left-1] <= p_ref[left]
+        while left > left_limit + 1 && smooth_ref[left-1] <= smooth_ref[left]
             left -= 1
         end
         
         right = p
-        while right < N && p_ref[right] > cut_off && p_ref[right+1] <= p_ref[right]
+        while right < right_limit - 1 && smooth_ref[right+1] <= smooth_ref[right]
             right += 1
         end
         
-        if right - left < 2; continue; end
+        # Safely expand to ensure we capture the tail, avoiding overlapping
+        left = max(1, left - div(N, 100))
+        right = min(N, right + div(N, 100))
         
-        # 3. Calculate Barycenters using the extracted window (on ORIGINAL raw data!)
-        # We subtract the local background level to isolate only the component's "mass"
         x_win = left:right
         
         bg_ref = min(p_ref[left], p_ref[right])
-        vals_ref = max.(p_ref[x_win] .- bg_ref, 0.0)
-        mass_ref = sum(vals_ref)
+        m_ref = sum(max.(p_ref[x_win] .- bg_ref, 0.0))
+        
         com_ref = mass_ref > 0 ? sum(x_win .* vals_ref) / mass_ref : Float64(p)
         
         bg_tar = min(p_tar[left], p_tar[right])
-        vals_tar = max.(p_tar[x_win] .- bg_tar, 0.0)
-        mass_tar = sum(vals_tar)
-        com_tar = mass_tar > 0 ? sum(x_win .* vals_tar) / mass_tar : Float64(p)
+        m_tar = sum(max.(p_tar[x_win] .- bg_tar, 0.0))
+        
+        com_ref = m_ref > 0 ? sum(x_win .* max.(p_ref[x_win] .- bg_ref, 0.0)) / m_ref : Float64(p)
+        com_tar = m_tar > 0 ? sum(x_win .* max.(p_tar[x_win] .- bg_tar, 0.0)) / m_tar : Float64(p)
         
         push!(results, (peak_bin=p, left_bound=left, right_bound=right, com_low=com_ref, com_high=com_tar, offset=com_tar - com_ref))
     end
@@ -159,11 +166,10 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
 end
 
 """
-Calculates Center of Mass for a specific phase (row) using strictly pre-defined boundary windows.
-This ensures phase-resolved tracking doesn't artificially jump around due to noise fluctuations.
-
-It accurately measures the physical phase separation of flux between low and high 
-frequency sub-components without artificially constraining them into symmetrical bell curves.
+Calculates high-precision sub-bin Phase-Resolved Offsets using the Windowed Cross-Correlation Function (CCF).
+Based on traditional pulsar timing techniques, it cross-correlates the low and high frequency 
+subpulses within the mathematically constrained window and uses a parabolic interpolation 
+at the peak of the correlation function to extract shape-independent sub-bin precision shifts.
 """
 function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_target::AbstractVector, windows)
     # Normalize with protection against flat profiles (zero amplitude)
@@ -173,30 +179,52 @@ function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_targ
     amp_ref = max_ref - min_ref
     amp_tar = max_tar - min_tar
     
-    # If profile is flat, return NaN for all windows (no signal to measure)
     if amp_ref ≈ 0.0 || amp_tar ≈ 0.0
         return [(com_ref=NaN, offset=NaN) for _ in windows]
     end
     
-    p_ref = (prof_ref .- min_ref) ./ amp_ref
-    p_tar = (prof_target .- min_tar) ./ amp_tar
+    p_ref = (prof_ref .- min_ref) ./ (amp_ref + 1e-9)
+    p_tar = (prof_target .- min_tar) ./ (amp_tar + 1e-9)
     
     return map(windows) do (left, right)
         x_win = left:right
+        r_vals = p_ref[x_win]
+        t_vals = p_tar[x_win]
         
-        local_ref = p_ref[x_win]
-        local_tar = p_tar[x_win]
+        # Define maximum expected physical shift
+        max_shift = max(1, min(length(x_win) - 1, div(length(prof_ref), 10)))
+        shifts = -max_shift:max_shift
+        cc_array = zeros(length(shifts))
         
-        min_r, max_r = minimum(local_ref), maximum(local_ref)
-        min_t, max_t = minimum(local_tar), maximum(local_tar)
+        # Time-domain Cross-Correlation
+        for (idx, s) in enumerate(shifts)
+            cc = 0.0
+            for i in 1:length(x_win)
+                i_shifted = i - s
+                if i_shifted >= 1 && i_shifted <= length(x_win)
+                    cc += r_vals[i] * t_vals[i_shifted]
+                end
+            end
+            cc_array[idx] = cc
+        end
         
-        vals_ref = max.(local_ref .- min_r, 0.0)
-        vals_tar = max.(local_tar .- min_t, 0.0)
-        m_ref = sum(vals_ref)
-        m_tar = sum(vals_tar)
-        com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
-        com_tar = m_tar > 0 ? sum(x_win .* vals_tar) / m_tar : NaN
-        return (com_ref=com_ref, offset=com_tar - com_ref)
+        # Find Peak and apply Parabolic Interpolation for Sub-bin Precision
+        max_idx = argmax(cc_array)
+        if max_idx > 1 && max_idx < length(cc_array)
+            y1, y2, y3 = cc_array[max_idx-1], cc_array[max_idx], cc_array[max_idx+1]
+            denom = (y1 - 2*y2 + y3)
+            sub_shift = denom != 0 ? 0.5 * (y1 - y3) / denom : 0.0
+            offset = shifts[max_idx] + sub_shift
+        else
+            offset = Float64(shifts[max_idx])
+        end
+        
+        # Calculate structural Barycenter of reference exclusively for X-axis plotting
+        bg_ref = minimum(r_vals)
+        m_ref = sum(max.(r_vals .- bg_ref, 0.0))
+        com_ref = m_ref > 0 ? sum(x_win .* max.(r_vals .- bg_ref, 0.0)) / m_ref : (left+right)/2.0
+        
+        return (com_ref=com_ref, offset=offset)
     end
 end
 
