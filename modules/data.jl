@@ -1086,9 +1086,9 @@ module Data
             # Calculate true SNR inside the On-Pulse region
             snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
             
-            # Skip phase only if signal is less than 2.0-sigma above noise
-            # This brings back valid subpulses that were squashed by outside RFI
-            if snr_val < 2.0
+            # Allow almost all phases (down to 0.5 sigma) to pass.
+            # This mimics Gaussian fitting which attempts to fit every row regardless of noise.
+            if snr_val < 0.5
                 continue
             end
             
@@ -1112,7 +1112,7 @@ module Data
             
             for (comp_idx, res) in enumerate(comps)
                 # Ignore measurements where the offset is missing or wildly out of bounds
-                if isnan(res.offset) || abs(res.offset) > n_bins * 0.1
+                if isnan(res.offset) || abs(res.offset) > n_bins * 0.25
                     continue
                 end
                 
