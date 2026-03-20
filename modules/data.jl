@@ -888,15 +888,16 @@ module Data
     # Arguments
     - `indir`: data input directory
     - `type`: type of p3folds ("refine" or "norefine")
-    - `n_comp`: number of components to detect (default: nothing = auto)
+    - `period`: pulsar period (not used currently, for future reference)
+    - `n_comp`: number of components to detect (default: 3)
     """
-    function analyse_offsets(indir, type; n_comp=nothing)
+    function analyse_offsets(indir, type, period; n_comp=3)
         """
         Fourier-based component offset analysis (PHASE-RESOLVED).
         
         Methodology:
-        - Global Shift: Computed via Fourier Phase Gradient.
-        - Component Offsets: Computed using Sub-bin Windowed Cross-Correlation (CCF).
+        - Global Shift: Computed via Fourier Phase Gradient (Shift Theorem).
+        - Component Centroids: Computed using Barycenter (Center of Mass) algorithm.
           This provides a model-independent measure of the energy balance, 
           which is physically robust for asymmetric pulsar profiles.
         
@@ -956,16 +957,11 @@ module Data
         
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
-        # Literature-based topological component segmentation
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.001, n_comp=n_comp)
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.10, n_comp=n_comp)
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
-        if isnothing(n_comp)
-            println(">>> AUTO-DETECT: Found $n_comps distinct components (max 6 allowed) using Topological CCF Method.")
-        else
-            println(">>> Detected $n_comps components (Requested max: $n_comp).")
-        end
+        println(">>> Detected $n_comps components using Barycenter Method.")
         
         # --- 3. Plotting: Integrated Profile ---
         # Switching entirely to PyPlot for uniformity and precision
@@ -974,7 +970,7 @@ module Data
         bins_arr = 1:n_bins
         
         PyPlot.subplot(3, 1, 1)
-        PyPlot.title("Low Frequency (Integrated Profile & Topological Windows)", fontsize=11)
+        PyPlot.title("Low Frequency (Integrated Profile & Barycentric Windows)", fontsize=11)
         PyPlot.plot(bins_arr, mean_l_roi, color="black", linewidth=1.5, label="Low Data")
         PyPlot.ylabel("Normalized Intensity")
         for (k, c) in enumerate(ref_comps)
@@ -985,7 +981,7 @@ module Data
         PyPlot.legend(loc="upper right", fontsize=9)
         
         PyPlot.subplot(3, 1, 2)
-        PyPlot.title("High Frequency (Integrated Profile & Topological Windows)", fontsize=11)
+        PyPlot.title("High Frequency (Integrated Profile & Barycentric Windows)", fontsize=11)
         PyPlot.plot(bins_arr, mean_h_roi, color="black", linewidth=1.5, label="High Data")
         PyPlot.ylabel("Normalized Intensity")
         for (k, c) in enumerate(ref_comps)
@@ -1075,45 +1071,26 @@ module Data
             row_l = vec(l_matrix[phase_idx, :])
             row_h = vec(h_matrix[phase_idx, :])
             
-            roi_range = Int(bin_st):Int(bin_end)
-            
-            # Identify a safe off-pulse region for real noise estimation
-            # Prefer beginning for noise if available, else use end
-            if Int(bin_st) > 30
-                off_start = 1
-                off_end = Int(bin_st) - 20
-            else
-                off_start = Int(bin_end) + 20
-                off_end = min(n_bins, off_start + 40)
+            row_l_roi = copy(normalize_01(row_l))
+            row_h_roi = copy(normalize_01(row_h))
+            if bin_st > 1
+                row_l_roi[1:Int(bin_st)-1] .= 0.0
+                row_h_roi[1:Int(bin_st)-1] .= 0.0
+            end
+            if bin_end < n_bins
+                row_l_roi[Int(bin_end)+1:end] .= 0.0
+                row_h_roi[Int(bin_end)+1:end] .= 0.0
             end
             
-            # Validate off-pulse bounds
-            if off_start > off_end
-                off_start = 1
-                off_end = min(30, n_bins)
-            end
+            # Simple SNR metric: signal peak vs standard deviation of off-pulse region
+            # We take a small sample outside the ROI to represent noise
+            off_pulse_l = row_l[1:max(1, bin_st-10)] 
+            noise_l = isempty(off_pulse_l) ? 1.0 : std(off_pulse_l)
+            snr_val = (maximum(row_l) - mean(off_pulse_l)) / (noise_l + 1e-6)
             
-            off_pulse_l = row_l[off_start:off_end]
-            if length(off_pulse_l) < 5
-                off_pulse_l = row_l[1:min(5, n_bins)] # Fallback to start
-            end
-            noise_l = std(off_pulse_l)
-            noise_l = (isnan(noise_l) || noise_l == 0.0) ? 1e-6 : noise_l
-            mean_off_l = mean(off_pulse_l)
-            
-            # Calculate true SNR inside the On-Pulse region
-            snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
-            
-            # IMPORTANT: Normalize using JOINT min/max to avoid artificial offsets
-            # Both profiles must use the same scale to be comparable
-            min_joint = min(minimum(row_l[roi_range]), minimum(row_h[roi_range]))
-            max_joint = max(maximum(row_l[roi_range]), maximum(row_h[roi_range]))
-            
-            row_l_roi = zeros(n_bins)
-            row_h_roi = zeros(n_bins)
-            if max_joint > min_joint
-                row_l_roi[roi_range] .= (row_l[roi_range] .- min_joint) ./ (max_joint - min_joint)
-                row_h_roi[roi_range] .= (row_h[roi_range] .- min_joint) ./ (max_joint - min_joint)
+            # Skip noise-only phases (amplitude below 5% threshold)
+            if maximum(row_l_roi) < 0.05 || maximum(row_h_roi) < 0.05
+                continue
             end
             
             valid_phases += 1
@@ -1123,12 +1100,7 @@ module Data
             
             for (comp_idx, res) in enumerate(comps)
                 # Ignore measurements where the offset is missing or wildly out of bounds
-                # (No CCF restriction, allow natural CCF bounds to show full statistical scatter)
-                # if isnan(res.offset) || abs(res.offset) > n_bins * 0.30
-                #     continue
-                # end
-                
-                if isnan(res.offset)
+                if isnan(res.offset) || abs(res.offset) > n_bins * 0.1
                     continue
                 end
                 
@@ -1189,7 +1161,7 @@ module Data
         PyPlot.minorticks_on()
         PyPlot.xlabel("Longitude (°)", fontsize=12)
         PyPlot.ylabel("Offset (°)", fontsize=12)
-        PyPlot.title("Longitude vs. Offset (Windowed CCF Phase-Resolved)", fontsize=13)
+        PyPlot.title("Longitude vs. Offset (Fourier/Barycenter Phase-Resolved)", fontsize=13)
         PyPlot.legend(loc="best", fontsize=10)
         PyPlot.grid(true, which="major", alpha=0.3)
         PyPlot.tight_layout()
@@ -1242,22 +1214,28 @@ module Data
         return ref_comps
     end
 
-    # Helper normalization functions
+    # Pomocnicza normalizacja wewnątrz modułu
+    function normalize_02(vec)
+        m, M = minimum(vec), maximum(vec)
+        return (vec .- m) ./ (M - m)
+    end
+
+    
+
+
     function normalize_01(data)
-        """Normalize data to [0, 1] range using min-max scaling."""
         min_val = minimum(data)
         max_val = maximum(data)
-        if max_val ≈ min_val
-            return zeros(eltype(data), size(data))
-        end
         return (data .- min_val) ./ (max_val - min_val)
     end
 
     function normalize_per_pulse(data)
-        """Normalize each pulse in a 2D array independently to [0, 1]."""
         normalized = similar(data)
         for i in 1:size(data, 1)
-            normalized[i, :] = normalize_01(data[i, :])
+            pulse = data[i, :]
+            min_val = minimum(pulse)
+            max_val = maximum(pulse)
+            normalized[i, :] = (pulse .- min_val) ./ (max_val - min_val)
         end
         return normalized
     end
