@@ -1070,26 +1070,39 @@ module Data
             row_l = vec(l_matrix[phase_idx, :])
             row_h = vec(h_matrix[phase_idx, :])
             
-            row_l_roi = copy(normalize_01(row_l))
-            row_h_roi = copy(normalize_01(row_h))
-            if bin_st > 1
-                row_l_roi[1:Int(bin_st)-1] .= 0.0
-                row_h_roi[1:Int(bin_st)-1] .= 0.0
-            end
-            if bin_end < n_bins
-                row_l_roi[Int(bin_end)+1:end] .= 0.0
-                row_h_roi[Int(bin_end)+1:end] .= 0.0
-            end
+            roi_range = Int(bin_st):Int(bin_end)
             
-            # Simple SNR metric: signal peak vs standard deviation of off-pulse region
-            # We take a small sample outside the ROI to represent noise
-            off_pulse_l = row_l[1:max(1, bin_st-10)] 
-            noise_l = isempty(off_pulse_l) ? 1.0 : std(off_pulse_l)
-            snr_val = (maximum(row_l) - mean(off_pulse_l)) / (noise_l + 1e-6)
+            # Identify a safe off-pulse region for real noise estimation
+            off_start = Int(bin_st) > 20 ? 1 : min(n_bins, Int(bin_end) + 10)
+            off_end = Int(bin_st) > 20 ? Int(bin_st) - 10 : n_bins
+            off_pulse_l = row_l[off_start:off_end]
+            if length(off_pulse_l) < 5
+                off_pulse_l = [0.0, 1.0] # Fallback
+            end
+            noise_l = std(off_pulse_l)
+            noise_l = (isnan(noise_l) || noise_l == 0.0) ? 1e-6 : noise_l
+            mean_off_l = mean(off_pulse_l)
             
-            # Skip noise-only phases (amplitude below 5% threshold)
-            if maximum(row_l_roi) < 0.05 || maximum(row_h_roi) < 0.05
+            # Calculate true SNR inside the On-Pulse region
+            snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
+            
+            # Skip phase only if signal is less than 2.0-sigma above noise
+            # This brings back valid subpulses that were squashed by outside RFI
+            if snr_val < 2.0
                 continue
+            end
+            
+            # Normalize strictly inside the ROI
+            min_l, max_l = minimum(row_l[roi_range]), maximum(row_l[roi_range])
+            min_h, max_h = minimum(row_h[roi_range]), maximum(row_h[roi_range])
+            
+            row_l_roi = zeros(n_bins)
+            row_h_roi = zeros(n_bins)
+            if max_l > min_l
+                row_l_roi[roi_range] .= (row_l[roi_range] .- min_l) ./ (max_l - min_l)
+            end
+            if max_h > min_h
+                row_h_roi[roi_range] .= (row_h[roi_range] .- min_h) ./ (max_h - min_h)
             end
             
             valid_phases += 1
