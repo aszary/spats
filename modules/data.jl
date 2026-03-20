@@ -1078,11 +1078,24 @@ module Data
             roi_range = Int(bin_st):Int(bin_end)
             
             # Identify a safe off-pulse region for real noise estimation
-            off_start = Int(bin_st) > 20 ? 1 : min(n_bins, Int(bin_end) + 10)
-            off_end = Int(bin_st) > 20 ? Int(bin_st) - 10 : n_bins
+            # Prefer beginning for noise if available, else use end
+            if Int(bin_st) > 30
+                off_start = 1
+                off_end = Int(bin_st) - 20
+            else
+                off_start = Int(bin_end) + 20
+                off_end = min(n_bins, off_start + 40)
+            end
+            
+            # Validate off-pulse bounds
+            if off_start > off_end
+                off_start = 1
+                off_end = min(30, n_bins)
+            end
+            
             off_pulse_l = row_l[off_start:off_end]
             if length(off_pulse_l) < 5
-                off_pulse_l = [0.0, 1.0] # Fallback
+                off_pulse_l = row_l[1:min(5, n_bins)] # Fallback to start
             end
             noise_l = std(off_pulse_l)
             noise_l = (isnan(noise_l) || noise_l == 0.0) ? 1e-6 : noise_l
@@ -1091,18 +1104,16 @@ module Data
             # Calculate true SNR inside the On-Pulse region
             snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
             
-            
-            # Normalize strictly inside the ROI
-            min_l, max_l = minimum(row_l[roi_range]), maximum(row_l[roi_range])
-            min_h, max_h = minimum(row_h[roi_range]), maximum(row_h[roi_range])
+            # IMPORTANT: Normalize using JOINT min/max to avoid artificial offsets
+            # Both profiles must use the same scale to be comparable
+            min_joint = min(minimum(row_l[roi_range]), minimum(row_h[roi_range]))
+            max_joint = max(maximum(row_l[roi_range]), maximum(row_h[roi_range]))
             
             row_l_roi = zeros(n_bins)
             row_h_roi = zeros(n_bins)
-            if max_l > min_l
-                row_l_roi[roi_range] .= (row_l[roi_range] .- min_l) ./ (max_l - min_l)
-            end
-            if max_h > min_h
-                row_h_roi[roi_range] .= (row_h[roi_range] .- min_h) ./ (max_h - min_h)
+            if max_joint > min_joint
+                row_l_roi[roi_range] .= (row_l[roi_range] .- min_joint) ./ (max_joint - min_joint)
+                row_h_roi[roi_range] .= (row_h[roi_range] .- min_joint) ./ (max_joint - min_joint)
             end
             
             valid_phases += 1
@@ -1231,28 +1242,22 @@ module Data
         return ref_comps
     end
 
-    # Pomocnicza normalizacja wewnątrz modułu
-    function normalize_02(vec)
-        m, M = minimum(vec), maximum(vec)
-        return (vec .- m) ./ (M - m)
-    end
-
-    
-
-
+    # Helper normalization functions
     function normalize_01(data)
+        """Normalize data to [0, 1] range using min-max scaling."""
         min_val = minimum(data)
         max_val = maximum(data)
+        if max_val ≈ min_val
+            return zeros(eltype(data), size(data))
+        end
         return (data .- min_val) ./ (max_val - min_val)
     end
 
     function normalize_per_pulse(data)
+        """Normalize each pulse in a 2D array independently to [0, 1]."""
         normalized = similar(data)
         for i in 1:size(data, 1)
-            pulse = data[i, :]
-            min_val = minimum(pulse)
-            max_val = maximum(pulse)
-            normalized[i, :] = (pulse .- min_val) ./ (max_val - min_val)
+            normalized[i, :] = normalize_01(data[i, :])
         end
         return normalized
     end

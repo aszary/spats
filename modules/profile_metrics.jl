@@ -82,15 +82,16 @@ to scattering or intrinsic emission mechanisms).
 function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.10, n_comp=nothing)
     N = length(prof_ref)
     
-    min_ref, max_ref = minimum(prof_ref), maximum(prof_ref)
-    min_tar, max_tar = minimum(prof_target), maximum(prof_target)
+    # IMPORTANT: Use JOINT min/max to ensure fair comparison
+    min_joint = min(minimum(prof_ref), minimum(prof_target))
+    max_joint = max(maximum(prof_ref), maximum(prof_target))
     
-    if (max_ref - min_ref) ≈ 0.0 || (max_tar - min_tar) ≈ 0.0
+    if (max_joint - min_joint) ≈ 0.0
         return []
     end
     
-    p_ref = (prof_ref .- min_ref) ./ (max_ref - min_ref + 1e-9)
-    p_tar = (prof_target .- min_tar) ./ (max_tar - min_tar + 1e-9)
+    p_ref = (prof_ref .- min_joint) ./ (max_joint - min_joint + 1e-9)
+    p_tar = (prof_target .- min_joint) ./ (max_joint - min_joint + 1e-9)
     
     # 1. Create a Topological Map (Heavy smoothing to ignore noise wiggles, ONLY for boundary logic)
     w_size = max(2, div(N, 100)) # Reduced smoothing to separate very close subcomponents
@@ -171,18 +172,18 @@ at the peak of the correlation function to extract shape-independent sub-bin pre
 """
 function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_target::AbstractVector, windows)
     # Normalize with protection against flat profiles (zero amplitude)
-    min_ref, max_ref = minimum(prof_ref), maximum(prof_ref)
-    min_tar, max_tar = minimum(prof_target), maximum(prof_target)
+    # IMPORTANT: Use JOINT min/max to avoid artificial offsets from independent normalization
+    min_joint = min(minimum(prof_ref), minimum(prof_target))
+    max_joint = max(maximum(prof_ref), maximum(prof_target))
     
-    amp_ref = max_ref - min_ref
-    amp_tar = max_tar - min_tar
+    amp_joint = max_joint - min_joint
     
-    if amp_ref ≈ 0.0 || amp_tar ≈ 0.0
+    if amp_joint ≈ 0.0
         return [(com_ref=NaN, offset=NaN) for _ in windows]
     end
     
-    p_ref = (prof_ref .- min_ref) ./ (amp_ref + 1e-9)
-    p_tar = (prof_target .- min_tar) ./ (amp_tar + 1e-9)
+    p_ref = (prof_ref .- min_joint) ./ (amp_joint + 1e-9)
+    p_tar = (prof_target .- min_joint) ./ (amp_joint + 1e-9)
     
     return map(windows) do (left, right)
         x_win = left:right
