@@ -100,7 +100,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     # --- NEW: Adaptive Smoothing ---
     # Smooth the reference profile to eliminate noise wiggles that cause false peaks
     # and premature window boundaries. This is used ONLY as a topological map.
-    window_size = max(2, div(N, 40))
+    window_size = max(2, div(N, 80)) # Reduced smoothing! Huge windows were swallowing small narrow components.
     smoothed_p_ref = copy(p_ref)
     for i in 1:N
         start_idx = max(1, i - window_size)
@@ -117,7 +117,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     end
     
     # Filter peaks: enforce minimum distance to avoid overlapping detections
-    min_dist = max(3, div(N, 30)) # Reduced to allow closer distinct components
+    min_dist = max(3, div(N, 40)) # Reduced further to allow close double-peaks
     peaks = Int[]
     sort!(raw_peaks, by=p -> smoothed_p_ref[p], rev=true) # Start with highest
     for p in raw_peaks
@@ -126,8 +126,8 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         end
     end
     
-    # Enforce a hard limit of 4 components in auto-detect mode
-    limit = isnothing(n_comp) ? 4 : n_comp
+    # Enforce a hard limit of 5 components in auto-detect mode
+    limit = isnothing(n_comp) ? 5 : n_comp
     max_comps = min(length(peaks), limit)
     selected_peaks = sort(peaks[1:max_comps]) 
     

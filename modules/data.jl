@@ -956,13 +956,13 @@ module Data
         
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
-        # Threshold lowered to 0.05 (5%) to catch weaker components
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.05, n_comp=n_comp)
+        # Threshold lowered to 0.03 (3%) to catch even faint outer components
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.03, n_comp=n_comp)
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
         if isnothing(n_comp)
-            println(">>> AUTO-DETECT: Found $n_comps distinct components (max 4 allowed) using Smoothed Barycenter Method.")
+            println(">>> AUTO-DETECT: Found $n_comps distinct components (max 5 allowed) using Smoothed Barycenter Method.")
         else
             println(">>> Detected $n_comps components (Requested max: $n_comp).")
         end
