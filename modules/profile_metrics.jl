@@ -115,8 +115,8 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         end
     end
     
-    # Enforce a hard limit of 5 components in auto-detect mode
-    limit = isnothing(n_comp) ? 5 : n_comp
+    # Enforce a hard limit of 4 components in auto-detect mode
+    limit = isnothing(n_comp) ? 4 : n_comp
     max_comps = min(length(peaks), limit)
     selected_peaks = sort(peaks[1:max_comps]) 
     

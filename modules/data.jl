@@ -956,13 +956,13 @@ module Data
         
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
-        # Threshold lowered to 0.03 (3%) to catch even faint outer components
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.03, n_comp=n_comp)
+        # Threshold lowered to 0.02 (2%) to catch even faint outer components
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.02, n_comp=n_comp)
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
         if isnothing(n_comp)
-            println(">>> AUTO-DETECT: Found $n_comps distinct components (max 5 allowed) using Smoothed Barycenter Method.")
+            println(">>> AUTO-DETECT: Found $n_comps distinct components (max 4 allowed) using Barycenter Method.")
         else
             println(">>> Detected $n_comps components (Requested max: $n_comp).")
         end
@@ -1091,9 +1091,8 @@ module Data
             # Calculate true SNR inside the On-Pulse region
             snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
             
-            # Scientifically sound threshold: Require signal to be at least 1-sigma above noise 
-            # before attempting a barycenter calculation.
-            if snr_val < 1.0
+            # Less rigorous threshold to allow more points (down to 0.5 sigma) on the plot
+            if snr_val < 0.5
                 continue
             end
             
@@ -1117,8 +1116,8 @@ module Data
             
             for (comp_idx, res) in enumerate(comps)
                 # Ignore measurements where the offset is missing or wildly out of bounds
-                # Tightened bound: Physical shifts are small, reject massive jumps caused by noise
-                if isnan(res.offset) || abs(res.offset) > n_bins * 0.05
+                # Less rigorous bound for offset jumps (allow up to 15% of range)
+                if isnan(res.offset) || abs(res.offset) > n_bins * 0.15
                     continue
                 end
                 
