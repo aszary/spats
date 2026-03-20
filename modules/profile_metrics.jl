@@ -189,6 +189,11 @@ function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_targ
         r_vals = p_ref[x_win]
         t_vals = p_tar[x_win]
         
+        # Crucial: subtract local baseline! Otherwise the DC offset creates a massive
+        # artificial correlation peak exactly at 0, biasing all offsets towards zero.
+        r_vals_cc = r_vals .- minimum(r_vals)
+        t_vals_cc = t_vals .- minimum(t_vals)
+        
         # Define maximum expected physical shift
         max_shift = max(1, min(length(x_win) - 1, div(length(prof_ref), 10)))
         shifts = -max_shift:max_shift
@@ -198,9 +203,9 @@ function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_targ
         for (idx, s) in enumerate(shifts)
             cc = 0.0
             for i in 1:length(x_win)
-                i_shifted = i - s
+                i_shifted = i + s # CORRECTED direction: positive 's' means t_vals is delayed (shifted right)
                 if i_shifted >= 1 && i_shifted <= length(x_win)
-                    cc += r_vals[i] * t_vals[i_shifted]
+                    cc += r_vals_cc[i] * t_vals_cc[i_shifted]
                 end
             end
             cc_array[idx] = cc
