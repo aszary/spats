@@ -888,9 +888,9 @@ module Data
     # Arguments
     - `indir`: data input directory
     - `type`: type of p3folds ("refine" or "norefine")
-    - `n_comp`: number of components to detect (default: nothing = auto)
+    - `n_comp`: number of components to detect (default: 3)
     """
-    function analyse_offsets(indir, type; n_comp=nothing)
+    function analyse_offsets(indir, type; n_comp=3)
         """
         Fourier-based component offset analysis (PHASE-RESOLVED).
         
@@ -956,12 +956,11 @@ module Data
         
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
-        # Threshold set to 0.15 means peaks must be at least 15% of maximum amplitude
         ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.10, n_comp=n_comp)
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
-        println(">>> AUTO-DETECT: Found $n_comps components above 15% threshold using Barycenter Method.")
+        println(">>> Detected $n_comps components (Requested max: $n_comp) using Barycenter Method.")
         
         # --- 3. Plotting: Integrated Profile ---
         # Switching entirely to PyPlot for uniformity and precision

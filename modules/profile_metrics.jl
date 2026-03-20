@@ -79,7 +79,7 @@ Barycentric calculations provide a robust, non-parametric estimator for the cent
 of flux, making no assumptions about the intrinsic profile shape (e.g. skewness due 
 to scattering or intrinsic emission mechanisms).
 """
-function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.15, n_comp=nothing)
+function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.10, n_comp=3)
     N = length(prof_ref)
     
     # Normalize copies to 0.0 - 1.0 range for robust thresholding (with protection against flat profiles)
@@ -98,24 +98,15 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     p_tar = (prof_target .- min_tar) ./ amp_tar
     
     # 1. Identify peaks using local maxima detection
-    raw_peaks = Int[]
+    peaks = Int[]
     for i in 2:N-1
         if p_ref[i] > p_ref[i-1] && p_ref[i] > p_ref[i+1] && p_ref[i] > threshold
-            push!(raw_peaks, i)
+            push!(peaks, i)
         end
     end
     
-    # Filter peaks: require a minimum distance between them to avoid detecting noise wiggles
-    min_dist = max(5, div(N, 40)) # Minimum distance is ~2.5% of the window length
-    peaks = Int[]
-    sort!(raw_peaks, by=p -> p_ref[p], rev=true) # Start with the highest peaks
-    for p in raw_peaks
-        if all(abs(p - existing_p) > min_dist for existing_p in peaks)
-            push!(peaks, p)
-        end
-    end
-
-    # Process all detected components, or up to n_comp strongest if specified
+    # Process up to n_comp strongest components
+    sort!(peaks, by=p -> p_ref[p], rev=true)
     max_comps = isnothing(n_comp) ? length(peaks) : min(length(peaks), n_comp)
     selected_peaks = sort(peaks[1:max_comps]) 
     
