@@ -956,12 +956,13 @@ module Data
         
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
-        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.10, n_comp=n_comp)
+        # Threshold lowered to 0.05 (5%) to catch weaker components
+        ref_comps = ProfileMetrics.component_barycenters(mean_l_roi, mean_h_roi; threshold=0.05, n_comp=n_comp)
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
         if isnothing(n_comp)
-            println(">>> AUTO-DETECT: Found $n_comps distinct components using Smoothed Barycenter Method.")
+            println(">>> AUTO-DETECT: Found $n_comps distinct components (max 4 allowed) using Smoothed Barycenter Method.")
         else
             println(">>> Detected $n_comps components (Requested max: $n_comp).")
         end
@@ -1090,9 +1091,9 @@ module Data
             # Calculate true SNR inside the On-Pulse region
             snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
             
-            # Allow almost all phases (down to 0.5 sigma) to pass.
+            # Allow almost all phases (down to 0.2 sigma) to pass to maximize point density.
             # This mimics Gaussian fitting which attempts to fit every row regardless of noise.
-            if snr_val < 0.5
+            if snr_val < 0.2
                 continue
             end
             

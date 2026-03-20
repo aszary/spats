@@ -117,7 +117,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     end
     
     # Filter peaks: enforce minimum distance to avoid overlapping detections
-    min_dist = max(3, div(N, 20)) # Minimum distance is ~5% of the window
+    min_dist = max(3, div(N, 30)) # Reduced to allow closer distinct components
     peaks = Int[]
     sort!(raw_peaks, by=p -> smoothed_p_ref[p], rev=true) # Start with highest
     for p in raw_peaks
@@ -126,14 +126,16 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         end
     end
     
-    max_comps = isnothing(n_comp) ? length(peaks) : min(length(peaks), n_comp)
+    # Enforce a hard limit of 4 components in auto-detect mode
+    limit = isnothing(n_comp) ? 4 : n_comp
+    max_comps = min(length(peaks), limit)
     selected_peaks = sort(peaks[1:max_comps]) 
     
     results = []
     for p in selected_peaks
         # 2. Define the Component Window Boundaries
         # Using the SMOOTHED profile guarantees we don't stop prematurely on noise wiggles.
-        cut_off = 0.02
+        cut_off = 0.01
         
         left = p
         while left > 1 && smoothed_p_ref[left] > cut_off && smoothed_p_ref[left-1] <= smoothed_p_ref[left]
