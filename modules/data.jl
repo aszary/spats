@@ -1075,20 +1075,12 @@ module Data
             row_l = vec(l_matrix[phase_idx, :])
             row_h = vec(h_matrix[phase_idx, :])
             
-            # Light 3-bin smoothing to stabilize barycenter against shot-noise (Gaussian-like stability)
-            row_l_sm = copy(row_l)
-            row_h_sm = copy(row_h)
-            for b in 2:n_bins-1
-                row_l_sm[b] = (row_l[b-1] + row_l[b] + row_l[b+1]) / 3.0
-                row_h_sm[b] = (row_h[b-1] + row_h[b] + row_h[b+1]) / 3.0
-            end
-            
             roi_range = Int(bin_st):Int(bin_end)
             
             # Identify a safe off-pulse region for real noise estimation
             off_start = Int(bin_st) > 20 ? 1 : min(n_bins, Int(bin_end) + 10)
             off_end = Int(bin_st) > 20 ? Int(bin_st) - 10 : n_bins
-            off_pulse_l = row_l_sm[off_start:off_end]
+            off_pulse_l = row_l[off_start:off_end]
             if length(off_pulse_l) < 5
                 off_pulse_l = [0.0, 1.0] # Fallback
             end
@@ -1097,25 +1089,25 @@ module Data
             mean_off_l = mean(off_pulse_l)
             
             # Calculate true SNR inside the On-Pulse region
-            snr_val = (maximum(row_l_sm[roi_range]) - mean_off_l) / noise_l
+            snr_val = (maximum(row_l[roi_range]) - mean_off_l) / noise_l
             
-            # Allow almost all phases (down to 0.2 sigma) to pass to maximize point density.
-            # This mimics Gaussian fitting which attempts to fit every row regardless of noise.
-            if snr_val < 0.2
+            # Scientifically sound threshold: Require signal to be at least 1-sigma above noise 
+            # before attempting a barycenter calculation.
+            if snr_val < 1.0
                 continue
             end
             
             # Normalize strictly inside the ROI
-            min_l, max_l = minimum(row_l_sm[roi_range]), maximum(row_l_sm[roi_range])
-            min_h, max_h = minimum(row_h_sm[roi_range]), maximum(row_h_sm[roi_range])
+            min_l, max_l = minimum(row_l[roi_range]), maximum(row_l[roi_range])
+            min_h, max_h = minimum(row_h[roi_range]), maximum(row_h[roi_range])
             
             row_l_roi = zeros(n_bins)
             row_h_roi = zeros(n_bins)
             if max_l > min_l
-                row_l_roi[roi_range] .= (row_l_sm[roi_range] .- min_l) ./ (max_l - min_l)
+                row_l_roi[roi_range] .= (row_l[roi_range] .- min_l) ./ (max_l - min_l)
             end
             if max_h > min_h
-                row_h_roi[roi_range] .= (row_h_sm[roi_range] .- min_h) ./ (max_h - min_h)
+                row_h_roi[roi_range] .= (row_h[roi_range] .- min_h) ./ (max_h - min_h)
             end
             
             valid_phases += 1

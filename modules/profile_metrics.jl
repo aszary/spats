@@ -97,29 +97,18 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     p_ref = (prof_ref .- min_ref) ./ amp_ref
     p_tar = (prof_target .- min_tar) ./ amp_tar
     
-    # --- NEW: Adaptive Smoothing ---
-    # Smooth the reference profile to eliminate noise wiggles that cause false peaks
-    # and premature window boundaries. This is used ONLY as a topological map.
-    window_size = max(2, div(N, 80)) # Reduced smoothing! Huge windows were swallowing small narrow components.
-    smoothed_p_ref = copy(p_ref)
-    for i in 1:N
-        start_idx = max(1, i - window_size)
-        end_idx = min(N, i + window_size)
-        smoothed_p_ref[i] = mean(p_ref[start_idx:end_idx])
-    end
-    
-    # 1. Identify peaks using local maxima detection on SMOOTHED profile
+    # 1. Identify peaks using strict local maxima detection on RAW integrated profile
     raw_peaks = Int[]
     for i in 2:N-1
-        if smoothed_p_ref[i] > smoothed_p_ref[i-1] && smoothed_p_ref[i] > smoothed_p_ref[i+1] && smoothed_p_ref[i] > threshold
+        if p_ref[i] > p_ref[i-1] && p_ref[i] > p_ref[i+1] && p_ref[i] > threshold
             push!(raw_peaks, i)
         end
     end
     
-    # Filter peaks: enforce minimum distance to avoid overlapping detections
+    # Filter peaks: enforce minimum topological distance 
     min_dist = max(3, div(N, 40)) # Reduced further to allow close double-peaks
     peaks = Int[]
-    sort!(raw_peaks, by=p -> smoothed_p_ref[p], rev=true) # Start with highest
+    sort!(raw_peaks, by=p -> p_ref[p], rev=true) # Start with highest
     for p in raw_peaks
         if all(abs(p - ep) > min_dist for ep in peaks)
             push!(peaks, p)
@@ -134,16 +123,16 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     results = []
     for p in selected_peaks
         # 2. Define the Component Window Boundaries
-        # Using the SMOOTHED profile guarantees we don't stop prematurely on noise wiggles.
+        # Scan outwards on raw data until we hit the noise floor or a local minimum
         cut_off = 0.01
         
         left = p
-        while left > 1 && smoothed_p_ref[left] > cut_off && smoothed_p_ref[left-1] <= smoothed_p_ref[left]
+        while left > 1 && p_ref[left] > cut_off && p_ref[left-1] <= p_ref[left]
             left -= 1
         end
         
         right = p
-        while right < N && smoothed_p_ref[right] > cut_off && smoothed_p_ref[right+1] <= smoothed_p_ref[right]
+        while right < N && p_ref[right] > cut_off && p_ref[right+1] <= p_ref[right]
             right += 1
         end
         
@@ -201,13 +190,8 @@ function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_targ
         min_r, max_r = minimum(local_ref), maximum(local_ref)
         min_t, max_t = minimum(local_tar), maximum(local_tar)
         
-        # CORE BARYCENTER: Ignore the bottom 25% of the local subpulse.
-        # This mimics a Gaussian fit by focusing on the stable peak and ignoring noisy tails.
-        bg_ref = min_r + 0.25 * (max_r - min_r)
-        bg_tar = min_t + 0.25 * (max_t - min_t)
-        
-        vals_ref = max.(local_ref .- bg_ref, 0.0)
-        vals_tar = max.(local_tar .- bg_tar, 0.0)
+        vals_ref = max.(local_ref .- min_r, 0.0)
+        vals_tar = max.(local_tar .- min_t, 0.0)
         m_ref = sum(vals_ref)
         m_tar = sum(vals_tar)
         com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
