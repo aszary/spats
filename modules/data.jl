@@ -888,9 +888,9 @@ module Data
     # Arguments
     - `indir`: data input directory
     - `type`: type of p3folds ("refine" or "norefine")
-    - `n_comp`: number of components to detect (default: 3)
+    - `n_comp`: number of components to detect (default: nothing = auto)
     """
-    function analyse_offsets(indir, type; n_comp=3)
+    function analyse_offsets(indir, type; n_comp=nothing)
         """
         Fourier-based component offset analysis (PHASE-RESOLVED).
         
@@ -960,7 +960,11 @@ module Data
         n_comps = length(ref_comps)
         windows = [(c.left_bound, c.right_bound) for c in ref_comps]
         
-        println(">>> Detected $n_comps components (Requested max: $n_comp) using Barycenter Method.")
+        if isnothing(n_comp)
+            println(">>> AUTO-DETECT: Found $n_comps distinct components using Smoothed Barycenter Method.")
+        else
+            println(">>> Detected $n_comps components (Requested max: $n_comp).")
+        end
         
         # --- 3. Plotting: Integrated Profile ---
         # Switching entirely to PyPlot for uniformity and precision

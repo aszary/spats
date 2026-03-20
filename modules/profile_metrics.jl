@@ -79,7 +79,7 @@ Barycentric calculations provide a robust, non-parametric estimator for the cent
 of flux, making no assumptions about the intrinsic profile shape (e.g. skewness due 
 to scattering or intrinsic emission mechanisms).
 """
-function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.10, n_comp=3)
+function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.10, n_comp=nothing)
     N = length(prof_ref)
     
     # Normalize copies to 0.0 - 1.0 range for robust thresholding (with protection against flat profiles)
@@ -97,39 +97,57 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     p_ref = (prof_ref .- min_ref) ./ amp_ref
     p_tar = (prof_target .- min_tar) ./ amp_tar
     
-    # 1. Identify peaks using local maxima detection
-    peaks = Int[]
+    # --- NEW: Adaptive Smoothing ---
+    # Smooth the reference profile to eliminate noise wiggles that cause false peaks
+    # and premature window boundaries. This is used ONLY as a topological map.
+    window_size = max(2, div(N, 40))
+    smoothed_p_ref = copy(p_ref)
+    for i in 1:N
+        start_idx = max(1, i - window_size)
+        end_idx = min(N, i + window_size)
+        smoothed_p_ref[i] = mean(p_ref[start_idx:end_idx])
+    end
+    
+    # 1. Identify peaks using local maxima detection on SMOOTHED profile
+    raw_peaks = Int[]
     for i in 2:N-1
-        if p_ref[i] > p_ref[i-1] && p_ref[i] > p_ref[i+1] && p_ref[i] > threshold
-            push!(peaks, i)
+        if smoothed_p_ref[i] > smoothed_p_ref[i-1] && smoothed_p_ref[i] > smoothed_p_ref[i+1] && smoothed_p_ref[i] > threshold
+            push!(raw_peaks, i)
         end
     end
     
-    # Process up to n_comp strongest components
-    sort!(peaks, by=p -> p_ref[p], rev=true)
+    # Filter peaks: enforce minimum distance to avoid overlapping detections
+    min_dist = max(3, div(N, 20)) # Minimum distance is ~5% of the window
+    peaks = Int[]
+    sort!(raw_peaks, by=p -> smoothed_p_ref[p], rev=true) # Start with highest
+    for p in raw_peaks
+        if all(abs(p - ep) > min_dist for ep in peaks)
+            push!(peaks, p)
+        end
+    end
+    
     max_comps = isnothing(n_comp) ? length(peaks) : min(length(peaks), n_comp)
     selected_peaks = sort(peaks[1:max_comps]) 
     
     results = []
     for p in selected_peaks
         # 2. Define the Component Window Boundaries
-        # Stop scanning outwards when we hit a local minimum or signal drops below the 2% noise floor.
-        # This ensures we integrate the *entire* physical component, not just the tip.
+        # Using the SMOOTHED profile guarantees we don't stop prematurely on noise wiggles.
         cut_off = 0.02
         
         left = p
-        while left > 1 && p_ref[left] > cut_off && p_ref[left-1] <= p_ref[left]
+        while left > 1 && smoothed_p_ref[left] > cut_off && smoothed_p_ref[left-1] <= smoothed_p_ref[left]
             left -= 1
         end
         
         right = p
-        while right < N && p_ref[right] > cut_off && p_ref[right+1] <= p_ref[right]
+        while right < N && smoothed_p_ref[right] > cut_off && smoothed_p_ref[right+1] <= smoothed_p_ref[right]
             right += 1
         end
         
         if right - left < 2; continue; end
         
-        # 3. Calculate Barycenters using the extracted window
+        # 3. Calculate Barycenters using the extracted window (on ORIGINAL raw data!)
         # We subtract the local background level to isolate only the component's "mass"
         x_win = left:right
         
