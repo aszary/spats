@@ -79,7 +79,7 @@ Barycentric calculations provide a robust, non-parametric estimator for the cent
 of flux, making no assumptions about the intrinsic profile shape (e.g. skewness due 
 to scattering or intrinsic emission mechanisms).
 """
-function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.15, n_comp=3)
+function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.15, n_comp=nothing)
     N = length(prof_ref)
     
     # Normalize copies to 0.0 - 1.0 range for robust thresholding (with protection against flat profiles)
@@ -105,9 +105,10 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         end
     end
     
-    # Process up to n_comp strongest components
+    # Process all detected components, or up to n_comp strongest if specified
     sort!(peaks, by=p -> p_ref[p], rev=true)
-    selected_peaks = sort(peaks[1:min(length(peaks), n_comp)]) 
+    max_comps = isnothing(n_comp) ? length(peaks) : min(length(peaks), n_comp)
+    selected_peaks = sort(peaks[1:max_comps]) 
     
     results = []
     for p in selected_peaks
