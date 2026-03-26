@@ -1106,18 +1106,19 @@ module Data
             noise_l = isempty(off_pulse_l) ? 1.0 : std(off_pulse_l)
             snr_val = (maximum(row_l) - mean(off_pulse_l)) / (noise_l + 1e-6)
             
-            # Zwiększono próg detekcji do 10%, aby wyeliminować szum i badać tylko wyraźne komponenty
-            if maximum(row_l_roi) < 0.10 || maximum(row_h_roi) < 0.10
+            # Weryfikacja: Zachowujemy słabsze sygnały (próg 5%), ale odrzucamy fałszywy szum sprawdzając SNR > 3.0
+            if maximum(row_l_roi) < 0.05 || maximum(row_h_roi) < 0.05 || snr_val < 3.0
                 continue
             end
             
             valid_phases += 1
             
             # Dynamicznie znajdujemy komponenty obecne w tej konkretnej fazie:
-            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.10)
+            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.05)
             
             for res in comps
-                if isnan(res.offset) || abs(res.offset) > n_bins * 0.1
+                # Odrzucamy pomiary niefizyczne oraz te z drastycznie wielkim błędem (np. > 40 stopni)
+                if isnan(res.offset) || abs(res.offset) > n_bins * 0.1 || res.error > (40.0 / bins_to_deg)
                     continue
                 end
                 
@@ -1144,7 +1145,8 @@ module Data
         # Dodano rygorystyczne naukowo obliczenie 95% przedziału ufności dla linii trendu
         # przy użyciu metody bootstrap, co pozwala na ocenę niepewności dopasowania.
         # Wprowadzono statystyczne ważenie punktów (Inverse Variance) oraz słupki błędów (Error Bars).
-        PyPlot.figure(figsize=(12, 7.5))
+        # Zwiększono wysokość figury, aby pomieścić dwa panele (główny i zbliżenie).
+        PyPlot.figure(figsize=(12, 11))
         
         if !isempty(lon_all)
             # Funkcja pomocnicza do ważonego wygładzania jądrowego (Nadaraya-Watson z Inverse-Variance Weighting)
@@ -1207,6 +1209,9 @@ module Data
                 end
             end
 
+            # --- Wykres 1: Główny rozkład z punktami (Górny Panel) ---
+            ax1 = PyPlot.subplot(2, 1, 1)
+
             # Rysowanie rzeczywistych, formalnych błędów matematycznych (Error bars)
             PyPlot.errorbar(lon_all, off_all, yerr=err_all, fmt="none", ecolor="black", elinewidth=0.8, capsize=1.5, alpha=0.4, zorder=2)
 
@@ -1222,22 +1227,48 @@ module Data
             
             # Rysowanie wygładzonego trendu
             PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3.2, label="Weighted Trend (Inv. Variance)", zorder=5)
-        end
         
-        PyPlot.axhline(0.0, color="gray", ls="--", lw=1.5, alpha=0.8, zorder=2)
-        PyPlot.minorticks_on()
-        PyPlot.grid(true, which="major", linestyle="--", color="gray", alpha=0.6)
-        PyPlot.grid(true, which="minor", linestyle=":", color="gray", alpha=0.3)
-        
-        PyPlot.xlabel("Longitude [deg]", fontsize=13, fontweight="bold")
-        PyPlot.ylabel("Offset [deg]", fontsize=13, fontweight="bold")
-        PyPlot.title("Phase-Resolved Offset vs. Longitude with 95% Confidence Interval", fontsize=15, fontweight="bold")
-        
-        if !isempty(lon_all)
+            PyPlot.axhline(0.0, color="gray", ls="--", lw=1.5, alpha=0.8, zorder=2)
+            PyPlot.minorticks_on()
+            PyPlot.grid(true, which="major", linestyle="--", color="gray", alpha=0.6)
+            PyPlot.grid(true, which="minor", linestyle=":", color="gray", alpha=0.3)
+            
+            PyPlot.ylabel("Offset [deg]", fontsize=13, fontweight="bold")
+            PyPlot.title("Phase-Resolved Offset vs. Longitude with 95% Confidence Interval", fontsize=15, fontweight="bold")
             PyPlot.legend(loc="best", fontsize=11, frameon=true, framealpha=0.95, edgecolor="black")
+
+            # --- Wykres 2: Zbliżenie na sam wygładzony trend (Dolny Panel) ---
+            ax2 = PyPlot.subplot(2, 1, 2, sharex=ax1)
+            
+            # Rysujemy wyłącznie przedział ufności i trend
+            PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.3, label="95% Bootstrap Confidence Interval", zorder=4)
+            PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3.2, label="Weighted Trend (Inv. Variance)", zorder=5)
+            
+            PyPlot.axhline(0.0, color="gray", ls="--", lw=1.5, alpha=0.8, zorder=2)
+            PyPlot.minorticks_on()
+            PyPlot.grid(true, which="major", linestyle="--", color="gray", alpha=0.6)
+            PyPlot.grid(true, which="minor", linestyle=":", color="gray", alpha=0.3)
+            
+            PyPlot.xlabel("Longitude [deg]", fontsize=13, fontweight="bold")
+            PyPlot.ylabel("Trend Offset [deg]", fontsize=13, fontweight="bold")
+            PyPlot.title("Zoom-in: Fitted Trend Variations", fontsize=14, fontweight="bold")
+            
+            # Automatyczny dobór ciasnego zakresu Y dla zbliżenia, bazujący na bandzie błędu
+            valid_lower = filter(!isnan, lower_ci)
+            valid_upper = filter(!isnan, upper_ci)
+            if !isempty(valid_lower) && !isempty(valid_upper)
+                y_min, y_max = minimum(valid_lower), maximum(valid_upper)
+                margin = max((y_max - y_min) * 0.25, 0.05) # Minimum 0.05 stopnia marginesu
+                PyPlot.ylim(y_min - margin, y_max + margin)
+            end
+        else
+            # Ubezpieczenie na wypadek braku punktów w danej fazie
+            PyPlot.title("Phase-Resolved Offset vs. Longitude (No Data)", fontsize=15, fontweight="bold")
+            PyPlot.xlabel("Longitude [deg]", fontsize=13, fontweight="bold")
+            PyPlot.ylabel("Offset [deg]", fontsize=13, fontweight="bold")
         end
         
-        PyPlot.tight_layout(pad=1.1)
+        PyPlot.tight_layout(pad=1.5)
         
         out_name = "$(pulsar_name)_fourier_offsets_$(type).pdf"
         PyPlot.savefig(joinpath(indir, out_name), dpi=150)

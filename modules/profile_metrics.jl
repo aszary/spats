@@ -50,7 +50,6 @@ function global_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractVec
     # while high-frequency noise has low power and should be ignored.
     sum_wxy = 0.0
     sum_wxx = 0.0
-    sum_w = 0.0
     
     for i in 2:length(freqs) # We skip the DC component (f=0)
         w = amplitudes[i]
@@ -58,19 +57,24 @@ function global_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractVec
         y = phases[i]
         sum_wxy += w * x * y
         sum_wxx += w * x * x
-        sum_w += w
     end
     
     # Calculate the slope of the phase
     slope = sum_wxx > 0 ? (sum_wxy / sum_wxx) : 0.0
     
     # Obliczenie BŁĘDU FORMALNEGO z WLS (Weighted Least Squares)
-    if length(freqs) > 2 && sum_wxx > 0
+    N_points = length(freqs) - 1
+    if N_points > 1 && sum_wxx > 0
         residuals = phases .- slope .* freqs
-        # Ważona wariancja reszt z poprawką na stopnie swobody (N-2)
-        var_res = sum(amplitudes[2:end] .* residuals[2:end].^2) / (sum_w * (length(freqs) - 2))
-        slope_err = sqrt(var_res / sum_wxx)
+        # Poprawna fizycznie estymacja wariancji dla modelu bez wyrazu wolnego (y = mx)
+        # Wagi określają proporcje, absolutną skalę szumu odtwarzamy z reszt (Reduced Chi-Square scaling)
+        s2 = sum(amplitudes[2:end] .* residuals[2:end].^2) / (N_points - 1)
+        slope_err = sqrt(s2 / sum_wxx)
         shift_error = slope_err * N / (2 * pi)
+        
+        # Limit fizyczny błędu (np. limit rozdzielczości binów) chroniący przed overfittingiem 
+        # dla bardzo małej liczby złapanych harmonicznych na idealnym szumie.
+        shift_error = max(shift_error, 0.01)
     else
         shift_error = 0.0
     end
