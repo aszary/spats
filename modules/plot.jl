@@ -824,7 +824,7 @@ function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict;
         y_high = high[i, bin_range]
         
         # Obliczanie przesunięcia
-        boot = FFTCrossCorr.bootstrap_uncertainty(
+        boot = FFT.bootstrap_uncertainty(
             y_high, y_low, method; 
             n_boot=100, period_s=period, nbin=length(bin_range)
         )
