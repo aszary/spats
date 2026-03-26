@@ -279,7 +279,7 @@ module SpaTs
         Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine", 0.3635; n_comp=2)
         Data.analyse_offsets(vpmout*"J2139+2242_16", "norefine", 0.2569; n_comp=2)
         Data.analyse_offsets(vpmout*"J1232-4742_16", "norefine", 0.2971; n_comp=3)
-        Data.analyse_offsets(vpmout*"J1741-0840_16", "norefine", 0.1549; n_comp=2)
+        #Data.analyse_offsets(vpmout*"J1741-0840_16", "norefine", 0.1549; n_comp=2)
         Data.analyse_offsets(vpmout*"J1512-5431_16", "norefine", 0.4078; n_comp=2)
 
 
