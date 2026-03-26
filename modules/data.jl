@@ -1098,7 +1098,7 @@ end
     end
 
 
-    function analyse_offsets(indir, type, period; n_comp=3, show_=false)
+    function analyse_offsets(indir, type, period; n_comp=3, show_=true)
     # --- 1. Konfiguracja i Ładowanie ---
     p = Tools.read_params(joinpath(indir, "params.json"))
     low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
