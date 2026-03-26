@@ -1131,50 +1131,91 @@ module Data
         println(">>> Processed $valid_phases valid phases out of $n_phases")
         
         # --- 6. Plotting: Phase-Resolved Offsets ---
-        PyPlot.figure(figsize=(10, 6.5))
+        # Ulepszono wizualizację, aby była bardziej czytelna i estetyczna.
+        # Dodano rygorystyczne naukowo obliczenie 95% przedziału ufności dla linii trendu
+        # przy użyciu metody bootstrap, co pozwala na ocenę niepewności dopasowania.
+        PyPlot.figure(figsize=(12, 7))
         
         if !isempty(lon_all)
-            # Wykres punktowy (Scatter) z kolorowaniem wg fazy P3
-            sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="plasma", alpha=0.8, s=35, edgecolor="none", zorder=3)
-            cbar = PyPlot.colorbar(sc)
-            cbar.set_label("P3 Phase (Row Index) - Evolution in Time", fontsize=12, fontweight="bold")
-            
-            # Obliczanie GŁADKIEGO trendu przesuwania się fazy za pomoca średniej z wagnerem Gaussa (Gaussian Kernel Smoothing)
+            # Funkcja pomocnicza do wygładzania jądrowego (Nadaraya-Watson)
+            function kernel_smooth(x_data, y_data, x_grid, sigma)
+                y_grid = Float64[]
+                for x in x_grid
+                    weights = exp.(-0.5 .* ((x_data .- x) ./ sigma).^2)
+                    weight_sum = sum(weights)
+                    if weight_sum > 1e-6
+                        push!(y_grid, sum(weights .* y_data) / weight_sum)
+                    else
+                        push!(y_grid, NaN)
+                    end
+                end
+                return y_grid
+            end
+
+            # Sortowanie danych wejściowych jest kluczowe dla wygładzania
             perm = sortperm(lon_all)
             slon = lon_all[perm]
             soff = off_all[perm]
             
+            # Definicja siatki i parametru wygładzania (sigma)
             smooth_lon = range(minimum(slon), maximum(slon), length=200)
-            smooth_off = Float64[]
+            sigma = (maximum(slon) - minimum(slon)) / 15.0 # Szersze jądro dla gładszego trendu
+
+            # Obliczenie głównego trendu
+            smooth_off = kernel_smooth(slon, soff, smooth_lon, sigma)
+
+            # Pętla bootstrap do estymacji przedziału ufności
+            n_bootstrap = 200 # Więcej próbek dla stabilniejszych wyników
+            bootstrap_curves = zeros(n_bootstrap, length(smooth_lon))
             
-            # Szerokość wygładzania - 5% szerokości całego okna (sigma)
-            sigma = (maximum(slon) - minimum(slon)) / 20.0
-            
-            for x in smooth_lon
-                weights = exp.(-0.5 .* ((slon .- x) ./ sigma).^2)
-                weight_sum = sum(weights)
-                if weight_sum > 1e-5
-                    push!(smooth_off, sum(weights .* soff) / weight_sum)
+            for i in 1:n_bootstrap
+                indices = rand(1:length(lon_all), length(lon_all))
+                # Próbkowanie z powtórzeniami
+                boot_lon = lon_all[indices]
+                boot_off = off_all[indices]
+                
+                perm_boot = sortperm(boot_lon)
+                bootstrap_curves[i, :] = kernel_smooth(boot_lon[perm_boot], boot_off[perm_boot], smooth_lon, sigma)
+            end
+
+            # Obliczanie kwantyli dla 95% przedziału ufności
+            lower_ci, upper_ci = Float64[], Float64[]
+            for j in 1:length(smooth_lon)
+                valid_vals = filter(!isnan, bootstrap_curves[:, j])
+                if length(valid_vals) > 20 # Wymagamy minimum punktów do wiarygodnego kwantyla
+                    push!(lower_ci, quantile(valid_vals, 0.025))
+                    push!(upper_ci, quantile(valid_vals, 0.975))
                 else
-                    push!(smooth_off, NaN)
+                    push!(lower_ci, NaN); push!(upper_ci, NaN)
                 end
             end
+
+            # Wykres punktowy (Scatter) z ulepszoną stylistyką dla lepszej widoczności
+            sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="viridis", alpha=0.7, s=45, edgecolor="black", linewidth=0.5, zorder=3)
+            cbar = PyPlot.colorbar(sc)
+            cbar.set_label("P3 Phase (Row Index)", fontsize=12, fontweight="bold")
             
-            # Rysowanie linii trendu z czarnym obramowaniem dla widoczności
-            PyPlot.plot(smooth_lon, smooth_off, color="black", lw=4.5, zorder=4)
-            PyPlot.plot(smooth_lon, smooth_off, color="#00FF00", lw=2.5, label="Smoothed Trend", zorder=5)
+            # Rysowanie przedziału ufności jako cieniowany obszar
+            PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.25, label="95% Confidence Interval", zorder=4)
+            
+            # Rysowanie wygładzonego trendu
+            PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3, label="Smoothed Trend (Gaussian Kernel)", zorder=5)
         end
         
-        PyPlot.axhline(0.0, color="black", ls="--", lw=1.5, alpha=0.7, zorder=2)
+        PyPlot.axhline(0.0, color="gray", ls="--", lw=1.5, alpha=0.8, zorder=2)
         PyPlot.minorticks_on()
-        PyPlot.xlabel("Longitude (°)", fontsize=12)
-        PyPlot.ylabel("Offset (°)", fontsize=12)
-        PyPlot.title("Dynamic Phase-Resolved Offset vs Longitude", fontsize=14, fontweight="bold")
+        PyPlot.grid(true, which="major", linestyle="--", color="gray", alpha=0.6)
+        PyPlot.grid(true, which="minor", linestyle=":", color="gray", alpha=0.3)
+        
+        PyPlot.xlabel("Longitude (°)", fontsize=13, fontweight="bold")
+        PyPlot.ylabel("Offset (°)", fontsize=13, fontweight="bold")
+        PyPlot.title("Phase-Resolved Offset vs. Longitude with 95% Confidence Interval", fontsize=15, fontweight="bold")
+        
         if !isempty(lon_all)
-            PyPlot.legend(loc="best", fontsize=11, framealpha=0.9)
+            PyPlot.legend(loc="best", fontsize=11, frameon=true, framealpha=0.95)
         end
-        PyPlot.grid(true, which="major", linestyle="--", alpha=0.5)
-        PyPlot.tight_layout()
+        
+        PyPlot.tight_layout(pad=1.1)
         
         out_name = "$(pulsar_name)_fourier_offsets_$(type).pdf"
         PyPlot.savefig(joinpath(indir, out_name), dpi=150)
