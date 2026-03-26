@@ -13,7 +13,7 @@ module Data
     include("tools.jl")
     include("plot.jl")
     include("FFT.jl")
-
+    include("ProfileMet.jl")
 
     """
     Zero selected pulses
