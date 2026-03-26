@@ -897,7 +897,7 @@ end
 
 
 
-"""
+
 
 
 
@@ -936,7 +936,7 @@ Wykorzystuje parametry z pliku JSON (bin_st, bin_end, pulse_start/end).
 
 Analizuje przesunięcia. Jeśli `p` nie ma "period_s", używa `manual_period`.
 
-=#
+
 
 
 function analyse_fft_offsets(low::AbstractMatrix, high::AbstractMatrix, p::Dict; 
@@ -1038,5 +1038,5 @@ function analyse_p3_folds_FFT(low::AbstractMatrix, high::AbstractMatrix, p::Dict
     return (base_res..., p3_phases=phases)
 end
 
-
+=#
 end  # module Plot
