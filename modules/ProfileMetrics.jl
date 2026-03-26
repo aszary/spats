@@ -1,4 +1,4 @@
-module ProfileMetrics
+module ProfileMet
 
 using FFTW
 using Statistics

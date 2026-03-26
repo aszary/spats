@@ -1124,7 +1124,7 @@ end
                                               nbin=n_bins, period_s=period, n_boot=200)
 
     # Detekcja okien komponentów (pozostajemy przy Barycentrach dla granic)
-    ref_comps = ProfileMetrics.component_barycenters(normalize_01(mean_l), normalize_01(mean_h); 
+    ref_comps = ProfileMet.component_barycenters(normalize_01(mean_l), normalize_01(mean_h); 
                                                      threshold=0.10, n_comp=n_comp)
     windows = [(c.left_bound, c.right_bound) for c in ref_comps]
 
