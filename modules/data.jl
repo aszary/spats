@@ -1098,7 +1098,7 @@ end
     end
 
 
-    function analyse_offsets(indir, type, period; n_comp=3)
+    function analyse_offsets(indir, type, period; n_comp=3, show_=false)
     # --- 1. Konfiguracja i Ładowanie ---
     p = Tools.read_params(joinpath(indir, "params.json"))
     low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
@@ -1218,6 +1218,13 @@ end
         full_path = joinpath(indir, "$(pulsar_name)_analysis_$(type).pdf")
         PyPlot.tight_layout()
         PyPlot.savefig(full_path)
+        PyPlot.savefig(replace(full_path, ".pdf" => ".png"))
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
         PyPlot.close(fig)
         
         @info "Próba zapisu pliku: $full_path"
