@@ -968,7 +968,7 @@ module Data
         PyPlot.figure(figsize=(10, 9))
         colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0", "#F44336", "#795548"]
         
-        # Przejście z binów na fizyczne stopnie długości geograficznej (Longitude) dla poprawności naukowej
+        # Convert from bins to physical longitude degrees for scientific accuracy
         lon_arr = (1:n_bins) .* bins_to_deg
         
         PyPlot.subplot(3, 1, 1)
@@ -1010,9 +1010,25 @@ module Data
         PyPlot.legend(loc="upper right", fontsize=10)
         for (k, c) in enumerate(ref_comps)
             col = colors[mod1(k, length(colors))]
+            
+            # Draw a subtle background span for the component window
+            PyPlot.axvspan(c.left_bound * bins_to_deg, c.right_bound * bins_to_deg, color=col, alpha=0.08)
+            
+            # Draw a dashed vertical line exactly at the barycenter to pinpoint the measurement
+            PyPlot.axvline(c.com_low * bins_to_deg, color=col, linestyle="--", linewidth=1.5, alpha=0.8)
+            
             offset_deg = c.offset * bins_to_deg
-            PyPlot.text(c.com_low * bins_to_deg, 0.5, @sprintf("Δ=%.3f°", offset_deg), color=col, fontsize=12, ha="center", va="bottom", fontweight="bold")
+            
+            # Dynamically position the label slightly above the component's peak
+            idx = clamp(round(Int, c.com_low), 1, n_bins)
+            y_pos = max(mean_l_roi[idx], mean_h_roi[idx]) + 0.05
+            
+            PyPlot.text(c.com_low * bins_to_deg, y_pos, @sprintf(" C%d: Δ=%.3f° ", k, offset_deg), 
+                        color=col, fontsize=11, ha="center", va="bottom", fontweight="bold",
+                        bbox=Dict("facecolor"=>"white", "alpha"=>0.85, "edgecolor"=>col, "boxstyle"=>"round,pad=0.3"),
+                        zorder=10)
         end
+        PyPlot.ylim(-0.05, 1.25) # Increase Y limit slightly to fit labels above the highest peaks
         PyPlot.tight_layout()
         PyPlot.savefig(joinpath(indir, "$(pulsar_name)_integrated_offsets_$(type).pdf"), dpi=150)
         PyPlot.close()
@@ -1083,6 +1099,9 @@ module Data
         snr_all = Float64[]
         phase_all = Float64[]
         
+        # Kolekcja przykładów dopasowań Fouriera do narysowania w osobnym panelu
+        fit_examples = []
+        
         valid_phases = 0
         
         for phase_idx in 1:n_phases
@@ -1106,18 +1125,18 @@ module Data
             noise_l = isempty(off_pulse_l) ? 1.0 : std(off_pulse_l)
             snr_val = (maximum(row_l) - mean(off_pulse_l)) / (noise_l + 1e-6)
             
-            # Weryfikacja: Zachowujemy słabsze sygnały (próg 5%), ale odrzucamy fałszywy szum sprawdzając SNR > 3.0
+            # Verification: Keep weaker signals (5% threshold) but reject false noise by checking SNR > 3.0
             if maximum(row_l_roi) < 0.05 || maximum(row_h_roi) < 0.05 || snr_val < 3.0
                 continue
             end
             
             valid_phases += 1
             
-            # Dynamicznie znajdujemy komponenty obecne w tej konkretnej fazie:
+            # Dynamically find components present in this specific phase:
             comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.05)
             
             for res in comps
-                # Odrzucamy pomiary niefizyczne oraz te z drastycznie wielkim błędem (np. > 40 stopni)
+                # Reject unphysical measurements and those with drastically large errors (e.g., > 40 degrees)
                 if isnan(res.offset) || abs(res.offset) > n_bins * 0.1 || res.error > (40.0 / bins_to_deg)
                     continue
                 end
@@ -1127,7 +1146,7 @@ module Data
                 lon_deg = (com_low + com_high) / 2.0 * bins_to_deg
                 
                 offset_deg = res.offset * bins_to_deg
-                # Błąd jest teraz rygorystycznie liczony ze stromości wariancji faz Fouriera!
+                # Error is now rigorously calculated from the steepness of the Fourier phase variance
                 error_deg = res.error * bins_to_deg
                 
                 push!(lon_all, lon_deg)
@@ -1135,27 +1154,50 @@ module Data
                 push!(err_all, error_deg)
                 push!(snr_all, snr_val)
                 push!(phase_all, Float64(phase_idx))
+                
+                # --- Zbieranie danych do wykresu ilustrującego dopasowanie Fouriera ---
+                # Zapisujemy parametry wewnętrzne okna, aby później je odtworzyć
+                min_ref, max_ref = minimum(row_l_roi), maximum(row_l_roi)
+                min_tar, max_tar = minimum(row_h_roi), maximum(row_h_roi)
+                if max_ref > min_ref && max_tar > min_tar
+                    p_ref = (row_l_roi .- min_ref) ./ (max_ref - min_ref)
+                    p_tar = (row_h_roi .- min_tar) ./ (max_tar - min_tar)
+                    
+                    w_ref = p_ref[res.left:res.right]
+                    w_tar = p_tar[res.left:res.right]
+                    
+                    N_win = length(w_ref)
+                    taper = 0.5 .* (1 .- cos.(2 * pi .* (0:N_win-1) ./ (N_win - 1)))
+                    
+                    push!(fit_examples, (
+                        phase_idx = phase_idx,
+                        w_ref = (w_ref .- min(w_ref[1], w_ref[end])) .* taper,
+                        w_tar = (w_tar .- min(w_tar[1], w_tar[end])) .* taper,
+                        shift = res.offset,
+                        error = res.error,
+                        lon_deg = lon_deg,
+                        snr = snr_val
+                    ))
+                end
             end
         end
         
         println(">>> Processed $valid_phases valid phases out of $n_phases")
         
         # --- 6. Plotting: Phase-Resolved Offsets ---
-        # Ulepszono wizualizację, aby była bardziej czytelna i estetyczna.
-        # Dodano rygorystyczne naukowo obliczenie 95% przedziału ufności dla linii trendu
-        # przy użyciu metody bootstrap, co pozwala na ocenę niepewności dopasowania.
-        # Wprowadzono statystyczne ważenie punktów (Inverse Variance) oraz słupki błędów (Error Bars).
-        # Zwiększono wysokość figury, aby pomieścić dwa panele (główny i zbliżenie).
+        # Improved visualization for better readability and aesthetics.
+        # Added scientifically rigorous 95% confidence interval for the trend line using the bootstrap method.
+        # Introduced statistical point weighting (Inverse Variance) and Error Bars.
         PyPlot.figure(figsize=(12, 11))
         
         if !isempty(lon_all)
-            # Funkcja pomocnicza do ważonego wygładzania jądrowego (Nadaraya-Watson z Inverse-Variance Weighting)
+            # Helper function for weighted kernel smoothing (Nadaraya-Watson with Inverse-Variance Weighting)
             function kernel_smooth_weighted(x_data, y_data, err_data, x_grid, sigma)
                 y_grid = Float64[]
                 for x in x_grid
-                    # Waga odległości (Jądro Gaussa)
+                    # Distance weight (Gaussian Kernel)
                     w_kernel = exp.(-0.5 .* ((x_data .- x) ./ sigma).^2)
-                    # Waga ufności statystycznej (odwrotność wariancji)
+                    # Statistical confidence weight (inverse variance)
                     w_stat = 1.0 ./ (err_data.^2 .+ 1e-6)
                     weights = w_kernel .* w_stat
                     
@@ -1169,26 +1211,26 @@ module Data
                 return y_grid
             end
 
-            # Sortowanie danych wejściowych jest kluczowe dla wygładzania
+            # Sorting input data is crucial for smoothing
             perm = sortperm(lon_all)
             slon = lon_all[perm]
             soff = off_all[perm]
             serr = err_all[perm]
             
-            # Definicja siatki i parametru wygładzania (sigma)
+            # Define grid and smoothing parameter (sigma)
             smooth_lon = range(minimum(slon), maximum(slon), length=200)
-            sigma = (maximum(slon) - minimum(slon)) / 15.0 # Szersze jądro dla gładszego trendu
+            sigma = (maximum(slon) - minimum(slon)) / 15.0 # Wider kernel for a smoother trend
 
-            # Obliczenie głównego trendu (z rygorystycznym uwzględnieniem błędów)
+            # Calculate main trend (with rigorous error weighting)
             smooth_off = kernel_smooth_weighted(slon, soff, serr, smooth_lon, sigma)
 
-            # Pętla bootstrap do estymacji przedziału ufności
-            n_bootstrap = 200 # Więcej próbek dla stabilniejszych wyników
+            # Bootstrap loop to estimate confidence interval
+            n_bootstrap = 200 # More samples for more stable results
             bootstrap_curves = zeros(n_bootstrap, length(smooth_lon))
             
             for i in 1:n_bootstrap
                 indices = rand(1:length(lon_all), length(lon_all))
-                # Próbkowanie z powtórzeniami
+                # Sampling with replacement
                 boot_lon = lon_all[indices]
                 boot_off = off_all[indices]
                 boot_err = err_all[indices]
@@ -1197,11 +1239,11 @@ module Data
                 bootstrap_curves[i, :] = kernel_smooth_weighted(boot_lon[perm_boot], boot_off[perm_boot], boot_err[perm_boot], smooth_lon, sigma)
             end
 
-            # Obliczanie kwantyli dla 95% przedziału ufności
+            # Calculate quantiles for the 95% confidence interval
             lower_ci, upper_ci = Float64[], Float64[]
             for j in 1:length(smooth_lon)
                 valid_vals = filter(!isnan, bootstrap_curves[:, j])
-                if length(valid_vals) > 20 # Wymagamy minimum punktów do wiarygodnego kwantyla
+                if length(valid_vals) > 20 # Require a minimum number of points for a reliable quantile
                     push!(lower_ci, quantile(valid_vals, 0.025))
                     push!(upper_ci, quantile(valid_vals, 0.975))
                 else
@@ -1209,23 +1251,22 @@ module Data
                 end
             end
 
-            # --- Wykres 1: Główny rozkład z punktami (Górny Panel) ---
+            # --- Plot 1: Main distribution with points (Upper Panel) ---
             ax1 = PyPlot.subplot(2, 1, 1)
 
-            # Rysowanie rzeczywistych, formalnych błędów matematycznych (Error bars)
+            # Draw actual, formal mathematical errors (Error bars)
             PyPlot.errorbar(lon_all, off_all, yerr=err_all, fmt="none", ecolor="black", elinewidth=0.8, capsize=1.5, alpha=0.4, zorder=2)
 
-            # Wykres punktowy (Scatter) z ulepszoną stylistyką dla lepszej widoczności
-            # Rozmiar punktu skalujemy z SNR, by wyraźne sygnały były łatwiejsze do interpretacji wizualnej
+            # Scatter plot with point sizes scaled by SNR to make clearer signals visually pop out
             point_sizes = clamp.(snr_all .* 2.5, 20.0, 90.0)
             sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="viridis", alpha=0.85, s=point_sizes, edgecolor="black", linewidth=0.6, zorder=3)
             cbar = PyPlot.colorbar(sc)
             cbar.set_label("P3 Phase (Row Index)", fontsize=12, fontweight="bold")
             
-            # Rysowanie przedziału ufności jako cieniowany obszar
+            # Draw confidence interval as a shaded area
             PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.3, label="95% Bootstrap Confidence Interval", zorder=4)
             
-            # Rysowanie wygładzonego trendu
+            # Draw smoothed trend
             PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3.2, label="Weighted Trend (Inv. Variance)", zorder=5)
         
             PyPlot.axhline(0.0, color="gray", ls="--", lw=1.5, alpha=0.8, zorder=2)
@@ -1237,10 +1278,10 @@ module Data
             PyPlot.title("Phase-Resolved Offset vs. Longitude with 95% Confidence Interval", fontsize=15, fontweight="bold")
             PyPlot.legend(loc="best", fontsize=11, frameon=true, framealpha=0.95, edgecolor="black")
 
-            # --- Wykres 2: Zbliżenie na sam wygładzony trend (Dolny Panel) ---
+            # --- Plot 2: Zoom-in on the smoothed trend itself (Lower Panel) ---
             ax2 = PyPlot.subplot(2, 1, 2, sharex=ax1)
             
-            # Rysujemy wyłącznie przedział ufności i trend
+            # Draw ONLY the confidence interval and trend
             PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.3, label="95% Bootstrap Confidence Interval", zorder=4)
             PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3.2, label="Weighted Trend (Inv. Variance)", zorder=5)
             
@@ -1253,16 +1294,16 @@ module Data
             PyPlot.ylabel("Trend Offset [deg]", fontsize=13, fontweight="bold")
             PyPlot.title("Zoom-in: Fitted Trend Variations", fontsize=14, fontweight="bold")
             
-            # Automatyczny dobór ciasnego zakresu Y dla zbliżenia, bazujący na bandzie błędu
+            # Automatic selection of a tight Y range for the zoom, based on the error band
             valid_lower = filter(!isnan, lower_ci)
             valid_upper = filter(!isnan, upper_ci)
             if !isempty(valid_lower) && !isempty(valid_upper)
                 y_min, y_max = minimum(valid_lower), maximum(valid_upper)
-                margin = max((y_max - y_min) * 0.25, 0.05) # Minimum 0.05 stopnia marginesu
+                margin = max((y_max - y_min) * 0.25, 0.05) # Minimum 0.05 degree margin
                 PyPlot.ylim(y_min - margin, y_max + margin)
             end
         else
-            # Ubezpieczenie na wypadek braku punktów w danej fazie
+            # Fallback in case there are no data points in a given phase
             PyPlot.title("Phase-Resolved Offset vs. Longitude (No Data)", fontsize=15, fontweight="bold")
             PyPlot.xlabel("Longitude [deg]", fontsize=13, fontweight="bold")
             PyPlot.ylabel("Offset [deg]", fontsize=13, fontweight="bold")
@@ -1273,8 +1314,83 @@ module Data
         out_name = "$(pulsar_name)_fourier_offsets_$(type).pdf"
         PyPlot.savefig(joinpath(indir, out_name), dpi=150)
         PyPlot.close()
+
+        # --- 7. Plotting: Example Fourier Phase Gradients (Wykres Dopasowań) ---
+        println("\n--- Generating Fourier Phase Fit Examples ---")
+        if !isempty(fit_examples)
+            # Wybieramy najlepsze przykłady na podstawie SNR, aby wyraźnie pokazać fizykę
+            sort!(fit_examples, by = x -> x.snr, rev=true)
+            n_ex = min(length(fit_examples), 6)
+            selected_examples = fit_examples[1:n_ex]
+            
+            # Sortujemy je chronologicznie (względem fazy P3), aby ułożenie miało sens
+            sort!(selected_examples, by = x -> x.phase_idx)
+            
+            PyPlot.figure(figsize=(15, 9))
+            PyPlot.suptitle("Sample Fourier Phase Gradients for Individual Sub-pulses", fontsize=16, fontweight="bold", y=0.96)
+            
+            for (i, ex) in enumerate(selected_examples)
+                PyPlot.subplot(2, 3, i)
+                
+                # Dokładnie taka sama transformata jak w `global_fourier_shift`
+                F_ref = rfft(ex.w_ref)
+                F_tar = rfft(ex.w_tar)
+                cross_spec = F_tar .* conj.(F_ref)
+                
+                freqs = 0:(length(F_ref)-1)
+                raw_phases = angle.(cross_spec)
+                amplitudes = abs.(cross_spec)
+                
+                # Odwijanie fazy (Phase Unwrapping)
+                phases = copy(raw_phases)
+                for j in 2:length(phases)
+                    diff = phases[j] - phases[j-1]
+                    wrapped_diff = mod(diff + pi, 2pi) - pi
+                    phases[j] = phases[j-1] + wrapped_diff
+                end
+                
+                # Odtworzenie wyliczonego nachylenia na bazie offsetu
+                N_win = length(ex.w_ref)
+                slope = -2 * pi * ex.shift / N_win
+                
+                # Rozmiar kropek zależny od wagi amplitudowej harmonicznej
+                sizes = 20 .+ 200 .* (amplitudes ./ maximum(amplitudes))
+                
+                valid_f = freqs[2:end]
+                valid_p = phases[2:end]
+                valid_s = sizes[2:end]
+                
+                # Rysowanie wyliczonych punktów przesunięcia fazy w domenie częstotliwości
+                PyPlot.scatter(valid_f, valid_p, s=valid_s, color="#1f77b4", edgecolor="black", alpha=0.8, label="Harmonics (Size ∝ Power)")
+                
+                # Rysowanie linii trendu wyliczonej z WLS
+                fit_line = slope .* valid_f
+                PyPlot.plot(valid_f, fit_line, color="#d62728", lw=2.5, linestyle="--", label="Weighted LSQ Fit")
+                
+                PyPlot.title("P3 Phase: $(ex.phase_idx) | Lon: $(round(ex.lon_deg, digits=1))°", fontsize=12, fontweight="bold")
+                PyPlot.xlabel("Frequency Harmonic (f)", fontsize=11)
+                PyPlot.ylabel("Unwrapped Phase (rad)", fontsize=11)
+                PyPlot.grid(true, linestyle=":", alpha=0.6)
+                PyPlot.minorticks_on()
+                
+                # Oznaczenie tekstowe wyciągniętych danych
+                shift_deg = ex.shift * bins_to_deg
+                err_deg = ex.error * bins_to_deg
+                txt = @sprintf("Shift: %.3f° ± %.3f°\nSNR: %.1f", shift_deg, err_deg, ex.snr)
+                PyPlot.text(0.05, 0.95, txt, transform=PyPlot.gca().transAxes, fontsize=10, 
+                            verticalalignment="top", bbox=Dict("facecolor"=>"white", "alpha"=>0.9, "edgecolor"=>"gray", "boxstyle"=>"round,pad=0.4"))
+                            
+                if i == 1
+                    PyPlot.legend(loc="lower left", fontsize=9)
+                end
+            end
+            
+            PyPlot.tight_layout(rect=[0, 0, 1, 0.94])
+            PyPlot.savefig(joinpath(indir, "$(pulsar_name)_fourier_fits_examples_$(type).pdf"), dpi=150)
+            PyPlot.close()
+        end
         
-        # --- 7. Output to CSV ---
+        # --- 8. Output to CSV ---
         csv_path = joinpath(indir, "$(pulsar_name)_fourier_offsets_$(type).csv")
         open(csv_path, "w") do io
             println(io, "Longitude_deg,Offset_deg,Error_deg,Phase_SNR,P3_Phase_Idx")
@@ -1283,7 +1399,7 @@ module Data
             end
         end
 
-        # --- 8. Component Separation (P2) Calculation ---
+        # --- 9. Component Separation (P2) Calculation ---
         # Since we use continuous tracking, static P2 is less defined here.
         # Keeping previous Barycenter-based P2 from the integrated profile:
         println("\n--- Integrated Profile Separation (P2) ---")
@@ -1298,7 +1414,7 @@ module Data
         return ref_comps
     end
 
-    # Pomocnicza normalizacja wewnątrz modułu
+    # Auxiliary normalization within the module
     function normalize_02(vec)
         m, M = minimum(vec), maximum(vec)
         return (vec .- m) ./ (M - m)
@@ -1306,13 +1422,18 @@ module Data
 
     
 
-
+    """
+    Normalize an array to 0.0 - 1.0 range based on its global min/max.
+    """
     function normalize_01(data)
         min_val = minimum(data)
         max_val = maximum(data)
         return (data .- min_val) ./ (max_val - min_val)
     end
 
+    """
+    Normalize each pulse (row) in a 2D array individually to 0.0 - 1.0 range.
+    """
     function normalize_per_pulse(data)
         normalized = similar(data)
         for i in 1:size(data, 1)
@@ -1324,7 +1445,10 @@ module Data
         return normalized
     end
 
-
+    """
+    Find integer bin shift per pulse between two 2D arrays using 
+    time-domain cross-correlation.
+    """
     function find_shift_per_pulse(data1, data2)
         n_pulses = size(data1, 1)
         shifts = zeros(Int, n_pulses)
@@ -1335,11 +1459,11 @@ module Data
             ccf = ifft(fft(data1[i, :]) .* conj.(fft(data2[i, :])))
             ccf = real.(ccf)
             
-            # Znajdź maksimum
+            # Find the maximum correlation
             max_idx = argmax(ccf)
             correlations[i] = ccf[max_idx]
             
-            # Przelicz na przesunięcie (z uwzględnieniem wraparound)
+            # Convert to shift (accounting for circular convolution wraparound)
             n_bins = length(ccf)
             shifts[i] = max_idx - 1
             if shifts[i] > n_bins ÷ 2

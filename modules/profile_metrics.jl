@@ -62,18 +62,18 @@ function global_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractVec
     # Calculate the slope of the phase
     slope = sum_wxx > 0 ? (sum_wxy / sum_wxx) : 0.0
     
-    # Obliczenie BŁĘDU FORMALNEGO z WLS (Weighted Least Squares)
+    # Calculate FORMAL ERROR using WLS (Weighted Least Squares)
     N_points = length(freqs) - 1
     if N_points > 1 && sum_wxx > 0
         residuals = phases .- slope .* freqs
-        # Poprawna fizycznie estymacja wariancji dla modelu bez wyrazu wolnego (y = mx)
-        # Wagi określają proporcje, absolutną skalę szumu odtwarzamy z reszt (Reduced Chi-Square scaling)
+        # Physically correct variance estimation for a model without an intercept (y = mx)
+        # Weights determine proportions; the absolute noise scale is recovered from residuals (Reduced Chi-Square scaling)
         s2 = sum(amplitudes[2:end] .* residuals[2:end].^2) / (N_points - 1)
         slope_err = sqrt(s2 / sum_wxx)
         shift_error = slope_err * N / (2 * pi)
         
-        # Limit fizyczny błędu (np. limit rozdzielczości binów) chroniący przed overfittingiem 
-        # dla bardzo małej liczby złapanych harmonicznych na idealnym szumie.
+        # Physical error limit (e.g., bin resolution limit) to protect against overfitting 
+        # when a very small number of harmonics are captured on perfect noise.
         shift_error = max(shift_error, 0.01)
     else
         shift_error = 0.0
@@ -114,7 +114,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     p_ref = (prof_ref .- min_ref) ./ amp_ref
     p_tar = (prof_target .- min_tar) ./ amp_tar
     
-    # Wygładzamy profil w celu stabilniejszej detekcji szczytów i granic (aby okna nie były zbyt małe przez szum)
+    # Smooth the profile to stabilize peak and boundary detection (so windows aren't artificially truncated by noise)
     smoothed_ref = copy(p_ref)
     for i in 3:N-2
         smoothed_ref[i] = mean(p_ref[i-2:i+2])
@@ -137,7 +137,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         # 2. Define the Component Window Boundaries
         # Stop scanning outwards when we hit a local minimum or signal drops below the 5% noise floor.
         # This ensures we integrate the *entire* physical component, not just the tip.
-        cut_off = 0.02  # Zmniejszono z 0.05, aby lepiej "chwytać" ogony komponentu
+        cut_off = 0.02  # Lowered from 0.05 to better "catch" component tails
         
         left = p
         while left > 1 && smoothed_ref[left] > cut_off && smoothed_ref[left-1] <= smoothed_ref[left]
@@ -149,7 +149,7 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
             right += 1
         end
         
-        # Rozszerzamy sztucznie okno na boki, co chroni przed wycinaniem sygnału pod oknem Fouriera
+        # Artificially expand the window on the sides to prevent cutting off the signal under the Fourier window
         left = max(1, left - 2)
         right = min(N, right + 2)
         
@@ -229,7 +229,8 @@ function windowed_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractV
         return NaN
     end
     
-    # Mnożymy profil w oknie przez funkcję Hanna, aby zachowywał się jak lokalny rozkład ucinający szum (podobnie do fitu Gaussa)
+    # Multiply the profile in the window by a Hann taper function to smoothly bring the edges to zero.
+    # This mitigates spectral leakage in the Fourier domain.
     taper = 0.5 .* (1 .- cos.(2 * pi .* (0:N-1) ./ (N - 1)))
     
     bg_ref = min(w_ref[1], w_ref[end])
@@ -268,13 +269,13 @@ function component_fourier_offsets_fixed_windows(prof_ref::AbstractVector, prof_
     return map(windows) do (left, right)
         x_win = left:right
         
-        # Do ustalenia horyzontalnego piku (Długość geograficzna fazy/Longitude) używamy środka masy
+        # We use the center of mass to robustly determine the horizontal peak (Longitude/Phase)
         bg_ref = min(p_ref[left], p_ref[right])
         vals_ref = max.(p_ref[x_win] .- bg_ref, 0.0)
         m_ref = sum(vals_ref)
         com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
         
-        # Do precyzyjnego liczenia offsetu między częstotliwościami używamy lokalnego Fouriera
+        # We use the localized Fourier method to precisely calculate the sub-bin offset between frequencies
         offset_res = windowed_fourier_shift(p_ref, p_tar, left, right)
         
         return (com_ref=com_ref, offset=offset_res.shift, error=offset_res.error)
@@ -302,13 +303,13 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
     p_ref = (prof_ref .- min_ref) ./ amp_ref
     p_tar = (prof_target .- min_tar) ./ amp_tar
     
-    # Wygładzamy profil by nie łapać szumowych igieł jako osobnych komponentów
+    # Smooth the profile to avoid catching noise spikes as separate components
     smoothed_ref = copy(p_ref)
     for i in 3:N-2
         smoothed_ref[i] = mean(p_ref[i-2:i+2])
     end
     
-    # Szukamy lokalnych maksimów
+    # Search for local maxima
     peaks = Int[]
     for i in 2:N-1
         if smoothed_ref[i] > smoothed_ref[i-1] && smoothed_ref[i] > smoothed_ref[i+1] && smoothed_ref[i] > threshold
@@ -316,7 +317,7 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
         end
     end
     
-    # Sortujemy najsilniejsze najpierw
+    # Sort the strongest components first
     sort!(peaks, by=p -> smoothed_ref[p], rev=true)
     
     results = NamedTuple{(:com_ref, :offset, :error, :left, :right), Tuple{Float64, Float64, Float64, Int, Int}}[]
@@ -327,7 +328,7 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
             continue
         end
         
-        cut_off = threshold * 0.5 # Schodzimy niżej niż próg detekcji, by złapać ogony
+        cut_off = threshold * 0.5 # Go lower than the detection threshold to firmly catch the tails
         
         left = p
         while left > 1 && smoothed_ref[left] > cut_off && smoothed_ref[left-1] <= smoothed_ref[left]
