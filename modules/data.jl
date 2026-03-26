@@ -1099,9 +1099,6 @@ module Data
         snr_all = Float64[]
         phase_all = Float64[]
         
-        # Kolekcja przykładów dopasowań Fouriera do narysowania w osobnym panelu
-        fit_examples = []
-        
         valid_phases = 0
         
         for phase_idx in 1:n_phases
@@ -1154,63 +1151,33 @@ module Data
                 push!(err_all, error_deg)
                 push!(snr_all, snr_val)
                 push!(phase_all, Float64(phase_idx))
-                
-                # --- Zbieranie danych do wykresu ilustrującego dopasowanie Fouriera ---
-                # Zapisujemy parametry wewnętrzne okna, aby później je odtworzyć
-                min_ref, max_ref = minimum(row_l_roi), maximum(row_l_roi)
-                min_tar, max_tar = minimum(row_h_roi), maximum(row_h_roi)
-                if max_ref > min_ref && max_tar > min_tar
-                    p_ref = (row_l_roi .- min_ref) ./ (max_ref - min_ref)
-                    p_tar = (row_h_roi .- min_tar) ./ (max_tar - min_tar)
-                    
-                    w_ref = p_ref[res.left:res.right]
-                    w_tar = p_tar[res.left:res.right]
-                    
-                    N_win = length(w_ref)
-                    taper = 0.5 .* (1 .- cos.(2 * pi .* (0:N_win-1) ./ (N_win - 1)))
-                    
-                    push!(fit_examples, (
-                        phase_idx = phase_idx,
-                        w_ref = (w_ref .- min(w_ref[1], w_ref[end])) .* taper,
-                        w_tar = (w_tar .- min(w_tar[1], w_tar[end])) .* taper,
-                        shift = res.offset,
-                        error = res.error,
-                        lon_deg = lon_deg,
-                        snr = snr_val
-                    ))
-                end
             end
         end
         
         println(">>> Processed $valid_phases valid phases out of $n_phases")
         
+        # Funkcja pomocnicza do ważonego wygładzania jądrowego przeniesiona na wierzch, by mogły jej użyć różne panele
+        function kernel_smooth_weighted(x_data, y_data, err_data, x_grid, sigma)
+            y_grid = Float64[]
+            for x in x_grid
+                w_kernel = exp.(-0.5 .* ((x_data .- x) ./ sigma).^2)
+                w_stat = 1.0 ./ (err_data.^2 .+ 1e-6)
+                weights = w_kernel .* w_stat
+                
+                weight_sum = sum(weights)
+                if weight_sum > 1e-6
+                    push!(y_grid, sum(weights .* y_data) / weight_sum)
+                else
+                    push!(y_grid, NaN)
+                end
+            end
+            return y_grid
+        end
+
         # --- 6. Plotting: Phase-Resolved Offsets ---
-        # Improved visualization for better readability and aesthetics.
-        # Added scientifically rigorous 95% confidence interval for the trend line using the bootstrap method.
-        # Introduced statistical point weighting (Inverse Variance) and Error Bars.
-        PyPlot.figure(figsize=(12, 11))
+        PyPlot.figure(figsize=(12, 16)) # Zwiększono wysokość, by pomieścić nowy, 3 panel z trendami wg fazy P3
         
         if !isempty(lon_all)
-            # Helper function for weighted kernel smoothing (Nadaraya-Watson with Inverse-Variance Weighting)
-            function kernel_smooth_weighted(x_data, y_data, err_data, x_grid, sigma)
-                y_grid = Float64[]
-                for x in x_grid
-                    # Distance weight (Gaussian Kernel)
-                    w_kernel = exp.(-0.5 .* ((x_data .- x) ./ sigma).^2)
-                    # Statistical confidence weight (inverse variance)
-                    w_stat = 1.0 ./ (err_data.^2 .+ 1e-6)
-                    weights = w_kernel .* w_stat
-                    
-                    weight_sum = sum(weights)
-                    if weight_sum > 1e-6
-                        push!(y_grid, sum(weights .* y_data) / weight_sum)
-                    else
-                        push!(y_grid, NaN)
-                    end
-                end
-                return y_grid
-            end
-
             # Sorting input data is crucial for smoothing
             perm = sortperm(lon_all)
             slon = lon_all[perm]
@@ -1219,7 +1186,8 @@ module Data
             
             # Define grid and smoothing parameter (sigma)
             smooth_lon = range(minimum(slon), maximum(slon), length=200)
-            sigma = (maximum(slon) - minimum(slon)) / 15.0 # Wider kernel for a smoother trend
+            # Zmieniono sigma na mniejszą, aby krzywa ("linia dopasowana") dokładniej śledziła wartości offsetu!
+            sigma = (maximum(slon) - minimum(slon)) / 25.0 
 
             # Calculate main trend (with rigorous error weighting)
             smooth_off = kernel_smooth_weighted(slon, soff, serr, smooth_lon, sigma)
@@ -1252,7 +1220,7 @@ module Data
             end
 
             # --- Plot 1: Main distribution with points (Upper Panel) ---
-            ax1 = PyPlot.subplot(2, 1, 1)
+            ax1 = PyPlot.subplot(3, 1, 1)
 
             # Draw actual, formal mathematical errors (Error bars)
             PyPlot.errorbar(lon_all, off_all, yerr=err_all, fmt="none", ecolor="black", elinewidth=0.8, capsize=1.5, alpha=0.4, zorder=2)
@@ -1279,7 +1247,7 @@ module Data
             PyPlot.legend(loc="best", fontsize=11, frameon=true, framealpha=0.95, edgecolor="black")
 
             # --- Plot 2: Zoom-in on the smoothed trend itself (Lower Panel) ---
-            ax2 = PyPlot.subplot(2, 1, 2, sharex=ax1)
+            ax2 = PyPlot.subplot(3, 1, 2, sharex=ax1)
             
             # Draw ONLY the confidence interval and trend
             PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.3, label="95% Bootstrap Confidence Interval", zorder=4)
@@ -1295,12 +1263,55 @@ module Data
             PyPlot.title("Zoom-in: Fitted Trend Variations", fontsize=14, fontweight="bold")
             
             # Automatic selection of a tight Y range for the zoom, based on the error band
+            y_min, y_max = 0.0, 0.0
+            margin = 0.1
             valid_lower = filter(!isnan, lower_ci)
             valid_upper = filter(!isnan, upper_ci)
             if !isempty(valid_lower) && !isempty(valid_upper)
                 y_min, y_max = minimum(valid_lower), maximum(valid_upper)
-                margin = max((y_max - y_min) * 0.25, 0.05) # Minimum 0.05 degree margin
+                margin = max((y_max - y_min) * 0.25, 0.05) 
                 PyPlot.ylim(y_min - margin, y_max + margin)
+            end
+            
+            # --- Plot 3: P3 Phase-Dependent Trends (Grupowanie ze względu na Fazę P3) ---
+            ax3 = PyPlot.subplot(3, 1, 3, sharex=ax1)
+            
+            n_groups = 5
+            p_min, p_max = minimum(phase_all), maximum(phase_all)
+            if p_max > p_min
+                step = (p_max - p_min + 1) / n_groups
+                colors_grp = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
+                
+                for g in 1:n_groups
+                    p_start = p_min + (g-1)*step
+                    p_end = p_start + step - 0.001
+                    
+                    idx = findall(x -> p_start <= x <= p_end, phase_all)
+                    if length(idx) > 5 # Upewniamy się, że grupa ma wystarczająco punktów na linię
+                        g_lon, g_off, g_err = lon_all[idx], off_all[idx], err_all[idx]
+                        perm_g = sortperm(g_lon)
+                        g_lon, g_off, g_err = g_lon[perm_g], g_off[perm_g], g_err[perm_g]
+                        
+                        sigma_g = (maximum(g_lon) - minimum(g_lon)) / 12.0 # Lokalna siatka grupy
+                        g_smooth = kernel_smooth_weighted(g_lon, g_off, g_err, smooth_lon, sigma_g)
+                        
+                        PyPlot.plot(smooth_lon, g_smooth, color=colors_grp[g], lw=2.8, label=@sprintf("P3 Phase: %d - %d", floor(Int, p_start), floor(Int, p_end)))
+                    end
+                end
+            end
+            
+            PyPlot.axhline(0.0, color="gray", ls="--", lw=1.5, alpha=0.8, zorder=2)
+            PyPlot.minorticks_on()
+            PyPlot.grid(true, which="major", linestyle="--", color="gray", alpha=0.6)
+            PyPlot.grid(true, which="minor", linestyle=":", color="gray", alpha=0.3)
+            
+            PyPlot.xlabel("Longitude [deg]", fontsize=13, fontweight="bold")
+            PyPlot.ylabel("Grouped Offset [deg]", fontsize=13, fontweight="bold")
+            PyPlot.title("P3 Phase-Dependent Offset Trends (Grouped by Row Index)", fontsize=14, fontweight="bold")
+            PyPlot.legend(loc="best", fontsize=10, frameon=true, framealpha=0.95, edgecolor="black")
+            
+            if !isempty(valid_lower) && !isempty(valid_upper)
+                PyPlot.ylim(y_min - margin*2.0, y_max + margin*2.0)
             end
         else
             # Fallback in case there are no data points in a given phase
@@ -1315,79 +1326,78 @@ module Data
         PyPlot.savefig(joinpath(indir, out_name), dpi=150)
         PyPlot.close()
 
-        # --- 7. Plotting: Example Fourier Phase Gradients (Wykres Dopasowań) ---
-        println("\n--- Generating Fourier Phase Fit Examples ---")
-        if !isempty(fit_examples)
-            # Wybieramy najlepsze przykłady na podstawie SNR, aby wyraźnie pokazać fizykę
-            sort!(fit_examples, by = x -> x.snr, rev=true)
-            n_ex = min(length(fit_examples), 6)
-            selected_examples = fit_examples[1:n_ex]
-            
-            # Sortujemy je chronologicznie (względem fazy P3), aby ułożenie miało sens
-            sort!(selected_examples, by = x -> x.phase_idx)
+        # --- 7. Plotting: Example Phase-Resolved Trends (Wykres Dokładnych Przesunięć Dla Fazy) ---
+        println("\n--- Generating Individual P3 Phase Examples ---")
+        
+        # Grupujemy zapisane sub-pulsy względem ich indeksu fazy P3, aby zobaczyć Offset vs Longitude
+        phase_groups = Dict{Int, Vector{Tuple{Float64, Float64, Float64, Float64}}}()
+        for i in 1:length(phase_all)
+            pidx = round(Int, phase_all[i])
+            if !haskey(phase_groups, pidx)
+                phase_groups[pidx] = Tuple{Float64, Float64, Float64, Float64}[]
+            end
+            push!(phase_groups[pidx], (lon_all[i], off_all[i], err_all[i], snr_all[i]))
+        end
+        
+        # Filtrujemy tylko te fazy, które złapały co najmniej 2 sub-pulsy, aby móc narysować "linę dopasowaną"
+        valid_groups = []
+        for (pidx, pts) in phase_groups
+            if length(pts) >= 2
+                avg_snr = mean([p[4] for p in pts])
+                push!(valid_groups, (pidx, pts, avg_snr))
+            end
+        end
+        
+        if !isempty(valid_groups)
+            # Sortujemy wg ilości sub-pulsów w jednej fazie, a potem po SNR (żeby wybrać 6 najładniejszych do narysowania)
+            sort!(valid_groups, by = x -> (length(x[2]), x[3]), rev=true)
+            n_ex = min(length(valid_groups), 6)
+            selected_examples = valid_groups[1:n_ex]
+            sort!(selected_examples, by = x -> x[1])
             
             PyPlot.figure(figsize=(15, 9))
-            PyPlot.suptitle("Sample Fourier Phase Gradients for Individual Sub-pulses", fontsize=16, fontweight="bold", y=0.96)
+            PyPlot.suptitle("Longitude vs Offset Trends for Specific P3 Phases (Exact Fits)", fontsize=16, fontweight="bold", y=0.96)
             
             for (i, ex) in enumerate(selected_examples)
+                pidx = ex[1]
+                pts = ex[2]
+                sort!(pts, by = x -> x[1]) # Sortowanie po X (Longitude) dla prawidłowej linii
+                
+                p_lon = [p[1] for p in pts]
+                p_off = [p[2] for p in pts]
+                p_err = [p[3] for p in pts]
+                
                 PyPlot.subplot(2, 3, i)
                 
-                # Dokładnie taka sama transformata jak w `global_fourier_shift`
-                F_ref = rfft(ex.w_ref)
-                F_tar = rfft(ex.w_tar)
-                cross_spec = F_tar .* conj.(F_ref)
+                # Dokładna, fizycznie śledząca punkty linia dopasowana (połączone sub-pulsy w ramach danej fazy)
+                PyPlot.plot(p_lon, p_off, color="#d62728", lw=2.5, marker="o", markersize=8, markerfacecolor="#1f77b4", markeredgecolor="black", label="Exact Component Trend")
+                PyPlot.errorbar(p_lon, p_off, yerr=p_err, fmt="none", ecolor="black", elinewidth=1.2, capsize=3.0, alpha=0.7)
                 
-                freqs = 0:(length(F_ref)-1)
-                raw_phases = angle.(cross_spec)
-                amplitudes = abs.(cross_spec)
-                
-                # Odwijanie fazy (Phase Unwrapping)
-                phases = copy(raw_phases)
-                for j in 2:length(phases)
-                    diff = phases[j] - phases[j-1]
-                    wrapped_diff = mod(diff + pi, 2pi) - pi
-                    phases[j] = phases[j-1] + wrapped_diff
+                if length(p_lon) > 2
+                    # Gładka uśredniona trajektoria dla estetyki (opcja wspierająca)
+                    smooth_x = range(minimum(p_lon), maximum(p_lon), length=50)
+                    sigma_ex = (maximum(p_lon) - minimum(p_lon)) / 2.0
+                    smooth_y = kernel_smooth_weighted(p_lon, p_off, p_err, smooth_x, sigma_ex)
+                    PyPlot.plot(smooth_x, smooth_y, color="#2ca02c", lw=2, linestyle="--", label="Smoothed Trajectory")
                 end
                 
-                # Odtworzenie wyliczonego nachylenia na bazie offsetu
-                N_win = length(ex.w_ref)
-                slope = -2 * pi * ex.shift / N_win
-                
-                # Rozmiar kropek zależny od wagi amplitudowej harmonicznej
-                sizes = 20 .+ 200 .* (amplitudes ./ maximum(amplitudes))
-                
-                valid_f = freqs[2:end]
-                valid_p = phases[2:end]
-                valid_s = sizes[2:end]
-                
-                # Rysowanie wyliczonych punktów przesunięcia fazy w domenie częstotliwości
-                PyPlot.scatter(valid_f, valid_p, s=valid_s, color="#1f77b4", edgecolor="black", alpha=0.8, label="Harmonics (Size ∝ Power)")
-                
-                # Rysowanie linii trendu wyliczonej z WLS
-                fit_line = slope .* valid_f
-                PyPlot.plot(valid_f, fit_line, color="#d62728", lw=2.5, linestyle="--", label="Weighted LSQ Fit")
-                
-                PyPlot.title("P3 Phase: $(ex.phase_idx) | Lon: $(round(ex.lon_deg, digits=1))°", fontsize=12, fontweight="bold")
-                PyPlot.xlabel("Frequency Harmonic (f)", fontsize=11)
-                PyPlot.ylabel("Unwrapped Phase (rad)", fontsize=11)
+                PyPlot.title("P3 Phase: $pidx | Detected Sub-pulses: $(length(p_lon))", fontsize=12, fontweight="bold")
+                PyPlot.xlabel("Longitude [deg]", fontsize=11)
+                PyPlot.ylabel("Offset [deg]", fontsize=11)
+                PyPlot.axhline(0.0, color="gray", ls="--", lw=1.0, alpha=0.8)
                 PyPlot.grid(true, linestyle=":", alpha=0.6)
                 PyPlot.minorticks_on()
                 
-                # Oznaczenie tekstowe wyciągniętych danych
-                shift_deg = ex.shift * bins_to_deg
-                err_deg = ex.error * bins_to_deg
-                txt = @sprintf("Shift: %.3f° ± %.3f°\nSNR: %.1f", shift_deg, err_deg, ex.snr)
-                PyPlot.text(0.05, 0.95, txt, transform=PyPlot.gca().transAxes, fontsize=10, 
-                            verticalalignment="top", bbox=Dict("facecolor"=>"white", "alpha"=>0.9, "edgecolor"=>"gray", "boxstyle"=>"round,pad=0.4"))
-                            
                 if i == 1
-                    PyPlot.legend(loc="lower left", fontsize=9)
+                    PyPlot.legend(loc="best", fontsize=9)
                 end
             end
             
             PyPlot.tight_layout(rect=[0, 0, 1, 0.94])
             PyPlot.savefig(joinpath(indir, "$(pulsar_name)_fourier_fits_examples_$(type).pdf"), dpi=150)
             PyPlot.close()
+        else
+            println("Not enough points in single phases to generate 6-panel examples (requires at least 2 sub-pulses per specific phase).")
         end
         
         # --- 8. Output to CSV ---
