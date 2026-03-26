@@ -324,10 +324,10 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
         
         visited[left:right] .= true
         
-        left = max(1, left - 2)
-        right = min(N, right + 2)
+        left = max(1, left - 3)
+        right = min(N, right + 3)
         
-        if right - left < 4; continue; end
+        if right - left < 5; continue; end
         
         x_win = left:right
         bg_ref = min(p_ref[left], p_ref[right])

@@ -964,42 +964,47 @@ module Data
         println(">>> Detected $n_comps components using Barycenter Method.")
         
         # --- 3. Plotting: Integrated Profile ---
-        # Switching entirely to PyPlot for uniformity and precision
-        PyPlot.figure(figsize=(10, 8))
+        PyPlot.figure(figsize=(10, 9))
         colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0", "#F44336", "#795548"]
         bins_arr = 1:n_bins
         
         PyPlot.subplot(3, 1, 1)
-        PyPlot.title("Low Frequency (Integrated Profile & Barycentric Windows)", fontsize=11)
-        PyPlot.plot(bins_arr, mean_l_roi, color="black", linewidth=1.5, label="Low Data")
-        PyPlot.ylabel("Normalized Intensity")
+        PyPlot.title("Low Frequency (Integrated Profile & Barycentric Windows)", fontsize=13, fontweight="bold")
+        PyPlot.plot(bins_arr, mean_l_roi, color="#1f77b4", linewidth=2.0, label="Low Data")
+        PyPlot.fill_between(bins_arr, zeros(length(bins_arr)), mean_l_roi, color="#1f77b4", alpha=0.15)
+        PyPlot.ylabel("Normalized Intensity", fontsize=11)
+        PyPlot.grid(true, linestyle=":", alpha=0.6)
         for (k, c) in enumerate(ref_comps)
             col = colors[mod1(k, length(colors))]
-            PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.2)
+            PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.15)
             PyPlot.scatter([c.com_low], [mean_l_roi[round(Int, c.com_low)]], color=col, s=40, zorder=5)
         end
-        PyPlot.legend(loc="upper right", fontsize=9)
+        PyPlot.legend(loc="upper right", fontsize=10)
         
         PyPlot.subplot(3, 1, 2)
-        PyPlot.title("High Frequency (Integrated Profile & Barycentric Windows)", fontsize=11)
-        PyPlot.plot(bins_arr, mean_h_roi, color="black", linewidth=1.5, label="High Data")
-        PyPlot.ylabel("Normalized Intensity")
+        PyPlot.title("High Frequency (Integrated Profile & Barycentric Windows)", fontsize=13, fontweight="bold")
+        PyPlot.plot(bins_arr, mean_h_roi, color="#ff7f0e", linewidth=2.0, label="High Data")
+        PyPlot.fill_between(bins_arr, zeros(length(bins_arr)), mean_h_roi, color="#ff7f0e", alpha=0.15)
+        PyPlot.ylabel("Normalized Intensity", fontsize=11)
+        PyPlot.grid(true, linestyle=":", alpha=0.6)
         for (k, c) in enumerate(ref_comps)
             col = colors[mod1(k, length(colors))]
-            PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.2)
+            PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.15)
             PyPlot.scatter([c.com_high], [mean_h_roi[round(Int, c.com_high)]], color=col, s=40, zorder=5)
         end
-        PyPlot.legend(loc="upper right", fontsize=9)
+        PyPlot.legend(loc="upper right", fontsize=10)
         
         PyPlot.subplot(3, 1, 3)
-        PyPlot.title("Profile Comparison (Solid=Low, Dashed=High)", fontsize=11)
-        PyPlot.plot(bins_arr, mean_l_roi, color="gray", linewidth=1.5, label="Low")
-        PyPlot.plot(bins_arr, mean_h_roi, color="black", linestyle="--", linewidth=1.5, label="High")
-        PyPlot.xlabel("Phase (bins)")
-        PyPlot.ylabel("Intensity")
+        PyPlot.title("Profile Comparison (Low vs High)", fontsize=13, fontweight="bold")
+        PyPlot.plot(bins_arr, mean_l_roi, color="#1f77b4", linewidth=2.0, label="Low Frequency")
+        PyPlot.plot(bins_arr, mean_h_roi, color="#ff7f0e", linestyle="--", linewidth=2.0, label="High Frequency")
+        PyPlot.xlabel("Phase (bins)", fontsize=11)
+        PyPlot.ylabel("Intensity", fontsize=11)
+        PyPlot.grid(true, linestyle=":", alpha=0.6)
+        PyPlot.legend(loc="upper right", fontsize=10)
         for (k, c) in enumerate(ref_comps)
             col = colors[mod1(k, length(colors))]
-            PyPlot.text(c.com_low, 0.5, @sprintf("Δ=%.3f bins", c.offset), color=col, fontsize=11, ha="center", va="bottom", fontweight="bold")
+            PyPlot.text(c.com_low, 0.5, @sprintf("Δ=%.3f bins", c.offset), color=col, fontsize=12, ha="center", va="bottom", fontweight="bold")
         end
         PyPlot.tight_layout()
         PyPlot.savefig(joinpath(indir, "$(pulsar_name)_integrated_offsets_$(type).pdf"), dpi=150)
@@ -1048,12 +1053,12 @@ module Data
             end
             
             if !isempty(p3_values)
-                PyPlot.figure(figsize=(7, 5))
-                PyPlot.title("Modulation Period (P3) vs Phase", fontsize=12)
-                PyPlot.scatter(long_values, p3_values, color="red", s=40)
-                PyPlot.xlabel("Phase (bins)")
-                PyPlot.ylabel("P3 (P0 units)")
-                PyPlot.grid(true, alpha=0.3)
+                PyPlot.figure(figsize=(8, 5))
+                PyPlot.title("Modulation Period (P3) vs Phase", fontsize=13, fontweight="bold")
+                PyPlot.scatter(long_values, p3_values, color="#e53935", s=50, edgecolor="black", linewidth=0.8, zorder=3)
+                PyPlot.xlabel("Phase (bins)", fontsize=12)
+                PyPlot.ylabel("P3 (P0 units)", fontsize=12)
+                PyPlot.grid(true, linestyle=":", alpha=0.6)
                 PyPlot.tight_layout()
                 PyPlot.savefig(joinpath(indir, "$(pulsar_name)_fourier_p3_vs_phase_$(type).pdf"))
                 PyPlot.close()
@@ -1126,45 +1131,49 @@ module Data
         println(">>> Processed $valid_phases valid phases out of $n_phases")
         
         # --- 6. Plotting: Phase-Resolved Offsets ---
-        PyPlot.figure(figsize=(9, 6))
+        PyPlot.figure(figsize=(10, 6.5))
         
         if !isempty(lon_all)
             # Wykres punktowy (Scatter) z kolorowaniem wg fazy P3
-            sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="viridis", alpha=0.7, s=25, edgecolor="none", zorder=3)
+            sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="plasma", alpha=0.8, s=35, edgecolor="none", zorder=3)
             cbar = PyPlot.colorbar(sc)
-            cbar.set_label("P3 Phase (Row Index) - Evolution in Time", fontsize=11)
+            cbar.set_label("P3 Phase (Row Index) - Evolution in Time", fontsize=12, fontweight="bold")
             
-            # Obliczanie trendu przesuwania się fazy za pomoca średniej w binach
+            # Obliczanie GŁADKIEGO trendu przesuwania się fazy za pomoca średniej z wagnerem Gaussa (Gaussian Kernel Smoothing)
             perm = sortperm(lon_all)
             slon = lon_all[perm]
             soff = off_all[perm]
             
-            bin_edges = range(minimum(slon), maximum(slon), length=15)
-            bin_centers = Float64[]
-            bin_means = Float64[]
+            smooth_lon = range(minimum(slon), maximum(slon), length=200)
+            smooth_off = Float64[]
             
-            for i in 1:length(bin_edges)-1
-                idx = findall(x -> bin_edges[i] <= x < bin_edges[i+1], slon)
-                if length(idx) > 2
-                    push!(bin_centers, mean(slon[idx]))
-                    push!(bin_means, mean(soff[idx]))
+            # Szerokość wygładzania - 5% szerokości całego okna (sigma)
+            sigma = (maximum(slon) - minimum(slon)) / 20.0
+            
+            for x in smooth_lon
+                weights = exp.(-0.5 .* ((slon .- x) ./ sigma).^2)
+                weight_sum = sum(weights)
+                if weight_sum > 1e-5
+                    push!(smooth_off, sum(weights .* soff) / weight_sum)
+                else
+                    push!(smooth_off, NaN)
                 end
             end
             
-            if length(bin_centers) > 1
-                PyPlot.plot(bin_centers, bin_means, color="red", lw=2.5, label="Mean Trend", zorder=5)
-            end
+            # Rysowanie linii trendu z czarnym obramowaniem dla widoczności
+            PyPlot.plot(smooth_lon, smooth_off, color="black", lw=4.5, zorder=4)
+            PyPlot.plot(smooth_lon, smooth_off, color="#00FF00", lw=2.5, label="Smoothed Trend", zorder=5)
         end
         
-        PyPlot.axhline(0.0, color="gray", ls="--", lw=1.0, alpha=0.8)
+        PyPlot.axhline(0.0, color="black", ls="--", lw=1.5, alpha=0.7, zorder=2)
         PyPlot.minorticks_on()
         PyPlot.xlabel("Longitude (°)", fontsize=12)
         PyPlot.ylabel("Offset (°)", fontsize=12)
-        PyPlot.title("Dynamic Phase-Resolved Offset vs Longitude", fontsize=13)
+        PyPlot.title("Dynamic Phase-Resolved Offset vs Longitude", fontsize=14, fontweight="bold")
         if !isempty(lon_all)
-            PyPlot.legend(loc="best", fontsize=10)
+            PyPlot.legend(loc="best", fontsize=11, framealpha=0.9)
         end
-        PyPlot.grid(true, which="major", alpha=0.3)
+        PyPlot.grid(true, which="major", linestyle="--", alpha=0.5)
         PyPlot.tight_layout()
         
         out_name = "$(pulsar_name)_fourier_offsets_$(type).pdf"
