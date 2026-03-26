@@ -1369,16 +1369,26 @@ module Data
                 
                 PyPlot.subplot(2, 3, i)
                 
-                # Dokładna, fizycznie śledząca punkty linia dopasowana (połączone sub-pulsy w ramach danej fazy)
-                PyPlot.plot(p_lon, p_off, color="#d62728", lw=2.5, marker="o", markersize=8, markerfacecolor="#1f77b4", markeredgecolor="black", label="Exact Component Trend")
-                PyPlot.errorbar(p_lon, p_off, yerr=p_err, fmt="none", ecolor="black", elinewidth=1.2, capsize=3.0, alpha=0.7)
+                # Rysowanie punktów sub-pulsów jako solidne markery bez łączenia ich naiwną łamaną
+                PyPlot.plot(p_lon, p_off, color="none", marker="o", markersize=8, markerfacecolor="#1f77b4", markeredgecolor="black", label="Detected Sub-pulses", zorder=3)
+                PyPlot.errorbar(p_lon, p_off, yerr=p_err, fmt="none", ecolor="black", elinewidth=1.2, capsize=3.0, alpha=0.7, zorder=2)
                 
-                if length(p_lon) > 2
-                    # Gładka uśredniona trajektoria dla estetyki (opcja wspierająca)
-                    smooth_x = range(minimum(p_lon), maximum(p_lon), length=50)
-                    sigma_ex = (maximum(p_lon) - minimum(p_lon)) / 2.0
-                    smooth_y = kernel_smooth_weighted(p_lon, p_off, p_err, smooth_x, sigma_ex)
-                    PyPlot.plot(smooth_x, smooth_y, color="#2ca02c", lw=2, linestyle="--", label="Smoothed Trajectory")
+                # --- Naukowo poprawne dopasowanie: Ważona Regresja Liniowa (WLS) ---
+                # Używamy błędów (error_bars) jako wag: w = 1 / err^2
+                w = 1.0 ./ (p_err.^2 .+ 1e-6)
+                sum_w = sum(w)
+                sum_wx = sum(w .* p_lon)
+                sum_wy = sum(w .* p_off)
+                sum_wxx = sum(w .* p_lon.^2)
+                sum_wxy = sum(w .* p_lon .* p_off)
+                
+                delta = sum_w * sum_wxx - sum_wx^2
+                if delta > 1e-6 && length(p_lon) > 1
+                    m_slope = (sum_w * sum_wxy - sum_wx * sum_wy) / delta
+                    c_intercept = (sum_wxx * sum_wy - sum_wx * sum_wxy) / delta
+                    
+                    fit_y = m_slope .* p_lon .+ c_intercept
+                    PyPlot.plot(p_lon, fit_y, color="#d62728", lw=2.5, linestyle="--", label="Weighted Linear Fit", zorder=1)
                 end
                 
                 PyPlot.title("P3 Phase: $pidx | Detected Sub-pulses: $(length(p_lon))", fontsize=12, fontweight="bold")
