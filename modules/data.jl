@@ -1063,8 +1063,13 @@ module Data
         # --- 5. Phase-Resolved P3 Analysis ---
         println("\n--- Starting Phase-Resolved Analysis (per P3 bin) ---")
         
-        # offset_data maps component ID to vectors of measurements
-        offset_data = Dict{Int, NamedTuple{(:lon, :off, :err, :snr), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
+        # Collect measurements in flat arrays for dynamic scattered plotting
+        lon_all = Float64[]
+        off_all = Float64[]
+        err_all = Float64[]
+        snr_all = Float64[]
+        phase_all = Float64[]
+        
         valid_phases = 0
         
         for phase_idx in 1:n_phases
@@ -1095,74 +1100,70 @@ module Data
             
             valid_phases += 1
             
-            # Użycie lokalnej gradientowej metody fazowej Fouriera, aby uzyskać dokładniejszy offset jak w Gaussie
-            comps = ProfileMetrics.component_fourier_offsets_fixed_windows(row_l_roi, row_h_roi, windows)
+            # Dynamicznie znajdujemy komponenty obecne w tej konkretnej fazie:
+            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.03)
             
-            for (comp_idx, res) in enumerate(comps)
-                # Ignore measurements where the offset is missing or wildly out of bounds
+            for res in comps
                 if isnan(res.offset) || abs(res.offset) > n_bins * 0.1
                     continue
                 end
                 
-                # METHODOLOGY: 
-                # Phase Longitude is the mean position between high and low frequencies, 
-                # converted to physical degrees (e.g. mapping to 175-190 deg range)
                 com_low = res.com_ref
                 com_high = res.com_ref + res.offset
                 lon_deg = (com_low + com_high) / 2.0 * bins_to_deg
                 
                 offset_deg = res.offset * bins_to_deg
-                # Approximate error based on integration window width
-                error_deg = (windows[comp_idx][2] - windows[comp_idx][1]) / 25.0 * bins_to_deg
+                error_deg = (res.right - res.left) / 25.0 * bins_to_deg
                 
-                if !haskey(offset_data, comp_idx)
-                    offset_data[comp_idx] = (lon=Float64[], off=Float64[], err=Float64[], snr=Float64[])
-                end
-                push!(offset_data[comp_idx].lon, lon_deg)
-                push!(offset_data[comp_idx].off, offset_deg)
-                push!(offset_data[comp_idx].err, error_deg)
-                push!(offset_data[comp_idx].snr, snr_val)
+                push!(lon_all, lon_deg)
+                push!(off_all, offset_deg)
+                push!(err_all, error_deg)
+                push!(snr_all, snr_val)
+                push!(phase_all, Float64(phase_idx))
             end
         end
         
         println(">>> Processed $valid_phases valid phases out of $n_phases")
-        for comp_id in sort(collect(keys(offset_data)))
-            println("    Component $comp_id: $(length(offset_data[comp_id].off)) measurements")
-        end
         
         # --- 6. Plotting: Phase-Resolved Offsets ---
-        PyPlot.figure(figsize=(8, 5))
+        PyPlot.figure(figsize=(9, 6))
         
-        for comp_id in sort(collect(keys(offset_data)))
-            data = offset_data[comp_id]
-            if isempty(data.off)
-                continue
+        if !isempty(lon_all)
+            # Wykres punktowy (Scatter) z kolorowaniem wg fazy P3
+            sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="viridis", alpha=0.7, s=25, edgecolor="none", zorder=3)
+            cbar = PyPlot.colorbar(sc)
+            cbar.set_label("P3 Phase (Row Index) - Evolution in Time", fontsize=11)
+            
+            # Obliczanie trendu przesuwania się fazy za pomoca średniej w binach
+            perm = sortperm(lon_all)
+            slon = lon_all[perm]
+            soff = off_all[perm]
+            
+            bin_edges = range(minimum(slon), maximum(slon), length=15)
+            bin_centers = Float64[]
+            bin_means = Float64[]
+            
+            for i in 1:length(bin_edges)-1
+                idx = findall(x -> bin_edges[i] <= x < bin_edges[i+1], slon)
+                if length(idx) > 2
+                    push!(bin_centers, mean(slon[idx]))
+                    push!(bin_means, mean(soff[idx]))
+                end
             end
             
-            col = colors[mod1(comp_id, length(colors))]
-            
-            # Individual phase points
-            PyPlot.errorbar(data.lon, data.off, yerr=data.err, fmt="o", 
-                    color=col, alpha=0.4, markersize=4, capsize=2, lw=1.0, 
-                    label="C$comp_id (phases)")
-            
-            # Mean and Standard Error for the component cloud
-            lon_mean = mean(data.lon)
-            off_mean = mean(data.off)
-            off_err = std(data.off) / sqrt(length(data.off))
-            
-            PyPlot.errorbar([lon_mean], [off_mean], yerr=[off_err], fmt="D",
-                    color=col, capsize=5, capthick=2.0,
-                    markersize=10, elinewidth=2.5, markeredgecolor="black", markeredgewidth=1.2,
-                    label="C$comp_id (mean ± stderr)", zorder=10)
+            if length(bin_centers) > 1
+                PyPlot.plot(bin_centers, bin_means, color="red", lw=2.5, label="Mean Trend", zorder=5)
+            end
         end
         
         PyPlot.axhline(0.0, color="gray", ls="--", lw=1.0, alpha=0.8)
         PyPlot.minorticks_on()
         PyPlot.xlabel("Longitude (°)", fontsize=12)
         PyPlot.ylabel("Offset (°)", fontsize=12)
-        PyPlot.title("Longitude vs. Offset (Fourier/Barycenter Phase-Resolved)", fontsize=13)
-        PyPlot.legend(loc="best", fontsize=10)
+        PyPlot.title("Dynamic Phase-Resolved Offset vs Longitude", fontsize=13)
+        if !isempty(lon_all)
+            PyPlot.legend(loc="best", fontsize=10)
+        end
         PyPlot.grid(true, which="major", alpha=0.3)
         PyPlot.tight_layout()
         
@@ -1173,43 +1174,23 @@ module Data
         # --- 7. Output to CSV ---
         csv_path = joinpath(indir, "$(pulsar_name)_fourier_offsets_$(type).csv")
         open(csv_path, "w") do io
-            println(io, "Component,N_Measurements,Mean_Longitude_deg,Mean_Offset_deg,Offset_Err_deg")
-            for comp_id in sort(collect(keys(offset_data)))
-                data = offset_data[comp_id]
-                if !isempty(data.off)
-                    lon_mean = mean(data.lon)
-                    off_mean = mean(data.off)
-                    off_err = std(data.off) / sqrt(length(data.off))
-                    println(io, "$comp_id,$(length(data.off)),$lon_mean,$off_mean,$off_err")
-                end
-            end
-        end
-        
-        csv_detailed_path = joinpath(indir, "$(pulsar_name)_fourier_offsets_detailed_$(type).csv")
-        open(csv_detailed_path, "w") do io
-            println(io, "Component,Longitude_deg,Offset_deg,Error_deg,Phase_SNR")
-            for comp_id in sort(collect(keys(offset_data)))
-                data = offset_data[comp_id]
-                for (lon, off, err, snr) in zip(data.lon, data.off, data.err, data.snr)
-                    println(io, "$comp_id,$lon,$off,$err,$snr")
-                end
+            println(io, "Longitude_deg,Offset_deg,Error_deg,Phase_SNR,P3_Phase_Idx")
+            for i in 1:length(lon_all)
+                println(io, "$(lon_all[i]),$(off_all[i]),$(err_all[i]),$(snr_all[i]),$(phase_all[i])")
             end
         end
 
         # --- 8. Component Separation (P2) Calculation ---
-        # P2 is the physical distance (longitude separation) between adjacent components.
-        if n_comps > 1
-            println("\n--- Component Separation (P2) ---")
-            for k in 1:(n_comps - 1)
-                if haskey(offset_data, k) && haskey(offset_data, k+1)
-                    lon1 = mean(offset_data[k].lon)
-                    lon2 = mean(offset_data[k+1].lon)
-                    p2_sep = abs(lon2 - lon1)
-                    @printf(">>> P2 between C%d and C%d: %.3f°\n", k, k+1, p2_sep)
-                end
-            end
+        # Since we use continuous tracking, static P2 is less defined here.
+        # Keeping previous Barycenter-based P2 from the integrated profile:
+        println("\n--- Integrated Profile Separation (P2) ---")
+        for k in 1:(length(ref_comps) - 1)
+            lon1 = ref_comps[k].com_low * bins_to_deg
+            lon2 = ref_comps[k+1].com_low * bins_to_deg
+            p2_sep = abs(lon2 - lon1)
+            @printf(">>> Base P2 between C%d and C%d: %.3f°\n", k, k+1, p2_sep)
         end
-
+        
         println("="^60 * "\n")
         return ref_comps
     end

@@ -4,7 +4,7 @@ using FFTW
 using Statistics
 using Printf
 
-export global_fourier_shift, component_barycenters, component_barycenters_fixed_windows, component_fourier_offsets_fixed_windows
+export global_fourier_shift, component_barycenters, component_barycenters_fixed_windows, component_fourier_offsets_fixed_windows, dynamic_component_fourier_offsets
 
 """
 Calculates the global sub-bin phase offset between two profiles using the 
@@ -262,6 +262,87 @@ function component_fourier_offsets_fixed_windows(prof_ref::AbstractVector, prof_
         
         return (com_ref=com_ref, offset=offset)
     end
+end
+
+"""
+Dynamically identifies signal islands (components) in the current profile 
+and calculates their localized Fourier Phase Gradients. 
+Automatically adapts to however many sub-pulses appear in the specific phase.
+"""
+function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target::AbstractVector; threshold=0.03)
+    N = length(prof_ref)
+    
+    min_ref, max_ref = minimum(prof_ref), maximum(prof_ref)
+    min_tar, max_tar = minimum(prof_target), maximum(prof_target)
+    
+    amp_ref = max_ref - min_ref
+    amp_tar = max_tar - min_tar
+    
+    if amp_ref ≈ 0.0 || amp_tar ≈ 0.0
+        return NamedTuple{(:com_ref, :offset, :left, :right), Tuple{Float64, Float64, Int, Int}}[]
+    end
+    
+    p_ref = (prof_ref .- min_ref) ./ amp_ref
+    p_tar = (prof_target .- min_tar) ./ amp_tar
+    
+    # Wygładzamy profil by nie łapać szumowych igieł jako osobnych komponentów
+    smoothed_ref = copy(p_ref)
+    for i in 3:N-2
+        smoothed_ref[i] = mean(p_ref[i-2:i+2])
+    end
+    
+    # Szukamy lokalnych maksimów
+    peaks = Int[]
+    for i in 2:N-1
+        if smoothed_ref[i] > smoothed_ref[i-1] && smoothed_ref[i] > smoothed_ref[i+1] && smoothed_ref[i] > threshold
+            push!(peaks, i)
+        end
+    end
+    
+    # Sortujemy najsilniejsze najpierw
+    sort!(peaks, by=p -> smoothed_ref[p], rev=true)
+    
+    results = NamedTuple{(:com_ref, :offset, :left, :right), Tuple{Float64, Float64, Int, Int}}[]
+    visited = falses(N)
+    
+    for p in peaks
+        if visited[p]
+            continue
+        end
+        
+        cut_off = threshold * 0.5 # Schodzimy niżej niż próg detekcji, by złapać ogony
+        
+        left = p
+        while left > 1 && smoothed_ref[left] > cut_off && smoothed_ref[left-1] <= smoothed_ref[left]
+            left -= 1
+        end
+        
+        right = p
+        while right < N && smoothed_ref[right] > cut_off && smoothed_ref[right+1] <= smoothed_ref[right]
+            right += 1
+        end
+        
+        visited[left:right] .= true
+        
+        left = max(1, left - 2)
+        right = min(N, right + 2)
+        
+        if right - left < 4; continue; end
+        
+        x_win = left:right
+        bg_ref = min(p_ref[left], p_ref[right])
+        vals_ref = max.(p_ref[x_win] .- bg_ref, 0.0)
+        m_ref = sum(vals_ref)
+        com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
+        
+        offset = windowed_fourier_shift(p_ref, p_tar, left, right)
+        
+        if !isnan(com_ref) && !isnan(offset)
+            push!(results, (com_ref=com_ref, offset=offset, left=left, right=right))
+        end
+    end
+    
+    return results
 end
 
 end # module
