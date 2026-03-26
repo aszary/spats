@@ -1186,8 +1186,8 @@ module Data
             
             # Define grid and smoothing parameter (sigma)
             smooth_lon = range(minimum(slon), maximum(slon), length=200)
-            # Zmieniono sigma na mniejszą, aby krzywa ("linia dopasowana") dokładniej śledziła wartości offsetu!
-            sigma = (maximum(slon) - minimum(slon)) / 25.0 
+            # Szersze jądro (sigma) dla gładszego, ogólnego trendu (macro-trend)
+            sigma = (maximum(slon) - minimum(slon)) / 15.0 
 
             # Calculate main trend (with rigorous error weighting)
             smooth_off = kernel_smooth_weighted(slon, soff, serr, smooth_lon, sigma)
