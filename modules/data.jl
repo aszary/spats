@@ -952,8 +952,9 @@ module Data
         end
         
         # Global offset using Fourier method
-        global_offset_bins = ProfileMetrics.global_fourier_shift(mean_l_roi, mean_h_roi)
-        @printf(">>> Global Fourier Shift (High vs Low): %.4f bins\n", global_offset_bins)
+        global_offset_res = ProfileMetrics.global_fourier_shift(mean_l_roi, mean_h_roi)
+        global_offset_bins = global_offset_res.shift
+        @printf(">>> Global Fourier Shift (High vs Low): %.4f ± %.4f bins\n", global_offset_bins, global_offset_res.error)
         
         # Detect static component boundaries (Barycenters) on the integrated profile
         # This prevents the algorithm from jumping to noise spikes in low-SNR individual phases.
@@ -1118,7 +1119,8 @@ module Data
                 lon_deg = (com_low + com_high) / 2.0 * bins_to_deg
                 
                 offset_deg = res.offset * bins_to_deg
-                error_deg = (res.right - res.left) / 25.0 * bins_to_deg
+                # Błąd jest teraz rygorystycznie liczony ze stromości wariancji faz Fouriera!
+                error_deg = res.error * bins_to_deg
                 
                 push!(lon_all, lon_deg)
                 push!(off_all, offset_deg)

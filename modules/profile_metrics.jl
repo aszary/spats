@@ -50,6 +50,7 @@ function global_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractVec
     # while high-frequency noise has low power and should be ignored.
     sum_wxy = 0.0
     sum_wxx = 0.0
+    sum_w = 0.0
     
     for i in 2:length(freqs) # We skip the DC component (f=0)
         w = amplitudes[i]
@@ -57,16 +58,28 @@ function global_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractVec
         y = phases[i]
         sum_wxy += w * x * y
         sum_wxx += w * x * x
+        sum_w += w
     end
     
     # Calculate the slope of the phase
     slope = sum_wxx > 0 ? (sum_wxy / sum_wxx) : 0.0
     
+    # Obliczenie BŁĘDU FORMALNEGO z WLS (Weighted Least Squares)
+    if length(freqs) > 2 && sum_wxx > 0
+        residuals = phases .- slope .* freqs
+        # Ważona wariancja reszt z poprawką na stopnie swobody (N-2)
+        var_res = sum(amplitudes[2:end] .* residuals[2:end].^2) / (sum_w * (length(freqs) - 2))
+        slope_err = sqrt(var_res / sum_wxx)
+        shift_error = slope_err * N / (2 * pi)
+    else
+        shift_error = 0.0
+    end
+    
     # 5. Convert phase slope back to a time-domain bin shift
     # slope = -2 * pi * shift / N  ==>  shift = -slope * N / (2 * pi)
     shift_bins = -slope * N / (2 * pi)
     
-    return shift_bins
+    return (shift=shift_bins, error=shift_error)
 end
 
 """
@@ -221,13 +234,13 @@ function windowed_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractV
     w_ref = (w_ref .- bg_ref) .* taper
     w_tar = (w_tar .- bg_tar) .* taper
     
-    shift = global_fourier_shift(w_ref, w_tar)
+    shift_res = global_fourier_shift(w_ref, w_tar)
     
-    if abs(shift) > N / 2
-        return NaN
+    if abs(shift_res.shift) > N / 2
+        return (shift=NaN, error=NaN)
     end
     
-    return shift
+    return shift_res
 end
 
 """
@@ -258,9 +271,9 @@ function component_fourier_offsets_fixed_windows(prof_ref::AbstractVector, prof_
         com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
         
         # Do precyzyjnego liczenia offsetu między częstotliwościami używamy lokalnego Fouriera
-        offset = windowed_fourier_shift(p_ref, p_tar, left, right)
+        offset_res = windowed_fourier_shift(p_ref, p_tar, left, right)
         
-        return (com_ref=com_ref, offset=offset)
+        return (com_ref=com_ref, offset=offset_res.shift, error=offset_res.error)
     end
 end
 
@@ -302,7 +315,7 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
     # Sortujemy najsilniejsze najpierw
     sort!(peaks, by=p -> smoothed_ref[p], rev=true)
     
-    results = NamedTuple{(:com_ref, :offset, :left, :right), Tuple{Float64, Float64, Int, Int}}[]
+    results = NamedTuple{(:com_ref, :offset, :error, :left, :right), Tuple{Float64, Float64, Float64, Int, Int}}[]
     visited = falses(N)
     
     for p in peaks
@@ -335,10 +348,10 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
         m_ref = sum(vals_ref)
         com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
         
-        offset = windowed_fourier_shift(p_ref, p_tar, left, right)
+        offset_res = windowed_fourier_shift(p_ref, p_tar, left, right)
         
-        if !isnan(com_ref) && !isnan(offset)
-            push!(results, (com_ref=com_ref, offset=offset, left=left, right=right))
+        if !isnan(com_ref) && !isnan(offset_res.shift)
+            push!(results, (com_ref=com_ref, offset=offset_res.shift, error=offset_res.error, left=left, right=right))
         end
     end
     
