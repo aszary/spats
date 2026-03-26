@@ -1100,6 +1100,7 @@ end
 
     function analyse_offsets(indir, type, period; n_comp=3, show_=true)
     # --- 1. Konfiguracja i Ładowanie ---
+    period = Float64(period)
     p = Tools.read_params(joinpath(indir, "params.json"))
     low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
     high_path = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
