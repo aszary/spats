@@ -4,7 +4,7 @@ using FFTW
 using Statistics
 using Printf
 
-export global_fourier_shift, component_barycenters, component_barycenters_fixed_windows
+export global_fourier_shift, component_barycenters, component_barycenters_fixed_windows, component_fourier_offsets_fixed_windows
 
 """
 Calculates the global sub-bin phase offset between two profiles using the 
@@ -97,16 +97,22 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
     p_ref = (prof_ref .- min_ref) ./ amp_ref
     p_tar = (prof_target .- min_tar) ./ amp_tar
     
+    # Wygładzamy profil w celu stabilniejszej detekcji szczytów i granic (aby okna nie były zbyt małe przez szum)
+    smoothed_ref = copy(p_ref)
+    for i in 3:N-2
+        smoothed_ref[i] = mean(p_ref[i-2:i+2])
+    end
+    
     # 1. Identify peaks using local maxima detection
     peaks = Int[]
     for i in 2:N-1
-        if p_ref[i] > p_ref[i-1] && p_ref[i] > p_ref[i+1] && p_ref[i] > threshold
+        if smoothed_ref[i] > smoothed_ref[i-1] && smoothed_ref[i] > smoothed_ref[i+1] && smoothed_ref[i] > threshold
             push!(peaks, i)
         end
     end
     
     # Process up to n_comp strongest components
-    sort!(peaks, by=p -> p_ref[p], rev=true)
+    sort!(peaks, by=p -> smoothed_ref[p], rev=true)
     selected_peaks = sort(peaks[1:min(length(peaks), n_comp)]) 
     
     results = []
@@ -114,17 +120,21 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         # 2. Define the Component Window Boundaries
         # Stop scanning outwards when we hit a local minimum or signal drops below the 5% noise floor.
         # This ensures we integrate the *entire* physical component, not just the tip.
-        cut_off = 0.05
+        cut_off = 0.02  # Zmniejszono z 0.05, aby lepiej "chwytać" ogony komponentu
         
         left = p
-        while left > 1 && p_ref[left] > cut_off && p_ref[left-1] <= p_ref[left]
+        while left > 1 && smoothed_ref[left] > cut_off && smoothed_ref[left-1] <= smoothed_ref[left]
             left -= 1
         end
         
         right = p
-        while right < N && p_ref[right] > cut_off && p_ref[right+1] <= p_ref[right]
+        while right < N && smoothed_ref[right] > cut_off && smoothed_ref[right+1] <= smoothed_ref[right]
             right += 1
         end
+        
+        # Rozszerzamy sztucznie okno na boki, co chroni przed wycinaniem sygnału pod oknem Fouriera
+        left = max(1, left - 2)
+        right = min(N, right + 2)
         
         if right - left < 2; continue; end
         
@@ -182,6 +192,75 @@ function component_barycenters_fixed_windows(prof_ref::AbstractVector, prof_targ
         com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
         com_tar = m_tar > 0 ? sum(x_win .* vals_tar) / m_tar : NaN
         return (com_ref=com_ref, offset=com_tar - com_ref)
+    end
+end
+
+"""
+Calculates a localized Fourier Phase Gradient shift within a specific window.
+Uses a Hann taper to mitigate spectral leakage at window boundaries.
+"""
+function windowed_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractVector, left::Int, right::Int)
+    N_full = length(prof_ref)
+    left = max(1, left)
+    right = min(N_full, right)
+    
+    w_ref = prof_ref[left:right]
+    w_tar = prof_target[left:right]
+    
+    N = length(w_ref)
+    if N < 5
+        return NaN
+    end
+    
+    # Mnożymy profil w oknie przez funkcję Hanna, aby zachowywał się jak lokalny rozkład ucinający szum (podobnie do fitu Gaussa)
+    taper = 0.5 .* (1 .- cos.(2 * pi .* (0:N-1) ./ (N - 1)))
+    
+    bg_ref = min(w_ref[1], w_ref[end])
+    bg_tar = min(w_tar[1], w_tar[end])
+    
+    w_ref = (w_ref .- bg_ref) .* taper
+    w_tar = (w_tar .- bg_tar) .* taper
+    
+    shift = global_fourier_shift(w_ref, w_tar)
+    
+    if abs(shift) > N / 2
+        return NaN
+    end
+    
+    return shift
+end
+
+"""
+Calculates offsets per component using localized Fourier Phase Gradients 
+instead of purely relying on Barycenters. Provides robustness similar to Gaussian fitting.
+"""
+function component_fourier_offsets_fixed_windows(prof_ref::AbstractVector, prof_target::AbstractVector, windows)
+    min_ref, max_ref = minimum(prof_ref), maximum(prof_ref)
+    min_tar, max_tar = minimum(prof_target), maximum(prof_target)
+    
+    amp_ref = max_ref - min_ref
+    amp_tar = max_tar - min_tar
+    
+    if amp_ref ≈ 0.0 || amp_tar ≈ 0.0
+        return [(com_ref=NaN, offset=NaN) for _ in windows]
+    end
+    
+    p_ref = (prof_ref .- min_ref) ./ amp_ref
+    p_tar = (prof_target .- min_tar) ./ amp_tar
+    
+    return map(windows) do (left, right)
+        x_win = left:right
+        
+        # Do ustalenia horyzontalnego piku (Długość geograficzna fazy/Longitude) używamy środka masy
+        bg_ref = min(p_ref[left], p_ref[right])
+        vals_ref = max.(p_ref[x_win] .- bg_ref, 0.0)
+        m_ref = sum(vals_ref)
+        com_ref = m_ref > 0 ? sum(x_win .* vals_ref) / m_ref : NaN
+        
+        # Do precyzyjnego liczenia offsetu między częstotliwościami używamy lokalnego Fouriera
+        offset = windowed_fourier_shift(p_ref, p_tar, left, right)
+        
+        return (com_ref=com_ref, offset=offset)
     end
 end
 

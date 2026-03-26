@@ -1088,15 +1088,15 @@ module Data
             noise_l = isempty(off_pulse_l) ? 1.0 : std(off_pulse_l)
             snr_val = (maximum(row_l) - mean(off_pulse_l)) / (noise_l + 1e-6)
             
-            # Skip noise-only phases (amplitude below 5% threshold)
-            if maximum(row_l_roi) < 0.05 || maximum(row_h_roi) < 0.05
+            # Zmniejszono próg z 5% do 3% by zebrać więcej punktów danych w badanych fazach
+            if maximum(row_l_roi) < 0.03 || maximum(row_h_roi) < 0.03
                 continue
             end
             
             valid_phases += 1
             
-            # Compute phase-resolved barycenters strictly within the static integration windows
-            comps = ProfileMetrics.component_barycenters_fixed_windows(row_l_roi, row_h_roi, windows)
+            # Użycie lokalnej gradientowej metody fazowej Fouriera, aby uzyskać dokładniejszy offset jak w Gaussie
+            comps = ProfileMetrics.component_fourier_offsets_fixed_windows(row_l_roi, row_h_roi, windows)
             
             for (comp_idx, res) in enumerate(comps)
                 # Ignore measurements where the offset is missing or wildly out of bounds
