@@ -112,6 +112,7 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "refine")
         #Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "norefine")
         Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine")
+        Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine", 1.841; n_comp=4)
             # uhf
         #process_psrdata("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf")
             # uhf multifrequency

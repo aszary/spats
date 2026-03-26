@@ -1096,5 +1096,81 @@ end
     end
 
 
+    function analyse_offsets(indir, type, period; n_comp=3)
+    # --- 1. Konfiguracja i Ładowanie ---
+    p = Tools.read_params(joinpath(indir, "params.json"))
+    low_path = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
+    high_path = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
+    
+    l_matrix = load_ascii(low_path)
+    h_matrix = load_ascii(high_path)
+    n_phases, n_bins = size(l_matrix)
+    bins_to_deg = 360.0 / n_bins
+
+    # --- 2. Analiza Globalnego Profilu (Zintegrowanego) ---
+    mean_l = vec(mean(l_matrix, dims=1))
+    mean_h = vec(mean(h_matrix, dims=1))
+
+    # Używamy FFT.xcorr_all dla globalnego profilu, aby porównać metody
+    println(">>> Running Global FFT Cross-Correlation...")
+    global_results = FFT.xcorr_all(mean_h, mean_l; nbin=n_bins, period_s=period)
+    FFT.print_offset_summary(global_results, label="Global Profile")
+
+    # Wybieramy metodę phase_slope jako referencję (najbardziej odporna na szum)
+    global_offset_bins = global_results.phase_slope.offset_bins
+
+    # Obliczamy niepewność globalną metodą Bootstrap
+    global_uncert = FFT.bootstrap_uncertainty(mean_h, mean_l, :phase_slope; 
+                                              nbin=n_bins, period_s=period, n_boot=200)
+
+    # Detekcja okien komponentów (pozostajemy przy Barycentrach dla granic)
+    ref_comps = ProfileMetrics.component_barycenters(normalize_01(mean_l), normalize_01(mean_h); 
+                                                     threshold=0.10, n_comp=n_comp)
+    windows = [(c.left_bound, c.right_bound) for c in ref_comps]
+
+    # --- 3. Analiza Phase-Resolved (per P3 bin) z użyciem FFT ---
+    offset_data = Dict{Int, Any}()
+
+    for phase_idx in 1:n_phases
+        row_l = vec(l_matrix[phase_idx, :])
+        row_h = vec(h_matrix[phase_idx, :])
+
+        # Pomijamy fazy o bardzo niskim SNR
+        if maximum(row_l) < 3 * std(row_l[1:20]) continue end
+
+        for (comp_idx, win) in enumerate(windows)
+            # Wycinamy fragment profilu dla danego komponentu
+            idx_range = Int(floor(win[1])):Int(ceil(win[2]))
+            snippet_l = row_l[idx_range]
+            snippet_h = row_h[idx_range]
+
+            # OBLICZENIA FFT DLA KOMPONENTU
+            # Używamy standardowego xcorr_fft z interpolacją paraboliczną dla precyzji pod-binowej
+            try
+                local_off_bins = FFT.xcorr_fft(snippet_h, snippet_l; phase_corr=false)
+                
+                # Przeliczamy na globalną skalę longitude
+                # (Środek okna + przesunięcie)
+                mid_point = (win[1] + win[2]) / 2.0
+                lon_deg = mid_point * bins_to_deg
+                off_deg = local_off_bins * bins_to_deg
+
+                if !haskey(offset_data, comp_idx)
+                    offset_data[comp_idx] = (lon=Float64[], off=Float64[])
+                end
+                push!(offset_data[comp_idx].lon, lon_deg)
+                push!(offset_data[comp_idx].off, off_deg)
+            catch; end
+        end
+    end
+
+    # --- 4. Raportowanie i Zapis ---
+    # Tutaj możesz dodać zapisywanie global_uncert.σ_deg do pliku CSV
+    # aby mieć formalny błąd pomiarowy dla całego pulsar_name.
+    
+    println(">>> Phase-resolved FFT analysis complete.")
+    return global_results, global_uncert
+end
+
 
 end # module
