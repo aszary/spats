@@ -967,45 +967,51 @@ module Data
         # --- 3. Plotting: Integrated Profile ---
         PyPlot.figure(figsize=(10, 9))
         colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0", "#F44336", "#795548"]
-        bins_arr = 1:n_bins
+        
+        # Przejście z binów na fizyczne stopnie długości geograficznej (Longitude) dla poprawności naukowej
+        lon_arr = (1:n_bins) .* bins_to_deg
         
         PyPlot.subplot(3, 1, 1)
         PyPlot.title("Low Frequency (Integrated Profile & Barycentric Windows)", fontsize=13, fontweight="bold")
-        PyPlot.plot(bins_arr, mean_l_roi, color="#1f77b4", linewidth=2.0, label="Low Data")
-        PyPlot.fill_between(bins_arr, zeros(length(bins_arr)), mean_l_roi, color="#1f77b4", alpha=0.15)
+        PyPlot.plot(lon_arr, mean_l_roi, color="#1f77b4", linewidth=2.0, label="Low Data")
+        PyPlot.fill_between(lon_arr, zeros(length(lon_arr)), mean_l_roi, color="#1f77b4", alpha=0.15)
         PyPlot.ylabel("Normalized Intensity", fontsize=11)
         PyPlot.grid(true, linestyle=":", alpha=0.6)
+        PyPlot.minorticks_on()
         for (k, c) in enumerate(ref_comps)
             col = colors[mod1(k, length(colors))]
-            PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.15)
-            PyPlot.scatter([c.com_low], [mean_l_roi[round(Int, c.com_low)]], color=col, s=40, zorder=5)
+            PyPlot.axvspan(c.left_bound * bins_to_deg, c.right_bound * bins_to_deg, color=col, alpha=0.15)
+            PyPlot.scatter([c.com_low * bins_to_deg], [mean_l_roi[round(Int, c.com_low)]], color=col, s=40, zorder=5)
         end
         PyPlot.legend(loc="upper right", fontsize=10)
         
         PyPlot.subplot(3, 1, 2)
         PyPlot.title("High Frequency (Integrated Profile & Barycentric Windows)", fontsize=13, fontweight="bold")
-        PyPlot.plot(bins_arr, mean_h_roi, color="#ff7f0e", linewidth=2.0, label="High Data")
-        PyPlot.fill_between(bins_arr, zeros(length(bins_arr)), mean_h_roi, color="#ff7f0e", alpha=0.15)
+        PyPlot.plot(lon_arr, mean_h_roi, color="#ff7f0e", linewidth=2.0, label="High Data")
+        PyPlot.fill_between(lon_arr, zeros(length(lon_arr)), mean_h_roi, color="#ff7f0e", alpha=0.15)
         PyPlot.ylabel("Normalized Intensity", fontsize=11)
         PyPlot.grid(true, linestyle=":", alpha=0.6)
+        PyPlot.minorticks_on()
         for (k, c) in enumerate(ref_comps)
             col = colors[mod1(k, length(colors))]
-            PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.15)
-            PyPlot.scatter([c.com_high], [mean_h_roi[round(Int, c.com_high)]], color=col, s=40, zorder=5)
+            PyPlot.axvspan(c.left_bound * bins_to_deg, c.right_bound * bins_to_deg, color=col, alpha=0.15)
+            PyPlot.scatter([c.com_high * bins_to_deg], [mean_h_roi[round(Int, c.com_high)]], color=col, s=40, zorder=5)
         end
         PyPlot.legend(loc="upper right", fontsize=10)
         
         PyPlot.subplot(3, 1, 3)
         PyPlot.title("Profile Comparison (Low vs High)", fontsize=13, fontweight="bold")
-        PyPlot.plot(bins_arr, mean_l_roi, color="#1f77b4", linewidth=2.0, label="Low Frequency")
-        PyPlot.plot(bins_arr, mean_h_roi, color="#ff7f0e", linestyle="--", linewidth=2.0, label="High Frequency")
-        PyPlot.xlabel("Phase (bins)", fontsize=11)
+        PyPlot.plot(lon_arr, mean_l_roi, color="#1f77b4", linewidth=2.0, label="Low Frequency")
+        PyPlot.plot(lon_arr, mean_h_roi, color="#ff7f0e", linestyle="--", linewidth=2.0, label="High Frequency")
+        PyPlot.xlabel("Longitude [deg]", fontsize=12, fontweight="bold")
         PyPlot.ylabel("Intensity", fontsize=11)
         PyPlot.grid(true, linestyle=":", alpha=0.6)
+        PyPlot.minorticks_on()
         PyPlot.legend(loc="upper right", fontsize=10)
         for (k, c) in enumerate(ref_comps)
             col = colors[mod1(k, length(colors))]
-            PyPlot.text(c.com_low, 0.5, @sprintf("Δ=%.3f bins", c.offset), color=col, fontsize=12, ha="center", va="bottom", fontweight="bold")
+            offset_deg = c.offset * bins_to_deg
+            PyPlot.text(c.com_low * bins_to_deg, 0.5, @sprintf("Δ=%.3f°", offset_deg), color=col, fontsize=12, ha="center", va="bottom", fontweight="bold")
         end
         PyPlot.tight_layout()
         PyPlot.savefig(joinpath(indir, "$(pulsar_name)_integrated_offsets_$(type).pdf"), dpi=150)
@@ -1056,10 +1062,11 @@ module Data
             if !isempty(p3_values)
                 PyPlot.figure(figsize=(8, 5))
                 PyPlot.title("Modulation Period (P3) vs Phase", fontsize=13, fontweight="bold")
-                PyPlot.scatter(long_values, p3_values, color="#e53935", s=50, edgecolor="black", linewidth=0.8, zorder=3)
-                PyPlot.xlabel("Phase (bins)", fontsize=12)
-                PyPlot.ylabel("P3 (P0 units)", fontsize=12)
+                PyPlot.scatter(long_values .* bins_to_deg, p3_values, color="#e53935", s=50, edgecolor="black", linewidth=0.8, zorder=3)
+                PyPlot.xlabel("Longitude [deg]", fontsize=12, fontweight="bold")
+                PyPlot.ylabel("P3 [P0 units]", fontsize=12)
                 PyPlot.grid(true, linestyle=":", alpha=0.6)
+                PyPlot.minorticks_on()
                 PyPlot.tight_layout()
                 PyPlot.savefig(joinpath(indir, "$(pulsar_name)_fourier_p3_vs_phase_$(type).pdf"))
                 PyPlot.close()
@@ -1136,14 +1143,20 @@ module Data
         # Ulepszono wizualizację, aby była bardziej czytelna i estetyczna.
         # Dodano rygorystyczne naukowo obliczenie 95% przedziału ufności dla linii trendu
         # przy użyciu metody bootstrap, co pozwala na ocenę niepewności dopasowania.
-        PyPlot.figure(figsize=(12, 7))
+        # Wprowadzono statystyczne ważenie punktów (Inverse Variance) oraz słupki błędów (Error Bars).
+        PyPlot.figure(figsize=(12, 7.5))
         
         if !isempty(lon_all)
-            # Funkcja pomocnicza do wygładzania jądrowego (Nadaraya-Watson)
-            function kernel_smooth(x_data, y_data, x_grid, sigma)
+            # Funkcja pomocnicza do ważonego wygładzania jądrowego (Nadaraya-Watson z Inverse-Variance Weighting)
+            function kernel_smooth_weighted(x_data, y_data, err_data, x_grid, sigma)
                 y_grid = Float64[]
                 for x in x_grid
-                    weights = exp.(-0.5 .* ((x_data .- x) ./ sigma).^2)
+                    # Waga odległości (Jądro Gaussa)
+                    w_kernel = exp.(-0.5 .* ((x_data .- x) ./ sigma).^2)
+                    # Waga ufności statystycznej (odwrotność wariancji)
+                    w_stat = 1.0 ./ (err_data.^2 .+ 1e-6)
+                    weights = w_kernel .* w_stat
+                    
                     weight_sum = sum(weights)
                     if weight_sum > 1e-6
                         push!(y_grid, sum(weights .* y_data) / weight_sum)
@@ -1158,13 +1171,14 @@ module Data
             perm = sortperm(lon_all)
             slon = lon_all[perm]
             soff = off_all[perm]
+            serr = err_all[perm]
             
             # Definicja siatki i parametru wygładzania (sigma)
             smooth_lon = range(minimum(slon), maximum(slon), length=200)
             sigma = (maximum(slon) - minimum(slon)) / 15.0 # Szersze jądro dla gładszego trendu
 
-            # Obliczenie głównego trendu
-            smooth_off = kernel_smooth(slon, soff, smooth_lon, sigma)
+            # Obliczenie głównego trendu (z rygorystycznym uwzględnieniem błędów)
+            smooth_off = kernel_smooth_weighted(slon, soff, serr, smooth_lon, sigma)
 
             # Pętla bootstrap do estymacji przedziału ufności
             n_bootstrap = 200 # Więcej próbek dla stabilniejszych wyników
@@ -1175,9 +1189,10 @@ module Data
                 # Próbkowanie z powtórzeniami
                 boot_lon = lon_all[indices]
                 boot_off = off_all[indices]
+                boot_err = err_all[indices]
                 
                 perm_boot = sortperm(boot_lon)
-                bootstrap_curves[i, :] = kernel_smooth(boot_lon[perm_boot], boot_off[perm_boot], smooth_lon, sigma)
+                bootstrap_curves[i, :] = kernel_smooth_weighted(boot_lon[perm_boot], boot_off[perm_boot], boot_err[perm_boot], smooth_lon, sigma)
             end
 
             # Obliczanie kwantyli dla 95% przedziału ufności
@@ -1192,16 +1207,21 @@ module Data
                 end
             end
 
+            # Rysowanie rzeczywistych, formalnych błędów matematycznych (Error bars)
+            PyPlot.errorbar(lon_all, off_all, yerr=err_all, fmt="none", ecolor="black", elinewidth=0.8, capsize=1.5, alpha=0.4, zorder=2)
+
             # Wykres punktowy (Scatter) z ulepszoną stylistyką dla lepszej widoczności
-            sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="viridis", alpha=0.7, s=45, edgecolor="black", linewidth=0.5, zorder=3)
+            # Rozmiar punktu skalujemy z SNR, by wyraźne sygnały były łatwiejsze do interpretacji wizualnej
+            point_sizes = clamp.(snr_all .* 2.5, 20.0, 90.0)
+            sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="viridis", alpha=0.85, s=point_sizes, edgecolor="black", linewidth=0.6, zorder=3)
             cbar = PyPlot.colorbar(sc)
             cbar.set_label("P3 Phase (Row Index)", fontsize=12, fontweight="bold")
             
             # Rysowanie przedziału ufności jako cieniowany obszar
-            PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.25, label="95% Confidence Interval", zorder=4)
+            PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.3, label="95% Bootstrap Confidence Interval", zorder=4)
             
             # Rysowanie wygładzonego trendu
-            PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3, label="Smoothed Trend (Gaussian Kernel)", zorder=5)
+            PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3.2, label="Weighted Trend (Inv. Variance)", zorder=5)
         end
         
         PyPlot.axhline(0.0, color="gray", ls="--", lw=1.5, alpha=0.8, zorder=2)
@@ -1209,12 +1229,12 @@ module Data
         PyPlot.grid(true, which="major", linestyle="--", color="gray", alpha=0.6)
         PyPlot.grid(true, which="minor", linestyle=":", color="gray", alpha=0.3)
         
-        PyPlot.xlabel("Longitude (°)", fontsize=13, fontweight="bold")
-        PyPlot.ylabel("Offset (°)", fontsize=13, fontweight="bold")
+        PyPlot.xlabel("Longitude [deg]", fontsize=13, fontweight="bold")
+        PyPlot.ylabel("Offset [deg]", fontsize=13, fontweight="bold")
         PyPlot.title("Phase-Resolved Offset vs. Longitude with 95% Confidence Interval", fontsize=15, fontweight="bold")
         
         if !isempty(lon_all)
-            PyPlot.legend(loc="best", fontsize=11, frameon=true, framealpha=0.95)
+            PyPlot.legend(loc="best", fontsize=11, frameon=true, framealpha=0.95, edgecolor="black")
         end
         
         PyPlot.tight_layout(pad=1.1)
