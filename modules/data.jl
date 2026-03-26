@@ -1098,15 +1098,15 @@ module Data
             noise_l = isempty(off_pulse_l) ? 1.0 : std(off_pulse_l)
             snr_val = (maximum(row_l) - mean(off_pulse_l)) / (noise_l + 1e-6)
             
-            # Zmniejszono próg z 5% do 3% by zebrać więcej punktów danych w badanych fazach
-            if maximum(row_l_roi) < 0.03 || maximum(row_h_roi) < 0.03
+            # Zwiększono próg detekcji do 10%, aby wyeliminować szum i badać tylko wyraźne komponenty
+            if maximum(row_l_roi) < 0.10 || maximum(row_h_roi) < 0.10
                 continue
             end
             
             valid_phases += 1
             
             # Dynamicznie znajdujemy komponenty obecne w tej konkretnej fazie:
-            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.03)
+            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.10)
             
             for res in comps
                 if isnan(res.offset) || abs(res.offset) > n_bins * 0.1
