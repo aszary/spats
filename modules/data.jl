@@ -1166,70 +1166,61 @@ end
         end
     end
 
-    # --- 4. Raportowanie i Zapis ---
-    # Tutaj możesz dodać zapisywanie global_uncert.σ_deg do pliku CSV
-    # aby mieć formalny błąd pomiarowy dla całego pulsar_name.
     # --- 4. Plotting: Integrated Profile & Windows ---
-    pulsar_name = basename(rstrip(indir, '/'))
-    bins_arr = 1:n_bins
-    colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0", "#F44336"]
+        pulsar_name = basename(rstrip(indir, '/'))
+        bins_arr = 1:n_bins
+        colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0", "#F44336"]
 
-    PyPlot.figure(figsize=(10, 8))
-    
-    # Subplot 1: Low Frequency + Windows
-    PyPlot.subplot(3, 1, 1)
-    PyPlot.title("Low Frequency & Barycentric Windows", fontsize=11)
-    PyPlot.plot(bins_arr, normalize_01(mean_l), color="black", label="Low Data")
-    for (k, c) in enumerate(ref_comps)
-        col = colors[mod1(k, length(colors))]
-        PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.2)
-        PyPlot.scatter([c.com_low], [0.5], color=col, s=40, zorder=5)
-    end
-    PyPlot.ylabel("Norm. Intensity")
-    PyPlot.legend(loc="upper right")
-
-    # Subplot 2: High Frequency
-    PyPlot.subplot(3, 1, 2)
-    PyPlot.title("High Frequency & Barycentric Windows", fontsize=11)
-    PyPlot.plot(bins_arr, normalize_01(mean_h), color="black", label="High Data")
-    for (k, c) in enumerate(ref_comps)
-        col = colors[mod1(k, length(colors))]
-        PyPlot.axvspan(c.left_bound, c.right_bound, color=col, alpha=0.2)
-        PyPlot.scatter([c.com_high], [0.5], color=col, s=40, zorder=5)
-    end
-    PyPlot.ylabel("Norm. Intensity")
-
-    # Subplot 3: Phase-Resolved Offsets (The Cloud)
-    PyPlot.subplot(3, 1, 3)
-    PyPlot.title("Phase-Resolved Offsets (FFT Method)", fontsize=11)
-    for comp_id in sort(collect(keys(offset_data)))
-        data = offset_data[comp_id]
-        col = colors[mod1(comp_id, length(colors))]
+        fig = PyPlot.figure(figsize=(10, 10)) # Zwiększyłem trochę wysokość
         
-        # Plot individual points from the dict
-        PyPlot.scatter(data.lon, data.off, color=col, alpha=0.3, s=10, label="Comp $comp_id")
+        # Subplot 1: Low Frequency
+        PyPlot.subplot(3, 1, 1)
+        PyPlot.plot(bins_arr, normalize_01(mean_l), color="black")
+        for (k, c) in enumerate(ref_comps)
+            PyPlot.axvspan(c.left_bound, c.right_bound, color=colors[mod1(k, 5)], alpha=0.2)
+        end
+        PyPlot.title("Low Frequency Profiles & Windows")
+
+        # Subplot 2: High Frequency
+        PyPlot.subplot(3, 1, 2)
+        PyPlot.plot(bins_arr, normalize_01(mean_h), color="black")
+        for (k, c) in enumerate(ref_comps)
+            PyPlot.axvspan(c.left_bound, c.right_bound, color=colors[mod1(k, 5)], alpha=0.2)
+        end
+        PyPlot.title("High Frequency Profiles")
+
+        # Subplot 3: Phase-Resolved Offsets
+        PyPlot.subplot(3, 1, 3)
+        if !isempty(offset_data)
+            for comp_id in sort(collect(keys(offset_data)))
+                data = offset_data[comp_id]
+                if isempty(data.lon) continue end
+                
+                col = colors[mod1(comp_id, length(colors))]
+                PyPlot.scatter(data.lon, data.off, color=col, alpha=0.3, s=15, label="C$comp_id")
+                
+                # Dodaj błąd standardowy tylko jeśli masz więcej niż 1 punkt
+                if length(data.off) > 1
+                    PyPlot.errorbar([mean(data.lon)], [mean(data.off)], 
+                                    yerr=[std(data.off)/sqrt(length(data.off))], 
+                                    fmt="D", color=col, markeredgecolor="black")
+                end
+            end
+            PyPlot.legend()
+        else
+            PyPlot.text(0.5, 0.5, "BRAK DANYCH DO PLOTOWANIA", ha="center")
+        end
         
-        # Plot the mean for this component
-        m_lon = mean(data.lon)
-        m_off = mean(data.off)
-        PyPlot.errorbar([m_lon], [m_off], yerr=[std(data.off)], fmt="D", color=col, 
-                        markeredgecolor="black", markersize=8)
+        PyPlot.axhline(0.0, color="red", linestyle="--", alpha=0.5)
+        PyPlot.xlabel("Longitude (deg)")
+        PyPlot.ylabel("Offset (deg)")
+
+        full_path = joinpath(indir, "$(pulsar_name)_analysis_$(type).pdf")
+        PyPlot.tight_layout()
+        PyPlot.savefig(full_path)
+        PyPlot.close(fig)
+        
+        @info "Próba zapisu pliku: $full_path"
     end
-    PyPlot.axhline(0.0, color="gray", linestyle="--")
-    PyPlot.xlabel("Longitude (deg)")
-    PyPlot.ylabel("Offset (deg)")
-    PyPlot.legend(loc="best", fontsize=8)
-
-    PyPlot.tight_layout()
-    PyPlot.savefig(joinpath(indir, "$(pulsar_name)_analysis_$(type).pdf"))
-    PyPlot.close()
-    
-    println(">>> Plots saved to: $(indir)")
-
-
-    println(">>> Phase-resolved FFT analysis complete.")
-    return global_results, global_uncert
-end
-
 
 end # module
