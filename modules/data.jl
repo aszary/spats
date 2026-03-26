@@ -1186,8 +1186,8 @@ module Data
             
             # Define grid and smoothing parameter (sigma)
             smooth_lon = range(minimum(slon), maximum(slon), length=200)
-            # Szersze jądro (sigma) dla gładszego, ogólnego trendu (macro-trend)
-            sigma = (maximum(slon) - minimum(slon)) / 15.0 
+            # Jeszcze szersze jądro (sigma) dla bardzo ogólnego, płynnego podążania za trendem
+            sigma = (maximum(slon) - minimum(slon)) / 10.0 
 
             # Calculate main trend (with rigorous error weighting)
             smooth_off = kernel_smooth_weighted(slon, soff, serr, smooth_lon, sigma)
@@ -1292,7 +1292,7 @@ module Data
                         perm_g = sortperm(g_lon)
                         g_lon, g_off, g_err = g_lon[perm_g], g_off[perm_g], g_err[perm_g]
                         
-                        sigma_g = (maximum(g_lon) - minimum(g_lon)) / 12.0 # Lokalna siatka grupy
+                        sigma_g = (maximum(g_lon) - minimum(g_lon)) / 8.0 # Szersze jądro dla maksymalnie wygładzonych linii grupowych
                         g_smooth = kernel_smooth_weighted(g_lon, g_off, g_err, smooth_lon, sigma_g)
                         
                         PyPlot.plot(smooth_lon, g_smooth, color=colors_grp[g], lw=2.8, label=@sprintf("P3 Phase: %d - %d", floor(Int, p_start), floor(Int, p_end)))
