@@ -8,6 +8,8 @@ module Data
     using FFTW
     using DelimitedFiles
     using Printf
+    using PyPlot
+    using Statistics: mean, std
 
     include("functions.jl")
     include("tools.jl")
