@@ -891,7 +891,7 @@ module Data
     - `period`: pulsar period (not used currently, for future reference)
     - `n_comp`: number of components to detect (default: 3)
     """
-    function analyse_offsets(indir, type, period; n_comp=3)
+    function analyse_offsets(indir, type; n_comp=3)
         """
         Fourier-based component offset analysis (PHASE-RESOLVED).
         
@@ -1276,7 +1276,7 @@ module Data
             # --- Plot 3: P3 Phase-Dependent Trends (Grupowanie ze względu na Fazę P3) ---
             ax3 = PyPlot.subplot(3, 1, 3, sharex=ax1)
             
-            n_groups = 5
+            n_groups = 4 # Reduced to 4 as per suggestion
             p_min, p_max = minimum(phase_all), maximum(phase_all)
             if p_max > p_min
                 step = (p_max - p_min + 1) / n_groups
@@ -1310,6 +1310,58 @@ module Data
             PyPlot.title("P3 Phase-Dependent Offset Trends (Grouped by Row Index)", fontsize=14, fontweight="bold")
             PyPlot.legend(loc="best", fontsize=10, frameon=true, framealpha=0.95, edgecolor="black")
             
+            # --- Plot 4: Sequentially Stitched Phase Plots (Bottom Panel) ---
+            ax4 = PyPlot.subplot(4, 1, 4)
+            
+            # Calculate the cumulative longitude for each phase
+            cumulative_lon = Float64[]
+            offset = 0.0
+            
+            for phase_idx in 1:n_phases
+                row_l = vec(l_matrix[phase_idx, :])
+                row_l_norm = normalize_01(row_l)
+                
+                # Generate longitude values for this phase, shifted by the cumulative offset
+                phase_lon = lon_arr .+ offset
+                append!(cumulative_lon, phase_lon)
+                
+                # Plot the normalized intensity for this phase
+                PyPlot.plot(phase_lon, row_l_norm, linewidth=1.2)
+                
+                # Update the offset for the next phase
+                offset += 360.0  # Shift by one full rotation (360 degrees)
+            end
+            
+            # Set plot title and labels
+            PyPlot.title("Sequential P3 Phase Visualization", fontsize=14, fontweight="bold")
+            PyPlot.xlabel("Cumulative Longitude [deg]", fontsize=13, fontweight="bold")
+            PyPlot.ylabel("Normalized Intensity", fontsize=13, fontweight="bold")
+            PyPlot.grid(true, linestyle=":", alpha=0.6)
+            PyPlot.minorticks_on()
+            
+            # Set x-axis limits to show the entire stitched sequence
+            PyPlot.xlim(minimum(cumulative_lon), maximum(cumulative_lon))
+            
+            # Adjust y-axis limits for better visualization
+            PyPlot.ylim(-0.1, 1.1)
+            
+            # Add vertical lines to mark the phase transitions
+            vline_pos = 360.0 * (1:(n_phases-1))
+            for v in vline_pos
+                PyPlot.axvline(v, color="gray", linestyle="--", linewidth=0.8, alpha=0.7)
+            end
+            
+            # Add labels for every 5th phase transition
+            label_pos = 360.0 * (5:5:n_phases)
+            for v in label_pos
+                if v <= maximum(cumulative_lon)
+                    PyPlot.text(v - 180.0, -0.08, "Phase $(Int(v/360))", ha="center", fontsize=9, color="black", fontweight="bold",
+                                bbox=Dict("facecolor"=>"white", "alpha"=>0.7, "edgecolor"=>"none", "boxstyle"=>"round,pad=0.2"))
+                end
+            end
+            
+            # Restore tight layout after adding the new subplot
+
             if !isempty(valid_lower) && !isempty(valid_upper)
                 PyPlot.ylim(y_min - margin*2.0, y_max + margin*2.0)
             end
