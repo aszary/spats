@@ -150,8 +150,8 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         end
         
         # Artificially expand the window on the sides to prevent cutting off the signal under the Fourier window
-        left = max(1, left - 2)
-        right = min(N, right + 2)
+        left = max(1, left - 8)
+        right = min(N, right + 8)
         
         if right - left < 2; continue; end
         
@@ -226,20 +226,29 @@ function windowed_fourier_shift(prof_ref::AbstractVector, prof_target::AbstractV
     
     N = length(w_ref)
     if N < 5
-        return NaN
+        return (shift=NaN, error=NaN)
     end
-    
-    # Multiply the profile in the window by a Hann taper function to smoothly bring the edges to zero.
-    # This mitigates spectral leakage in the Fourier domain.
-    taper = 0.5 .* (1 .- cos.(2 * pi .* (0:N-1) ./ (N - 1)))
     
     bg_ref = min(w_ref[1], w_ref[end])
     bg_tar = min(w_tar[1], w_tar[end])
     
-    w_ref = (w_ref .- bg_ref) .* taper
-    w_tar = (w_tar .- bg_tar) .* taper
+    # Subtract baseline and clip to zero to naturally isolate the component.
+    # We DO NOT use a Hann taper here, because tapering a shifted signal 
+    # with a stationary window artificially dampens the measured shift towards zero.
+    w_ref_clean = max.(w_ref .- bg_ref, 0.0)
+    w_tar_clean = max.(w_tar .- bg_tar, 0.0)
     
-    shift_res = global_fourier_shift(w_ref, w_tar)
+    # Zero-pad the extracted signals to avoid circular convolution wrap-around
+    # and to allow the Fourier phase gradient to measure the true physical shift.
+    pad_len = nextpow(2, N * 4)
+    pad_ref = zeros(pad_len)
+    pad_tar = zeros(pad_len)
+    
+    start_idx = (pad_len - N) ÷ 2 + 1
+    pad_ref[start_idx:start_idx+N-1] .= w_ref_clean
+    pad_tar[start_idx:start_idx+N-1] .= w_tar_clean
+    
+    shift_res = global_fourier_shift(pad_ref, pad_tar)
     
     if abs(shift_res.shift) > N / 2
         return (shift=NaN, error=NaN)
@@ -328,7 +337,7 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
             continue
         end
         
-        cut_off = threshold * 0.5 # Go lower than the detection threshold to firmly catch the tails
+        cut_off = min(0.02, threshold * 0.5) # Firmly catch tails independent of the high detection threshold
         
         left = p
         while left > 1 && smoothed_ref[left] > cut_off && smoothed_ref[left-1] <= smoothed_ref[left]
@@ -342,8 +351,9 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
         
         visited[left:right] .= true
         
-        left = max(1, left - 3)
-        right = min(N, right + 3)
+        # Expand window significantly to prevent asymmetrical truncation of the shifted target profile
+        left = max(1, left - 8)
+        right = min(N, right + 8)
         
         if right - left < 5; continue; end
         
