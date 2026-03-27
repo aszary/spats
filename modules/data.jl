@@ -1130,7 +1130,7 @@ module Data
             valid_phases += 1
             
             # Dynamically find components present in this specific phase:
-            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.30)
+            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.40)
             
             for res in comps
                 # Reject unphysical measurements and those with drastically large errors (e.g., > 40 degrees)
