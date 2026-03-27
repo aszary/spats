@@ -150,8 +150,8 @@ function component_barycenters(prof_ref::AbstractVector, prof_target::AbstractVe
         end
         
         # Artificially expand the window on the sides to prevent cutting off the signal under the Fourier window
-        left = max(1, left - 8)
-        right = min(N, right + 8)
+        left = max(1, left - 4)
+        right = min(N, right + 4)
         
         if right - left < 2; continue; end
         
@@ -351,9 +351,9 @@ function dynamic_component_fourier_offsets(prof_ref::AbstractVector, prof_target
         
         visited[left:right] .= true
         
-        # Expand window significantly to prevent asymmetrical truncation of the shifted target profile
-        left = max(1, left - 8)
-        right = min(N, right + 8)
+        # Expand window to prevent asymmetrical truncation of the shifted target profile
+        left = max(1, left - 4)
+        right = min(N, right + 4)
         
         if right - left < 5; continue; end
         
