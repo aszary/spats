@@ -1186,38 +1186,11 @@ module Data
             
             # Define grid and smoothing parameter (sigma)
             smooth_lon = range(minimum(slon), maximum(slon), length=200)
-            # Jeszcze szersze jądro (sigma) dla bardzo ogólnego, płynnego podążania za trendem
-            sigma = (maximum(slon) - minimum(slon)) / 10.0 
+            # Węższe jądro (sigma) dla lepszego podążania za lokalnym trendem
+            sigma = (maximum(slon) - minimum(slon)) / 25.0 
 
             # Calculate main trend (with rigorous error weighting)
             smooth_off = kernel_smooth_weighted(slon, soff, serr, smooth_lon, sigma)
-
-            # Bootstrap loop to estimate confidence interval
-            n_bootstrap = 200 # More samples for more stable results
-            bootstrap_curves = zeros(n_bootstrap, length(smooth_lon))
-            
-            for i in 1:n_bootstrap
-                indices = rand(1:length(lon_all), length(lon_all))
-                # Sampling with replacement
-                boot_lon = lon_all[indices]
-                boot_off = off_all[indices]
-                boot_err = err_all[indices]
-                
-                perm_boot = sortperm(boot_lon)
-                bootstrap_curves[i, :] = kernel_smooth_weighted(boot_lon[perm_boot], boot_off[perm_boot], boot_err[perm_boot], smooth_lon, sigma)
-            end
-
-            # Calculate quantiles for the 95% confidence interval
-            lower_ci, upper_ci = Float64[], Float64[]
-            for j in 1:length(smooth_lon)
-                valid_vals = filter(!isnan, bootstrap_curves[:, j])
-                if length(valid_vals) > 20 # Require a minimum number of points for a reliable quantile
-                    push!(lower_ci, quantile(valid_vals, 0.025))
-                    push!(upper_ci, quantile(valid_vals, 0.975))
-                else
-                    push!(lower_ci, NaN); push!(upper_ci, NaN)
-                end
-            end
 
             # --- Plot 1: Main distribution with points (Upper Panel) ---
             ax1 = PyPlot.subplot(3, 1, 1)
@@ -1225,14 +1198,10 @@ module Data
             # Draw actual, formal mathematical errors (Error bars)
             PyPlot.errorbar(lon_all, off_all, yerr=err_all, fmt="none", ecolor="black", elinewidth=0.8, capsize=1.5, alpha=0.4, zorder=2)
 
-            # Scatter plot with point sizes scaled by SNR to make clearer signals visually pop out
             point_sizes = clamp.(snr_all .* 2.5, 20.0, 90.0)
             sc = PyPlot.scatter(lon_all, off_all, c=phase_all, cmap="viridis", alpha=0.85, s=point_sizes, edgecolor="black", linewidth=0.6, zorder=3)
             cbar = PyPlot.colorbar(sc)
             cbar.set_label("P3 Phase (Row Index)", fontsize=12, fontweight="bold")
-            
-            # Draw confidence interval as a shaded area
-            PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.3, label="95% Bootstrap Confidence Interval", zorder=4)
             
             # Draw smoothed trend
             PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3.2, label="Weighted Trend (Inv. Variance)", zorder=5)
@@ -1243,15 +1212,14 @@ module Data
             PyPlot.grid(true, which="minor", linestyle=":", color="gray", alpha=0.3)
             
             PyPlot.ylabel("Offset [deg]", fontsize=13, fontweight="bold")
-            PyPlot.title("Phase-Resolved Offset vs. Longitude with 95% Confidence Interval", fontsize=15, fontweight="bold")
+            PyPlot.title("Phase-Resolved Offset vs. Longitude", fontsize=15, fontweight="bold")
             PyPlot.legend(loc="best", fontsize=11, frameon=true, framealpha=0.95, edgecolor="black")
 
             # --- Plot 2: Zoom-in on the smoothed trend itself (Lower Panel) ---
             ax2 = PyPlot.subplot(3, 1, 2, sharex=ax1)
             
-            # Draw ONLY the confidence interval and trend
-            PyPlot.fill_between(smooth_lon, lower_ci, upper_ci, color="#d62728", alpha=0.3, label="95% Bootstrap Confidence Interval", zorder=4)
-            PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3.2, label="Weighted Trend (Inv. Variance)", zorder=5)
+            # Draw ONLY the trend
+            PyPlot.plot(smooth_lon, smooth_off, color="#d62728", lw=3.2, label="Weighted Trend", zorder=5)
             
             PyPlot.axhline(0.0, color="gray", ls="--", lw=1.5, alpha=0.8, zorder=2)
             PyPlot.minorticks_on()
@@ -1260,15 +1228,13 @@ module Data
             
             PyPlot.xlabel("Longitude [deg]", fontsize=13, fontweight="bold")
             PyPlot.ylabel("Trend Offset [deg]", fontsize=13, fontweight="bold")
-            PyPlot.title("Zoom-in: Fitted Trend Variations", fontsize=14, fontweight="bold")
+            PyPlot.title("Fitted Trend Variations", fontsize=14, fontweight="bold")
             
             # Automatic selection of a tight Y range for the zoom, based on the error band
-            y_min, y_max = 0.0, 0.0
-            margin = 0.1
-            valid_lower = filter(!isnan, lower_ci)
-            valid_upper = filter(!isnan, upper_ci)
-            if !isempty(valid_lower) && !isempty(valid_upper)
-                y_min, y_max = minimum(valid_lower), maximum(valid_upper)
+            valid_trend = filter(!isnan, smooth_off)
+            y_min, y_max, margin = 0.0, 0.0, 0.1 # Initialize
+            if !isempty(valid_trend)
+                y_min, y_max = minimum(valid_trend), maximum(valid_trend)
                 margin = max((y_max - y_min) * 0.25, 0.05) 
                 PyPlot.ylim(y_min - margin, y_max + margin)
             end
@@ -1310,8 +1276,8 @@ module Data
             PyPlot.title("P3 Phase-Dependent Offset Trends (Grouped by Row Index)", fontsize=14, fontweight="bold")
             PyPlot.legend(loc="best", fontsize=10, frameon=true, framealpha=0.95, edgecolor="black")
             
-            if !isempty(valid_lower) && !isempty(valid_upper)
-                PyPlot.ylim(y_min - margin*2.0, y_max + margin*2.0)
+            if !isempty(valid_trend)
+                PyPlot.ylim(y_min - margin * 2.0, y_max + margin * 2.0)
             end
         else
             # Fallback in case there are no data points in a given phase
