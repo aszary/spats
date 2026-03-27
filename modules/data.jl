@@ -1175,7 +1175,7 @@ module Data
         end
 
         # --- 6. Plotting: Phase-Resolved Offsets ---
-        PyPlot.figure(figsize=(12, 16)) # Zwiększono wysokość, by pomieścić nowy, 3 panel z trendami wg fazy P3
+        PyPlot.figure(figsize=(12, 12)) # Przywrócono mniejszą wysokość (3 panele zamiast 4)
         
         if !isempty(lon_all)
             # Sorting input data is crucial for smoothing
@@ -1310,58 +1310,6 @@ module Data
             PyPlot.title("P3 Phase-Dependent Offset Trends (Grouped by Row Index)", fontsize=14, fontweight="bold")
             PyPlot.legend(loc="best", fontsize=10, frameon=true, framealpha=0.95, edgecolor="black")
             
-            # --- Plot 4: Sequentially Stitched Phase Plots (Bottom Panel) ---
-            ax4 = PyPlot.subplot(4, 1, 4)
-            
-            # Calculate the cumulative longitude for each phase
-            cumulative_lon = Float64[]
-            offset = 0.0
-            
-            for phase_idx in 1:n_phases
-                row_l = vec(l_matrix[phase_idx, :])
-                row_l_norm = normalize_01(row_l)
-                
-                # Generate longitude values for this phase, shifted by the cumulative offset
-                phase_lon = lon_arr .+ offset
-                append!(cumulative_lon, phase_lon)
-                
-                # Plot the normalized intensity for this phase
-                PyPlot.plot(phase_lon, row_l_norm, linewidth=1.2)
-                
-                # Update the offset for the next phase
-                offset += 360.0  # Shift by one full rotation (360 degrees)
-            end
-            
-            # Set plot title and labels
-            PyPlot.title("Sequential P3 Phase Visualization", fontsize=14, fontweight="bold")
-            PyPlot.xlabel("Cumulative Longitude [deg]", fontsize=13, fontweight="bold")
-            PyPlot.ylabel("Normalized Intensity", fontsize=13, fontweight="bold")
-            PyPlot.grid(true, linestyle=":", alpha=0.6)
-            PyPlot.minorticks_on()
-            
-            # Set x-axis limits to show the entire stitched sequence
-            PyPlot.xlim(minimum(cumulative_lon), maximum(cumulative_lon))
-            
-            # Adjust y-axis limits for better visualization
-            PyPlot.ylim(-0.1, 1.1)
-            
-            # Add vertical lines to mark the phase transitions
-            vline_pos = 360.0 * (1:(n_phases-1))
-            for v in vline_pos
-                PyPlot.axvline(v, color="gray", linestyle="--", linewidth=0.8, alpha=0.7)
-            end
-            
-            # Add labels for every 5th phase transition
-            label_pos = 360.0 * (5:5:n_phases)
-            for v in label_pos
-                if v <= maximum(cumulative_lon)
-                    PyPlot.text(v - 180.0, -0.08, "Phase $(Int(v/360))", ha="center", fontsize=9, color="black", fontweight="bold",
-                                bbox=Dict("facecolor"=>"white", "alpha"=>0.7, "edgecolor"=>"none", "boxstyle"=>"round,pad=0.2"))
-                end
-            end
-            
-            # Restore tight layout after adding the new subplot
-
             if !isempty(valid_lower) && !isempty(valid_upper)
                 PyPlot.ylim(y_min - margin*2.0, y_max + margin*2.0)
             end
@@ -1462,7 +1410,95 @@ module Data
             println("Not enough points in single phases to generate 6-panel examples (requires at least 2 sub-pulses per specific phase).")
         end
         
-        # --- 8. Output to CSV ---
+        # --- 8. Plotting: Sequential Phase Continuity (Separate Figure) ---
+        println("\n--- Generating Sequential Phase Continuity Plot ---")
+        
+        PyPlot.figure(figsize=(15, 6))
+        
+        cumulative_lon_all = Float64[]
+        
+        for pidx in 1:n_phases
+            # Extract points belonging to this phase
+            idx = findall(x -> round(Int, x) == pidx, phase_all)
+            
+            if !isempty(idx)
+                p_lon = lon_all[idx]
+                p_off = off_all[idx]
+                p_err = err_all[idx]
+                
+                # Sort by longitude
+                perm = sortperm(p_lon)
+                p_lon = p_lon[perm]
+                p_off = p_off[perm]
+                p_err = p_err[perm]
+                
+                # Shift longitude by full rotations
+                shift = (pidx - 1) * 360.0
+                seq_lon = p_lon .+ shift
+                
+                append!(cumulative_lon_all, seq_lon)
+                
+                # Scatter points with error bars
+                PyPlot.errorbar(seq_lon, p_off, yerr=p_err, fmt="o", color="#1f77b4", markersize=5, ecolor="black", elinewidth=1.0, capsize=2.0, alpha=0.7)
+                
+                # Line fitting for continuity checking (if enough points)
+                if length(p_lon) >= 2
+                    w = 1.0 ./ (p_err.^2 .+ 1e-6)
+                    sum_w = sum(w)
+                    sum_wx = sum(w .* seq_lon)
+                    sum_wy = sum(w .* p_off)
+                    sum_wxx = sum(w .* seq_lon.^2)
+                    sum_wxy = sum(w .* seq_lon .* p_off)
+                    
+                    delta = sum_w * sum_wxx - sum_wx^2
+                    if delta > 1e-6
+                        m_slope = (sum_w * sum_wxy - sum_wx * sum_wy) / delta
+                        c_intercept = (sum_wxx * sum_wy - sum_wx * sum_wxy) / delta
+                        
+                        # Extend line slightly for visual connection
+                        fit_x = [minimum(seq_lon) - 10.0, maximum(seq_lon) + 10.0] 
+                        fit_y = m_slope .* fit_x .+ c_intercept
+                        
+                        PyPlot.plot(fit_x, fit_y, color="#d62728", lw=2.0, linestyle="-")
+                    end
+                end
+            end
+        end
+        
+        # Add phase transition markers and labels
+        if !isempty(cumulative_lon_all)
+            min_c_lon = minimum(cumulative_lon_all)
+            max_c_lon = maximum(cumulative_lon_all)
+            PyPlot.xlim(min_c_lon - 180, max_c_lon + 180)
+            
+            ax = PyPlot.gca()
+            ymin, ymax = ax.get_ylim()
+            
+            for pidx in 1:n_phases
+                vpos = (pidx - 1) * 360.0
+                if vpos >= min_c_lon - 360 && vpos <= max_c_lon + 360
+                    PyPlot.axvline(vpos, color="gray", linestyle=":", linewidth=1.0, alpha=0.6)
+                    
+                    # Label every 5th phase
+                    if pidx % 5 == 0 || pidx == 1
+                        PyPlot.text(vpos, ymin + (ymax-ymin)*0.02, " P$pidx", color="gray", fontsize=9, alpha=0.8, rotation=90, va="bottom")
+                    end
+                end
+            end
+        end
+        
+        PyPlot.title("Sequential Continuity of Phase-Resolved Offsets", fontsize=15, fontweight="bold")
+        PyPlot.xlabel("Cumulative Longitude [deg]", fontsize=13, fontweight="bold")
+        PyPlot.ylabel("Offset [deg]", fontsize=13, fontweight="bold")
+        PyPlot.axhline(0.0, color="black", linestyle="--", linewidth=1.2, alpha=0.8)
+        PyPlot.grid(true, which="major", linestyle="--", alpha=0.4)
+        PyPlot.minorticks_on()
+        
+        PyPlot.tight_layout()
+        PyPlot.savefig(joinpath(indir, "$(pulsar_name)_sequential_offsets_$(type).pdf"), dpi=150)
+        PyPlot.close()
+
+        # --- 9. Output to CSV ---
         csv_path = joinpath(indir, "$(pulsar_name)_fourier_offsets_$(type).csv")
         open(csv_path, "w") do io
             println(io, "Longitude_deg,Offset_deg,Error_deg,Phase_SNR,P3_Phase_Idx")
