@@ -1123,14 +1123,14 @@ module Data
             snr_val = (maximum(row_l) - mean(off_pulse_l)) / (noise_l + 1e-6)
             
             # Verification: Keep weaker signals (5% threshold) but reject false noise by checking SNR > 3.0
-            if maximum(row_l_roi) < 0.40 || maximum(row_h_roi) < 0.40 || snr_val < 5.0
+            if maximum(row_l_roi) < 0.50 || maximum(row_h_roi) < 0.50 || snr_val < 5.0
                 continue
             end
             
             valid_phases += 1
             
             # Dynamically find components present in this specific phase:
-            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.40)
+            comps = ProfileMetrics.dynamic_component_fourier_offsets(row_l_roi, row_h_roi; threshold=0.50)
             
             for res in comps
                 # Reject unphysical measurements and those with drastically large errors (e.g., > 40 degrees)
