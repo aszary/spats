@@ -1187,7 +1187,7 @@ module Data
             # Define grid and smoothing parameter (sigma)
             smooth_lon = range(minimum(slon), maximum(slon), length=200)
             # Węższe jądro (sigma) dla lepszego podążania za lokalnym trendem
-            sigma = (maximum(slon) - minimum(slon)) / 25.0 
+            sigma = (maximum(slon) - minimum(slon)) / 40.0 
 
             # Calculate main trend (with rigorous error weighting)
             smooth_off = kernel_smooth_weighted(slon, soff, serr, smooth_lon, sigma)
