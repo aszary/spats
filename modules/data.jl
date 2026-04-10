@@ -1114,8 +1114,8 @@ module Data
         lt = joinpath(indir, "pulsar_low.txt") # no dabese here needed?
         ht = joinpath(indir, "pulsar_high.txt") # no dabese here needed?
 
-        l = Data.load_ascii_all(lt; start_ind=3)  
-        h = Data.load_ascii_all(ht; start_ind=3)  
+        #l = Data.load_ascii_all(lt; start_ind=3)  
+        #h = Data.load_ascii_all(ht; start_ind=3)  
 
 
     end
