@@ -1102,4 +1102,22 @@ module Data
 
 
 
+    function position_angle(indir)
+        # parameters file 
+        p = Tools.read_params(joinpath(indir, "params.json"))
+
+        # low, high frequancy filenames
+        low = joinpath(indir, "pulsar.low")
+        high = joinpath(indir, "pulsar.high")
+        
+        # txt files
+        lt = joinpath(indir, "pulsar_low.txt") # no dabese here needed?
+        ht = joinpath(indir, "pulsar_high.txt") # no dabese here needed?
+
+        l = Data.load_ascii_all(lt)  
+        h = Data.load_ascii_all(ht)  
+
+
+    end
+
 end # module
