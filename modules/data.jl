@@ -1105,13 +1105,13 @@ module Data
 
 
     function position_angle(indir)
-        # parameters file 
+        # parameters file
         p = Tools.read_params(joinpath(indir, "params.json"))
 
         # low, high frequancy filenames
         low = joinpath(indir, "pulsar.low")
         high = joinpath(indir, "pulsar.high")
-        
+
         # txt files
         lt = joinpath(indir, "pulsar_low.txt") # no dabese here needed?
         ht = joinpath(indir, "pulsar_high.txt") # no dabese here needed?
@@ -1119,7 +1119,46 @@ module Data
         l = Data.load_ascii_all(lt)
         h = Data.load_ascii_all(ht)
 
+        bin_st  = p["bin_st"]
+        bin_end = p["bin_end"]
 
+        pulses_l, bins_l, _ = size(l)
+        pulses_h, bins_h, _ = size(h)
+
+        # Longitude axis (centered at 0)
+        db_l = (bin_end + 1) - bin_st
+        dl_l = 360.0 * db_l / bins_l
+        lon_l = collect(range(-dl_l/2.0, dl_l/2.0, length=db_l))
+
+        db_h = (bin_end + 1) - bin_st
+        dl_h = 360.0 * db_h / bins_h
+        lon_h = collect(range(-dl_h/2.0, dl_h/2.0, length=db_h))
+
+        # Average Stokes profiles over on-pulse window
+        I_l = vec(mean(l[:, bin_st:bin_end, 1], dims=1))
+        Q_l = vec(mean(l[:, bin_st:bin_end, 2], dims=1))
+        U_l = vec(mean(l[:, bin_st:bin_end, 3], dims=1))
+        V_l = vec(mean(l[:, bin_st:bin_end, 4], dims=1))
+        Lin_l = sqrt.(Q_l.^2 .+ U_l.^2)
+
+        I_h = vec(mean(h[:, bin_st:bin_end, 1], dims=1))
+        Q_h = vec(mean(h[:, bin_st:bin_end, 2], dims=1))
+        U_h = vec(mean(h[:, bin_st:bin_end, 3], dims=1))
+        V_h = vec(mean(h[:, bin_st:bin_end, 4], dims=1))
+        Lin_h = sqrt.(Q_h.^2 .+ U_h.^2)
+
+        # PA from average Q, U, masked where average I < 3*off-pulse noise
+        off_noise_l = std(l[:, 1:bin_st-1, 1])
+        off_noise_h = std(h[:, 1:bin_st-1, 1])
+        thresh_l = 3.0 * off_noise_l / sqrt(pulses_l)
+        thresh_h = 3.0 * off_noise_h / sqrt(pulses_h)
+
+        pa_l = [I_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
+        pa_h = [I_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
+
+        Plot.position_angle(lon_l, pa_l, I_l, Lin_l, V_l,
+                            lon_h, pa_h, I_h, Lin_h, V_h,
+                            indir; show_=true)
     end
 
 end # module

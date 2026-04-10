@@ -923,5 +923,35 @@ module Plot
     end
 
 
+    function position_angle(lon_l, pa_l, I_l, Lin_l, V_l,
+                            lon_h, pa_h, I_h, Lin_h, V_h,
+                            outdir; show_=true)
+        figure(figsize=(3.14961, 4.0))
+        subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
+
+        # Top: PA
+        subplot2grid((3, 1), (0, 0))
+        scatter(lon_l, pa_l, s=3, c="tab:blue",   label="low")
+        scatter(lon_h, pa_h, s=3, c="tab:orange", label="high")
+        ylabel("PA [deg]")
+        tick_params(labelbottom=false)
+        minorticks_on()
+
+        # Bottom: Stokes profiles (normalized to peak I)
+        subplot2grid((3, 1), (1, 0), rowspan=2)
+        plot(lon_l, I_l   ./ maximum(I_l), c="black", lw=0.8)
+        plot(lon_l, Lin_l ./ maximum(I_l), c="red",   lw=0.8)
+        plot(lon_l, V_l   ./ maximum(I_l), c="blue",  lw=0.8)
+        plot(lon_h, I_h   ./ maximum(I_h), c="black", lw=0.8, ls="--")
+        plot(lon_h, Lin_h ./ maximum(I_h), c="red",   lw=0.8, ls="--")
+        plot(lon_h, V_h   ./ maximum(I_h), c="blue",  lw=0.8, ls="--")
+        xlabel("Longitude [deg]")
+        ylabel("Flux Density [norm]")
+        minorticks_on()
+
+        savefig(joinpath(outdir, "position_angle.pdf"), dpi=200)
+        if show_ show() end
+    end
+
 
 end  # module Plot
