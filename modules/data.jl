@@ -61,7 +61,7 @@ module Data
         Loads PSRCHIVE ASCII file with all 4 polarizations.
         Returns a 3D array: (pulse, bin, pol)
     """
-    function load_ascii_all(infile; start_ind=2)
+    function load_ascii_all(infile)
         f = open(infile)
         lines = readlines(f)
         
@@ -72,7 +72,9 @@ module Data
 
         data = Array{Float64}(undef, pulses, bins, pols)
 
-        for i in start_ind:length(lines)
+        for i in eachindex(lines)
+            startswith(lines[i], "F") && continue
+            startswith(lines[i], "M") && continue
             res = split(lines[i])
             pulse = parse(Int, res[1]) + 1
             bin = parse(Int, res[3]) + 1
@@ -1114,8 +1116,8 @@ module Data
         lt = joinpath(indir, "pulsar_low.txt") # no dabese here needed?
         ht = joinpath(indir, "pulsar_high.txt") # no dabese here needed?
 
-        l = Data.load_ascii_all(lt; start_ind=3)  
-        #h = Data.load_ascii_all(ht; start_ind=3)  
+        l = Data.load_ascii_all(lt)
+        h = Data.load_ascii_all(ht)
 
 
     end
