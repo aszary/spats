@@ -1113,14 +1113,16 @@ module Data
     Returns NamedTuple with fields: alpha, beta, phi0, pa0 (all in degrees), chi2.
     Returns nothing if fewer than 5 valid PA points.
     """
-    function fit_rvm(lon_deg, pa_deg)
-        mask = .!isnan.(pa_deg)
+    function fit_rvm(lon_deg, pa_deg, pa_err_deg)
+        mask = .!isnan.(pa_deg) .& .!isnan.(pa_err_deg) .& (pa_err_deg .> 0)
         if sum(mask) < 5
             return nothing
         end
 
-        lon_rad = lon_deg[mask] .* (π / 180)
-        pa_rad  = pa_deg[mask]  .* (π / 180)
+        lon_rad = lon_deg[mask]     .* (π / 180)
+        pa_rad  = pa_deg[mask]      .* (π / 180)
+        sigma   = pa_err_deg[mask]  .* (π / 180)
+        inv_var = 1.0 ./ (sigma .^ 2)
 
         # Grid as in Johnston et al. 2023
         alphas = range(5.0, 175.0, length=85) .* (π / 180)
@@ -1149,9 +1151,10 @@ module Data
                     # PA is ambiguous mod π → wrap residuals to [-π/2, π/2]
                     diffs = pa_rad .- rvm_shape
                     diffs_w = mod.(diffs .+ π/2, π) .- π/2
-                    pa0 = mean(diffs_w)
+                    # Weighted PA0: minimizes Σ ((diff - PA0)/σ)²
+                    pa0 = sum(diffs_w .* inv_var) / sum(inv_var)
                     residuals = diffs_w .- pa0
-                    chi2 = sum(residuals .^ 2)
+                    chi2 = sum((residuals .^ 2) .* inv_var)
 
                     if chi2 < best_chi2
                         best_chi2  = chi2
@@ -1164,11 +1167,13 @@ module Data
             end
         end
 
-        return (alpha = best_alpha * (180/π),
-                beta  = best_beta  * (180/π),
-                phi0  = best_phi0  * (180/π),
-                pa0   = best_pa0   * (180/π),
-                chi2  = best_chi2)
+        ndof = max(sum(mask) - 4, 1)
+        return (alpha    = best_alpha * (180/π),
+                beta     = best_beta  * (180/π),
+                phi0     = best_phi0  * (180/π),
+                pa0      = best_pa0   * (180/π),
+                chi2     = best_chi2,
+                chi2_red = best_chi2 / ndof)
     end
 
 
@@ -1255,13 +1260,13 @@ module Data
 
         # Fit RVM to low-frequency PA (more points typically)
         println("Fitting RVM (low frequency)...")
-        rvm_params_l = fit_rvm(lon_l, pa_l)
+        rvm_params_l = fit_rvm(lon_l, pa_l, pa_err_l)
         if !isnothing(rvm_params_l)
             println("  α = $(round(rvm_params_l.alpha, digits=1))°, " *
                     "β = $(round(rvm_params_l.beta, digits=1))°, " *
                     "φ₀ = $(round(rvm_params_l.phi0, digits=2))°, " *
                     "PA₀ = $(round(rvm_params_l.pa0, digits=1))°, " *
-                    "χ² = $(round(rvm_params_l.chi2, digits=4))")
+                    "χ²/ndof = $(round(rvm_params_l.chi2_red, digits=2))")
             lon_rvm_l, pa_rvm_l, pa_rvm_l_ortho = rvm_curve(rvm_params_l,
                                                               minimum(lon_l), maximum(lon_l))
         else
@@ -1270,13 +1275,13 @@ module Data
         end
 
         println("Fitting RVM (high frequency)...")
-        rvm_params_h = fit_rvm(lon_h, pa_h)
+        rvm_params_h = fit_rvm(lon_h, pa_h, pa_err_h)
         if !isnothing(rvm_params_h)
             println("  α = $(round(rvm_params_h.alpha, digits=1))°, " *
                     "β = $(round(rvm_params_h.beta, digits=1))°, " *
                     "φ₀ = $(round(rvm_params_h.phi0, digits=2))°, " *
                     "PA₀ = $(round(rvm_params_h.pa0, digits=1))°, " *
-                    "χ² = $(round(rvm_params_h.chi2, digits=4))")
+                    "χ²/ndof = $(round(rvm_params_h.chi2_red, digits=2))")
             lon_rvm_h, pa_rvm_h, pa_rvm_h_ortho = rvm_curve(rvm_params_h,
                                                               minimum(lon_h), maximum(lon_h))
         else
