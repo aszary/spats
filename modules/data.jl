@@ -1172,9 +1172,20 @@ module Data
     end
 
 
+    # Unwrap position angle array with period 180° so the curve stays continuous.
+    function _unwrap_pa180(pa_deg)
+        out = copy(Float64.(pa_deg))
+        for i in eachindex(out)[2:end]
+            d = out[i] - out[i-1]
+            out[i] = out[i-1] + (d - 180.0 * round(d / 180.0))
+        end
+        return out
+    end
+
     """
     Evaluate RVM curve over a dense longitude grid (degrees in, degrees out).
     Returns (lon_dense, pa_rvm, pa_rvm_ortho) where pa_rvm_ortho is the 90° mode.
+    The curves are unwrapped (no discontinuous jumps).
     """
     function rvm_curve(params, lon_min_deg, lon_max_deg; npts=500)
         lon = collect(range(lon_min_deg, lon_max_deg, length=npts))
@@ -1188,8 +1199,10 @@ module Data
         dphi = lon_r .- phi0
         pa_r = pa0 .+ atan.(sin(alpha) .* sin.(dphi),
                              sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
-        pa_deg       = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
-        pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
+
+        # Unwrap with period 180° to avoid jumps, then add 90° for the orthogonal mode
+        pa_deg       = _unwrap_pa180(pa_r .* (180/π))
+        pa_ortho_deg = pa_deg .+ 90.0
 
         return lon, pa_deg, pa_ortho_deg
     end
