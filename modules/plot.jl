@@ -930,7 +930,7 @@ module Plot
                             phi0_l=nothing,
                             lon_rvm_h=nothing, pa_rvm_h=nothing, pa_rvm_h_ortho=nothing,
                             phi0_h=nothing)
-        figure(figsize=(3.14961, 4.0))
+        figure(figsize=(5.354337, 6.8))
         subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
 
         # Top: PA with error bars
