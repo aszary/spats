@@ -1196,6 +1196,17 @@ module Data
         pa_deg       = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
         pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
 
+        # Break line at wrap jumps so renderers don't draw vertical segments
+        idx = eachindex(pa_deg)
+        for i in Iterators.drop(idx, 1)
+            if abs(pa_deg[i] - pa_deg[i-1]) > 90
+                pa_deg[i-1] = NaN
+            end
+            if abs(pa_ortho_deg[i] - pa_ortho_deg[i-1]) > 90
+                pa_ortho_deg[i-1] = NaN
+            end
+        end
+
         return lon, pa_deg, pa_ortho_deg
     end
 
