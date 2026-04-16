@@ -1104,6 +1104,97 @@ module Data
 
 
 
+    """
+    Fit the Rotating Vector Model (RVM) to position angle data.
+
+    Grid search over α (inclination) and β (impact parameter), then for each
+    (α, β) pair solves linearly for PA0 and searches over φ0 (inflection longitude).
+
+    Returns NamedTuple with fields: alpha, beta, phi0, pa0 (all in degrees), chi2.
+    Returns nothing if fewer than 5 valid PA points.
+    """
+    function fit_rvm(lon_deg, pa_deg)
+        mask = .!isnan.(pa_deg)
+        if sum(mask) < 5
+            return nothing
+        end
+
+        lon_rad = lon_deg[mask] .* (π / 180)
+        pa_rad  = pa_deg[mask]  .* (π / 180)
+
+        # Grid as in Johnston et al. 2023
+        alphas = range(5.0, 175.0, length=85) .* (π / 180)
+        betas  = range(-20.0, 20.0, length=40) .* (π / 180)
+        # Search φ0 over the full longitude range
+        lon_min, lon_max = extrema(lon_rad)
+        margin = (lon_max - lon_min) * 0.2
+        phi0s = range(lon_min - margin, lon_max + margin, length=60)
+
+        best_chi2  = Inf
+        best_alpha = 0.0
+        best_beta  = 0.0
+        best_phi0  = 0.0
+        best_pa0   = 0.0
+
+        for alpha in alphas
+            for beta in betas
+                zeta = alpha + beta
+                ca = cos(alpha); sa = sin(alpha)
+                cz = cos(zeta);  sz = sin(zeta)
+                for phi0 in phi0s
+                    dphi = lon_rad .- phi0
+                    rvm_shape = atan.(sa .* sin.(dphi),
+                                      sz .* ca .- cz .* sa .* cos.(dphi))
+
+                    # PA is ambiguous mod π → wrap residuals to [-π/2, π/2]
+                    diffs = pa_rad .- rvm_shape
+                    diffs_w = mod.(diffs .+ π/2, π) .- π/2
+                    pa0 = mean(diffs_w)
+                    residuals = diffs_w .- pa0
+                    chi2 = sum(residuals .^ 2)
+
+                    if chi2 < best_chi2
+                        best_chi2  = chi2
+                        best_alpha = alpha
+                        best_beta  = beta
+                        best_phi0  = phi0
+                        best_pa0   = pa0
+                    end
+                end
+            end
+        end
+
+        return (alpha = best_alpha * (180/π),
+                beta  = best_beta  * (180/π),
+                phi0  = best_phi0  * (180/π),
+                pa0   = best_pa0   * (180/π),
+                chi2  = best_chi2)
+    end
+
+
+    """
+    Evaluate RVM curve over a dense longitude grid (degrees in, degrees out).
+    Returns (lon_dense, pa_rvm, pa_rvm_ortho) where pa_rvm_ortho is the 90° mode.
+    """
+    function rvm_curve(params, lon_min_deg, lon_max_deg; npts=500)
+        lon = collect(range(lon_min_deg, lon_max_deg, length=npts))
+        lon_r = lon .* (π / 180)
+        phi0  = params.phi0 * (π / 180)
+        pa0   = params.pa0  * (π / 180)
+        alpha = params.alpha * (π / 180)
+        beta  = params.beta  * (π / 180)
+        zeta  = alpha + beta
+
+        dphi = lon_r .- phi0
+        pa_r = pa0 .+ atan.(sin(alpha) .* sin.(dphi),
+                             sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
+        pa_deg       = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
+        pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
+
+        return lon, pa_deg, pa_ortho_deg
+    end
+
+
     function position_angle(indir)
         # parameters file
         p = Tools.read_params(joinpath(indir, "params.json"))
@@ -1156,9 +1247,47 @@ module Data
         pa_l = [I_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
         pa_h = [I_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
 
+        # Fit RVM to low-frequency PA (more points typically)
+        println("Fitting RVM (low frequency)...")
+        rvm_params_l = fit_rvm(lon_l, pa_l)
+        if !isnothing(rvm_params_l)
+            println("  α = $(round(rvm_params_l.alpha, digits=1))°, " *
+                    "β = $(round(rvm_params_l.beta, digits=1))°, " *
+                    "φ₀ = $(round(rvm_params_l.phi0, digits=2))°, " *
+                    "PA₀ = $(round(rvm_params_l.pa0, digits=1))°, " *
+                    "χ² = $(round(rvm_params_l.chi2, digits=4))")
+            lon_rvm_l, pa_rvm_l, pa_rvm_l_ortho = rvm_curve(rvm_params_l,
+                                                              minimum(lon_l), maximum(lon_l))
+        else
+            println("  Not enough PA points for RVM fit (low)")
+            lon_rvm_l = pa_rvm_l = pa_rvm_l_ortho = nothing
+        end
+
+        println("Fitting RVM (high frequency)...")
+        rvm_params_h = fit_rvm(lon_h, pa_h)
+        if !isnothing(rvm_params_h)
+            println("  α = $(round(rvm_params_h.alpha, digits=1))°, " *
+                    "β = $(round(rvm_params_h.beta, digits=1))°, " *
+                    "φ₀ = $(round(rvm_params_h.phi0, digits=2))°, " *
+                    "PA₀ = $(round(rvm_params_h.pa0, digits=1))°, " *
+                    "χ² = $(round(rvm_params_h.chi2, digits=4))")
+            lon_rvm_h, pa_rvm_h, pa_rvm_h_ortho = rvm_curve(rvm_params_h,
+                                                              minimum(lon_h), maximum(lon_h))
+        else
+            println("  Not enough PA points for RVM fit (high)")
+            lon_rvm_h = pa_rvm_h = pa_rvm_h_ortho = nothing
+        end
+
+        phi0_l = isnothing(rvm_params_l) ? nothing : rvm_params_l.phi0
+        phi0_h = isnothing(rvm_params_h) ? nothing : rvm_params_h.phi0
+
         Plot.position_angle(lon_l, pa_l, I_l, Lin_l, V_l,
                             lon_h, pa_h, I_h, Lin_h, V_h,
-                            indir; show_=true)
+                            indir; show_=true,
+                            lon_rvm_l=lon_rvm_l, pa_rvm_l=pa_rvm_l,
+                            pa_rvm_l_ortho=pa_rvm_l_ortho, phi0_l=phi0_l,
+                            lon_rvm_h=lon_rvm_h, pa_rvm_h=pa_rvm_h,
+                            pa_rvm_h_ortho=pa_rvm_h_ortho, phi0_h=phi0_h)
     end
 
 end # module

@@ -925,14 +925,37 @@ module Plot
 
     function position_angle(lon_l, pa_l, I_l, Lin_l, V_l,
                             lon_h, pa_h, I_h, Lin_h, V_h,
-                            outdir; show_=true)
+                            outdir; show_=true,
+                            lon_rvm_l=nothing, pa_rvm_l=nothing, pa_rvm_l_ortho=nothing,
+                            phi0_l=nothing,
+                            lon_rvm_h=nothing, pa_rvm_h=nothing, pa_rvm_h_ortho=nothing,
+                            phi0_h=nothing)
         figure(figsize=(3.14961, 4.0))
         subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
 
         # Top: PA
         subplot2grid((3, 1), (0, 0))
-        scatter(lon_l, pa_l, s=3, c="tab:blue",   label="low")
-        scatter(lon_h, pa_h, s=3, c="tab:orange", label="high")
+        scatter(lon_l, pa_l, s=3, c="tab:blue",   label="low",  zorder=3)
+        scatter(lon_h, pa_h, s=3, c="tab:orange", label="high", zorder=3)
+
+        # Best-fitting RVM (orange) and its 90° orthogonal mode
+        if !isnothing(lon_rvm_l) && !isnothing(pa_rvm_l)
+            plot(lon_rvm_l, pa_rvm_l,       c="darkorange", lw=1.2, zorder=2)
+            plot(lon_rvm_l, pa_rvm_l_ortho, c="darkorange", lw=1.2, zorder=2)
+        end
+        if !isnothing(lon_rvm_h) && !isnothing(pa_rvm_h)
+            plot(lon_rvm_h, pa_rvm_h,       c="darkorange", lw=1.2, ls="--", zorder=2)
+            plot(lon_rvm_h, pa_rvm_h_ortho, c="darkorange", lw=1.2, ls="--", zorder=2)
+        end
+
+        # Inflection point — blue vertical line spanning the axes
+        if !isnothing(phi0_l)
+            axvline(phi0_l, c="tab:blue", lw=1.5, zorder=4)
+        end
+        if !isnothing(phi0_h)
+            axvline(phi0_h, c="tab:blue", lw=1.5, ls="--", zorder=4)
+        end
+
         ylabel("PA [deg]")
         tick_params(labelbottom=false)
         minorticks_on()
