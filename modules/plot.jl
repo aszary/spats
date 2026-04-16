@@ -923,8 +923,8 @@ module Plot
     end
 
 
-    function position_angle(lon_l, pa_l, I_l, Lin_l, V_l,
-                            lon_h, pa_h, I_h, Lin_h, V_h,
+    function position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
+                            lon_h, pa_h, pa_err_h, I_h, Lin_h, V_h,
                             outdir; show_=true,
                             lon_rvm_l=nothing, pa_rvm_l=nothing, pa_rvm_l_ortho=nothing,
                             phi0_l=nothing,
@@ -933,10 +933,12 @@ module Plot
         figure(figsize=(3.14961, 4.0))
         subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
 
-        # Top: PA
+        # Top: PA with error bars
         subplot2grid((3, 1), (0, 0))
-        scatter(lon_l, pa_l, s=3, c="tab:blue",   label="low",  zorder=3)
-        scatter(lon_h, pa_h, s=3, c="tab:orange", label="high", zorder=3)
+        errorbar(lon_l, pa_l, yerr=pa_err_l, fmt=".", ms=2, elinewidth=0.6,
+                 c="tab:blue",   label="low",  zorder=3)
+        errorbar(lon_h, pa_h, yerr=pa_err_h, fmt=".", ms=2, elinewidth=0.6,
+                 c="tab:orange", label="high", zorder=3)
 
         # Best-fitting RVM (orange) and its 90° orthogonal mode
         if !isnothing(lon_rvm_l) && !isnothing(pa_rvm_l)

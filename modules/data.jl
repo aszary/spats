@@ -1247,6 +1247,13 @@ module Data
         pa_l = [I_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
         pa_h = [I_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
 
+        # PA errors: σ_PA = 0.5 * σ_noise_avg / L  (in degrees)
+        # σ_noise_avg = off_noise / sqrt(N_pulses) — noise on the averaged Q, U
+        sigma_avg_l = off_noise_l / sqrt(pulses_l)
+        sigma_avg_h = off_noise_h / sqrt(pulses_h)
+        pa_err_l = [I_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
+        pa_err_h = [I_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:db_h]
+
         # Fit RVM to low-frequency PA (more points typically)
         println("Fitting RVM (low frequency)...")
         rvm_params_l = fit_rvm(lon_l, pa_l)
@@ -1281,8 +1288,8 @@ module Data
         phi0_l = isnothing(rvm_params_l) ? nothing : rvm_params_l.phi0
         phi0_h = isnothing(rvm_params_h) ? nothing : rvm_params_h.phi0
 
-        Plot.position_angle(lon_l, pa_l, I_l, Lin_l, V_l,
-                            lon_h, pa_h, I_h, Lin_h, V_h,
+        Plot.position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
+                            lon_h, pa_h, pa_err_h, I_h, Lin_h, V_h,
                             indir; show_=true,
                             lon_rvm_l=lon_rvm_l, pa_rvm_l=pa_rvm_l,
                             pa_rvm_l_ortho=pa_rvm_l_ortho, phi0_l=phi0_l,
