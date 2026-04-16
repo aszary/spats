@@ -1269,6 +1269,19 @@ module Data
         pa_err_l = [I_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
         pa_err_h = [I_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:db_h]
 
+        # Shift unwrapped RVM curve to the branch closest to the observed PA data.
+        function _align_rvm(lon_rvm, pa_rvm, pa_rvm_ortho, lon_data, pa_data)
+            valid = .!isnan.(pa_data)
+            sum(valid) < 3 && return pa_rvm, pa_rvm_ortho
+            med_data = median(pa_data[valid])
+            lo, hi = extrema(lon_data[valid])
+            in_range = lo .<= lon_rvm .<= hi
+            sum(in_range) == 0 && return pa_rvm, pa_rvm_ortho
+            med_rvm = median(pa_rvm[in_range])
+            shift = round((med_data - med_rvm) / 180.0) * 180.0
+            return pa_rvm .+ shift, pa_rvm_ortho .+ shift
+        end
+
         # Fit RVM to low-frequency PA (more points typically)
         println("Fitting RVM (low frequency)...")
         rvm_params_l = fit_rvm(lon_l, pa_l)
@@ -1280,6 +1293,8 @@ module Data
                     "χ² = $(round(rvm_params_l.chi2, digits=4))")
             lon_rvm_l, pa_rvm_l, pa_rvm_l_ortho = rvm_curve(rvm_params_l,
                                                               minimum(lon_l), maximum(lon_l))
+            pa_rvm_l, pa_rvm_l_ortho = _align_rvm(lon_rvm_l, pa_rvm_l, pa_rvm_l_ortho,
+                                                   lon_l, pa_l)
         else
             println("  Not enough PA points for RVM fit (low)")
             lon_rvm_l = pa_rvm_l = pa_rvm_l_ortho = nothing
@@ -1295,6 +1310,8 @@ module Data
                     "χ² = $(round(rvm_params_h.chi2, digits=4))")
             lon_rvm_h, pa_rvm_h, pa_rvm_h_ortho = rvm_curve(rvm_params_h,
                                                               minimum(lon_h), maximum(lon_h))
+            pa_rvm_h, pa_rvm_h_ortho = _align_rvm(lon_rvm_h, pa_rvm_h, pa_rvm_h_ortho,
+                                                   lon_h, pa_h)
         else
             println("  Not enough PA points for RVM fit (high)")
             lon_rvm_h = pa_rvm_h = pa_rvm_h_ortho = nothing
