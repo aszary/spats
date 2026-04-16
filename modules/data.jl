@@ -1238,21 +1238,20 @@ module Data
         V_h = vec(mean(h[:, bin_st:bin_end, 4], dims=1))
         Lin_h = sqrt.(Q_h.^2 .+ U_h.^2)
 
-        # PA from average Q, U, masked where average I < 3*off-pulse noise
+        # PA masked where L < 5σ on averaged Q, U (Johnston et al. 2023)
         off_noise_l = std(l[:, 1:bin_st-1, 1])
         off_noise_h = std(h[:, 1:bin_st-1, 1])
-        thresh_l = 3.0 * off_noise_l / sqrt(pulses_l)
-        thresh_h = 3.0 * off_noise_h / sqrt(pulses_h)
-
-        pa_l = [I_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
-        pa_h = [I_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
-
-        # PA errors: σ_PA = 0.5 * σ_noise_avg / L  (in degrees)
-        # σ_noise_avg = off_noise / sqrt(N_pulses) — noise on the averaged Q, U
         sigma_avg_l = off_noise_l / sqrt(pulses_l)
         sigma_avg_h = off_noise_h / sqrt(pulses_h)
-        pa_err_l = [I_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
-        pa_err_h = [I_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:db_h]
+        thresh_l = 5.0 * sigma_avg_l
+        thresh_h = 5.0 * sigma_avg_h
+
+        pa_l = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
+        pa_h = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
+
+        # PA errors: σ_PA = 0.5 * σ_noise_avg / L  (in degrees)
+        pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
+        pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:db_h]
 
         # Fit RVM to low-frequency PA (more points typically)
         println("Fitting RVM (low frequency)...")
