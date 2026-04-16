@@ -1146,11 +1146,11 @@ module Data
                     rvm_shape = atan.(sa .* sin.(dphi),
                                       sz .* ca .- cz .* sa .* cos.(dphi))
 
-                    # pa0 = mean(pa_obs - rvm_shape) wrapped to (-π/2, π/2)
-                    diffs_w = mod.(pa_rad .- rvm_shape .+ π/2, π) .- π/2
+                    # PA is ambiguous mod π → wrap residuals to [-π/2, π/2]
+                    diffs = pa_rad .- rvm_shape
+                    diffs_w = mod.(diffs .+ π/2, π) .- π/2
                     pa0 = mean(diffs_w)
-                    # residuals: (pa_obs - pa0 - rvm_shape) wrapped
-                    residuals = mod.(pa_rad .- pa0 .- rvm_shape .+ π/2, π) .- π/2
+                    residuals = diffs_w .- pa0
                     chi2 = sum(residuals .^ 2)
 
                     if chi2 < best_chi2
@@ -1172,20 +1172,9 @@ module Data
     end
 
 
-    # Unwrap position angle array with period 180° so the curve stays continuous.
-    function _unwrap_pa180(pa_deg)
-        out = copy(Float64.(pa_deg))
-        for i in eachindex(out)[2:end]
-            d = out[i] - out[i-1]
-            out[i] = out[i-1] + (d - 180.0 * round(d / 180.0))
-        end
-        return out
-    end
-
     """
     Evaluate RVM curve over a dense longitude grid (degrees in, degrees out).
     Returns (lon_dense, pa_rvm, pa_rvm_ortho) where pa_rvm_ortho is the 90° mode.
-    The curves are unwrapped (no discontinuous jumps).
     """
     function rvm_curve(params, lon_min_deg, lon_max_deg; npts=500)
         lon = collect(range(lon_min_deg, lon_max_deg, length=npts))
@@ -1197,14 +1186,10 @@ module Data
         zeta  = alpha + beta
 
         dphi = lon_r .- phi0
-        rvm_shape = atan.(sin(alpha) .* sin.(dphi),
-                          sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
-
-        # Wrap (pa0 + rvm_shape) to (-π/2, π/2) per point — same formula as in fitting —
-        # then unwrap the sequence for plotting continuity
-        pa_wrapped = mod.(pa0 .+ rvm_shape .+ π/2, π) .- π/2
-        pa_deg = _unwrap_pa180(pa_wrapped .* (180/π))
-        pa_ortho_deg = pa_deg .+ 90.0
+        pa_r = pa0 .+ atan.(sin(alpha) .* sin.(dphi),
+                             sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
+        pa_deg       = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
+        pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
 
         return lon, pa_deg, pa_ortho_deg
     end
@@ -1269,19 +1254,6 @@ module Data
         pa_err_l = [I_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
         pa_err_h = [I_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:db_h]
 
-        # Shift unwrapped RVM curve to the branch closest to the observed PA data.
-        function _align_rvm(lon_rvm, pa_rvm, pa_rvm_ortho, lon_data, pa_data)
-            valid = .!isnan.(pa_data)
-            sum(valid) < 3 && return pa_rvm, pa_rvm_ortho
-            med_data = median(pa_data[valid])
-            lo, hi = extrema(lon_data[valid])
-            in_range = lo .<= lon_rvm .<= hi
-            sum(in_range) == 0 && return pa_rvm, pa_rvm_ortho
-            med_rvm = median(pa_rvm[in_range])
-            shift = round((med_data - med_rvm) / 180.0) * 180.0
-            return pa_rvm .+ shift, pa_rvm_ortho .+ shift
-        end
-
         # Fit RVM to low-frequency PA (more points typically)
         println("Fitting RVM (low frequency)...")
         rvm_params_l = fit_rvm(lon_l, pa_l)
@@ -1293,8 +1265,6 @@ module Data
                     "χ² = $(round(rvm_params_l.chi2, digits=4))")
             lon_rvm_l, pa_rvm_l, pa_rvm_l_ortho = rvm_curve(rvm_params_l,
                                                               minimum(lon_l), maximum(lon_l))
-            pa_rvm_l, pa_rvm_l_ortho = _align_rvm(lon_rvm_l, pa_rvm_l, pa_rvm_l_ortho,
-                                                   lon_l, pa_l)
         else
             println("  Not enough PA points for RVM fit (low)")
             lon_rvm_l = pa_rvm_l = pa_rvm_l_ortho = nothing
@@ -1310,8 +1280,6 @@ module Data
                     "χ² = $(round(rvm_params_h.chi2, digits=4))")
             lon_rvm_h, pa_rvm_h, pa_rvm_h_ortho = rvm_curve(rvm_params_h,
                                                               minimum(lon_h), maximum(lon_h))
-            pa_rvm_h, pa_rvm_h_ortho = _align_rvm(lon_rvm_h, pa_rvm_h, pa_rvm_h_ortho,
-                                                   lon_h, pa_h)
         else
             println("  Not enough PA points for RVM fit (high)")
             lon_rvm_h = pa_rvm_h = pa_rvm_h_ortho = nothing
