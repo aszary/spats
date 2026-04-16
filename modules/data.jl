@@ -1143,14 +1143,14 @@ module Data
                 cz = cos(zeta);  sz = sin(zeta)
                 for phi0 in phi0s
                     dphi = lon_rad .- phi0
-                    # atan2 returns (-π, π]; wrap to (-π/2, π/2] to match observed PA range
-                    rvm_shape = mod.(atan.(sa .* sin.(dphi),
-                                          sz .* ca .- cz .* sa .* cos.(dphi)) .+ π/2, π) .- π/2
+                    rvm_shape = atan.(sa .* sin.(dphi),
+                                      sz .* ca .- cz .* sa .* cos.(dphi))
 
-                    # Find best PA0: mean wrapped residual
+                    # pa0 = mean(pa_obs - rvm_shape) wrapped to (-π/2, π/2)
                     diffs_w = mod.(pa_rad .- rvm_shape .+ π/2, π) .- π/2
                     pa0 = mean(diffs_w)
-                    residuals = mod.(diffs_w .- pa0 .+ π/2, π) .- π/2
+                    # residuals: (pa_obs - pa0 - rvm_shape) wrapped
+                    residuals = mod.(pa_rad .- pa0 .- rvm_shape .+ π/2, π) .- π/2
                     chi2 = sum(residuals .^ 2)
 
                     if chi2 < best_chi2
@@ -1197,12 +1197,13 @@ module Data
         zeta  = alpha + beta
 
         dphi = lon_r .- phi0
-        # atan2 returns (-π, π]; first wrap each point to (-π/2, π/2] (PA range),
-        # add PA0, then unwrap for continuity
-        rvm_shape = mod.(atan.(sin(alpha) .* sin.(dphi),
-                               sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
-                         .+ π/2, π) .- π/2
-        pa_deg = _unwrap_pa180((pa0 .+ rvm_shape) .* (180/π))
+        rvm_shape = atan.(sin(alpha) .* sin.(dphi),
+                          sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
+
+        # Wrap (pa0 + rvm_shape) to (-π/2, π/2) per point — same formula as in fitting —
+        # then unwrap the sequence for plotting continuity
+        pa_wrapped = mod.(pa0 .+ rvm_shape .+ π/2, π) .- π/2
+        pa_deg = _unwrap_pa180(pa_wrapped .* (180/π))
         pa_ortho_deg = pa_deg .+ 90.0
 
         return lon, pa_deg, pa_ortho_deg
