@@ -142,7 +142,7 @@ module SpaTs
         #Data.p3fold_psrdata(vpmout*"J1539-6322_16")
         #Data.analyse_p3folds_16(vpmout*"J1539-6322_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J1539-6322_16", "norefine", n_comp=2)
-        Data.position_angle(vpmout*"J1539-6322_16")
+        #Data.position_angle(vpmout*"J1539-6322_16")
 
         # work on pulsar J1921+2153
         #process_psrdata_16("/home/psr/data/new/J1921+2153/2020-08-08-19:17:21/", vpmout*"J1921+2153_16")
@@ -240,7 +240,7 @@ module SpaTs
 
         # work on pulsar J1651-7642 
         #Data.analyse_p3folds_16_new(vpmout*"J1651-7642_16", "norefine"; n_comp=2)
-        #Data.position_angle(vpmout*"J1651-7642_16")
+        Data.position_angle(vpmout*"J1651-7642_16")
 
         # work on pulsar J1137-6700 
         #process_psrdata_16("/home/psr/data/new/J1137-6700/2019-11-06-00:36:02/", vpmout*"J1137-6700_16")
