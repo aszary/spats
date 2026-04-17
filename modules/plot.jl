@@ -869,15 +869,8 @@ module Plot
                                vec(mean(data_high[:, :, 3], dims=1)).^2)
             V_high_full = vec(mean(data_high[:, :, 4], dims=1))
             
-            I_max = maximum(I_low_full)
-            
-            # Also compute on-pulse profiles for reference (not used currently)
-            I_low = vec(mean(data_low[:, bin_st:bin_end, 1], dims=1))
-            L_low = sqrt.(vec(mean(data_low[:, bin_st:bin_end, 2], dims=1)).^2 .+
-                          vec(mean(data_low[:, bin_st:bin_end, 3], dims=1)).^2)
-            V_low = vec(mean(data_low[:, bin_st:bin_end, 4], dims=1))
-            pa_curve_low = pa_curve_on   # For backward compat
-            pa_curve_full = pa_curve_full  # For full profile display
+            I_max = maximum([maximum(abs.(I_low_full)), maximum(abs.(I_high_full))])
+            I_on = (I_low_full .+ I_high_full) ./ 2.0  # For phi_c, W10 calculation
 
         else
             # Single-frequency mode
