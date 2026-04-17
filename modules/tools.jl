@@ -2682,8 +2682,10 @@ module Tools
 
         res_func = make_residual(pa_fit, w_fit)
 
-        local fit
+        # Initialize p in outer scope
+        p = p_init
         converged = true
+        
         try
             # Fit with LsqFit and weights
             fit = curve_fit(
@@ -2693,7 +2695,7 @@ module Tools
             )
             p = fit.param
         catch e
-            @warn "[fit_rvm] LsqFit failed: $e"
+            @warn "[fit_rvm] LsqFit failed: $e, using chi2_grid result"
             converged = false
             p = p_init  # use chi2_grid result
         end
