@@ -1113,7 +1113,10 @@ module Data
     Returns NamedTuple with fields: alpha, beta, phi0, pa0 (all in degrees), chi2.
     Returns nothing if fewer than 5 valid PA points.
     """
-    function fit_rvm(lon_deg, pa_deg, pa_err_deg; return_map=false)
+    function fit_rvm(lon_deg, pa_deg, pa_err_deg;
+                     return_map=false,
+                     n_alpha=85, n_beta=40, n_phi0=60,
+                     alpha_range=(5.0, 175.0), beta_range=(-20.0, 20.0))
         mask = .!isnan.(pa_deg) .& .!isnan.(pa_err_deg) .& (pa_err_deg .> 0)
         if sum(mask) < 5
             return nothing
@@ -1124,13 +1127,12 @@ module Data
         sigma   = pa_err_deg[mask]  .* (π / 180)
         inv_var = 1.0 ./ (sigma .^ 2)
 
-        # Grid as in Johnston et al. 2023
-        alphas = range(5.0, 175.0, length=85) .* (π / 180)
-        betas  = range(-20.0, 20.0, length=40) .* (π / 180)
+        alphas = range(alpha_range[1], alpha_range[2], length=n_alpha) .* (π / 180)
+        betas  = range(beta_range[1],  beta_range[2],  length=n_beta)  .* (π / 180)
         # Search φ0 over the full longitude range
         lon_min, lon_max = extrema(lon_rad)
-        margin = (lon_max - lon_min) * 0.2
-        phi0s = range(lon_min - margin, lon_max + margin, length=60)
+        margin = (lon_max - lon_min) * 0.5
+        phi0s = range(lon_min - margin, lon_max + margin, length=n_phi0)
 
         best_chi2  = Inf
         best_alpha = 0.0
@@ -1372,11 +1374,13 @@ module Data
         pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
 
         println("Fitting RVM chi² map (low frequency)...")
-        res_l, chi2_l, alphas_deg, betas_deg = fit_rvm(lon_l, pa_l, pa_err_l; return_map=true)
+        res_l, chi2_l, alphas_deg, betas_deg = fit_rvm(lon_l, pa_l, pa_err_l;
+            return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
         println("  best: α=$(round(res_l.alpha,digits=1))° β=$(round(res_l.beta,digits=1))° χ²/ndof=$(round(res_l.chi2_red,digits=2))")
 
         println("Fitting RVM chi² map (high frequency)...")
-        res_h, chi2_h, _, _ = fit_rvm(lon_h, pa_h, pa_err_h; return_map=true)
+        res_h, chi2_h, _, _ = fit_rvm(lon_h, pa_h, pa_err_h;
+            return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
         println("  best: α=$(round(res_h.alpha,digits=1))° β=$(round(res_h.beta,digits=1))° χ²/ndof=$(round(res_h.chi2_red,digits=2))")
 
         Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir; show_=true)

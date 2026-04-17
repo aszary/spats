@@ -981,21 +981,36 @@ module Plot
 
     function geometry(chi2_map_l, chi2_map_h, alphas_deg, betas_deg, outdir;
                       show_=false, name_mod="PSR_NAME",
-                      delta_chi2_max=10.0,
-                      chi2_contours=[100., 200., 300.],
+                      delta_chi2_max=nothing,
+                      chi2_contours=nothing,
                       cmap="viridis")
 
         chi2_min_l = minimum(chi2_map_l[isfinite.(chi2_map_l)])
         chi2_min_h = minimum(chi2_map_h[isfinite.(chi2_map_h)])
-        println("chi2_min: low=$(round(chi2_min_l, digits=1))  high=$(round(chi2_min_h, digits=1))")
+        chi2_max_l = maximum(chi2_map_l[isfinite.(chi2_map_l)])
+        chi2_max_h = maximum(chi2_map_h[isfinite.(chi2_map_h)])
+        println("chi2_min: low=$(round(chi2_min_l, digits=2))  high=$(round(chi2_min_h, digits=2))")
+        println("chi2_max: low=$(round(chi2_max_l, digits=2))  high=$(round(chi2_max_h, digits=2))")
 
         # δχ² relative to each frequency's own minimum
         dchi2_l = chi2_map_l .- chi2_min_l
         dchi2_h = chi2_map_h .- chi2_min_h
+        range_l = chi2_max_l - chi2_min_l
+        range_h = chi2_max_h - chi2_min_h
+
+        # Auto-scale colormap ceiling to ~5% of total chi2 range
+        dmax = isnothing(delta_chi2_max) ? 0.05 * max(range_l, range_h) : delta_chi2_max
+        println("delta_chi2_max = $(round(dmax, digits=2))")
+
+        # Auto-scale contour levels to 30%, 60%, 90% of range
+        if isnothing(chi2_contours)
+            chi2_contours = [0.3, 0.6, 0.9] .* max(range_l, range_h)
+        end
+        println("chi2_contours (delta) = $(round.(chi2_contours, digits=1))")
 
         # Mask cells outside the acceptable region (shown as white)
-        dchi2_l_plot = Float64.(dchi2_l); dchi2_l_plot[dchi2_l .> delta_chi2_max] .= NaN
-        dchi2_h_plot = Float64.(dchi2_h); dchi2_h_plot[dchi2_h .> delta_chi2_max] .= NaN
+        dchi2_l_plot = Float64.(dchi2_l); dchi2_l_plot[dchi2_l .> dmax] .= NaN
+        dchi2_h_plot = Float64.(dchi2_h); dchi2_h_plot[dchi2_h .> dmax] .= NaN
 
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
@@ -1011,7 +1026,7 @@ module Plot
         ax1 = subplot(1, 2, 1)
         im1 = imshow(dchi2_l_plot',
                      origin="lower", extent=extent, aspect="auto",
-                     cmap=cmap, vmin=0., vmax=delta_chi2_max, interpolation="nearest")
+                     cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
         ax1.clabel(ax1.contour(alphas_deg, betas_deg, chi2_map_l',
                                levels=chi2_contours, colors="purple", linewidths=0.7),
                    fmt="%g", fontsize=6)
@@ -1024,7 +1039,7 @@ module Plot
         ax2 = subplot(1, 2, 2)
         imshow(dchi2_h_plot',
                origin="lower", extent=extent, aspect="auto",
-               cmap=cmap, vmin=0., vmax=delta_chi2_max, interpolation="nearest")
+               cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
         ax2.clabel(ax2.contour(alphas_deg, betas_deg, chi2_map_h',
                                levels=chi2_contours, colors="purple", linewidths=0.7),
                    fmt="%g", fontsize=6)
