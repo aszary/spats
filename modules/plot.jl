@@ -806,45 +806,64 @@ module Plot
 
         n_pulses_total = size(data4, 1)
         
-        # If n_freq=2, split data into low and high frequency halves
+        # Split data into low and high frequency halves if requested
         if n_freq == 2
             n_each = div(n_pulses_total, 2)
             data_low  = data4[1:n_each, :, :]
             data_high = data4[n_each+1:end, :, :]
-            # Use combined data for PA fitting (more pulses = better SNR)
-            data_fit = data4
         else
-            data_fit = data4
-            data_low  = nothing
+            data_low = data4
             data_high = nothing
         end
 
         n_on   = bin_end - bin_st + 1
-        dl     = 360.0 * n_on / size(data_fit, 2)
+        dl     = 360.0 * n_on / size(data4, 2)
         lon_on = collect(range(-dl/2.0, dl/2.0, length=n_on))
 
-        # For PA fitting, use full combined data to maximize SNR
-        lon_f, pa_avg, pa_err, mask = Tools.filter_ppa(data_fit, bin_st, bin_end;
-            snr_threshold=snr_threshold, linpol_threshold=linpol_threshold)
-
-        # grid search first → good initial guess for LsqFit
-        alphas, betas, chi2_map, best_p = Tools.chi2_grid(lon_f, pa_avg, pa_err, mask)
-
-        result    = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask; p0=best_p)
-        lon_curve = collect(range(lon_on[1], lon_on[end], length=500))
-        pa_curve  = Tools.rvm_model(lon_curve,
-                        [result.PA0, result.alpha, result.zeta, result.phi0])
-        # Wrap PA curve to [-90, 90] to match wrapped data points
-        pa_curve  = mod.(pa_curve .+ 90.0, 180.0) .- 90.0
-
-        # Compute profile from combined data for overall picture
-        I_on  = vec(mean(data_fit[:, bin_st:bin_end, 1], dims=1))
-        L_on  = sqrt.(vec(mean(data_fit[:, bin_st:bin_end, 2], dims=1)).^2 .+
-                      vec(mean(data_fit[:, bin_st:bin_end, 3], dims=1)).^2)
-        V_on  = vec(mean(data_fit[:, bin_st:bin_end, 4], dims=1))
-
-        # Compute separate profiles if two frequencies provided
-        if n_freq == 2 && data_low !== nothing && data_high !== nothing
+        # **CHANGE: Fit RVM separately for each frequency**
+        # This avoids mixing two populations with potentially different PA characteristics
+        
+        if n_freq == 2 && data_high !== nothing
+            # Two-frequency mode: fit each separately for better quality
+            println("[rvm] Fitting RVM separately for LOW and HIGH frequencies")
+            
+            # === LOW FREQUENCY ===
+            lon_f_low, pa_avg_low, pa_err_low, mask_low = 
+                Tools.filter_ppa(data_low, bin_st, bin_end;
+                    snr_threshold=snr_threshold, linpol_threshold=linpol_threshold)
+            
+            alphas_low, betas_low, chi2_map_low, best_p_low = 
+                Tools.chi2_grid(lon_f_low, pa_avg_low, pa_err_low, mask_low)
+            
+            result_low = Tools.fit_rvm(lon_f_low, pa_avg_low, pa_err_low, mask_low; p0=best_p_low)
+            pa_curve_low = Tools.rvm_model(lon_on, 
+                            [result_low.PA0, result_low.alpha, result_low.zeta, result_low.phi0])
+            pa_curve_low = mod.(pa_curve_low .+ 90.0, 180.0) .- 90.0
+            
+            # === HIGH FREQUENCY ===
+            lon_f_high, pa_avg_high, pa_err_high, mask_high = 
+                Tools.filter_ppa(data_high, bin_st, bin_end;
+                    snr_threshold=snr_threshold, linpol_threshold=linpol_threshold)
+            
+            alphas_high, betas_high, chi2_map_high, best_p_high = 
+                Tools.chi2_grid(lon_f_high, pa_avg_high, pa_err_high, mask_high)
+            
+            result_high = Tools.fit_rvm(lon_f_high, pa_avg_high, pa_err_high, mask_high; p0=best_p_high)
+            pa_curve_high = Tools.rvm_model(lon_on, 
+                             [result_high.PA0, result_high.alpha, result_high.zeta, result_high.phi0])
+            pa_curve_high = mod.(pa_curve_high .+ 90.0, 180.0) .- 90.0
+            
+            # Use low freq results as primary for chi2_map display
+            result = result_low
+            alphas = alphas_low
+            betas = betas_low
+            chi2_map = chi2_map_low
+            lon_f = lon_f_low
+            pa_avg = pa_avg_low
+            pa_err = pa_err_low
+            mask = mask_low
+            
+            # For profiles
             I_low = vec(mean(data_low[:, bin_st:bin_end, 1], dims=1))
             L_low = sqrt.(vec(mean(data_low[:, bin_st:bin_end, 2], dims=1)).^2 .+
                           vec(mean(data_low[:, bin_st:bin_end, 3], dims=1)).^2)
@@ -854,16 +873,36 @@ module Plot
             L_high = sqrt.(vec(mean(data_high[:, bin_st:bin_end, 2], dims=1)).^2 .+
                            vec(mean(data_high[:, bin_st:bin_end, 3], dims=1)).^2)
             V_high = vec(mean(data_high[:, bin_st:bin_end, 4], dims=1))
-            # For two-freq mode, normalize by max of both
+            
             I_max = max(maximum(abs.(I_low)), maximum(abs.(I_high)), 1e-10)
+            I_on = (I_low .+ I_high) ./ 2.0  # average for reference
+            
         else
-            I_low = I_on
-            L_low = L_on
-            V_low = V_on
+            # Single-frequency mode
+            println("[rvm] Fitting RVM for single frequency")
+            
+            lon_f, pa_avg, pa_err, mask = Tools.filter_ppa(data_low, bin_st, bin_end;
+                snr_threshold=snr_threshold, linpol_threshold=linpol_threshold)
+
+            alphas, betas, chi2_map, best_p = Tools.chi2_grid(lon_f, pa_avg, pa_err, mask)
+
+            result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask; p0=best_p)
+            pa_curve_low = Tools.rvm_model(lon_on,
+                            [result.PA0, result.alpha, result.zeta, result.phi0])
+            pa_curve_low = mod.(pa_curve_low .+ 90.0, 180.0) .- 90.0
+            pa_curve_high = nothing
+            
+            I_low = vec(mean(data_low[:, bin_st:bin_end, 1], dims=1))
+            L_low = sqrt.(vec(mean(data_low[:, bin_st:bin_end, 2], dims=1)).^2 .+
+                          vec(mean(data_low[:, bin_st:bin_end, 3], dims=1)).^2)
+            V_low = vec(mean(data_low[:, bin_st:bin_end, 4], dims=1))
+            
             I_high = nothing
             L_high = nothing
             V_high = nothing
-            I_max = max(maximum(abs.(I_on)), 1e-10)
+            
+            I_max = max(maximum(abs.(I_low)), 1e-10)
+            I_on = I_low
         end
 
         phi_c   = Tools.pulse_center_deg(lon_on, I_on)
@@ -888,28 +927,50 @@ module Plot
         ax_cb  = fig.add_axes([0.89, 0.11, 0.02, 0.86])
 
         # -- PA panel (left top) --
-        ax_pa.scatter(lon_f[.!mask], pa_avg[.!mask],
-                      s=2, color="lightgrey", zorder=1)
-        ax_pa.errorbar(lon_f[mask], pa_avg[mask], yerr=pa_err[mask],
-                       fmt="o", ms=2, color="black",
-                       elinewidth=0.5, capsize=1.0, zorder=2)
-        ax_pa.plot(lon_curve, pa_curve, color="darkorange", lw=1.5, zorder=3)
-        ax_pa.axvline(result.phi0, color="royalblue", lw=0.8, ls="--", alpha=0.7)
+        if pa_curve_high !== nothing && n_freq == 2
+            # Two-frequency mode: show both data and fits
+            ax_pa.scatter(lon_f_low[.!mask_low], pa_avg_low[.!mask_low],
+                          s=2, color="lightgrey", alpha=0.5, zorder=1)
+            ax_pa.scatter(lon_f_high[.!mask_high], pa_avg_high[.!mask_high],
+                          s=2, color="lightgrey", alpha=0.3, zorder=1)
+            ax_pa.errorbar(lon_f_low[mask_low], pa_avg_low[mask_low], yerr=pa_err_low[mask_low],
+                           fmt="o", ms=2, color="black", alpha=0.7,
+                           elinewidth=0.5, capsize=0.5, zorder=2)
+            ax_pa.errorbar(lon_f_high[mask_high], pa_avg_high[mask_high], yerr=pa_err_high[mask_high],
+                           fmt="s", ms=2, color="darkviolet", alpha=0.7,
+                           elinewidth=0.5, capsize=0.5, zorder=2)
+            ax_pa.plot(lon_on, pa_curve_low, color="darkorange", lw=1.5, label="low", zorder=3)
+            ax_pa.plot(lon_on, pa_curve_high, color="green", lw=1.5, label="high", ls="--", zorder=3)
+            ax_pa.axvline(result_low.phi0, color="orange", lw=0.8, ls="--", alpha=0.7)
+            ax_pa.axvline(result_high.phi0, color="green", lw=0.8, ls="--", alpha=0.7)
+            ax_pa.legend(fontsize=6, loc="upper left")
+            txt_str = @sprintf("LOW: a=%.1f z=%.1f chi2r=%.2f\nHIGH: a=%.1f z=%.1f chi2r=%.2f",
+                             result_low.alpha, result_low.zeta, result_low.chi2_red,
+                             result_high.alpha, result_high.zeta, result_high.chi2_red)
+        else
+            # Single-frequency mode
+            ax_pa.scatter(lon_f[.!mask], pa_avg[.!mask],
+                          s=2, color="lightgrey", zorder=1)
+            ax_pa.errorbar(lon_f[mask], pa_avg[mask], yerr=pa_err[mask],
+                           fmt="o", ms=2, color="black",
+                           elinewidth=0.5, capsize=1.0, zorder=2)
+            ax_pa.plot(lon_on, pa_curve_low, color="darkorange", lw=1.5, zorder=3)
+            ax_pa.axvline(result.phi0, color="royalblue", lw=0.8, ls="--", alpha=0.7)
+            txt_str = @sprintf("a=%.1f  z=%.1f  phi0=%.1f\nchi2r=%.2f  rms=%.1f deg",
+                             result.alpha, result.zeta, result.phi0,
+                             result.chi2_red, result.rms_deg)
+        end
+        
         ax_pa.set_xlim(lon_on[1], lon_on[end])
         ax_pa.set_ylim(-95, 95)
         ax_pa.set_ylabel("PA (deg)")
         ax_pa.set_yticks([-90, -45, 0, 45, 90])
         ax_pa.tick_params(labelbottom=false)
         ax_pa.minorticks_on()
-        ax_pa.text(0.97, 0.97,
-                   @sprintf("a=%.1f  z=%.1f  phi0=%.1f\nchi2r=%.2f  rms=%.1f deg",
-                            result.alpha, result.zeta, result.phi0,
-                            result.chi2_red, result.rms_deg),
+        ax_pa.text(0.97, 0.97, txt_str,
                    transform=ax_pa."transAxes", fontsize=6,
                    va="top", ha="right",
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
-
-        # -- Stokes panel (left bottom) --
         if I_high !== nothing && n_freq == 2
             # Show both frequencies separately
             ax_st.plot(lon_on, I_low ./ I_max, color="black",     lw=0.8, label="I low", alpha=0.7)

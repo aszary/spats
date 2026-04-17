@@ -153,7 +153,7 @@ module SpaTs
                           bin_st=bin_st, bin_end=bin_end,
                           snr_threshold=snr_threshold,
                           linpol_threshold=linpol_threshold,
-                          period=period, show_=show_)
+                          period=period, show_=show_, n_freq=2)
 
         println("RVM fit:  alpha=$(round(result.alpha, digits=1)) deg  " *
                 "zeta=$(round(result.zeta, digits=1)) deg  " *
