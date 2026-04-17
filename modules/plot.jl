@@ -834,6 +834,8 @@ module Plot
         lon_curve = collect(range(lon_on[1], lon_on[end], length=500))
         pa_curve  = Tools.rvm_model(lon_curve,
                         [result.PA0, result.alpha, result.zeta, result.phi0])
+        # Wrap PA curve to [-90, 90] to match wrapped data points
+        pa_curve  = mod.(pa_curve .+ 90.0, 180.0) .- 90.0
 
         # Compute profile from combined data for overall picture
         I_on  = vec(mean(data_fit[:, bin_st:bin_end, 1], dims=1))
