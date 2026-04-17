@@ -937,7 +937,7 @@ module Plot
                        transform=gca()."transAxes",
                        fontsize=6, va="top", ha="left",
                        bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
-        elseif !period !== nothing
+        elseif period === nothing
             xlabel("longitude (deg)")  # label on residuals panel instead
         end
 
