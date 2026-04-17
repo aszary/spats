@@ -781,4 +781,181 @@ module Plot
 
 
 
+    """
+    rvm(data4, outdir, name_mod; bin_st, bin_end,
+        snr_threshold=3.5, linpol_threshold=0.8, period=nothing,
+        alpha=nothing, beta=nothing, show_=false)
+
+    4-panel RVM + emission-height figure (Johnston et al. 2023/2024 style):
+      panel 1 : averaged Stokes I profile
+      panel 2 : PPA scatter (grey=all, blue=filtered) + red RVM curve
+      panel 3 : residuals of the RVM fit
+      panel 4 : emission height per bin (Blaskiewicz + dipole formulas)
+                shown only when period is provided
+
+    data4    : 3D array (pulses × bins × 4), I=1 Q=2 U=3 V=4
+    outdir   : output directory
+    name_mod : filename prefix
+    bin_st, bin_end : on-pulse region (1-indexed)
+    period   : pulsar period in seconds  (needed for height panel)
+    alpha, beta : geometry angles in degrees (needed for dipole height)
+    """
+    function rvm(data4, outdir, name_mod; bin_st, bin_end,
+                 snr_threshold=3.5, linpol_threshold=0.8,
+                 period=nothing, alpha=nothing, beta=nothing,
+                 show_=false)
+
+        pulses, bins, _ = size(data4)
+
+        # ---- compute averaged profiles -----------------------------------
+        I_avg = vec(mean(data4[:, :, 1], dims=1))
+        Q_avg = vec(mean(data4[:, :, 2], dims=1))
+        U_avg = vec(mean(data4[:, :, 3], dims=1))
+
+        n_on = bin_end - bin_st + 1
+        dl   = 360.0 * n_on / bins
+        lon_on = collect(range(-dl/2.0, dl/2.0, length=n_on))
+
+        I_on  = I_avg[bin_st:bin_end]
+        I_max = maximum(abs.(I_on))
+        I_max == 0.0 && (I_max = 1.0)
+
+        # PPA from averaged data (all on-pulse bins, unfiltered)
+        pa_all = Tools.ppa_from_stokes(Q_avg[bin_st:bin_end],
+                                       U_avg[bin_st:bin_end])
+
+        # ---- filtered PPA + RVM fit --------------------------------------
+        lon_f, pa_avg, pa_err, mask = Tools.filter_ppa(
+            data4, bin_st, bin_end;
+            snr_threshold=snr_threshold,
+            linpol_threshold=linpol_threshold)
+
+        result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask)
+
+        # smooth RVM curve over on-pulse range
+        lon_curve = collect(range(lon_on[1], lon_on[end], length=500))
+        pa_curve  = Tools.rvm_model(lon_curve,
+                        [result.PA0, result.alpha, result.zeta, result.phi0])
+
+        # residuals (only filtered bins)
+        pa_model_at_bins = Tools.rvm_model(lon_f[mask],
+                               [result.PA0, result.alpha, result.zeta, result.phi0])
+        residuals = pa_avg[mask] .- pa_model_at_bins
+
+        # ---- emission heights (optional) ---------------------------------
+        h_blask  = Float64[]
+        h_dipole = Float64[]
+        lon_h    = Float64[]
+
+        if period !== nothing
+            append!(lon_h,   lon_f[mask])
+            append!(h_blask, Tools.emission_height_blaskiewicz.(
+                                 lon_f[mask] .- result.phi0, period))
+            if alpha !== nothing
+                append!(h_dipole, Tools.rho_to_height.(
+                    Tools.delta_phi_to_rho.(
+                        abs.(2.0 .* (lon_f[mask] .- result.phi0)),
+                        alpha,
+                        beta !== nothing ? beta : (result.zeta - result.alpha)),
+                    period))
+            end
+        end
+
+        # ---- plot --------------------------------------------------------
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        n_panels  = has_heights ? 4 : 3
+        fig_h     = has_heights ? 7.08661 : 5.51181   # 18 cm or 14 cm
+        figure(figsize=(3.14961, fig_h))
+        subplots_adjust(left=0.18, bottom=0.07, right=0.97,
+                        top=0.97, hspace=0.05)
+
+        # Panel 1: Stokes I
+        subplot(n_panels, 1, 1)
+        plot(lon_on, I_on ./ I_max, color="black", lw=1.0)
+        xlim(lon_on[1], lon_on[end])
+        ylim(-0.05, 1.15)
+        ylabel("I (norm.)")
+        tick_params(labelbottom=false)
+        minorticks_on()
+
+        # Panel 2: PPA scatter + RVM curve
+        subplot(n_panels, 1, 2)
+        scatter(lon_on, pa_all, s=4, color="lightgrey", zorder=1,
+                label="all bins")
+        errorbar(lon_f[mask], pa_avg[mask], yerr=pa_err[mask],
+                 fmt="o", ms=3, color="steelblue", elinewidth=0.7,
+                 capsize=1.5, zorder=2, label="filtered")
+        plot(lon_curve, pa_curve, color="crimson", lw=1.5, zorder=3,
+             label=@sprintf("RVM  a=%.1f  z=%.1f deg", result.alpha, result.zeta))
+        xlim(lon_on[1], lon_on[end])
+        ylim(-95, 95)
+        ylabel("PPA (deg)")
+        yticks([-90, -45, 0, 45, 90])
+        tick_params(labelbottom=false)
+        minorticks_on()
+        legend(fontsize=6, loc="upper left", framealpha=0.6)
+
+        # Panel 3: Residuals
+        subplot(n_panels, 1, 3)
+        scatter(lon_f[mask], residuals, s=4, color="steelblue", zorder=2)
+        axhline(0.0, color="crimson", lw=0.8, ls="--")
+        xlim(lon_on[1], lon_on[end])
+        ylabel("Residuals (deg)")
+        tick_params(labelbottom=!has_heights)
+        minorticks_on()
+
+        ann_txt = @sprintf("chi2r=%.2f rms=%.1fdeg\nPA0=%.1f phi0=%.1fdeg",
+                           result.chi2_red, result.rms_deg,
+                           result.PA0, result.phi0)
+        gca().text(0.97, 0.97, ann_txt,
+                   transform=gca()."transAxes",
+                   fontsize=6, va="top", ha="right",
+                   bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
+
+        # Panel 4: Emission heights (only when period given)
+        if has_heights && !isempty(h_blask)
+            subplot(n_panels, 1, 4)
+            scatter(lon_h, h_blask, s=5, color="darkorange", zorder=2,
+                    label="Blaskiewicz")
+            if !isempty(h_dipole)
+                scatter(lon_h, h_dipole, s=5, color="purple",
+                        marker="^", zorder=2, label="dipole (Mitra+Rankin)")
+            end
+            xlim(lon_on[1], lon_on[end])
+            ylabel("h (km)")
+            xlabel("longitude (deg)")
+            minorticks_on()
+            legend(fontsize=6, loc="upper right", framealpha=0.6)
+
+            h_mean = mean(h_blask)
+            h_std  = std(h_blask)
+            gca().text(0.03, 0.97,
+                       @sprintf("h_Blask = %.0f +/- %.0f km", h_mean, h_std),
+                       transform=gca()."transAxes",
+                       fontsize=6, va="top", ha="left",
+                       bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
+        elseif !has_heights
+            xlabel("longitude (deg)")  # label on residuals panel instead
+        end
+
+        outpdf = "$outdir/$(name_mod)_rvm.pdf"
+        outpng = "$outdir/$(name_mod)_rvm.png"
+        savefig(outpdf)
+        savefig(outpng)
+        println("$outpdf")
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close.")
+            readline(stdin; keep=false)
+        end
+        PyPlot.close()
+
+        return merge(result, (h_blask=h_blask, h_dipole=h_dipole, lon_h=lon_h))
+    end
+
+
 end  # module Plot

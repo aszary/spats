@@ -94,187 +94,6 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        #test(vpmout)
-        #test2(vpmout)
-        #test3("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        #test3("/home/psr/data/new/J1744-1610/2020-06-12-20:00:13/", vpmout)
-        #process_psrdata("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout)
-        #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
-
-        # uhf data
-        #process_psrdata("/home/psr/data/uhf/J0820-1350/2020-07-11-10:30:12/816/single/", vpmout*"J0820-1350_uhf")
-        #process_psrdata("/home/psr/data/uhf/J0823+0159/2023-02-27-20:38:58/816/single", vpmout*"J0823+0159_uhf")
-        # TODO work on PSR J1842-0359
-        # L-band
-        #process_psrdata_single("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_single")
-        #process_psrdata_16("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_16")
-        #Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "refine")
-        # uhf
-        #process_psrdata("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf")
-        # uhf multifrequency
-        #process_psrdata_16("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf_16") 
-        #Data.analyse_p3folds_16(vpmout*"J1842-0359_uhf_16", "norefine")
-
-        # work on pulsar J2139+2242
-        #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
-        #Data.analyse_p3folds_16(vpmout*"J2139+2242_16", "norefine")
-
-        # work on pulsar J1807+0756
-        #process_psrdata_16("/home/psr/data/new/J1807+0756/2020-06-07-22:03:05/", vpmout*"J1807+0756_16")
-        #Data.analyse_p3folds_16(vpmout*"J1807+0756_16", "refine")
-
-
-        #process_psrdata(vpmout*"J2139+2242", vpmout*"J2139+2242") # moderate
-        #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
-        #process_psrdata(vpmout*"J0630-2834", vpmout*"J0630-2834") # not nice
-        #process_psrdata(vpmout*"J0820-1350", vpmout*"J0820-1350") # nice
-
-        #process_psrdata(vpmout*"J1834-0010", vpmout*"J1834-0010") # P. nice
-        #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
-        #process_psrdata(vpmout*"J0823+0159", vpmout*"J0823+0159") #  nice single pulses, but p3folds no
-        #process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
-        #process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") # single bad, p3folds bad, P3 stable
-        #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
-        #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
-        #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
-        #process_psrdata(vpmout*"J1907+0731", vpmout*"J1907+0731") #
-        #process_psrdata(vpmout*"J0421-0345", vpmout*"J0421-0345") #
-        #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834") #
-
-        # checking multifrequency offsets
-        #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
-        #process_psrdata(vpmout*"J1414-6802", vpmout*"J1414-6802") # start diging there...
-        #process_psrdata("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_test") # start diging there...
-        #process_psrdata_16("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/", vpmout*"J0820-1350_16")
-        #Data.analyse_p3folds_16(vpmout*"J0820-1350_16", "norefine")
-        #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # start diging there...
-        #process_psrdata_16("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_16") 
-        #process_psrdata_16("/home/psr/data/new/J1514-4834/2019-12-16-08:22:16/", vpmout*"J1514-4834_16")
-        #process_psrdata_16("/home/psr/data/new/J0034-0721/2019-10-18-22:29:51/", vpmout*"J0034-0721_16")
-        #process_psrdata_16("/home/psr/data/new/J0823+0159/2019-11-05-23:33:48/", vpmout*"J0823+0159_16")
-        #process_psrdata_16("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_16")
-        #process_psrdata_16("/home/psr/data/new/J1034-3224/2019-10-19-07:31:26/", vpmout*"J1034-3224_16")
-        #process_psrdata_16("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_16")
-        #process_psrdata_16("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_16")
-        #Data.analyse_p3folds_16(vpmout*"J1555-3134_16", "refine")
-        #process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16")
-
-        # checking single pulses offset
-        #process_psrdata_single("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_single") # no visible offset
-        #process_psrdata_single("/home/psr/data/new/J0820-1350/2020-01-11-01:05:56/", vpmout*"J0820-1350_single") # very bad no signal at least at the beginning
-        #process_psrdata_single("/home/psr/data/new/J0823+0159/2019-11-05-23:33:48/", vpmout*"J0823+0159_single")
-        #process_psrdata_single("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_single")
-        #process_psrdata_single("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_single") # no offset
-        #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single") 
-        #process_psrdata_single("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_single") # weak signal no offset
-        #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
-        #process_psrdata_16("/home/psr/data/new/J1919+0134/2020-02-02-11:45:29/", vpmout*"J1919+0134_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1919+0134_16", "refine")
-        #process_psrdata_16("/home/psr/data/new/J1312-5402/2020-03-30-19:11:06/", vpmout*"J1312-5402_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1312-5402_16", "refine")
-        #process_psrdata_16("/home/psr/data/new/J1404+1159/2020-03-30-02:48:21/", vpmout*"J1404+1159_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1404+1159_16", "refine")
-        #process_psrdata_16("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1133-6250_16", "norefine")
-        #process_psrdata_16("/home/psr/data/new/J1414-6802/2020-07-24-16:17:58/", vpmout*"J1414-6802_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1414-6802_16", "norefine")
-        #process_psrdata_16("/home/psr/data/new/J2046+1540/2019-11-26-17:18:47/", vpmout*"J2046+1540_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J2046+1540_16", "norefine")
-        #process_psrdata_16("/home/psr/data/new/J0459-0210/2019-11-12-22:15:58/", vpmout*"J0459-0210_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J0459-0210_16", "norefine")
-        #process_psrdata_16("/home/psr/data/new/J0952-3839/2019-11-05-23:49:43/", vpmout*"J0952-3839_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J0952-3839_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1638-3815/2019-12-14-12:29:48/", vpmout*"J1638-3815_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1638-3815_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1904+1011/2020-03-23-03:26:19/", vpmout*"J1904+1011_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1904+1011_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1720-0212/2019-09-29-12:53:17/", vpmout*"J1720-0212_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1720-0212_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1655-3048/2020-01-03-03:08:21/", vpmout*"J1655-3048_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1655-3048_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J0711+0931/2020-07-04-09:47:10/", vpmout*"J0711+0931_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J0711+0931_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1850+0026/2019-11-12-16:15:11/", vpmout*"J1850+0026_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1850+0026_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1745-0129/2020-05-24-21:29:24/", vpmout*"J1745-0129_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1745-0129_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1512-5431/2020-04-11-23:16:42/", vpmout*"J1512-5431_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1512-5431_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1844-0433/2020-01-21-08:30:46/", vpmout*"J1844-0433_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1844-0433_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1137-6700/2019-11-06-00:36:02/", vpmout*"J1137-6700_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1137-6700_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1945-0040/2020-02-02-13:12:44/", vpmout*"J1945-0040_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1945-0040_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1809-0119/2020-06-12-20:17:19/", vpmout*"J1809-0119_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1809-0119_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1944+1755/2020-07-13-00:03:52/", vpmout*"J1944+1755_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1944+1755_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1727-2739/2019-11-26-16:01:01/", vpmout*"J1727-2739_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1727-2739_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J0624-0424/2019-11-18-21:52:33/", vpmout*"J0624-0424_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J0624-0424_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J0855-3331/2019-12-15-00:45:14/", vpmout*"J0855-3331_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J0855-3331_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J0955-5304/2020-01-02-22:16:29/", vpmout*"J0955-5304_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J0955-5304_16", "norefine")
-        
-        #process_psrdata_16("/home/psr/data/new/J1054-6452/2020-03-10-22:19:15/", vpmout*"J1054-6452_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1054-6452_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1114-6100/2019-10-19-08:30:30/", vpmout*"J1114-6100_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1114-6100_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1524-5706/2020-09-29-16:42:45/", vpmout*"J1524-5706_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1524-5706_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1527-5552/2019-12-14-11:39:20/", vpmout*"J1527-5552_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1527-5552_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1654-3710/2020-03-08-05:08:42/", vpmout*"J1654-3710_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1654-3710_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1700-3312/2019-11-12-17:10:47/", vpmout*"J1700-3312_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1700-3312_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1733-4005/2019-05-20-23:10:31/", vpmout*"J1733-4005_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1733-4005_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1837+1221/2020-04-07-01:36:24/", vpmout*"J1837+1221_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1837+1221_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1843-0211/2020-01-20-12:13:10/", vpmout*"J1843-0211_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1843-0211_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1908+0916/2020-04-17-01:13:37/", vpmout*"J1908+0916_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1908+0916_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J1918+1444/2020-01-11-07:39:08/", vpmout*"J1918+1444_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J1918+1444_16", "norefine")
-
-        #process_psrdata_16("/home/psr/data/new/J2155-3118/2019-11-15-19:38:50/", vpmout*"J2155-3118_16") # visible offset
-        #Data.analyse_p3folds_16(vpmout*"J2155-3118_16", "norefine")
-
-
-        # J1842-0359 - robust fourier/barycenter offset analysis
-        #process_psrdata_16("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_16") # visible offset
         Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine")
         Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine")
         Data.analyse_offsets(vpmout*"J2139+2242_16", "norefine")
@@ -282,7 +101,10 @@ module SpaTs
         #Data.analyse_offsets(vpmout*"J1741-0840_16", "norefine", 0.1549; n_comp=2)
         Data.analyse_offsets(vpmout*"J1512-5431_16", "norefine")
 
-
+        RVM polarimetry — J1842-0359 (odkomentuj aby uruchomić)
+        test_rvm("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/pulsar.debase.gg",
+                 vpmout*"J1842-0359_rvm/", "J1842-0359";
+                 bin_st=450, bin_end=580, period=0.536)
 
 
 
@@ -297,6 +119,60 @@ module SpaTs
         
         #Data.remove_folders(vpmout)
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
+    end
+
+    function test_rvm(infile, outdir, name_mod; bin_st, bin_end,
+                      period=nothing, alpha=nothing, beta=nothing)
+        rvm_analysis(infile, outdir, name_mod;
+                     bin_st=bin_st, bin_end=bin_end,
+                     period=period, alpha=alpha, beta=beta,
+                     show_=true)
+    end
+
+    # -------------------------------------------------------------------------
+    # RVM analysis
+    # Usage:
+    #   SpaTs.rvm_analysis(
+    #       "/home/psr/data/.../pulsar.debase.gg",   # 4-pol PSRFIT file
+    #       "output/J1842-0359/",                    # output directory
+    #       "J1842-0359";                            # name prefix
+    #       bin_st=450, bin_end=580,                 # on-pulse region
+    #       period=0.536,                            # pulse period [s] — enables height panel
+    #       alpha=30.0,                              # magnetic inclination [deg] — enables dipole heights
+    #       beta=5.0                                 # impact parameter [deg]
+    #   )
+    # -------------------------------------------------------------------------
+    function rvm_analysis(infile, outdir, name_mod;
+                          bin_st, bin_end,
+                          snr_threshold=3.5, linpol_threshold=0.8,
+                          period=nothing, alpha=nothing, beta=nothing,
+                          show_=false)
+
+        txt_file = joinpath(outdir, name_mod * "_pol.txt")
+
+        # export 4-pol ASCII from PSRFIT file (requires PSRCHIVE on PATH)
+        Data.convert_psrfit_ascii_pol(infile, txt_file)
+
+        # load full Stokes array  (pulses × bins × 4)
+        data4 = Data.load_ascii_all(txt_file)
+
+        # plot + fit
+        result = Plot.rvm(data4, outdir, name_mod;
+                          bin_st=bin_st, bin_end=bin_end,
+                          snr_threshold=snr_threshold,
+                          linpol_threshold=linpol_threshold,
+                          period=period, alpha=alpha, beta=beta,
+                          show_=show_)
+
+        println("RVM fit done: alpha=$(round(result.alpha, digits=2)) deg  " *
+                "zeta=$(round(result.zeta, digits=2)) deg  " *
+                "phi0=$(round(result.phi0, digits=2)) deg  " *
+                "chi2r=$(round(result.chi2_red, digits=3))")
+        if period !== nothing && !isempty(result.h_blask)
+            h_med = median(result.h_blask)
+            println("  Blaskiewicz height (median): $(round(h_med, digits=0)) km")
+        end
+        return result
     end
 
 end # module

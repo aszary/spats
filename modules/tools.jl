@@ -2378,15 +2378,242 @@ module Tools
         pulses, bins = size(data)
         groups = div(bins, bins_num)
         result = zeros(pulses, groups)
-        
+
         for g in 1:groups
             start_idx = (g - 1) * bins_num + 1
             end_idx = g * bins_num
             result[:, g] = sum(data[:, start_idx:end_idx], dims=2)
         end
-        
+
         return result
     end
-    
+
+
+    # =========================================================================
+    # Emission height — Mitra & Rankin (2002) + Blaskiewicz et al. (1991)
+    # =========================================================================
+
+    """
+    delta_phi_to_rho(delta_phi_deg, alpha_deg, beta_deg) -> rho_deg
+
+    Convert component separation Δφ to beam radius ρ using spherical geometry
+    (Mitra & Rankin 2002, eq. 1):
+
+        sin²(ρ/2) = sin(α+β)·sin(α)·sin²(Δφ/4) + sin²(β/2)
+
+    All angles in degrees.
+    """
+    function delta_phi_to_rho(delta_phi_deg, alpha_deg, beta_deg)
+        a  = deg2rad(alpha_deg)
+        b  = deg2rad(beta_deg)
+        dp = deg2rad(delta_phi_deg)
+        val = sin(a + b) * sin(a) * sin(dp / 4)^2 + sin(b / 2)^2
+        val = clamp(val, 0.0, 1.0)
+        return rad2deg(2 * asin(sqrt(val)))
+    end
+
+
+    """
+    rho_to_height(rho_deg, period_s; s=0.6) -> h_km
+
+    Convert beam radius ρ to emission height h assuming a dipole field
+    (Rankin 1993 / Mitra & Rankin 2002):
+
+        h = 10 · P · (ρ / (s · 1.23))²   [km]
+
+    rho_deg  : beam radius in degrees
+    period_s : pulsar period in seconds
+    s        : 0.6 for inner cone / core boundary  (default)
+               1.0 for last open field line
+    """
+    function rho_to_height(rho_deg, period_s; s=0.6)
+        return 10.0 * period_s * (rho_deg / (s * 1.23))^2
+    end
+
+
+    """
+    emission_height_blaskiewicz(phi0_deg, period_s) -> h_km
+
+    Relativistic emission height from the phase of the RVM inflection point
+    (Blaskiewicz et al. 1991):
+
+        h = |Δφ| · P · c / (8π)   [km]
+
+    phi0_deg  : longitude of steepest PA gradient from RVM fit (degrees)
+                (= offset of inflection point from profile centre)
+    period_s  : pulsar period in seconds
+    c = 3×10⁵ km/s
+    """
+    function emission_height_blaskiewicz(phi0_deg, period_s)
+        dphi_rad = abs(deg2rad(phi0_deg))
+        c_km_s   = 3e5
+        return dphi_rad * period_s * c_km_s / (8 * pi)
+    end
+
+
+    # =========================================================================
+    # RVM (Rotating Vector Model) fitting  — Johnston et al. 2023/2024
+    # =========================================================================
+
+    """
+    rvm_model(phi, p)
+
+    Classical RVM for position angle PA(phi).
+    p = [PA0, alpha, zeta, phi0]  (all in degrees)
+
+    PA0  : reference position angle
+    alpha: inclination of magnetic axis to rotation axis
+    zeta : inclination of line of sight to rotation axis  (= alpha + beta)
+    phi0 : longitude of the steepest PA gradient
+    """
+    function rvm_model(phi, p)
+        PA0, alpha, zeta, phi0 = p
+        a  = deg2rad(alpha)
+        z  = deg2rad(zeta)
+        dp = deg2rad.(phi .- phi0)
+        num = sin(a) .* sin.(dp)
+        den = sin(z) .* cos(a) .- cos(z) .* sin(a) .* cos.(dp)
+        return PA0 .+ rad2deg.(atan.(num, den))
+    end
+
+
+    """
+    ppa_from_stokes(Q, U)
+
+    Compute position angle (PPA) in degrees from Stokes Q and U.
+    Returns values in [-90, 90).
+    Q, U can be vectors (averaged profile) or matrices (pulses × bins).
+    """
+    function ppa_from_stokes(Q, U)
+        pa = 0.5 .* rad2deg.(atan.(U, Q))
+        # wrap to [-90, 90)
+        return mod.(pa .+ 90.0, 180.0) .- 90.0
+    end
+
+
+    """
+    filter_ppa(data4, bin_st, bin_end; snr_threshold=3.5, linpol_threshold=0.8)
+
+    Apply the Johnston et al. 2024 two-step filter to 4-pol single-pulse data.
+    data4 : 3D array (pulses × bins × 4), polarizations: I=1, Q=2, U=3, V=4
+    bin_st, bin_end : on-pulse bin range (1-indexed)
+
+    Returns (longitude_deg, pa_avg, pa_err, mask_bins) where:
+    - longitude_deg : bin longitudes in degrees, length = (bin_end - bin_st + 1)
+    - pa_avg        : averaged PPA per bin (degrees), only for bins that pass the mask
+    - pa_err        : PPA uncertainty per bin (degrees)
+    - mask_bins     : Bool vector, true = bin has enough high-pol pulses
+    """
+    function filter_ppa(data4, bin_st, bin_end; snr_threshold=3.5, linpol_threshold=0.8)
+        pulses, bins, npol = size(data4)
+        @assert npol >= 3 "Need at least 3 polarizations (I, Q, U)"
+
+        # Off-pulse region: everything outside [bin_st, bin_end]
+        off_bins = vcat(1:bin_st-1, bin_end+1:bins)
+        if length(off_bins) < 10
+            off_bins = 1:div(bins, 5)   # fallback: first 20%
+        end
+        sigma_noise = std(data4[:, off_bins, 1])
+
+        n_on = bin_end - bin_st + 1
+        pa_sum   = zeros(n_on)
+        pa_sum2  = zeros(n_on)
+        n_valid  = zeros(Int, n_on)
+
+        for pulse in 1:pulses
+            for (k, b) in enumerate(bin_st:bin_end)
+                I_val = data4[pulse, b, 1]
+                Q_val = data4[pulse, b, 2]
+                U_val = data4[pulse, b, 3]
+
+                # mask 1: signal above noise floor
+                I_val < snr_threshold * sigma_noise && continue
+
+                # mask 2: high linear polarization fraction
+                L = sqrt(Q_val^2 + U_val^2)
+                L / I_val < linpol_threshold && continue
+
+                pa = 0.5 * rad2deg(atan(U_val, Q_val))
+                pa_sum[k]  += pa
+                pa_sum2[k] += pa^2
+                n_valid[k] += 1
+            end
+        end
+
+        mask_bins = n_valid .> 0
+        pa_avg = zeros(n_on)
+        pa_err = fill(90.0, n_on)          # default large error where no data
+        pa_avg[mask_bins] = pa_sum[mask_bins] ./ n_valid[mask_bins]
+        # standard error of the mean; floor at 0.1 deg to avoid zero weights
+        pa_err[mask_bins] = max.(
+            sqrt.(max.(pa_sum2[mask_bins] ./ n_valid[mask_bins]
+                        .- pa_avg[mask_bins].^2, 0.0))
+            ./ sqrt.(n_valid[mask_bins]),
+            0.1
+        )
+
+        # wrap average to [-90, 90)
+        pa_avg = mod.(pa_avg .+ 90.0, 180.0) .- 90.0
+
+        dl = 360.0 * n_on / bins
+        longitude_deg = collect(range(-dl/2.0, dl/2.0, length=n_on))
+
+        return longitude_deg, pa_avg, pa_err, mask_bins
+    end
+
+
+    """
+    fit_rvm(longitude, pa_avg, pa_err, mask_bins)
+
+    Fit the RVM model to averaged PPA data using LsqFit.
+    Only bins where mask_bins == true are used.
+
+    Returns a NamedTuple:
+      (PA0, alpha, zeta, phi0,         # best-fit params (degrees)
+       PA0_err, alpha_err, zeta_err, phi0_err,   # 1-sigma errors
+       chi2_red, rms_deg, converged)
+    """
+    function fit_rvm(longitude, pa_avg, pa_err, mask_bins)
+        lon_fit = longitude[mask_bins]
+        pa_fit  = pa_avg[mask_bins]
+        w_fit   = 1.0 ./ pa_err[mask_bins].^2
+
+        # model wrapper for LsqFit (needs (x, p) signature)
+        model(x, p) = rvm_model(x, p)
+
+        # initial guess: PA0=mean, alpha=30, zeta=35, phi0=centre longitude
+        p0 = [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
+
+        local fit
+        converged = true
+        try
+            fit = curve_fit(model, lon_fit, pa_fit, w_fit, p0;
+                            maxIter=2000, x_tol=1e-6, g_tol=1e-6)
+        catch e
+            @warn "RVM fit did not converge: $e"
+            converged = false
+            # return zeros so callers can still inspect
+            return (PA0=p0[1], alpha=p0[2], zeta=p0[3], phi0=p0[4],
+                    PA0_err=NaN, alpha_err=NaN, zeta_err=NaN, phi0_err=NaN,
+                    chi2_red=NaN, rms_deg=NaN, converged=false)
+        end
+
+        p   = fit.param
+        try
+            se  = stderror(fit)
+            res = pa_fit .- model(lon_fit, p)
+            dof = length(pa_fit) - length(p)
+            chi2_red = sum((res ./ pa_err[mask_bins]).^2) / max(dof, 1)
+            rms_deg  = sqrt(mean(res.^2))
+            return (PA0=p[1], alpha=p[2], zeta=p[3], phi0=p[4],
+                    PA0_err=se[1], alpha_err=se[2], zeta_err=se[3], phi0_err=se[4],
+                    chi2_red=chi2_red, rms_deg=rms_deg, converged=true)
+        catch
+            return (PA0=p[1], alpha=p[2], zeta=p[3], phi0=p[4],
+                    PA0_err=NaN, alpha_err=NaN, zeta_err=NaN, phi0_err=NaN,
+                    chi2_red=NaN, rms_deg=NaN, converged=true)
+        end
+    end
+
 
 end  # module Tools

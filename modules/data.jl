@@ -135,6 +135,16 @@ module Data
 
 
     """
+    Converts PSRFIT file to ASCII with all 4 Stokes parameters (I, Q, U, V).
+    Uses pdv -FT (no -t flag) which outputs all polarizations.
+    Required for RVM fitting.
+    """
+    function convert_psrfit_ascii_pol(infile, outfile)
+        run(pipeline(`pdv -FT $infile`, stdout="$outfile", stderr="errs.txt"))
+    end
+
+
+    """
     Uses PSRCHIVE to add .spCF files 
     
     indir: input directory
