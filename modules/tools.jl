@@ -2507,16 +2507,25 @@ module Tools
     function filter_ppa(data4, bin_st, bin_end; snr_threshold=3.5, linpol_threshold=0.3)
         @assert size(data4, 3) >= 3 "Need at least 3 polarizations (I, Q, U)"
 
-        # Average over all pulses first (Johnston et al. approach)
         avg = dropdims(mean(data4, dims=1), dims=1)  # bins × npol
 
-        sigma_noise = std(avg[let om = vcat(1:bin_st-1, bin_end+1:size(data4,2));
-                               length(om) >= 10 ? om : (1:div(size(data4,2),5)) end, 1])
+        # noise from off-pulse (first 10% of profile)
+        off_rng = 1:max(1, div(size(data4, 2), 10))
+        sigma_noise = std(avg[off_rng, 1])
 
-        rng      = bin_st:bin_end
-        L_on     = sqrt.(avg[rng, 2].^2 .+ avg[rng, 3].^2)
-        mask_bins = (avg[rng, 1] .> snr_threshold .* sigma_noise) .&
-                    ((L_on ./ max.(avg[rng, 1], 1e-10)) .> linpol_threshold)
+        peak_bin = argmax(avg[:, 1])
+        println("  [filter_ppa] peak I at bin $peak_bin  |  " *
+                "sigma_noise=$(round(sigma_noise, sigdigits=3))  |  " *
+                "requested bins: $bin_st-$bin_end")
+
+        rng   = bin_st:bin_end
+        L_on  = sqrt.(avg[rng, 2].^2 .+ avg[rng, 3].^2)
+        snr_m = avg[rng, 1] .> snr_threshold .* sigma_noise
+        lp_m  = (L_on ./ max.(avg[rng, 1], 1e-10)) .> linpol_threshold
+        mask_bins = snr_m .& lp_m
+
+        println("  [filter_ppa] bins passing SNR: $(sum(snr_m))  " *
+                "L/I: $(sum(lp_m))  both: $(sum(mask_bins))")
 
         pa_avg = zeros(bin_end - bin_st + 1)
         pa_err = fill(90.0, bin_end - bin_st + 1)
