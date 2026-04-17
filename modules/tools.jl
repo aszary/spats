@@ -2518,13 +2518,16 @@ module Tools
                               maximum(lon_fit) + 2.0, length=phi0_n))
         sw    = sum(w_fit)
 
-        best_p = [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]  # fallback
+        best_p  = [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
+        best_c2 = Inf
 
         for (ia, a) in enumerate(alphas)
             ar = deg2rad(a)
             for (ib, b) in enumerate(betas)
-                zr  = deg2rad(a + b)
-                c2b = Inf
+                zr          = deg2rad(a + b)
+                c2b         = Inf
+                phi0_best_l = phi0s[1]
+                PA0_best_l  = mean(pa_fit)
                 for phi0 in phi0s
                     dp  = deg2rad.(lon_fit .- phi0)
                     f   = mod.(rad2deg.(atan.(sin(ar) .* sin.(dp),
@@ -2532,15 +2535,20 @@ module Tools
                                              cos(zr) .* sin(ar) .* cos.(dp)))
                                .+ 90.0, 180.0) .- 90.0
                     PA0 = sum(w_fit .* (pa_fit .- f)) / sw
-                    c2  = sum(w_fit .* (pa_fit .- PA0 .- f).^2) / dof
+                    # wrap residuals to [-90, 90] to handle PA discontinuities
+                    res = mod.(pa_fit .- PA0 .- f .+ 90.0, 180.0) .- 90.0
+                    c2  = sum(w_fit .* res.^2) / dof
                     if c2 < c2b
-                        c2b    = c2
-                        if chi2_map[ia, ib] > c2b || isnan(chi2_map[ia, ib])
-                            best_p = [PA0, a, a + b, phi0]
-                        end
+                        c2b        = c2
+                        phi0_best_l = phi0
+                        PA0_best_l  = PA0
                     end
                 end
                 chi2_map[ia, ib] = c2b
+                if c2b < best_c2
+                    best_c2 = c2b
+                    best_p  = [PA0_best_l, a, a + b, phi0_best_l]
+                end
             end
         end
 
