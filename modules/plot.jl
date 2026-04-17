@@ -904,7 +904,7 @@ module Plot
         axhline(0.0, color="crimson", lw=0.8, ls="--")
         xlim(lon_on[1], lon_on[end])
         ylabel("Residuals (deg)")
-        tick_params(labelbottom=!period !== nothing)
+        tick_params(labelbottom=(period === nothing))
         minorticks_on()
 
         ann_txt = @sprintf("chi2r=%.2f rms=%.1fdeg\nPA0=%.1f phi0=%.1fdeg",
