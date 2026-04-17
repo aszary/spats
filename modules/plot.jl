@@ -923,24 +923,26 @@ module Plot
                    fontsize=6, va="top", ha="right",
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
 
-        # Panel 4: Emission heights (only when period given)
+        # Panel 4: Emission height (only when period given)
         if period !== nothing
             subplot(n_panels, 1, 4)
             if !isempty(h_blask)
-                scatter(lon_h, h_blask, s=5, color="darkorange", zorder=2,
-                        label="Blaskiewicz")
+                axhline(h_blask[1], color="darkorange", lw=1.5, label=@sprintf("Blask. h=%.0f km", h_blask[1]))
                 if !isempty(h_dipole)
-                    scatter(lon_h, h_dipole, s=5, color="purple",
-                            marker="^", zorder=2, label="dipole (Mitra+Rankin)")
+                    axhline(h_dipole[1], color="purple", lw=1.5, ls="--",
+                            label=@sprintf("dipole h=%.0f km", h_dipole[1]))
                 end
                 legend(fontsize=6, loc="upper right", framealpha=0.6)
                 gca().text(0.03, 0.97,
-                           @sprintf("h = %.0f +/- %.0f km", mean(h_blask), std(h_blask)),
+                           @sprintf("phi0=%.1f deg  phi_c=%.1f deg  Delphi=%.1f deg",
+                               result.phi0,
+                               Tools.pulse_center_deg(lon_on, I_on),
+                               result.phi0 - Tools.pulse_center_deg(lon_on, I_on)),
                            transform=gca()."transAxes",
                            fontsize=6, va="top", ha="left",
                            bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
             else
-                gca().text(0.5, 0.5, "no bins passed filter",
+                gca().text(0.5, 0.5, "fit did not converge",
                            transform=gca()."transAxes",
                            fontsize=7, va="center", ha="center", color="grey")
             end
@@ -949,7 +951,7 @@ module Plot
             xlabel("longitude (deg)")
             minorticks_on()
         else
-            xlabel("longitude (deg)")  # label on residuals panel instead
+            xlabel("longitude (deg)")
         end
 
         savefig("$outdir/$(name_mod)_rvm.pdf")
