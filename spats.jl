@@ -94,14 +94,14 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
-        Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine")
-        Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine")
-        Data.analyse_offsets(vpmout*"J2139+2242_16", "norefine")
-        Data.analyse_offsets(vpmout*"J1232-4742_16", "norefine")
+        #Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine")
+        #Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine")
+        #Data.analyse_offsets(vpmout*"J2139+2242_16", "norefine")
+        #Data.analyse_offsets(vpmout*"J1232-4742_16", "norefine")
         #Data.analyse_offsets(vpmout*"J1741-0840_16", "norefine", 0.1549; n_comp=2)
-        Data.analyse_offsets(vpmout*"J1512-5431_16", "norefine")
+        #Data.analyse_offsets(vpmout*"J1512-5431_16", "norefine")
 
-        RVM polarimetry — J1842-0359 (odkomentuj aby uruchomić)
+        #RVM polarimetry — J1842-0359 (odkomentuj aby uruchomić)
         test_rvm("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/pulsar.debase.gg",
                  vpmout*"J1842-0359_rvm/", "J1842-0359";
                  bin_st=450, bin_end=580, period=0.536)
