@@ -866,8 +866,8 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        n_panels  = has_heights ? 4 : 3
-        fig_h     = has_heights ? 7.08661 : 5.51181   # 18 cm or 14 cm
+        n_panels  = period !== nothing ? 4 : 3
+        fig_h     = period !== nothing ? 7.08661 : 5.51181   # 18 cm or 14 cm
         figure(figsize=(3.14961, fig_h))
         subplots_adjust(left=0.18, bottom=0.07, right=0.97,
                         top=0.97, hspace=0.05)
@@ -904,7 +904,7 @@ module Plot
         axhline(0.0, color="crimson", lw=0.8, ls="--")
         xlim(lon_on[1], lon_on[end])
         ylabel("Residuals (deg)")
-        tick_params(labelbottom=!has_heights)
+        tick_params(labelbottom=!period !== nothing)
         minorticks_on()
 
         ann_txt = @sprintf("chi2r=%.2f rms=%.1fdeg\nPA0=%.1f phi0=%.1fdeg",
@@ -916,7 +916,7 @@ module Plot
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
 
         # Panel 4: Emission heights (only when period given)
-        if has_heights && !isempty(h_blask)
+        if period !== nothing && !isempty(h_blask)
             subplot(n_panels, 1, 4)
             scatter(lon_h, h_blask, s=5, color="darkorange", zorder=2,
                     label="Blaskiewicz")
@@ -937,7 +937,7 @@ module Plot
                        transform=gca()."transAxes",
                        fontsize=6, va="top", ha="left",
                        bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
-        elseif !has_heights
+        elseif !period !== nothing
             xlabel("longitude (deg)")  # label on residuals panel instead
         end
 
