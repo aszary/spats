@@ -102,7 +102,7 @@ module SpaTs
         #Data.analyse_offsets(vpmout*"J1512-5431_16", "norefine")
 
         #RVM polarimetry — J1842-0359 (odkomentuj aby uruchomić)
-        test_rvm("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/pulsar.debase.gg",
+        test_rvm("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/2019-11-05-18:03:43_00000-00255.spCF",
                  vpmout*"J1842-0359_rvm/", "J1842-0359";
                  bin_st=450, bin_end=580, period=0.536)
 
