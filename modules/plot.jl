@@ -802,19 +802,29 @@ module Plot
     """
     function rvm(data4, outdir, name_mod; bin_st, bin_end,
                  snr_threshold=3.5, linpol_threshold=0.8,
-                 period=nothing, show_=false)
+                 period=nothing, show_=false, n_freq=1)
+
+        n_pulses_total = size(data4, 1)
+        
+        # If n_freq=2, split data into low and high frequency halves
+        if n_freq == 2
+            n_each = div(n_pulses_total, 2)
+            data_low  = data4[1:n_each, :, :]
+            data_high = data4[n_each+1:end, :, :]
+            # Use combined data for PA fitting (more pulses = better SNR)
+            data_fit = data4
+        else
+            data_fit = data4
+            data_low  = nothing
+            data_high = nothing
+        end
 
         n_on   = bin_end - bin_st + 1
-        dl     = 360.0 * n_on / size(data4, 2)
+        dl     = 360.0 * n_on / size(data_fit, 2)
         lon_on = collect(range(-dl/2.0, dl/2.0, length=n_on))
 
-        I_on  = vec(mean(data4[:, bin_st:bin_end, 1], dims=1))
-        L_on  = sqrt.(vec(mean(data4[:, bin_st:bin_end, 2], dims=1)).^2 .+
-                      vec(mean(data4[:, bin_st:bin_end, 3], dims=1)).^2)
-        V_on  = vec(mean(data4[:, bin_st:bin_end, 4], dims=1))
-        I_max = max(maximum(abs.(I_on)), 1e-10)
-
-        lon_f, pa_avg, pa_err, mask = Tools.filter_ppa(data4, bin_st, bin_end;
+        # For PA fitting, use full combined data to maximize SNR
+        lon_f, pa_avg, pa_err, mask = Tools.filter_ppa(data_fit, bin_st, bin_end;
             snr_threshold=snr_threshold, linpol_threshold=linpol_threshold)
 
         # grid search first → good initial guess for LsqFit
@@ -824,6 +834,33 @@ module Plot
         lon_curve = collect(range(lon_on[1], lon_on[end], length=500))
         pa_curve  = Tools.rvm_model(lon_curve,
                         [result.PA0, result.alpha, result.zeta, result.phi0])
+
+        # Compute profile from combined data for overall picture
+        I_on  = vec(mean(data_fit[:, bin_st:bin_end, 1], dims=1))
+        L_on  = sqrt.(vec(mean(data_fit[:, bin_st:bin_end, 2], dims=1)).^2 .+
+                      vec(mean(data_fit[:, bin_st:bin_end, 3], dims=1)).^2)
+        V_on  = vec(mean(data_fit[:, bin_st:bin_end, 4], dims=1))
+        I_max = max(maximum(abs.(I_on)), 1e-10)
+
+        # Compute separate profiles if two frequencies provided
+        if n_freq == 2 && data_low !== nothing
+            I_low = vec(mean(data_low[:, bin_st:bin_end, 1], dims=1))
+            L_low = sqrt.(vec(mean(data_low[:, bin_st:bin_end, 2], dims=1)).^2 .+
+                          vec(mean(data_low[:, bin_st:bin_end, 3], dims=1)).^2)
+            V_low = vec(mean(data_low[:, bin_st:bin_end, 4], dims=1))
+            
+            I_high = vec(mean(data_high[:, bin_st:bin_end, 1], dims=1))
+            L_high = sqrt.(vec(mean(data_high[:, bin_st:bin_end, 2], dims=1)).^2 .+
+                           vec(mean(data_high[:, bin_st:bin_end, 3], dims=1)).^2)
+            V_high = vec(mean(data_high[:, bin_st:bin_end, 4], dims=1))
+        else
+            I_low = I_on
+            L_low = L_on
+            V_low = V_on
+            I_high = nothing
+            L_high = nothing
+            V_high = nothing
+        end
 
         phi_c   = Tools.pulse_center_deg(lon_on, I_on)
         W10     = Tools.profile_width_deg(lon_on, I_on)
@@ -869,9 +906,20 @@ module Plot
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
 
         # -- Stokes panel (left bottom) --
-        ax_st.plot(lon_on, I_on ./ I_max, color="black",     lw=1.0, label="I")
-        ax_st.plot(lon_on, L_on ./ I_max, color="red",       lw=1.0, label="L")
-        ax_st.plot(lon_on, V_on ./ I_max, color="royalblue", lw=1.0, label="V")
+        if n_freq == 2 && I_high !== nothing
+            # Show both frequencies separately
+            ax_st.plot(lon_on, I_low ./ I_max, color="black",     lw=0.8, label="I low", alpha=0.7)
+            ax_st.plot(lon_on, L_low ./ I_max, color="red",       lw=0.8, label="L low", alpha=0.7)
+            ax_st.plot(lon_on, V_low ./ I_max, color="royalblue", lw=0.8, label="V low", alpha=0.7)
+            ax_st.plot(lon_on, I_high ./ I_max, color="black",     lw=0.8, label="I high", ls="--", alpha=0.7)
+            ax_st.plot(lon_on, L_high ./ I_max, color="red",       lw=0.8, label="L high", ls="--", alpha=0.7)
+            ax_st.plot(lon_on, V_high ./ I_max, color="royalblue", lw=0.8, label="V high", ls="--", alpha=0.7)
+        else
+            # Show combined profile
+            ax_st.plot(lon_on, I_low ./ I_max, color="black",     lw=1.0, label="I")
+            ax_st.plot(lon_on, L_low ./ I_max, color="red",       lw=1.0, label="L")
+            ax_st.plot(lon_on, V_low ./ I_max, color="royalblue", lw=1.0, label="V")
+        end
         ax_st.axhline(0.0, color="grey", lw=0.4, ls=":")
         ax_st.set_xlim(lon_on[1], lon_on[end])
         ax_st.set_ylim(-0.5, 1.15)
