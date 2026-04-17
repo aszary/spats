@@ -2460,6 +2460,86 @@ module Tools
         return 0.5 * (lon[above[1]] + lon[above[end]])
     end
 
+    function profile_width_deg(lon, I; level=0.1)
+        above = findall(I .> level * maximum(I))
+        isempty(above) && return 0.0
+        return lon[above[end]] - lon[above[1]]
+    end
+
+    """
+    rho_from_width(alpha_deg, beta_deg, W10_deg) -> rho_deg
+
+    Opening angle of emission cone from pulse width at 10% max intensity.
+    Rankin 1990 / Blaskiewicz 1991 geometry:
+
+        cos(rho) = cos(alpha)*cos(zeta) + sin(alpha)*sin(zeta)*cos(W10/2)
+    """
+    function rho_from_width(alpha_deg, beta_deg, W10_deg)
+        a   = deg2rad(alpha_deg)
+        z   = deg2rad(alpha_deg + beta_deg)
+        val = cos(a)*cos(z) + sin(a)*sin(z)*cos(deg2rad(W10_deg / 2.0))
+        return rad2deg(acos(clamp(val, -1.0, 1.0)))
+    end
+
+    """
+    height_from_rho_rankin(rho_deg, period_s) -> h_km
+
+    Emission height from cone opening angle (Rankin 1990):
+
+        h = 2 * P * c * rho^2 / (9*pi)   [km]
+    """
+    function height_from_rho_rankin(rho_deg, period_s)
+        return 2.0 * period_s * 3e5 * deg2rad(rho_deg)^2 / (9.0 * pi)
+    end
+
+    """
+    chi2_grid(longitude, pa_avg, pa_err, mask_bins) -> alphas, betas, chi2_map
+
+    Grid search over (alpha, beta) space. For each pair, PA0 and phi0 are
+    optimised analytically (PA0) and by grid search (phi0), giving chi2_red.
+    Returns alpha/beta vectors and chi2_map[ia, ib] matrix.
+    """
+    function chi2_grid(longitude, pa_avg, pa_err, mask_bins;
+                       alpha_range=(5.0, 175.0), alpha_n=85,
+                       beta_range=(-20.0, 20.0), beta_n=40,
+                       phi0_n=50)
+        lon_fit = longitude[mask_bins]
+        pa_fit  = pa_avg[mask_bins]
+        w_fit   = 1.0 ./ pa_err[mask_bins].^2
+        dof     = max(length(pa_fit) - 4, 1)
+
+        alphas   = collect(range(alpha_range[1], alpha_range[2], length=alpha_n))
+        betas    = collect(range(beta_range[1],  beta_range[2],  length=beta_n))
+        chi2_map = fill(NaN, alpha_n, beta_n)
+
+        isempty(lon_fit) && return alphas, betas, chi2_map
+
+        phi0s = collect(range(minimum(lon_fit) - 2.0,
+                              maximum(lon_fit) + 2.0, length=phi0_n))
+        sw    = sum(w_fit)
+
+        for (ia, a) in enumerate(alphas)
+            ar = deg2rad(a)
+            for (ib, b) in enumerate(betas)
+                zr  = deg2rad(a + b)
+                c2b = Inf
+                for phi0 in phi0s
+                    dp  = deg2rad.(lon_fit .- phi0)
+                    f   = mod.(rad2deg.(atan.(sin(ar) .* sin.(dp),
+                                             sin(zr) .* cos(ar) .-
+                                             cos(zr) .* sin(ar) .* cos.(dp)))
+                               .+ 90.0, 180.0) .- 90.0
+                    PA0 = sum(w_fit .* (pa_fit .- f)) / sw
+                    c2  = sum(w_fit .* (pa_fit .- PA0 .- f).^2) / dof
+                    c2 < c2b && (c2b = c2)
+                end
+                chi2_map[ia, ib] = c2b
+            end
+        end
+
+        return alphas, betas, chi2_map
+    end
+
 
     # =========================================================================
     # RVM (Rotating Vector Model) fitting  — Johnston et al. 2023/2024

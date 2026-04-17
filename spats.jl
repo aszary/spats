@@ -121,12 +121,10 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
     end
 
-    function test_rvm(infile, outdir, name_mod; bin_st, bin_end,
-                      period=nothing, alpha=nothing, beta=nothing)
+    function test_rvm(infile, outdir, name_mod; bin_st, bin_end, period=nothing)
         rvm_analysis(infile, outdir, name_mod;
                      bin_st=bin_st, bin_end=bin_end,
-                     period=period, alpha=alpha, beta=beta,
-                     show_=true)
+                     period=period, show_=true)
     end
 
     # -------------------------------------------------------------------------
@@ -145,32 +143,27 @@ module SpaTs
     function rvm_analysis(infile, outdir, name_mod;
                           bin_st, bin_end,
                           snr_threshold=3.5, linpol_threshold=0.8,
-                          period=nothing, alpha=nothing, beta=nothing,
+                          period=nothing,
                           show_=false)
 
         txt_file = joinpath(outdir, name_mod * "_pol.txt")
-
-        # export 4-pol ASCII from PSRFIT file (requires PSRCHIVE on PATH)
         Data.convert_psrfit_ascii_pol(infile, txt_file)
-
-        # load full Stokes array  (pulses × bins × 4)
-        data4 = Data.load_ascii_all(txt_file)
-
-        # plot + fit
+        data4  = Data.load_ascii_all(txt_file)
         result = Plot.rvm(data4, outdir, name_mod;
                           bin_st=bin_st, bin_end=bin_end,
                           snr_threshold=snr_threshold,
                           linpol_threshold=linpol_threshold,
-                          period=period, alpha=alpha, beta=beta,
-                          show_=show_)
+                          period=period, show_=show_)
 
-        println("RVM fit done: alpha=$(round(result.alpha, digits=2)) deg  " *
-                "zeta=$(round(result.zeta, digits=2)) deg  " *
-                "phi0=$(round(result.phi0, digits=2)) deg  " *
-                "chi2r=$(round(result.chi2_red, digits=3))")
-        if period !== nothing && !isempty(result.h_blask)
-            h_med = sum(result.h_blask) / length(result.h_blask)
-            println("  Blaskiewicz height (mean): $(round(h_med, digits=0)) km")
+        println("RVM fit:  alpha=$(round(result.alpha, digits=1)) deg  " *
+                "zeta=$(round(result.zeta, digits=1)) deg  " *
+                "phi0=$(round(result.phi0, digits=1)) deg  " *
+                "chi2r=$(round(result.chi2_red, digits=2))")
+        println("          W10=$(round(result.W10, digits=1)) deg  " *
+                "phi_center=$(round(result.phi_center, digits=1)) deg")
+        if !isnan(result.h_blask)
+            println("  h_Blask = $(round(result.h_blask, digits=0)) km  " *
+                    "(Delphi=$(round(result.phi0 - result.phi_center, digits=1)) deg)")
         end
         return result
     end

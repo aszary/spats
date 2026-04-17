@@ -802,157 +802,115 @@ module Plot
     """
     function rvm(data4, outdir, name_mod; bin_st, bin_end,
                  snr_threshold=3.5, linpol_threshold=0.8,
-                 period=nothing, alpha=nothing, beta=nothing,
-                 show_=false)
+                 period=nothing, show_=false)
 
-        pulses, bins, _ = size(data4)
-
-        # ---- compute averaged profiles -----------------------------------
-        I_avg = vec(mean(data4[:, :, 1], dims=1))
-        Q_avg = vec(mean(data4[:, :, 2], dims=1))
-        U_avg = vec(mean(data4[:, :, 3], dims=1))
-
-        n_on = bin_end - bin_st + 1
-        dl   = 360.0 * n_on / bins
+        n_on   = bin_end - bin_st + 1
+        dl     = 360.0 * n_on / size(data4, 2)
         lon_on = collect(range(-dl/2.0, dl/2.0, length=n_on))
 
-        I_on  = I_avg[bin_st:bin_end]
-        I_max = maximum(abs.(I_on))
-        I_max == 0.0 && (I_max = 1.0)
+        I_on  = vec(mean(data4[:, bin_st:bin_end, 1], dims=1))
+        L_on  = sqrt.(vec(mean(data4[:, bin_st:bin_end, 2], dims=1)).^2 .+
+                      vec(mean(data4[:, bin_st:bin_end, 3], dims=1)).^2)
+        V_on  = vec(mean(data4[:, bin_st:bin_end, 4], dims=1))
+        I_max = max(maximum(abs.(I_on)), 1e-10)
 
-        # PPA from averaged data (all on-pulse bins, unfiltered)
-        pa_all = Tools.ppa_from_stokes(Q_avg[bin_st:bin_end],
-                                       U_avg[bin_st:bin_end])
+        lon_f, pa_avg, pa_err, mask = Tools.filter_ppa(data4, bin_st, bin_end;
+            snr_threshold=snr_threshold, linpol_threshold=linpol_threshold)
 
-        # ---- filtered PPA + RVM fit --------------------------------------
-        lon_f, pa_avg, pa_err, mask = Tools.filter_ppa(
-            data4, bin_st, bin_end;
-            snr_threshold=snr_threshold,
-            linpol_threshold=linpol_threshold)
-
-        result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask)
-
-        # smooth RVM curve over on-pulse range
+        result    = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask)
         lon_curve = collect(range(lon_on[1], lon_on[end], length=500))
         pa_curve  = Tools.rvm_model(lon_curve,
                         [result.PA0, result.alpha, result.zeta, result.phi0])
 
-        # residuals (only filtered bins)
-        pa_model_at_bins = Tools.rvm_model(lon_f[mask],
-                               [result.PA0, result.alpha, result.zeta, result.phi0])
-        residuals = pa_avg[mask] .- pa_model_at_bins
+        phi_c   = Tools.pulse_center_deg(lon_on, I_on)
+        W10     = Tools.profile_width_deg(lon_on, I_on)
+        h_blask = period !== nothing ?
+                  Tools.emission_height_blaskiewicz(result.phi0, phi_c, period) : NaN
 
-        # ---- emission heights (optional) ---------------------------------
-        # Blaskiewicz 1991: single h from offset of RVM inflection point
-        # relative to pulse centre (midpoint of 10% intensity levels)
-        h_blask  = Float64[]
-        h_dipole = Float64[]
+        alphas, betas, chi2_map = Tools.chi2_grid(lon_f, pa_avg, pa_err, mask)
 
-        if period !== nothing
-            push!(h_blask, Tools.emission_height_blaskiewicz(
-                result.phi0, Tools.pulse_center_deg(lon_on, I_on), period))
-            if alpha !== nothing
-                push!(h_dipole, Tools.rho_to_height(
-                    Tools.delta_phi_to_rho(
-                        abs(result.phi0 - Tools.pulse_center_deg(lon_on, I_on)),
-                        alpha,
-                        beta !== nothing ? beta : (result.zeta - result.alpha)),
-                    period))
-            end
-        end
+        h_contours = (period !== nothing && W10 > 0.0) ?
+            Float64[Tools.height_from_rho_rankin(
+                        Tools.rho_from_width(a, b, W10), period)
+                    for a in alphas, b in betas] : nothing
 
-        # ---- plot --------------------------------------------------------
+        # ---------- figure -----------------------------------------------
         rc("font", size=8.)
         rc("axes", linewidth=0.5)
-        rc("lines", linewidth=0.5)
+        rc("lines", linewidth=0.8)
 
-        n_panels  = period !== nothing ? 4 : 3
-        fig_h     = period !== nothing ? 7.08661 : 5.51181   # 18 cm or 14 cm
-        figure(figsize=(3.14961, fig_h))
-        subplots_adjust(left=0.18, bottom=0.07, right=0.97,
-                        top=0.97, hspace=0.05)
+        fig = figure(figsize=(7.5, 4.8))
+        ax_pa  = fig.add_axes([0.09, 0.62, 0.37, 0.35])
+        ax_st  = fig.add_axes([0.09, 0.11, 0.37, 0.44])
+        ax_map = fig.add_axes([0.57, 0.11, 0.31, 0.86])
+        ax_cb  = fig.add_axes([0.89, 0.11, 0.02, 0.86])
 
-        # averaged Stokes profiles for panel 1
-        avg_all  = dropdims(mean(data4, dims=1), dims=1)
-        L_on     = sqrt.(avg_all[bin_st:bin_end, 2].^2 .+ avg_all[bin_st:bin_end, 3].^2)
-        V_on     = avg_all[bin_st:bin_end, 4]
-
-        # Panel 1: Stokes I + L + V
-        subplot(n_panels, 1, 1)
-        plot(lon_on, I_on ./ I_max,     color="black",      lw=1.0, label="I")
-        plot(lon_on, L_on ./ I_max,     color="royalblue",  lw=1.0, label="L")
-        plot(lon_on, V_on ./ I_max,     color="forestgreen",lw=1.0, label="V")
-        axhline(0.0, color="grey", lw=0.4, ls=":")
-        xlim(lon_on[1], lon_on[end])
-        ylim(-0.5, 1.15)
-        ylabel("Flux (norm.)")
-        tick_params(labelbottom=false)
-        minorticks_on()
-        legend(fontsize=6, loc="upper right", framealpha=0.6, ncol=3)
-
-        # Panel 2: PPA scatter + RVM curve
-        subplot(n_panels, 1, 2)
-        scatter(lon_on, pa_all, s=4, color="lightgrey", zorder=1)
-        errorbar(lon_f[mask], pa_avg[mask], yerr=pa_err[mask],
-                 fmt="o", ms=3, color="steelblue", elinewidth=0.7,
-                 capsize=1.5, zorder=2, label="filtered")
-        plot(lon_curve, pa_curve, color="crimson", lw=1.5, zorder=3,
-             label=@sprintf("a=%.1f  z=%.1f deg", result.alpha, result.zeta))
-        xlim(lon_on[1], lon_on[end])
-        ylim(-95, 95)
-        ylabel("PPA (deg)")
-        yticks([-90, -45, 0, 45, 90])
-        tick_params(labelbottom=false)
-        minorticks_on()
-        legend(fontsize=6, loc="upper left", framealpha=0.6)
-
-        # Panel 3: Residuals
-        subplot(n_panels, 1, 3)
-        scatter(lon_f[mask], residuals, s=4, color="steelblue", zorder=2)
-        axhline(0.0, color="crimson", lw=0.8, ls="--")
-        xlim(lon_on[1], lon_on[end])
-        ylabel("Residuals (deg)")
-        tick_params(labelbottom=(period === nothing))
-        minorticks_on()
-
-        ann_txt = @sprintf("chi2r=%.2f rms=%.1fdeg\nPA0=%.1f phi0=%.1fdeg",
-                           result.chi2_red, result.rms_deg,
-                           result.PA0, result.phi0)
-        gca().text(0.97, 0.97, ann_txt,
-                   transform=gca()."transAxes",
-                   fontsize=6, va="top", ha="right",
+        # -- PA panel (left top) --
+        ax_pa.scatter(lon_f[.!mask], pa_avg[.!mask],
+                      s=2, color="lightgrey", zorder=1)
+        ax_pa.errorbar(lon_f[mask], pa_avg[mask], yerr=pa_err[mask],
+                       fmt="o", ms=2, color="black",
+                       elinewidth=0.5, capsize=1.0, zorder=2)
+        ax_pa.plot(lon_curve, pa_curve, color="darkorange", lw=1.5, zorder=3)
+        ax_pa.axvline(result.phi0, color="royalblue", lw=0.8, ls="--", alpha=0.7)
+        ax_pa.set_xlim(lon_on[1], lon_on[end])
+        ax_pa.set_ylim(-95, 95)
+        ax_pa.set_ylabel("PA (deg)")
+        ax_pa.set_yticks([-90, -45, 0, 45, 90])
+        ax_pa.tick_params(labelbottom=false)
+        ax_pa.minorticks_on()
+        ax_pa.text(0.97, 0.97,
+                   @sprintf("a=%.1f  z=%.1f  phi0=%.1f\nchi2r=%.2f  rms=%.1f deg",
+                            result.alpha, result.zeta, result.phi0,
+                            result.chi2_red, result.rms_deg),
+                   transform=ax_pa."transAxes", fontsize=6,
+                   va="top", ha="right",
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
 
-        # Panel 4: Emission height (only when period given)
-        if period !== nothing
-            subplot(n_panels, 1, 4)
-            if !isempty(h_blask)
-                axhline(h_blask[1], color="darkorange", lw=1.5, label=@sprintf("Blask. h=%.0f km", h_blask[1]))
-                if !isempty(h_dipole)
-                    axhline(h_dipole[1], color="purple", lw=1.5, ls="--",
-                            label=@sprintf("dipole h=%.0f km", h_dipole[1]))
-                end
-                legend(fontsize=6, loc="upper right", framealpha=0.6)
-                gca().text(0.03, 0.97,
-                           @sprintf("phi0=%.1f deg  phi_c=%.1f deg  Delphi=%.1f deg",
-                               result.phi0,
-                               Tools.pulse_center_deg(lon_on, I_on),
-                               result.phi0 - Tools.pulse_center_deg(lon_on, I_on)),
-                           transform=gca()."transAxes",
-                           fontsize=6, va="top", ha="left",
-                           bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
-            else
-                gca().text(0.5, 0.5, "fit did not converge",
-                           transform=gca()."transAxes",
-                           fontsize=7, va="center", ha="center", color="grey")
-            end
-            xlim(lon_on[1], lon_on[end])
-            ylabel("h (km)")
-            xlabel("longitude (deg)")
-            minorticks_on()
-        else
-            xlabel("longitude (deg)")
+        # -- Stokes panel (left bottom) --
+        ax_st.plot(lon_on, I_on ./ I_max, color="black",     lw=1.0, label="I")
+        ax_st.plot(lon_on, L_on ./ I_max, color="red",       lw=1.0, label="L")
+        ax_st.plot(lon_on, V_on ./ I_max, color="royalblue", lw=1.0, label="V")
+        ax_st.axhline(0.0, color="grey", lw=0.4, ls=":")
+        ax_st.set_xlim(lon_on[1], lon_on[end])
+        ax_st.set_ylim(-0.5, 1.15)
+        ax_st.set_ylabel("Flux (norm.)")
+        ax_st.set_xlabel("longitude (deg)")
+        ax_st.legend(fontsize=6, loc="upper right", framealpha=0.6, ncol=3)
+        ax_st.minorticks_on()
+        if !isnan(h_blask)
+            ax_st.text(0.03, 0.03,
+                       @sprintf("h_Blask=%.0f km  Delphi=%.1f deg",
+                                h_blask, result.phi0 - phi_c),
+                       transform=ax_st."transAxes", fontsize=6, va="bottom",
+                       bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
         end
+
+        # -- chi2(alpha, beta) map (right panel) --
+        chi2_plot = map(v -> (isnan(v) || v > 10.0) ? NaN : v, chi2_map)
+        im = ax_map.pcolormesh(betas, alphas, chi2_plot,
+                               cmap="viridis_r", vmin=0.9, vmax=5.0,
+                               shading="auto")
+        fig.colorbar(im, cax=ax_cb, label="chi2_red")
+
+        best = argmin(map(v -> isnan(v) ? Inf : v, chi2_map))
+        ax_map.scatter([betas[best[2]]], [alphas[best[1]]],
+                       marker="*", s=100, color="red", zorder=5,
+                       label=@sprintf("best: a=%.0f b=%.0f",
+                                      alphas[best[1]], betas[best[2]]))
+        ax_map.legend(fontsize=6, loc="upper right", framealpha=0.6)
+
+        if h_contours !== nothing
+            ax_map.clabel(
+                ax_map.contour(betas, alphas, h_contours,
+                               levels=[100., 200., 500., 1000., 2000.],
+                               colors="white", linewidths=0.7, alpha=0.9),
+                fmt="%.0f km", fontsize=5, inline=true)
+        end
+
+        ax_map.set_xlabel("beta (deg)")
+        ax_map.set_ylabel("alpha (deg)")
+        ax_map.minorticks_on()
 
         savefig("$outdir/$(name_mod)_rvm.pdf")
         savefig("$outdir/$(name_mod)_rvm.png")
@@ -965,7 +923,8 @@ module Plot
         end
         PyPlot.close()
 
-        return merge(result, (h_blask=h_blask, h_dipole=h_dipole, lon_h=lon_h))
+        return merge(result, (h_blask=h_blask, phi_center=phi_c, W10=W10,
+                              alphas=alphas, betas=betas, chi2_map=chi2_map))
     end
 
 
