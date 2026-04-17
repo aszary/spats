@@ -2651,9 +2651,7 @@ module Tools
     """
     fit_rvm(longitude, pa_avg, pa_err, mask_bins)
 
-    Fit the RVM model to averaged PPA data.
-    If p0 (from chi2_grid) is provided, return it directly since grid search
-    already found global minimum with proper PA wrapping.
+    Fit the RVM model to averaged PPA data using LsqFit with custom PA wrapping.
     
     Only bins where mask_bins == true are used.
 
@@ -2668,27 +2666,53 @@ module Tools
         pa_fit  = pa_avg[mask_bins]
         w_fit   = 1.0 ./ pa_err[mask_bins].^2
 
-        p = p0 !== nothing ? p0 :
-            [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
+        function model_weighted(x, p)
+            model_pa = rvm_model(x, p)
+            # Return wrapped residuals for proper PA fitting
+            return mod.(model_pa .+ 90.0, 180.0) .- 90.0
+        end
 
-        # Calculate chi2 with properly wrapped PA residuals (same way as chi2_grid)
-        model_pa = rvm_model(lon_fit, p)
-        res_wrapped = mod.(pa_fit .- model_pa .+ 90.0, 180.0) .- 90.0
-        
-        dof = length(pa_fit) - length(p)
-        chi2_red = sum((res_wrapped ./ pa_err[mask_bins]).^2) / max(dof, 1)
-        rms_deg  = sqrt(mean(res_wrapped.^2))
+        p0_guess = p0 !== nothing ? p0 :
+                   [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
 
-        # Since grid search (chi2_grid) already optimized with proper wrapping,
-        # we skip LsqFit refinement. To estimate errors, assume Gaussian around best point.
-        # This is approximate; full Hessian would require numerical differentiation.
-        err_scale = sqrt(chi2_red)  # rough scale based on reduced chi2
-        err_est = err_scale .* [1.0, 1.0, 1.0, 1.0]  # placeholder
+        local fit
+        converged = true
+        try
+            # Fit using normalized residuals (weighted by 1/pa_err²)
+            fit = curve_fit(
+                (x, p) -> model_weighted(x, p),
+                lon_fit, 
+                mod.(pa_fit .+ 90.0, 180.0) .- 90.0,
+                w_fit, 
+                p0_guess;
+                maxIter=5000, x_tol=1e-7, g_tol=1e-7
+            )
+        catch e
+            @warn "RVM fit did not converge: $e"
+            converged = false
+            return (PA0=p0_guess[1], alpha=p0_guess[2], zeta=p0_guess[3], phi0=p0_guess[4],
+                    PA0_err=NaN, alpha_err=NaN, zeta_err=NaN, phi0_err=NaN,
+                    chi2_red=NaN, rms_deg=NaN, converged=false)
+        end
 
-        return (PA0=p[1], alpha=p[2], zeta=p[3], phi0=p[4],
-                PA0_err=err_est[1], alpha_err=err_est[2], 
-                zeta_err=err_est[3], phi0_err=err_est[4],
-                chi2_red=chi2_red, rms_deg=rms_deg, converged=true)
+        p   = fit.param
+        try
+            se  = stderror(fit)
+            model_pa = rvm_model(lon_fit, p)
+            res_wrapped = mod.(pa_fit .- model_pa .+ 90.0, 180.0) .- 90.0
+            
+            dof = max(length(pa_fit) - length(p), 1)
+            chi2_red = sum((res_wrapped ./ pa_err[mask_bins]).^2) / dof
+            rms_deg  = sqrt(mean(res_wrapped.^2))
+            
+            return (PA0=p[1], alpha=p[2], zeta=p[3], phi0=p[4],
+                    PA0_err=se[1], alpha_err=se[2], zeta_err=se[3], phi0_err=se[4],
+                    chi2_red=chi2_red, rms_deg=rms_deg, converged=true)
+        catch
+            return (PA0=p[1], alpha=p[2], zeta=p[3], phi0=p[4],
+                    PA0_err=NaN, alpha_err=NaN, zeta_err=NaN, phi0_err=NaN,
+                    chi2_red=NaN, rms_deg=NaN, converged=true)
+        end
     end
 
 

@@ -842,10 +842,9 @@ module Plot
         L_on  = sqrt.(vec(mean(data_fit[:, bin_st:bin_end, 2], dims=1)).^2 .+
                       vec(mean(data_fit[:, bin_st:bin_end, 3], dims=1)).^2)
         V_on  = vec(mean(data_fit[:, bin_st:bin_end, 4], dims=1))
-        I_max = max(maximum(abs.(I_on)), 1e-10)
 
         # Compute separate profiles if two frequencies provided
-        if n_freq == 2 && data_low !== nothing
+        if n_freq == 2 && data_low !== nothing && data_high !== nothing
             I_low = vec(mean(data_low[:, bin_st:bin_end, 1], dims=1))
             L_low = sqrt.(vec(mean(data_low[:, bin_st:bin_end, 2], dims=1)).^2 .+
                           vec(mean(data_low[:, bin_st:bin_end, 3], dims=1)).^2)
@@ -855,6 +854,8 @@ module Plot
             L_high = sqrt.(vec(mean(data_high[:, bin_st:bin_end, 2], dims=1)).^2 .+
                            vec(mean(data_high[:, bin_st:bin_end, 3], dims=1)).^2)
             V_high = vec(mean(data_high[:, bin_st:bin_end, 4], dims=1))
+            # For two-freq mode, normalize by max of both
+            I_max = max(maximum(abs.(I_low)), maximum(abs.(I_high)), 1e-10)
         else
             I_low = I_on
             L_low = L_on
@@ -862,6 +863,7 @@ module Plot
             I_high = nothing
             L_high = nothing
             V_high = nothing
+            I_max = max(maximum(abs.(I_on)), 1e-10)
         end
 
         phi_c   = Tools.pulse_center_deg(lon_on, I_on)
@@ -908,7 +910,7 @@ module Plot
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
 
         # -- Stokes panel (left bottom) --
-        if n_freq == 2 && I_high !== nothing
+        if I_high !== nothing && n_freq == 2
             # Show both frequencies separately
             ax_st.plot(lon_on, I_low ./ I_max, color="black",     lw=0.8, label="I low", alpha=0.7)
             ax_st.plot(lon_on, L_low ./ I_max, color="red",       lw=0.8, label="L low", alpha=0.7)
