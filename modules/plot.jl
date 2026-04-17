@@ -872,24 +872,32 @@ module Plot
         subplots_adjust(left=0.18, bottom=0.07, right=0.97,
                         top=0.97, hspace=0.05)
 
-        # Panel 1: Stokes I
+        # averaged Stokes profiles for panel 1
+        avg_all  = dropdims(mean(data4, dims=1), dims=1)
+        L_on     = sqrt.(avg_all[bin_st:bin_end, 2].^2 .+ avg_all[bin_st:bin_end, 3].^2)
+        V_on     = avg_all[bin_st:bin_end, 4]
+
+        # Panel 1: Stokes I + L + V
         subplot(n_panels, 1, 1)
-        plot(lon_on, I_on ./ I_max, color="black", lw=1.0)
+        plot(lon_on, I_on ./ I_max,     color="black",      lw=1.0, label="I")
+        plot(lon_on, L_on ./ I_max,     color="royalblue",  lw=1.0, label="L")
+        plot(lon_on, V_on ./ I_max,     color="forestgreen",lw=1.0, label="V")
+        axhline(0.0, color="grey", lw=0.4, ls=":")
         xlim(lon_on[1], lon_on[end])
-        ylim(-0.05, 1.15)
-        ylabel("I (norm.)")
+        ylim(-0.5, 1.15)
+        ylabel("Flux (norm.)")
         tick_params(labelbottom=false)
         minorticks_on()
+        legend(fontsize=6, loc="upper right", framealpha=0.6, ncol=3)
 
         # Panel 2: PPA scatter + RVM curve
         subplot(n_panels, 1, 2)
-        scatter(lon_on, pa_all, s=4, color="lightgrey", zorder=1,
-                label="all bins")
+        scatter(lon_on, pa_all, s=4, color="lightgrey", zorder=1)
         errorbar(lon_f[mask], pa_avg[mask], yerr=pa_err[mask],
                  fmt="o", ms=3, color="steelblue", elinewidth=0.7,
                  capsize=1.5, zorder=2, label="filtered")
         plot(lon_curve, pa_curve, color="crimson", lw=1.5, zorder=3,
-             label=@sprintf("RVM  a=%.1f  z=%.1f deg", result.alpha, result.zeta))
+             label=@sprintf("a=%.1f  z=%.1f deg", result.alpha, result.zeta))
         xlim(lon_on[1], lon_on[end])
         ylim(-95, 95)
         ylabel("PPA (deg)")
@@ -916,36 +924,37 @@ module Plot
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
 
         # Panel 4: Emission heights (only when period given)
-        if period !== nothing && !isempty(h_blask)
+        if period !== nothing
             subplot(n_panels, 1, 4)
-            scatter(lon_h, h_blask, s=5, color="darkorange", zorder=2,
-                    label="Blaskiewicz")
-            if !isempty(h_dipole)
-                scatter(lon_h, h_dipole, s=5, color="purple",
-                        marker="^", zorder=2, label="dipole (Mitra+Rankin)")
+            if !isempty(h_blask)
+                scatter(lon_h, h_blask, s=5, color="darkorange", zorder=2,
+                        label="Blaskiewicz")
+                if !isempty(h_dipole)
+                    scatter(lon_h, h_dipole, s=5, color="purple",
+                            marker="^", zorder=2, label="dipole (Mitra+Rankin)")
+                end
+                legend(fontsize=6, loc="upper right", framealpha=0.6)
+                gca().text(0.03, 0.97,
+                           @sprintf("h = %.0f +/- %.0f km", mean(h_blask), std(h_blask)),
+                           transform=gca()."transAxes",
+                           fontsize=6, va="top", ha="left",
+                           bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
+            else
+                gca().text(0.5, 0.5, "no bins passed filter",
+                           transform=gca()."transAxes",
+                           fontsize=7, va="center", ha="center", color="grey")
             end
             xlim(lon_on[1], lon_on[end])
             ylabel("h (km)")
             xlabel("longitude (deg)")
             minorticks_on()
-            legend(fontsize=6, loc="upper right", framealpha=0.6)
-
-            h_mean = mean(h_blask)
-            h_std  = std(h_blask)
-            gca().text(0.03, 0.97,
-                       @sprintf("h_Blask = %.0f +/- %.0f km", h_mean, h_std),
-                       transform=gca()."transAxes",
-                       fontsize=6, va="top", ha="left",
-                       bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
-        elseif period === nothing
+        else
             xlabel("longitude (deg)")  # label on residuals panel instead
         end
 
-        outpdf = "$outdir/$(name_mod)_rvm.pdf"
-        outpng = "$outdir/$(name_mod)_rvm.png"
-        savefig(outpdf)
-        savefig(outpng)
-        println("$outpdf")
+        savefig("$outdir/$(name_mod)_rvm.pdf")
+        savefig("$outdir/$(name_mod)_rvm.png")
+        println("$outdir/$(name_mod)_rvm.pdf")
 
         if show_
             PyPlot.show()
