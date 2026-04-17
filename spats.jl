@@ -169,8 +169,8 @@ module SpaTs
                 "phi0=$(round(result.phi0, digits=2)) deg  " *
                 "chi2r=$(round(result.chi2_red, digits=3))")
         if period !== nothing && !isempty(result.h_blask)
-            h_med = median(result.h_blask)
-            println("  Blaskiewicz height (median): $(round(h_med, digits=0)) km")
+            h_med = sum(result.h_blask) / length(result.h_blask)
+            println("  Blaskiewicz height (mean): $(round(h_med, digits=0)) km")
         end
         return result
     end
