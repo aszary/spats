@@ -166,7 +166,7 @@ module SpaTs
         # PSR J1137-6700
         #process_psrdata_16("/home/psr/data/new/J1137-6700/2019-11-06-00:36:02/", vpmout*"J1137-6700_16")
         #Data.analyse_p3folds_16_new(vpmout*"J1137-6700_16", "norefine"; n_comp=2)
-        Data.position_angle(vpmout*"J1137-6700_16")
+        #Data.position_angle(vpmout*"J1137-6700_16")
 
         # PSR J1232-4742
         #process_psrdata_16("/home/psr/data/new/J1232-4742/2020-04-11-22:21:18/", vpmout*"J1232-4742_16")
