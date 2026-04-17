@@ -2432,22 +2432,32 @@ module Tools
 
 
     """
-    emission_height_blaskiewicz(phi0_deg, period_s) -> h_km
+    emission_height_blaskiewicz(phi0_deg, phi_center_deg, period_s) -> h_km
 
-    Relativistic emission height from the phase of the RVM inflection point
-    (Blaskiewicz et al. 1991):
+    Relativistic emission height (Blaskiewicz et al. 1991, eq. 17):
 
         h = |Δφ| · P · c / (8π)   [km]
 
-    phi0_deg  : longitude of steepest PA gradient from RVM fit (degrees)
-                (= offset of inflection point from profile centre)
-    period_s  : pulsar period in seconds
-    c = 3×10⁵ km/s
+    Δφ = phi0_deg - phi_center_deg
+      phi0_deg      : inflection point longitude from RVM fit [deg]
+      phi_center_deg: pulse centre from intensity profile (midpoint of 10% levels) [deg]
+      period_s      : pulsar period [s]
     """
-    function emission_height_blaskiewicz(phi0_deg, period_s)
-        dphi_rad = abs(deg2rad(phi0_deg))
-        c_km_s   = 3e5
-        return dphi_rad * period_s * c_km_s / (8 * pi)
+    function emission_height_blaskiewicz(phi0_deg, phi_center_deg, period_s)
+        dphi_rad = abs(deg2rad(phi0_deg - phi_center_deg))
+        return dphi_rad * period_s * 3e5 / (8 * pi)
+    end
+
+    """
+    pulse_center_deg(lon, I; level=0.1) -> phi_center_deg
+
+    Midpoint between leading and trailing edges of pulse profile at `level`
+    fraction of peak intensity. Returns longitude in same units as lon.
+    """
+    function pulse_center_deg(lon, I; level=0.1)
+        above = findall(I .> level * maximum(I))
+        isempty(above) && return 0.0
+        return 0.5 * (lon[above[1]] + lon[above[end]])
     end
 
 

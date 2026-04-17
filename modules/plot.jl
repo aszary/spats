@@ -843,18 +843,18 @@ module Plot
         residuals = pa_avg[mask] .- pa_model_at_bins
 
         # ---- emission heights (optional) ---------------------------------
+        # Blaskiewicz 1991: single h from offset of RVM inflection point
+        # relative to pulse centre (midpoint of 10% intensity levels)
         h_blask  = Float64[]
         h_dipole = Float64[]
-        lon_h    = Float64[]
 
         if period !== nothing
-            append!(lon_h,   lon_f[mask])
-            append!(h_blask, Tools.emission_height_blaskiewicz.(
-                                 lon_f[mask] .- result.phi0, period))
+            push!(h_blask, Tools.emission_height_blaskiewicz(
+                result.phi0, Tools.pulse_center_deg(lon_on, I_on), period))
             if alpha !== nothing
-                append!(h_dipole, Tools.rho_to_height.(
-                    Tools.delta_phi_to_rho.(
-                        abs.(2.0 .* (lon_f[mask] .- result.phi0)),
+                push!(h_dipole, Tools.rho_to_height(
+                    Tools.delta_phi_to_rho(
+                        abs(result.phi0 - Tools.pulse_center_deg(lon_on, I_on)),
                         alpha,
                         beta !== nothing ? beta : (result.zeta - result.alpha)),
                     period))
