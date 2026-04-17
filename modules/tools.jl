@@ -2504,61 +2504,33 @@ module Tools
     - pa_err        : PPA uncertainty per bin (degrees)
     - mask_bins     : Bool vector, true = bin has enough high-pol pulses
     """
-    function filter_ppa(data4, bin_st, bin_end; snr_threshold=3.5, linpol_threshold=0.8)
-        pulses, bins, npol = size(data4)
-        @assert npol >= 3 "Need at least 3 polarizations (I, Q, U)"
+    function filter_ppa(data4, bin_st, bin_end; snr_threshold=3.5, linpol_threshold=0.3)
+        @assert size(data4, 3) >= 3 "Need at least 3 polarizations (I, Q, U)"
 
-        # Off-pulse region: everything outside [bin_st, bin_end]
-        off_bins = vcat(1:bin_st-1, bin_end+1:bins)
-        if length(off_bins) < 10
-            off_bins = 1:div(bins, 5)   # fallback: first 20%
-        end
-        sigma_noise = std(data4[:, off_bins, 1])
+        # Average over all pulses first (Johnston et al. approach)
+        avg = dropdims(mean(data4, dims=1), dims=1)  # bins × npol
 
-        n_on = bin_end - bin_st + 1
-        pa_sum   = zeros(n_on)
-        pa_sum2  = zeros(n_on)
-        n_valid  = zeros(Int, n_on)
+        sigma_noise = std(avg[let om = vcat(1:bin_st-1, bin_end+1:size(data4,2));
+                               length(om) >= 10 ? om : (1:div(size(data4,2),5)) end, 1])
 
-        for pulse in 1:pulses
-            for (k, b) in enumerate(bin_st:bin_end)
-                I_val = data4[pulse, b, 1]
-                Q_val = data4[pulse, b, 2]
-                U_val = data4[pulse, b, 3]
+        rng      = bin_st:bin_end
+        L_on     = sqrt.(avg[rng, 2].^2 .+ avg[rng, 3].^2)
+        mask_bins = (avg[rng, 1] .> snr_threshold .* sigma_noise) .&
+                    ((L_on ./ max.(avg[rng, 1], 1e-10)) .> linpol_threshold)
 
-                # mask 1: signal above noise floor
-                I_val < snr_threshold * sigma_noise && continue
-
-                # mask 2: high linear polarization fraction
-                L = sqrt(Q_val^2 + U_val^2)
-                L / I_val < linpol_threshold && continue
-
-                pa = 0.5 * rad2deg(atan(U_val, Q_val))
-                pa_sum[k]  += pa
-                pa_sum2[k] += pa^2
-                n_valid[k] += 1
-            end
-        end
-
-        mask_bins = n_valid .> 0
-        pa_avg = zeros(n_on)
-        pa_err = fill(90.0, n_on)          # default large error where no data
-        pa_avg[mask_bins] = pa_sum[mask_bins] ./ n_valid[mask_bins]
-        # standard error of the mean; floor at 0.1 deg to avoid zero weights
+        pa_avg = zeros(bin_end - bin_st + 1)
+        pa_err = fill(90.0, bin_end - bin_st + 1)
+        pa_avg[mask_bins] = 0.5 .* rad2deg.(atan.(avg[rng[mask_bins], 3],
+                                                   avg[rng[mask_bins], 2]))
         pa_err[mask_bins] = max.(
-            sqrt.(max.(pa_sum2[mask_bins] ./ n_valid[mask_bins]
-                        .- pa_avg[mask_bins].^2, 0.0))
-            ./ sqrt.(n_valid[mask_bins]),
+            rad2deg.(sigma_noise ./ (2.0 .* max.(L_on[mask_bins], 1e-10))),
             0.1
         )
+        pa_avg .= mod.(pa_avg .+ 90.0, 180.0) .- 90.0
 
-        # wrap average to [-90, 90)
-        pa_avg = mod.(pa_avg .+ 90.0, 180.0) .- 90.0
-
-        dl = 360.0 * n_on / bins
-        longitude_deg = collect(range(-dl/2.0, dl/2.0, length=n_on))
-
-        return longitude_deg, pa_avg, pa_err, mask_bins
+        dl = 360.0 * (bin_end - bin_st + 1) / size(data4, 2)
+        return collect(range(-dl/2.0, dl/2.0, length=bin_end-bin_st+1)),
+               pa_avg, pa_err, mask_bins
     end
 
 
