@@ -140,7 +140,7 @@ module Data
     Required for RVM fitting.
     """
     function convert_psrfit_ascii_pol(infile, outfile)
-        run(pipeline(`pdv -FT $infile`, stdout="$outfile", stderr="errs.txt"))
+        run(pipeline(`pdv -t -F $infile`, stdout=outfile, stderr="errs.txt"))
     end
 
 
