@@ -817,7 +817,10 @@ module Plot
         lon_f, pa_avg, pa_err, mask = Tools.filter_ppa(data4, bin_st, bin_end;
             snr_threshold=snr_threshold, linpol_threshold=linpol_threshold)
 
-        result    = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask)
+        # grid search first → good initial guess for LsqFit
+        alphas, betas, chi2_map, best_p = Tools.chi2_grid(lon_f, pa_avg, pa_err, mask)
+
+        result    = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask; p0=best_p)
         lon_curve = collect(range(lon_on[1], lon_on[end], length=500))
         pa_curve  = Tools.rvm_model(lon_curve,
                         [result.PA0, result.alpha, result.zeta, result.phi0])
@@ -826,8 +829,6 @@ module Plot
         W10     = Tools.profile_width_deg(lon_on, I_on)
         h_blask = period !== nothing ?
                   Tools.emission_height_blaskiewicz(result.phi0, phi_c, period) : NaN
-
-        alphas, betas, chi2_map = Tools.chi2_grid(lon_f, pa_avg, pa_err, mask)
 
         h_contours = (period !== nothing && W10 > 0.0) ?
             Float64[Tools.height_from_rho_rankin(

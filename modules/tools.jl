@@ -2518,6 +2518,8 @@ module Tools
                               maximum(lon_fit) + 2.0, length=phi0_n))
         sw    = sum(w_fit)
 
+        best_p = [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]  # fallback
+
         for (ia, a) in enumerate(alphas)
             ar = deg2rad(a)
             for (ib, b) in enumerate(betas)
@@ -2531,13 +2533,18 @@ module Tools
                                .+ 90.0, 180.0) .- 90.0
                     PA0 = sum(w_fit .* (pa_fit .- f)) / sw
                     c2  = sum(w_fit .* (pa_fit .- PA0 .- f).^2) / dof
-                    c2 < c2b && (c2b = c2)
+                    if c2 < c2b
+                        c2b    = c2
+                        if chi2_map[ia, ib] > c2b || isnan(chi2_map[ia, ib])
+                            best_p = [PA0, a, a + b, phi0]
+                        end
+                    end
                 end
                 chi2_map[ia, ib] = c2b
             end
         end
 
-        return alphas, betas, chi2_map
+        return alphas, betas, chi2_map, best_p
     end
 
 
@@ -2644,16 +2651,16 @@ module Tools
        PA0_err, alpha_err, zeta_err, phi0_err,   # 1-sigma errors
        chi2_red, rms_deg, converged)
     """
-    function fit_rvm(longitude, pa_avg, pa_err, mask_bins)
+    function fit_rvm(longitude, pa_avg, pa_err, mask_bins;
+                     p0=nothing)
         lon_fit = longitude[mask_bins]
         pa_fit  = pa_avg[mask_bins]
         w_fit   = 1.0 ./ pa_err[mask_bins].^2
 
-        # model wrapper for LsqFit (needs (x, p) signature)
         model(x, p) = rvm_model(x, p)
 
-        # initial guess: PA0=mean, alpha=30, zeta=35, phi0=centre longitude
-        p0 = [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
+        p0 = p0 !== nothing ? p0 :
+             [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
 
         local fit
         converged = true
