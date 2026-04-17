@@ -979,4 +979,79 @@ module Plot
     end
 
 
+    function geometry(chi2_map_l, chi2_map_h, alphas_deg, betas_deg, outdir;
+                      show_=false, name_mod="PSR_NAME",
+                      delta_chi2_max=10.0,
+                      chi2_contours=[100., 200., 300.],
+                      cmap="viridis")
+
+        chi2_min_l = minimum(chi2_map_l[isfinite.(chi2_map_l)])
+        chi2_min_h = minimum(chi2_map_h[isfinite.(chi2_map_h)])
+        println("chi2_min: low=$(round(chi2_min_l, digits=1))  high=$(round(chi2_min_h, digits=1))")
+
+        # δχ² relative to each frequency's own minimum
+        dchi2_l = chi2_map_l .- chi2_min_l
+        dchi2_h = chi2_map_h .- chi2_min_h
+
+        # Mask cells outside the acceptable region (shown as white)
+        dchi2_l_plot = Float64.(dchi2_l); dchi2_l_plot[dchi2_l .> delta_chi2_max] .= NaN
+        dchi2_h_plot = Float64.(dchi2_h); dchi2_h_plot[dchi2_h .> delta_chi2_max] .= NaN
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        fig = figure(figsize=(7.0, 4.2))
+        subplots_adjust(left=0.09, bottom=0.11, right=0.98, top=0.78, wspace=0.32)
+
+        # chi2_map is [alpha_idx, beta_idx]; imshow wants [row=beta, col=alpha] → transpose
+        extent = [alphas_deg[1], alphas_deg[end], betas_deg[1], betas_deg[end]]
+
+        # --- Panel 1: low frequency ---
+        ax1 = subplot(1, 2, 1)
+        im1 = imshow(dchi2_l_plot',
+                     origin="lower", extent=extent, aspect="auto",
+                     cmap=cmap, vmin=0., vmax=delta_chi2_max, interpolation="nearest")
+        ax1.clabel(ax1.contour(alphas_deg, betas_deg, chi2_map_l',
+                               levels=chi2_contours, colors="purple", linewidths=0.7),
+                   fmt="%g", fontsize=6)
+        ax1.set_xlabel("alpha [deg]")
+        ax1.set_ylabel("beta [deg]")
+        ax1.set_title("low frequency", pad=3)
+        ax1.minorticks_on()
+
+        # --- Panel 2: high frequency ---
+        ax2 = subplot(1, 2, 2)
+        imshow(dchi2_h_plot',
+               origin="lower", extent=extent, aspect="auto",
+               cmap=cmap, vmin=0., vmax=delta_chi2_max, interpolation="nearest")
+        ax2.clabel(ax2.contour(alphas_deg, betas_deg, chi2_map_h',
+                               levels=chi2_contours, colors="purple", linewidths=0.7),
+                   fmt="%g", fontsize=6)
+        ax2.set_xlabel("alpha [deg]")
+        ax2.set_ylabel("beta [deg]")
+        ax2.set_title("high frequency", pad=3)
+        ax2.minorticks_on()
+
+        # Shared horizontal colorbar at the top
+        cbar_ax = fig.add_axes([0.09, 0.86, 0.89, 0.05])
+        cbar = fig.colorbar(im1, cax=cbar_ax, orientation="horizontal")
+        cbar.set_label(raw"$\Delta\chi^2$", labelpad=2)
+        cbar_ax.xaxis.set_label_position("top")
+        cbar_ax.xaxis.set_ticks_position("top")
+
+        savepath = joinpath(outdir, "$(name_mod)_geometry.pdf")
+        println(savepath)
+        savefig(savepath)
+        savefig(replace(savepath, "pdf" => "png"))
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
 end  # module Plot

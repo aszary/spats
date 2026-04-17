@@ -1113,7 +1113,7 @@ module Data
     Returns NamedTuple with fields: alpha, beta, phi0, pa0 (all in degrees), chi2.
     Returns nothing if fewer than 5 valid PA points.
     """
-    function fit_rvm(lon_deg, pa_deg, pa_err_deg)
+    function fit_rvm(lon_deg, pa_deg, pa_err_deg; return_map=false)
         mask = .!isnan.(pa_deg) .& .!isnan.(pa_err_deg) .& (pa_err_deg .> 0)
         if sum(mask) < 5
             return nothing
@@ -1138,11 +1138,18 @@ module Data
         best_phi0  = 0.0
         best_pa0   = 0.0
 
-        for alpha in alphas
-            for beta in betas
+        na = length(alphas)
+        nb = length(betas)
+        chi2_map = return_map ? fill(Inf, na, nb) : nothing
+
+        for (ia, alpha) in enumerate(alphas)
+            ca = cos(alpha); sa = sin(alpha)
+            for (ib, beta) in enumerate(betas)
                 zeta = alpha + beta
-                ca = cos(alpha); sa = sin(alpha)
                 cz = cos(zeta);  sz = sin(zeta)
+                best_ab  = Inf
+                best_phi0_ab = phi0s[1]
+                best_pa0_ab  = 0.0
                 for phi0 in phi0s
                     dphi = lon_rad .- phi0
                     rvm_shape = atan.(sa .* sin.(dphi),
@@ -1156,24 +1163,37 @@ module Data
                     residuals = diffs_w .- pa0
                     chi2 = sum((residuals .^ 2) .* inv_var)
 
-                    if chi2 < best_chi2
-                        best_chi2  = chi2
-                        best_alpha = alpha
-                        best_beta  = beta
-                        best_phi0  = phi0
-                        best_pa0   = pa0
+                    if chi2 < best_ab
+                        best_ab      = chi2
+                        best_phi0_ab = phi0
+                        best_pa0_ab  = pa0
                     end
+                end
+                if return_map
+                    chi2_map[ia, ib] = best_ab
+                end
+                if best_ab < best_chi2
+                    best_chi2  = best_ab
+                    best_alpha = alpha
+                    best_beta  = beta
+                    best_phi0  = best_phi0_ab
+                    best_pa0   = best_pa0_ab
                 end
             end
         end
 
         ndof = max(sum(mask) - 4, 1)
-        return (alpha    = best_alpha * (180/π),
-                beta     = best_beta  * (180/π),
-                phi0     = best_phi0  * (180/π),
-                pa0      = best_pa0   * (180/π),
-                chi2     = best_chi2,
-                chi2_red = best_chi2 / ndof)
+        result = (alpha    = best_alpha * (180/π),
+                  beta     = best_beta  * (180/π),
+                  phi0     = best_phi0  * (180/π),
+                  pa0      = best_pa0   * (180/π),
+                  chi2     = best_chi2,
+                  chi2_red = best_chi2 / ndof)
+        if return_map
+            return result, chi2_map, collect(alphas .* (180/π)), collect(betas .* (180/π))
+        else
+            return result
+        end
     end
 
 
@@ -1310,6 +1330,56 @@ module Data
                             pa_rvm_l_ortho=pa_rvm_l_ortho, phi0_l=phi0_l,
                             lon_rvm_h=lon_rvm_h, pa_rvm_h=pa_rvm_h,
                             pa_rvm_h_ortho=pa_rvm_h_ortho, phi0_h=phi0_h)
+    end
+
+    function geometry_analysis(indir)
+
+        # parameters file
+        p = Tools.read_params(joinpath(indir, "params.json"))
+
+        lt = joinpath(indir, "pulsar_low.txt")
+        ht = joinpath(indir, "pulsar_high.txt")
+
+        l = load_ascii_all(lt)
+        h = load_ascii_all(ht)
+
+        bin_st  = p["bin_st"]
+        bin_end = p["bin_end"]
+
+        pulses_l, bins_l, _ = size(l)
+        pulses_h, bins_h, _ = size(h)
+
+        db_l = (bin_end + 1) - bin_st
+        lon_l = collect(range(-360.0 * db_l / bins_l / 2, 360.0 * db_l / bins_l / 2, length=db_l))
+        db_h = (bin_end + 1) - bin_st
+        lon_h = collect(range(-360.0 * db_h / bins_h / 2, 360.0 * db_h / bins_h / 2, length=db_h))
+
+        Q_l   = vec(mean(l[:, bin_st:bin_end, 2], dims=1))
+        U_l   = vec(mean(l[:, bin_st:bin_end, 3], dims=1))
+        Lin_l = sqrt.(Q_l.^2 .+ U_l.^2)
+        Q_h   = vec(mean(h[:, bin_st:bin_end, 2], dims=1))
+        U_h   = vec(mean(h[:, bin_st:bin_end, 3], dims=1))
+        Lin_h = sqrt.(Q_h.^2 .+ U_h.^2)
+
+        sigma_avg_l = std(l[:, 1:bin_st-1, 1]) / sqrt(pulses_l)
+        sigma_avg_h = std(h[:, 1:bin_st-1, 1]) / sqrt(pulses_h)
+        thresh_l = 5.0 * sigma_avg_l
+        thresh_h = 5.0 * sigma_avg_h
+
+        pa_l     = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/π) : NaN for i in 1:db_l]
+        pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/π) : NaN for i in 1:db_l]
+        pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
+        pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
+
+        println("Fitting RVM chi² map (low frequency)...")
+        res_l, chi2_l, alphas_deg, betas_deg = fit_rvm(lon_l, pa_l, pa_err_l; return_map=true)
+        println("  best: α=$(round(res_l.alpha,digits=1))° β=$(round(res_l.beta,digits=1))° χ²/ndof=$(round(res_l.chi2_red,digits=2))")
+
+        println("Fitting RVM chi² map (high frequency)...")
+        res_h, chi2_h, _, _ = fit_rvm(lon_h, pa_h, pa_err_h; return_map=true)
+        println("  best: α=$(round(res_h.alpha,digits=1))° β=$(round(res_h.beta,digits=1))° χ²/ndof=$(round(res_h.chi2_red,digits=2))")
+
+        Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir; show_=true)
     end
 
 end # module
