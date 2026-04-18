@@ -2673,32 +2673,40 @@ module Tools
             return res .- 180.0 .* round.(res ./ 180.0)
         end
 
+        dof = max(length(pa_fit) - 4, 1)
+
+        # chi2 helper
+        function calc_chi2(params)
+            m   = rvm_model(lon_fit, params)
+            r   = (pa_fit .- m) .- 180.0 .* round.((pa_fit .- m) ./ 180.0)
+            sum((r ./ pa_err[mask_bins]).^2) / dof, sqrt(mean(r.^2)), r
+        end
+
+        chi2_init, _, _ = calc_chi2(p_init)
+
         # Initialize p in outer scope
         p = p_init
         converged = true
 
         try
-            # Fit with LsqFit and weights
             fit = curve_fit(
                 residual_fun,
                 lon_fit, zeros(length(lon_fit)), w_fit, p_init;
-                maxIter=10000, x_tol=1e-8, g_tol=1e-8, ftol=1e-10
+                maxIter=5000, x_tol=1e-6, g_tol=1e-6, ftol=1e-8
             )
-            p = fit.param
+            chi2_fit, _, _ = calc_chi2(fit.param)
+            if chi2_fit < chi2_init
+                p = fit.param
+            else
+                @warn "[fit_rvm] LsqFit increased χ² ($(round(chi2_fit,digits=1)) > $(round(chi2_init,digits=1))), using chi2_grid result"
+                converged = false
+            end
         catch e
             @warn "[fit_rvm] LsqFit failed: $e, using chi2_grid result"
             converged = false
-            p = p_init  # use chi2_grid result
         end
 
-        # Calculate final stats with same unwrapped residuals
-        model_pa = rvm_model(lon_fit, p)
-        res_raw = pa_fit .- model_pa
-        res_wrapped = res_raw .- 180.0 .* round.(res_raw ./ 180.0)
-        
-        dof = max(length(pa_fit) - 4, 1)
-        chi2_red = sum((res_wrapped ./ pa_err[mask_bins]).^2) / dof
-        rms_deg  = sqrt(mean(res_wrapped.^2))
+        chi2_red, rms_deg, res_wrapped = calc_chi2(p)
 
         # Error estimates
         try

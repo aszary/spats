@@ -868,19 +868,19 @@ module Plot
             pa_curve_low = pa_curve_on   # For backward compat with on-pulse region
             pa_curve_high = nothing  # only one curve from combined fit
             
-            # But compute LOW and HIGH profiles separately for display (FULL profile)
-            I_low_full = vec(mean(data_low[:, :, 1], dims=1))
-            L_low_full = sqrt.(vec(mean(data_low[:, :, 2], dims=1)).^2 .+
-                              vec(mean(data_low[:, :, 3], dims=1)).^2)
-            V_low_full = vec(mean(data_low[:, :, 4], dims=1))
-            
-            I_high_full = vec(mean(data_high[:, :, 1], dims=1))
-            L_high_full = sqrt.(vec(mean(data_high[:, :, 2], dims=1)).^2 .+
-                               vec(mean(data_high[:, :, 3], dims=1)).^2)
-            V_high_full = vec(mean(data_high[:, :, 4], dims=1))
-            
-            I_max = maximum([maximum(abs.(I_low_full)), maximum(abs.(I_high_full))])
-            I_on = (I_low_full .+ I_high_full) ./ 2.0  # For phi_c, W10 calculation
+            # Combined (all-pulses) profile for display
+            I_low_full  = vec(mean(data4[:, :, 1], dims=1))
+            Q_mean_full = vec(mean(data4[:, :, 2], dims=1))
+            U_mean_full = vec(mean(data4[:, :, 3], dims=1))
+            L_low_full  = sqrt.(Q_mean_full.^2 .+ U_mean_full.^2)
+            V_low_full  = vec(mean(data4[:, :, 4], dims=1))
+
+            I_high_full = nothing
+            L_high_full = nothing
+            V_high_full = nothing
+
+            I_max = maximum(abs.(I_low_full))
+            I_on  = I_low_full
 
         else
             # Single-frequency mode
@@ -1015,12 +1015,14 @@ module Plot
         end
 
         # -- chi²(alpha, beta) map (right panel): alpha on x, beta on y --
-        chi2_plot = map(v -> (isnan(v) || v > 10.0) ? NaN : v, chi2_map)
-        # chi2_map[ia, ib] → transpose so rows=beta, cols=alpha for pcolormesh(alpha, beta, Z)
+        # Show Δχ²ᵣ = χ²ᵣ - χ²ᵣ_min so map has contrast regardless of absolute χ² scale
+        chi2_finite = filter(isfinite, vec(chi2_map))
+        chi2_min    = isempty(chi2_finite) ? 0.0 : minimum(chi2_finite)
+        chi2_plot   = map(v -> isnan(v) ? NaN : (v - chi2_min), chi2_map)
         im = ax_map.pcolormesh(alphas, betas, chi2_plot',
-                               cmap="viridis_r", vmin=0.9, vmax=5.0,
+                               cmap="viridis_r", vmin=0.0, vmax=5.0,
                                shading="auto")
-        fig.colorbar(im, cax=ax_cb, label="χ²ᵣ")
+        fig.colorbar(im, cax=ax_cb, label="Δχ²ᵣ")
 
         best = argmin(map(v -> isnan(v) ? Inf : v, chi2_map))
         ax_map.scatter([alphas[best[1]]], [betas[best[2]]],
