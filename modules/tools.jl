@@ -2666,30 +2666,21 @@ module Tools
         p_init = p0 !== nothing ? p0 :
                  [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
 
-        # Create objective function with closures for pa_fit, w_fit
-        function make_residual(pa_obs, w_obs)
-            function residual_fun(lon, p)
-                model_pa = rvm_model(lon, p)
-                # Wrap both to handle discontinuities
-                pa_wrapped = mod.(pa_obs .+ 90.0, 180.0) .- 90.0
-                model_wrapped = mod.(model_pa .+ 90.0, 180.0) .- 90.0
-                res = pa_wrapped .- model_wrapped
-                # Re-wrap residuals to [-90, 90]
-                return mod.(res .+ 90.0, 180.0) .- 90.0
-            end
-            return residual_fun
+        # Unwrapped residuals: find nearest ±180° branch → smooth landscape for optimizer
+        function residual_fun(lon, p)
+            model_pa = rvm_model(lon, p)
+            res = pa_fit .- model_pa
+            return res .- 180.0 .* round.(res ./ 180.0)
         end
-
-        res_func = make_residual(pa_fit, w_fit)
 
         # Initialize p in outer scope
         p = p_init
         converged = true
-        
+
         try
             # Fit with LsqFit and weights
             fit = curve_fit(
-                res_func,
+                residual_fun,
                 lon_fit, zeros(length(lon_fit)), w_fit, p_init;
                 maxIter=10000, x_tol=1e-8, g_tol=1e-8, ftol=1e-10
             )
@@ -2700,11 +2691,10 @@ module Tools
             p = p_init  # use chi2_grid result
         end
 
-        # Calculate final stats
+        # Calculate final stats with same unwrapped residuals
         model_pa = rvm_model(lon_fit, p)
-        pa_wrapped = mod.(pa_fit .+ 90.0, 180.0) .- 90.0
-        model_wrapped = mod.(model_pa .+ 90.0, 180.0) .- 90.0
-        res_wrapped = mod.((pa_wrapped .- model_wrapped) .+ 90.0, 180.0) .- 90.0
+        res_raw = pa_fit .- model_pa
+        res_wrapped = res_raw .- 180.0 .* round.(res_raw ./ 180.0)
         
         dof = max(length(pa_fit) - 4, 1)
         chi2_red = sum((res_wrapped ./ pa_err[mask_bins]).^2) / dof

@@ -840,10 +840,20 @@ module Plot
                 Tools.filter_ppa(data4, bin_st, bin_end;
                     snr_threshold=snr_threshold, linpol_threshold=linpol_threshold)
             
-            alphas, betas, chi2_map, best_p = 
+            alphas, betas, chi2_map, best_p =
                 Tools.chi2_grid(lon_f, pa_avg, pa_err, mask)
-            
-            result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask; p0=best_p)
+
+            # Sigma-clip: remove PA points that deviate > 3σ from initial model
+            model_0    = Tools.rvm_model(lon_f, best_p)
+            res_0      = (pa_avg .- model_0) .- 180.0 .* round.((pa_avg .- model_0) ./ 180.0)
+            sigma_0    = length(res_0[mask]) > 0 ? std(res_0[mask]) : 90.0
+            mask_fit   = copy(mask)
+            for i in eachindex(mask)
+                mask[i] && abs(res_0[i]) > 3.0 * sigma_0 && (mask_fit[i] = false)
+            end
+            println("[rvm] σ-clip: $(sum(mask)) → $(sum(mask_fit)) PA bins kept")
+
+            result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask_fit; p0=best_p)
             
             # Compute RVM curves: on-pulse region (for fitting) + full profile (for display)
             pa_curve_on = Tools.rvm_model(lon_on, 
@@ -881,7 +891,17 @@ module Plot
 
             alphas, betas, chi2_map, best_p = Tools.chi2_grid(lon_f, pa_avg, pa_err, mask)
 
-            result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask; p0=best_p)
+            # Sigma-clip: remove PA points > 3σ from initial model
+            model_0    = Tools.rvm_model(lon_f, best_p)
+            res_0      = (pa_avg .- model_0) .- 180.0 .* round.((pa_avg .- model_0) ./ 180.0)
+            sigma_0    = length(res_0[mask]) > 0 ? std(res_0[mask]) : 90.0
+            mask_fit   = copy(mask)
+            for i in eachindex(mask)
+                mask[i] && abs(res_0[i]) > 3.0 * sigma_0 && (mask_fit[i] = false)
+            end
+            println("[rvm] σ-clip: $(sum(mask)) → $(sum(mask_fit)) PA bins kept")
+
+            result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask_fit; p0=best_p)
             
             # Compute RVM curves on both on-pulse and full profile
             pa_curve_on = Tools.rvm_model(lon_on,
@@ -931,36 +951,33 @@ module Plot
         ax_cb  = fig.add_axes([0.89, 0.11, 0.02, 0.86])
 
         # -- PA panel (left top) - on-pulse region only --
-        if pa_curve_high !== nothing && n_freq == 2
-            # Two-frequency mode: show BOTH data sets (low + high) with SINGLE RVM curve
-            ax_pa.scatter(lon_f[.!mask], pa_avg[.!mask],
-                          s=2, color="lightgrey", alpha=0.3, zorder=1)
-            ax_pa.errorbar(lon_f[mask], pa_avg[mask], yerr=pa_err[mask],
-                           fmt="o", ms=2.5, color="black", alpha=0.8,
-                           elinewidth=0.5, capsize=0.5, zorder=2)
-            ax_pa.plot(lon_on, pa_curve_low, color="darkorange", lw=2.0, label="RVM fit", zorder=3)
-            ax_pa.axvline(result.phi0, color="royalblue", lw=1.0, ls="--", alpha=0.8)
-            ax_pa.legend(fontsize=6, loc="upper left")
-            txt_str = @sprintf("a=%.1f°  ζ=%.1f°  φ₀=%.1f°\nχ²ᵣ=%.2f  rms=%.1f°",
-                             result.alpha, result.zeta, result.phi0,
-                             result.chi2_red, result.rms_deg)
-        else
-            # Single-frequency mode
-            ax_pa.scatter(lon_f[.!mask], pa_avg[.!mask],
-                          s=2, color="lightgrey", zorder=1)
-            ax_pa.errorbar(lon_f[mask], pa_avg[mask], yerr=pa_err[mask],
-                           fmt="o", ms=2, color="black",
-                           elinewidth=0.5, capsize=1.0, zorder=2)
-            ax_pa.plot(lon_on, pa_curve_low, color="darkorange", lw=1.5, zorder=3)
-            ax_pa.axvline(result.phi0, color="royalblue", lw=0.8, ls="--", alpha=0.7)
-            txt_str = @sprintf("a=%.1f  z=%.1f  phi0=%.1f\nchi2r=%.2f  rms=%.1f deg",
-                             result.alpha, result.zeta, result.phi0,
-                             result.chi2_red, result.rms_deg)
+        # Identify sigma-clipped points (passed SNR/L-I but removed by sigma-clip)
+        clipped = mask .& .!mask_fit
+
+        # Failed SNR/L-I filter → light grey
+        ax_pa.scatter(lon_f[.!mask], pa_avg[.!mask],
+                      s=2, color="lightgrey", alpha=0.3, zorder=1)
+        # Sigma-clipped outliers → open grey circles
+        if any(clipped)
+            ax_pa.errorbar(lon_f[clipped], pa_avg[clipped], yerr=pa_err[clipped],
+                           fmt="o", ms=2.5, mfc="none", color="grey", alpha=0.5,
+                           elinewidth=0.4, capsize=0.5, zorder=2)
         end
+        # Points used in fit → black
+        ax_pa.errorbar(lon_f[mask_fit], pa_avg[mask_fit], yerr=pa_err[mask_fit],
+                       fmt="o", ms=2.5, color="black", alpha=0.9,
+                       elinewidth=0.5, capsize=0.5, zorder=3)
+        # RVM curve
+        ax_pa.plot(lon_on, pa_curve_low, color="darkorange", lw=1.5, zorder=4)
+        ax_pa.axvline(result.phi0, color="royalblue", lw=0.8, ls="--", alpha=0.7)
+
+        txt_str = @sprintf("α=%.1f°  ζ=%.1f°  φ₀=%.1f°\nχ²ᵣ=%.2f  rms=%.1f°",
+                           result.alpha, result.zeta, result.phi0,
+                           result.chi2_red, result.rms_deg)
         
         ax_pa.set_xlim(lon_on[1], lon_on[end])
         ax_pa.set_ylim(-95, 95)
-        ax_pa.set_ylabel("PA (deg)")
+        ax_pa.set_ylabel("PA [deg]")
         ax_pa.set_yticks([-90, -45, 0, 45, 90])
         ax_pa.tick_params(labelbottom=false)
         ax_pa.minorticks_on()
@@ -983,10 +1000,10 @@ module Plot
             ax_st.plot(lon_full, V_low_full ./ I_max, color="royalblue", lw=1.0, label="V")
         end
         ax_st.axhline(0.0, color="grey", lw=0.4, ls=":")
-        ax_st.set_xlim(lon_full[1], lon_full[end])
+        ax_st.set_xlim(lon_on[1], lon_on[end])
         ax_st.set_ylim(-0.5, 1.15)
-        ax_st.set_ylabel("Flux (norm.)")
-        ax_st.set_xlabel("longitude (deg)")
+        ax_st.set_ylabel("Flux Density [norm.]")
+        ax_st.set_xlabel("Longitude [deg]")
         ax_st.legend(fontsize=6, loc="upper right", framealpha=0.6, ncol=3)
         ax_st.minorticks_on()
         if !isnan(h_blask)
@@ -997,30 +1014,31 @@ module Plot
                        bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
         end
 
-        # -- chi2(alpha, beta) map (right panel) --
+        # -- chi²(alpha, beta) map (right panel): alpha on x, beta on y --
         chi2_plot = map(v -> (isnan(v) || v > 10.0) ? NaN : v, chi2_map)
-        im = ax_map.pcolormesh(betas, alphas, chi2_plot,
+        # chi2_map[ia, ib] → transpose so rows=beta, cols=alpha for pcolormesh(alpha, beta, Z)
+        im = ax_map.pcolormesh(alphas, betas, chi2_plot',
                                cmap="viridis_r", vmin=0.9, vmax=5.0,
                                shading="auto")
-        fig.colorbar(im, cax=ax_cb, label="chi2_red")
+        fig.colorbar(im, cax=ax_cb, label="χ²ᵣ")
 
         best = argmin(map(v -> isnan(v) ? Inf : v, chi2_map))
-        ax_map.scatter([betas[best[2]]], [alphas[best[1]]],
+        ax_map.scatter([alphas[best[1]]], [betas[best[2]]],
                        marker="*", s=100, color="red", zorder=5,
-                       label=@sprintf("best: a=%.0f b=%.0f",
+                       label=@sprintf("α=%.0f° β=%.0f°",
                                       alphas[best[1]], betas[best[2]]))
         ax_map.legend(fontsize=6, loc="upper right", framealpha=0.6)
 
         if h_contours !== nothing
             ax_map.clabel(
-                ax_map.contour(betas, alphas, h_contours,
+                ax_map.contour(alphas, betas, h_contours',
                                levels=[100., 200., 500., 1000., 2000.],
                                colors="white", linewidths=0.7, alpha=0.9),
                 fmt="%.0f km", fontsize=5, inline=true)
         end
 
-        ax_map.set_xlabel("beta (deg)")
-        ax_map.set_ylabel("alpha (deg)")
+        ax_map.set_xlabel("α [deg]")
+        ax_map.set_ylabel("β [deg]")
         ax_map.minorticks_on()
 
         savefig("$outdir/$(name_mod)_rvm.pdf")
