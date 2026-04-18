@@ -1017,44 +1017,56 @@ module Plot
         end
 
         # -- chi²(alpha, beta) map (right panel): alpha on x, beta on y --
-        # Δχ²ᵣ relative to minimum; sqrt-stretch so the valley is visible even when
-        # chi² rises steeply away from the minimum.
+        # Δχ²ᵣ = χ²ᵣ − min(χ²ᵣ), linear scale 0–10 (matches reference style).
         chi2_finite = filter(isfinite, vec(chi2_map))
         chi2_min    = isempty(chi2_finite) ? 0.0 : minimum(chi2_finite)
         chi2_delta  = map(v -> isnan(v) ? NaN : max(v - chi2_min, 0.0), chi2_map)
-        chi2_plot   = map(v -> isnan(v) ? NaN : sqrt(v), chi2_delta)
-        vmax_plot   = sqrt(10.0)   # maps Δχ²=10 → colour-scale top (≈3σ boundary)
-        im = ax_map.pcolormesh(alphas, betas, chi2_plot',
-                               cmap="viridis_r", vmin=0.0, vmax=vmax_plot,
+
+        best = argmin(map(v -> isnan(v) ? Inf : v, chi2_map))
+        a_best = alphas[best[1]]
+        b_best = betas[best[2]]
+
+        # Zoom display around the minimum (±60° in α, ±10° in β) so the valley fills the panel
+        a_lo = max(alphas[1],   a_best - 80.0)
+        a_hi = min(alphas[end], a_best + 80.0)
+        b_lo = max(betas[1],    b_best - 10.0)
+        b_hi = min(betas[end],  b_best + 10.0)
+
+        im = ax_map.pcolormesh(alphas, betas, chi2_delta',
+                               cmap="viridis_r", vmin=0.0, vmax=10.0,
                                shading="auto")
         cb = fig.colorbar(im, cax=ax_cb)
         cb.set_label("Δχ²ᵣ")
-        cb.set_ticks(sqrt.([0., 1., 2., 4., 6., 10.]))
-        cb.set_ticklabels(["0", "1", "2", "4", "6", "10"])
 
-        best = argmin(map(v -> isnan(v) ? Inf : v, chi2_map))
-        ax_map.scatter([alphas[best[1]]], [betas[best[2]]],
+        ax_map.scatter([a_best], [b_best],
                        marker="*", s=100, color="red", zorder=6,
-                       label=@sprintf("α=%.0f° β=%.0f°",
-                                      alphas[best[1]], betas[best[2]]))
+                       label=@sprintf("α=%.0f° β=%.0f°", a_best, b_best))
 
         # Confidence-region contours: Δχ²=2.30 (1σ), 6.17 (2σ) for 2 free params
-        ax_map.contour(alphas, betas, chi2_delta',
-                       levels=[2.30, 6.17],
-                       colors=["cyan", "royalblue"],
-                       linewidths=[0.9, 0.7], linestyles=["solid", "dashed"],
-                       zorder=5)
+        try
+            ax_map.contour(alphas, betas, chi2_delta',
+                           levels=[2.30, 6.17],
+                           colors=["cyan", "royalblue"],
+                           linewidths=[1.0, 0.8], linestyles=["solid", "dashed"],
+                           zorder=5)
+        catch
+        end
 
         ax_map.legend(fontsize=6, loc="upper right", framealpha=0.6)
 
         if h_contours !== nothing
-            ax_map.clabel(
-                ax_map.contour(alphas, betas, h_contours',
-                               levels=[100., 200., 500., 1000., 2000.],
-                               colors="white", linewidths=0.6, alpha=0.85),
-                fmt="%.0f km", fontsize=5, inline=true)
+            try
+                ax_map.clabel(
+                    ax_map.contour(alphas, betas, h_contours',
+                                   levels=[100., 200., 500., 1000., 2000.],
+                                   colors="white", linewidths=0.6, alpha=0.85),
+                    fmt="%.0f km", fontsize=5, inline=true)
+            catch
+            end
         end
 
+        ax_map.set_xlim(a_lo, a_hi)
+        ax_map.set_ylim(b_lo, b_hi)
         ax_map.set_xlabel("α [deg]")
         ax_map.set_ylabel("β [deg]")
         ax_map.minorticks_on()
