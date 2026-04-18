@@ -1000,7 +1000,9 @@ module Plot
             ax_st.plot(lon_full, V_low_full ./ I_max, color="royalblue", lw=1.0, label="V")
         end
         ax_st.axhline(0.0, color="grey", lw=0.4, ls=":")
-        ax_st.set_xlim(lon_on[1], lon_on[end])
+        # Show on-pulse region plus 30% margin on each side so pulse edges are visible
+        lon_margin = 0.3 * (lon_on[end] - lon_on[1])
+        ax_st.set_xlim(lon_on[1] - lon_margin, lon_on[end] + lon_margin)
         ax_st.set_ylim(-0.5, 1.15)
         ax_st.set_ylabel("Flux Density [norm.]")
         ax_st.set_xlabel("Longitude [deg]")

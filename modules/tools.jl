@@ -2514,8 +2514,10 @@ module Tools
 
         isempty(lon_fit) && return alphas, betas, chi2_map
 
-        phi0s = collect(range(minimum(lon_fit) - 2.0,
-                              maximum(lon_fit) + 2.0, length=phi0_n))
+        # Extend phi0 search to 50% of on-pulse width beyond the data range
+        lon_half = 0.5 * (maximum(lon_fit) - minimum(lon_fit))
+        phi0s = collect(range(minimum(lon_fit) - lon_half,
+                              maximum(lon_fit) + lon_half, length=phi0_n))
         sw    = sum(w_fit)
 
         best_p  = [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
@@ -2534,8 +2536,12 @@ module Tools
                                              sin(zr) .* cos(ar) .-
                                              cos(zr) .* sin(ar) .* cos.(dp)))
                                .+ 90.0, 180.0) .- 90.0
-                    PA0 = sum(w_fit .* (pa_fit .- f)) / sw
-                    # wrap residuals to [-90, 90] to handle PA discontinuities
+                    # Circular mean for PA0: handles ±90° wrap correctly.
+                    # For 180°-periodic angles, use the 2× doubling trick.
+                    d   = pa_fit .- f
+                    PA0 = 0.5 * rad2deg(atan(
+                              sum(w_fit .* sin.(2.0 .* deg2rad.(d))) / sw,
+                              sum(w_fit .* cos.(2.0 .* deg2rad.(d))) / sw))
                     res = mod.(pa_fit .- PA0 .- f .+ 90.0, 180.0) .- 90.0
                     c2  = sum(w_fit .* res.^2) / dof
                     if c2 < c2b
