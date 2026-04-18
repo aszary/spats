@@ -2502,7 +2502,7 @@ module Tools
     function chi2_grid(longitude, pa_avg, pa_err, mask_bins;
                        alpha_range=(5.0, 175.0), alpha_n=85,
                        beta_range=(-20.0, 20.0), beta_n=40,
-                       phi0_n=50)
+                       phi0_n=150)
         lon_fit = longitude[mask_bins]
         pa_fit  = pa_avg[mask_bins]
         w_fit   = 1.0 ./ pa_err[mask_bins].^2

@@ -1032,9 +1032,12 @@ module Plot
         b_lo = max(betas[1],    b_best - 10.0)
         b_hi = min(betas[end],  b_best + 10.0)
 
-        im = ax_map.pcolormesh(alphas, betas, chi2_delta',
-                               cmap="viridis_r", vmin=0.0, vmax=10.0,
-                               shading="auto")
+        # imshow with bilinear interpolation gives a smooth gradient between grid cells
+        im = ax_map.imshow(chi2_delta',
+                           origin="lower", aspect="auto",
+                           extent=[alphas[1], alphas[end], betas[1], betas[end]],
+                           cmap="viridis_r", vmin=0.0, vmax=10.0,
+                           interpolation="bilinear")
         cb = fig.colorbar(im, cax=ax_cb)
         cb.set_label("Δχ²ᵣ")
 
