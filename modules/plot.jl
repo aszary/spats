@@ -1017,27 +1017,41 @@ module Plot
         end
 
         # -- chi²(alpha, beta) map (right panel): alpha on x, beta on y --
-        # Show Δχ²ᵣ = χ²ᵣ - χ²ᵣ_min so map has contrast regardless of absolute χ² scale
+        # Δχ²ᵣ relative to minimum; sqrt-stretch so the valley is visible even when
+        # chi² rises steeply away from the minimum.
         chi2_finite = filter(isfinite, vec(chi2_map))
         chi2_min    = isempty(chi2_finite) ? 0.0 : minimum(chi2_finite)
-        chi2_plot   = map(v -> isnan(v) ? NaN : (v - chi2_min), chi2_map)
+        chi2_delta  = map(v -> isnan(v) ? NaN : max(v - chi2_min, 0.0), chi2_map)
+        chi2_plot   = map(v -> isnan(v) ? NaN : sqrt(v), chi2_delta)
+        vmax_plot   = sqrt(10.0)   # maps Δχ²=10 → colour-scale top (≈3σ boundary)
         im = ax_map.pcolormesh(alphas, betas, chi2_plot',
-                               cmap="viridis_r", vmin=0.0, vmax=5.0,
+                               cmap="viridis_r", vmin=0.0, vmax=vmax_plot,
                                shading="auto")
-        fig.colorbar(im, cax=ax_cb, label="Δχ²ᵣ")
+        cb = fig.colorbar(im, cax=ax_cb)
+        cb.set_label("Δχ²ᵣ")
+        cb.set_ticks(sqrt.([0., 1., 2., 4., 6., 10.]))
+        cb.set_ticklabels(["0", "1", "2", "4", "6", "10"])
 
         best = argmin(map(v -> isnan(v) ? Inf : v, chi2_map))
         ax_map.scatter([alphas[best[1]]], [betas[best[2]]],
-                       marker="*", s=100, color="red", zorder=5,
+                       marker="*", s=100, color="red", zorder=6,
                        label=@sprintf("α=%.0f° β=%.0f°",
                                       alphas[best[1]], betas[best[2]]))
+
+        # Confidence-region contours: Δχ²=2.30 (1σ), 6.17 (2σ) for 2 free params
+        ax_map.contour(alphas, betas, chi2_delta',
+                       levels=[2.30, 6.17],
+                       colors=["cyan", "royalblue"],
+                       linewidths=[0.9, 0.7], linestyles=["solid", "dashed"],
+                       zorder=5)
+
         ax_map.legend(fontsize=6, loc="upper right", framealpha=0.6)
 
         if h_contours !== nothing
             ax_map.clabel(
                 ax_map.contour(alphas, betas, h_contours',
                                levels=[100., 200., 500., 1000., 2000.],
-                               colors="white", linewidths=0.7, alpha=0.9),
+                               colors="white", linewidths=0.6, alpha=0.85),
                 fmt="%.0f km", fontsize=5, inline=true)
         end
 
