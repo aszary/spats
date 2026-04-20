@@ -1380,12 +1380,16 @@ module Data
         println("Fitting RVM chi² map (low frequency)...")
         res_l, chi2_l, alphas_deg, betas_deg = fit_rvm(lon_l, pa_l, pa_err_l;
             return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
-        println("  best: α=$(round(res_l.alpha,digits=1))° β=$(round(res_l.beta,digits=1))° χ²/ndof=$(round(res_l.chi2_red,digits=2))")
+        ndof_l = max(sum(.!isnan.(pa_l)) - 4, 1)
+        chi2_l ./= ndof_l
+        println("  best: α=$(round(res_l.alpha,digits=1))° β=$(round(res_l.beta,digits=1))° χ²/ndof=$(round(res_l.chi2_red,digits=4))")
 
         println("Fitting RVM chi² map (high frequency)...")
         res_h, chi2_h, _, _ = fit_rvm(lon_h, pa_h, pa_err_h;
             return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
-        println("  best: α=$(round(res_h.alpha,digits=1))° β=$(round(res_h.beta,digits=1))° χ²/ndof=$(round(res_h.chi2_red,digits=2))")
+        ndof_h = max(sum(.!isnan.(pa_h)) - 4, 1)
+        chi2_h ./= ndof_h
+        println("  best: α=$(round(res_h.alpha,digits=1))° β=$(round(res_h.beta,digits=1))° χ²/ndof=$(round(res_h.chi2_red,digits=4))")
 
         Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir; show_=true)
     end
