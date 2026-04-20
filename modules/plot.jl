@@ -979,6 +979,31 @@ module Plot
     end
 
 
+    # Auto-scale contour levels across the full range of the supplied maps,
+    # snapped to a round 1/2/5·10^n step so labels read as e.g. 1000, 2000, 3000 km.
+    function _snap_step(raw)
+        raw <= 0 && return 0.0
+        pw = 10.0 ^ floor(log10(raw))
+        mant = raw / pw
+        mant < 1.5 && return 1.0 * pw
+        mant < 3.0 && return 2.0 * pw
+        mant < 7.0 && return 5.0 * pw
+        return 10.0 * pw
+    end
+
+    function _auto_height_levels(maps...)
+        finite_h = filter(isfinite, vcat((vec(m) for m in maps)...))
+        isempty(finite_h) && return Float64[]
+        h_lo = minimum(finite_h)
+        h_hi = maximum(finite_h)
+        dh = _snap_step((h_hi - h_lo) / 8)
+        if dh > 0
+            return collect(ceil(h_lo / dh) * dh : dh : floor(h_hi / dh) * dh)
+        else
+            return Float64[]
+        end
+    end
+
     function geometry(chi2_map_l, chi2_map_h, alphas_deg, betas_deg, outdir;
                       show_=false, name_mod="PSR_NAME",
                       delta_chi2_max=nothing,
@@ -1032,10 +1057,8 @@ module Plot
         height_map_l = _height_map(W_deg_l)
         height_map_h = _height_map(W_deg_h)
 
-        # Round contour levels following Johnston et al. 2023 Fig. 1.
-        if isnothing(height_contours)
-            height_contours = [100.0, 200.0, 300.0, 500.0, 1000.0, 2000.0]
-        end
+        height_contours = isnothing(height_contours) ?
+            _auto_height_levels(height_map_l, height_map_h) : height_contours
         println("height_contours [km] = $(round.(height_contours, digits=1))")
 
         # Mask cells outside the acceptable region (shown as white)
