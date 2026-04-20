@@ -1105,51 +1105,42 @@ module Data
 
 
     """
-    Detect and flip orthogonal polarization mode (OPM) jumps in a PA track.
-
-    Strategy: build a local reference for each bin using a Gaussian-weighted
-    circular mean in 2·PA space (which removes the intrinsic mod-π ambiguity
-    of PA). If the bin lies farther than `tolerance` degrees from that
-    reference on the mod-180° circle, flip it by 90°. The process is iterated
-    over several passes with progressively tighter windows: the first pass
-    sees a wide neighbourhood so isolated OPM islands still see the dominant
-    mode, later passes refine the result. `min_support` guards against a
-    single surviving neighbour flipping its neighbour back.
+    Remove orthogonal polarization mode (OPM) jumps from a PA track by
+    unwrapping along longitude with a 90° period. Walks bin-by-bin keeping
+    a running "continuous" PA; whenever the next sample lies farther than
+    `tolerance` degrees from it, shift the sample by ±90° (the OPM step)
+    until it rejoins the track. The accumulated offset persists, so a whole
+    OPM island is corrected end-to-end regardless of length. Finally the
+    output is wrapped back to (-90°, 90°] — which also undoes any shifts
+    of ±180° that correspond to the intrinsic mod-π PA wrap, leaving those
+    pixels unchanged.
     """
-    function deopm_pa(pa_deg; window=20, tolerance=45.0, passes=6, min_support=3)
+    function deopm_pa(pa_deg; tolerance=45.0)
         pa_out = copy(pa_deg)
         n = length(pa_out)
-        flipped_total = 0
-        for pass in 1:passes
-            flipped_pass = 0
-            # First pass wide to break up OPM clusters, then narrow to refine
-            w = pass == 1 ? window : max(window ÷ (pass), 3)
-            sigma = w / 2
-            for i in 1:n
-                isnan(pa_out[i]) && continue
-                s = 0.0; c = 0.0; wsum = 0.0; cnt = 0
-                for j in max(1, i-w):min(n, i+w)
-                    j == i && continue
-                    pj = pa_out[j]
-                    isnan(pj) && continue
-                    wj = exp(-0.5 * ((j - i) / sigma)^2)
-                    s += wj * sin(2 * pj * π / 180)
-                    c += wj * cos(2 * pj * π / 180)
-                    wsum += wj
-                    cnt += 1
-                end
-                cnt < min_support && continue
-                ref = atan(s, c) / 2 * 180 / π
-                d_orig = abs(mod(pa_out[i] - ref + 90, 180) - 90)
-                if d_orig > tolerance
-                    pa_out[i] = mod(pa_out[i] + 90 + 90, 180) - 90
-                    flipped_pass += 1
-                end
+        last_unwrapped = NaN
+        offset = 0.0
+        flipped = 0
+        for i in 1:n
+            isnan(pa_out[i]) && continue
+            pa_in = pa_out[i]
+            if isnan(last_unwrapped)
+                last_unwrapped = pa_in
+                continue
             end
-            flipped_total += flipped_pass
-            flipped_pass == 0 && break
+            shifted = pa_in + offset
+            d = shifted - last_unwrapped
+            while d > tolerance
+                offset -= 90; shifted -= 90; d -= 90
+            end
+            while d < -tolerance
+                offset += 90; shifted += 90; d += 90
+            end
+            pa_out[i] = mod(shifted + 90, 180) - 90
+            abs(pa_out[i] - pa_in) > 0.1 && (flipped += 1)
+            last_unwrapped = shifted
         end
-        return pa_out, flipped_total
+        return pa_out, flipped
     end
 
 
