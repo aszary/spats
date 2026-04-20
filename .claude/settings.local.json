@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://raw.githubusercontent.com/aszary/spats/master/modules/plot.jl\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/aszary/spats/master/modules/tools.jl\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/aszary/spats/master/\")",
+      "Bash(curl -s \"https://api.github.com/repos/aszary/spats/contents\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/aszary/spats/master/spats.jl\")",
+      "Bash(git merge *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}

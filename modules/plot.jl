@@ -781,6 +781,30 @@ module Plot
 
 
 
+    # Returns ~5 evenly spaced "nice" height levels between h_lo and h_hi [km]
+    function _auto_height_levels(h_lo, h_hi)
+        span = h_hi - h_lo
+        span <= 0 && return Float64[]
+        # Pick a step from {10,20,50,100,200,500,1000,2000,5000} that gives 4–8 levels
+        candidates = [10., 20., 50., 100., 200., 500., 1000., 2000., 5000.]
+        step = candidates[end]
+        for s in candidates
+            n = floor(h_hi / s) - ceil(h_lo / s) + 1
+            if 3 <= n <= 8
+                step = s
+                break
+            end
+        end
+        first_lev = ceil(h_lo / step) * step
+        levs = Float64[]
+        v = first_lev
+        while v <= h_hi + 1e-6
+            push!(levs, v)
+            v += step
+        end
+        return levs
+    end
+
     """
     rvm(data4, outdir, name_mod; bin_st, bin_end,
         snr_threshold=3.5, linpol_threshold=0.8, period=nothing,
@@ -1017,7 +1041,7 @@ module Plot
         end
 
         # -- chi²(alpha, beta) map (right panel): alpha on x, beta on y --
-        # Δχ²ᵣ = χ²ᵣ − min(χ²ᵣ), linear scale 0–10 (matches reference style).
+        # Δχ²ᵣ = χ²ᵣ − min(χ²ᵣ), auto-scaled so the valley is visible
         chi2_finite = filter(isfinite, vec(chi2_map))
         chi2_min    = isempty(chi2_finite) ? 0.0 : minimum(chi2_finite)
         chi2_delta  = map(v -> isnan(v) ? NaN : max(v - chi2_min, 0.0), chi2_map)
@@ -1026,18 +1050,25 @@ module Plot
         a_best = alphas[best[1]]
         b_best = betas[best[2]]
 
+        # Auto-scale vmax: 2% of the finite range, clamped to [5, 50]
+        chi2_d_finite = filter(isfinite, vec(chi2_delta))
+        dmax = isempty(chi2_d_finite) ? 10.0 :
+               clamp(0.02 * maximum(chi2_d_finite), 5.0, 50.0)
+
+        # Mask values above dmax as NaN so they render as white (out-of-range color)
+        chi2_display = map(v -> isnan(v) ? NaN : (v > dmax ? NaN : v), chi2_delta)
+
         # Zoom display around the minimum (±60° in α, ±10° in β) so the valley fills the panel
         a_lo = max(alphas[1],   a_best - 80.0)
         a_hi = min(alphas[end], a_best + 80.0)
         b_lo = max(betas[1],    b_best - 10.0)
         b_hi = min(betas[end],  b_best + 10.0)
 
-        # imshow with bilinear interpolation gives a smooth gradient between grid cells
-        im = ax_map.imshow(chi2_delta',
+        im = ax_map.imshow(chi2_display',
                            origin="lower", aspect="auto",
                            extent=[alphas[1], alphas[end], betas[1], betas[end]],
-                           cmap="viridis_r", vmin=0.0, vmax=10.0,
-                           interpolation="bilinear")
+                           cmap="viridis_r", vmin=0.0, vmax=dmax,
+                           interpolation="nearest")
         cb = fig.colorbar(im, cax=ax_cb)
         cb.set_label("Δχ²ᵣ")
 
@@ -1059,11 +1090,17 @@ module Plot
 
         if h_contours !== nothing
             try
-                ax_map.clabel(
-                    ax_map.contour(alphas, betas, h_contours',
-                                   levels=[100., 200., 500., 1000., 2000.],
-                                   colors="white", linewidths=0.6, alpha=0.85),
-                    fmt="%.0f km", fontsize=5, inline=true)
+                # Auto-generate height contour levels spanning the range in the plot window
+                h_finite = filter(isfinite, vec(h_contours))
+                if !isempty(h_finite)
+                    h_lo, h_hi = extrema(h_finite)
+                    h_levs = _auto_height_levels(h_lo, h_hi)
+                    ax_map.clabel(
+                        ax_map.contour(alphas, betas, h_contours',
+                                       levels=h_levs,
+                                       colors="white", linewidths=0.6, alpha=0.85),
+                        fmt="%.0f", fontsize=5, inline=true)
+                end
             catch
             end
         end
