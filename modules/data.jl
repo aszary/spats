@@ -1107,30 +1107,38 @@ module Data
     """
     Detect and flip orthogonal polarization mode (OPM) jumps in a PA track.
 
-    For each valid PA bin, compute a circular local reference from neighbors
-    within `window` bins (using 2·PA on the unit circle to handle the mod-π
-    ambiguity). If the bin sits farther than `tolerance` degrees from the
-    reference on the mod-180° circle, flip it by 90°. `passes` repeats the
-    sweep so that recently corrected neighbors can help fix their successors.
+    Strategy: build a local reference for each bin using a Gaussian-weighted
+    circular mean in 2·PA space (which removes the intrinsic mod-π ambiguity
+    of PA). If the bin lies farther than `tolerance` degrees from that
+    reference on the mod-180° circle, flip it by 90°. The process is iterated
+    over several passes with progressively tighter windows: the first pass
+    sees a wide neighbourhood so isolated OPM islands still see the dominant
+    mode, later passes refine the result. `min_support` guards against a
+    single surviving neighbour flipping its neighbour back.
     """
-    function deopm_pa(pa_deg; window=5, tolerance=45.0, passes=3)
+    function deopm_pa(pa_deg; window=20, tolerance=45.0, passes=6, min_support=3)
         pa_out = copy(pa_deg)
         n = length(pa_out)
         flipped_total = 0
-        for _ in 1:passes
+        for pass in 1:passes
             flipped_pass = 0
+            # First pass wide to break up OPM clusters, then narrow to refine
+            w = pass == 1 ? window : max(window ÷ (pass), 3)
+            sigma = w / 2
             for i in 1:n
                 isnan(pa_out[i]) && continue
-                s = 0.0; c = 0.0; cnt = 0
-                for j in max(1, i-window):min(n, i+window)
+                s = 0.0; c = 0.0; wsum = 0.0; cnt = 0
+                for j in max(1, i-w):min(n, i+w)
                     j == i && continue
                     pj = pa_out[j]
                     isnan(pj) && continue
-                    s += sin(2 * pj * π / 180)
-                    c += cos(2 * pj * π / 180)
+                    wj = exp(-0.5 * ((j - i) / sigma)^2)
+                    s += wj * sin(2 * pj * π / 180)
+                    c += wj * cos(2 * pj * π / 180)
+                    wsum += wj
                     cnt += 1
                 end
-                cnt == 0 && continue
+                cnt < min_support && continue
                 ref = atan(s, c) / 2 * 180 / π
                 d_orig = abs(mod(pa_out[i] - ref + 90, 180) - 90)
                 if d_orig > tolerance
@@ -1198,12 +1206,13 @@ module Data
                     rvm_shape = atan.(sa .* sin.(dphi),
                                       sz .* ca .- cz .* sa .* cos.(dphi))
 
-                    # PA is ambiguous mod π → wrap residuals to [-π/2, π/2]
+                    # PA is defined mod π. Use a weighted circular mean on
+                    # 2·diff to get PA0, then wrap residuals to (-π/2, π/2].
                     diffs = pa_rad .- rvm_shape
-                    diffs_w = mod.(diffs .+ π/2, π) .- π/2
-                    # Weighted PA0: minimizes Σ ((diff - PA0)/σ)²
-                    pa0 = sum(diffs_w .* inv_var) / sum(inv_var)
-                    residuals = diffs_w .- pa0
+                    Sx = sum(sin.(2 .* diffs) .* inv_var)
+                    Cx = sum(cos.(2 .* diffs) .* inv_var)
+                    pa0 = atan(Sx, Cx) / 2
+                    residuals = mod.(diffs .- pa0 .+ π/2, π) .- π/2
                     chi2 = sum((residuals .^ 2) .* inv_var)
 
                     if chi2 < best_ab
