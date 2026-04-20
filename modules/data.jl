@@ -1387,7 +1387,13 @@ module Data
             return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
         println("  best: α=$(round(res_h.alpha,digits=1))° β=$(round(res_h.beta,digits=1))° χ²/ndof=$(round(res_h.chi2_red,digits=4))")
 
-        Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir; show_=true)
+        # Pulse width (deg) from on-pulse window and period (s) from params
+        nbin  = p["nbin"]
+        W_deg = (bin_end - bin_st + 1) * 360.0 / nbin
+        P_sec = p["period"]
+
+        Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir;
+                      show_=true, P_sec=P_sec, W_deg=W_deg)
     end
 
 end # module

@@ -1994,6 +1994,8 @@ module Tools
             "_nbin" => "Number of pulse phase bins",
             "nfft" => 256,
             "_nfft" => "Set size of fft's [default=256]",
+            "period" => nothing,
+            "_period" => "Pulsar rotational period [seconds]",
             "bin_st" => nothing,
             "bin_end" => nothing,
             "pulse_start" => 1,
