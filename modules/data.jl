@@ -1337,6 +1337,11 @@ module Data
         pa_h, flipped_h = deopm_pa(pa_h)
         println("De-OPM: flipped $flipped_l (low) and $flipped_h (high) bins")
 
+        # Select OPM branch (publication convention): global +90° shift
+        pa_shift = 90.0
+        pa_l = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_l]
+        pa_h = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_h]
+
         # Fit RVM to low-frequency PA (more points typically)
         println("Fitting RVM (low frequency)...")
         rvm_params_l = fit_rvm(lon_l, pa_l, pa_err_l)
