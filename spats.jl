@@ -258,7 +258,7 @@ module SpaTs
         #process_psrdata_single("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_single")
         #process_psrdata(vpmout*"J1842-0359", vpmout*"J1842-0359") #  nice single pulses, nice P. p3fold
         #Data.position_angle(vpmout*"J1842-0359_16")
-        Data.geometry_analysis(vpmout*"J1842-0359_16")
+        #Data.geometry_analysis(vpmout*"J1842-0359_16")
 
         # PSR J1857+0057
         #process_psrdata_16("/home/psr/data/new/J1857+0057/2020-02-03-06:00:48/", vpmout*"J1857+0057_16")
@@ -300,6 +300,10 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J2053-7200/2019-11-26-18:06:44/", vpmout*"J2053-7200_16")
         #Data.analyse_p3folds_16(vpmout*"J2053-7200_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J2053-7200_16", "norefine", n_comp=2)
+        Data.position_angle(vpmout*"J2053-7200_16")
+        #Data.geometry_analysis(vpmout*"J1842-0359_16")
+
+
 
         # PSR J2139+2242
         #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
