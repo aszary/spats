@@ -983,7 +983,7 @@ module Plot
                       show_=false, name_mod="PSR_NAME",
                       delta_chi2_max=nothing,
                       height_contours=nothing,
-                      P_sec=nothing, W_deg=nothing,
+                      P_sec=nothing, W_deg_l=nothing, W_deg_h=nothing,
                       cmap="viridis")
 
         chi2_min_l = minimum(chi2_map_l[isfinite.(chi2_map_l)])
@@ -1003,39 +1003,38 @@ module Plot
         dmax = isnothing(delta_chi2_max) ? 0.02 * max(range_l, range_h) : delta_chi2_max
         println("delta_chi2_max = $(round(dmax, digits=2))")
 
-        # Emission-height map h(α,β) assuming a filled beam.
-        # Beam half-opening angle ρ from Gil, Kijak & Seiradakis (1993):
-        #   sin²(ρ/2) = sin²(W/4) sin α sin(α+β) + sin²(β/2)
-        # Emission height (dipolar field lines, last open field line mapping):
-        #   h = (2 c P) / (9π) · ρ²   with ρ in radians
-        height_map = fill(NaN, length(alphas_deg), length(betas_deg))
-        if !isnothing(P_sec) && !isnothing(W_deg)
+        # Emission-height maps h(α,β) assuming a filled beam — one per band.
+        # ρ from Gil, Gronkowski & Rudnicki (1984) / Johnston+ 2023 Eq. (3):
+        #   cos ρ = cos α cos(α+β) + sin α sin(α+β) cos(W10/2)
+        # Emission height (dipolar last-open field line; Johnston+ 2023 Eq. 2):
+        #   h = 2 c P ρ² / (9π)   with ρ in radians
+        function _height_map(W_deg)
+            hmap = fill(NaN, length(alphas_deg), length(betas_deg))
+            (isnothing(P_sec) || isnothing(W_deg)) && return hmap
             c_km_s = 2.99792458e5
-            W_rad = deg2rad(W_deg)
-            sinW4sq = sin(W_rad / 4)^2
+            cosW2 = cos(deg2rad(W_deg) / 2)
             for i in eachindex(alphas_deg)
                 a = deg2rad(alphas_deg[i])
                 for j in eachindex(betas_deg)
                     b = deg2rad(betas_deg[j])
-                    s2 = sinW4sq * sin(a) * sin(a + b) + sin(b / 2)^2
-                    (s2 < 0 || s2 > 1) && continue
-                    rho = 2 * asin(sqrt(s2))
-                    height_map[i, j] = 2 * c_km_s * P_sec * rho^2 / (9 * pi)
+                    cr = cos(a) * cos(a + b) + sin(a) * sin(a + b) * cosW2
+                    cr = clamp(cr, -1.0, 1.0)
+                    rho = acos(cr)
+                    hmap[i, j] = 2 * c_km_s * P_sec * rho^2 / (9 * pi)
                 end
             end
-        else
-            @warn "Plot.geometry: P_sec and/or W_deg not provided — height contours will not be drawn."
+            return hmap
         end
 
-        # Auto-scale contour levels across the range of valid heights
+        if isnothing(P_sec) || (isnothing(W_deg_l) && isnothing(W_deg_h))
+            @warn "Plot.geometry: P_sec and/or W10 not provided — height contours will not be drawn."
+        end
+        height_map_l = _height_map(W_deg_l)
+        height_map_h = _height_map(W_deg_h)
+
+        # Round contour levels following Johnston et al. 2023 Fig. 1.
         if isnothing(height_contours)
-            finite_h = filter(isfinite, height_map)
-            if !isempty(finite_h)
-                h_lo, h_hi = extrema(finite_h)
-                height_contours = collect(range(h_lo, h_hi, length=7))[2:end-1]
-            else
-                height_contours = Float64[]
-            end
+            height_contours = [100.0, 200.0, 300.0, 500.0, 1000.0, 2000.0]
         end
         println("height_contours [km] = $(round.(height_contours, digits=1))")
 
@@ -1058,7 +1057,7 @@ module Plot
         im1 = imshow(dchi2_l_plot',
                      origin="lower", extent=extent, aspect="auto",
                      cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
-        ax1.clabel(ax1.contour(alphas_deg, betas_deg, height_map',
+        ax1.clabel(ax1.contour(alphas_deg, betas_deg, height_map_l',
                                levels=height_contours, colors="purple", linewidths=0.7),
                    fmt="%g", fontsize=6)
         ax1.set_xlabel("alpha [deg]")
@@ -1071,7 +1070,7 @@ module Plot
         imshow(dchi2_h_plot',
                origin="lower", extent=extent, aspect="auto",
                cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
-        ax2.clabel(ax2.contour(alphas_deg, betas_deg, height_map',
+        ax2.clabel(ax2.contour(alphas_deg, betas_deg, height_map_h',
                                levels=height_contours, colors="purple", linewidths=0.7),
                    fmt="%g", fontsize=6)
         ax2.set_xlabel("alpha [deg]")

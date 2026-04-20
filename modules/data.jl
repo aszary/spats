@@ -1363,6 +1363,10 @@ module Data
         U_h   = vec(mean(h[:, bin_st:bin_end, 3], dims=1))
         Lin_h = sqrt.(Q_h.^2 .+ U_h.^2)
 
+        # Mean Stokes I for W10 estimation
+        I_l_full = vec(mean(l[:, :, 1], dims=1))
+        I_h_full = vec(mean(h[:, :, 1], dims=1))
+
         # sigma_avg for detection threshold (noise on the mean profile)
         sigma_avg_l = std(l[:, 1:bin_st-1, 1]) / sqrt(pulses_l)
         sigma_avg_h = std(h[:, 1:bin_st-1, 1]) / sqrt(pulses_h)
@@ -1387,13 +1391,34 @@ module Data
             return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
         println("  best: α=$(round(res_h.alpha,digits=1))° β=$(round(res_h.beta,digits=1))° χ²/ndof=$(round(res_h.chi2_red,digits=4))")
 
-        # Pulse width (deg) from on-pulse window and period (s) from params
+        # W10 (pulse width at 10 % of peak flux), cf. Johnston et al. 2023, Eq. (3)
         nbin  = p["nbin"]
-        W_deg = (bin_end - bin_st + 1) * 360.0 / nbin
+        W10_l = pulse_width_fraction(I_l_full, nbin; frac=0.1)
+        W10_h = pulse_width_fraction(I_h_full, nbin; frac=0.1)
         P_sec = p["period"]
+        println("W10: low=$(round(W10_l, digits=2))°  high=$(round(W10_h, digits=2))°")
 
         Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir;
-                      show_=true, P_sec=P_sec, W_deg=W_deg)
+                      show_=true, P_sec=P_sec, W_deg_l=W10_l, W_deg_h=W10_h)
+    end
+
+    """
+    Pulse width at a given fraction of the peak flux, in degrees.
+    Uses the widest contiguous run above `frac * peak` starting from the peak bin.
+    """
+    function pulse_width_fraction(profile, nbin; frac=0.1)
+        n = length(profile)
+        peak_idx = argmax(profile)
+        threshold = frac * profile[peak_idx]
+        left = peak_idx
+        while left > 1 && profile[left - 1] >= threshold
+            left -= 1
+        end
+        right = peak_idx
+        while right < n && profile[right + 1] >= threshold
+            right += 1
+        end
+        return (right - left + 1) * 360.0 / nbin
     end
 
 end # module
