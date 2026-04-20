@@ -1000,6 +1000,7 @@ module Plot
                    transform=ax_pa."transAxes", fontsize=6,
                    va="top", ha="right",
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
+        lon_margin = 0.3 * (lon_on[end] - lon_on[1])
         ax_st.plot(lon_full, I_low_full ./ I_max, color="black",     lw=1.0, label="I")
         ax_st.plot(lon_full, L_low_full ./ I_max, color="red",       lw=1.0, label="L")
         ax_st.plot(lon_full, V_low_full ./ I_max, color="royalblue", lw=1.0, label="V")
