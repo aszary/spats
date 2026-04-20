@@ -1393,32 +1393,32 @@ module Data
 
         # W10 (pulse width at 10 % of peak flux), cf. Johnston et al. 2023, Eq. (3)
         nbin  = p["nbin"]
-        W10_l = pulse_width_fraction(I_l_full, nbin; frac=0.1)
-        W10_h = pulse_width_fraction(I_h_full, nbin; frac=0.1)
+        W10_l = pulse_width_fraction(I_l_full, nbin; frac=0.1,
+                                     on_st=bin_st, on_end=bin_end)
+        W10_h = pulse_width_fraction(I_h_full, nbin; frac=0.1,
+                                     on_st=bin_st, on_end=bin_end)
         P_sec = p["period"]
-        println("W10: low=$(round(W10_l, digits=2))°  high=$(round(W10_h, digits=2))°")
+        println("P = $P_sec s   W10: low=$(round(W10_l, digits=2))°  high=$(round(W10_h, digits=2))°")
 
         Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir;
                       show_=true, P_sec=P_sec, W_deg_l=W10_l, W_deg_h=W10_h)
     end
 
     """
-    Pulse width at a given fraction of the peak flux, in degrees.
-    Uses the widest contiguous run above `frac * peak` starting from the peak bin.
+    W_frac (e.g. W10): distance between the outermost longitude bins above
+    `frac * peak`, following Posselt et al. 2021 / Johnston et al. 2023.
+    If `on_st`/`on_end` are given, the peak and search are restricted to that
+    on-pulse window; this avoids noise spikes extending the width artificially.
     """
-    function pulse_width_fraction(profile, nbin; frac=0.1)
-        n = length(profile)
-        peak_idx = argmax(profile)
-        threshold = frac * profile[peak_idx]
-        left = peak_idx
-        while left > 1 && profile[left - 1] >= threshold
-            left -= 1
-        end
-        right = peak_idx
-        while right < n && profile[right + 1] >= threshold
-            right += 1
-        end
-        return (right - left + 1) * 360.0 / nbin
+    function pulse_width_fraction(profile, nbin; frac=0.1,
+                                   on_st=nothing, on_end=nothing)
+        st = isnothing(on_st)  ? 1              : on_st
+        en = isnothing(on_end) ? length(profile) : on_end
+        seg = @view profile[st:en]
+        threshold = frac * maximum(seg)
+        above = findall(>=(threshold), seg)
+        isempty(above) && return NaN
+        return (last(above) - first(above) + 1) * 360.0 / nbin
     end
 
 end # module
