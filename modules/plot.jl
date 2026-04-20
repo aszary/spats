@@ -969,8 +969,8 @@ module Plot
         fig = figure(figsize=(7.5, 4.8))
         ax_pa  = fig.add_axes([0.09, 0.62, 0.37, 0.35])
         ax_st  = fig.add_axes([0.09, 0.11, 0.37, 0.44])
-        ax_map = fig.add_axes([0.57, 0.11, 0.31, 0.86])
-        ax_cb  = fig.add_axes([0.89, 0.11, 0.02, 0.86])
+        ax_map = fig.add_axes([0.57, 0.11, 0.40, 0.72])   # map: leave top room for colorbar
+        ax_cb  = fig.add_axes([0.57, 0.86, 0.40, 0.05])   # horizontal colorbar above map
 
         # -- PA panel (left top) - on-pulse region only --
         # Identify sigma-clipped points (passed SNR/L-I but removed by sigma-clip)
@@ -1038,54 +1038,32 @@ module Plot
                        bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
         end
 
-        # -- chi²(alpha, beta) map (right panel): alpha on x, beta on y --
-        # Δχ²ᵣ = χ²ᵣ − min(χ²ᵣ), auto-scaled so the valley is visible
+        # -- chi²(α,β) map — exact master style --
         chi2_finite = filter(isfinite, vec(chi2_map))
         chi2_min    = isempty(chi2_finite) ? 0.0 : minimum(chi2_finite)
+        chi2_max    = isempty(chi2_finite) ? 1.0 : maximum(chi2_finite)
         chi2_delta  = map(v -> isnan(v) ? NaN : max(v - chi2_min, 0.0), chi2_map)
 
-        best = argmin(map(v -> isnan(v) ? Inf : v, chi2_map))
-        a_best = alphas[best[1]]
-        b_best = betas[best[2]]
+        # dmax = 2 % of total range (master formula), no arbitrary clamp
+        dmax = 0.02 * (chi2_max - chi2_min)
+        println("[rvm] chi2 range: $(round(chi2_min,digits=2)) – $(round(chi2_max,digits=2))  dmax=$(round(dmax,digits=2))")
 
-        # Auto-scale vmax: 2% of the finite range, clamped to [5, 50]
-        chi2_d_finite = filter(isfinite, vec(chi2_delta))
-        dmax = isempty(chi2_d_finite) ? 10.0 :
-               clamp(0.02 * maximum(chi2_d_finite), 5.0, 50.0)
-
-        # Mask values above dmax as NaN so they render as white (out-of-range color)
+        # Cells above dmax → NaN → white (master: shows where model is ruled out)
         chi2_display = map(v -> isnan(v) ? NaN : (v > dmax ? NaN : v), chi2_delta)
-
-        # Zoom display around the minimum (±60° in α, ±10° in β) so the valley fills the panel
-        a_lo = max(alphas[1],   a_best - 80.0)
-        a_hi = min(alphas[end], a_best + 80.0)
-        b_lo = max(betas[1],    b_best - 10.0)
-        b_hi = min(betas[end],  b_best + 10.0)
 
         im = ax_map.imshow(chi2_display',
                            origin="lower", aspect="auto",
                            extent=[alphas[1], alphas[end], betas[1], betas[end]],
-                           cmap="viridis_r", vmin=0.0, vmax=dmax,
+                           cmap="viridis", vmin=0.0, vmax=dmax,
                            interpolation="nearest")
-        cb = fig.colorbar(im, cax=ax_cb)
-        cb.set_label("Δχ²ᵣ")
 
-        ax_map.scatter([a_best], [b_best],
-                       marker="*", s=100, color="red", zorder=6,
-                       label=@sprintf("α=%.0f° β=%.0f°", a_best, b_best))
+        # Horizontal colorbar above the map (master style)
+        cb = fig.colorbar(im, cax=ax_cb, orientation="horizontal")
+        cb.set_label(raw"$\Delta\chi^2$", labelpad=2)
+        ax_cb.xaxis.set_label_position("top")
+        ax_cb.xaxis.set_ticks_position("top")
 
-        # Confidence-region contours: Δχ²=2.30 (1σ), 6.17 (2σ) for 2 free params
-        try
-            ax_map.contour(alphas, betas, chi2_delta',
-                           levels=[2.30, 6.17],
-                           colors=["cyan", "royalblue"],
-                           linewidths=[1.0, 0.8], linestyles=["solid", "dashed"],
-                           zorder=5)
-        catch
-        end
-
-        ax_map.legend(fontsize=6, loc="upper right", framealpha=0.6)
-
+        # Height contours in purple (master style)
         if h_contours !== nothing
             try
                 h_levs = _auto_height_levels(h_contours)
@@ -1100,10 +1078,8 @@ module Plot
             end
         end
 
-        ax_map.set_xlim(a_lo, a_hi)
-        ax_map.set_ylim(b_lo, b_hi)
-        ax_map.set_xlabel("α [deg]")
-        ax_map.set_ylabel("β [deg]")
+        ax_map.set_xlabel("alpha [deg]")
+        ax_map.set_ylabel("beta [deg]")
         ax_map.minorticks_on()
 
         savefig("$outdir/$(name_mod)_rvm.pdf")
