@@ -1105,6 +1105,47 @@ module Data
 
 
     """
+    Detect and flip orthogonal polarization mode (OPM) jumps in a PA track.
+
+    For each valid PA bin, compute a circular local reference from neighbors
+    within `window` bins (using 2·PA on the unit circle to handle the mod-π
+    ambiguity). If the bin sits farther than `tolerance` degrees from the
+    reference on the mod-180° circle, flip it by 90°. `passes` repeats the
+    sweep so that recently corrected neighbors can help fix their successors.
+    """
+    function deopm_pa(pa_deg; window=5, tolerance=45.0, passes=3)
+        pa_out = copy(pa_deg)
+        n = length(pa_out)
+        flipped_total = 0
+        for _ in 1:passes
+            flipped_pass = 0
+            for i in 1:n
+                isnan(pa_out[i]) && continue
+                s = 0.0; c = 0.0; cnt = 0
+                for j in max(1, i-window):min(n, i+window)
+                    j == i && continue
+                    pj = pa_out[j]
+                    isnan(pj) && continue
+                    s += sin(2 * pj * π / 180)
+                    c += cos(2 * pj * π / 180)
+                    cnt += 1
+                end
+                cnt == 0 && continue
+                ref = atan(s, c) / 2 * 180 / π
+                d_orig = abs(mod(pa_out[i] - ref + 90, 180) - 90)
+                if d_orig > tolerance
+                    pa_out[i] = mod(pa_out[i] + 90 + 90, 180) - 90
+                    flipped_pass += 1
+                end
+            end
+            flipped_total += flipped_pass
+            flipped_pass == 0 && break
+        end
+        return pa_out, flipped_total
+    end
+
+
+    """
     Fit the Rotating Vector Model (RVM) to position angle data.
 
     Grid search over α (inclination) and β (impact parameter), then for each
@@ -1290,6 +1331,11 @@ module Data
         # PA errors: σ_PA = 0.5 * σ_noise_avg / L  (in degrees)
         pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
         pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:db_h]
+
+        # Detect and undo orthogonal polarization mode jumps before RVM fit
+        pa_l, flipped_l = deopm_pa(pa_l)
+        pa_h, flipped_h = deopm_pa(pa_h)
+        println("De-OPM: flipped $flipped_l (low) and $flipped_h (high) bins")
 
         # Fit RVM to low-frequency PA (more points typically)
         println("Fitting RVM (low frequency)...")
