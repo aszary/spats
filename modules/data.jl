@@ -1432,6 +1432,14 @@ module Data
         pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
         pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_noise_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
 
+        # Match the preprocessing used in position_angle: undo OPM jumps,
+        # then select the same OPM branch (global +90° shift).
+        pa_l, _ = deopm_pa(pa_l)
+        pa_h, _ = deopm_pa(pa_h)
+        pa_shift = 90.0
+        pa_l = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_l]
+        pa_h = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_h]
+
         println("Fitting RVM chi² map (low frequency)...")
         res_l, chi2_l, alphas_deg, betas_deg = fit_rvm(lon_l, pa_l, pa_err_l;
             return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
