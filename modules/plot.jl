@@ -990,8 +990,7 @@ module Plot
                            result.alpha, result.zeta, result.phi0,
                            result.chi2_red, result.rms_deg)
         
-        lon_margin = 0.3 * (lon_on[end] - lon_on[1])
-        ax_pa.set_xlim(lon_on[1] - lon_margin, lon_on[end] + lon_margin)
+        ax_pa.set_xlim(lon_on[1], lon_on[end])
         ax_pa.set_ylim(-95, 95)
         ax_pa.set_ylabel("PA [deg]")
         ax_pa.set_yticks([-90, -45, 0, 45, 90])
@@ -1025,8 +1024,9 @@ module Plot
         chi2_max    = isempty(chi2_finite) ? 1.0 : maximum(chi2_finite)
         chi2_delta  = map(v -> isnan(v) ? NaN : max(v - chi2_min, 0.0), chi2_map)
 
-        # dmax = 2 % of total range (master formula), no arbitrary clamp
-        dmax = 0.02 * (chi2_max - chi2_min)
+        # dmax: 2% of total Δχ²ᵣ range, snapped to a round number (1/2/5·10^n)
+        dmax = _snap_step(0.02 * (chi2_max - chi2_min))
+        dmax = max(dmax, 1.0)   # at least 1 so colorbar is meaningful
         println("[rvm] chi2 range: $(round(chi2_min,digits=2)) – $(round(chi2_max,digits=2))  dmax=$(round(dmax,digits=2))")
 
         # Cells above dmax → NaN → white (master: shows where model is ruled out)
@@ -1061,6 +1061,8 @@ module Plot
 
         ax_map.set_xlabel("alpha [deg]")
         ax_map.set_ylabel("beta [deg]")
+        ax_map.yaxis.set_label_position("right")
+        ax_map.yaxis.set_ticks_position("right")
         ax_map.minorticks_on()
 
         savefig("$outdir/$(name_mod)_rvm.pdf")
