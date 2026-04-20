@@ -781,28 +781,26 @@ module Plot
 
 
 
-    # Returns ~5 evenly spaced "nice" height levels between h_lo and h_hi [km]
-    function _auto_height_levels(h_lo, h_hi)
-        span = h_hi - h_lo
-        span <= 0 && return Float64[]
-        # Pick a step from {10,20,50,100,200,500,1000,2000,5000} that gives 4–8 levels
-        candidates = [10., 20., 50., 100., 200., 500., 1000., 2000., 5000.]
-        step = candidates[end]
-        for s in candidates
-            n = floor(h_hi / s) - ceil(h_lo / s) + 1
-            if 3 <= n <= 8
-                step = s
-                break
-            end
-        end
-        first_lev = ceil(h_lo / step) * step
-        levs = Float64[]
-        v = first_lev
-        while v <= h_hi + 1e-6
-            push!(levs, v)
-            v += step
-        end
-        return levs
+    # Snap a raw step to the nearest 1/2/5·10^n
+    function _snap_step(raw)
+        raw <= 0 && return 0.0
+        pw   = 10.0 ^ floor(log10(raw))
+        mant = raw / pw
+        mant < 1.5 && return 1.0 * pw
+        mant < 3.0 && return 2.0 * pw
+        mant < 7.0 && return 5.0 * pw
+        return 10.0 * pw
+    end
+
+    # Auto height contour levels spanning all supplied maps, with nice 1/2/5·10^n steps
+    function _auto_height_levels(maps...)
+        finite_h = filter(isfinite, vcat((vec(m) for m in maps)...))
+        isempty(finite_h) && return Float64[]
+        h_lo = minimum(finite_h)
+        h_hi = maximum(finite_h)
+        dh = _snap_step((h_hi - h_lo) / 8)
+        dh > 0 || return Float64[]
+        return collect(ceil(h_lo / dh) * dh : dh : floor(h_hi / dh) * dh)
     end
 
     """
@@ -1090,16 +1088,13 @@ module Plot
 
         if h_contours !== nothing
             try
-                # Auto-generate height contour levels spanning the range in the plot window
-                h_finite = filter(isfinite, vec(h_contours))
-                if !isempty(h_finite)
-                    h_lo, h_hi = extrema(h_finite)
-                    h_levs = _auto_height_levels(h_lo, h_hi)
+                h_levs = _auto_height_levels(h_contours)
+                if !isempty(h_levs)
                     ax_map.clabel(
                         ax_map.contour(alphas, betas, h_contours',
                                        levels=h_levs,
-                                       colors="white", linewidths=0.6, alpha=0.85),
-                        fmt="%.0f", fontsize=5, inline=true)
+                                       colors="purple", linewidths=0.7),
+                        fmt="%g", fontsize=5, inline=true)
                 end
             catch
             end
@@ -1124,6 +1119,194 @@ module Plot
 
         return merge(result, (h_blask=h_blask, phi_center=phi_c, W10=W10,
                               alphas=alphas, betas=betas, chi2_map=chi2_map))
+    end
+
+
+    # -------------------------------------------------------------------------
+    # Two-panel geometry plot: low-freq and high-freq chi² maps side by side
+    # -------------------------------------------------------------------------
+    function geometry(chi2_map_l, chi2_map_h, alphas_deg, betas_deg, outdir;
+                      show_=false, name_mod="PSR_NAME",
+                      delta_chi2_max=nothing,
+                      P_sec=nothing, W_deg_l=nothing, W_deg_h=nothing,
+                      cmap="viridis")
+
+        chi2_min_l = minimum(chi2_map_l[isfinite.(chi2_map_l)])
+        chi2_min_h = minimum(chi2_map_h[isfinite.(chi2_map_h)])
+        chi2_max_l = maximum(chi2_map_l[isfinite.(chi2_map_l)])
+        chi2_max_h = maximum(chi2_map_h[isfinite.(chi2_map_h)])
+        println("chi2_min: low=$(round(chi2_min_l, digits=2))  high=$(round(chi2_min_h, digits=2))")
+
+        dchi2_l = chi2_map_l .- chi2_min_l
+        dchi2_h = chi2_map_h .- chi2_min_h
+        range_l = chi2_max_l - chi2_min_l
+        range_h = chi2_max_h - chi2_min_h
+
+        dmax = isnothing(delta_chi2_max) ? 0.02 * max(range_l, range_h) : delta_chi2_max
+        println("delta_chi2_max = $(round(dmax, digits=2))")
+
+        # Height map: cos ρ = cos α cos(α+β) + sin α sin(α+β) cos(W10/2)
+        #             h = 2 c P ρ² / (9π)  [km]
+        function _height_map(W_deg)
+            hmap = fill(NaN, length(alphas_deg), length(betas_deg))
+            (isnothing(P_sec) || isnothing(W_deg)) && return hmap
+            c_km_s = 2.99792458e5
+            cosW2  = cos(deg2rad(W_deg) / 2)
+            for i in eachindex(alphas_deg)
+                a = deg2rad(alphas_deg[i])
+                for j in eachindex(betas_deg)
+                    b  = deg2rad(betas_deg[j])
+                    cr = clamp(cos(a)*cos(a+b) + sin(a)*sin(a+b)*cosW2, -1.0, 1.0)
+                    hmap[i, j] = 2 * c_km_s * P_sec * acos(cr)^2 / (9π)
+                end
+            end
+            return hmap
+        end
+
+        hmap_l = _height_map(W_deg_l)
+        hmap_h = _height_map(W_deg_h)
+        h_levs = _auto_height_levels(hmap_l, hmap_h)
+        println("height_contours [km] = $(round.(h_levs, digits=1))")
+
+        # Mask cells above dmax as NaN → renders white
+        dchi2_l_plot = Float64.(dchi2_l); dchi2_l_plot[dchi2_l .> dmax] .= NaN
+        dchi2_h_plot = Float64.(dchi2_h); dchi2_h_plot[dchi2_h .> dmax] .= NaN
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        fig = figure(figsize=(7.0, 4.2))
+        subplots_adjust(left=0.09, bottom=0.11, right=0.98, top=0.78, wspace=0.32)
+
+        extent = [alphas_deg[1], alphas_deg[end], betas_deg[1], betas_deg[end]]
+
+        ax1 = subplot(1, 2, 1)
+        im1 = imshow(dchi2_l_plot', origin="lower", extent=extent, aspect="auto",
+                     cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
+        if !isempty(h_levs)
+            ax1.clabel(ax1.contour(alphas_deg, betas_deg, hmap_l',
+                                   levels=h_levs, colors="purple", linewidths=0.7),
+                       fmt="%g", fontsize=6)
+        end
+        # Keep confidence contours (Czarek6 addition)
+        try
+            ax1.contour(alphas_deg, betas_deg, dchi2_l',
+                        levels=[2.30, 6.17], colors=["cyan", "royalblue"],
+                        linewidths=[1.0, 0.8], linestyles=["solid", "dashed"])
+        catch; end
+        ax1.set_xlabel("alpha [deg]")
+        ax1.set_ylabel("beta [deg]")
+        ax1.set_title("low frequency", pad=3)
+        ax1.minorticks_on()
+
+        ax2 = subplot(1, 2, 2)
+        imshow(dchi2_h_plot', origin="lower", extent=extent, aspect="auto",
+               cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
+        if !isempty(h_levs)
+            ax2.clabel(ax2.contour(alphas_deg, betas_deg, hmap_h',
+                                   levels=h_levs, colors="purple", linewidths=0.7),
+                       fmt="%g", fontsize=6)
+        end
+        try
+            ax2.contour(alphas_deg, betas_deg, dchi2_h',
+                        levels=[2.30, 6.17], colors=["cyan", "royalblue"],
+                        linewidths=[1.0, 0.8], linestyles=["solid", "dashed"])
+        catch; end
+        ax2.set_xlabel("alpha [deg]")
+        ax2.set_ylabel("beta [deg]")
+        ax2.set_title("high frequency", pad=3)
+        ax2.minorticks_on()
+
+        # Shared horizontal colorbar at top (master style)
+        cbar_ax = fig.add_axes([0.09, 0.86, 0.89, 0.05])
+        cbar = fig.colorbar(im1, cax=cbar_ax, orientation="horizontal")
+        cbar.set_label(raw"$\Delta\chi^2$", labelpad=2)
+        cbar_ax.xaxis.set_label_position("top")
+        cbar_ax.xaxis.set_ticks_position("top")
+
+        savepath = joinpath(outdir, "$(name_mod)_geometry.pdf")
+        println(savepath)
+        savefig(savepath)
+        savefig(replace(savepath, "pdf" => "png"))
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        PyPlot.close()
+    end
+
+
+    # -------------------------------------------------------------------------
+    # Two-frequency PA + Stokes profile plot (master style)
+    # -------------------------------------------------------------------------
+    function position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
+                            lon_h, pa_h, pa_err_h, I_h, Lin_h, V_h,
+                            outdir; show_=false, name_mod="PSR_NAME",
+                            lon_rvm_l=nothing, pa_rvm_l=nothing,
+                            pa_rvm_l_ortho=nothing, phi0_l=nothing,
+                            lon_rvm_h=nothing, pa_rvm_h=nothing,
+                            pa_rvm_h_ortho=nothing, phi0_h=nothing)
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(5.354337, 6.8))
+        subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
+
+        # Top panel: PA with error bars
+        subplot2grid((3, 1), (0, 0))
+        errorbar(lon_l, pa_l, yerr=pa_err_l, fmt=".", ms=2, elinewidth=0.6,
+                 c="tab:blue",   label="low",  zorder=3)
+        errorbar(lon_h, pa_h, yerr=pa_err_h, fmt=".", ms=2, elinewidth=0.6,
+                 c="tab:orange", label="high", zorder=3)
+        if !isnothing(lon_rvm_l) && !isnothing(pa_rvm_l)
+            plot(lon_rvm_l, pa_rvm_l,       c="darkorange", lw=1.2, zorder=2)
+            plot(lon_rvm_l, pa_rvm_l_ortho, c="darkorange", lw=1.2, zorder=2)
+        end
+        if !isnothing(lon_rvm_h) && !isnothing(pa_rvm_h)
+            plot(lon_rvm_h, pa_rvm_h,       c="darkorange", lw=1.2, ls="--", zorder=2)
+            plot(lon_rvm_h, pa_rvm_h_ortho, c="darkorange", lw=1.2, ls="--", zorder=2)
+        end
+        !isnothing(phi0_l) && axvline(phi0_l, c="tab:blue",   lw=1.5,        zorder=4)
+        !isnothing(phi0_h) && axvline(phi0_h, c="tab:orange", lw=1.5, ls="--", zorder=4)
+        ylabel("PA [deg]")
+        ylim(-95, 95)
+        yticks([-90, -45, 0, 45, 90])
+        tick_params(labelbottom=false)
+        minorticks_on()
+        legend(fontsize=6, loc="upper right")
+
+        # Bottom panel: Stokes I / L / V normalized to peak I
+        subplot2grid((3, 1), (1, 0), rowspan=2)
+        I_max_l = maximum(abs.(filter(isfinite, I_l)))
+        I_max_h = maximum(abs.(filter(isfinite, I_h)))
+        plot(lon_l, I_l   ./ I_max_l, c="black", lw=0.8,        label="I")
+        plot(lon_l, Lin_l ./ I_max_l, c="red",   lw=0.8,        label="L")
+        plot(lon_l, V_l   ./ I_max_l, c="royalblue", lw=0.8,    label="V")
+        plot(lon_h, I_h   ./ I_max_h, c="black", lw=0.8, ls="--")
+        plot(lon_h, Lin_h ./ I_max_h, c="red",   lw=0.8, ls="--")
+        plot(lon_h, V_h   ./ I_max_h, c="royalblue", lw=0.8, ls="--")
+        axhline(0.0, color="grey", lw=0.4, ls=":")
+        xlabel("Longitude [deg]")
+        ylabel("Flux Density [norm]")
+        legend(fontsize=6, loc="upper right")
+        minorticks_on()
+
+        savepath = joinpath(outdir, "$(name_mod)_position_angle.pdf")
+        println(savepath)
+        savefig(savepath)
+        savefig(replace(savepath, "pdf" => "png"))
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        PyPlot.close()
     end
 
 
