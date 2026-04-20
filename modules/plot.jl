@@ -998,8 +998,8 @@ module Plot
         range_l = chi2_max_l - chi2_min_l
         range_h = chi2_max_h - chi2_min_h
 
-        # Auto-scale colormap ceiling to ~5% of total chi2 range
-        dmax = isnothing(delta_chi2_max) ? 0.05 * max(range_l, range_h) : delta_chi2_max
+        # Auto-scale colormap ceiling to ~2% of total chi2 range
+        dmax = isnothing(delta_chi2_max) ? 0.02 * max(range_l, range_h) : delta_chi2_max
         println("delta_chi2_max = $(round(dmax, digits=2))")
 
         # Auto-scale contour levels to 30%, 60%, 90% of range
