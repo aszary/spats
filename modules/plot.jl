@@ -877,18 +877,14 @@ module Plot
 
             result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask_fit; p0=best_p)
             
-            # Compute RVM curves: on-pulse region (for fitting) + full profile (for display)
-            pa_curve_on = Tools.rvm_model(lon_on, 
-                            [result.PA0, result.alpha, result.zeta, result.phi0])
-            pa_curve_on = mod.(pa_curve_on .+ 90.0, 180.0) .- 90.0
-            
-            # RVM model on full profile for display
-            pa_curve_full = Tools.rvm_model(lon_full,
-                              [result.PA0, result.alpha, result.zeta, result.phi0])
-            pa_curve_full = mod.(pa_curve_full .+ 90.0, 180.0) .- 90.0
-            
-            pa_curve_low = pa_curve_on   # For backward compat with on-pulse region
-            pa_curve_high = nothing  # only one curve from combined fit
+            # RVM curve over on-pulse region with NaN breaks at wrap jumps
+            pa_curve_low = Tools.rvm_model(lon_on,
+                               [result.PA0, result.alpha, result.zeta, result.phi0])
+            pa_curve_low = mod.(pa_curve_low .+ 90.0, 180.0) .- 90.0
+            for i in Iterators.drop(eachindex(pa_curve_low), 1)
+                abs(pa_curve_low[i] - pa_curve_low[i-1]) > 90.0 && (pa_curve_low[i-1] = NaN)
+            end
+            pa_curve_high = nothing
             
             # Combined (all-pulses) profile for display
             I_low_full  = vec(mean(data4[:, :, 1], dims=1))
@@ -925,16 +921,13 @@ module Plot
 
             result = Tools.fit_rvm(lon_f, pa_avg, pa_err, mask_fit; p0=best_p)
             
-            # Compute RVM curves on both on-pulse and full profile
-            pa_curve_on = Tools.rvm_model(lon_on,
-                            [result.PA0, result.alpha, result.zeta, result.phi0])
-            pa_curve_on = mod.(pa_curve_on .+ 90.0, 180.0) .- 90.0
-            
-            pa_curve_full = Tools.rvm_model(lon_full,
-                             [result.PA0, result.alpha, result.zeta, result.phi0])
-            pa_curve_full = mod.(pa_curve_full .+ 90.0, 180.0) .- 90.0
-            
-            pa_curve_low = pa_curve_on    # For backward compat
+            # RVM curve over on-pulse region with NaN breaks at wrap jumps
+            pa_curve_low = Tools.rvm_model(lon_on,
+                               [result.PA0, result.alpha, result.zeta, result.phi0])
+            pa_curve_low = mod.(pa_curve_low .+ 90.0, 180.0) .- 90.0
+            for i in Iterators.drop(eachindex(pa_curve_low), 1)
+                abs(pa_curve_low[i] - pa_curve_low[i-1]) > 90.0 && (pa_curve_low[i-1] = NaN)
+            end
             pa_curve_high = nothing
             
             # Full profile for display
@@ -997,7 +990,8 @@ module Plot
                            result.alpha, result.zeta, result.phi0,
                            result.chi2_red, result.rms_deg)
         
-        ax_pa.set_xlim(lon_on[1], lon_on[end])
+        lon_margin = 0.3 * (lon_on[end] - lon_on[1])
+        ax_pa.set_xlim(lon_on[1] - lon_margin, lon_on[end] + lon_margin)
         ax_pa.set_ylim(-95, 95)
         ax_pa.set_ylabel("PA [deg]")
         ax_pa.set_yticks([-90, -45, 0, 45, 90])
@@ -1007,23 +1001,10 @@ module Plot
                    transform=ax_pa."transAxes", fontsize=6,
                    va="top", ha="right",
                    bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
-        if I_high_full !== nothing && n_freq == 2
-            # Show both frequencies separately with full profile
-            ax_st.plot(lon_full, I_low_full ./ I_max, color="black",     lw=0.8, label="I low", alpha=0.7)
-            ax_st.plot(lon_full, L_low_full ./ I_max, color="red",       lw=0.8, label="L low", alpha=0.7)
-            ax_st.plot(lon_full, V_low_full ./ I_max, color="royalblue", lw=0.8, label="V low", alpha=0.7)
-            ax_st.plot(lon_full, I_high_full ./ I_max, color="black",     lw=0.8, label="I high", ls="--", alpha=0.7)
-            ax_st.plot(lon_full, L_high_full ./ I_max, color="red",       lw=0.8, label="L high", ls="--", alpha=0.7)
-            ax_st.plot(lon_full, V_high_full ./ I_max, color="royalblue", lw=0.8, label="V high", ls="--", alpha=0.7)
-        else
-            # Show combined profile (full)
-            ax_st.plot(lon_full, I_low_full ./ I_max, color="black",     lw=1.0, label="I")
-            ax_st.plot(lon_full, L_low_full ./ I_max, color="red",       lw=1.0, label="L")
-            ax_st.plot(lon_full, V_low_full ./ I_max, color="royalblue", lw=1.0, label="V")
-        end
+        ax_st.plot(lon_full, I_low_full ./ I_max, color="black",     lw=1.0, label="I")
+        ax_st.plot(lon_full, L_low_full ./ I_max, color="red",       lw=1.0, label="L")
+        ax_st.plot(lon_full, V_low_full ./ I_max, color="royalblue", lw=1.0, label="V")
         ax_st.axhline(0.0, color="grey", lw=0.4, ls=":")
-        # Show on-pulse region plus 30% margin on each side so pulse edges are visible
-        lon_margin = 0.3 * (lon_on[end] - lon_on[1])
         ax_st.set_xlim(lon_on[1] - lon_margin, lon_on[end] + lon_margin)
         ax_st.set_ylim(-0.5, 1.15)
         ax_st.set_ylabel("Flux Density [norm.]")
