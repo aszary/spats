@@ -1348,8 +1348,8 @@ module Data
         bin_st  = p["bin_st"]
         bin_end = p["bin_end"]
 
-        pulses_l, bins_l, _ = size(l)
-        pulses_h, bins_h, _ = size(h)
+        _, bins_l, _ = size(l)
+        _, bins_h, _ = size(h)
 
         db_l = (bin_end + 1) - bin_st
         lon_l = collect(range(-360.0 * db_l / bins_l / 2, 360.0 * db_l / bins_l / 2, length=db_l))
@@ -1363,8 +1363,8 @@ module Data
         U_h   = vec(mean(h[:, bin_st:bin_end, 3], dims=1))
         Lin_h = sqrt.(Q_h.^2 .+ U_h.^2)
 
-        sigma_avg_l = std(l[:, 1:bin_st-1, 1]) / sqrt(pulses_l)
-        sigma_avg_h = std(h[:, 1:bin_st-1, 1]) / sqrt(pulses_h)
+        sigma_avg_l = std(l[:, 1:bin_st-1, 1])
+        sigma_avg_h = std(h[:, 1:bin_st-1, 1])
         thresh_l = 5.0 * sigma_avg_l
         thresh_h = 5.0 * sigma_avg_h
 
