@@ -127,7 +127,8 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
         col += 1
     end
 
-    fig.layout.gap[] = 15
+    colgap!(fig.layout, 15)
+    rowgap!(fig.layout, 15)
     if !isnothing(savepath)
         save(savepath, fig)
     end
