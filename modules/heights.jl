@@ -78,7 +78,7 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
     low_params = _rvm_params(params, "low", low_fit)
     high_params = _rvm_params(params, "high", high_fit)
 
-    fig = Figure(resolution = (1200, 700))
+    fig = Figure(size = (1200, 700))
     axes = Dict()
     col = 1
 
@@ -127,7 +127,7 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
         col += 1
     end
 
-    fig.layoutgap = 15
+    fig.layout.gap[] = 15
     if !isnothing(savepath)
         save(savepath, fig)
     end
