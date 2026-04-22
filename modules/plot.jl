@@ -1024,8 +1024,8 @@ module Plot
         range_l = chi2_max_l - chi2_min_l
         range_h = chi2_max_h - chi2_min_h
 
-        # Auto-scale colormap ceiling to ~2% of total chi2 range
-        dmax = isnothing(delta_chi2_max) ? 0.02 * max(range_l, range_h) : delta_chi2_max
+        # Default: 3σ confidence region for 2 free parameters (α, β): Δχ² = 11.83.
+        dmax = isnothing(delta_chi2_max) ? 11.83 : delta_chi2_max
         println("delta_chi2_max = $(round(dmax, digits=2))")
 
         # Emission-height maps h(α,β) assuming a filled beam — one per band.
