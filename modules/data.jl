@@ -1418,19 +1418,16 @@ module Data
         I_l_full = vec(mean(l[:, :, 1], dims=1))
         I_h_full = vec(mean(h[:, :, 1], dims=1))
 
-        # sigma_avg for detection threshold (noise on the mean profile)
+        # Q, U are averaged over pulses, so noise on the mean is sigma/√N.
         sigma_avg_l = std(l[:, 1:bin_st-1, 1]) / sqrt(pulses_l)
         sigma_avg_h = std(h[:, 1:bin_st-1, 1]) / sqrt(pulses_h)
-        # sigma_noise for PA error in chi² (single-profile noise level)
-        sigma_noise_l = std(l[:, 1:bin_st-1, 1])
-        sigma_noise_h = std(h[:, 1:bin_st-1, 1])
         thresh_l = 5.0 * sigma_avg_l
         thresh_h = 5.0 * sigma_avg_h
 
         pa_l     = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/π) : NaN for i in 1:db_l]
-        pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_noise_l / Lin_l[i] * (180.0/π) : NaN for i in 1:db_l]
+        pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/π) : NaN for i in 1:db_l]
         pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
-        pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_noise_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
+        pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
 
         # Match the preprocessing used in position_angle: undo OPM jumps,
         # then select the same OPM branch (global +90° shift).
