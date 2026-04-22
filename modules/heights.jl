@@ -400,12 +400,23 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
     if !isnothing(savepath)
         save(savepath, fig)
     end
+
     if show_plot
-        display(fig)
+        # 1. Force the use of an interactive window
+        screen = display(fig) 
+        
+        # 2. Only if running as a script (not in REPL/Notebook), 
+        # we need to wait for the window to actually close.
+        if !isinteractive()
+            println("Waiting for plot window to be closed...")
+            # This waits until the user manually closes the Makie window
+            wait(screen) 
+        end
     end
 
     return fig
 end
+
 
 
 """
