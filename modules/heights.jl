@@ -138,4 +138,42 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
     return fig
 end
 
+"""
+    rvm_ppa(alpha, beta, phi; phi0=0.0, deg=true)
+
+Compute the Rotating Vector Model (RVM) position angle curve.
+
+# Arguments
+- `alpha`: magnetic inclination angle (deg or rad)
+- `beta`: impact parameter (deg or rad)
+- `phi`: longitude array (deg or rad)
+- `phi0`: inflection point longitude (deg or rad, default 0)
+- `deg`: if true, all angles are in degrees (default true)
+
+# Returns
+- Array of position angles (deg)
+"""
+function rvm_ppa(alpha, beta, phi; phi0=0.0, deg=true)
+    if deg
+        α = deg2rad(alpha)
+        β = deg2rad(beta)
+        φ = deg2rad.(phi)
+        φ₀ = deg2rad(phi0)
+    else
+        α = alpha
+        β = beta
+        φ = phi
+        φ₀ = phi0
+    end
+    ζ = α + β
+    # RVM formula
+    pa = atan.(sin(α) .* sin.(φ .- φ₀),
+               sin(ζ) .* cos(α) .- cos(ζ) .* sin(α) .* cos.(φ .- φ₀))
+    if deg
+        return rad2deg.(pa)
+    else
+        return pa
+    end
+end
+
 end

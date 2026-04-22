@@ -95,6 +95,13 @@ module SpaTs
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
+        # Define fitting parameters (replace with actual values as needed)
+        α_low = 1.0
+        β_low = 1.0
+        φ0_low = 0.0
+        α_high = 1.0
+        β_high = 1.0
+        φ0_high = 0.0
 
         Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=2)
         Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=2)
