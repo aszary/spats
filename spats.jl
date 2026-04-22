@@ -2,11 +2,11 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
-    using Heights
 
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
+    include("modules/heights.jl")
 
 
     function test(outdir)
