@@ -1325,8 +1325,9 @@ module Data
         thresh_l = 5.0 * sigma_avg_l
         thresh_h = 5.0 * sigma_avg_h
 
-        pa_l = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
-        pa_h = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
+        # Pipeline stores U with opposite sign to IAU convention used in the publication.
+        pa_l = [Lin_l[i] > thresh_l ? 0.5 * atan(-U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
+        pa_h = [Lin_h[i] > thresh_h ? 0.5 * atan(-U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
 
         # PA errors: σ_PA = 0.5 * σ_noise_avg / L  (in degrees)
         pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
@@ -1424,9 +1425,10 @@ module Data
         thresh_l = 5.0 * sigma_avg_l
         thresh_h = 5.0 * sigma_avg_h
 
-        pa_l     = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/π) : NaN for i in 1:db_l]
+        # Pipeline stores U with opposite sign to IAU convention used in the publication.
+        pa_l     = [Lin_l[i] > thresh_l ? 0.5 * atan(-U_l[i], Q_l[i]) * (180.0/π) : NaN for i in 1:db_l]
         pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/π) : NaN for i in 1:db_l]
-        pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
+        pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(-U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
         pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
 
         # Match the preprocessing used in position_angle: undo OPM jumps,
