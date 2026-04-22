@@ -1194,7 +1194,8 @@ module Data
                 best_pa0_ab  = 0.0
                 for phi0 in phi0s
                     dphi = lon_rad .- phi0
-                    rvm_shape = atan.(sa .* sin.(dphi),
+                    # Komesaroff (1970) sign convention (matches publication).
+                    rvm_shape = atan.(.-sa .* sin.(dphi),
                                       sz .* ca .- cz .* sa .* cos.(dphi))
 
                     # PA is defined mod π. Use a weighted circular mean on
@@ -1254,7 +1255,8 @@ module Data
         zeta  = alpha + beta
 
         dphi = lon_r .- phi0
-        pa_r = pa0 .+ atan.(sin(alpha) .* sin.(dphi),
+        # Komesaroff (1970) sign convention (matches publication).
+        pa_r = pa0 .+ atan.(.-sin(alpha) .* sin.(dphi),
                              sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
         pa_deg       = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
         pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
@@ -1325,9 +1327,8 @@ module Data
         thresh_l = 5.0 * sigma_avg_l
         thresh_h = 5.0 * sigma_avg_h
 
-        # Pipeline stores U with opposite sign to IAU convention used in the publication.
-        pa_l = [Lin_l[i] > thresh_l ? 0.5 * atan(-U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
-        pa_h = [Lin_h[i] > thresh_h ? 0.5 * atan(-U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
+        pa_l = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
+        pa_h = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
 
         # PA errors: σ_PA = 0.5 * σ_noise_avg / L  (in degrees)
         pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
@@ -1425,10 +1426,9 @@ module Data
         thresh_l = 5.0 * sigma_avg_l
         thresh_h = 5.0 * sigma_avg_h
 
-        # Pipeline stores U with opposite sign to IAU convention used in the publication.
-        pa_l     = [Lin_l[i] > thresh_l ? 0.5 * atan(-U_l[i], Q_l[i]) * (180.0/π) : NaN for i in 1:db_l]
+        pa_l     = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/π) : NaN for i in 1:db_l]
         pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/π) : NaN for i in 1:db_l]
-        pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(-U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
+        pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
         pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
 
         # Match the preprocessing used in position_angle: undo OPM jumps,
