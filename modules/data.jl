@@ -64,7 +64,7 @@ module Data
     function load_ascii_all(infile)
         f = open(infile)
         lines = readlines(f)
-        
+
         header = split(lines[1])
         pulses = parse(Int, header[6])    # Nsub
         bins = parse(Int, header[12])     # Nbin
@@ -73,7 +73,14 @@ module Data
         data = Array{Float64}(undef, pulses, bins, pols)
 
         for i in 2:length(lines)
-            res = split(lines[i])
+            line = lines[i]
+            # Skip lines that do not start with a digit (header/comments)
+            isempty(line) && continue
+            firstchar = first(strip(line))
+            if !isdigit(firstchar)
+                continue
+            end
+            res = split(line)
             pulse = parse(Int, res[1]) + 1
             bin = parse(Int, res[3]) + 1
             for pol in 1:pols

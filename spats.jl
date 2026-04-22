@@ -103,8 +103,8 @@ module SpaTs
         β_high = 1.0
         φ0_high = 0.0
 
-        Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=2)
-        Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=2)
+        #Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=2)
+        #Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=2)
         Heights.pos_angle(vpmout*"J1842-0359_16", low_fit=Dict("alpha"=>α_low, "beta"=>β_low, "phi0"=>φ0_low),
                                    high_fit=Dict("alpha"=>α_high, "beta"=>β_high, "phi0"=>φ0_high))
 
