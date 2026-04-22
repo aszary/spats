@@ -7,6 +7,7 @@ module Heights
     using Statistics
     using FFTW
     using DelimitedFiles
+    using LinearAlgebra
 
     
     include("functions.jl")
@@ -220,7 +221,6 @@ Returns nothing if fewer than 5 valid PA points.
 """
 function fit_rvm(lon_deg, pa_deg, pa_err_deg;
                  alpha_grid=0:1:90, beta_grid=-10:0.5:10, phi0_grid=0:1:359)
-    using LinearAlgebra
     mask = .!(isnan.(pa_deg) .| isnan.(pa_err_deg))
     if count(mask) < 5
         return nothing
