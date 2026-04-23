@@ -58,6 +58,7 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
         phi0 = get(override, "phi0", _lookup(params, "phi0", freq))
         phi0 = isnothing(phi0) ? get(override, "inflection", _lookup(params, "inflection", freq)) : phi0
         pa0 = get(override, "pa0", _lookup(params, "pa0", freq))
+        pa0 = isnothing(pa0) ? 0.0 : pa0
         return Dict("alpha" => alpha, "beta" => beta, "phi0" => phi0, "pa0" => pa0)
     end
 
