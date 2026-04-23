@@ -1388,7 +1388,7 @@ module Data
                             pa_rvm_h_ortho=pa_rvm_h_ortho, phi0_h=phi0_h)
     end
 
-    function geometry_analysis(indir)
+    function geometry_analysis(indir; chi2_red_max=10.0)
 
         # parameters file
         p = Tools.read_params(joinpath(indir, "params.json"))
@@ -1463,9 +1463,24 @@ module Data
         P_sec = p["period"]
         println("P = $P_sec s   W10: low=$(round(W10_l, digits=2))°  high=$(round(W10_h, digits=2))°")
 
+        # Diagnostic: χ²_red percentiles — helps see if a seemingly "missing"
+        # region is just above the cutoff or genuinely a bad fit.
+        function _stats(chi2_map, ndof)
+            red = chi2_map[isfinite.(chi2_map)] ./ ndof
+            sort!(red)
+            n = length(red)
+            q(p) = red[clamp(round(Int, p*n), 1, n)]
+            (min=red[1], p50=q(0.5), p90=q(0.9), p95=q(0.95), p99=q(0.99), max=red[end])
+        end
+        st_l = _stats(chi2_l, res_l.ndof)
+        st_h = _stats(chi2_h, res_h.ndof)
+        println("χ²_red low:  min=$(round(st_l.min,digits=2))  p50=$(round(st_l.p50,digits=2))  p90=$(round(st_l.p90,digits=2))  p95=$(round(st_l.p95,digits=2))  p99=$(round(st_l.p99,digits=2))  max=$(round(st_l.max,digits=2))")
+        println("χ²_red high: min=$(round(st_h.min,digits=2))  p50=$(round(st_h.p50,digits=2))  p90=$(round(st_h.p90,digits=2))  p95=$(round(st_h.p95,digits=2))  p99=$(round(st_h.p99,digits=2))  max=$(round(st_h.max,digits=2))")
+
         Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir;
                       show_=true, P_sec=P_sec, W_deg_l=W10_l, W_deg_h=W10_h,
-                      ndof_l=res_l.ndof, ndof_h=res_h.ndof)
+                      ndof_l=res_l.ndof, ndof_h=res_h.ndof,
+                      chi2_red_max=chi2_red_max)
     end
 
     """
