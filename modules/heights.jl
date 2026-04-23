@@ -404,6 +404,7 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
     if show_plot
         # 1. Force the use of an interactive window
         screen = display(fig) 
+        println("Plottttttiiiinnnngggg")
         
         # 2. Only if running as a script (not in REPL/Notebook), 
         # we need to wait for the window to actually close.
