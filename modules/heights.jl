@@ -326,8 +326,8 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
         lines!(ax_prof, phi, V; color = :blue, label = "Stokes V")
         axislegend(ax_prof; position = :rt)
 
-        heatmap!(ax_ab, beta_grid, alpha_grid, chi2_plane; colormap = :viridis)
-        Colorbar(fig[row:(row+1), 3], ax_ab, label = "χ²")
+        hm = heatmap!(ax_ab, beta_grid, alpha_grid, chi2_plane; colormap = :viridis)
+        Colorbar(fig[row:(row+1), 3], hm; label = "χ²")
 
         ax_ppa.xticksvisible = false
         ax_ppa.xgridvisible = false
