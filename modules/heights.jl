@@ -104,8 +104,15 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
         end
 
         mask = (I .> 0) .& (L ./ max.(I, 1e-12) .>= threshold)
-        scatter!(ax_ppa, phi[mask], psi[mask]; color = :black, markersize=4)
-
+        
+        if sum(mask) > 0
+            pa_masked = psi[mask]
+            lon_masked = phi[mask]
+            pa_deopm, _ = deopm_pa(pa_masked)
+            scatter!(ax_ppa, lon_masked, pa_deopm; color = :black, markersize=4)
+        else
+            println("No valid PA points for $label frequency after masking in pos_angle.")
+        end
         if !isnothing(fit_params["alpha"]) && !isnothing(fit_params["beta"]) && !isnothing(fit_params["phi0"])
             phi_fit = range(minimum(phi), stop=maximum(phi), length=600)
             psi_fit = rvm_ppa(fit_params["alpha"], fit_params["beta"], phi_fit; phi0=fit_params["phi0"], deg=true)
@@ -375,13 +382,20 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
         end
 
         # Filter by L/I threshold
-        mask = (I .> 0) .& (L ./ max.(I, 1e-12) .>= threshold)
-        scatter!(ax_ppa, phi[mask], psi[mask]; color = :black, markersize=4)
+        mask = (I .> 0) .& (L ./ max.(I, 1e-12) .>= threshold)        
+        if sum(mask) > 0
+            pa_masked = psi[mask]
+            lon_masked = phi[mask]
+            
+            # Apply deopm_pa before plotting and fitting
+            pa_deopm, _ = deopm_pa(pa_masked)
+            
+            scatter!(ax_ppa, lon_masked, pa_deopm; color = :black, markersize=4)
 
-        # Try to fit RVM
-        if sum(mask) >= 5
+            # Try to fit RVM
+            # Use de-OPMed PA for fitting
             pa_err = fill(5.0, sum(mask))  # 5 degree error estimate
-            fit_result = fit_rvm(phi[mask], psi[mask], pa_err)
+            fit_result = fit_rvm(lon_masked, pa_deopm, pa_err)
             if fit_result !== nothing
                 lon_dense, pa_rvm, pa_ortho = rvm_curve(fit_result, minimum(phi), maximum(phi))
                 lines!(ax_ppa, lon_dense, pa_rvm; color = :orange, linewidth = 2, label = "RVM fit")
@@ -389,6 +403,9 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
                 vlines!(ax_ppa, [fit_result.phi0]; color = :blue, linewidth = 2, label = "φ0")
                 println("$(label): α = $(fit_result.alpha)°, β = $(fit_result.beta)°, φ0 = $(fit_result.phi0)°, χ² = $(fit_result.chi2)")
             end
+        else
+            # If no points pass the mask, still plot the profiles
+            println("No valid PA points for $label frequency after masking in geometry_analysis.")
         end
 
         lines!(ax_prof, phi, I; color = :black, label = "Stokes I")
