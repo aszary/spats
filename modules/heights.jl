@@ -244,25 +244,40 @@ function fit_rvm(lon_deg, pa_deg, pa_err_deg;
     lon = lon_deg[mask]
     pa = pa_deg[mask]
     err = pa_err_deg[mask]
+    w = 1 ./ err.^2
+
+    # Adjust phi0_grid to be centered around the data if it's default
+    if phi0_grid == 0:1:359 && minimum(lon) < 0
+        phi0_grid = round(minimum(lon)):1:round(maximum(lon))
+    end
+
     best = (chi2=Inf, alpha=NaN, beta=NaN, phi0=NaN, pa0=NaN)
+
     for alpha in alpha_grid
         for beta in beta_grid
             for phi0 in phi0_grid
                 zeta = alpha + beta
                 phi = deg2rad.(lon)
                 phi0r = deg2rad(phi0)
-                model = atan.(sin(deg2rad(alpha)) .* sin.(phi .- phi0r),
-                              sin(deg2rad(zeta)) .* cos(deg2rad(alpha)) .-
-                              cos(deg2rad(zeta)) .* sin(deg2rad(alpha)) .* cos.(phi .- phi0r))
-                model = rad2deg.(model)
-                # Linear fit for PA0
-                X = ones(length(model), 2)
-                X[:, 2] .= 1
-                y = pa .- model
-                w = 1 ./ err.^2
-                pa0 = sum(w .* y) / sum(w)
-                fit = model .+ pa0
-                chi2 = sum(((pa - fit) ./ err).^2)
+                
+                # RVM shape calculation
+                num = sin(deg2rad(alpha)) .* sin.(phi .- phi0r)
+                den = sin(deg2rad(zeta)) .* cos(deg2rad(alpha)) .- cos(deg2rad(zeta)) .* sin(deg2rad(alpha)) .* cos.(phi .- phi0r)
+                model = rad2deg.(atan.(num, den))
+
+                # Correct way to find PA0 for circular data (180-degree period)
+                # We use the circular mean of the differences
+                diffs = pa .- model
+                # Transform to 2*theta to use standard circular mean (360-deg) for 180-deg data
+                avg_rad = atan(sum(w .* sin.(deg2rad.(2 .* diffs))), 
+                               sum(w .* cos.(deg2rad.(2 .* diffs))))
+                pa0 = rad2deg(avg_rad) / 2.0
+
+                # Calculate Chi2 using circular residuals (wrapped to [-90, 90])
+                res = (pa .- model .- pa0)
+                res_wrapped = mod.(res .+ 90, 180) .- 90
+                chi2 = sum((res_wrapped ./ err).^2)
+
                 if chi2 < best.chi2
                     best = (chi2=chi2, alpha=alpha, beta=beta, phi0=phi0, pa0=pa0)
                 end
