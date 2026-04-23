@@ -275,7 +275,7 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
         return ((1:bins) .- center) .* width
     end
 
-    fig = Figure(resolution = (1400, 900))
+    fig = Figure(size = (1400, 900))
     row = 1
 
     for (label, file) in [("Low", low_file), ("High", high_file)]
@@ -340,7 +340,6 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
         row += 2
     end
 
-    fig.layoutgap = 15
     if !isnothing(savepath)
         save(savepath, fig)
         println("Plot successfully saved to: $savepath")
