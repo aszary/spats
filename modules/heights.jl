@@ -120,7 +120,7 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
             psi_fit = rvm_ppa(fit_params["alpha"], fit_params["beta"], phi_fit; phi0=fit_params["phi0"], deg=true) .+ pa0
             psi_fit = mod.(psi_fit .+ 90, 180) .- 90
             lines!(ax_ppa, phi_fit, psi_fit; color = :orange, linewidth = 2)
-            lines!(ax_ppa, psi_fit .+ 90; color = :orange, linewidth = 2, linestyle = :dash)
+            lines!(ax_ppa, phi_fit, psi_fit .+ 90; color = :orange, linewidth = 2, linestyle = :dash)
             vlines!(ax_ppa, [fit_params["phi0"]]; color = :blue, linewidth = 2)
         elseif !isnothing(fit_params["phi0"])
             vlines!(ax_ppa, [fit_params["phi0"]]; color = :blue, linewidth = 2)
