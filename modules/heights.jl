@@ -328,7 +328,6 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
 
         chi2_plane = chi2_plane .- minimum(chi2_plane)
         hm = heatmap!(ax_ab, beta_grid, alpha_grid, chi2_plane; colormap = :viridis, interpolate = false)
-        contour!(ax_ab, beta_grid, alpha_grid, chi2_plane; levels = 10, color = :white, linewidth = 1.2)
         Colorbar(fig[row:(row+1), 3], hm; label = "Δχ²")
 
         ax_ppa.xticksvisible = false
