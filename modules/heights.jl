@@ -2,7 +2,7 @@ module Heights
     using Glob
     using FITSIO
     using ProgressMeter
-    using CairoMakie, FileIO
+    using GLMakie, FileIO
     using PDFIO
     using Statistics
     using FFTW
@@ -19,6 +19,7 @@ module Heights
 
 
 function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepath=nothing, show_plot=true)
+    println("--- Starting Position Angle Analysis ---")
     params = isfile(joinpath(indir, "params.json")) ? Tools.read_params(joinpath(indir, "params.json")) : Dict()
 
     low_file = joinpath(indir, "pulsar_low.txt")
@@ -88,6 +89,7 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
             continue
         end
 
+        println("Processing $label frequency data from $file...")
         data = Data.load_ascii_all(file)
         I, L, V, psi = _make_profile(data)
         bins = size(data, 2)
@@ -132,11 +134,18 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
     rowgap!(fig.layout, 15)
     if !isnothing(savepath)
         save(savepath, fig)
+        println("Plot successfully saved to: $savepath")
     end
     if show_plot
-        display(fig)
+        println("Opening plot window...")
+        screen = display(fig)
+        if !isinteractive()
+            println("Waiting for plot window to be closed (Close the window to continue)...")
+            wait(screen)
+        end
     end
 
+    println("--- Analysis Complete ---")
     return fig
 end
 
@@ -312,6 +321,7 @@ end
 Perform geometry analysis on pulsar data, including RVM fitting and visualization.
 """
 function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=true)
+    println("--- Starting Geometry Analysis (RVM Fitting) ---")
     params = isfile(joinpath(indir, "params.json")) ? Tools.read_params(joinpath(indir, "params.json")) : Dict()
 
     low_file = joinpath(indir, "pulsar_low.txt")
@@ -350,6 +360,7 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
             continue
         end
 
+        println("Processing $label frequency data...")
         data = Data.load_ascii_all(file)
         I, L, V, psi = _make_profile(data)
         bins = size(data, 2)
@@ -399,22 +410,24 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
 
     if !isnothing(savepath)
         save(savepath, fig)
+        println("Plot successfully saved to: $savepath")
     end
 
     if show_plot
         # 1. Force the use of an interactive window
         screen = display(fig) 
-        println("Plottttttiiiinnnngggg")
+        println("Displaying plot window...")
         
         # 2. Only if running as a script (not in REPL/Notebook), 
         # we need to wait for the window to actually close.
         if !isinteractive()
             println("Waiting for plot window to be closed...")
             # This waits until the user manually closes the Makie window
-            wait(screen) 
+            wait(screen)
         end
     end
 
+    println("--- Analysis Complete ---")
     return fig
 end
 
