@@ -57,7 +57,8 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
         beta = get(override, "beta", _lookup(params, "beta", freq))
         phi0 = get(override, "phi0", _lookup(params, "phi0", freq))
         phi0 = isnothing(phi0) ? get(override, "inflection", _lookup(params, "inflection", freq)) : phi0
-        return Dict("alpha" => alpha, "beta" => beta, "phi0" => phi0)
+        pa0 = get(override, "pa0", _lookup(params, "pa0", freq))
+        return Dict("alpha" => alpha, "beta" => beta, "phi0" => phi0, "pa0" => pa0)
     end
 
     function _make_profile(data)
@@ -115,9 +116,11 @@ function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepa
         end
         if !isnothing(fit_params["alpha"]) && !isnothing(fit_params["beta"]) && !isnothing(fit_params["phi0"])
             phi_fit = range(minimum(phi), stop=maximum(phi), length=600)
-            psi_fit = rvm_ppa(fit_params["alpha"], fit_params["beta"], phi_fit; phi0=fit_params["phi0"], deg=true)
+            pa0 = get(fit_params, "pa0", 0.0)
+            psi_fit = rvm_ppa(fit_params["alpha"], fit_params["beta"], phi_fit; phi0=fit_params["phi0"], deg=true) .+ pa0
+            psi_fit = mod.(psi_fit .+ 90, 180) .- 90
             lines!(ax_ppa, phi_fit, psi_fit; color = :orange, linewidth = 2)
-            lines!(ax_ppa, phi_fit, psi_fit .+ 90; color = :orange, linewidth = 2, linestyle = :dash)
+            lines!(ax_ppa, psi_fit .+ 90; color = :orange, linewidth = 2, linestyle = :dash)
             vlines!(ax_ppa, [fit_params["phi0"]]; color = :blue, linewidth = 2)
         elseif !isnothing(fit_params["phi0"])
             vlines!(ax_ppa, [fit_params["phi0"]]; color = :blue, linewidth = 2)
@@ -307,7 +310,8 @@ function rvm_curve(params, lon_min_deg, lon_max_deg; npts=500)
                   sin(deg2rad(ζ)) .* cos(deg2rad(α)) .-
                   cos(deg2rad(ζ)) .* sin(deg2rad(α)) .* cos.(phi .- phi0r))
     pa_deg = rad2deg.(model) .+ pa0
-    pa_ortho_deg = pa_deg .+ 90
+    pa_deg = mod.(pa_deg .+ 90, 180) .- 90
+    pa_ortho_deg = mod.(pa_deg .+ 90 .+ 90, 180) .- 90
     return lon, pa_deg, pa_ortho_deg
 end
 
