@@ -1007,6 +1007,8 @@ module Plot
     function geometry(chi2_map_l, chi2_map_h, alphas_deg, betas_deg, outdir;
                       show_=false, name_mod="PSR_NAME",
                       delta_chi2_max=nothing,
+                      ndof_l=nothing, ndof_h=nothing,
+                      chi2_red_max=10.0,
                       height_contours=nothing,
                       P_sec=nothing, W_deg_l=nothing, W_deg_h=nothing,
                       cmap="viridis")
@@ -1018,15 +1020,26 @@ module Plot
         println("chi2_min: low=$(round(chi2_min_l, digits=2))  high=$(round(chi2_min_h, digits=2))")
         println("chi2_max: low=$(round(chi2_max_l, digits=2))  high=$(round(chi2_max_h, digits=2))")
 
-        # δχ² relative to each frequency's own minimum
-        dchi2_l = chi2_map_l .- chi2_min_l
-        dchi2_h = chi2_map_h .- chi2_min_h
-        range_l = chi2_max_l - chi2_min_l
-        range_h = chi2_max_h - chi2_min_h
-
-        # Default: 3σ confidence region for 2 free parameters (α, β): Δχ² = 11.83.
-        dmax = isnothing(delta_chi2_max) ? 11.83 : delta_chi2_max
-        println("delta_chi2_max = $(round(dmax, digits=2))")
+        # Two display modes:
+        #  (a) If ndof_l and ndof_h are given → plot reduced χ² with cutoff
+        #      chi2_red_max (Johnston+ 2023 Fig. 1 convention: "χ² > 10" cutoff).
+        #  (b) Else → plot Δχ² with cutoff delta_chi2_max (default 11.83 = 3σ
+        #      for 2 free parameters).
+        use_chi2_red = !isnothing(ndof_l) && !isnothing(ndof_h)
+        if use_chi2_red
+            dchi2_l = chi2_map_l ./ ndof_l
+            dchi2_h = chi2_map_h ./ ndof_h
+            dmax = chi2_red_max
+            chi2_label = raw"$\chi^2_{\mathrm{red}}$"
+            println("mode=chi2_red  ndof: low=$ndof_l  high=$ndof_h   cutoff=$(round(dmax,digits=2))")
+            println("chi2_red_min: low=$(round(chi2_min_l/ndof_l, digits=3))  high=$(round(chi2_min_h/ndof_h, digits=3))")
+        else
+            dchi2_l = chi2_map_l .- chi2_min_l
+            dchi2_h = chi2_map_h .- chi2_min_h
+            dmax = isnothing(delta_chi2_max) ? 11.83 : delta_chi2_max
+            chi2_label = raw"$\Delta\chi^2$"
+            println("mode=delta_chi2   delta_chi2_max = $(round(dmax, digits=2))")
+        end
 
         # Emission-height maps h(α,β) assuming a filled beam — one per band.
         # ρ from Gil, Gronkowski & Rudnicki (1984) / Johnston+ 2023 Eq. (3):
@@ -1104,7 +1117,7 @@ module Plot
         # Shared horizontal colorbar at the top
         cbar_ax = fig.add_axes([0.09, 0.86, 0.89, 0.05])
         cbar = fig.colorbar(im1, cax=cbar_ax, orientation="horizontal")
-        cbar.set_label(raw"$\Delta\chi^2$", labelpad=2)
+        cbar.set_label(chi2_label, labelpad=2)
         cbar_ax.xaxis.set_label_position("top")
         cbar_ax.xaxis.set_ticks_position("top")
 
