@@ -1420,20 +1420,16 @@ module Data
         I_l_full = vec(mean(l[:, :, 1], dims=1))
         I_h_full = vec(mean(h[:, :, 1], dims=1))
 
-        # sigma_avg for detection threshold (noise on the mean profile)
+        # sigma_avg: statistically correct noise on the mean profile
         sigma_avg_l = std(l[:, 1:bin_st-1, 1]) / sqrt(pulses_l)
         sigma_avg_h = std(h[:, 1:bin_st-1, 1]) / sqrt(pulses_h)
-        # sigma_noise for PA error in chi² — inflates errors to absorb pulse-to-pulse
-        # jitter and RVM model imperfection; yields χ²/ndof ~ 1 (publication convention).
-        sigma_noise_l = std(l[:, 1:bin_st-1, 1])
-        sigma_noise_h = std(h[:, 1:bin_st-1, 1])
         thresh_l = 5.0 * sigma_avg_l
         thresh_h = 5.0 * sigma_avg_h
 
         pa_l     = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/π) : NaN for i in 1:db_l]
-        pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_noise_l / Lin_l[i] * (180.0/π) : NaN for i in 1:db_l]
+        pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/π) : NaN for i in 1:db_l]
         pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
-        pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_noise_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
+        pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
 
         # Match the preprocessing used in position_angle: undo OPM jumps,
         # then select the same OPM branch (global +90° shift).
@@ -1443,13 +1439,31 @@ module Data
         pa_l = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_l]
         pa_h = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_h]
 
-        println("Fitting RVM chi² map (low frequency)...")
-        res_l, chi2_l, alphas_deg, betas_deg = fit_rvm(lon_l, pa_l, pa_err_l;
+        # Two-pass error rescaling (Mitra & Li 2004): first fit with σ_avg gives
+        # χ²_red ≫ 1 because the RVM model is never a perfect fit; rescale the
+        # errors by √χ²_red so the minimum has χ²_red = 1 by construction, then
+        # Δχ² = 11.83 corresponds to the true 3σ confidence region (2 params).
+        println("Fitting RVM (low frequency, pass 1, σ_avg)...")
+        res_l_pre = fit_rvm(lon_l, pa_l, pa_err_l;
+            n_alpha=171, n_beta=161, n_phi0=200)
+        scale_l = sqrt(res_l_pre.chi2_red)
+        println("  χ²/ndof=$(round(res_l_pre.chi2_red,digits=2))  → rescale σ by $(round(scale_l,digits=2))")
+        pa_err_l_rescaled = pa_err_l .* scale_l
+
+        println("Fitting RVM chi² map (low frequency, pass 2)...")
+        res_l, chi2_l, alphas_deg, betas_deg = fit_rvm(lon_l, pa_l, pa_err_l_rescaled;
             return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
         println("  best: α=$(round(res_l.alpha,digits=1))° β=$(round(res_l.beta,digits=1))° χ²/ndof=$(round(res_l.chi2_red,digits=4))")
 
-        println("Fitting RVM chi² map (high frequency)...")
-        res_h, chi2_h, _, _ = fit_rvm(lon_h, pa_h, pa_err_h;
+        println("Fitting RVM (high frequency, pass 1, σ_avg)...")
+        res_h_pre = fit_rvm(lon_h, pa_h, pa_err_h;
+            n_alpha=171, n_beta=161, n_phi0=200)
+        scale_h = sqrt(res_h_pre.chi2_red)
+        println("  χ²/ndof=$(round(res_h_pre.chi2_red,digits=2))  → rescale σ by $(round(scale_h,digits=2))")
+        pa_err_h_rescaled = pa_err_h .* scale_h
+
+        println("Fitting RVM chi² map (high frequency, pass 2)...")
+        res_h, chi2_h, _, _ = fit_rvm(lon_h, pa_h, pa_err_h_rescaled;
             return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
         println("  best: α=$(round(res_h.alpha,digits=1))° β=$(round(res_h.beta,digits=1))° χ²/ndof=$(round(res_h.chi2_red,digits=4))")
 
