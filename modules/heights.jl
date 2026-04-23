@@ -19,145 +19,7 @@ module Heights
 
 
 function pos_angle(indir; low_fit=Dict(), high_fit=Dict(), threshold=0.2, savepath=nothing, show_plot=true)
-    println("--- Starting Position Angle Analysis ---")
-    params = isfile(joinpath(indir, "params.json")) ? Tools.read_params(joinpath(indir, "params.json")) : Dict()
-
-    low_file = joinpath(indir, "pulsar_low.txt")
-    high_file = joinpath(indir, "pulsar_high.txt")
-
-    has_low = isfile(low_file)
-    has_high = isfile(high_file)
-
-    if !has_low && !has_high
-        error("Neither pulsar_low.txt nor pulsar_high.txt exists in $indir")
-    end
-
-    function _to_float(value)
-        if value isa String
-            return parse(Float64, value)
-        elseif value isa Number
-            return float(value)
-        else
-            return nothing
-        end
-    end
-
-    function _lookup(params, name, freq)
-        keys = ["$(name)_$(freq)", "$(freq)_$(name)", "$(name)$(freq)", "$(freq)$(name)"]
-        for k in keys
-            if haskey(params, k)
-                return _to_float(params[k])
-            end
-        end
-        return nothing
-    end
-
-    function _rvm_params(params, freq, override)
-        alpha = get(override, "alpha", _lookup(params, "alpha", freq))
-        beta = get(override, "beta", _lookup(params, "beta", freq))
-        phi0 = get(override, "phi0", _lookup(params, "phi0", freq))
-        phi0 = isnothing(phi0) ? get(override, "inflection", _lookup(params, "inflection", freq)) : phi0
-        pa0 = get(override, "pa0", _lookup(params, "pa0", freq))
-        pa0 = isnothing(pa0) ? 0.0 : pa0
-        return Dict("alpha" => alpha, "beta" => beta, "phi0" => phi0, "pa0" => pa0)
-    end
-
-    function _make_profile(data)
-        pulses, bins, pols = size(data)
-        I = mean(data[:, :, 1], dims=1) |> vec
-        Q = mean(data[:, :, 2], dims=1) |> vec
-        U = mean(data[:, :, 3], dims=1) |> vec
-        V = mean(data[:, :, 4], dims=1) |> vec
-        L = sqrt.(Q .^ 2 .+ U .^ 2)
-        psi = rad2deg.(0.5 .* atan.(U, Q))
-        return I, L, V, psi
-    end
-
-    function _bin_longitude(bins, bin_st, bin_end)
-        center = isnothing(bin_st) || isnothing(bin_end) ? (bins + 1) / 2 : (bin_st + bin_end) / 2
-        width = 360.0 / bins
-        return ((1:bins) .- center) .* width
-    end
-
-    low_params = _rvm_params(params, "low", low_fit)
-    high_params = _rvm_params(params, "high", high_fit)
-
-    fig = Figure(size = (1200, 700))
-    axes = Dict()
-    col = 1
-
-    for (label, file, fit_params) in [("Low", low_file, low_params), ("High", high_file, high_params)]
-        if !isfile(file)
-            continue
-        end
-
-        println("Processing $label frequency data from $file...")
-        data = Data.load_ascii_all(file)
-        I, L, V, psi = _make_profile(data)
-        bins = size(data, 2)
-        phi = _bin_longitude(bins, get(params, "bin_st", nothing), get(params, "bin_end", nothing))
-
-        if col == 1
-            ax_ppa = Axis(fig[1, 1]; ylabel = "PA [deg]", title = "$(label) frequency: PPA and RVM")
-            ax_prof = Axis(fig[2, 1]; xlabel = "Longitude [deg]", ylabel = "Flux density")
-        else
-            ax_ppa = Axis(fig[1, 2]; ylabel = "PA [deg]", title = "$(label) frequency: PPA and RVM")
-            ax_prof = Axis(fig[2, 2]; xlabel = "Longitude [deg]", ylabel = "Flux density")
-        end
-
-        mask = (I .> 0) .& (L ./ max.(I, 1e-12) .>= threshold)
-        
-        if sum(mask) > 0
-            pa_masked = psi[mask]
-            lon_masked = phi[mask]
-            pa_deopm, _ = deopm_pa(pa_masked)
-            scatter!(ax_ppa, lon_masked, pa_deopm; color = :black, markersize=4)
-        else
-            println("No valid PA points for $label frequency after masking in pos_angle.")
-        end
-        if !isnothing(fit_params["alpha"]) && !isnothing(fit_params["beta"]) && !isnothing(fit_params["phi0"])
-            phi_fit = range(minimum(phi), stop=maximum(phi), length=600)
-            pa0 = get(fit_params, "pa0", 0.0)
-            psi_fit = rvm_ppa(fit_params["alpha"], fit_params["beta"], phi_fit; phi0=fit_params["phi0"], deg=true) .+ pa0
-            psi_fit = mod.(psi_fit .+ 90, 180) .- 90
-            lines!(ax_ppa, phi_fit, psi_fit; color = :orange, linewidth = 2)
-            lines!(ax_ppa, phi_fit, psi_fit .+ 90; color = :orange, linewidth = 2, linestyle = :dash)
-            vlines!(ax_ppa, [fit_params["phi0"]]; color = :blue, linewidth = 2)
-        elseif !isnothing(fit_params["phi0"])
-            vlines!(ax_ppa, [fit_params["phi0"]]; color = :blue, linewidth = 2)
-        end
-
-        lines!(ax_prof, phi, I; color = :black, label = "Stokes I")
-        lines!(ax_prof, phi, L; color = :red, label = "Linear L")
-        lines!(ax_prof, phi, V; color = :blue, label = "Stokes V")
-        axislegend(ax_prof; position = :rt)
-
-        ax_ppa.xticksvisible = false
-        ax_ppa.xgridvisible = false
-        ax_ppa.ygridvisible = false
-        ax_prof.xgridvisible = false
-        ax_prof.ygridvisible = false
-
-        col += 1
-    end
-
-    colgap!(fig.layout, 15)
-    rowgap!(fig.layout, 15)
-    if !isnothing(savepath)
-        save(savepath, fig)
-        println("Plot successfully saved to: $savepath")
-    end
-    if show_plot
-        println("Opening plot window...")
-        screen = display(fig)
-        if !isinteractive()
-            println("Waiting for plot window to be closed (Close the window to continue)...")
-            wait(screen)
-        end
-    end
-
-    println("--- Analysis Complete ---")
-    return fig
+    return geometry_analysis(indir; threshold=threshold, savepath=savepath, show_plot=show_plot)
 end
 
 """
@@ -343,10 +205,45 @@ end
 
 
 """
-    geometry_analysis(indir)
+    geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=true)
 
-Perform geometry analysis on pulsar data, including RVM fitting and visualization.
+Perform geometry analysis on pulsar data, including RVM fitting and α–β plane visualization.
 """
+
+function _rvm_chi2_plane(lon_deg, pa_deg, pa_err_deg;
+                         alpha_grid=0:2:180, beta_grid=-15:0.5:15, phi0_grid=0:2:359)
+    lon = deg2rad.(lon_deg)
+    err = pa_err_deg
+    chi2_plane = fill(Inf, length(alpha_grid), length(beta_grid))
+
+    for (i, alpha) in enumerate(alpha_grid)
+        α = deg2rad(alpha)
+        for (j, beta) in enumerate(beta_grid)
+            ζ = α + deg2rad(beta)
+            best_chi2 = Inf
+            for phi0 in phi0_grid
+                φ0 = deg2rad(phi0)
+                num = sin(α) .* sin.(lon .- φ0)
+                den = sin(ζ) .* cos(α) .- cos(ζ) .* sin(α) .* cos.(lon .- φ0)
+                model = rad2deg.(atan.(num, den))
+                diffs = pa_deg .- model
+                avg_rad = atan(sum((1 ./ err.^2) .* sin.(deg2rad.(2 .* diffs))),
+                               sum((1 ./ err.^2) .* cos.(deg2rad.(2 .* diffs))))
+                pa0 = rad2deg(avg_rad) / 2.0
+                res = pa_deg .- model .- pa0
+                res_wrapped = mod.(res .+ 90, 180) .- 90
+                chi2 = sum((res_wrapped ./ err).^2)
+                if chi2 < best_chi2
+                    best_chi2 = chi2
+                end
+            end
+            chi2_plane[i, j] = best_chi2
+        end
+    end
+
+    return alpha_grid, beta_grid, chi2_plane
+end
+
 function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=true)
     println("--- Starting Geometry Analysis (RVM Fitting) ---")
     params = isfile(joinpath(indir, "params.json")) ? Tools.read_params(joinpath(indir, "params.json")) : Dict()
@@ -378,9 +275,8 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
         return ((1:bins) .- center) .* width
     end
 
-    fig = Figure(size = (1200, 700))
-    axes = Dict()
-    col = 1
+    fig = Figure(resolution = (1400, 900))
+    row = 1
 
     for (label, file) in [("Low", low_file), ("High", high_file)]
         if !isfile(file)
@@ -393,39 +289,36 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
         bins = size(data, 2)
         phi = _bin_longitude(bins, get(params, "bin_st", nothing), get(params, "bin_end", nothing))
 
-        if col == 1
-            ax_ppa = Axis(fig[1, 1]; ylabel = "PA [deg]", title = "$(label) frequency: PPA and RVM")
-            ax_prof = Axis(fig[2, 1]; xlabel = "Longitude [deg]", ylabel = "Flux density")
-        else
-            ax_ppa = Axis(fig[1, 2]; ylabel = "PA [deg]", title = "$(label) frequency: PPA and RVM")
-            ax_prof = Axis(fig[2, 2]; xlabel = "Longitude [deg]", ylabel = "Flux density")
+        mask = (I .> 0) .& (L ./ max.(I, 1e-12) .>= threshold)
+        if sum(mask) < 5
+            println("Not enough valid PA points for $label frequency after masking.")
+            continue
         end
 
-        # Filter by L/I threshold
-        mask = (I .> 0) .& (L ./ max.(I, 1e-12) .>= threshold)        
-        if sum(mask) > 0
-            pa_masked = psi[mask]
-            lon_masked = phi[mask]
-            
-            # Apply deopm_pa before plotting and fitting
-            pa_deopm, _ = deopm_pa(pa_masked)
-            
-            scatter!(ax_ppa, lon_masked, pa_deopm; color = :black, markersize=4)
+        pa_masked = psi[mask]
+        lon_masked = phi[mask]
+        pa_deopm, _ = deopm_pa(pa_masked)
+        pa_err = fill(5.0, sum(mask))
 
-            # Try to fit RVM
-            # Use de-OPMed PA for fitting
-            pa_err = fill(5.0, sum(mask))  # 5 degree error estimate
-            fit_result = fit_rvm(lon_masked, pa_deopm, pa_err)
-            if fit_result !== nothing
-                lon_dense, pa_rvm, pa_ortho = rvm_curve(fit_result, minimum(phi), maximum(phi))
-                lines!(ax_ppa, lon_dense, pa_rvm; color = :orange, linewidth = 2, label = "RVM fit")
-                lines!(ax_ppa, lon_dense, pa_ortho; color = :orange, linewidth = 2, linestyle = :dash, label = "RVM ortho")
-                vlines!(ax_ppa, [fit_result.phi0]; color = :blue, linewidth = 2, label = "φ0")
-                println("$(label): α = $(fit_result.alpha)°, β = $(fit_result.beta)°, φ0 = $(fit_result.phi0)°, χ² = $(fit_result.chi2)")
-            end
-        else
-            # If no points pass the mask, still plot the profiles
-            println("No valid PA points for $label frequency after masking in geometry_analysis.")
+        fit_result = fit_rvm(lon_masked, pa_deopm, pa_err;
+                             alpha_grid=0:2:180, beta_grid=-15:0.5:15, phi0_grid=0:2:359)
+        alpha_grid, beta_grid, chi2_plane = _rvm_chi2_plane(lon_masked, pa_deopm, pa_err;
+                                                            alpha_grid=0:2:180, beta_grid=-15:0.5:15, phi0_grid=0:2:359)
+
+        ax_ppa = Axis(fig[row, 1]; ylabel = "PA [deg]", title = "$(label) frequency: PA + RVM")
+        ax_prof = Axis(fig[row+1, 1]; xlabel = "Longitude [deg]", ylabel = "Flux density")
+        ax_ab = Axis(fig[row:(row+1), 2]; xlabel = "β [deg]", ylabel = "α [deg]", title = "χ² surface")
+
+        scatter!(ax_ppa, lon_masked, pa_deopm; color = :black, markersize=4)
+        if fit_result !== nothing
+            lon_dense = range(minimum(phi), stop=maximum(phi), length=600)
+            pa_rvm = rvm_ppa(fit_result.alpha, fit_result.beta, lon_dense; phi0=fit_result.phi0, deg=true) .+ fit_result.pa0
+            pa_rvm = mod.(pa_rvm .+ 90, 180) .- 90
+            lines!(ax_ppa, lon_dense, pa_rvm; color = :orange, linewidth = 2)
+            lines!(ax_ppa, lon_dense, pa_rvm .+ 90; color = :orange, linewidth = 2, linestyle = :dash)
+            vlines!(ax_ppa, [fit_result.phi0]; color = :blue, linewidth = 2)
+            scatter!(ax_ab, [fit_result.beta], [fit_result.alpha]; color = :red, markersize=8)
+            println("$(label): α=$(fit_result.alpha)°, β=$(fit_result.beta)°, φ0=$(fit_result.phi0)°, pa0=$(fit_result.pa0)°, χ²=$(fit_result.chi2)")
         end
 
         lines!(ax_prof, phi, I; color = :black, label = "Stokes I")
@@ -433,33 +326,28 @@ function geometry_analysis(indir; threshold=0.2, savepath=nothing, show_plot=tru
         lines!(ax_prof, phi, V; color = :blue, label = "Stokes V")
         axislegend(ax_prof; position = :rt)
 
+        heatmap!(ax_ab, beta_grid, alpha_grid, chi2_plane; colormap = :viridis)
+        Colorbar(fig[row:(row+1), 3], ax_ab, label = "χ²")
+
         ax_ppa.xticksvisible = false
         ax_ppa.xgridvisible = false
         ax_ppa.ygridvisible = false
         ax_prof.xgridvisible = false
         ax_prof.ygridvisible = false
+        ax_ab.xgridvisible = true
+        ax_ab.ygridvisible = true
 
-        col += 1
+        row += 2
     end
 
-    colgap!(fig.layout, 15)
-    rowgap!(fig.layout, 15)
-
+    fig.layoutgap = 15
     if !isnothing(savepath)
         save(savepath, fig)
         println("Plot successfully saved to: $savepath")
     end
-
     if show_plot
-        # 1. Force the use of an interactive window
-        screen = display(fig) 
-        println("Displaying plot window...")
-        
-        # 2. Only if running as a script (not in REPL/Notebook), 
-        # we need to wait for the window to actually close.
+        screen = display(fig)
         if !isinteractive()
-            println("Waiting for plot window to be closed...")
-            # This waits until the user manually closes the Makie window
             wait(screen)
         end
     end
