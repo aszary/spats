@@ -167,7 +167,7 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J1048-5832_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J1048-5832_16", "norefine"; n_comp=2)
         #Data.position_angle(vpmout*"J1048-5832_16")
-        Data.geometry_analysis(vpmout*"J1048-5832_16")
+        #Data.geometry_analysis(vpmout*"J1048-5832_16")
 
 
 
