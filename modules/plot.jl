@@ -4,13 +4,11 @@ module Plot
     using JLD2
     using Statistics
     using StatsBase
+    ENV["MPLBACKEND"] = "Agg"
     using PyPlot
     using PyCall
     using Printf
     @pyimport matplotlib.patches as patch
-    
-    PyPlot.matplotlib.use("Tkagg") 
-    #PyPlot.matplotlib.use("qt5agg") # DOES NOT WORK!! 
     using Peaks
     using Glob
     using SmoothingSplines
