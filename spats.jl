@@ -147,7 +147,7 @@ module SpaTs
                           show_=false)
 
         txt_file = joinpath(outdir, name_mod * "_pol.txt")
-        Data.convert_psrfit_ascii_pol(infile, txt_file)
+        isfile(txt_file) || Data.convert_psrfit_ascii_pol(infile, txt_file)
         data4  = Data.load_ascii_all(txt_file)
         result = Plot.rvm(data4, outdir, name_mod;
                           bin_st=bin_st, bin_end=bin_end,
