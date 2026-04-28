@@ -146,6 +146,7 @@ module SpaTs
                           period=nothing,
                           show_=false)
 
+        mkpath(outdir)
         txt_file = joinpath(outdir, name_mod * "_pol.txt")
         isfile(txt_file) || Data.convert_psrfit_ascii_pol(infile, txt_file)
         data4  = Data.load_ascii_all(txt_file)
