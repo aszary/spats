@@ -154,12 +154,12 @@ module SpaTs
         #process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") # single bad, p3folds bad, P3 stable
 
 
-        
+
         # PSR J1048-5832 # TODO HERE2
         #process_psrdata_16("/home/psr/data/new/J1048-5832/2020-08-29-13:00:11/", vpmout*"J1048-5832_16")
         #Data.analyse_p3folds_16(vpmout*"J1048-5832_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J1048-5832_16", "norefine"; n_comp=2)
-        Data.position_angle(vpmout*"J1048-5832_16")
+        #Data.position_angle(vpmout*"J1048-5832_16")
         #Data.geometry_analysis(vpmout*"J1048-5832_16")
 
 
@@ -167,7 +167,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1110-5637/2019-10-19-08:18:28/", vpmout*"J1110-5637_16")
         #Data.analyse_p3folds_16(vpmout*"J1110-5637_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J1110-5637_16", "norefine"; n_comp=2)
-        #Data.position_angle(vpmout*"J1110-5637_16")
+        Data.position_angle(vpmout*"J1110-5637_16")
         #Data.geometry_analysis(vpmout*"J1110-5637_16")
 
 
