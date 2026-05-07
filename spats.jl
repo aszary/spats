@@ -99,7 +99,7 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J0034-0721_16", "norefine")
         #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
         #Data.analyse_p3folds_16_new(vpmout*"J0034-0721_16", "norefine"; n_comp=2)
-        Data.analyse_p3folds_16_new(vpmout*"J0034-0721_16", "refine"; n_comp=2)
+        #Data.analyse_p3folds_16_new(vpmout*"J0034-0721_16", "refine"; n_comp=2)
         #Data.position_angle(vpmout*"J0034-0721_16")
         #Data.geometry_analysis(vpmout*"J0034-0721_16")
 
@@ -314,6 +314,7 @@ module SpaTs
         # PSR J1921+2153
         #process_psrdata_16("/home/psr/data/new/J1921+2153/2020-08-08-19:17:21/", vpmout*"J1921+2153_16")
         #Data.analyse_p3folds_16(vpmout*"J1921+2153_16", "norefine")
+        Data.analyse_p3folds_16_new(vpmout*"J1921+2153_16", "norefine", n_comp=2)
         #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
 
         # PSR J2053-7200
