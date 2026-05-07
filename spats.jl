@@ -322,9 +322,6 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J2046+1540/2019-11-26-17:18:47/", vpmout*"J2046+1540_16")
         #Data.analyse_p3folds_16_new(vpmout*"J2046+1540_16", "norefine", n_comp=2)
         #Data.position_angle(vpmout*"J2046+1540_16")
-        Data.geometry_analysis(vpmout*"J2046+1540_16")
-
-
 
 
         # PSR J2053-7200
