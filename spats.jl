@@ -153,24 +153,19 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J1034-3224_16", "norefine")
         #process_psrdata(vpmout*"J1034-3224", vpmout*"J1034-3224") # single bad, p3folds bad, P3 stable
 
-
-
-        # PSR J1048-5832 # TODO HERE2
+        # PSR J1048-5832
         #process_psrdata_16("/home/psr/data/new/J1048-5832/2020-08-29-13:00:11/", vpmout*"J1048-5832_16")
         #Data.analyse_p3folds_16(vpmout*"J1048-5832_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J1048-5832_16", "norefine"; n_comp=2)
         #Data.position_angle(vpmout*"J1048-5832_16")
         #Data.geometry_analysis(vpmout*"J1048-5832_16")
 
-
-        # PSR J1110-5637  # TODO HERE
+        # PSR J1110-5637
         #process_psrdata_16("/home/psr/data/new/J1110-5637/2019-10-19-08:18:28/", vpmout*"J1110-5637_16")
         #Data.analyse_p3folds_16(vpmout*"J1110-5637_16", "norefine")
-        Data.analyse_p3folds_16_new(vpmout*"J1110-5637_16", "norefine"; n_comp=2)
+        #Data.analyse_p3folds_16_new(vpmout*"J1110-5637_16", "norefine"; n_comp=2)
         #Data.position_angle(vpmout*"J1110-5637_16")
         #Data.geometry_analysis(vpmout*"J1110-5637_16")
-
-
 
         # PSR J1114-6100
         #process_psrdata_16("/home/psr/data/new/J1114-6100/2019-10-19-08:30:30/", vpmout*"J1114-6100_16")
@@ -251,6 +246,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1703-1846/2019-11-05-16:26:36/", vpmout*"J1703-1846_16")
         #Data.analyse_p3folds_16(vpmout*"J1703-1846_16", "norefine")
 
+
         # PSR J1741-0840
         #process_psrdata_16("/home/psr/data/new/J1741-0840/2019-11-05-16:44:10/", vpmout*"J1741-0840_16")
         #Data.analyse_p3folds_16(vpmout*"J1741-0840_16", "norefine")
@@ -270,7 +266,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/", vpmout*"J1842-0359_16")
         #Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "refine")
         #Data.analyse_p3folds_16(vpmout*"J1842-0359_16", "norefine")
-        #Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=4)
+        Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=4)
         #process_psrdata("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf")
         #process_psrdata_16("/home/psr/data/uhf/J1842-0359/2020-07-25-19:58:19/816/single/", vpmout*"J1842-0359_uhf_16")
         #Data.analyse_p3folds_16(vpmout*"J1842-0359_uhf_16", "norefine")
