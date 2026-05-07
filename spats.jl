@@ -319,7 +319,8 @@ module SpaTs
         #process_psrdata(vpmout*"J1921+2153", vpmout*"J1921+2153") # not nice
 
         # PSR J2046+1540
-        process_psrdata_16("/home/psr/data/new/J2046+1540/2019-11-26-17:18:47/", vpmout*"J2046+1540_16")
+        #process_psrdata_16("/home/psr/data/new/J2046+1540/2019-11-26-17:18:47/", vpmout*"J2046+1540_16")
+        Data.analyse_p3folds_16_new(vpmout*"J2046+1540_16", "norefine", n_comp=2)
         # TODO
         #Data.analyse_p3folds_16(vpmout*"J2053-7200_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J2053-7200_16", "norefine", n_comp=2)
