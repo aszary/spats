@@ -9,7 +9,7 @@ module Plot
     using Printf
     @pyimport matplotlib.patches as patch
     
-    #PyPlot.matplotlib.use("Tkagg") 
+    PyPlot.matplotlib.use("Tkagg") 
     #PyPlot.matplotlib.use("qt5agg") # DOES NOT WORK!! 
     using Peaks
     using Glob
@@ -923,5 +923,78 @@ module Plot
     end
 
 
+
+    """
+        plot_rvm_results(lon, pa, fit_result, alpha_grid, beta_grid, chi2_plane, rvm_res; name_mod="RVM", outdir=".")
+
+    Tworzy zaawansowany wykres RVM z elipsami chi2, wektorami relewantnymi i histogramem reszt.
+    """
+    function plot_rvm_results(lon, pa, fit_result, alpha_grid, beta_grid, chi2_plane, rvm_res; name_mod="RVM", outdir=".")
+        fig = figure(figsize=(12, 8))
+        clf()
+        
+        # 1. Mapa konturowa Chi2 z elipsami i Relevance Vectors
+        subplot2grid((2, 3), (0, 0), colspan=2)
+        cp = contourf(beta_grid, alpha_grid, chi2_plane .- minimum(chi2_plane), levels=20, cmap="viridis")
+        colorbar(cp, label=raw"$\Delta \chi^2$")
+        
+        # Elipsy ufności (dla 2 stopni swobody: 50%, 90%, 95%)
+        # Progi: 1.39, 4.61, 5.99
+        contour(beta_grid, alpha_grid, chi2_plane .- minimum(chi2_plane), levels=[1.39, 4.61, 5.99], 
+                colors=["white", "yellow", "red"], linestyles=["--", "-", "-"])
+        
+        # Relevance Vectors
+        rv_idx = rvm_res.rv_indices
+        scatter(rvm_res.rv_coords[:, 2], rvm_res.rv_coords[:, 1], c="cyan", marker="*", s=100, label="Relevance Vectors", zorder=5)
+        
+        # Punkt najlepszego dopasowania
+        scatter([fit_result.beta], [fit_result.alpha], c="magenta", marker="x", s=100, label="Best Fit")
+        
+        xlabel(raw"Impact parameter $\beta$ ($^\circ$)")
+        ylabel(raw"Magnetic inclination $\alpha$ ($^\circ$)")
+        title("$\chi^2$ Surface & Relevance Vectors")
+        legend(fontsize=8)
+
+        # 2. Histogram reszt i krzywa teoretyczna
+        subplot2grid((2, 3), (0, 2))
+        res = fit_result.residuals
+        n, bins, _ = hist(res, bins=15, density=true, color="gray", alpha=0.7, label="Residuals")
+        
+        # Teoretyczna krzywa Gaussa (dla porwnania z chi2)
+        mu_res, std_res = mean(res), std(res)
+        x_theory = range(minimum(bins), maximum(bins), length=100)
+        plot(x_theory, [1/(std_res * sqrt(2*pi)) * exp(-0.5*((x-mu_res)/std_res)^2) for x in x_theory], 
+             "r-", lw=2, label="Gaussian Fit")
+             
+        title("PA Residuals Distribution")
+        xlabel("Resid. (deg)")
+        legend(fontsize=8)
+
+        # 3. Dopasowanie RVM do danych PA
+        subplot2grid((2, 3), (1, 0), colspan=3)
+        scatter(lon, pa, c="black", s=10, alpha=0.5)
+        
+        # Model curve
+        lon_dense = range(minimum(lon)-5, maximum(lon)+5, length=500)
+        # Wykorzystujemy rvm_ppa z heights.jl przez PyCall lub przeliczenie:
+        # (Uproszczone rysowanie dla Plot.jl)
+        alpha_r, beta_r, phi0_r = deg2rad(fit_result.alpha), deg2rad(fit_result.beta), deg2rad(fit_result.phi0)
+        zeta_r = alpha_r + beta_r
+        phi_dense_r = deg2rad.(lon_dense)
+        pa_model = rad2deg.(atan.(sin(alpha_r) .* sin.(phi_dense_r .- phi0_r),
+                           sin(zeta_r) .* cos(alpha_r) .- cos(zeta_r) .* sin(alpha_r) .* cos.(phi_dense_r .- phi0_r))) .+ fit_result.pa0
+        pa_model = mod.(pa_model .+ 90, 180) .- 90
+        
+        plot(lon_dense, pa_model, "r-", lw=2, label="RVM Model")
+        axvline(fit_result.phi0, color="blue", ls="--", alpha=0.5, label=raw"$\phi_0$")
+        
+        xlabel("Longitude (deg)")
+        ylabel("PA (deg)")
+        legend(fontsize=8)
+        
+        tight_layout()
+        savefig(joinpath(outdir, "$(name_mod)_analysis.pdf"))
+        println("RVM Plot saved to: $(name_mod)_analysis.pdf")
+    end
 
 end  # module Plot

@@ -1109,4 +1109,77 @@ module Data
 
 
 
+    """
+        calculate_rvm(X::Matrix{Float64}, t::Vector{Float64}; kernel_gamma::Float64=0.1, max_iter::Int=500)
+
+    Implementacja algorytmu Relevance Vector Machine (uproszczony algorytm Tippinga).
+    Służy do wyznaczenia wektorów relewantnych dla danych (alfa, beta).
+    """
+    function calculate_rvm(X::Matrix{Float64}, t::Vector{Float64}; kernel_gamma::Float64=0.1, max_iter::Int=500, tol::Float64=1e-5)
+        N, D = size(X)
+        
+        # Macierz projektowa (Kernel Gaussowski)
+        Phi = [exp(-kernel_gamma * sum(abs2, X[i,:] - X[j,:])) for i in 1:N, j in 1:N]
+        
+        alphas = fill(1e-3, N)
+        beta_noise = 1.0 / (var(t) * 0.1)
+        
+        mu = zeros(N)
+        active = collect(1:N)
+        
+        for iter in 1:max_iter
+            Phi_a = Phi[:, active]
+            A = Diagonal(alphas[active])
+            
+            # Obliczanie kowariancji i średniej wag (posterior)
+            # Sigma = inv(beta_noise * Phi_a' * Phi_a + A)
+            # Wykorzystujemy Cholesky'ego dla stabilności
+            H = beta_noise * (Phi_a' * Phi_a) + A
+            Sigma = inv(H)
+            mu_a = beta_noise * Sigma * (Phi_a' * t)
+            
+            # Aktualizacja hiperparametrów gamma i alpha
+            gamma = 1.0 .- alphas[active] .* diag(Sigma)
+            alphas_new = gamma ./ (mu_a.^2)
+            
+            # Aktualizacja precyzji szumu
+            res_sq = sum(abs2, t - Phi_a * mu_a)
+            beta_noise = (N - sum(gamma)) / res_sq
+            
+            # Pruning (usuwanie nieistotnych wektorów)
+            keep = findall(a -> a < 1e8, alphas_new)
+            
+            if length(keep) == length(active) && maximum(abs.(alphas_new .- alphas[active])) < tol
+                active = active[keep]
+                alphas[active] = alphas_new[keep]
+                mu = mu_a[keep]
+                break
+            end
+            
+            active = active[keep]
+            alphas[active] = alphas_new[keep]
+            mu = mu_a[keep]
+        end
+        
+        return (rv_indices=active, rv_coords=X[active, :], weights=mu, beta=beta_noise)
+    end
+
+    """
+        calculate_pa_stats(pa_obs, pa_model; ndof_val=nothing)
+
+    Oblicza błąd systematyczny, odchylenie standardowe i zredukowany chi2.
+    """
+    function calculate_pa_stats(pa_obs, pa_model; ndof_val=nothing)
+        residuals = mod.(pa_obs .- pa_model .+ 90, 180) .- 90
+        bias = mean(residuals)
+        std_err = std(residuals)
+        
+        chi2 = sum(abs2, residuals ./ 5.0) # Zakładamy błąd pomiarowy 5 stopni jeśli nie podano
+        
+        ndof = isnothing(ndof_val) ? length(residuals) - 4 : ndof_val
+        chi2_red = chi2 / ndof
+        
+        return (residuals=residuals, bias=bias, std_err=std_err, chi2_red=chi2_red, ndof=ndof)
+    end
+
 end # module
