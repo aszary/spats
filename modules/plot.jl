@@ -9,7 +9,7 @@ module Plot
     using Printf
     @pyimport matplotlib.patches as patch
     
-    PyPlot.matplotlib.use("Tkagg") 
+    #PyPlot.matplotlib.use("Tkagg") 
     #PyPlot.matplotlib.use("qt5agg") # DOES NOT WORK!! 
     using Peaks
     using Glob
