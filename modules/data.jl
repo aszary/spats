@@ -1293,4 +1293,51 @@ module Data
         return (residuals=residuals, bias=bias, std_err=std_err, chi2_red=chi2_red, ndof=ndof)
     end
 
+    """
+    Andrzej's approach: Processes low and high frequency data separately 
+    but sends them to a single plot for comparison.
+    """
+    function geometry_analysis(indir; chi2_red_max=10.0)
+        p = Tools.read_params(joinpath(indir, "params.json"))
+        
+        # Load both frequency sets
+        l = load_ascii_all(joinpath(indir, "pulsar_low.txt"))
+        h = load_ascii_all(joinpath(indir, "pulsar_high.txt"))
+
+        bin_st, bin_end = p["bin_st"], p["bin_end"]
+        pulses_l, bins_l = size(l, 1), size(l, 2)
+        pulses_h, bins_h = size(h, 1), size(h, 2)
+
+        # --- LOW FREQUENCY ANALYSIS BLOCK ---
+        I_l = vec(mean(l[:, bin_st:bin_end, 1], dims=1))
+        Lin_l = sqrt.(vec(mean(l[:, bin_st:bin_end, 2], dims=1)).^2 .+ vec(mean(l[:, bin_st:bin_end, 3], dims=1)).^2)
+        sigma_avg_l = std(l[:, 1:bin_st-1, 1]) / sqrt(pulses_l)
+        pa_l = [Lin_l[i] > 5.0*sigma_avg_l ? 0.5 * atan(vec(mean(l[:, bin_st:bin_end, 3], dims=1))[i], vec(mean(l[:, bin_st:bin_end, 2], dims=1))[i]) * (180.0/pi) : NaN for i in 1:length(Lin_l)]
+        pa_err_l = [Lin_l[i] > 5.0*sigma_avg_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:length(Lin_l)]
+        pa_l, _ = deopm_pa(pa_l)
+        
+        # Two-pass fit for Low
+        res_l_pre = fit_rvm(collect(range(-180, 180, length=length(pa_l))), pa_l, pa_err_l)
+        scale_l = isnothing(res_l_pre) ? 1.0 : max(1.0, sqrt(res_l_pre.chi2_red))
+        res_l, chi2_l, alphas, betas = fit_rvm(collect(range(-180, 180, length=length(pa_l))), pa_l, pa_err_l .* scale_l; return_map=true)
+
+        # --- HIGH FREQUENCY ANALYSIS BLOCK ---
+        I_h = vec(mean(h[:, bin_st:bin_end, 1], dims=1))
+        Lin_h = sqrt.(vec(mean(h[:, bin_st:bin_end, 2], dims=1)).^2 .+ vec(mean(h[:, bin_st:bin_end, 3], dims=1)).^2)
+        sigma_avg_h = std(h[:, 1:bin_st-1, 1]) / sqrt(pulses_h)
+        pa_h = [Lin_h[i] > 5.0*sigma_avg_h ? 0.5 * atan(vec(mean(h[:, bin_st:bin_end, 3], dims=1))[i], vec(mean(h[:, bin_st:bin_end, 2], dims=1))[i]) * (180.0/pi) : NaN for i in 1:length(Lin_h)]
+        pa_err_h = [Lin_h[i] > 5.0*sigma_avg_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:length(Lin_h)]
+        pa_h, _ = deopm_pa(pa_h)
+        
+        # Two-pass fit for High
+        res_h_pre = fit_rvm(collect(range(-180, 180, length=length(pa_h))), pa_h, pa_err_h)
+        scale_h = isnothing(res_h_pre) ? 1.0 : max(1.0, sqrt(res_h_pre.chi2_red))
+        res_h, chi2_h, _, _ = fit_rvm(collect(range(-180, 180, length=length(pa_h))), pa_h, pa_err_h .* scale_h; return_map=true)
+
+        # Call unified plot
+        Plot.geometry(chi2_l, chi2_h, alphas, betas, indir; 
+                      ndof_l=res_l.ndof, ndof_h=res_h.ndof, 
+                      chi2_red_max=chi2_red_max, P_sec=p["period"])
+    end
+
 end # module
