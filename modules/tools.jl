@@ -2631,8 +2631,10 @@ module Tools
 
         rng   = bin_st:bin_end
         L_on  = sqrt.(avg[rng, 2].^2 .+ avg[rng, 3].^2)
-        snr_m = avg[rng, 1] .> snr_threshold .* sigma_noise
-        lp_m  = (L_on ./ max.(avg[rng, 1], 1e-10)) .> linpol_threshold
+        I_on  = avg[rng, 1]
+        snr_m = I_on .> snr_threshold .* sigma_noise
+        # only compute L/I where I > 0 to avoid clamp artifact on noise bins
+        lp_m  = (I_on .> 0) .& ((L_on ./ max.(I_on, 1e-10)) .> linpol_threshold)
         mask_bins = snr_m .& lp_m
 
         println("  [filter_ppa] bins passing SNR: $(sum(snr_m))  " *

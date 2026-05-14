@@ -138,7 +138,8 @@ module SpaTs
 
             println("\n=== RVM: $name (bin $(bin_st)-$(bin_end)) ===")
             try
-                rvm_analysis(infile, outdir, name; bin_st=bin_st, bin_end=bin_end, show_=false)
+                rvm_analysis(infile, outdir, name; bin_st=bin_st, bin_end=bin_end,
+                             snr_threshold=3.0, linpol_threshold=0.3, show_=false)
             catch e
                 @warn "[$name] failed: $e"
             end
