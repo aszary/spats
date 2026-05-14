@@ -1300,44 +1300,80 @@ module Data
     function geometry_analysis(indir; chi2_red_max=10.0)
         p = Tools.read_params(joinpath(indir, "params.json"))
         
-        # Load both frequency sets
+        # Load both frequency sets (assuming they are already converted to .txt by process_psrdata_16)
         l = load_ascii_all(joinpath(indir, "pulsar_low.txt"))
         h = load_ascii_all(joinpath(indir, "pulsar_high.txt"))
 
         bin_st, bin_end = p["bin_st"], p["bin_end"]
         pulses_l, bins_l = size(l, 1), size(l, 2)
         pulses_h, bins_h = size(h, 1), size(h, 2)
+        
+        # Helper to extract profile and PA
+        function _extract_profile_and_pa(data, bin_st, bin_end, pulses_count)
+            I_prof = vec(mean(data[:, bin_st:bin_end, 1], dims=1))
+            Q_prof = vec(mean(data[:, bin_st:bin_end, 2], dims=1))
+            U_prof = vec(mean(data[:, bin_st:bin_end, 3], dims=1))
+            V_prof = vec(mean(data[:, bin_st:bin_end, 4], dims=1))
+            L_prof = sqrt.(Q_prof.^2 .+ U_prof.^2)
+
+            # Estimate noise from off-pulse region (assuming first bin_st-1 bins are off-pulse)
+            # Or a more robust method if available
+            off_pulse_noise = std(data[:, 1:max(1, bin_st-1), 1])
+            sigma_avg = off_pulse_noise / sqrt(pulses_count) # Error on the mean profile
+
+            pa_prof = [L_prof[i] > 5.0*sigma_avg ? 0.5 * atan(U_prof[i], Q_prof[i]) * (180.0/pi) : NaN for i in 1:length(L_prof)]
+            pa_err_prof = [L_prof[i] > 5.0*sigma_avg ? 0.5 * sigma_avg / L_prof[i] * (180.0/pi) : NaN for i in 1:length(L_prof)]
+            
+            # Longitude axis for the profile
+            lon_prof = collect(range(-180, 180, length=length(I_prof)))
+
+            return I_prof, L_prof, V_prof, pa_prof, pa_err_prof, lon_prof
+        end
 
         # --- LOW FREQUENCY ANALYSIS BLOCK ---
-        I_l = vec(mean(l[:, bin_st:bin_end, 1], dims=1))
-        Lin_l = sqrt.(vec(mean(l[:, bin_st:bin_end, 2], dims=1)).^2 .+ vec(mean(l[:, bin_st:bin_end, 3], dims=1)).^2)
-        sigma_avg_l = std(l[:, 1:bin_st-1, 1]) / sqrt(pulses_l)
-        pa_l = [Lin_l[i] > 5.0*sigma_avg_l ? 0.5 * atan(vec(mean(l[:, bin_st:bin_end, 3], dims=1))[i], vec(mean(l[:, bin_st:bin_end, 2], dims=1))[i]) * (180.0/pi) : NaN for i in 1:length(Lin_l)]
-        pa_err_l = [Lin_l[i] > 5.0*sigma_avg_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:length(Lin_l)]
-        pa_l, _ = deopm_pa(pa_l)
+        I_l, L_l, V_l, pa_l_raw, pa_err_l_raw, lon_l = _extract_profile_and_pa(l, bin_st, bin_end, pulses_l)
+        pa_l = deopm_pa(pa_l_raw)
         
         # Two-pass fit for Low
-        res_l_pre = fit_rvm(collect(range(-180, 180, length=length(pa_l))), pa_l, pa_err_l)
-        scale_l = isnothing(res_l_pre) ? 1.0 : max(1.0, sqrt(res_l_pre.chi2_red))
-        res_l, chi2_l, alphas, betas = fit_rvm(collect(range(-180, 180, length=length(pa_l))), pa_l, pa_err_l .* scale_l; return_map=true)
+        res_l_pre = fit_rvm(lon_l, pa_l, pa_err_l_raw)
+        scale_l = isnothing(res_l_pre) ? 1.0 : max(1.0, sqrt(res_l_pre.chi2 / (length(res_l_pre.residuals) - 4))) # Calculate reduced chi2
+        res_l = fit_rvm(lon_l, pa_l, pa_err_l_raw .* scale_l)
+        alphas_l, betas_l, chi2_l = _rvm_chi2_plane(lon_l, pa_l, pa_err_l_raw .* scale_l)
+
+        # RVM Relevance Vector Machine (if needed, but not for RVM geometric fit)
+        # rvm_res_l = calculate_rvm(hcat(lon_l, pa_l), pa_l; kernel_gamma=0.05) # This is for RVM (Relevance Vector Machine)
 
         # --- HIGH FREQUENCY ANALYSIS BLOCK ---
-        I_h = vec(mean(h[:, bin_st:bin_end, 1], dims=1))
-        Lin_h = sqrt.(vec(mean(h[:, bin_st:bin_end, 2], dims=1)).^2 .+ vec(mean(h[:, bin_st:bin_end, 3], dims=1)).^2)
-        sigma_avg_h = std(h[:, 1:bin_st-1, 1]) / sqrt(pulses_h)
-        pa_h = [Lin_h[i] > 5.0*sigma_avg_h ? 0.5 * atan(vec(mean(h[:, bin_st:bin_end, 3], dims=1))[i], vec(mean(h[:, bin_st:bin_end, 2], dims=1))[i]) * (180.0/pi) : NaN for i in 1:length(Lin_h)]
-        pa_err_h = [Lin_h[i] > 5.0*sigma_avg_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:length(Lin_h)]
-        pa_h, _ = deopm_pa(pa_h)
+        I_h, L_h, V_h, pa_h_raw, pa_err_h_raw, lon_h = _extract_profile_and_pa(h, bin_st, bin_end, pulses_h)
+        pa_h = deopm_pa(pa_h_raw)
         
         # Two-pass fit for High
-        res_h_pre = fit_rvm(collect(range(-180, 180, length=length(pa_h))), pa_h, pa_err_h)
-        scale_h = isnothing(res_h_pre) ? 1.0 : max(1.0, sqrt(res_h_pre.chi2_red))
-        res_h, chi2_h, _, _ = fit_rvm(collect(range(-180, 180, length=length(pa_h))), pa_h, pa_err_h .* scale_h; return_map=true)
+        res_h_pre = fit_rvm(lon_h, pa_h, pa_err_h_raw)
+        scale_h = isnothing(res_h_pre) ? 1.0 : max(1.0, sqrt(res_h_pre.chi2 / (length(res_h_pre.residuals) - 4))) # Calculate reduced chi2
+        res_h = fit_rvm(lon_h, pa_h, pa_err_h_raw .* scale_h)
+        alphas_h, betas_h, chi2_h = _rvm_chi2_plane(lon_h, pa_h, pa_err_h_raw .* scale_h)
 
-        # Call unified plot
-        Plot.geometry(chi2_l, chi2_h, alphas, betas, indir; 
-                      ndof_l=res_l.ndof, ndof_h=res_h.ndof, 
-                      chi2_red_max=chi2_red_max, P_sec=p["period"])
+        # Plotting
+        # Plot chi2 maps
+        Plot.geometry(chi2_l, chi2_h, alphas_l, betas_l, indir;
+                      ndof_l=(isnothing(res_l) ? 1 : length(res_l.residuals) - 4),
+                      ndof_h=(isnothing(res_h) ? 1 : length(res_h.residuals) - 4),
+                      chi2_red_max=chi2_red_max, P_sec=get(p, "period", nothing),
+                      fit_result_l=res_l, fit_result_h=res_h)
+
+        # Plot RVM results for low frequency
+        if !isnothing(res_l)
+            Plot.plot_rvm_results(lon_l, pa_l_raw, res_l, alphas_l, betas_l, chi2_l, nothing; # rvm_res is for Relevance Vector Machine, not RVM
+                                 name_mod="Low_RVM", outdir=indir)
+        end
+
+        # Plot RVM results for high frequency
+        if !isnothing(res_h)
+            Plot.plot_rvm_results(lon_h, pa_h_raw, res_h, alphas_h, betas_h, chi2_h, nothing; # rvm_res is for Relevance Vector Machine, not RVM
+                                 name_mod="High_RVM", outdir=indir)
+        end
+
+        return (low_freq_result=res_l, high_freq_result=res_h)
     end
 
 end # module

@@ -1,13 +1,13 @@
 module Heights
-    using Glob
-    using FITSIO
-    using ProgressMeter
-    using CairoMakie, FileIO
-    using PDFIO
     using Statistics
-    using FFTW
-    using DelimitedFiles
-    using LinearAlgebra
+    using LsqFit # For spectral fitting in R2F
+    using PhysicalConstants.CODATA2018 # For speed of light
+    using GaussianFit # To interface with GaussianFit.jl
+    using CairoMakie, FileIO # For plotting in geometry_analysis
+
+    # No internal includes for this module, as it's self-contained for height calculations.
+    # It relies on GaussianFit.jl as an external module.
+
 
     
     include("functions.jl")

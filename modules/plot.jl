@@ -671,6 +671,7 @@ module Plot
         if show_ show() end
     end
         yticks([-180, -90, 0, 90, 180])
+        if !isnothing(fit_result_h) scatter([fit_result_h.beta], [fit_result_h.alpha], c="magenta", marker="x", s=100, label="Best Fit", zorder=5) end
         ylabel("Phase (°)", labelpad=10)
 
         # --- BOTTOM PANEL: mean profile ---
@@ -1015,7 +1016,7 @@ module Plot
         scatter(lon, pa, c="black", s=10, alpha=0.5)
         
         # Model curve
-        lon_dense = range(minimum(lon)-5, maximum(lon)+5, length=500)
+        lon_dense = range(minimum(lon)-10, maximum(lon)+10, length=500)
         # Wykorzystujemy rvm_ppa z heights.jl przez PyCall lub przeliczenie:
         # (Uproszczone rysowanie dla Plot.jl)
         alpha_r, beta_r, phi0_r = deg2rad(fit_result.alpha), deg2rad(fit_result.beta), deg2rad(fit_result.phi0)
@@ -1023,8 +1024,8 @@ module Plot
         phi_dense_r = deg2rad.(lon_dense)
         pa_model = rad2deg.(atan.(sin(alpha_r) .* sin.(phi_dense_r .- phi0_r),
                            sin(zeta_r) .* cos(alpha_r) .- cos(zeta_r) .* sin(alpha_r) .* cos.(phi_dense_r .- phi0_r))) .+ fit_result.pa0
-        pa_model = mod.(pa_model .+ 90, 180) .- 90
-        
+        # pa_model = mod.(pa_model .+ 90, 180) .- 90 # This wrapping is handled by rvm_curve now
+
         plot(lon_dense, pa_model, "r-", lw=2, label="RVM Model")
         axvline(fit_result.phi0, color="blue", ls="--", alpha=0.5, label=raw"$\phi_0$")
         
