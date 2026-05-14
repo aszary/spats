@@ -4,10 +4,13 @@ module RVM
     using PyPlot # For plotting RVM results
     using Printf
     using CairoMakie, FileIO # For geometry_analysis chi2 maps
-    using ..Tools # Access Tools module in the parent directory
-    using ..Plot # Access Plot module in the parent directory
-    using ..Data # Access Data module in the parent directory (for load_ascii_all)
 
+    include("modules/data.jl")
+    include("modules/plot.jl")
+    include("modules/tools.jl")
+    include("modules/RVM.jl") # Include the new RVM module
+    include("modules/heights.jl")
+    
     # Helper function for extracting profile and PA (moved from Data.jl)
     function _extract_profile_and_pa(data, bin_st, bin_end, pulses_count)
         I_prof = vec(mean(data[:, bin_st:bin_end, 1], dims=1))

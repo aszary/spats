@@ -2,14 +2,15 @@ module Heights
     using Statistics
     using LsqFit # For spectral fitting in R2F
     using PhysicalConstants.CODATA2018 # For speed of light (used in calculate_emission_height_rvm)
-    using GaussianFit # To interface with GaussianFit.jl
+    #using GaussianFit # To interface with GaussianFit.jl
     using CairoMakie, FileIO # For plotting in geometry_analysis
-    using .RVM # Access RVM module
+    #using .RVM # Access RVM module
 
     include("functions.jl")
     include("tools.jl")
     include("plot.jl")
     include("GaussianFit.jl") # GaussianFit.jl is still needed for Heights.jl
+    include ("RVM.jl")
 
     # Define physical constants
     const C_LIGHT_KMS = PhysicalConstants.CODATA2018.c0 / 1000 # Speed of light in km/s
