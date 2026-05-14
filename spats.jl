@@ -90,21 +90,46 @@ module SpaTs
     end
 
 
+    function run_all_rvm(czarek_outdir, data_dir, rvm_outdir)
+        mkpath(rvm_outdir)
+        entries = readdir(czarek_outdir)
+        dirs_16 = filter(d -> endswith(d, "_16") && isdir(joinpath(czarek_outdir, d)), entries)
+
+        for dir in sort(dirs_16)
+            name = dir[1:end-3]  # strip "_16"
+            params_file = joinpath(czarek_outdir, dir, "params.json")
+            isfile(params_file) || continue
+
+            p = Tools.read_params(params_file)
+            bin_st = Int(p["bin_st"])
+            bin_end = Int(p["bin_end"])
+
+            # find .spCF file in /home/psr/data/new/JNAME/
+            spcf = Glob.glob("*/*_00000-00255.spCF", joinpath(data_dir, name))
+            if isempty(spcf)
+                @warn "[$name] no .spCF file found in $(joinpath(data_dir, name)), skipping"
+                continue
+            end
+            infile = first(spcf)
+
+            outdir = joinpath(rvm_outdir, name * "_rvm") * "/"
+            mkpath(outdir)
+
+            println("\n=== RVM: $name (bin $(bin_st)-$(bin_end)) ===")
+            try
+                rvm_analysis(infile, outdir, name; bin_st=bin_st, bin_end=bin_end, show_=false)
+            catch e
+                @warn "[$name] failed: $e"
+            end
+        end
+    end
+
     function main()
-        # output directory for VPM
-        vpmout = "/home/psr/output/"
+        czarek_out = "/home/psr/data/OUTPUT/czarek/"
+        data_dir   = "/home/psr/data/new/"
+        rvm_out    = "/home/psr/rvm_output/"
 
-        #Data.analyse_offsets(vpmout*"J1842-0359_16", "norefine")
-        #Data.analyse_offsets(vpmout*"J1539-6322_16", "norefine")
-        #Data.analyse_offsets(vpmout*"J2139+2242_16", "norefine")
-        #Data.analyse_offsets(vpmout*"J1232-4742_16", "norefine")
-        #Data.analyse_offsets(vpmout*"J1741-0840_16", "norefine", 0.1549; n_comp=2)
-        #Data.analyse_offsets(vpmout*"J1512-5431_16", "norefine")
-
-        #RVM polarimetry — J1842-0359 (odkomentuj aby uruchomić)
-        test_rvm("/home/psr/data/new/J1842-0359/2019-11-05-18:03:43/2019-11-05-18:03:43_00000-00255.spCF",
-                 vpmout*"J1842-0359_rvm/", "J1842-0359";
-                 bin_st=450, bin_end=580, period=0.536)
+        run_all_rvm(czarek_out, data_dir, rvm_out)
 
 
 
