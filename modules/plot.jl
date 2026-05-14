@@ -952,7 +952,7 @@ module Plot
         
         xlabel(raw"Impact parameter $\beta$ ($^\circ$)")
         ylabel(raw"Magnetic inclination $\alpha$ ($^\circ$)")
-        title("chi^2 Surface & Relevance Vectors")
+        title(raw"$\chi^2$ Surface & Relevance Vectors")
         legend(fontsize=8)
 
         # 2. Histogram reszt i krzywa teoretyczna
