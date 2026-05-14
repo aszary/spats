@@ -3,11 +3,11 @@ module SpaTs
     using Glob
     using JSON
 
-    include("data.jl")
-    include("plot.jl")
-    include("tools.jl")
-    include("RVM.jl") # Include the new RVM module
-    include("heights.jl")
+    include("modules/data.jl")
+    include("modules/plot.jl")
+    include("modules/tools.jl")
+    include("modules/RVM.jl") # Include the new RVM module
+    include("modules/heights.jl")
 
 
     function test(outdir)
