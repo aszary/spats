@@ -90,24 +90,40 @@ module SpaTs
     end
 
 
-    function run_all_rvm(czarek_outdir, data_dir, rvm_outdir)
+    function run_all_rvm(outdirs::Vector{String}, data_dir, rvm_outdir)
         mkpath(rvm_outdir)
-        entries = readdir(czarek_outdir)
-        dirs_16 = filter(d -> endswith(d, "_16") && isdir(joinpath(czarek_outdir, d)), entries)
 
-        for dir in sort(dirs_16)
-            name = dir[1:end-3]  # strip "_16"
-            params_file = joinpath(czarek_outdir, dir, "params.json")
-            isfile(params_file) || continue
+        # collect unique pulsar names from all output directories
+        seen = Set{String}()
+        entries = Tuple{String,String}[]  # (name, params_file)
+        for outdir in outdirs
+            isdir(outdir) || continue
+            for d in readdir(outdir)
+                endswith(d, "_16") || continue
+                isdir(joinpath(outdir, d)) || continue
+                name = d[1:end-3]
+                name in seen && continue
+                params_file = joinpath(outdir, d, "params.json")
+                isfile(params_file) || continue
+                push!(seen, name)
+                push!(entries, (name, params_file))
+            end
+        end
 
+        for (name, params_file) in sort(entries, by=x->x[1])
             p = Tools.read_params(params_file)
-            bin_st = Int(p["bin_st"])
-            bin_end = Int(p["bin_end"])
+            bin_st_raw = get(p, "bin_st", nothing)
+            bin_end_raw = get(p, "bin_end", nothing)
+            if isnothing(bin_st_raw) || isnothing(bin_end_raw)
+                @warn "[$name] missing bin_st/bin_end in params.json, skipping"
+                continue
+            end
+            bin_st  = Int(bin_st_raw)
+            bin_end = Int(bin_end_raw)
 
-            # find .spCF file in /home/psr/data/new/JNAME/
             spcf = Glob.glob("*/*_00000-00255.spCF", joinpath(data_dir, name))
             if isempty(spcf)
-                @warn "[$name] no .spCF file found in $(joinpath(data_dir, name)), skipping"
+                @warn "[$name] no .spCF file found, skipping"
                 continue
             end
             infile = first(spcf)
@@ -125,11 +141,11 @@ module SpaTs
     end
 
     function main()
-        czarek_out = "/home/psr/data/OUTPUT/czarek/"
-        data_dir   = "/home/psr/data/new/"
-        rvm_out    = "/home/psr/rvm_output/"
+        outdirs  = ["/home/psr/data/OUTPUT/czarek/", "/home/psr/data/OUTPUT/andrzej/"]
+        data_dir = "/home/psr/data/new/"
+        rvm_out  = "/home/psr/rvm_output/"
 
-        run_all_rvm(czarek_out, data_dir, rvm_out)
+        run_all_rvm(outdirs, data_dir, rvm_out)
 
 
 
