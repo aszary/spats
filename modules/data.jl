@@ -9,10 +9,11 @@ module Data
     using DelimitedFiles
     using LinearAlgebra
 
+
     include("functions.jl")
     include("tools.jl")
     include("plot.jl")
-
+    include("RVM.jl")
 
     """
     Zero selected pulses
@@ -589,117 +590,6 @@ module Data
         mask = (L ./ (I .+ 1e-12) .<= threshold) .| (I .<= 0)
         data_clean[mask] .= 0.0
         return data_clean
-    end
-
-
-    """
-    Remove orthogonal polarization mode (OPM) jumps from a PA track by
-    unwrapping along longitude with a 90° period.
-    """
-    function deopm_pa(pa_deg; tolerance=45.0)
-        pa_out = copy(pa_deg)
-        n = length(pa_out)
-        last_unwrapped = NaN
-        offset = 0.0
-        flipped = 0
-        for i in 1:n
-            isnan(pa_out[i]) && continue
-            pa_in = pa_out[i]
-            if isnan(last_unwrapped)
-                last_unwrapped = pa_in
-                continue
-            end
-            shifted = pa_in + offset
-            d = shifted - last_unwrapped
-            while d > tolerance
-                offset -= 90; shifted -= 90; d -= 90
-            end
-            while d < -tolerance
-                offset += 90; shifted += 90; d += 90
-            end
-            pa_out[i] = mod(shifted + 90, 180) - 90
-            abs(pa_out[i] - pa_in) > 0.1 && (flipped += 1)
-            last_unwrapped = shifted
-        end
-        return pa_out, flipped
-    end
-
-
-    """
-    Fit the Rotating Vector Model (RVM) to position angle data.
-    """
-    function fit_rvm(lon_deg, pa_deg, pa_err_deg;
-                     return_map=false,
-                     n_alpha=85, n_beta=40, n_phi0=60,
-                     alpha_range=(5.0, 175.0), beta_range=(-20.0, 20.0))
-        mask = .!isnan.(pa_deg) .& .!isnan.(pa_err_deg) .& (pa_err_deg .> 0)
-        if sum(mask) < 5
-            return nothing
-        end
-
-        lon_rad = lon_deg[mask]     .* (π / 180)
-        pa_rad  = pa_deg[mask]      .* (π / 180)
-        sigma   = pa_err_deg[mask]  .* (π / 180)
-        inv_var = 1.0 ./ (sigma .^ 2)
-
-        alphas = range(alpha_range[1], alpha_range[2], length=n_alpha) .* (π / 180)
-        betas  = range(beta_range[1],  beta_range[2],  length=n_beta)  .* (π / 180)
-        lon_min, lon_max = extrema(lon_rad)
-        margin = (lon_max - lon_min) * 0.5
-        phi0s = range(lon_min - margin, lon_max + margin, length=n_phi0)
-
-        best_chi2 = Inf; best_alpha = 0.0; best_beta = 0.0; best_phi0 = 0.0; best_pa0 = 0.0
-
-        na = length(alphas); nb = length(betas)
-        chi2_map = return_map ? fill(Inf, na, nb) : nothing
-
-        for (ia, alpha) in enumerate(alphas)
-            ca = cos(alpha); sa = sin(alpha)
-            for (ib, beta) in enumerate(betas)
-                zeta = alpha + beta
-                cz = cos(zeta); sz = sin(zeta)
-                best_ab = Inf; best_phi0_ab = phi0s[1]; best_pa0_ab = 0.0
-                for phi0 in phi0s
-                    dphi = lon_rad .- phi0
-                    rvm_shape = atan.(.-sa .* sin.(dphi), sz .* ca .- cz .* sa .* cos.(dphi))
-                    diffs = pa_rad .- rvm_shape
-                    Sx = sum(sin.(2 .* diffs) .* inv_var)
-                    Cx = sum(cos.(2 .* diffs) .* inv_var)
-                    pa0 = atan(Sx, Cx) / 2
-                    residuals = mod.(diffs .- pa0 .+ π/2, π) .- π/2
-                    chi2 = sum((residuals .^ 2) .* inv_var)
-                    if chi2 < best_ab
-                        best_ab = chi2; best_phi0_ab = phi0; best_pa0_ab = pa0
-                    end
-                end
-                if return_map chi2_map[ia, ib] = best_ab end
-                if best_ab < best_chi2
-                    best_chi2 = best_ab; best_alpha = alpha; best_beta = beta; best_phi0 = best_phi0_ab; best_pa0 = best_pa0_ab
-                end
-            end
-        end
-
-        ndof = max(sum(mask) - 4, 1)
-        result = (alpha=best_alpha*(180/π), beta=best_beta*(180/π), phi0=best_phi0*(180/π), pa0=best_pa0*(180/π), chi2=best_chi2, chi2_red=best_chi2/ndof, ndof=ndof)
-        return return_map ? (result, chi2_map, collect(alphas.*(180/π)), collect(betas.*(180/π))) : result
-    end
-
-
-    """
-    Evaluate RVM curve over a dense longitude grid.
-    """
-    function rvm_curve(params, lon_min_deg, lon_max_deg; npts=500)
-        lon = collect(range(lon_min_deg, lon_max_deg, length=npts))
-        lon_r = lon .* (π / 180); phi0 = params.phi0 * (π / 180); pa0 = params.pa0 * (π / 180); alpha = params.alpha * (π / 180); beta = params.beta * (π / 180); zeta = alpha + beta
-        dphi = lon_r .- phi0
-        pa_r = pa0 .+ atan.(.-sin(alpha) .* sin.(dphi), sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
-        pa_deg = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
-        pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
-        for i in 2:length(pa_deg)
-            if abs(pa_deg[i] - pa_deg[i-1]) > 90 pa_deg[i-1] = NaN end
-            if abs(pa_ortho_deg[i] - pa_ortho_deg[i-1]) > 90 pa_ortho_deg[i-1] = NaN end
-        end
-        return lon, pa_deg, pa_ortho_deg
     end
 
     """

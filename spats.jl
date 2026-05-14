@@ -6,6 +6,7 @@ module SpaTs
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
+    include("modules/RVM.jl") # Include the new RVM module
     include("modules/heights.jl")
 
 
@@ -94,20 +95,10 @@ module SpaTs
     function main()
         # output directory for VPM
         vpmout = "/home/psr/output/"
-
-        # Define fitting parameters (replace with actual values as needed)
-        α_low = 1.0
-        β_low = 1.0
-        φ0_low = 0.0
-        α_high = 1.0
-        β_high = 1.0
-        φ0_high = 0.0
-
-        #Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=2)
-        #Data.analyse_p3folds_16_new(vpmout*"J1842-0359_16", "norefine", n_comp=2)
-        Heights.pos_angle(vpmout*"J1842-0359_16", low_fit=Dict("alpha"=>α_low, "beta"=>β_low, "phi0"=>φ0_low),
-                                   high_fit=Dict("alpha"=>α_high, "beta"=>β_high, "phi0"=>φ0_high))
-
+        
+        # Call the geometry_analysis function from the RVM module
+        # This function performs the analysis and plotting, returning the fit results.
+        rvm_results = RVM.geometry_analysis(vpmout*"J1842-0359_16")
     end
 
 end # module
