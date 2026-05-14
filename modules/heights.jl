@@ -10,7 +10,9 @@ module Heights
     include("tools.jl")
     include("plot.jl")
     include("GaussianFit.jl") # GaussianFit.jl is still needed for Heights.jl
-    include ("RVM.jl")
+    include("RVM.jl")
+    include("data.jl")
+
 
     # Define physical constants
     const C_LIGHT_KMS = PhysicalConstants.CODATA2018.c0 / 1000 # Speed of light in km/s
