@@ -98,7 +98,7 @@ module SpaTs
         
         # Call the geometry_analysis function from the RVM module
         # This function performs the analysis and plotting, returning the fit results.
-        rvm_results = RVM.geometry_analysis(vpmout*"J1842-0359_16")
+        RVM.geometry_analysis(vpmout*"J1842-0359_16")
     end
 
 end # module
