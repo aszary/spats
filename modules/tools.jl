@@ -2004,6 +2004,8 @@ module Tools
             "p3_ybins" => nothing,
             "clean_threshold" => 0.5,
             "_clean_threshold" => "threshold for polarization cleaning",
+            "period" => nothing,
+            "_period" => "Pulsar rotation period [s], used for h_Blask height",
             "zaps" => nothing
         )
         f = open(filename, "w")

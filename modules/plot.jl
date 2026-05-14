@@ -957,82 +957,103 @@ module Plot
                     for a in alphas, b in betas] : nothing
 
         # ---------- figure -----------------------------------------------
-        rc("font", size=8.)
-        rc("axes", linewidth=0.5)
-        rc("lines", linewidth=0.8)
+        rc("font", family="sans-serif", size=9.)
+        rc("axes", linewidth=0.7)
+        rc("lines", linewidth=1.2)
+        rc("xtick", direction="in", top=true)
+        rc("ytick", direction="in", right=true)
 
-        fig = figure(figsize=(7.5, 4.8))
-        ax_pa  = fig.add_axes([0.09, 0.62, 0.37, 0.35])
-        ax_st  = fig.add_axes([0.09, 0.11, 0.37, 0.44])
-        ax_map = fig.add_axes([0.57, 0.11, 0.40, 0.72])   # map: leave top room for colorbar
-        ax_cb  = fig.add_axes([0.57, 0.86, 0.40, 0.05])   # horizontal colorbar above map
+        # shared x-range: on-pulse + 30% margin on each side
+        lon_margin = 0.30 * (lon_on[end] - lon_on[1])
+        x_lo = lon_on[1]  - lon_margin
+        x_hi = lon_on[end] + lon_margin
 
-        # -- PA panel (left top) - on-pulse region only --
-        # Identify sigma-clipped points (passed SNR/L-I but removed by sigma-clip)
+        fig = figure(figsize=(9.5, 6.5))
+        # left column: PA (top) + Stokes (bottom), share x-axis
+        ax_pa  = fig.add_axes([0.09, 0.65, 0.45, 0.28])
+        ax_st  = fig.add_axes([0.09, 0.09, 0.45, 0.51])
+        # right column: chi² map + colorbar
+        ax_map = fig.add_axes([0.62, 0.09, 0.36, 0.74])
+        ax_cb  = fig.add_axes([0.62, 0.86, 0.36, 0.042])
+
+        # -- PA panel --
         clipped = mask .& .!mask_fit
 
-        # Failed SNR/L-I filter → light grey
+        # rejected by filter → tiny light-grey dots
         ax_pa.scatter(lon_f[.!mask], pa_avg[.!mask],
-                      s=2, color="lightgrey", alpha=0.3, zorder=1)
-        # Sigma-clipped outliers → open grey circles
+                      s=1.5, color="silver", alpha=0.4, zorder=1)
+        # sigma-clipped → open grey circles
         if any(clipped)
             ax_pa.errorbar(lon_f[clipped], pa_avg[clipped], yerr=pa_err[clipped],
-                           fmt="o", ms=2.5, mfc="none", color="grey", alpha=0.5,
-                           elinewidth=0.4, capsize=0.5, zorder=2)
+                           fmt="o", ms=3.0, mfc="none", mec="grey", color="grey",
+                           alpha=0.55, elinewidth=0.5, capsize=1.0, zorder=2)
         end
-        # Points used in fit → black
+        # fitted points → black filled circles
         ax_pa.errorbar(lon_f[mask_fit], pa_avg[mask_fit], yerr=pa_err[mask_fit],
-                       fmt="o", ms=2.5, color="black", alpha=0.9,
-                       elinewidth=0.5, capsize=0.5, zorder=3)
-        # RVM curve
-        ax_pa.plot(lon_on, pa_curve_low, color="darkorange", lw=1.5, zorder=4)
-        ax_pa.axvline(result.phi0, color="royalblue", lw=0.8, ls="--", alpha=0.7)
+                       fmt="o", ms=3.5, color="black", alpha=0.92,
+                       elinewidth=0.6, capsize=1.2, zorder=3)
+        # RVM S-curve
+        ax_pa.plot(lon_on, pa_curve_low, color="darkorange", lw=2.0, zorder=4, label="RVM")
+        # phi0 inflection line — goes through both panels
+        ax_pa.axvline(result.phi0, color="#1a6faf", lw=1.0, ls="--", alpha=0.85, zorder=5)
 
-        txt_str = @sprintf("α=%.1f°  ζ=%.1f°  φ₀=%.1f°\nχ²ᵣ=%.2f  rms=%.1f°",
+        txt_str = @sprintf("α=%.1f°   ζ=%.1f°   φ₀=%.1f°\nχ²ᵣ=%.2f   rms=%.1f°",
                            result.alpha, result.zeta, result.phi0,
                            result.chi2_red, result.rms_deg)
-        
-        ax_pa.set_xlim(lon_on[1], lon_on[end])
+        ax_pa.text(0.98, 0.97, txt_str,
+                   transform=ax_pa."transAxes", fontsize=7.5,
+                   va="top", ha="right", family="monospace",
+                   bbox=Dict("boxstyle"=>"round,pad=0.3", "fc"=>"#fff8e7",
+                             "ec"=>"#ccaa55", "alpha"=>0.85))
+        ax_pa.set_xlim(x_lo, x_hi)
         ax_pa.set_ylim(-95, 95)
-        ax_pa.set_ylabel("PA [deg]")
+        ax_pa.set_ylabel("PA [deg]", fontsize=9)
         ax_pa.set_yticks([-90, -45, 0, 45, 90])
         ax_pa.tick_params(labelbottom=false)
         ax_pa.minorticks_on()
-        ax_pa.text(0.97, 0.97, txt_str,
-                   transform=ax_pa."transAxes", fontsize=6,
-                   va="top", ha="right",
-                   bbox=Dict("boxstyle"=>"round", "fc"=>"wheat", "alpha"=>0.7))
-        lon_margin = 0.3 * (lon_on[end] - lon_on[1])
-        ax_st.plot(lon_full, I_low_full ./ I_max, color="black",     lw=1.0, label="I")
-        ax_st.plot(lon_full, L_low_full ./ I_max, color="red",       lw=1.0, label="L")
-        ax_st.plot(lon_full, V_low_full ./ I_max, color="royalblue", lw=1.0, label="V")
-        ax_st.axhline(0.0, color="grey", lw=0.4, ls=":")
-        ax_st.set_xlim(lon_on[1] - lon_margin, lon_on[end] + lon_margin)
-        ax_st.set_ylim(-0.5, 1.15)
-        ax_st.set_ylabel("Flux Density [norm.]")
-        ax_st.set_xlabel("Longitude [deg]")
-        ax_st.legend(fontsize=6, loc="upper right", framealpha=0.6, ncol=3)
+        ax_pa.set_title(name_mod, fontsize=10, fontweight="bold", pad=4)
+
+        # -- Stokes I / L / V profile panel --
+        ax_st.plot(lon_full, I_low_full ./ I_max, color="black",     lw=1.3, label="I",  zorder=3)
+        ax_st.plot(lon_full, L_low_full ./ I_max, color="#cc3333",   lw=1.3, label="L",  zorder=3)
+        ax_st.plot(lon_full, V_low_full ./ I_max, color="#2255bb",   lw=1.3, label="V",  zorder=3)
+        ax_st.axhline(0.0, color="grey", lw=0.5, ls=":", zorder=1)
+        # phi0 line — same style, extends the PA panel line visually
+        ax_st.axvline(result.phi0, color="#1a6faf", lw=1.0, ls="--", alpha=0.85, zorder=4,
+                      label=@sprintf("φ₀=%.1f°", result.phi0))
+        # pulse centre marker
+        ax_st.axvline(phi_c, color="#777777", lw=0.8, ls=":", alpha=0.7, zorder=4,
+                      label=@sprintf("centre=%.1f°", phi_c))
+
+        ax_st.set_xlim(x_lo, x_hi)
+        ax_st.set_ylim(-0.45, 1.18)
+        ax_st.set_ylabel("Normalised flux", fontsize=9)
+        ax_st.set_xlabel("Pulse longitude [deg]", fontsize=9)
+        ax_st.legend(fontsize=7, loc="upper right", framealpha=0.7,
+                     ncol=3, handlelength=1.4, columnspacing=0.8)
         ax_st.minorticks_on()
+
+        # h_blask annotation inside the profile panel
         if !isnan(h_blask)
-            ax_st.text(0.03, 0.03,
-                       @sprintf("h_Blask=%.0f km  Delphi=%.1f deg",
-                                h_blask, result.phi0 - phi_c),
-                       transform=ax_st."transAxes", fontsize=6, va="bottom",
-                       bbox=Dict("boxstyle"=>"round", "fc"=>"lightyellow", "alpha"=>0.7))
+            dphi = result.phi0 - phi_c
+            ax_st.text(0.02, 0.04,
+                       @sprintf("h_Blask = %.0f km\nΔφ = %.1f°", h_blask, dphi),
+                       transform=ax_st."transAxes", fontsize=8,
+                       va="bottom", ha="left", family="monospace",
+                       bbox=Dict("boxstyle"=>"round,pad=0.35", "fc"=>"#f0f8ff",
+                                 "ec"=>"#5599cc", "alpha"=>0.88))
         end
 
-        # -- chi²(α,β) map — exact master style --
+        # -- chi²(α,β) map --
         chi2_finite = filter(isfinite, vec(chi2_map))
         chi2_min    = isempty(chi2_finite) ? 0.0 : minimum(chi2_finite)
-        chi2_max    = isempty(chi2_finite) ? 1.0 : maximum(chi2_finite)
+        chi2_max_v  = isempty(chi2_finite) ? 1.0 : maximum(chi2_finite)
         chi2_delta  = map(v -> isnan(v) ? NaN : max(v - chi2_min, 0.0), chi2_map)
 
-        # dmax: 2% of total Δχ²ᵣ range, snapped to a round number (1/2/5·10^n)
-        dmax = _snap_step(0.02 * (chi2_max - chi2_min))
-        dmax = max(dmax, 1.0)   # at least 1 so colorbar is meaningful
-        println("[rvm] chi2 range: $(round(chi2_min,digits=2)) – $(round(chi2_max,digits=2))  dmax=$(round(dmax,digits=2))")
+        dmax = _snap_step(0.02 * (chi2_max_v - chi2_min))
+        dmax = max(dmax, 1.0)
+        println("[rvm] chi2 range: $(round(chi2_min,digits=2)) – $(round(chi2_max_v,digits=2))  dmax=$(round(dmax,digits=2))")
 
-        # Cells above dmax → NaN → white (master: shows where model is ruled out)
         chi2_display = map(v -> isnan(v) ? NaN : (v > dmax ? NaN : v), chi2_delta)
 
         im = ax_map.imshow(chi2_display',
@@ -1041,13 +1062,21 @@ module Plot
                            cmap="viridis", vmin=0.0, vmax=dmax,
                            interpolation="nearest")
 
-        # Horizontal colorbar above the map (master style)
-        cb = fig.colorbar(im, cax=ax_cb, orientation="horizontal")
-        cb.set_label(raw"$\Delta\chi^2$", labelpad=2)
-        ax_cb.xaxis.set_label_position("top")
-        ax_cb.xaxis.set_ticks_position("top")
+        # 1σ and 2σ confidence contours
+        try
+            ax_map.contour(alphas, betas, chi2_delta',
+                           levels=[2.30, 6.17],
+                           colors=["white", "#aaddff"],
+                           linewidths=[0.9, 0.7],
+                           linestyles=["solid", "dashed"])
+        catch; end
 
-        # Height contours in purple (master style)
+        # best-fit marker
+        ax_map.plot([result.alpha], [result.zeta - result.alpha],
+                    marker="*", ms=7, color="white", mec="gold",
+                    mew=0.5, zorder=10)
+
+        # height contours
         if h_contours !== nothing
             try
                 h_levs = _auto_height_levels(h_contours)
@@ -1055,21 +1084,27 @@ module Plot
                     ax_map.clabel(
                         ax_map.contour(alphas, betas, h_contours',
                                        levels=h_levs,
-                                       colors="purple", linewidths=0.7),
-                        fmt="%g", fontsize=5, inline=true)
+                                       colors="orchid", linewidths=0.8),
+                        fmt="%g km", fontsize=5.5, inline=true)
                 end
             catch
             end
         end
 
-        ax_map.set_xlabel("alpha [deg]")
-        ax_map.set_ylabel("beta [deg]")
+        cb = fig.colorbar(im, cax=ax_cb, orientation="horizontal")
+        cb.set_label(raw"$\Delta\chi^2_\mathrm{r}$", labelpad=2, fontsize=8)
+        ax_cb.xaxis.set_label_position("top")
+        ax_cb.xaxis.set_ticks_position("top")
+
+        ax_map.set_xlabel("α [deg]", fontsize=9)
+        ax_map.set_ylabel("β [deg]", fontsize=9)
+        ax_map.set_title("α–β confidence map", fontsize=8, pad=3)
         ax_map.yaxis.set_label_position("right")
         ax_map.yaxis.set_ticks_position("right")
         ax_map.minorticks_on()
 
-        savefig("$outdir/$(name_mod)_rvm.pdf")
-        savefig("$outdir/$(name_mod)_rvm.png")
+        fig.savefig("$outdir/$(name_mod)_rvm.pdf", bbox_inches="tight", dpi=150)
+        fig.savefig("$outdir/$(name_mod)_rvm.png", bbox_inches="tight", dpi=150)
         println("$outdir/$(name_mod)_rvm.pdf")
 
         if show_

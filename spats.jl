@@ -136,10 +136,24 @@ module SpaTs
                 continue
             end
 
+            # try to extract pulsar period from params.json or via vap
+            period = let raw = get(p, "period", nothing)
+                isnothing(raw) || raw == -1.0 ? nothing : Float64(raw)
+            end
+            if isnothing(period)
+                try
+                    out = readchomp(`vap -c period $infile`)
+                    period = parse(Float64, split(strip(out))[end])
+                    println("[$name] period from vap: $(period) s")
+                catch
+                end
+            end
+
             println("\n=== RVM: $name (bin $(bin_st)-$(bin_end)) ===")
             try
                 rvm_analysis(infile, outdir, name; bin_st=bin_st, bin_end=bin_end,
-                             snr_threshold=3.0, linpol_threshold=0.3, show_=false)
+                             snr_threshold=3.0, linpol_threshold=0.3,
+                             period=period, show_=false)
             catch e
                 @warn "[$name] failed: $e"
             end
