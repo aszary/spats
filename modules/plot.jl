@@ -4,7 +4,6 @@ module Plot
     using JLD2
     using Statistics
     using StatsBase
-    ENV["DISPLAY"] = ":95"
     ENV["MPLBACKEND"] = "TkAgg"
     using PyPlot
     using PyCall
