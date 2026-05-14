@@ -4,11 +4,12 @@ module Plot
     using JLD2
     using Statistics
     using StatsBase
-    ENV["MPLBACKEND"] = "TkAgg"
     using PyPlot
     using PyCall
     using Printf
     @pyimport matplotlib.patches as patch
+
+    PyPlot.matplotlib.use("Tkagg")
     using Peaks
     using Glob
     using SmoothingSplines
