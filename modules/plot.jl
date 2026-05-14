@@ -4,12 +4,15 @@ module Plot
     using JLD2
     using Statistics
     using StatsBase
+    if haskey(ENV, "DISPLAY") && !isempty(get(ENV, "DISPLAY", ""))
+        ENV["MPLBACKEND"] = "TkAgg"
+    else
+        ENV["MPLBACKEND"] = "Agg"
+    end
     using PyPlot
     using PyCall
     using Printf
     @pyimport matplotlib.patches as patch
-
-    PyPlot.matplotlib.use("Tkagg")
     using Peaks
     using Glob
     using SmoothingSplines
