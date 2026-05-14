@@ -7,7 +7,6 @@ module Data
     using Statistics
     using FFTW
     using DelimitedFiles
-    using LinearAlgebra
 
     include("functions.jl")
     include("tools.jl")
@@ -20,10 +19,18 @@ module Data
     """
     function zap!(data; ranges=nothing)
         pulses, bins = size(data)
-        isnothing(ranges) && return
+        zaps = []
         for rn in ranges
-            idx = length(rn) == 1 ? rn : (rn[1]:rn[2])
-            data[idx, :] .= 0.0
+            if length(rn) == 1
+                push!(zaps, rn)
+            else
+                zaps = vcat(zaps, collect(rn[1]:rn[2]))
+            end
+            for z in zaps
+                for i in 1:bins
+                    data[z,i] = 0
+                end
+            end
         end
     end
 
@@ -57,7 +64,7 @@ module Data
     function load_ascii_all(infile)
         f = open(infile)
         lines = readlines(f)
-
+        
         header = split(lines[1])
         pulses = parse(Int, header[6])    # Nsub
         bins = parse(Int, header[12])     # Nbin
@@ -65,15 +72,10 @@ module Data
 
         data = Array{Float64}(undef, pulses, bins, pols)
 
-        for i in 2:length(lines)
-            line = lines[i]
-            # Skip lines that do not start with a digit (header/comments)
-            isempty(line) && continue
-            firstchar = first(strip(line))
-            if !isdigit(firstchar)
-                continue
-            end
-            res = split(line)
+        for i in eachindex(lines)
+            startswith(lines[i], "F") && continue
+            startswith(lines[i], "M") && continue
+            res = split(lines[i])
             pulse = parse(Int, res[1]) + 1
             bin = parse(Int, res[3]) + 1
             for pol in 1:pols
@@ -90,14 +92,14 @@ module Data
     """
     Save PSRCHIVE ASCII file
     """
-    function save_ascii(data, outfile; src="Unknown")
+    function save_ascii(data, outfile)
         f = open(outfile, "w")
-        pulse_num, bin_num = size(data)
-        header = "File: $(basename(outfile)) Src: $src Nsub: $pulse_num Nch: 1 Npol: 1 Nbin: $bin_num RMS: 0.0\n"
+        pulse_num = size(data)[1]
+        bin_num = size(data)[2]
+        header = "File: filename Src: J1750-3503 Nsub: $pulse_num Nch: 1 Npol: 1 Nbin: $bin_num RMS: 0.0\n"
         write(f, header)
 
-        # Using 0-based indexing for PSRCHIVE compatibility
-        for i in 1:pulse_num 
+        for i in 1:pulse_num
             for j in 1:bin_num
                 write(f, "$(i-1) 0 $(j-1) $(data[i,j])\n")
             end
@@ -151,7 +153,7 @@ module Data
         # Sort files based on pulse numbers (e.g., 00000-00255, 00256-00511, etc.)
         sort!(files, by = f -> begin
             # Extract the pulse range from the filename (e.g., "2019-12-15-03:19:04_00000-00255.spCF")
-            m = match(r"(\d+)-(\d+)\.spC(?:F|f16)$", f)
+            m = match(r"_(\d+)-(\d+)\.spC(?:F|f16)$", f)
             if isnothing(m)
                 return typemax(Int)  # Files without proper format go to the end
             else
@@ -171,7 +173,7 @@ module Data
         file_names = [joinpath(indir, file) for file in files]
 
         # connecting all files
-        run(pipeline(`psradd -R $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE -R to fix overlaps
+        run(pipeline(`psradd $file_names -o $outfile`, stderr="errs.txt")) # PSRCHIVE
 
     end
 
@@ -582,137 +584,19 @@ module Data
     function clean(data; threshold=0.7)
         # four polarisation data
         num, bins, npol = size(data)
-        I = @view data[:, :, 1]
-        L = sqrt.((@view data[:, :, 2]).^2 .+ (@view data[:, :, 3]).^2)
-        data_clean = copy(I)
-        # Mask points where L/I is below threshold or I is non-positive
-        mask = (L ./ (I .+ 1e-12) .<= threshold) .| (I .<= 0)
-        data_clean[mask] .= 0.0
+        data_clean = zeros(num, bins)
+        for i in 1:num
+            for j in 1:bins 
+                I = data[i, j, 1]
+                Q = data[i, j, 2]
+                U = data[i, j, 3]
+                L = sqrt(Q^2 + U^2)
+                if L / I > threshold
+                    data_clean[i, j] = I
+                end
+            end
+        end
         return data_clean
-    end
-
-
-    """
-    Remove orthogonal polarization mode (OPM) jumps from a PA track by
-    unwrapping along longitude with a 90° period.
-    """
-    function deopm_pa(pa_deg; tolerance=45.0)
-        pa_out = copy(pa_deg)
-        n = length(pa_out)
-        last_unwrapped = NaN
-        offset = 0.0
-        flipped = 0
-        for i in 1:n
-            isnan(pa_out[i]) && continue
-            pa_in = pa_out[i]
-            if isnan(last_unwrapped)
-                last_unwrapped = pa_in
-                continue
-            end
-            shifted = pa_in + offset
-            d = shifted - last_unwrapped
-            while d > tolerance
-                offset -= 90; shifted -= 90; d -= 90
-            end
-            while d < -tolerance
-                offset += 90; shifted += 90; d += 90
-            end
-            pa_out[i] = mod(shifted + 90, 180) - 90
-            abs(pa_out[i] - pa_in) > 0.1 && (flipped += 1)
-            last_unwrapped = shifted
-        end
-        return pa_out, flipped
-    end
-
-
-    """
-    Fit the Rotating Vector Model (RVM) to position angle data.
-    """
-    function fit_rvm(lon_deg, pa_deg, pa_err_deg;
-                     return_map=false,
-                     n_alpha=85, n_beta=40, n_phi0=60,
-                     alpha_range=(5.0, 175.0), beta_range=(-20.0, 20.0))
-        mask = .!isnan.(pa_deg) .& .!isnan.(pa_err_deg) .& (pa_err_deg .> 0)
-        if sum(mask) < 5
-            return nothing
-        end
-
-        lon_rad = lon_deg[mask]     .* (π / 180)
-        pa_rad  = pa_deg[mask]      .* (π / 180)
-        sigma   = pa_err_deg[mask]  .* (π / 180)
-        inv_var = 1.0 ./ (sigma .^ 2)
-
-        alphas = range(alpha_range[1], alpha_range[2], length=n_alpha) .* (π / 180)
-        betas  = range(beta_range[1],  beta_range[2],  length=n_beta)  .* (π / 180)
-        lon_min, lon_max = extrema(lon_rad)
-        margin = (lon_max - lon_min) * 0.5
-        phi0s = range(lon_min - margin, lon_max + margin, length=n_phi0)
-
-        best_chi2 = Inf; best_alpha = 0.0; best_beta = 0.0; best_phi0 = 0.0; best_pa0 = 0.0
-
-        na = length(alphas); nb = length(betas)
-        chi2_map = return_map ? fill(Inf, na, nb) : nothing
-
-        for (ia, alpha) in enumerate(alphas)
-            ca = cos(alpha); sa = sin(alpha)
-            for (ib, beta) in enumerate(betas)
-                zeta = alpha + beta
-                cz = cos(zeta); sz = sin(zeta)
-                best_ab = Inf; best_phi0_ab = phi0s[1]; best_pa0_ab = 0.0
-                for phi0 in phi0s
-                    dphi = lon_rad .- phi0
-                    rvm_shape = atan.(.-sa .* sin.(dphi), sz .* ca .- cz .* sa .* cos.(dphi))
-                    diffs = pa_rad .- rvm_shape
-                    Sx = sum(sin.(2 .* diffs) .* inv_var)
-                    Cx = sum(cos.(2 .* diffs) .* inv_var)
-                    pa0 = atan(Sx, Cx) / 2
-                    residuals = mod.(diffs .- pa0 .+ π/2, π) .- π/2
-                    chi2 = sum((residuals .^ 2) .* inv_var)
-                    if chi2 < best_ab
-                        best_ab = chi2; best_phi0_ab = phi0; best_pa0_ab = pa0
-                    end
-                end
-                if return_map chi2_map[ia, ib] = best_ab end
-                if best_ab < best_chi2
-                    best_chi2 = best_ab; best_alpha = alpha; best_beta = beta; best_phi0 = best_phi0_ab; best_pa0 = best_pa0_ab
-                end
-            end
-        end
-
-        ndof = max(sum(mask) - 4, 1)
-        result = (alpha=best_alpha*(180/π), beta=best_beta*(180/π), phi0=best_phi0*(180/π), pa0=best_pa0*(180/π), chi2=best_chi2, chi2_red=best_chi2/ndof, ndof=ndof)
-        return return_map ? (result, chi2_map, collect(alphas.*(180/π)), collect(betas.*(180/π))) : result
-    end
-
-
-    """
-    Evaluate RVM curve over a dense longitude grid.
-    """
-    function rvm_curve(params, lon_min_deg, lon_max_deg; npts=500)
-        lon = collect(range(lon_min_deg, lon_max_deg, length=npts))
-        lon_r = lon .* (π / 180); phi0 = params.phi0 * (π / 180); pa0 = params.pa0 * (π / 180); alpha = params.alpha * (π / 180); beta = params.beta * (π / 180); zeta = alpha + beta
-        dphi = lon_r .- phi0
-        pa_r = pa0 .+ atan.(.-sin(alpha) .* sin.(dphi), sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
-        pa_deg = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
-        pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
-        for i in 2:length(pa_deg)
-            if abs(pa_deg[i] - pa_deg[i-1]) > 90 pa_deg[i-1] = NaN end
-            if abs(pa_ortho_deg[i] - pa_ortho_deg[i-1]) > 90 pa_ortho_deg[i-1] = NaN end
-        end
-        return lon, pa_deg, pa_ortho_deg
-    end
-
-    """
-    W_frac (e.g. W10): distance between outermost longitude bins above frac * peak.
-    """
-    function pulse_width_fraction(profile, nbin; frac=0.1, on_st=nothing, on_end=nothing)
-        st = isnothing(on_st) ? 1 : on_st
-        en = isnothing(on_end) ? length(profile) : on_end
-        seg = @view profile[st:en]
-        threshold = frac * maximum(seg)
-        above = findall(>=(threshold), seg)
-        isempty(above) && return NaN
-        return (last(above) - first(above) + 1) * 360.0 / nbin
     end
 
 
@@ -1221,76 +1105,415 @@ module Data
 
 
     """
-        calculate_rvm(X::Matrix{Float64}, t::Vector{Float64}; kernel_gamma::Float64=0.1, max_iter::Int=500)
-
-    Implementacja algorytmu Relevance Vector Machine (uproszczony algorytm Tippinga).
-    Służy do wyznaczenia wektorów relewantnych dla danych (alfa, beta).
+    Remove orthogonal polarization mode (OPM) jumps from a PA track by
+    unwrapping along longitude with a 90° period. Walks bin-by-bin keeping
+    a running "continuous" PA; whenever the next sample lies farther than
+    `tolerance` degrees from it, shift the sample by ±90° (the OPM step)
+    until it rejoins the track. The accumulated offset persists, so a whole
+    OPM island is corrected end-to-end regardless of length. Finally the
+    output is wrapped back to (-90°, 90°] — which also undoes any shifts
+    of ±180° that correspond to the intrinsic mod-π PA wrap, leaving those
+    pixels unchanged.
     """
-    function calculate_rvm(X::Matrix{Float64}, t::Vector{Float64}; kernel_gamma::Float64=0.1, max_iter::Int=500, tol::Float64=1e-5)
-        N, D = size(X)
-        
-        # Macierz projektowa (Kernel Gaussowski)
-        Phi = [exp(-kernel_gamma * sum(abs2, X[i,:] - X[j,:])) for i in 1:N, j in 1:N]
-        
-        alphas = fill(1e-3, N)
-        beta_noise = 1.0 / (var(t) * 0.1)
-        
-        mu = zeros(N)
-        active = collect(1:N)
-        
-        for iter in 1:max_iter
-            Phi_a = Phi[:, active]
-            A = Diagonal(alphas[active])
-            
-            # Obliczanie kowariancji i średniej wag (posterior)
-            # Sigma = inv(beta_noise * Phi_a' * Phi_a + A)
-            # Wykorzystujemy Cholesky'ego dla stabilności
-            H = beta_noise * (Phi_a' * Phi_a) + A
-            Sigma = inv(H)
-            mu_a = beta_noise * Sigma * (Phi_a' * t)
-            
-            # Aktualizacja hiperparametrów gamma i alpha
-            gamma = 1.0 .- alphas[active] .* diag(Sigma)
-            alphas_new = gamma ./ (mu_a.^2)
-            
-            # Aktualizacja precyzji szumu
-            res_sq = sum(abs2, t - Phi_a * mu_a)
-            beta_noise = (N - sum(gamma)) / res_sq
-            
-            # Pruning (usuwanie nieistotnych wektorów)
-            keep = findall(a -> a < 1e8, alphas_new)
-            
-            if length(keep) == length(active) && maximum(abs.(alphas_new .- alphas[active])) < tol
-                active = active[keep]
-                alphas[active] = alphas_new[keep]
-                mu = mu_a[keep]
-                break
+    function deopm_pa(pa_deg; tolerance=45.0)
+        pa_out = copy(pa_deg)
+        n = length(pa_out)
+        last_unwrapped = NaN
+        offset = 0.0
+        flipped = 0
+        for i in 1:n
+            isnan(pa_out[i]) && continue
+            pa_in = pa_out[i]
+            if isnan(last_unwrapped)
+                last_unwrapped = pa_in
+                continue
             end
-            
-            active = active[keep]
-            alphas[active] = alphas_new[keep]
-            mu = mu_a[keep]
+            shifted = pa_in + offset
+            d = shifted - last_unwrapped
+            while d > tolerance
+                offset -= 90; shifted -= 90; d -= 90
+            end
+            while d < -tolerance
+                offset += 90; shifted += 90; d += 90
+            end
+            pa_out[i] = mod(shifted + 90, 180) - 90
+            abs(pa_out[i] - pa_in) > 0.1 && (flipped += 1)
+            last_unwrapped = shifted
         end
-        
-        return (rv_indices=active, rv_coords=X[active, :], weights=mu, beta=beta_noise)
+        return pa_out, flipped
+    end
+
+
+    """
+    Fit the Rotating Vector Model (RVM) to position angle data.
+
+    Grid search over α (inclination) and β (impact parameter), then for each
+    (α, β) pair solves linearly for PA0 and searches over φ0 (inflection longitude).
+
+    Returns NamedTuple with fields: alpha, beta, phi0, pa0 (all in degrees), chi2.
+    Returns nothing if fewer than 5 valid PA points.
+    """
+    function fit_rvm(lon_deg, pa_deg, pa_err_deg;
+                     return_map=false,
+                     n_alpha=85, n_beta=40, n_phi0=60,
+                     alpha_range=(5.0, 175.0), beta_range=(-20.0, 20.0))
+        mask = .!isnan.(pa_deg) .& .!isnan.(pa_err_deg) .& (pa_err_deg .> 0)
+        if sum(mask) < 5
+            return nothing
+        end
+
+        lon_rad = lon_deg[mask]     .* (π / 180)
+        pa_rad  = pa_deg[mask]      .* (π / 180)
+        sigma   = pa_err_deg[mask]  .* (π / 180)
+        inv_var = 1.0 ./ (sigma .^ 2)
+
+        alphas = range(alpha_range[1], alpha_range[2], length=n_alpha) .* (π / 180)
+        betas  = range(beta_range[1],  beta_range[2],  length=n_beta)  .* (π / 180)
+        # Search φ0 over the full longitude range
+        lon_min, lon_max = extrema(lon_rad)
+        margin = (lon_max - lon_min) * 0.5
+        phi0s = range(lon_min - margin, lon_max + margin, length=n_phi0)
+
+        best_chi2  = Inf
+        best_alpha = 0.0
+        best_beta  = 0.0
+        best_phi0  = 0.0
+        best_pa0   = 0.0
+
+        na = length(alphas)
+        nb = length(betas)
+        chi2_map = return_map ? fill(Inf, na, nb) : nothing
+
+        for (ia, alpha) in enumerate(alphas)
+            ca = cos(alpha); sa = sin(alpha)
+            for (ib, beta) in enumerate(betas)
+                zeta = alpha + beta
+                cz = cos(zeta);  sz = sin(zeta)
+                best_ab  = Inf
+                best_phi0_ab = phi0s[1]
+                best_pa0_ab  = 0.0
+                for phi0 in phi0s
+                    dphi = lon_rad .- phi0
+                    # Komesaroff (1970) sign convention (matches publication).
+                    rvm_shape = atan.(.-sa .* sin.(dphi),
+                                      sz .* ca .- cz .* sa .* cos.(dphi))
+
+                    # PA is defined mod π. Use a weighted circular mean on
+                    # 2·diff to get PA0, then wrap residuals to (-π/2, π/2].
+                    diffs = pa_rad .- rvm_shape
+                    Sx = sum(sin.(2 .* diffs) .* inv_var)
+                    Cx = sum(cos.(2 .* diffs) .* inv_var)
+                    pa0 = atan(Sx, Cx) / 2
+                    residuals = mod.(diffs .- pa0 .+ π/2, π) .- π/2
+                    chi2 = sum((residuals .^ 2) .* inv_var)
+
+                    if chi2 < best_ab
+                        best_ab      = chi2
+                        best_phi0_ab = phi0
+                        best_pa0_ab  = pa0
+                    end
+                end
+                if return_map
+                    chi2_map[ia, ib] = best_ab
+                end
+                if best_ab < best_chi2
+                    best_chi2  = best_ab
+                    best_alpha = alpha
+                    best_beta  = beta
+                    best_phi0  = best_phi0_ab
+                    best_pa0   = best_pa0_ab
+                end
+            end
+        end
+
+        ndof = max(sum(mask) - 4, 1)
+        result = (alpha    = best_alpha * (180/π),
+                  beta     = best_beta  * (180/π),
+                  phi0     = best_phi0  * (180/π),
+                  pa0      = best_pa0   * (180/π),
+                  chi2     = best_chi2,
+                  chi2_red = best_chi2 / ndof,
+                  ndof     = ndof)
+        if return_map
+            return result, chi2_map, collect(alphas .* (180/π)), collect(betas .* (180/π))
+        else
+            return result
+        end
+    end
+
+
+    """
+    Evaluate RVM curve over a dense longitude grid (degrees in, degrees out).
+    Returns (lon_dense, pa_rvm, pa_rvm_ortho) where pa_rvm_ortho is the 90° mode.
+    """
+    function rvm_curve(params, lon_min_deg, lon_max_deg; npts=500)
+        lon = collect(range(lon_min_deg, lon_max_deg, length=npts))
+        lon_r = lon .* (π / 180)
+        phi0  = params.phi0 * (π / 180)
+        pa0   = params.pa0  * (π / 180)
+        alpha = params.alpha * (π / 180)
+        beta  = params.beta  * (π / 180)
+        zeta  = alpha + beta
+
+        dphi = lon_r .- phi0
+        # Komesaroff (1970) sign convention (matches publication).
+        pa_r = pa0 .+ atan.(.-sin(alpha) .* sin.(dphi),
+                             sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
+        pa_deg       = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
+        pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
+
+        # Break line at wrap jumps so renderers don't draw vertical segments
+        idx = eachindex(pa_deg)
+        for i in Iterators.drop(idx, 1)
+            if abs(pa_deg[i] - pa_deg[i-1]) > 90
+                pa_deg[i-1] = NaN
+            end
+            if abs(pa_ortho_deg[i] - pa_ortho_deg[i-1]) > 90
+                pa_ortho_deg[i-1] = NaN
+            end
+        end
+
+        return lon, pa_deg, pa_ortho_deg
+    end
+
+
+    function position_angle(indir)
+        # parameters file
+        p = Tools.read_params(joinpath(indir, "params.json"))
+
+        # low, high frequancy filenames
+        low = joinpath(indir, "pulsar.low")
+        high = joinpath(indir, "pulsar.high")
+
+        # txt files
+        lt = joinpath(indir, "pulsar_low.txt") # no dabese here needed?
+        ht = joinpath(indir, "pulsar_high.txt") # no dabese here needed?
+
+        l = Data.load_ascii_all(lt)
+        h = Data.load_ascii_all(ht)
+
+        bin_st  = p["bin_st"]
+        bin_end = p["bin_end"]
+
+        pulses_l, bins_l, _ = size(l)
+        pulses_h, bins_h, _ = size(h)
+
+        # Longitude axis (centered at 0)
+        db_l = (bin_end + 1) - bin_st
+        dl_l = 360.0 * db_l / bins_l
+        lon_l = collect(range(-dl_l/2.0, dl_l/2.0, length=db_l))
+
+        db_h = (bin_end + 1) - bin_st
+        dl_h = 360.0 * db_h / bins_h
+        lon_h = collect(range(-dl_h/2.0, dl_h/2.0, length=db_h))
+
+        # Average Stokes profiles over on-pulse window
+        I_l = vec(mean(l[:, bin_st:bin_end, 1], dims=1))
+        Q_l = vec(mean(l[:, bin_st:bin_end, 2], dims=1))
+        U_l = vec(mean(l[:, bin_st:bin_end, 3], dims=1))
+        V_l = vec(mean(l[:, bin_st:bin_end, 4], dims=1))
+        Lin_l = sqrt.(Q_l.^2 .+ U_l.^2)
+
+        I_h = vec(mean(h[:, bin_st:bin_end, 1], dims=1))
+        Q_h = vec(mean(h[:, bin_st:bin_end, 2], dims=1))
+        U_h = vec(mean(h[:, bin_st:bin_end, 3], dims=1))
+        V_h = vec(mean(h[:, bin_st:bin_end, 4], dims=1))
+        Lin_h = sqrt.(Q_h.^2 .+ U_h.^2)
+
+        # PA masked where L < 5σ on averaged Q, U (Johnston et al. 2023)
+        off_noise_l = std(l[:, 1:bin_st-1, 1])
+        off_noise_h = std(h[:, 1:bin_st-1, 1])
+        sigma_avg_l = off_noise_l / sqrt(pulses_l)
+        sigma_avg_h = off_noise_h / sqrt(pulses_h)
+        thresh_l = 5.0 * sigma_avg_l
+        thresh_h = 5.0 * sigma_avg_h
+
+        pa_l = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/pi) : NaN for i in 1:db_l]
+        pa_h = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/pi) : NaN for i in 1:db_h]
+
+        # PA errors: σ_PA = 0.5 * σ_noise_avg / L  (in degrees)
+        pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/pi) : NaN for i in 1:db_l]
+        pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/pi) : NaN for i in 1:db_h]
+
+        # Detect and undo orthogonal polarization mode jumps before RVM fit
+        pa_l, flipped_l = deopm_pa(pa_l)
+        pa_h, flipped_h = deopm_pa(pa_h)
+        println("De-OPM: flipped $flipped_l (low) and $flipped_h (high) bins")
+
+        # Select OPM branch (publication convention): global +90° shift
+        pa_shift = 90.0
+        pa_l = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_l]
+        pa_h = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_h]
+
+        # Fit RVM to low-frequency PA (more points typically)
+        println("Fitting RVM (low frequency)...")
+        rvm_params_l = fit_rvm(lon_l, pa_l, pa_err_l)
+        if !isnothing(rvm_params_l)
+            println("  α = $(round(rvm_params_l.alpha, digits=1))°, " *
+                    "β = $(round(rvm_params_l.beta, digits=1))°, " *
+                    "φ₀ = $(round(rvm_params_l.phi0, digits=2))°, " *
+                    "PA₀ = $(round(rvm_params_l.pa0, digits=1))°, " *
+                    "χ²/ndof = $(round(rvm_params_l.chi2_red, digits=2))")
+            lon_rvm_l, pa_rvm_l, pa_rvm_l_ortho = rvm_curve(rvm_params_l,
+                                                              minimum(lon_l), maximum(lon_l))
+        else
+            println("  Not enough PA points for RVM fit (low)")
+            lon_rvm_l = pa_rvm_l = pa_rvm_l_ortho = nothing
+        end
+
+        println("Fitting RVM (high frequency)...")
+        rvm_params_h = fit_rvm(lon_h, pa_h, pa_err_h)
+        if !isnothing(rvm_params_h)
+            println("  α = $(round(rvm_params_h.alpha, digits=1))°, " *
+                    "β = $(round(rvm_params_h.beta, digits=1))°, " *
+                    "φ₀ = $(round(rvm_params_h.phi0, digits=2))°, " *
+                    "PA₀ = $(round(rvm_params_h.pa0, digits=1))°, " *
+                    "χ²/ndof = $(round(rvm_params_h.chi2_red, digits=2))")
+            lon_rvm_h, pa_rvm_h, pa_rvm_h_ortho = rvm_curve(rvm_params_h,
+                                                              minimum(lon_h), maximum(lon_h))
+        else
+            println("  Not enough PA points for RVM fit (high)")
+            lon_rvm_h = pa_rvm_h = pa_rvm_h_ortho = nothing
+        end
+
+        phi0_l = isnothing(rvm_params_l) ? nothing : rvm_params_l.phi0
+        phi0_h = isnothing(rvm_params_h) ? nothing : rvm_params_h.phi0
+
+        Plot.position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
+                            lon_h, pa_h, pa_err_h, I_h, Lin_h, V_h,
+                            indir; show_=true,
+                            lon_rvm_l=lon_rvm_l, pa_rvm_l=pa_rvm_l,
+                            pa_rvm_l_ortho=pa_rvm_l_ortho, phi0_l=phi0_l,
+                            lon_rvm_h=lon_rvm_h, pa_rvm_h=pa_rvm_h,
+                            pa_rvm_h_ortho=pa_rvm_h_ortho, phi0_h=phi0_h)
+    end
+
+    function geometry_analysis(indir; chi2_red_max=10.0)
+
+        # parameters file
+        p = Tools.read_params(joinpath(indir, "params.json"))
+
+        lt = joinpath(indir, "pulsar_low.txt")
+        ht = joinpath(indir, "pulsar_high.txt")
+
+        l = load_ascii_all(lt)
+        h = load_ascii_all(ht)
+
+        bin_st  = p["bin_st"]
+        bin_end = p["bin_end"]
+
+        pulses_l, bins_l, _ = size(l)
+        pulses_h, bins_h, _ = size(h)
+
+        db_l = (bin_end + 1) - bin_st
+        lon_l = collect(range(-360.0 * db_l / bins_l / 2, 360.0 * db_l / bins_l / 2, length=db_l))
+        db_h = (bin_end + 1) - bin_st
+        lon_h = collect(range(-360.0 * db_h / bins_h / 2, 360.0 * db_h / bins_h / 2, length=db_h))
+
+        Q_l   = vec(mean(l[:, bin_st:bin_end, 2], dims=1))
+        U_l   = vec(mean(l[:, bin_st:bin_end, 3], dims=1))
+        Lin_l = sqrt.(Q_l.^2 .+ U_l.^2)
+        Q_h   = vec(mean(h[:, bin_st:bin_end, 2], dims=1))
+        U_h   = vec(mean(h[:, bin_st:bin_end, 3], dims=1))
+        Lin_h = sqrt.(Q_h.^2 .+ U_h.^2)
+
+        # Mean Stokes I for W10 estimation
+        I_l_full = vec(mean(l[:, :, 1], dims=1))
+        I_h_full = vec(mean(h[:, :, 1], dims=1))
+
+        # sigma_avg: statistically correct noise on the mean profile, used both
+        # for detection threshold (5σ on L) and for PA error (0.5·σ/L). Combined
+        # with the χ²_red-display mode in Plot.geometry (cutoff 10), this gives
+        # the Johnston+ 2023 Fig. 1 convention: minimum χ²_red ≈ 1 at best fit,
+        # the "χ² > 10" region masked as blank.
+        sigma_avg_l = std(l[:, 1:bin_st-1, 1]) / sqrt(pulses_l)
+        sigma_avg_h = std(h[:, 1:bin_st-1, 1]) / sqrt(pulses_h)
+        thresh_l = 5.0 * sigma_avg_l
+        thresh_h = 5.0 * sigma_avg_h
+
+        pa_l     = [Lin_l[i] > thresh_l ? 0.5 * atan(U_l[i], Q_l[i]) * (180.0/π) : NaN for i in 1:db_l]
+        pa_err_l = [Lin_l[i] > thresh_l ? 0.5 * sigma_avg_l / Lin_l[i] * (180.0/π) : NaN for i in 1:db_l]
+        pa_h     = [Lin_h[i] > thresh_h ? 0.5 * atan(U_h[i], Q_h[i]) * (180.0/π) : NaN for i in 1:db_h]
+        pa_err_h = [Lin_h[i] > thresh_h ? 0.5 * sigma_avg_h / Lin_h[i] * (180.0/π) : NaN for i in 1:db_h]
+
+        # Match the preprocessing used in position_angle: undo OPM jumps,
+        # then select the same OPM branch (global +90° shift).
+        pa_l, _ = deopm_pa(pa_l)
+        pa_h, _ = deopm_pa(pa_h)
+        pa_shift = 90.0
+        pa_l = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_l]
+        pa_h = [isnan(x) ? x : mod(x + pa_shift + 90, 180) - 90 for x in pa_h]
+
+        # Two-pass with floored rescaling: first fit with σ_avg, then inflate
+        # errors by √χ²_red (if > 1) so χ²_red_min = 1 by construction. Floor at
+        # 1 prevents deflating σ when the model fits below statistical noise
+        # (e.g., sparse high-freq PA points) — there the region stays wide.
+        println("Fitting RVM (low frequency, pass 1)...")
+        res_l_pre = fit_rvm(lon_l, pa_l, pa_err_l;
+            n_alpha=171, n_beta=161, n_phi0=200)
+        scale_l = max(1.0, sqrt(res_l_pre.chi2_red))
+        println("  χ²_red=$(round(res_l_pre.chi2_red,digits=2))  → σ scale factor = $(round(scale_l,digits=2))")
+
+        println("Fitting RVM chi² map (low frequency, pass 2)...")
+        res_l, chi2_l, alphas_deg, betas_deg = fit_rvm(lon_l, pa_l, pa_err_l .* scale_l;
+            return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
+        println("  best: α=$(round(res_l.alpha,digits=1))° β=$(round(res_l.beta,digits=1))° χ²/ndof=$(round(res_l.chi2_red,digits=4))")
+
+        println("Fitting RVM (high frequency, pass 1)...")
+        res_h_pre = fit_rvm(lon_h, pa_h, pa_err_h;
+            n_alpha=171, n_beta=161, n_phi0=200)
+        scale_h = max(1.0, sqrt(res_h_pre.chi2_red))
+        println("  χ²_red=$(round(res_h_pre.chi2_red,digits=2))  → σ scale factor = $(round(scale_h,digits=2))")
+
+        println("Fitting RVM chi² map (high frequency, pass 2)...")
+        res_h, chi2_h, _, _ = fit_rvm(lon_h, pa_h, pa_err_h .* scale_h;
+            return_map=true, n_alpha=171, n_beta=161, n_phi0=200)
+        println("  best: α=$(round(res_h.alpha,digits=1))° β=$(round(res_h.beta,digits=1))° χ²/ndof=$(round(res_h.chi2_red,digits=4))")
+
+        # W10 (pulse width at 10 % of peak flux), cf. Johnston et al. 2023, Eq. (3)
+        nbin  = p["nbin"]
+        W10_l = pulse_width_fraction(I_l_full, nbin; frac=0.1,
+                                     on_st=bin_st, on_end=bin_end)
+        W10_h = pulse_width_fraction(I_h_full, nbin; frac=0.1,
+                                     on_st=bin_st, on_end=bin_end)
+        P_sec = p["period"]
+        println("P = $P_sec s   W10: low=$(round(W10_l, digits=2))°  high=$(round(W10_h, digits=2))°")
+
+        # Diagnostic: χ²_red percentiles — helps see if a seemingly "missing"
+        # region is just above the cutoff or genuinely a bad fit.
+        function _stats(chi2_map, ndof)
+            red = chi2_map[isfinite.(chi2_map)] ./ ndof
+            sort!(red)
+            n = length(red)
+            q(p) = red[clamp(round(Int, p*n), 1, n)]
+            (min=red[1], p50=q(0.5), p90=q(0.9), p95=q(0.95), p99=q(0.99), max=red[end])
+        end
+        st_l = _stats(chi2_l, res_l.ndof)
+        st_h = _stats(chi2_h, res_h.ndof)
+        println("χ²_red low:  min=$(round(st_l.min,digits=2))  p50=$(round(st_l.p50,digits=2))  p90=$(round(st_l.p90,digits=2))  p95=$(round(st_l.p95,digits=2))  p99=$(round(st_l.p99,digits=2))  max=$(round(st_l.max,digits=2))")
+        println("χ²_red high: min=$(round(st_h.min,digits=2))  p50=$(round(st_h.p50,digits=2))  p90=$(round(st_h.p90,digits=2))  p95=$(round(st_h.p95,digits=2))  p99=$(round(st_h.p99,digits=2))  max=$(round(st_h.max,digits=2))")
+
+        Plot.geometry(chi2_l, chi2_h, alphas_deg, betas_deg, indir;
+                      show_=true, P_sec=P_sec, W_deg_l=W10_l, W_deg_h=W10_h,
+                      ndof_l=res_l.ndof, ndof_h=res_h.ndof,
+                      chi2_red_max=chi2_red_max)
     end
 
     """
-        calculate_pa_stats(pa_obs, pa_model; ndof_val=nothing)
-
-    Oblicza błąd systematyczny, odchylenie standardowe i zredukowany chi2.
+    W_frac (e.g. W10): distance between the outermost longitude bins above
+    `frac * peak`, following Posselt et al. 2021 / Johnston et al. 2023.
+    If `on_st`/`on_end` are given, the peak and search are restricted to that
+    on-pulse window; this avoids noise spikes extending the width artificially.
     """
-    function calculate_pa_stats(pa_obs, pa_model; ndof_val=nothing)
-        residuals = mod.(pa_obs .- pa_model .+ 90, 180) .- 90
-        bias = mean(residuals)
-        std_err = std(residuals)
-        
-        chi2 = sum(abs2, residuals ./ 5.0) # Zakładamy błąd pomiarowy 5 stopni jeśli nie podano
-        
-        ndof = isnothing(ndof_val) ? length(residuals) - 4 : ndof_val
-        chi2_red = chi2 / ndof
-        
-        return (residuals=residuals, bias=bias, std_err=std_err, chi2_red=chi2_red, ndof=ndof)
+    function pulse_width_fraction(profile, nbin; frac=0.1,
+                                   on_st=nothing, on_end=nothing)
+        st = isnothing(on_st)  ? 1              : on_st
+        en = isnothing(on_end) ? length(profile) : on_end
+        seg = @view profile[st:en]
+        threshold = frac * maximum(seg)
+        above = findall(>=(threshold), seg)
+        isempty(above) && return NaN
+        return (last(above) - first(above) + 1) * 360.0 / nbin
     end
 
 end # module

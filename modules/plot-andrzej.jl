@@ -581,11 +581,10 @@ module Plot
 
         # === Power spectrum (left panel) ===
         spectrum = sum(amp, dims=2)[:, 1]
-        spectrum ./= maximum(spectrum) # Local normalization for plotting
 
         # === Frequency axis ===
         freq = collect(0:(num-1)) ./ num
-        peak = argmax(spectrum[2:div(num,2)]) + 1
+        peak = argmax(spectrum[2:end]) + 1  # skip DC component at freq=0
         println("\tPeak freq: $(freq[peak]), P3 = $(1/freq[peak])")
 
         # === Phase at peak frequency ===
@@ -628,48 +627,9 @@ module Plot
 
         # --- TOP PANEL: phase ---
         ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
-        plot(longitude, phase_, ".", markersize=2, color="grey")
-        ax_phase.set_ylim(-190, 190)
+        #ax_phase = axes([0.17, 0.94, 0.82, 0.05])
+        scatter(longitude, phase_, s=2, c="grey")
         xticks([])
-    function position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
-                            lon_h, pa_h, pa_err_h, I_h, Lin_h, V_h,
-                            outdir; show_=true,
-                            lon_rvm_l=nothing, pa_rvm_l=nothing, pa_rvm_l_ortho=nothing,
-                            phi0_l=nothing,
-                            lon_rvm_h=nothing, pa_rvm_h=nothing, pa_rvm_h_ortho=nothing,
-                            phi0_h=nothing)
-        figure(figsize=(5.354337, 6.8))
-        subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
-        subplot2grid((3, 1), (0, 0))
-        errorbar(lon_l, pa_l, yerr=pa_err_l, fmt=".", ms=2, elinewidth=0.6, c="tab:blue", label="low", zorder=3)
-        errorbar(lon_h, pa_h, yerr=pa_err_h, fmt=".", ms=2, elinewidth=0.6, c="tab:orange", label="high", zorder=3)
-        if !isnothing(lon_rvm_l) && !isnothing(pa_rvm_l)
-            plot(lon_rvm_l, pa_rvm_l, c="darkorange", lw=1.2); plot(lon_rvm_l, pa_rvm_l_ortho, c="darkorange", lw=1.2)
-        end
-        if !isnothing(phi0_l) axvline(phi0_l, c="tab:blue", lw=1.5) end
-        ylabel("PA [deg]"); tick_params(labelbottom=false); minorticks_on()
-        subplot2grid((3, 1), (1, 0), rowspan=2)
-        plot(lon_l, I_l./maximum(I_l), c="black", lw=0.8); plot(lon_l, Lin_l./maximum(I_l), c="red", lw=0.8); plot(lon_l, V_l./maximum(I_l), c="blue", lw=0.8)
-        xlabel("Longitude [deg]"); ylabel("Flux Density [norm]"); minorticks_on()
-        savefig(joinpath(outdir, "position_angle.pdf"))
-        if show_ show() end
-    end
-
-    function geometry(chi2_map_l, chi2_map_h, alphas_deg, betas_deg, outdir;
-                      show_=false, name_mod="PSR_NAME", chi2_red_max=10.0,
-                      ndof_l=nothing, ndof_h=nothing, P_sec=nothing, W_deg_l=nothing, W_deg_h=nothing, cmap="viridis")
-        dchi2_l = chi2_map_l ./ ndof_l; dchi2_h = chi2_map_h ./ ndof_h
-        dchi2_l_plot = Float64.(dchi2_l); dchi2_l_plot[dchi2_l .> chi2_red_max] .= NaN
-        dchi2_h_plot = Float64.(dchi2_h); dchi2_h_plot[dchi2_h .> chi2_red_max] .= NaN
-        fig = figure(figsize=(7.0, 4.2)); subplots_adjust(left=0.09, bottom=0.11, right=0.98, top=0.78, wspace=0.32)
-        extent = [alphas_deg[1], alphas_deg[end], betas_deg[1], betas_deg[end]]
-        ax1 = subplot(1, 2, 1); ax1.imshow(dchi2_l_plot', origin="lower", extent=extent, aspect="auto", cmap=cmap, vmin=0., vmax=chi2_red_max)
-        ax1.set_xlabel("alpha [deg]"); ax1.set_ylabel("beta [deg]"); ax1.set_title("low frequency")
-        ax2 = subplot(1, 2, 2); ax2.imshow(dchi2_h_plot', origin="lower", extent=extent, aspect="auto", cmap=cmap, vmin=0., vmax=chi2_red_max)
-        ax2.set_xlabel("alpha [deg]"); ax2.set_title("high frequency")
-        savefig(joinpath(outdir, "$(name_mod)_geometry.pdf"))
-        if show_ show() end
-    end
         yticks([-180, -90, 0, 90, 180])
         ylabel("Phase (°)", labelpad=10)
 
@@ -963,78 +923,216 @@ module Plot
     end
 
 
+    function position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
+                            lon_h, pa_h, pa_err_h, I_h, Lin_h, V_h,
+                            outdir; show_=true,
+                            lon_rvm_l=nothing, pa_rvm_l=nothing, pa_rvm_l_ortho=nothing,
+                            phi0_l=nothing,
+                            lon_rvm_h=nothing, pa_rvm_h=nothing, pa_rvm_h_ortho=nothing,
+                            phi0_h=nothing)
+        figure(figsize=(5.354337, 6.8))
+        subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
 
-    """
-        plot_rvm_results(lon, pa, fit_result, alpha_grid, beta_grid, chi2_plane, rvm_res; name_mod="RVM", outdir=".")
+        # Top: PA with error bars
+        subplot2grid((3, 1), (0, 0))
+        errorbar(lon_l, pa_l, yerr=pa_err_l, fmt=".", ms=2, elinewidth=0.6,
+                 c="tab:blue",   label="low",  zorder=3)
+        errorbar(lon_h, pa_h, yerr=pa_err_h, fmt=".", ms=2, elinewidth=0.6,
+                 c="tab:orange", label="high", zorder=3)
 
-    Tworzy zaawansowany wykres RVM z elipsami chi2, wektorami relewantnymi i histogramem reszt.
-    """
-    function plot_rvm_results(lon, pa, fit_result, alpha_grid, beta_grid, chi2_plane, rvm_res; name_mod="RVM", outdir=".")
-        fig = figure(figsize=(12, 8))
-        clf()
-        
-        # 1. Mapa konturowa Chi2 z elipsami i Relevance Vectors
-        subplot2grid((2, 3), (0, 0), colspan=2)
-        cp = contourf(beta_grid, alpha_grid, chi2_plane .- minimum(chi2_plane), levels=20, cmap="viridis")
-        colorbar(cp, label=raw"$\Delta \chi^2$")
-        
-        # Elipsy ufności (dla 2 stopni swobody: 50%, 90%, 95%)
-        # Progi: 1.39, 4.61, 5.99
-        contour(beta_grid, alpha_grid, chi2_plane .- minimum(chi2_plane), levels=[1.39, 4.61, 5.99], 
-                colors=["white", "yellow", "red"], linestyles=["--", "-", "-"])
-        
-        # Relevance Vectors
-        rv_idx = rvm_res.rv_indices
-        scatter(rvm_res.rv_coords[:, 2], rvm_res.rv_coords[:, 1], c="cyan", marker="*", s=100, label="Relevance Vectors", zorder=5)
-        
-        # Punkt najlepszego dopasowania
-        scatter([fit_result.beta], [fit_result.alpha], c="magenta", marker="x", s=100, label="Best Fit")
-        
-        xlabel(raw"Impact parameter $\beta$ ($^\circ$)")
-        ylabel(raw"Magnetic inclination $\alpha$ ($^\circ$)")
-        title(raw"$\chi^2$ Surface & Relevance Vectors")
-        legend(fontsize=8)
+        # Best-fitting RVM (orange) and its 90° orthogonal mode
+        if !isnothing(lon_rvm_l) && !isnothing(pa_rvm_l)
+            plot(lon_rvm_l, pa_rvm_l,       c="darkorange", lw=1.2, zorder=2)
+            plot(lon_rvm_l, pa_rvm_l_ortho, c="darkorange", lw=1.2, zorder=2)
+        end
+        if !isnothing(lon_rvm_h) && !isnothing(pa_rvm_h)
+            plot(lon_rvm_h, pa_rvm_h,       c="darkorange", lw=1.2, ls="--", zorder=2)
+            plot(lon_rvm_h, pa_rvm_h_ortho, c="darkorange", lw=1.2, ls="--", zorder=2)
+        end
 
-        # 2. Histogram reszt i krzywa teoretyczna
-        subplot2grid((2, 3), (0, 2))
-        res = fit_result.residuals
-        n, bins, _ = hist(res, bins=15, density=true, color="gray", alpha=0.7, label="Residuals")
-        
-        # Teoretyczna krzywa Gaussa (dla porwnania z chi2)
-        mu_res, std_res = mean(res), std(res)
-        x_theory = range(minimum(bins), maximum(bins), length=100)
-        plot(x_theory, [1/(std_res * sqrt(2*pi)) * exp(-0.5*((x-mu_res)/std_res)^2) for x in x_theory], 
-             "r-", lw=2, label="Gaussian Fit")
-             
-        title("PA Residuals Distribution")
-        xlabel("Resid. (deg)")
-        legend(fontsize=8)
+        # Inflection point — blue vertical line spanning the axes
+        if !isnothing(phi0_l)
+            axvline(phi0_l, c="tab:blue", lw=1.5, zorder=4)
+        end
+        if !isnothing(phi0_h)
+            axvline(phi0_h, c="tab:blue", lw=1.5, ls="--", zorder=4)
+        end
 
-        # 3. Dopasowanie RVM do danych PA
-        subplot2grid((2, 3), (1, 0), colspan=3)
-        scatter(lon, pa, c="black", s=10, alpha=0.5)
-        
-        # Model curve
-        lon_dense = range(minimum(lon)-5, maximum(lon)+5, length=500)
-        # Wykorzystujemy rvm_ppa z heights.jl przez PyCall lub przeliczenie:
-        # (Uproszczone rysowanie dla Plot.jl)
-        alpha_r, beta_r, phi0_r = deg2rad(fit_result.alpha), deg2rad(fit_result.beta), deg2rad(fit_result.phi0)
-        zeta_r = alpha_r + beta_r
-        phi_dense_r = deg2rad.(lon_dense)
-        pa_model = rad2deg.(atan.(sin(alpha_r) .* sin.(phi_dense_r .- phi0_r),
-                           sin(zeta_r) .* cos(alpha_r) .- cos(zeta_r) .* sin(alpha_r) .* cos.(phi_dense_r .- phi0_r))) .+ fit_result.pa0
-        pa_model = mod.(pa_model .+ 90, 180) .- 90
-        
-        plot(lon_dense, pa_model, "r-", lw=2, label="RVM Model")
-        axvline(fit_result.phi0, color="blue", ls="--", alpha=0.5, label=raw"$\phi_0$")
-        
-        xlabel("Longitude (deg)")
-        ylabel("PA (deg)")
-        legend(fontsize=8)
-        
-        tight_layout()
-        savefig(joinpath(outdir, "$(name_mod)_analysis.pdf"))
-        println("RVM Plot saved to: $(name_mod)_analysis.pdf")
+        ylabel("PA [deg]")
+        tick_params(labelbottom=false)
+        minorticks_on()
+
+        # Bottom: Stokes profiles (normalized to peak I)
+        subplot2grid((3, 1), (1, 0), rowspan=2)
+        plot(lon_l, I_l   ./ maximum(I_l), c="black", lw=0.8)
+        plot(lon_l, Lin_l ./ maximum(I_l), c="red",   lw=0.8)
+        plot(lon_l, V_l   ./ maximum(I_l), c="blue",  lw=0.8)
+        plot(lon_h, I_h   ./ maximum(I_h), c="black", lw=0.8, ls="--")
+        plot(lon_h, Lin_h ./ maximum(I_h), c="red",   lw=0.8, ls="--")
+        plot(lon_h, V_h   ./ maximum(I_h), c="blue",  lw=0.8, ls="--")
+        xlabel("Longitude [deg]")
+        ylabel("Flux Density [norm]")
+        minorticks_on()
+
+        savefig(joinpath(outdir, "position_angle.pdf"), dpi=200)
+        if show_ show() end
     end
+
+
+    # Auto-scale contour levels across the full range of the supplied maps,
+    # snapped to a round 1/2/5·10^n step so labels read as e.g. 1000, 2000, 3000 km.
+    function _snap_step(raw)
+        raw <= 0 && return 0.0
+        pw = 10.0 ^ floor(log10(raw))
+        mant = raw / pw
+        mant < 1.5 && return 1.0 * pw
+        mant < 3.0 && return 2.0 * pw
+        mant < 7.0 && return 5.0 * pw
+        return 10.0 * pw
+    end
+
+    function _auto_height_levels(maps...)
+        finite_h = filter(isfinite, vcat((vec(m) for m in maps)...))
+        isempty(finite_h) && return Float64[]
+        h_lo = minimum(finite_h)
+        h_hi = maximum(finite_h)
+        dh = _snap_step((h_hi - h_lo) / 8)
+        if dh > 0
+            return collect(ceil(h_lo / dh) * dh : dh : floor(h_hi / dh) * dh)
+        else
+            return Float64[]
+        end
+    end
+
+    function geometry(chi2_map_l, chi2_map_h, alphas_deg, betas_deg, outdir;
+                      show_=false, name_mod="PSR_NAME",
+                      delta_chi2_max=nothing,
+                      ndof_l=nothing, ndof_h=nothing,
+                      chi2_red_max=10.0,
+                      height_contours=nothing,
+                      P_sec=nothing, W_deg_l=nothing, W_deg_h=nothing,
+                      cmap="viridis")
+
+        chi2_min_l = minimum(chi2_map_l[isfinite.(chi2_map_l)])
+        chi2_min_h = minimum(chi2_map_h[isfinite.(chi2_map_h)])
+        chi2_max_l = maximum(chi2_map_l[isfinite.(chi2_map_l)])
+        chi2_max_h = maximum(chi2_map_h[isfinite.(chi2_map_h)])
+        println("chi2_min: low=$(round(chi2_min_l, digits=2))  high=$(round(chi2_min_h, digits=2))")
+        println("chi2_max: low=$(round(chi2_max_l, digits=2))  high=$(round(chi2_max_h, digits=2))")
+
+        # Two display modes:
+        #  (a) If ndof_l and ndof_h are given → plot reduced χ² with cutoff
+        #      chi2_red_max (Johnston+ 2023 Fig. 1 convention: "χ² > 10" cutoff).
+        #  (b) Else → plot Δχ² with cutoff delta_chi2_max (default 11.83 = 3σ
+        #      for 2 free parameters).
+        use_chi2_red = !isnothing(ndof_l) && !isnothing(ndof_h)
+        if use_chi2_red
+            dchi2_l = chi2_map_l ./ ndof_l
+            dchi2_h = chi2_map_h ./ ndof_h
+            dmax = chi2_red_max
+            chi2_label = raw"$\chi^2_{\mathrm{red}}$"
+            println("mode=chi2_red  ndof: low=$ndof_l  high=$ndof_h   cutoff=$(round(dmax,digits=2))")
+            println("chi2_red_min: low=$(round(chi2_min_l/ndof_l, digits=3))  high=$(round(chi2_min_h/ndof_h, digits=3))")
+        else
+            dchi2_l = chi2_map_l .- chi2_min_l
+            dchi2_h = chi2_map_h .- chi2_min_h
+            dmax = isnothing(delta_chi2_max) ? 11.83 : delta_chi2_max
+            chi2_label = raw"$\Delta\chi^2$"
+            println("mode=delta_chi2   delta_chi2_max = $(round(dmax, digits=2))")
+        end
+
+        # Emission-height maps h(α,β) assuming a filled beam — one per band.
+        # ρ from Gil, Gronkowski & Rudnicki (1984) / Johnston+ 2023 Eq. (3):
+        #   cos ρ = cos α cos(α+β) + sin α sin(α+β) cos(W10/2)
+        # Emission height (dipolar last-open field line; Johnston+ 2023 Eq. 2):
+        #   h = 2 c P ρ² / (9π)   with ρ in radians
+        function _height_map(W_deg)
+            hmap = fill(NaN, length(alphas_deg), length(betas_deg))
+            (isnothing(P_sec) || isnothing(W_deg)) && return hmap
+            c_km_s = 2.99792458e5
+            cosW2 = cos(deg2rad(W_deg) / 2)
+            for i in eachindex(alphas_deg)
+                a = deg2rad(alphas_deg[i])
+                for j in eachindex(betas_deg)
+                    b = deg2rad(betas_deg[j])
+                    cr = cos(a) * cos(a + b) + sin(a) * sin(a + b) * cosW2
+                    cr = clamp(cr, -1.0, 1.0)
+                    rho = acos(cr)
+                    hmap[i, j] = 2 * c_km_s * P_sec * rho^2 / (9 * pi)
+                end
+            end
+            return hmap
+        end
+
+        if isnothing(P_sec) || (isnothing(W_deg_l) && isnothing(W_deg_h))
+            @warn "Plot.geometry: P_sec and/or W10 not provided — height contours will not be drawn."
+        end
+        height_map_l = _height_map(W_deg_l)
+        height_map_h = _height_map(W_deg_h)
+
+        height_contours = isnothing(height_contours) ?
+            _auto_height_levels(height_map_l, height_map_h) : height_contours
+        println("height_contours [km] = $(round.(height_contours, digits=1))")
+
+        # Mask cells outside the acceptable region (shown as white)
+        dchi2_l_plot = Float64.(dchi2_l); dchi2_l_plot[dchi2_l .> dmax] .= NaN
+        dchi2_h_plot = Float64.(dchi2_h); dchi2_h_plot[dchi2_h .> dmax] .= NaN
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        fig = figure(figsize=(7.0, 4.2))
+        subplots_adjust(left=0.09, bottom=0.11, right=0.98, top=0.78, wspace=0.32)
+
+        # chi2_map is [alpha_idx, beta_idx]; imshow wants [row=beta, col=alpha] → transpose
+        extent = [alphas_deg[1], alphas_deg[end], betas_deg[1], betas_deg[end]]
+
+        # --- Panel 1: low frequency ---
+        ax1 = subplot(1, 2, 1)
+        im1 = imshow(dchi2_l_plot',
+                     origin="lower", extent=extent, aspect="auto",
+                     cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
+        ax1.clabel(ax1.contour(alphas_deg, betas_deg, height_map_l',
+                               levels=height_contours, colors="purple", linewidths=0.7),
+                   fmt="%g", fontsize=6)
+        ax1.set_xlabel("alpha [deg]")
+        ax1.set_ylabel("beta [deg]")
+        ax1.set_title("low frequency", pad=3)
+        ax1.minorticks_on()
+
+        # --- Panel 2: high frequency ---
+        ax2 = subplot(1, 2, 2)
+        imshow(dchi2_h_plot',
+               origin="lower", extent=extent, aspect="auto",
+               cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
+        ax2.clabel(ax2.contour(alphas_deg, betas_deg, height_map_h',
+                               levels=height_contours, colors="purple", linewidths=0.7),
+                   fmt="%g", fontsize=6)
+        ax2.set_xlabel("alpha [deg]")
+        ax2.set_ylabel("beta [deg]")
+        ax2.set_title("high frequency", pad=3)
+        ax2.minorticks_on()
+
+        # Shared horizontal colorbar at the top
+        cbar_ax = fig.add_axes([0.09, 0.86, 0.89, 0.05])
+        cbar = fig.colorbar(im1, cax=cbar_ax, orientation="horizontal")
+        cbar.set_label(chi2_label, labelpad=2)
+        cbar_ax.xaxis.set_label_position("top")
+        cbar_ax.xaxis.set_ticks_position("top")
+
+        savepath = joinpath(outdir, "$(name_mod)_geometry.pdf")
+        println(savepath)
+        savefig(savepath)
+        savefig(replace(savepath, "pdf" => "png"))
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
 
 end  # module Plot
