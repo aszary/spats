@@ -129,7 +129,12 @@ module SpaTs
             infile = first(spcf)
 
             outdir = joinpath(rvm_outdir, name * "_rvm") * "/"
-            mkpath(outdir)
+            try
+                mkpath(outdir)
+            catch e
+                @warn "[$name] cannot create output dir $outdir: $e, skipping"
+                continue
+            end
 
             println("\n=== RVM: $name (bin $(bin_st)-$(bin_end)) ===")
             try
@@ -143,7 +148,7 @@ module SpaTs
     function main()
         outdirs  = ["/home/psr/data/OUTPUT/czarek/", "/home/psr/data/OUTPUT/andrzej/"]
         data_dir = "/home/psr/data/new/"
-        rvm_out  = "/home/psr/rvm_output/"
+        rvm_out  = "/home/psr/output/"
 
         run_all_rvm(outdirs, data_dir, rvm_out)
 
