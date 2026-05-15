@@ -10,10 +10,11 @@ module Data
     using LinearAlgebra
 
     # Use relative imports instead of re-including files
-    import ..Functions
-    import ..Tools
-    import ..Plot
-    import ..RVM
+    include("data.jl")
+    include("plot.jl")
+    include("tools.jl")
+    include("heights.jl")
+
 
     """
     Zero selected pulses

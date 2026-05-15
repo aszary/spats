@@ -6,9 +6,11 @@ module RVM
     using CairoMakie, FileIO # For geometry_analysis chi2 maps
 
     # Use parent scope references to avoid redundant inclusions and recursion
-    import ..Data
-    import ..Plot
-    import ..Tools
+
+    include("data.jl")
+    include("plot.jl")
+    include("tools.jl")
+    include("heights.jl")
 
     # Helper function for extracting profile and PA (moved from Data.jl)
     function _extract_profile_and_pa(data, bin_st, bin_end, pulses_count)
