@@ -7,9 +7,9 @@ module Heights
     #using .RVM # Access RVM module
 
     include("GaussianFit.jl") # GaussianFit.jl is still needed for Heights.jl
-    import ..Plot
-    import ..Tools
-    import ..RVM
+    include("tools.jl") # For any utility functions needed in height calculations
+    include("RVM.jl") # To access geometry_analysis and related functions for position angle analysis
+    
 
 
     # Define physical constants

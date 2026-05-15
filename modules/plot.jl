@@ -26,6 +26,7 @@ module Plot
     #include("pyrmodule.jl")
     include("functions.jl")
     include("GaussianFit.jl")
+    
 
 
     function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)

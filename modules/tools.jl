@@ -865,8 +865,8 @@ module Tools
         template_prof = average_profile(singlepulses)
 
         #p0 = [0.5, 510.0, 15, 1.0, 560.0, 15, 0.]
-        #xdata = collect(1:length(template))
-        #pa, errs = Tools.fit_twogaussians(xdata, template, p0[1], p0[2], p0[3], p0[4], p0[5], p0[6])
+        #xdata = collect(1:length(template_prof))
+        #pa, errs = Tools.fit_twogaussians(xdata, template_prof, p0[1], p0[2], p0[3], p0[4], p0[5], p0[6])
         #ga = twogauss(xdata, p0)
 
         #p0 = [a1, μ1, σ1, a2, μ2, σ2, a3, μ3, σ3, baselevel]  # look here
@@ -894,7 +894,6 @@ module Tools
 
         template = twogauss(xdata, [1.0, p[2], 17, 1.0, p[5], 17, 0])
         =#
-        return template, singlepulses
         return template_prof, singlepulses
     end
 

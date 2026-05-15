@@ -9,11 +9,11 @@ module Data
     using DelimitedFiles
     using LinearAlgebra
 
-    # Utility scripts not defined as modules can remain as includes
-    include("functions.jl") 
-
-    include("tools.jl")
-    include("plot.jl")
+    # Use relative imports instead of re-including files
+    import ..Functions
+    import ..Tools
+    import ..Plot
+    import ..RVM
 
     """
     Zero selected pulses
