@@ -877,13 +877,14 @@ module Plot
             return I, L, V
         end
 
-        # Helper: chi²_red display (divide by ndof, clip above chi2_red_max → NaN)
-        # Matches master convention: absolute chi2_red, cutoff at 10.
-        function _chi2_disp(cm, ndof, chi2_red_max=10.0)
+        # Helper: Δχ² display (subtract minimum, clip above dmax → NaN)
+        # chi2_map stores raw χ², so Δχ² contours [2.30, 6.17] are correct (1σ/2σ, 2 params).
+        function _chi2_disp(cm, dmax)
             fin = filter(isfinite, vec(cm))
             isempty(fin) && return fill(NaN, size(cm)...)
-            red = map(v -> isnan(v) ? NaN : v / ndof, cm)
-            return map(v -> isnan(v) ? NaN : (v > chi2_red_max ? NaN : v), red)
+            cmin  = minimum(fin)
+            delta = map(v -> isnan(v) ? NaN : max(v - cmin, 0.0), cm)
+            return map(v -> isnan(v) ? NaN : (v > dmax ? NaN : v), delta)
         end
 
         # --- Fit per frequency band -------------------------------------------
@@ -952,11 +953,11 @@ module Plot
         # ---- χ²_red display (master convention) ---------------------------------
         # chi2_map stores raw χ²; divide by ndof → χ²_red, clip at 10.
         # After two-pass fitting χ²_red_min ≈ 1; the region χ²_red > 10 is masked white.
-        chi2_red_max = 10.0
-        println("[rvm] χ²_red display  cutoff=$(chi2_red_max)")
+        dmax = 11.83
+        println("[rvm] Δχ² dmax=$(dmax)")
 
-        disp_l = _chi2_disp(cm_l, ndof_l, chi2_red_max)
-        disp_h = isnothing(cm_h) ? nothing : _chi2_disp(cm_h, ndof_h, chi2_red_max)
+        disp_l = _chi2_disp(cm_l, dmax)
+        disp_h = isnothing(cm_h) ? nothing : _chi2_disp(cm_h, dmax)
 
         # ---- figure layout ---------------------------------------------------
         rc("font", family="sans-serif", size=9.)
@@ -1003,23 +1004,21 @@ module Plot
                            fmt="s", ms=3.0, color="tab:orange", alpha=0.85,
                            elinewidth=0.6, capsize=1.2, zorder=3, label="high freq")
         end
-        # RVM curves (main + ortho OPM branch, both in darkorange like master)
+        # RVM curves: low in tab:blue (solid), high in tab:orange (dashed)
         if !isnothing(crv_l)
-            ax_pa.plot(lon_on, crv_l,       color="darkorange", lw=1.2, zorder=4,
+            ax_pa.plot(lon_on, crv_l, color="tab:blue", lw=1.2, zorder=4,
                        label=n_freq==2 ? "RVM low" : "RVM")
-            ax_pa.plot(lon_on, crv_l_ortho, color="darkorange", lw=1.2, zorder=4)
         end
         if !isnothing(crv_h)
-            ax_pa.plot(lon_on, crv_h,       color="darkorange", lw=1.2, ls="--", zorder=4,
+            ax_pa.plot(lon_on, crv_h, color="tab:orange", lw=1.2, ls="--", zorder=4,
                        label="RVM high")
-            ax_pa.plot(lon_on, crv_h_ortho, color="darkorange", lw=1.2, ls="--", zorder=4)
         end
-        # φ₀ vertical lines: solid tab:blue for low, dashed tab:blue for high (master)
+        # φ₀ vertical lines: solid tab:blue for low, dashed tab:orange for high
         if !isnothing(res_l)
-            ax_pa.axvline(res_l.phi0, color="tab:blue", lw=1.5, zorder=5)
+            ax_pa.axvline(res_l.phi0, color="tab:blue", lw=1.0, zorder=5)
         end
         if !isnothing(res_h)
-            ax_pa.axvline(res_h.phi0, color="tab:blue", lw=1.5, ls="--", zorder=5)
+            ax_pa.axvline(res_h.phi0, color="tab:orange", lw=1.0, ls="--", zorder=5)
         end
 
         # Annotation box
@@ -1065,13 +1064,13 @@ module Plot
             ax_st.plot(lon_full, V_high ./ I_high_max, color="blue",  lw=0.8, ls="--", zorder=2)
         end
         ax_st.axhline(0.0, color="grey", lw=0.5, ls=":", zorder=1)
-        # φ₀ lines: solid tab:blue for low, dashed tab:blue for high (master convention)
+        # φ₀ lines: solid tab:blue for low, dashed tab:orange for high
         if !isnothing(res_l)
-            ax_st.axvline(res_l.phi0, color="tab:blue", lw=1.5,
+            ax_st.axvline(res_l.phi0, color="tab:blue", lw=1.0,
                           label=@sprintf("φ₀=%.1f°", res_l.phi0))
         end
         if !isnothing(res_h)
-            ax_st.axvline(res_h.phi0, color="tab:blue", lw=1.5, ls="--",
+            ax_st.axvline(res_h.phi0, color="tab:orange", lw=1.0, ls="--",
                           label=@sprintf("φ₀ₕ=%.1f°", res_h.phi0))
         end
         ax_st.axvline(phi_c, color="#888888", lw=0.8, ls=":", alpha=0.65,
@@ -1095,8 +1094,14 @@ module Plot
         # ---- chi² map helper -------------------------------------------------
         function _draw_map(ax, disp, al, be, ext, hc, res, title_str)
             im = ax.imshow(disp', origin="lower", aspect="auto", extent=ext,
-                           cmap="viridis", vmin=0.0, vmax=chi2_red_max,
+                           cmap="viridis", vmin=0.0, vmax=dmax,
                            interpolation="nearest")
+            # Δχ² confidence contours: 1σ (2.30) and 2σ (6.17) for 2 parameters
+            try
+                ax.contour(al, be, disp', levels=[2.30, 6.17],
+                           colors=["cyan", "royalblue"],
+                           linewidths=[1.0, 0.8], linestyles=["solid", "dashed"])
+            catch; end
             # Best-fit star marker
             if !isnothing(res)
                 ax.plot([res.alpha], [res.zeta - res.alpha],
@@ -1131,7 +1136,7 @@ module Plot
         end
 
         cb = fig.colorbar(im_ref, cax=ax_cb, orientation="horizontal")
-        cb.set_label(raw"$\chi^2_{\mathrm{red}}$", labelpad=2, fontsize=8)
+        cb.set_label(raw"$\Delta\chi^2$", labelpad=2, fontsize=8)
         ax_cb.xaxis.set_label_position("top")
         ax_cb.xaxis.set_ticks_position("top")
 

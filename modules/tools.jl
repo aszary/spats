@@ -2584,7 +2584,7 @@ module Tools
         a  = deg2rad(alpha)
         z  = deg2rad(zeta)
         dp = deg2rad.(phi .- phi0)
-        num = .-sin(a) .* sin.(dp)
+        num = sin(a) .* sin.(dp)
         den = sin(z) .* cos(a) .- cos(z) .* sin(a) .* cos.(dp)
         return PA0 .+ rad2deg.(atan.(num, den))
     end
