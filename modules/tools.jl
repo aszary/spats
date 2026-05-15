@@ -2221,7 +2221,7 @@ module Tools
             push!(loc_2, idx2)
             =#
 
-            if snr <= 0.3 # Removing all points with SNR above 0.3
+
 
                 pks = findmaxima(re)
                 pks = peakproms(pks)

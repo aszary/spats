@@ -8,7 +8,6 @@ module RVM
     include("data.jl")
     include("plot.jl")
     include("tools.jl")
-    include("RVM.jl") # Include the new RVM module
     include("heights.jl")
 
     # Helper function for extracting profile and PA (moved from Data.jl)
@@ -19,11 +18,12 @@ module RVM
         V_prof = vec(mean(data[:, bin_st:bin_end, 4], dims=1))
         L_prof = sqrt.(Q_prof.^2 .+ U_prof.^2)
 
+        L_max = maximum(L_prof) # Used for SNR thresholding
         off_pulse_noise = std(data[:, 1:max(1, bin_st-1), 1])
         sigma_avg = off_pulse_noise / sqrt(pulses_count)
 
-        pa_prof = [L_prof[i] > 5.0*sigma_avg ? 0.5 * atan(U_prof[i], Q_prof[i]) * (180.0/pi) : NaN for i in 1:length(L_prof)]
-        pa_err_prof = [L_prof[i] > 5.0*sigma_avg ? 0.5 * sigma_avg / L_prof[i] * (180.0/pi) : NaN for i in 1:length(L_prof)]
+        pa_prof = [(L_prof[i] > 5.0*sigma_avg && L_prof[i] >= 0.3 * L_max) ? 0.5 * atan(U_prof[i], Q_prof[i]) * (180.0/pi) : NaN for i in 1:length(L_prof)]
+        pa_err_prof = [(L_prof[i] > 5.0*sigma_avg && L_prof[i] >= 0.3 * L_max) ? 0.5 * sigma_avg / L_prof[i] * (180.0/pi) : NaN for i in 1:length(L_prof)]
 
         lon_prof = collect(range(-180, 180, length=length(I_prof)))
 
@@ -313,6 +313,8 @@ module RVM
     but sends them to a single plot for comparison.
     """
     function geometry_analysis(indir; chi2_red_max=10.0)
+        # --- Stage 1: Initialization and Parameter Loading ---
+        println("Starting RVM geometry analysis for directory: $indir")
         p = Tools.read_params(joinpath(indir, "params.json"))
 
         # Load both frequency sets (assuming they are already converted to .txt by process_psrdata_16)
@@ -323,29 +325,40 @@ module RVM
         pulses_l, bins_l = size(l, 1), size(l, 2)
         pulses_h, bins_h = size(h, 1), size(h, 2)
 
-        # --- LOW FREQUENCY ANALYSIS BLOCK ---
-        I_l, L_l, V_l, pa_l_raw, pa_err_l_raw, lon_l = _extract_profile_and_pa(l, bin_st, bin_end, pulses_l)
-        pa_l = deopm_pa(pa_l_raw)
+        println("Parameters loaded. bin_st: $(bin_st), bin_end: $(bin_end)")
+        println("Low frequency data size: $(pulses_l) pulses, $(bins_l) bins")
+        println("High frequency data size: $(pulses_h) pulses, $(bins_h) bins")
 
+        # --- LOW FREQUENCY ANALYSIS BLOCK ---
+        println("\n--- Stage 2: Analyzing Low Frequency Data ---")
+        println("Extracting profile and PA for low frequency data...")
+        I_l, L_l, V_l, pa_l_raw, pa_err_l_raw, lon_l = _extract_profile_and_pa(l, bin_st, bin_end, pulses_l)
+        println("De-OPMing low frequency PA track...")
+        pa_l = deopm_pa(pa_l_raw)
+        println("Performing two-pass RVM fit for low frequency data...")
         res_l_pre = fit_rvm(lon_l, pa_l, pa_err_l_raw)
         scale_l = isnothing(res_l_pre) ? 1.0 : max(1.0, sqrt(res_l_pre.chi2 / (length(res_l_pre.residuals) - 4))) # Calculate reduced chi2
         res_l = fit_rvm(lon_l, pa_l, pa_err_l_raw .* scale_l)
+        println("Calculating chi2 plane for low frequency data...")
         alphas_l, betas_l, chi2_l = _rvm_chi2_plane(lon_l, pa_l, pa_err_l_raw .* scale_l)
+        println("Low frequency analysis complete.")
 
         # RVM Relevance Vector Machine
         rvm_res_l = calculate_rvm(hcat(lon_l, pa_l), pa_l; kernel_gamma=0.05)
 
         # --- HIGH FREQUENCY ANALYSIS BLOCK ---
+        println("\n--- Stage 3: Analyzing High Frequency Data ---")
+        println("Extracting profile and PA for high frequency data...")
         I_h, L_h, V_h, pa_h_raw, pa_err_h_raw, lon_h = _extract_profile_and_pa(h, bin_st, bin_end, pulses_h)
+        println("De-OPMing high frequency PA track...")
         pa_h = deopm_pa(pa_h_raw)
-
+        println("Performing two-pass RVM fit for high frequency data...")
         res_h_pre = fit_rvm(lon_h, pa_h, pa_err_h_raw)
         scale_h = isnothing(res_h_pre) ? 1.0 : max(1.0, sqrt(res_h_pre.chi2 / (length(res_h_pre.residuals) - 4))) # Calculate reduced chi2
         res_h = fit_rvm(lon_h, pa_h, pa_err_h_raw .* scale_h)
+        println("Calculating chi2 plane for high frequency data...")
         alphas_h, betas_h, chi2_h = _rvm_chi2_plane(lon_h, pa_h, pa_err_h_raw .* scale_h)
-
-        # RVM Relevance Vector Machine
-        rvm_res_h = calculate_rvm(hcat(lon_h, pa_h), pa_h; kernel_gamma=0.05)
+        println("High frequency analysis complete.")
 
         # Plotting
         Plot.geometry(chi2_l, chi2_h, alphas_l, betas_l, indir;
