@@ -862,7 +862,7 @@ module Tools
             end
         end
         println("sigma = $sigma_max dbins = $dbin_best")
-        template = average_profile(singlepulses)
+        template_prof = average_profile(singlepulses)
 
         #p0 = [0.5, 510.0, 15, 1.0, 560.0, 15, 0.]
         #xdata = collect(1:length(template))
@@ -895,6 +895,7 @@ module Tools
         template = twogauss(xdata, [1.0, p[2], 17, 1.0, p[5], 17, 0])
         =#
         return template, singlepulses
+        return template_prof, singlepulses
     end
 
 

@@ -6,12 +6,10 @@ module Heights
     using CairoMakie, FileIO # For plotting in geometry_analysis
     #using .RVM # Access RVM module
 
-    include("functions.jl")
-    include("tools.jl")
-    include("plot.jl")
     include("GaussianFit.jl") # GaussianFit.jl is still needed for Heights.jl
-    include("RVM.jl")
-    include("data.jl")
+    import ..Plot
+    import ..Tools
+    import ..RVM
 
 
     # Define physical constants
