@@ -949,12 +949,11 @@ module Plot
                _hcont(Tools.profile_width_deg(lon_full, I_high), al_h, be_h) : nothing
 
         # ---- shared Δχ² display scale ----------------------------------------
-        all_c2 = filter(isfinite, vcat(
-            vec(cm_l),
-            isnothing(cm_h) ? Float64[] : vec(cm_h)))
-        c2_range = isempty(all_c2) ? 1.0 : maximum(all_c2) - minimum(all_c2)
-        dmax = max(_snap_step(0.02 * c2_range), 1.0)
-        println("[rvm] shared Δχ² dmax=$(round(dmax,digits=2))")
+        # Store raw χ² in chi2_map (not divided by dof), so Δχ² contour levels
+        # [2.30, 6.17] correspond to 1σ and 2σ for 2 free parameters (master convention).
+        # dmax = 11.83 clips the map at the 3σ boundary.
+        dmax = 11.83
+        println("[rvm] shared Δχ² dmax=$(dmax)  (3σ for 2 params)")
 
         disp_l = _chi2_disp(cm_l, dmax)
         disp_h = isnothing(cm_h) ? nothing : _chi2_disp(cm_h, dmax)
@@ -1142,7 +1141,7 @@ module Plot
         end
 
         cb = fig.colorbar(im_ref, cax=ax_cb, orientation="horizontal")
-        cb.set_label(raw"$\Delta\chi^2_\mathrm{r}$", labelpad=2, fontsize=8)
+        cb.set_label(raw"$\Delta\chi^2$", labelpad=2, fontsize=8)
         ax_cb.xaxis.set_label_position("top")
         ax_cb.xaxis.set_ticks_position("top")
 

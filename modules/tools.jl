@@ -2545,7 +2545,7 @@ module Tools
                               sum(w_fit .* sin.(2.0 .* deg2rad.(d))) / sw,
                               sum(w_fit .* cos.(2.0 .* deg2rad.(d))) / sw))
                     res = mod.(pa_fit .- PA0 .- f .+ 90.0, 180.0) .- 90.0
-                    c2  = sum(w_fit .* res.^2) / dof
+                    c2  = sum(w_fit .* res.^2)
                     if c2 < c2b
                         c2b        = c2
                         phi0_best_l = phi0
