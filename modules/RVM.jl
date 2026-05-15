@@ -342,7 +342,7 @@ module RVM
         res_h_pre = fit_rvm(lon_h, pa_h, pa_err_h_raw)
         scale_h = isnothing(res_h_pre) ? 1.0 : max(1.0, sqrt(res_h_pre.chi2 / (length(res_h_pre.residuals) - 4))) # Calculate reduced chi2
         res_h = fit_rvm(lon_h, pa_h, pa_err_h_raw .* scale_h)
-        alphas_h, betas_h, chi2_h = _rvm_chi2_plane(lon_h, pa_h, pa_err_h_raw .* scale_l) # Note: should be scale_h here, fixed in diff
+        alphas_h, betas_h, chi2_h = _rvm_chi2_plane(lon_h, pa_h, pa_err_h_raw .* scale_h)
 
         # RVM Relevance Vector Machine
         rvm_res_h = calculate_rvm(hcat(lon_h, pa_h), pa_h; kernel_gamma=0.05)
@@ -436,7 +436,5 @@ module RVM
         PyPlot.savefig(joinpath(outdir, "$(name_mod)_analysis.pdf"))
         println("RVM Plot saved to: $(name_mod)_analysis.pdf")
     end
-
-    export rvm_ppa, deopm_pa, fit_rvm, rvm_curve, _rvm_chi2_plane, calculate_rvm, calculate_pa_stats, geometry_analysis, plot_rvm_results
 
 end # module
