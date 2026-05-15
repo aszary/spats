@@ -851,8 +851,7 @@ module Tools
                     end
                 end
             end
-            on = maximum(te[on_st:on_end])
-            off = rms(te[off_st:off_end])
+            off = rms(te[:, off_st:off_end]) # Fixed: indexing the phase bin dimension
             sigma = on / off
             println("$dbin $sigma")
             if sigma > sigma_max
