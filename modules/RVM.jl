@@ -9,10 +9,6 @@ module RVM
     include("plot.jl")
     include("tools.jl")
     include("heights.jl")
-    # Access sibling modules via parent scope
-    import ..Data
-    import ..Plot
-    import ..Tools
 
     # Helper function for extracting profile and PA (moved from Data.jl)
     function _extract_profile_and_pa(data, bin_st, bin_end, pulses_count)
