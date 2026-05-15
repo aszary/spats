@@ -2502,9 +2502,9 @@ module Tools
     Returns alpha/beta vectors and chi2_map[ia, ib] matrix.
     """
     function chi2_grid(longitude, pa_avg, pa_err, mask_bins;
-                       alpha_range=(5.0, 175.0), alpha_n=85,
-                       beta_range=(-20.0, 20.0), beta_n=40,
-                       phi0_n=150)
+                       alpha_range=(5.0, 175.0), alpha_n=171,
+                       beta_range=(-20.0, 20.0), beta_n=161,
+                       phi0_n=200)
         lon_fit = longitude[mask_bins]
         pa_fit  = pa_avg[mask_bins]
         w_fit   = 1.0 ./ pa_err[mask_bins].^2
@@ -2514,7 +2514,7 @@ module Tools
         betas    = collect(range(beta_range[1],  beta_range[2],  length=beta_n))
         chi2_map = fill(NaN, alpha_n, beta_n)
 
-        isempty(lon_fit) && return alphas, betas, chi2_map, [0.0, 30.0, 35.0, 0.0]
+        isempty(lon_fit) && return alphas, betas, chi2_map, [0.0, 30.0, 35.0, 0.0], dof
 
         # Extend phi0 search to 50% of on-pulse width beyond the data range
         lon_half = 0.5 * (maximum(lon_fit) - minimum(lon_fit))
@@ -2560,7 +2560,7 @@ module Tools
             end
         end
 
-        return alphas, betas, chi2_map, best_p
+        return alphas, betas, chi2_map, best_p, dof
     end
 
 
@@ -2584,7 +2584,7 @@ module Tools
         a  = deg2rad(alpha)
         z  = deg2rad(zeta)
         dp = deg2rad.(phi .- phi0)
-        num = sin(a) .* sin.(dp)
+        num = .-sin(a) .* sin.(dp)
         den = sin(z) .* cos(a) .- cos(z) .* sin(a) .* cos.(dp)
         return PA0 .+ rad2deg.(atan.(num, den))
     end

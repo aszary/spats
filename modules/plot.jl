@@ -842,28 +842,30 @@ module Plot
                                                         snr_threshold=snr_threshold)
             if sum(mask) < 5
                 @warn "[rvm] $label: only $(sum(mask)) valid PA bins — skipping"
-                return nothing, nothing, nothing, nothing, lon_f, pa, pa_err, mask
+                return nothing, nothing, nothing, nothing, 1, lon_f, pa, pa_err, mask
             end
             # pass 1
-            al, be, _, p0 = Tools.chi2_grid(lon_f, pa, pa_err, mask)
+            al, be, _, p0, _ = Tools.chi2_grid(lon_f, pa, pa_err, mask)
             res1 = Tools.fit_rvm(lon_f, pa, pa_err, mask; p0=p0)
             scale = max(1.0, sqrt(res1.chi2_red))
             println("  χ²ᵣ(pass-1)=$(round(res1.chi2_red,digits=2))  σ×$(round(scale,digits=2))")
             pa_err2 = [mask[i] ? pa_err[i]*scale : pa_err[i] for i in eachindex(pa_err)]
             # pass 2
-            al2, be2, chi2_map, p1 = Tools.chi2_grid(lon_f, pa, pa_err2, mask)
+            al2, be2, chi2_map, p1, ndof = Tools.chi2_grid(lon_f, pa, pa_err2, mask)
             result  = Tools.fit_rvm(lon_f, pa, pa_err2, mask; p0=p1)
-            return result, al2, be2, chi2_map, lon_f, pa, pa_err2, mask
+            return result, al2, be2, chi2_map, ndof, lon_f, pa, pa_err2, mask
         end
 
-        # Helper: NaN-safe RVM curve over lon_on
+        # Helper: NaN-safe RVM curve + ortho (+90°) over lon_on
         function _rvm_curve(res)
             pa = Tools.rvm_model(lon_on, [res.PA0, res.alpha, res.zeta, res.phi0])
             pa = mod.(pa .+ 90.0, 180.0) .- 90.0
+            pa_ortho = mod.(pa .+ 90.0, 180.0) .- 90.0
             for i in Iterators.drop(eachindex(pa), 1)
                 abs(pa[i] - pa[i-1]) > 90.0 && (pa[i-1] = NaN)
+                abs(pa_ortho[i] - pa_ortho[i-1]) > 90.0 && (pa_ortho[i-1] = NaN)
             end
-            return pa
+            return pa, pa_ortho
         end
 
         # Helper: averaged Stokes I / L / V over all bins
@@ -875,13 +877,13 @@ module Plot
             return I, L, V
         end
 
-        # Helper: chi² display (subtract min, clip above dmax → NaN)
-        function _chi2_disp(cm, dmax)
+        # Helper: chi²_red display (divide by ndof, clip above chi2_red_max → NaN)
+        # Matches master convention: absolute chi2_red, cutoff at 10.
+        function _chi2_disp(cm, ndof, chi2_red_max=10.0)
             fin = filter(isfinite, vec(cm))
             isempty(fin) && return fill(NaN, size(cm)...)
-            cmin  = minimum(fin)
-            delta = map(v -> isnan(v) ? NaN : max(v - cmin, 0.0), cm)
-            return map(v -> isnan(v) ? NaN : (v > dmax ? NaN : v), delta)
+            red = map(v -> isnan(v) ? NaN : v / ndof, cm)
+            return map(v -> isnan(v) ? NaN : (v > chi2_red_max ? NaN : v), red)
         end
 
         # --- Fit per frequency band -------------------------------------------
@@ -891,12 +893,11 @@ module Plot
             data_low  = data4[1:n_each, :, :]
             data_high = data4[n_each+1:end, :, :]
 
-            res_l, al_l, be_l, cm_l, lon_l, pa_l, pe_l, mk_l = _fit_band(data_low,  "low")
-            res_h, al_h, be_h, cm_h, lon_h, pa_h, pe_h, mk_h = _fit_band(data_high, "high")
+            res_l, al_l, be_l, cm_l, ndof_l, lon_l, pa_l, pe_l, mk_l = _fit_band(data_low,  "low")
+            res_h, al_h, be_h, cm_h, ndof_h, lon_h, pa_h, pe_h, mk_h = _fit_band(data_high, "high")
 
             I_low,  L_low,  V_low  = _stokes(data_low)
             I_high, L_high, V_high = _stokes(data_high)
-            I_max = max(maximum(abs.(I_low)), maximum(abs.(I_high)))
             I_ref = I_low
 
             # Primary result for h_blask, W10 (prefer low-freq; fall back to high)
@@ -905,25 +906,25 @@ module Plot
             betas  = isnothing(be_l)  ? be_h  : be_l
             cm_primary = isnothing(cm_l) ? cm_h : cm_l
 
-            crv_l = isnothing(res_l) ? nothing : _rvm_curve(res_l)
-            crv_h = isnothing(res_h) ? nothing : _rvm_curve(res_h)
+            crv_l, crv_l_ortho = isnothing(res_l) ? (nothing, nothing) : _rvm_curve(res_l)
+            crv_h, crv_h_ortho = isnothing(res_h) ? (nothing, nothing) : _rvm_curve(res_h)
         else
             println("[rvm] Single-frequency mode")
-            result, alphas, betas, cm_primary, lon_l, pa_l, pe_l, mk_l =
+            result, alphas, betas, cm_primary, ndof_l, lon_l, pa_l, pe_l, mk_l =
                 _fit_band(data4, "1freq")
+            ndof_h = ndof_l
 
             I_low,  L_low,  V_low  = _stokes(data4)
             I_high = L_high = V_high = nothing
-            I_max  = maximum(abs.(I_low))
-            I_ref  = I_low
+            I_ref = I_low
 
             cm_l = cm_primary; cm_h = nothing
             al_l = alphas;     be_l = betas
             al_h = be_h = nothing
             lon_h = pa_h = pe_h = mk_h = nothing
             res_l = result;    res_h = nothing
-            crv_l = isnothing(result) ? nothing : _rvm_curve(result)
-            crv_h = nothing
+            crv_l, crv_l_ortho = isnothing(result) ? (nothing, nothing) : _rvm_curve(result)
+            crv_h = crv_h_ortho = nothing
         end
 
         if isnothing(result)
@@ -948,15 +949,14 @@ module Plot
         hc_h = (n_freq == 2 && !isnothing(I_high)) ?
                _hcont(Tools.profile_width_deg(lon_full, I_high), al_h, be_h) : nothing
 
-        # ---- shared Δχ² display scale ----------------------------------------
-        # Store raw χ² in chi2_map (not divided by dof), so Δχ² contour levels
-        # [2.30, 6.17] correspond to 1σ and 2σ for 2 free parameters (master convention).
-        # dmax = 11.83 clips the map at the 3σ boundary.
-        dmax = 11.83
-        println("[rvm] shared Δχ² dmax=$(dmax)  (3σ for 2 params)")
+        # ---- χ²_red display (master convention) ---------------------------------
+        # chi2_map stores raw χ²; divide by ndof → χ²_red, clip at 10.
+        # After two-pass fitting χ²_red_min ≈ 1; the region χ²_red > 10 is masked white.
+        chi2_red_max = 10.0
+        println("[rvm] χ²_red display  cutoff=$(chi2_red_max)")
 
-        disp_l = _chi2_disp(cm_l, dmax)
-        disp_h = isnothing(cm_h) ? nothing : _chi2_disp(cm_h, dmax)
+        disp_l = _chi2_disp(cm_l, ndof_l, chi2_red_max)
+        disp_h = isnothing(cm_h) ? nothing : _chi2_disp(cm_h, ndof_h, chi2_red_max)
 
         # ---- figure layout ---------------------------------------------------
         rc("font", family="sans-serif", size=9.)
@@ -1003,35 +1003,37 @@ module Plot
                            fmt="s", ms=3.0, color="tab:orange", alpha=0.85,
                            elinewidth=0.6, capsize=1.2, zorder=3, label="high freq")
         end
-        # RVM curves
+        # RVM curves (main + ortho OPM branch, both in darkorange like master)
         if !isnothing(crv_l)
-            ax_pa.plot(lon_on, crv_l, color="tab:blue",
-                       lw=2.0, zorder=4, label=n_freq==2 ? "RVM low" : "RVM")
+            ax_pa.plot(lon_on, crv_l,       color="darkorange", lw=1.2, zorder=4,
+                       label=n_freq==2 ? "RVM low" : "RVM")
+            ax_pa.plot(lon_on, crv_l_ortho, color="darkorange", lw=1.2, zorder=4)
         end
         if !isnothing(crv_h)
-            ax_pa.plot(lon_on, crv_h, color="tab:orange",
-                       lw=1.8, ls="--", zorder=4, label="RVM high")
+            ax_pa.plot(lon_on, crv_h,       color="darkorange", lw=1.2, ls="--", zorder=4,
+                       label="RVM high")
+            ax_pa.plot(lon_on, crv_h_ortho, color="darkorange", lw=1.2, ls="--", zorder=4)
         end
-        # φ₀ vertical lines
+        # φ₀ vertical lines: solid tab:blue for low, dashed tab:blue for high (master)
         if !isnothing(res_l)
-            ax_pa.axvline(res_l.phi0, color="tab:blue",   lw=1.0, ls="--", alpha=0.80)
+            ax_pa.axvline(res_l.phi0, color="tab:blue", lw=1.5, zorder=5)
         end
         if !isnothing(res_h)
-            ax_pa.axvline(res_h.phi0, color="tab:orange", lw=1.0, ls=":",  alpha=0.80)
+            ax_pa.axvline(res_h.phi0, color="tab:blue", lw=1.5, ls="--", zorder=5)
         end
 
         # Annotation box
         if n_freq == 2
             txt_l = isnothing(res_l) ? "LOW:  —" :
-                @sprintf("LOW:  α=%.1f° ζ=%.1f° φ₀=%.1f° χ²ᵣ=%.2f",
-                         res_l.alpha, res_l.zeta, res_l.phi0, res_l.chi2_red)
+                @sprintf("LOW:  α=%.1f° β=%.1f° φ₀=%.1f° χ²ᵣ=%.2f",
+                         res_l.alpha, res_l.zeta-res_l.alpha, res_l.phi0, res_l.chi2_red)
             txt_h = isnothing(res_h) ? "HIGH: —" :
-                @sprintf("HIGH: α=%.1f° ζ=%.1f° φ₀=%.1f° χ²ᵣ=%.2f",
-                         res_h.alpha, res_h.zeta, res_h.phi0, res_h.chi2_red)
+                @sprintf("HIGH: α=%.1f° β=%.1f° φ₀=%.1f° χ²ᵣ=%.2f",
+                         res_h.alpha, res_h.zeta-res_h.alpha, res_h.phi0, res_h.chi2_red)
             txt_str = txt_l * "\n" * txt_h
         else
-            txt_str = @sprintf("α=%.1f°  ζ=%.1f°  φ₀=%.1f°\nχ²ᵣ=%.2f  rms=%.1f°",
-                               result.alpha, result.zeta, result.phi0,
+            txt_str = @sprintf("α=%.1f°  β=%.1f°  φ₀=%.1f°\nχ²ᵣ=%.2f  rms=%.1f°",
+                               result.alpha, result.zeta-result.alpha, result.phi0,
                                result.chi2_red, result.rms_deg)
         end
         ax_pa.text(0.98, 0.97, txt_str,
@@ -1051,23 +1053,25 @@ module Plot
                          ncol=2, handlelength=1.2, columnspacing=0.6)
         end
 
-        # ---- Stokes profile panel --------------------------------------------
-        ax_st.plot(lon_full, I_low ./ I_max, color="black",   lw=1.3, label="I",  zorder=3)
-        ax_st.plot(lon_full, L_low ./ I_max, color="#cc3333", lw=1.3, label="L",  zorder=3)
-        ax_st.plot(lon_full, V_low ./ I_max, color="#2255bb", lw=1.3, label="V",  zorder=3)
+        # ---- Stokes profile panel (normalize per band like master) ---------------
+        I_low_max  = maximum(abs.(I_low))
+        I_high_max = isnothing(I_high) ? 1.0 : maximum(abs.(I_high))
+        ax_st.plot(lon_full, I_low ./ I_low_max, color="black",   lw=0.8, label="I",  zorder=3)
+        ax_st.plot(lon_full, L_low ./ I_low_max, color="red",     lw=0.8, label="L",  zorder=3)
+        ax_st.plot(lon_full, V_low ./ I_low_max, color="blue",    lw=0.8, label="V",  zorder=3)
         if n_freq == 2 && !isnothing(I_high)
-            ax_st.plot(lon_full, I_high ./ I_max, color="black",   lw=1.0, ls="--", alpha=0.6, zorder=2)
-            ax_st.plot(lon_full, L_high ./ I_max, color="#cc3333", lw=1.0, ls="--", alpha=0.6, zorder=2)
-            ax_st.plot(lon_full, V_high ./ I_max, color="#2255bb", lw=1.0, ls="--", alpha=0.6, zorder=2)
+            ax_st.plot(lon_full, I_high ./ I_high_max, color="black", lw=0.8, ls="--", zorder=2)
+            ax_st.plot(lon_full, L_high ./ I_high_max, color="red",   lw=0.8, ls="--", zorder=2)
+            ax_st.plot(lon_full, V_high ./ I_high_max, color="blue",  lw=0.8, ls="--", zorder=2)
         end
         ax_st.axhline(0.0, color="grey", lw=0.5, ls=":", zorder=1)
-        # φ₀ and pulse-centre reference lines
+        # φ₀ lines: solid tab:blue for low, dashed tab:blue for high (master convention)
         if !isnothing(res_l)
-            ax_st.axvline(res_l.phi0, color="tab:blue",   lw=1.0, ls="--", alpha=0.8,
+            ax_st.axvline(res_l.phi0, color="tab:blue", lw=1.5,
                           label=@sprintf("φ₀=%.1f°", res_l.phi0))
         end
         if !isnothing(res_h)
-            ax_st.axvline(res_h.phi0, color="tab:orange", lw=1.0, ls=":",  alpha=0.8,
+            ax_st.axvline(res_h.phi0, color="tab:blue", lw=1.5, ls="--",
                           label=@sprintf("φ₀ₕ=%.1f°", res_h.phi0))
         end
         ax_st.axvline(phi_c, color="#888888", lw=0.8, ls=":", alpha=0.65,
@@ -1089,59 +1093,45 @@ module Plot
         end
 
         # ---- chi² map helper -------------------------------------------------
-        function _draw_map(ax, disp, al, be, ext, hc, res, title_str; cb_ref=false)
+        function _draw_map(ax, disp, al, be, ext, hc, res, title_str)
             im = ax.imshow(disp', origin="lower", aspect="auto", extent=ext,
-                           cmap="viridis", vmin=0.0, vmax=dmax, interpolation="nearest")
-            # 1σ / 2σ contours on Δχ²
-            fin = filter(isfinite, vec(disp))
-            if !isempty(fin)
-                try
-                    ax.contour(al, be,
-                               map(v -> isnan(v) ? 0.0 : v, disp)',
-                               levels=[2.30, 6.17],
-                               colors=["white", "#88ccff"],
-                               linewidths=[0.9, 0.7],
-                               linestyles=["solid", "dashed"])
-                catch; end
-            end
-            # Best-fit star
+                           cmap="viridis", vmin=0.0, vmax=chi2_red_max,
+                           interpolation="nearest")
+            # Best-fit star marker
             if !isnothing(res)
                 ax.plot([res.alpha], [res.zeta - res.alpha],
-                        marker="*", ms=8, color="white", mec="#ffdd00", mew=0.6, zorder=10)
+                        marker="*", ms=9, color="white", mec="#ffdd00", mew=0.7, zorder=10)
             end
-            # Height contours
+            # Height contours (purple, labeled)
             if !isnothing(hc)
                 try
                     h_levs = _auto_height_levels(hc)
                     if !isempty(h_levs)
                         ax.clabel(ax.contour(al, be, hc', levels=h_levs,
-                                             colors="orchid", linewidths=0.8),
-                                  fmt="%g km", fontsize=5.5, inline=true)
+                                             colors="purple", linewidths=0.7),
+                                  fmt="%g", fontsize=6, inline=true)
                     end
                 catch; end
             end
-            ax.set_xlabel("α [deg]", fontsize=8)
+            ax.set_xlabel("alpha [deg]", fontsize=8)
+            ax.set_ylabel("beta [deg]", fontsize=8)
             ax.set_title(title_str, fontsize=8, pad=3)
             ax.minorticks_on()
             return im
         end
 
         im_ref = _draw_map(ax_ml, disp_l, alphas, betas, ext_l, hc_l, res_l,
-                           n_freq==2 ? "low freq  α–β" : "α–β confidence map")
-        ax_ml.set_ylabel("β [deg]", fontsize=8)
-        ax_ml.yaxis.set_label_position(n_freq==2 ? "left" : "right")
-        ax_ml.yaxis.set_ticks_position(n_freq==2 ? "left" : "right")
+                           n_freq==2 ? "low frequency" : "alpha-beta confidence map")
 
         if n_freq == 2 && !isnothing(ax_mh) && !isnothing(disp_h)
-            _draw_map(ax_mh, disp_h, al_h, be_h, ext_h, hc_h, res_h, "high freq  α–β")
-            ax_mh.set_ylabel("β [deg]", fontsize=8)
+            _draw_map(ax_mh, disp_h, al_h, be_h, ext_h, hc_h, res_h, "high frequency")
             ax_mh.yaxis.set_label_position("right")
             ax_mh.yaxis.set_ticks_position("right")
             ax_mh.tick_params(labelleft=false)
         end
 
         cb = fig.colorbar(im_ref, cax=ax_cb, orientation="horizontal")
-        cb.set_label(raw"$\Delta\chi^2$", labelpad=2, fontsize=8)
+        cb.set_label(raw"$\chi^2_{\mathrm{red}}$", labelpad=2, fontsize=8)
         ax_cb.xaxis.set_label_position("top")
         ax_cb.xaxis.set_ticks_position("top")
 
