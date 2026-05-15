@@ -28,7 +28,7 @@ module RVM
         pa_err_prof = [(L_prof[i] > 5.0*sigma_avg && L_prof[i] >= 0.3 * L_max) ? 0.5 * sigma_avg / L_prof[i] * (180.0/pi) : NaN for i in 1:length(L_prof)]
 
         lon_prof = collect(range(-180, 180, length=length(I_prof)))
-
+        printf("=========================================================================================================siema==========================================================================================================\n")
         return I_prof, L_prof, V_prof, pa_prof, pa_err_prof, lon_prof
     end
 
@@ -67,6 +67,7 @@ module RVM
         else
             return pa
         end
+        printf("sa katy\n")
     end
 
     """
@@ -155,7 +156,7 @@ module RVM
         # Calculate final residuals for the best fit
         final_model = rvm_ppa(best.alpha, best.beta, lon; phi0=best.phi0, deg=true) .+ best.pa0
         final_res = mod.(pa .- final_model .+ 90, 180) .- 90
-
+        printf("Best fit: α=%.1f°, β=%.1f°, φ₀=%.1f°, PA₀=%.1f°, χ²=%.2f\n", best.alpha, best.beta, best.phi0, best.pa0, best.chi2)
         return (; alpha=best.alpha, beta=best.beta, phi0=best.phi0, pa0=best.pa0, chi2=best.chi2, residuals=final_res)
     end
 
@@ -287,6 +288,8 @@ module RVM
             mu = mu_a[keep]
         end
 
+
+        printf("RVM converged in %d iterations. Active vectors: %d\n")
         return (rv_indices=active, rv_coords=X[active, :], weights=mu, beta=beta_noise)
     end
 
@@ -358,14 +361,14 @@ module RVM
 
         if !isnothing(res_l)
             plot_rvm_results(lon_l, pa_l_raw, res_l, alphas_l, betas_l, chi2_l, rvm_res_l;
-                                 name_mod="Low_RVM", outdir=indir)
+                                 name_mod="RVM", outdir=indir)
         end
 
         if !isnothing(res_h)
             plot_rvm_results(lon_h, pa_h_raw, res_h, alphas_h, betas_h, chi2_h, rvm_res_h;
-                                 name_mod="High_RVM", outdir=indir)
+                                 name_mod="RVM", outdir=indir)
         end
-
+        printf("RVM geometry analysis completed for both frequencies. Plots saved to: %s\n", indir)
         return (low_freq_result=res_l, high_freq_result=res_h)
     end
 
