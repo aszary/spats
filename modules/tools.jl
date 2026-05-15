@@ -2514,7 +2514,7 @@ module Tools
         betas    = collect(range(beta_range[1],  beta_range[2],  length=beta_n))
         chi2_map = fill(NaN, alpha_n, beta_n)
 
-        isempty(lon_fit) && return alphas, betas, chi2_map
+        isempty(lon_fit) && return alphas, betas, chi2_map, [0.0, 30.0, 35.0, 0.0]
 
         # Extend phi0 search to 50% of on-pulse width beyond the data range
         lon_half = 0.5 * (maximum(lon_fit) - minimum(lon_fit))
@@ -2605,56 +2605,95 @@ module Tools
 
 
     """
-    filter_ppa(data4, bin_st, bin_end; snr_threshold=3.5, linpol_threshold=0.8)
+    deopm_pa(pa_deg; tolerance=45.0)
 
-    Apply the Johnston et al. 2024 two-step filter to 4-pol single-pulse data.
-    data4 : 3D array (pulses × bins × 4), polarizations: I=1, Q=2, U=3, V=4
-    bin_st, bin_end : on-pulse bin range (1-indexed)
-
-    Returns (longitude_deg, pa_avg, pa_err, mask_bins) where:
-    - longitude_deg : bin longitudes in degrees, length = (bin_end - bin_st + 1)
-    - pa_avg        : averaged PPA per bin (degrees), only for bins that pass the mask
-    - pa_err        : PPA uncertainty per bin (degrees)
-    - mask_bins     : Bool vector, true = bin has enough high-pol pulses
+    Remove Orthogonal Polarization Mode (OPM) jumps from a PA track.
+    Walks bin-by-bin keeping a running "continuous" PA; when the next
+    sample lies farther than `tolerance` degrees from the running track,
+    shifts it by ±90° (the OPM step) until it rejoins.  NaN bins are
+    skipped.  Output is wrapped back to (-90°, 90°].
+    Returns (pa_corrected, n_flipped).
     """
-    function filter_ppa(data4, bin_st, bin_end; snr_threshold=3.5, linpol_threshold=0.3)
+    function deopm_pa(pa_deg; tolerance=45.0)
+        pa_out = copy(pa_deg)
+        n = length(pa_out)
+        last_unwrapped = NaN
+        offset = 0.0
+        flipped = 0
+        for i in 1:n
+            isnan(pa_out[i]) && continue
+            pa_in = pa_out[i]
+            if isnan(last_unwrapped)
+                last_unwrapped = pa_in
+                continue
+            end
+            shifted = pa_in + offset
+            d = shifted - last_unwrapped
+            while d > tolerance
+                offset -= 90.0; shifted -= 90.0; d -= 90.0
+            end
+            while d < -tolerance
+                offset += 90.0; shifted += 90.0; d += 90.0
+            end
+            pa_out[i] = mod(shifted + 90.0, 180.0) - 90.0
+            abs(pa_out[i] - pa_in) > 0.1 && (flipped += 1)
+            last_unwrapped = shifted
+        end
+        return pa_out, flipped
+    end
+
+
+    """
+    filter_ppa(data4, bin_st, bin_end; snr_threshold=5.0)
+
+    Johnston et al. 2023-style PA filter on averaged 4-pol data.
+    Keeps bins where L_avg > snr_threshold × σ_avg, where
+    σ_avg = σ_single_pulse / √N_pulses (noise on the mean profile).
+    Applies deopm_pa to remove OPM jumps.
+
+    Returns (lon_deg, pa_deg, pa_err_deg, mask) where pa/pa_err are NaN
+    for rejected bins and mask[i]=true marks valid bins.
+    """
+    function filter_ppa(data4, bin_st, bin_end; snr_threshold=5.0)
         @assert size(data4, 3) >= 3 "Need at least 3 polarizations (I, Q, U)"
 
-        avg = dropdims(mean(data4, dims=1), dims=1)  # bins × npol
+        n_pulses = size(data4, 1)
+        avg = dropdims(mean(data4, dims=1), dims=1)   # bins × npol
 
-        # noise from off-pulse (first 10% of profile)
-        off_rng = 1:max(1, div(size(data4, 2), 10))
-        sigma_noise = std(avg[off_rng, 1])
+        # Noise on the averaged profile: σ_single / √N  (Johnston+ 2023 convention)
+        off_rng    = 1:max(1, div(size(data4, 2), 10))
+        sigma_single = std(view(data4, :, off_rng, 1))  # over all off-pulse measurements
+        sigma_avg    = sigma_single / sqrt(n_pulses)
 
-        peak_bin = argmax(avg[:, 1])
-        println("  [filter_ppa] peak I at bin $peak_bin  |  " *
-                "sigma_noise=$(round(sigma_noise, sigdigits=3))  |  " *
-                "requested bins: $bin_st-$bin_end")
+        rng = bin_st:bin_end
+        Q   = avg[rng, 2]
+        U   = avg[rng, 3]
+        L   = sqrt.(Q.^2 .+ U.^2)
+        thresh = snr_threshold * sigma_avg
+        mask   = L .> thresh
 
-        rng   = bin_st:bin_end
-        L_on  = sqrt.(avg[rng, 2].^2 .+ avg[rng, 3].^2)
-        I_on  = avg[rng, 1]
-        snr_m = I_on .> snr_threshold .* sigma_noise
-        # only compute L/I where I > 0 to avoid clamp artifact on noise bins
-        lp_m  = (I_on .> 0) .& ((L_on ./ max.(I_on, 1e-10)) .> linpol_threshold)
-        mask_bins = snr_m .& lp_m
+        println("  [filter_ppa] N=$(n_pulses)  σ_avg=$(round(sigma_avg, sigdigits=3))  " *
+                "thresh=$(snr_threshold)σ=$(round(thresh, sigdigits=3))  " *
+                "bins pass: $(sum(mask))/$(length(mask))")
 
-        println("  [filter_ppa] bins passing SNR: $(sum(snr_m))  " *
-                "L/I: $(sum(lp_m))  both: $(sum(mask_bins))")
+        n_on   = length(rng)
+        pa     = fill(NaN, n_on)
+        pa_err = fill(NaN, n_on)
+        for i in 1:n_on
+            if mask[i]
+                pa[i]     = 0.5 * atan(U[i], Q[i]) * (180.0 / π)
+                pa_err[i] = max(0.5 * sigma_avg / L[i] * (180.0 / π), 0.05)
+            end
+        end
+        pa .= mod.(pa .+ 90.0, 180.0) .- 90.0
 
-        pa_avg = zeros(bin_end - bin_st + 1)
-        pa_err = fill(90.0, bin_end - bin_st + 1)
-        pa_avg[mask_bins] = 0.5 .* rad2deg.(atan.(avg[rng[mask_bins], 3],
-                                                   avg[rng[mask_bins], 2]))
-        pa_err[mask_bins] = max.(
-            rad2deg.(sigma_noise ./ (2.0 .* max.(L_on[mask_bins], 1e-10))),
-            0.1
-        )
-        pa_avg .= mod.(pa_avg .+ 90.0, 180.0) .- 90.0
+        # Remove OPM jumps
+        pa, n_flipped = deopm_pa(pa)
+        n_flipped > 0 && println("  [filter_ppa] deopm: corrected $n_flipped bins")
 
-        dl = 360.0 * (bin_end - bin_st + 1) / size(data4, 2)
-        return collect(range(-dl/2.0, dl/2.0, length=bin_end-bin_st+1)),
-               pa_avg, pa_err, mask_bins
+        dl  = 360.0 * n_on / size(data4, 2)
+        lon = collect(range(-dl / 2.0, dl / 2.0, length=n_on))
+        return lon, pa, pa_err, mask
     end
 
 

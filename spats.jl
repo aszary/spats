@@ -152,7 +152,7 @@ module SpaTs
             println("\n=== RVM: $name (bin $(bin_st)-$(bin_end)) ===")
             try
                 rvm_analysis(infile, outdir, name; bin_st=bin_st, bin_end=bin_end,
-                             snr_threshold=3.0, linpol_threshold=0.3,
+                             snr_threshold=5.0,
                              period=period, show_=false)
             catch e
                 @warn "[$name] failed: $e"
@@ -203,7 +203,7 @@ module SpaTs
     # -------------------------------------------------------------------------
     function rvm_analysis(infile, outdir, name_mod;
                           bin_st, bin_end,
-                          snr_threshold=3.5, linpol_threshold=0.8,
+                          snr_threshold=5.0,
                           period=nothing,
                           show_=false)
 
@@ -214,7 +214,6 @@ module SpaTs
         result = Plot.rvm(data4, outdir, name_mod;
                           bin_st=bin_st, bin_end=bin_end,
                           snr_threshold=snr_threshold,
-                          linpol_threshold=linpol_threshold,
                           period=period, show_=show_, n_freq=2)
 
         println("RVM fit:  alpha=$(round(result.alpha, digits=1)) deg  " *
