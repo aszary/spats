@@ -90,6 +90,41 @@ module SpaTs
     end
 
 
+    """
+    Automatically process all pulsars found in `dataroot`.
+    For each pulsar directory, picks the lexicographically first observation
+    subdirectory and runs process_psrdata_16 + analyse_p3folds_16_new.
+    Errors for individual pulsars are caught so the loop continues.
+
+    Arguments:
+      dataroot  – parent directory containing JXXXX-XXXX subdirs
+      vpmout    – output directory prefix (same convention as main())
+      n_comp    – number of components passed to analyse_p3folds_16_new
+    """
+    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/"; n_comp=2)
+        isdir(dataroot) || error("dataroot not found: $dataroot")
+        psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
+        isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
+
+        for psr in psr_dirs
+            psr_path = joinpath(dataroot, psr)
+            obs_dirs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
+            if isempty(obs_dirs)
+                @warn "No observation subdirectory for $psr, skipping"
+                continue
+            end
+            indir  = joinpath(psr_path, obs_dirs[1]) * "/"
+            outdir = vpmout * psr * "_16"
+            println("=== Processing $psr (obs: $(obs_dirs[1])) ===")
+            try
+                process_psrdata_16(indir, outdir)
+                Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
+            catch e
+                @warn "Failed for $psr: $e"
+            end
+        end
+    end
+
     function main()
         # output directory for VPM
         vpmout = "/home/psr/output/"
@@ -166,8 +201,8 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1048-5832/2020-08-29-13:00:11/", vpmout*"J1048-5832_16")
         #Data.analyse_p3folds_16(vpmout*"J1048-5832_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J1048-5832_16", "norefine"; n_comp=2)
-        Data.position_angle(vpmout*"J1048-5832_16")
-        Data.geometry_analysis(vpmout*"J1048-5832_16")
+        #Data.position_angle(vpmout*"J1048-5832_16")
+        #Data.geometry_analysis(vpmout*"J1048-5832_16")
 
         # PSR J1110-5637
         #process_psrdata("/home/psr/data/new/J1110-5637/2019-10-19-08:18:28/", vpmout*"J1110-5637")
@@ -347,6 +382,8 @@ module SpaTs
         #Data.combine_pngs(vpmout)
         #Data.remove_folders(vpmout)
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
+
+        analyse_all()
     end
 
 end # module
