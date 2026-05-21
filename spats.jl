@@ -2,6 +2,8 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
+    using Printf
+    using Statistics
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -160,12 +162,141 @@ module SpaTs
         end
     end
 
-    function main()
-        outdirs  = ["/home/psr/data/OUTPUT/czarek/", "/home/psr/data/OUTPUT/andrzej/"]
-        data_dir = "/home/psr/data/new/"
-        rvm_out  = "/home/psr/output/"
+    # -------------------------------------------------------------------------
+    # Johnston+2023 batch analysis
+    # Automatically finds .ar files in data_dir, converts, auto-detects
+    # on-pulse region, gets period via vap, and runs rvm_analysis for all
+    # pulsars that appear in figures of Johnston et al. 2023 (MNRAS 520, 4801).
+    # -------------------------------------------------------------------------
+    function run_johnston2023(data_dir, outdir_base; snr_threshold=5.0, show_=false)
+        mkpath(outdir_base)
 
-        run_all_rvm(outdirs, data_dir, rvm_out)
+        # (name, figure_label) — every pulsar shown in a Johnston+2023 figure
+        johnston_targets = [
+            ("J1048-5832", "Fig.1 RVM"),
+            ("J1722-4400", "Fig.1 RVM"),
+            ("J1110-5637", "Fig.1 RVM"),
+            ("J1842-0359", "Fig.1 RVM"),
+            ("J0108-1431", "Fig.2 flat"),
+            ("J1232-4742", "Fig.2 flat"),
+            ("J1511-5414", "Fig.2 flat"),
+            ("J1524-5625", "Fig.2 flat"),
+            ("J1625-4048", "Fig.3 non-RVM"),
+            ("J2046-0421", "Fig.3 non-RVM"),
+            ("J1607-0032", "Fig.3 non-RVM"),
+            ("J0846-3533", "Fig.3 non-RVM"),
+            ("J0134-2937", "Fig.8 partial"),
+            ("J1648-6044", "Fig.8 partial"),
+            ("J1615-5444", "Fig.8 partial"),
+            ("J0631+1036", "Fig.8 partial"),
+            ("J0738-4042", "Fig.9 OPM"),
+        ]
+
+        results  = Dict{String,Any}()
+        skipped  = String[]
+
+        for (name, fig_label) in johnston_targets
+            println("\n=== $name  [$fig_label] ===")
+
+            # --- find .ar file (glob: any date suffix) ---
+            candidates = Glob.glob(name * "*.ar", data_dir)
+            if isempty(candidates)
+                @warn "[$name] no .ar file found in $data_dir — skipping"
+                push!(skipped, name)
+                continue
+            end
+            infile = first(candidates)
+            println("  file: $(basename(infile))")
+
+            outdir = joinpath(outdir_base, name) * "/"
+            mkpath(outdir)
+
+            # --- period via vap (needed for h_Blask) ---
+            period = nothing
+            try
+                raw = readchomp(`vap -c period $infile`)
+                period = parse(Float64, split(strip(raw))[end])
+                println("  period: $(round(period, digits=6)) s")
+            catch
+                @warn "[$name] vap failed — h_Blask will not be computed"
+            end
+
+            # --- convert .ar → ASCII (cached: skip if already done) ---
+            txt_file = joinpath(outdir, name * "_pol.txt")
+            if !isfile(txt_file)
+                println("  converting .ar → $txt_file ...")
+                Data.convert_psrfit_ascii_pol(infile, txt_file)
+            else
+                println("  using cached $txt_file")
+            end
+
+            # --- load and auto-detect on-pulse region ---
+            data4 = Data.load_ascii_all(txt_file)
+            nbin  = size(data4, 2)
+            I_avg = vec(mean(data4[:, :, 1], dims=1))
+            thr   = 0.1 * maximum(I_avg)
+            on    = findall(I_avg .> thr)
+            if isempty(on)
+                @warn "[$name] on-pulse detection failed — skipping"
+                push!(skipped, name)
+                continue
+            end
+            margin  = max(20, round(Int, 0.05 * nbin))
+            bin_st  = max(1,    first(on) - margin)
+            bin_end = min(nbin, last(on)  + margin)
+            println("  on-pulse: bins $bin_st – $bin_end  ($(bin_end - bin_st + 1) / $nbin bins)")
+
+            # --- run RVM fit and plot ---
+            try
+                result = Plot.rvm(data4, outdir, name;
+                                  bin_st=bin_st, bin_end=bin_end,
+                                  snr_threshold=snr_threshold,
+                                  period=period, show_=show_, n_freq=1)
+                beta = round(result.zeta - result.alpha, digits=1)
+                println("  α=$(round(result.alpha,digits=1))°  β=$(beta)°  " *
+                        "φ₀=$(round(result.phi0,digits=1))°  " *
+                        "χ²ᵣ=$(round(result.chi2_red,digits=2))")
+                if !isnan(result.h_blask)
+                    println("  h_Blask = $(round(result.h_blask, digits=0)) km")
+                end
+                results[name] = (result=result, fig=fig_label)
+            catch e
+                @warn "[$name] RVM failed: $e"
+                push!(skipped, name)
+            end
+        end
+
+        # --- summary table ---
+        println("\n" * "="^72)
+        println("Johnston+2023 RVM summary")
+        println("="^72)
+        @printf("%-14s  %-18s  %6s  %6s  %6s  %6s  %8s\n",
+                "Pulsar", "Figure", "α[°]", "β[°]", "φ₀[°]", "χ²ᵣ", "h_Blask")
+        println("-"^72)
+        for (name, fig_label) in johnston_targets
+            if haskey(results, name)
+                r = results[name].result
+                hb = isnan(r.h_blask) ? "    —  " : @sprintf("%6.0f km", r.h_blask)
+                @printf("%-14s  %-18s  %6.1f  %6.1f  %6.1f  %6.2f  %s\n",
+                        name, fig_label,
+                        r.alpha, r.zeta - r.alpha, r.phi0, r.chi2_red, hb)
+            else
+                @printf("%-14s  %-18s  %s\n", name, fig_label, "SKIPPED (no file or fit failed)")
+            end
+        end
+        println("="^72)
+        if !isempty(skipped)
+            println("Skipped: ", join(skipped, ", "))
+        end
+
+        return results
+    end
+
+    function main()
+        data_dir = "/home/psr/data/posselt/ar_files/"
+        rvm_out  = "/home/psr/output/posselt_rvm/"
+
+        run_johnston2023(data_dir, rvm_out)
 
 
 
@@ -205,6 +336,7 @@ module SpaTs
                           bin_st, bin_end,
                           snr_threshold=5.0,
                           period=nothing,
+                          n_freq=1,
                           show_=false)
 
         mkpath(outdir)
@@ -214,7 +346,7 @@ module SpaTs
         result = Plot.rvm(data4, outdir, name_mod;
                           bin_st=bin_st, bin_end=bin_end,
                           snr_threshold=snr_threshold,
-                          period=period, show_=show_, n_freq=2)
+                          period=period, show_=show_, n_freq=n_freq)
 
         println("RVM fit:  alpha=$(round(result.alpha, digits=1)) deg  " *
                 "zeta=$(round(result.zeta, digits=1)) deg  " *
