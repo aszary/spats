@@ -2643,6 +2643,11 @@ module Tools
     end
 
 
+    function _off_pulse_rng(nbin, bin_st, bin_end)
+        ob = vcat(1:(bin_st - 1), (bin_end + 1):nbin)
+        return length(ob) >= 10 ? ob : (1:max(1, div(nbin, 10)))
+    end
+
     """
     filter_ppa(data4, bin_st, bin_end; snr_threshold=5.0)
 
@@ -2661,9 +2666,9 @@ module Tools
         avg = dropdims(mean(data4, dims=1), dims=1)   # bins × npol
 
         # Noise on the averaged profile: σ_single / √N  (Johnston+ 2023 convention)
-        off_rng    = 1:max(1, div(size(data4, 2), 10))
-        sigma_single = std(view(data4, :, off_rng, 1))  # over all off-pulse measurements
-        sigma_avg    = sigma_single / sqrt(n_pulses)
+        # Use bins outside [bin_st, bin_end] as off-pulse; fall back to first 10% if needed.
+        off_rng   = _off_pulse_rng(size(data4, 2), bin_st, bin_end)
+        sigma_avg = std(vec(data4[:, off_rng, 1])) / sqrt(n_pulses)
 
         rng = bin_st:bin_end
         Q   = avg[rng, 2]
