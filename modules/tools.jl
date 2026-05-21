@@ -2560,12 +2560,6 @@ module Tools
             end
         end
 
-        # Normalize to α ∈ (0°, 90°]: mirror solution (180°-α, 180°-ζ) is equivalent.
-        if best_p[2] > 90.0
-            best_p[2] = 180.0 - best_p[2]   # alpha → 180 - alpha
-            best_p[3] = 180.0 - best_p[3]   # zeta  → 180 - zeta
-        end
-
         return alphas, betas, chi2_map, best_p, dof
     end
 
