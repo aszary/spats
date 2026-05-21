@@ -878,14 +878,14 @@ module Plot
             return I, L, V
         end
 
-        # Helper: Δχ² display (subtract minimum, clip above dmax → NaN)
-        # chi2_map stores raw χ², so Δχ² contours [2.30, 6.17] are correct (1σ/2σ, 2 params).
-        function _chi2_disp(cm, dmax)
+        # Helper: Δχ² display — subtract minimum only; do NOT clip above dmax.
+        # imshow(vmax=dmax) will saturate high values at the top colormap colour.
+        # Cells that were skipped (NaN in chi2_map) remain NaN → show white.
+        function _chi2_disp(cm)
             fin = filter(isfinite, vec(cm))
             isempty(fin) && return fill(NaN, size(cm)...)
-            cmin  = minimum(fin)
-            delta = map(v -> isnan(v) ? NaN : max(v - cmin, 0.0), cm)
-            return map(v -> isnan(v) ? NaN : (v > dmax ? NaN : v), delta)
+            cmin = minimum(fin)
+            return map(v -> isnan(v) ? NaN : max(v - cmin, 0.0), cm)
         end
 
         # --- Fit per frequency band -------------------------------------------
@@ -951,14 +951,11 @@ module Plot
         hc_h = (n_freq == 2 && !isnothing(I_high)) ?
                _hcont(Tools.profile_width_deg(lon_full, I_high), al_h, be_h) : nothing
 
-        # ---- χ²_red display (master convention) ---------------------------------
-        # chi2_map stores raw χ²; divide by ndof → χ²_red, clip at 10.
-        # After two-pass fitting χ²_red_min ≈ 1; the region χ²_red > 10 is masked white.
-        dmax = 11.83
-        println("[rvm] Δχ² dmax=$(dmax)")
+        # Δχ² display: subtract minimum; values above dmax saturate at top colormap colour.
+        dmax = 10.0
 
-        disp_l = _chi2_disp(cm_l, dmax)
-        disp_h = isnothing(cm_h) ? nothing : _chi2_disp(cm_h, dmax)
+        disp_l = _chi2_disp(cm_l)
+        disp_h = isnothing(cm_h) ? nothing : _chi2_disp(cm_h)
 
         # ---- position_angle figure (master style) ----------------------------
         rc("font", size=8.)
