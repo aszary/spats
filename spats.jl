@@ -241,6 +241,13 @@ module SpaTs
                 push!(skipped, name)
                 continue
             end
+            # Broad-profile fallback: if >50% of bins detected, use peak-centered window
+            if length(on) > 0.5 * nbin
+                pk = argmax(I_avg)
+                hw = max(30, round(Int, 0.08 * nbin))
+                on = max(1, pk - hw) : min(nbin, pk + hw)
+                println("  [warn] broad on-pulse (>50% bins); using peak-centered window ±$(hw) bins")
+            end
             margin  = max(20, round(Int, 0.05 * nbin))
             bin_st  = max(1,    first(on) - margin)
             bin_end = min(nbin, last(on)  + margin)
@@ -251,6 +258,7 @@ module SpaTs
                 result = Plot.rvm(data4, outdir, name;
                                   bin_st=bin_st, bin_end=bin_end,
                                   snr_threshold=snr_threshold,
+                                  max_pa_err_deg=20.0,
                                   period=period, show_=show_, n_freq=1)
                 beta = round(result.zeta - result.alpha, digits=1)
                 println("  α=$(round(result.alpha,digits=1))°  β=$(beta)°  " *

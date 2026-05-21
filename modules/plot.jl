@@ -825,10 +825,10 @@ module Plot
     alpha, beta : geometry angles in degrees (needed for dipole height)
     """
     function rvm(data4, outdir, name_mod; bin_st, bin_end,
-                 snr_threshold=5.0, period=nothing, show_=false, n_freq=1)
+                 snr_threshold=5.0, max_pa_err_deg=20.0, period=nothing, show_=false, n_freq=1)
 
-        n_full = size(data4, 2)
-        n_on   = bin_end - bin_st + 1
+        n_full   = size(data4, 2)
+        n_on     = bin_end - bin_st + 1
         lon_full = collect(range(-180.0, 180.0, length=n_full))
         dl_on    = 360.0 * n_on / n_full
         lon_on   = collect(range(-dl_on/2.0, dl_on/2.0, length=n_on))
@@ -839,7 +839,8 @@ module Plot
         function _fit_band(data, label)
             println("[rvm-$label]")
             lon_f, pa, pa_err, mask = Tools.filter_ppa(data, bin_st, bin_end;
-                                                        snr_threshold=snr_threshold)
+                                                        snr_threshold=snr_threshold,
+                                                        max_pa_err_deg=max_pa_err_deg)
             if sum(mask) < 5
                 @warn "[rvm] $label: only $(sum(mask)) valid PA bins — skipping"
                 return nothing, nothing, nothing, nothing, 1, lon_f, pa, pa_err, mask
@@ -1002,17 +1003,23 @@ module Plot
         minorticks_on()
         n_freq == 2 && legend(fontsize=6, loc="upper right")
 
-        # Stokes panel (rows 1-2)
+        # Stokes panel (rows 1-2) — on-pulse slice aligned with PA panel
         subplot2grid((3, 1), (1, 0), rowspan=2)
-        I_low_max = maximum(abs.(filter(isfinite, I_low)))
-        plot(lon_full, I_low ./ I_low_max, c="black", lw=0.8, label="I")
-        plot(lon_full, L_low ./ I_low_max, c="red",   lw=0.8, label="L")
-        plot(lon_full, V_low ./ I_low_max, c="blue",  lw=0.8, label="V")
+        I_on = I_low[bin_st:bin_end]
+        L_on = L_low[bin_st:bin_end]
+        V_on = V_low[bin_st:bin_end]
+        I_on_max = maximum(abs.(filter(isfinite, I_on)))
+        plot(lon_on, I_on ./ I_on_max, c="black", lw=0.8, label="I")
+        plot(lon_on, L_on ./ I_on_max, c="red",   lw=0.8, label="L")
+        plot(lon_on, V_on ./ I_on_max, c="blue",  lw=0.8, label="V")
         if n_freq == 2 && !isnothing(I_high)
-            I_high_max = maximum(abs.(filter(isfinite, I_high)))
-            plot(lon_full, I_high ./ I_high_max, c="black", lw=0.8, ls="--")
-            plot(lon_full, L_high ./ I_high_max, c="red",   lw=0.8, ls="--")
-            plot(lon_full, V_high ./ I_high_max, c="blue",  lw=0.8, ls="--")
+            I_high_on     = I_high[bin_st:bin_end]
+            L_high_on     = L_high[bin_st:bin_end]
+            V_high_on     = V_high[bin_st:bin_end]
+            I_high_on_max = maximum(abs.(filter(isfinite, I_high_on)))
+            plot(lon_on, I_high_on ./ I_high_on_max, c="black", lw=0.8, ls="--")
+            plot(lon_on, L_high_on ./ I_high_on_max, c="red",   lw=0.8, ls="--")
+            plot(lon_on, V_high_on ./ I_high_on_max, c="blue",  lw=0.8, ls="--")
         end
         xlim(x_lo, x_hi)
         xlabel("Longitude [deg]")

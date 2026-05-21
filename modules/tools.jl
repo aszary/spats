@@ -2528,6 +2528,7 @@ module Tools
         for (ia, a) in enumerate(alphas)
             ar = deg2rad(a)
             for (ib, b) in enumerate(betas)
+                a + b <= 0.0 && continue   # skip unphysical ζ = α+β ≤ 0
                 zr          = deg2rad(a + b)
                 c2b         = Inf
                 phi0_best_l = phi0s[1]
@@ -2659,7 +2660,7 @@ module Tools
     Returns (lon_deg, pa_deg, pa_err_deg, mask) where pa/pa_err are NaN
     for rejected bins and mask[i]=true marks valid bins.
     """
-    function filter_ppa(data4, bin_st, bin_end; snr_threshold=5.0)
+    function filter_ppa(data4, bin_st, bin_end; snr_threshold=5.0, max_pa_err_deg=20.0)
         @assert size(data4, 3) >= 3 "Need at least 3 polarizations (I, Q, U)"
 
         n_pulses = size(data4, 1)
@@ -2677,10 +2678,6 @@ module Tools
         thresh = snr_threshold * sigma_avg
         mask   = L .> thresh
 
-        println("  [filter_ppa] N=$(n_pulses)  σ_avg=$(round(sigma_avg, sigdigits=3))  " *
-                "thresh=$(snr_threshold)σ=$(round(thresh, sigdigits=3))  " *
-                "bins pass: $(sum(mask))/$(length(mask))")
-
         n_on   = length(rng)
         pa     = fill(NaN, n_on)
         pa_err = fill(NaN, n_on)
@@ -2688,8 +2685,19 @@ module Tools
             if mask[i]
                 pa[i]     = 0.5 * atan(U[i], Q[i]) * (180.0 / π)
                 pa_err[i] = max(0.5 * sigma_avg / L[i] * (180.0 / π), 0.05)
+                # reject bins whose PA error exceeds the ceiling
+                if pa_err[i] > max_pa_err_deg
+                    mask[i]   = false
+                    pa[i]     = NaN
+                    pa_err[i] = NaN
+                end
             end
         end
+
+        println("  [filter_ppa] N=$(n_pulses)  σ_avg=$(round(sigma_avg, sigdigits=3))  " *
+                "thresh=$(snr_threshold)σ=$(round(thresh, sigdigits=3))  " *
+                "max_err=$(max_pa_err_deg)°  bins pass: $(sum(mask))/$(length(mask))")
+
         pa .= mod.(pa .+ 90.0, 180.0) .- 90.0
 
         # Remove OPM jumps
