@@ -2516,10 +2516,8 @@ module Tools
 
         isempty(lon_fit) && return alphas, betas, chi2_map, [0.0, 30.0, 35.0, 0.0], dof
 
-        # Extend phi0 search to 50% of on-pulse width beyond the data range
-        lon_half = 0.5 * (maximum(lon_fit) - minimum(lon_fit))
-        phi0s = collect(range(minimum(lon_fit) - lon_half,
-                              maximum(lon_fit) + lon_half, length=phi0_n))
+        # Search phi0 over the full ±180° — the inflection point can be anywhere
+        phi0s = collect(range(-180.0, 180.0, length=phi0_n))
         sw    = sum(w_fit)
 
         best_p  = [mean(pa_fit), 30.0, 35.0, mean(lon_fit)]
@@ -2666,10 +2664,12 @@ module Tools
         n_pulses = size(data4, 1)
         avg = dropdims(mean(data4, dims=1), dims=1)   # bins × npol
 
-        # Noise on the averaged profile: σ_single / √N  (Johnston+ 2023 convention)
-        # Use bins outside [bin_st, bin_end] as off-pulse; fall back to first 10% if needed.
+        # Noise on the averaged profile from Q and U off-pulse bins.
+        # PA uncertainty depends on Q/U noise, not I; using Q/U avoids I baseline issues.
         off_rng   = _off_pulse_rng(size(data4, 2), bin_st, bin_end)
-        sigma_avg = std(vec(data4[:, off_rng, 1])) / sqrt(n_pulses)
+        sigma_Q   = std(vec(data4[:, off_rng, 2]))
+        sigma_U   = std(vec(data4[:, off_rng, 3]))
+        sigma_avg = (sigma_Q + sigma_U) / 2.0 / sqrt(n_pulses)
 
         rng = bin_st:bin_end
         Q   = avg[rng, 2]

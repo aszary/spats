@@ -258,7 +258,7 @@ module SpaTs
                 result = Plot.rvm(data4, outdir, name;
                                   bin_st=bin_st, bin_end=bin_end,
                                   snr_threshold=snr_threshold,
-                                  max_pa_err_deg=20.0,
+                                  max_pa_err_deg=10.0,
                                   period=period, show_=show_, n_freq=1)
                 beta = round(result.zeta - result.alpha, digits=1)
                 println("  α=$(round(result.alpha,digits=1))°  β=$(beta)°  " *
