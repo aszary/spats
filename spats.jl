@@ -168,7 +168,7 @@ module SpaTs
     # on-pulse region, gets period via vap, and runs rvm_analysis for all
     # pulsars that appear in figures of Johnston et al. 2023 (MNRAS 520, 4801).
     # -------------------------------------------------------------------------
-    function run_johnston2023(data_dir, outdir_base; snr_threshold=5.0, show_=false)
+    function run_johnston2023(data_dir, outdir_base; snr_threshold=3.0, show_=false)
         mkpath(outdir_base)
 
         # (name, figure_label) — every pulsar shown in a Johnston+2023 figure

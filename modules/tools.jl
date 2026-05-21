@@ -2560,6 +2560,12 @@ module Tools
             end
         end
 
+        # Normalize to α ∈ (0°, 90°]: mirror solution (180°-α, 180°-ζ) is equivalent.
+        if best_p[2] > 90.0
+            best_p[2] = 180.0 - best_p[2]   # alpha → 180 - alpha
+            best_p[3] = 180.0 - best_p[3]   # zeta  → 180 - zeta
+        end
+
         return alphas, betas, chi2_map, best_p, dof
     end
 
@@ -2764,6 +2770,12 @@ module Tools
 
         chi2_red, rms_deg, res_wrapped = calc_chi2(p)
 
+        # Normalize to alpha ∈ (0°, 90°] — mirror solution (180°-α, 180°-ζ) is equivalent.
+        if p[2] > 90.0
+            p[2] = 180.0 - p[2]
+            p[3] = 180.0 - p[3]
+        end
+
         # Error estimates
         try
             if converged
@@ -2774,11 +2786,11 @@ module Tools
             end
         catch
         end
-        
+
         # Fallback: estimate errors from chi2
         err_scale = sqrt(max(chi2_red, 1.0))
         return (PA0=p[1], alpha=p[2], zeta=p[3], phi0=p[4],
-                PA0_err=err_scale, alpha_err=err_scale, 
+                PA0_err=err_scale, alpha_err=err_scale,
                 zeta_err=err_scale, phi0_err=err_scale,
                 chi2_red=chi2_red, rms_deg=rms_deg, converged=converged)
     end
