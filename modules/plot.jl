@@ -860,7 +860,7 @@ module Plot
         function _rvm_curve(res)
             pa = Tools.rvm_model(lon_on, [res.PA0, res.alpha, res.zeta, res.phi0])
             pa = mod.(pa .+ 90.0, 180.0) .- 90.0
-            pa_ortho = mod.(pa .+ 90.0, 180.0) .- 90.0
+            pa_ortho = mod.(pa, 180.0) .- 90.0   # ortho branch: PA + 90° mod 180°
             for i in Iterators.drop(eachindex(pa), 1)
                 abs(pa[i] - pa[i-1]) > 90.0 && (pa[i-1] = NaN)
                 abs(pa_ortho[i] - pa_ortho[i-1]) > 90.0 && (pa_ortho[i-1] = NaN)

@@ -2534,7 +2534,7 @@ module Tools
                 PA0_best_l  = mean(pa_fit)
                 for phi0 in phi0s
                     dp  = deg2rad.(lon_fit .- phi0)
-                    f   = mod.(rad2deg.(atan.(sin(ar) .* sin.(dp),
+                    f   = mod.(rad2deg.(atan.(.-sin(ar) .* sin.(dp),
                                              sin(zr) .* cos(ar) .-
                                              cos(zr) .* sin(ar) .* cos.(dp)))
                                .+ 90.0, 180.0) .- 90.0
@@ -2584,7 +2584,7 @@ module Tools
         a  = deg2rad(alpha)
         z  = deg2rad(zeta)
         dp = deg2rad.(phi .- phi0)
-        num = sin(a) .* sin.(dp)
+        num = .-sin(a) .* sin.(dp)   # Komesaroff (1970) sign convention
         den = sin(z) .* cos(a) .- cos(z) .* sin(a) .* cos.(dp)
         return PA0 .+ rad2deg.(atan.(num, den))
     end
@@ -2690,6 +2690,8 @@ module Tools
         # Remove OPM jumps
         pa, n_flipped = deopm_pa(pa)
         n_flipped > 0 && println("  [filter_ppa] deopm: corrected $n_flipped bins")
+        # Global OPM branch selection (Johnston+ 2023 convention)
+        pa .= mod.(pa .+ 90.0, 180.0) .- 90.0
 
         dl  = 360.0 * n_on / size(data4, 2)
         lon = collect(range(-dl / 2.0, dl / 2.0, length=n_on))
