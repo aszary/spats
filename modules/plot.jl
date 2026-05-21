@@ -959,190 +959,128 @@ module Plot
         disp_l = _chi2_disp(cm_l, dmax)
         disp_h = isnothing(cm_h) ? nothing : _chi2_disp(cm_h, dmax)
 
-        # ---- figure layout ---------------------------------------------------
-        rc("font", family="sans-serif", size=9.)
-        rc("axes", linewidth=0.7)
-        rc("lines", linewidth=1.2)
-        rc("xtick", direction="in", top=true)
-        rc("ytick", direction="in", right=true)
+        # ---- position_angle figure (master style) ----------------------------
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
 
         lon_margin = 0.30 * dl_on
         x_lo = lon_on[1]  - lon_margin
         x_hi = lon_on[end] + lon_margin
 
-        ext_l = !isnothing(alphas) ? [alphas[1], alphas[end], betas[1], betas[end]] : [0,180,-20,20]
-        ext_h = (n_freq == 2 && !isnothing(al_h)) ?
-                [al_h[1], al_h[end], be_h[1], be_h[end]] : ext_l
+        figure(figsize=(5.354337, 6.8))
+        subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
 
-        if n_freq == 2
-            fig = figure(figsize=(12.5, 6.5))
-            ax_pa  = fig.add_axes([0.06, 0.65, 0.40, 0.28])
-            ax_st  = fig.add_axes([0.06, 0.09, 0.40, 0.51])
-            ax_ml  = fig.add_axes([0.53, 0.09, 0.21, 0.74])   # low  chi² map
-            ax_mh  = fig.add_axes([0.76, 0.09, 0.21, 0.74])   # high chi² map
-            ax_cb  = fig.add_axes([0.53, 0.86, 0.44, 0.042])  # shared colorbar
-        else
-            fig = figure(figsize=(9.5, 6.5))
-            ax_pa  = fig.add_axes([0.09, 0.65, 0.45, 0.28])
-            ax_st  = fig.add_axes([0.09, 0.09, 0.45, 0.51])
-            ax_ml  = fig.add_axes([0.62, 0.09, 0.36, 0.74])
-            ax_mh  = nothing
-            ax_cb  = fig.add_axes([0.62, 0.86, 0.36, 0.042])
+        # PA panel (row 0)
+        subplot2grid((3, 1), (0, 0))
+        if !isnothing(lon_l)
+            pa_l_ok = .!isnan.(pa_l)
+            errorbar(lon_l[pa_l_ok], pa_l[pa_l_ok], yerr=pe_l[pa_l_ok],
+                     fmt=".", ms=2, elinewidth=0.6, c="tab:blue",
+                     label=n_freq==2 ? "low" : "data", zorder=3)
         end
-
-        # ---- PA panel --------------------------------------------------------
-        # Low-freq data points (blue circles)
-        pa_l_ok = .!isnan.(pa_l)
-        ax_pa.errorbar(lon_l[pa_l_ok], pa_l[pa_l_ok], yerr=pe_l[pa_l_ok],
-                       fmt="o", ms=3.5, color="tab:blue", alpha=0.88,
-                       elinewidth=0.6, capsize=1.2, zorder=3,
-                       label=n_freq==2 ? "low freq" : "data")
-        # High-freq data points (orange squares)
-        if n_freq == 2 && !isnothing(pa_h)
+        if n_freq == 2 && !isnothing(lon_h)
             pa_h_ok = .!isnan.(pa_h)
-            ax_pa.errorbar(lon_h[pa_h_ok], pa_h[pa_h_ok], yerr=pe_h[pa_h_ok],
-                           fmt="s", ms=3.0, color="tab:orange", alpha=0.85,
-                           elinewidth=0.6, capsize=1.2, zorder=3, label="high freq")
+            errorbar(lon_h[pa_h_ok], pa_h[pa_h_ok], yerr=pe_h[pa_h_ok],
+                     fmt=".", ms=2, elinewidth=0.6, c="tab:orange", label="high", zorder=3)
         end
-        # RVM curves: low in tab:blue (solid), high in tab:orange (dashed)
         if !isnothing(crv_l)
-            ax_pa.plot(lon_on, crv_l, color="tab:blue", lw=1.2, zorder=4,
-                       label=n_freq==2 ? "RVM low" : "RVM")
+            plot(lon_on, crv_l,       c="darkorange", lw=1.2, zorder=2)
+            plot(lon_on, crv_l_ortho, c="darkorange", lw=1.2, zorder=2)
         end
-        if !isnothing(crv_h)
-            ax_pa.plot(lon_on, crv_h, color="tab:orange", lw=1.2, ls="--", zorder=4,
-                       label="RVM high")
+        if n_freq == 2 && !isnothing(crv_h)
+            plot(lon_on, crv_h,       c="darkorange", lw=1.2, ls="--", zorder=2)
+            plot(lon_on, crv_h_ortho, c="darkorange", lw=1.2, ls="--", zorder=2)
         end
-        # φ₀ vertical lines: solid tab:blue for low, dashed tab:orange for high
-        if !isnothing(res_l)
-            ax_pa.axvline(res_l.phi0, color="tab:blue", lw=1.0, zorder=5)
-        end
-        if !isnothing(res_h)
-            ax_pa.axvline(res_h.phi0, color="tab:orange", lw=1.0, ls="--", zorder=5)
-        end
+        !isnothing(res_l) && axvline(res_l.phi0, c="tab:blue",   lw=1.5,          zorder=4)
+        !isnothing(res_h) && axvline(res_h.phi0, c="tab:orange", lw=1.5, ls="--", zorder=4)
+        ylabel("PA [deg]")
+        ylim(-95, 95)
+        yticks([-90, -45, 0, 45, 90])
+        xlim(x_lo, x_hi)
+        tick_params(labelbottom=false)
+        minorticks_on()
+        n_freq == 2 && legend(fontsize=6, loc="upper right")
 
-        # Annotation box
-        if n_freq == 2
-            txt_l = isnothing(res_l) ? "LOW:  —" :
-                @sprintf("LOW:  α=%.1f° β=%.1f° φ₀=%.1f° χ²ᵣ=%.2f",
-                         res_l.alpha, res_l.zeta-res_l.alpha, res_l.phi0, res_l.chi2_red)
-            txt_h = isnothing(res_h) ? "HIGH: —" :
-                @sprintf("HIGH: α=%.1f° β=%.1f° φ₀=%.1f° χ²ᵣ=%.2f",
-                         res_h.alpha, res_h.zeta-res_h.alpha, res_h.phi0, res_h.chi2_red)
-            txt_str = txt_l * "\n" * txt_h
-        else
-            txt_str = @sprintf("α=%.1f°  β=%.1f°  φ₀=%.1f°\nχ²ᵣ=%.2f  rms=%.1f°",
-                               result.alpha, result.zeta-result.alpha, result.phi0,
-                               result.chi2_red, result.rms_deg)
-        end
-        ax_pa.text(0.98, 0.97, txt_str,
-                   transform=ax_pa."transAxes", fontsize=7.0,
-                   va="top", ha="right", family="monospace",
-                   bbox=Dict("boxstyle"=>"round,pad=0.3", "fc"=>"#fff8e7",
-                             "ec"=>"#ccaa55", "alpha"=>0.88))
-        ax_pa.set_xlim(x_lo, x_hi)
-        ax_pa.set_ylim(-95, 95)
-        ax_pa.set_ylabel("PA [deg]", fontsize=9)
-        ax_pa.set_yticks([-90, -45, 0, 45, 90])
-        ax_pa.tick_params(labelbottom=false)
-        ax_pa.minorticks_on()
-        ax_pa.set_title(name_mod, fontsize=10, fontweight="bold", pad=4)
-        if n_freq == 2
-            ax_pa.legend(fontsize=6.5, loc="upper left", framealpha=0.7,
-                         ncol=2, handlelength=1.2, columnspacing=0.6)
-        end
-
-        # ---- Stokes profile panel (normalize per band like master) ---------------
-        I_low_max  = maximum(abs.(I_low))
-        I_high_max = isnothing(I_high) ? 1.0 : maximum(abs.(I_high))
-        ax_st.plot(lon_full, I_low ./ I_low_max, color="black",   lw=0.8, label="I",  zorder=3)
-        ax_st.plot(lon_full, L_low ./ I_low_max, color="red",     lw=0.8, label="L",  zorder=3)
-        ax_st.plot(lon_full, V_low ./ I_low_max, color="blue",    lw=0.8, label="V",  zorder=3)
+        # Stokes panel (rows 1-2)
+        subplot2grid((3, 1), (1, 0), rowspan=2)
+        I_low_max = maximum(abs.(filter(isfinite, I_low)))
+        plot(lon_full, I_low ./ I_low_max, c="black", lw=0.8, label="I")
+        plot(lon_full, L_low ./ I_low_max, c="red",   lw=0.8, label="L")
+        plot(lon_full, V_low ./ I_low_max, c="blue",  lw=0.8, label="V")
         if n_freq == 2 && !isnothing(I_high)
-            ax_st.plot(lon_full, I_high ./ I_high_max, color="black", lw=0.8, ls="--", zorder=2)
-            ax_st.plot(lon_full, L_high ./ I_high_max, color="red",   lw=0.8, ls="--", zorder=2)
-            ax_st.plot(lon_full, V_high ./ I_high_max, color="blue",  lw=0.8, ls="--", zorder=2)
+            I_high_max = maximum(abs.(filter(isfinite, I_high)))
+            plot(lon_full, I_high ./ I_high_max, c="black", lw=0.8, ls="--")
+            plot(lon_full, L_high ./ I_high_max, c="red",   lw=0.8, ls="--")
+            plot(lon_full, V_high ./ I_high_max, c="blue",  lw=0.8, ls="--")
         end
-        ax_st.axhline(0.0, color="grey", lw=0.5, ls=":", zorder=1)
-        # φ₀ lines: solid tab:blue for low, dashed tab:orange for high
-        if !isnothing(res_l)
-            ax_st.axvline(res_l.phi0, color="tab:blue", lw=1.0,
-                          label=@sprintf("φ₀=%.1f°", res_l.phi0))
-        end
-        if !isnothing(res_h)
-            ax_st.axvline(res_h.phi0, color="tab:orange", lw=1.0, ls="--",
-                          label=@sprintf("φ₀ₕ=%.1f°", res_h.phi0))
-        end
-        ax_st.axvline(phi_c, color="#888888", lw=0.8, ls=":", alpha=0.65,
-                      label=@sprintf("ctr=%.1f°", phi_c))
-        ax_st.set_xlim(x_lo, x_hi)
-        ax_st.set_ylim(-0.45, 1.18)
-        ax_st.set_ylabel("Normalised flux", fontsize=9)
-        ax_st.set_xlabel("Pulse longitude [deg]", fontsize=9)
-        ax_st.legend(fontsize=6.5, loc="upper right", framealpha=0.7,
-                     ncol=3, handlelength=1.2, columnspacing=0.6)
-        ax_st.minorticks_on()
-        if !isnan(h_blask)
-            ax_st.text(0.02, 0.04,
-                       @sprintf("h_Blask = %.0f km\nΔφ = %.1f°", h_blask, result.phi0 - phi_c),
-                       transform=ax_st."transAxes", fontsize=8, va="bottom", ha="left",
-                       family="monospace",
-                       bbox=Dict("boxstyle"=>"round,pad=0.35", "fc"=>"#f0f8ff",
-                                 "ec"=>"#5599cc", "alpha"=>0.88))
-        end
+        xlim(x_lo, x_hi)
+        xlabel("Longitude [deg]")
+        ylabel("Flux Density [norm]")
+        legend(fontsize=6, loc="upper right")
+        minorticks_on()
 
-        # ---- chi² map helper -------------------------------------------------
-        function _draw_map(ax, disp, al, be, ext, hc, res, title_str)
-            im = ax.imshow(disp', origin="lower", aspect="auto", extent=ext,
-                           cmap="viridis", vmin=0.0, vmax=dmax,
-                           interpolation="nearest")
-            # Δχ² confidence contours: 1σ (2.30) and 2σ (6.17) for 2 parameters
-            try
-                ax.contour(al, be, disp', levels=[2.30, 6.17],
-                           colors=["cyan", "royalblue"],
-                           linewidths=[1.0, 0.8], linestyles=["solid", "dashed"])
-            catch; end
-            # Best-fit star marker
-            if !isnothing(res)
-                ax.plot([res.alpha], [res.zeta - res.alpha],
-                        marker="*", ms=9, color="white", mec="#ffdd00", mew=0.7, zorder=10)
-            end
-            # Height contours (purple, labeled)
-            if !isnothing(hc)
+        pa_path = joinpath(outdir, "$(name_mod)_position_angle.pdf")
+        savefig(pa_path, dpi=200)
+        savefig(replace(pa_path, "pdf" => "png"), dpi=200)
+        println(pa_path)
+        PyPlot.close()
+
+        # ---- geometry figure (master style) ----------------------------------
+        n_panels = (n_freq == 2 && !isnothing(disp_h)) ? 2 : 1
+        fig_g = figure(figsize=(7.0, 4.2))
+        subplots_adjust(left=0.09, bottom=0.11, right=0.98, top=0.78, wspace=0.32)
+
+        ext_l = !isnothing(alphas) ? [alphas[1], alphas[end], betas[1], betas[end]] : [0,180,-20,20]
+        ax1 = subplot(1, n_panels, 1)
+        im1 = ax1.imshow(disp_l', origin="lower", aspect="auto", extent=ext_l,
+                         cmap="viridis", vmin=0.0, vmax=dmax, interpolation="nearest")
+        if !isnothing(hc_l)
+            h_levs = _auto_height_levels(hc_l)
+            if !isempty(h_levs)
                 try
-                    h_levs = _auto_height_levels(hc)
-                    if !isempty(h_levs)
-                        ax.clabel(ax.contour(al, be, hc', levels=h_levs,
-                                             colors="purple", linewidths=0.7),
-                                  fmt="%g", fontsize=6, inline=true)
-                    end
+                    ax1.clabel(ax1.contour(alphas, betas, hc_l',
+                                           levels=h_levs, colors="purple", linewidths=0.7),
+                               fmt="%g", fontsize=6)
                 catch; end
             end
-            ax.set_xlabel("alpha [deg]", fontsize=8)
-            ax.set_ylabel("beta [deg]", fontsize=8)
-            ax.set_title(title_str, fontsize=8, pad=3)
-            ax.minorticks_on()
-            return im
+        end
+        ax1.set_xlabel("alpha [deg]")
+        ax1.set_ylabel("beta [deg]")
+        n_panels == 2 && ax1.set_title("low frequency", pad=3)
+        ax1.minorticks_on()
+
+        if n_panels == 2
+            ext_h = [al_h[1], al_h[end], be_h[1], be_h[end]]
+            ax2 = subplot(1, 2, 2)
+            ax2.imshow(disp_h', origin="lower", aspect="auto", extent=ext_h,
+                       cmap="viridis", vmin=0.0, vmax=dmax, interpolation="nearest")
+            if !isnothing(hc_h)
+                h_levs_h = _auto_height_levels(hc_h)
+                if !isempty(h_levs_h)
+                    try
+                        ax2.clabel(ax2.contour(al_h, be_h, hc_h',
+                                               levels=h_levs_h, colors="purple", linewidths=0.7),
+                                   fmt="%g", fontsize=6)
+                    catch; end
+                end
+            end
+            ax2.set_xlabel("alpha [deg]")
+            ax2.set_ylabel("beta [deg]")
+            ax2.set_title("high frequency", pad=3)
+            ax2.minorticks_on()
         end
 
-        im_ref = _draw_map(ax_ml, disp_l, alphas, betas, ext_l, hc_l, res_l,
-                           n_freq==2 ? "low frequency" : "alpha-beta confidence map")
+        cbar_ax = fig_g.add_axes([0.09, 0.86, 0.89, 0.05])
+        cbar = fig_g.colorbar(im1, cax=cbar_ax, orientation="horizontal")
+        cbar.set_label(raw"$\Delta\chi^2$", labelpad=2)
+        cbar_ax.xaxis.set_label_position("top")
+        cbar_ax.xaxis.set_ticks_position("top")
 
-        if n_freq == 2 && !isnothing(ax_mh) && !isnothing(disp_h)
-            _draw_map(ax_mh, disp_h, al_h, be_h, ext_h, hc_h, res_h, "high frequency")
-            ax_mh.yaxis.set_label_position("right")
-            ax_mh.yaxis.set_ticks_position("right")
-            ax_mh.tick_params(labelleft=false)
-        end
-
-        cb = fig.colorbar(im_ref, cax=ax_cb, orientation="horizontal")
-        cb.set_label(raw"$\Delta\chi^2$", labelpad=2, fontsize=8)
-        ax_cb.xaxis.set_label_position("top")
-        ax_cb.xaxis.set_ticks_position("top")
-
-        fig.savefig("$outdir/$(name_mod)_rvm.pdf", bbox_inches="tight", dpi=150)
-        fig.savefig("$outdir/$(name_mod)_rvm.png", bbox_inches="tight", dpi=150)
-        println("$outdir/$(name_mod)_rvm.pdf")
+        geom_path = joinpath(outdir, "$(name_mod)_geometry.pdf")
+        savefig(geom_path, dpi=150)
+        savefig(replace(geom_path, "pdf" => "png"), dpi=150)
+        println(geom_path)
 
         if show_
             PyPlot.show()
