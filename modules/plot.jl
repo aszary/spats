@@ -25,6 +25,7 @@ module Plot
     include("tools.jl")
     #include("pyrmodule.jl")
     include("functions.jl")
+    include("GaussianFit.jl")
 
 
     function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
@@ -272,7 +273,7 @@ module Plot
     end
 
 
-    function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="inferno", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=false)
+    function p3fold(data, outdir; start=1, number=nothing, repeat_num=4, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", show_=false)
 
         num, bins = size(data)
         if number == nothing
@@ -552,7 +553,6 @@ module Plot
     ##########################################################################
     ##########################################################################
 
-    # TODO start here
 
     function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME",
               show_=false)
@@ -655,16 +655,484 @@ module Plot
         close()
     end
 
+    # TODO TODO TODO test and remove/clean below
+
+    function analyse_single(low, high, mid, p; pulse_start=1)
+        pulses, bins = size(low)
+        for i in pulse_start:pulses
+
+            figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
+            plot(low[i, p["bin_st"]:p["bin_end"]], label="low", lw=2, alpha=0.77)
+            plot(high[i, p["bin_st"]:p["bin_end"]], label="high", lw=2, alpha=0.77)
+            #plot(mid[i, p["bin_st"]:p["bin_end"]], label="mid", lw=2, alpha=0.77)
+
+            legend()
+
+            show()
+            println("Press Enter for next pulse, 'q' to quit.")
+            user_input = readline(stdin; keep=false)
+            close("all")
+            
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
+
+        end
+
+    end
 
 
+    function analyse_p3folds(low, high, p)
+        pulses, bins = size(low)
+        for i in 1:pulses
 
 
+            figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
+            plot(low[i, p["bin_st"]:p["bin_end"]])
+            plot(high[i, p["bin_st"]:p["bin_end"]])
+
+            show()
+            println("Press Enter for next pulse, 'q' to quit.")
+            user_input = readline(stdin; keep=false)
+            close("all")
+            
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
+
+        end
 
 
+    end
+
+    function analyse_p3folds2(low, high, p)
+        pulses, bins = size(low)
         
+        # Define model: sum of two Gaussian functions
+        @. model(x, p) = p[1] * exp(-((x - p[2])^2) / (2 * p[3]^2)) + 
+                        p[4] * exp(-((x - p[5])^2) / (2 * p[6]^2))
+        
+        for i in 1:pulses
+            # Extract data in the range bin_st:bin_end
+            x_data = p["bin_st"]:p["bin_end"]
+            y_low = low[i, p["bin_st"]:p["bin_end"]]
+            y_high = high[i, p["bin_st"]:p["bin_end"]]
+            
+            figure(figsize=(6, 7))
+            
+            # Subplot for low
+            subplot(2, 1, 1)
+            plot(x_data, y_low, "b.", label="Low data")
+            
+            # Initial parameters for fitting [amp1, mean1, sigma1, amp2, mean2, sigma2]
+            # Find two maxima as starting points
+            max_idx = argmax(y_low)
+            p0_low = [maximum(y_low), x_data[max_idx], 10.0, 
+                    maximum(y_low)*0.5, x_data[max_idx]+20, 10.0]
+            
+            try
+                fit_low = curve_fit(model, collect(x_data), y_low, p0_low)
+                plot(x_data, model(collect(x_data), fit_low.param), "r-", label="Fit", linewidth=2)
+                title("Low - Pulse $i")
+                legend()
+            catch e
+                println("Fit failed for low data, pulse $i: $e")
+                title("Low - Pulse $i (fit failed)")
+            end
+            
+            # Subplot for high
+            subplot(2, 1, 2)
+            plot(x_data, y_high, "b.", label="High data")
+            
+            max_idx = argmax(y_high)
+            p0_high = [maximum(y_high), x_data[max_idx], 10.0,
+                    maximum(y_high)*0.5, x_data[max_idx]+20, 10.0]
+            
+            try
+                fit_high = curve_fit(model, collect(x_data), y_high, p0_high)
+                plot(x_data, model(collect(x_data), fit_high.param), "r-", label="Fit", linewidth=2)
+                title("High - Pulse $i")
+                legend()
+                
+                # Optional: print fitting parameters
+                println("High fit params: A1=$(fit_high.param[1]), μ1=$(fit_high.param[2]), σ1=$(fit_high.param[3])")
+                println("                A2=$(fit_high.param[4]), μ2=$(fit_high.param[5]), σ2=$(fit_high.param[6])")
+            catch e
+                println("Fit failed for high data, pulse $i: $e")
+                title("High - Pulse $i (fit failed)")
+            end
+            
+            tight_layout()
+            show()
+            
+            println("Press Enter for next pulse, 'q' to quit.")
+            user_input = readline(stdin; keep=false)
+            close("all")
+            
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
+        end
+    end    
+
+    function analyse_p3folds3(low, high, p, n_comp)
+        pulses, bins = size(low)
+
+        # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
+        offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
+
+        for i in 1:pulses
+            # Extract data in the range bin_st:bin_end
+            x_data = p["bin_st"]:p["bin_end"]
+            y_low = low[i, p["bin_st"]:p["bin_end"]]
+            y_high = high[i, p["bin_st"]:p["bin_end"]]
+
+            #=
+            # Tutaj fity nie działają...
+            x_data = collect(1:bins)
+            y_low = low[i, :]
+            y_high = high[i, :]
+            =#
+
+
+            fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
+            #println(fit_l)
+            GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
+            fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
+            GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024)
+
+
+            # Component offsets
+            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
+                @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
+                    o.component, o.longitude, o.longitude_bin, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
+                if !haskey(offset_data, o.component)
+                    offset_data[o.component] = (lon=Float64[], off=Float64[], err=Float64[])
+                end
+                push!(offset_data[o.component].lon, o.longitude)
+                push!(offset_data[o.component].off, o.offset_deg)
+                push!(offset_data[o.component].err, o.offset_deg_err)
+            end
 
 
 
+
+            figure(figsize=(6, 7))
+
+            # Subplot for low
+            low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
+            high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
+
+            subplot(2, 1, 1)
+            plot(x_data, y_low,  color="steelblue",  lw=1.2, alpha=0.7, label="Low data")
+            plot(x_data, y_high, color="darkorange",  lw=1.2, alpha=0.7, label="High data")
+            if fit_l.converged
+                plot(x_data, fit_l.yfit, "--", color="blue", lw=2.0, label="Fit low")
+                for (j, c) in enumerate(fit_l.components)
+                    plot(x_data, fit_l.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
+                         color=low_colors[mod1(j, length(low_colors))], lw=1.8, alpha=0.9, label="Low G$j")
+                end
+            end
+            if fit_h.converged
+                plot(x_data, fit_h.yfit, "--", color="darkorange", lw=2.0, label="Fit high")
+                for (j, c) in enumerate(fit_h.components)
+                    plot(x_data, fit_h.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
+                         color=high_colors[mod1(j, length(high_colors))], lw=1.8, alpha=0.9, label="High G$j")
+                end
+            end
+            legend()
+            xlim(p["bin_st"], p["bin_end"])
+
+            # Bottom panel: mu vs amplitude for each component
+            subplot(2, 1, 2)
+            if fit_l.converged
+                for (j, c) in enumerate(fit_l.components)
+                    scatter([c.mu], [fit_l.baseline + c.A], color=low_colors[mod1(j, length(low_colors))],
+                            marker="o", s=60, label="Low G$j", zorder=3)
+                end
+            end
+            if fit_h.converged
+                for (j, c) in enumerate(fit_h.components)
+                    scatter([c.mu], [fit_h.baseline + c.A], color=high_colors[mod1(j, length(high_colors))],
+                            marker="s", s=60, label="High G$j", zorder=3)
+                end
+            end
+            xlabel("μ (bin)")
+            ylabel("Amplituda")
+            title("Komponenty: μ vs amplituda")
+            legend()
+            xlim(p["bin_st"], p["bin_end"])
+
+            tight_layout()
+            show()
+            
+            println("Press Enter for next pulse, 'q' to quit.")
+            user_input = readline(stdin; keep=false)
+            close("all")
+            
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
+
+
+
+
+        end
+
+        # Weighted mean offset per component
+        if !isempty(offset_data)
+            println("\n=== Weighted mean offsets ===")
+            for comp in sort(collect(keys(offset_data)))
+                d = offset_data[comp]
+                if isempty(d.err) || all(d.err .== 0.0)
+                    continue
+                end
+                w = 1.0 ./ (d.err .^ 2)
+                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d)",
+                    comp, sum(w .* d.off) / sum(w), 1.0 / sqrt(sum(w)), length(d.off)))
+            end
+            println()
+        end
+
+        # Final plot: longitude vs. offset for each component
+        if !isempty(offset_data)
+            figure(figsize=(8, 5))
+            colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0"]
+            for comp in sort(collect(keys(offset_data)))
+                d = offset_data[comp]
+                errorbar(d.lon, d.off, yerr=d.err,
+                         fmt="o", capsize=4, lw=1.2,
+                         color=colors[mod1(comp, length(colors))],
+                         label="G$comp")
+            end
+            #ylim(-0.5, 1.5)
+            axhline(0.0, color="gray", lw=0.8, ls="--")
+            minorticks_on()
+            xlabel("Longitude (°)")
+            ylabel("Offset (°)")
+            title("Longitude vs. offset")
+            legend()
+            tight_layout()
+            show()
+        end
+
+    end
+
+
+    function position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
+                            lon_h, pa_h, pa_err_h, I_h, Lin_h, V_h,
+                            outdir; show_=true,
+                            lon_rvm_l=nothing, pa_rvm_l=nothing, pa_rvm_l_ortho=nothing,
+                            phi0_l=nothing,
+                            lon_rvm_h=nothing, pa_rvm_h=nothing, pa_rvm_h_ortho=nothing,
+                            phi0_h=nothing)
+        figure(figsize=(5.354337, 6.8))
+        subplots_adjust(left=0.18, bottom=0.10, right=0.99, top=0.99, hspace=0.05)
+
+        # Top: PA with error bars
+        subplot2grid((3, 1), (0, 0))
+        errorbar(lon_l, pa_l, yerr=pa_err_l, fmt=".", ms=2, elinewidth=0.6,
+                 c="tab:blue",   label="low",  zorder=3)
+        errorbar(lon_h, pa_h, yerr=pa_err_h, fmt=".", ms=2, elinewidth=0.6,
+                 c="tab:orange", label="high", zorder=3)
+
+        # Best-fitting RVM (orange) and its 90° orthogonal mode
+        if !isnothing(lon_rvm_l) && !isnothing(pa_rvm_l)
+            plot(lon_rvm_l, pa_rvm_l,       c="darkorange", lw=1.2, zorder=2)
+            plot(lon_rvm_l, pa_rvm_l_ortho, c="darkorange", lw=1.2, zorder=2)
+        end
+        if !isnothing(lon_rvm_h) && !isnothing(pa_rvm_h)
+            plot(lon_rvm_h, pa_rvm_h,       c="darkorange", lw=1.2, ls="--", zorder=2)
+            plot(lon_rvm_h, pa_rvm_h_ortho, c="darkorange", lw=1.2, ls="--", zorder=2)
+        end
+
+        # Inflection point — blue vertical line spanning the axes
+        if !isnothing(phi0_l)
+            axvline(phi0_l, c="tab:blue", lw=1.5, zorder=4)
+        end
+        if !isnothing(phi0_h)
+            axvline(phi0_h, c="tab:blue", lw=1.5, ls="--", zorder=4)
+        end
+
+        ylabel("PA [deg]")
+        tick_params(labelbottom=false)
+        minorticks_on()
+
+        # Bottom: Stokes profiles (normalized to peak I)
+        subplot2grid((3, 1), (1, 0), rowspan=2)
+        plot(lon_l, I_l   ./ maximum(I_l), c="black", lw=0.8)
+        plot(lon_l, Lin_l ./ maximum(I_l), c="red",   lw=0.8)
+        plot(lon_l, V_l   ./ maximum(I_l), c="blue",  lw=0.8)
+        plot(lon_h, I_h   ./ maximum(I_h), c="black", lw=0.8, ls="--")
+        plot(lon_h, Lin_h ./ maximum(I_h), c="red",   lw=0.8, ls="--")
+        plot(lon_h, V_h   ./ maximum(I_h), c="blue",  lw=0.8, ls="--")
+        xlabel("Longitude [deg]")
+        ylabel("Flux Density [norm]")
+        minorticks_on()
+
+        savefig(joinpath(outdir, "position_angle.pdf"), dpi=200)
+        if show_ show() end
+    end
+
+
+    # Auto-scale contour levels across the full range of the supplied maps,
+    # snapped to a round 1/2/5·10^n step so labels read as e.g. 1000, 2000, 3000 km.
+    function _snap_step(raw)
+        raw <= 0 && return 0.0
+        pw = 10.0 ^ floor(log10(raw))
+        mant = raw / pw
+        mant < 1.5 && return 1.0 * pw
+        mant < 3.0 && return 2.0 * pw
+        mant < 7.0 && return 5.0 * pw
+        return 10.0 * pw
+    end
+
+    function _auto_height_levels(maps...)
+        finite_h = filter(isfinite, vcat((vec(m) for m in maps)...))
+        isempty(finite_h) && return Float64[]
+        h_lo = minimum(finite_h)
+        h_hi = maximum(finite_h)
+        dh = _snap_step((h_hi - h_lo) / 8)
+        if dh > 0
+            return collect(ceil(h_lo / dh) * dh : dh : floor(h_hi / dh) * dh)
+        else
+            return Float64[]
+        end
+    end
+
+    function geometry(chi2_map_l, chi2_map_h, alphas_deg, betas_deg, outdir;
+                      show_=false, name_mod="PSR_NAME",
+                      delta_chi2_max=nothing,
+                      ndof_l=nothing, ndof_h=nothing,
+                      chi2_red_max=10.0,
+                      height_contours=nothing,
+                      P_sec=nothing, W_deg_l=nothing, W_deg_h=nothing,
+                      cmap="viridis")
+
+        chi2_min_l = minimum(chi2_map_l[isfinite.(chi2_map_l)])
+        chi2_min_h = minimum(chi2_map_h[isfinite.(chi2_map_h)])
+        chi2_max_l = maximum(chi2_map_l[isfinite.(chi2_map_l)])
+        chi2_max_h = maximum(chi2_map_h[isfinite.(chi2_map_h)])
+        println("chi2_min: low=$(round(chi2_min_l, digits=2))  high=$(round(chi2_min_h, digits=2))")
+        println("chi2_max: low=$(round(chi2_max_l, digits=2))  high=$(round(chi2_max_h, digits=2))")
+
+        # Two display modes:
+        #  (a) If ndof_l and ndof_h are given → plot reduced χ² with cutoff
+        #      chi2_red_max (Johnston+ 2023 Fig. 1 convention: "χ² > 10" cutoff).
+        #  (b) Else → plot Δχ² with cutoff delta_chi2_max (default 11.83 = 3σ
+        #      for 2 free parameters).
+        use_chi2_red = !isnothing(ndof_l) && !isnothing(ndof_h)
+        if use_chi2_red
+            dchi2_l = chi2_map_l ./ ndof_l
+            dchi2_h = chi2_map_h ./ ndof_h
+            dmax = chi2_red_max
+            chi2_label = raw"$\chi^2_{\mathrm{red}}$"
+            println("mode=chi2_red  ndof: low=$ndof_l  high=$ndof_h   cutoff=$(round(dmax,digits=2))")
+            println("chi2_red_min: low=$(round(chi2_min_l/ndof_l, digits=3))  high=$(round(chi2_min_h/ndof_h, digits=3))")
+        else
+            dchi2_l = chi2_map_l .- chi2_min_l
+            dchi2_h = chi2_map_h .- chi2_min_h
+            dmax = isnothing(delta_chi2_max) ? 11.83 : delta_chi2_max
+            chi2_label = raw"$\Delta\chi^2$"
+            println("mode=delta_chi2   delta_chi2_max = $(round(dmax, digits=2))")
+        end
+
+        # Emission-height maps h(α,β) assuming a filled beam — one per band.
+        # ρ from Gil, Gronkowski & Rudnicki (1984) / Johnston+ 2023 Eq. (3):
+        #   cos ρ = cos α cos(α+β) + sin α sin(α+β) cos(W10/2)
+        # Emission height (dipolar last-open field line; Johnston+ 2023 Eq. 2):
+        #   h = 2 c P ρ² / (9π)   with ρ in radians
+        function _height_map(W_deg)
+            hmap = fill(NaN, length(alphas_deg), length(betas_deg))
+            (isnothing(P_sec) || isnothing(W_deg)) && return hmap
+            c_km_s = 2.99792458e5
+            cosW2 = cos(deg2rad(W_deg) / 2)
+            for i in eachindex(alphas_deg)
+                a = deg2rad(alphas_deg[i])
+                for j in eachindex(betas_deg)
+                    b = deg2rad(betas_deg[j])
+                    cr = cos(a) * cos(a + b) + sin(a) * sin(a + b) * cosW2
+                    cr = clamp(cr, -1.0, 1.0)
+                    rho = acos(cr)
+                    hmap[i, j] = 2 * c_km_s * P_sec * rho^2 / (9 * pi)
+                end
+            end
+            return hmap
+        end
+
+        if isnothing(P_sec) || (isnothing(W_deg_l) && isnothing(W_deg_h))
+            @warn "Plot.geometry: P_sec and/or W10 not provided — height contours will not be drawn."
+        end
+        height_map_l = _height_map(W_deg_l)
+        height_map_h = _height_map(W_deg_h)
+
+        height_contours = isnothing(height_contours) ?
+            _auto_height_levels(height_map_l, height_map_h) : height_contours
+        println("height_contours [km] = $(round.(height_contours, digits=1))")
+
+        # Mask cells outside the acceptable region (shown as white)
+        dchi2_l_plot = Float64.(dchi2_l); dchi2_l_plot[dchi2_l .> dmax] .= NaN
+        dchi2_h_plot = Float64.(dchi2_h); dchi2_h_plot[dchi2_h .> dmax] .= NaN
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        fig = figure(figsize=(7.0, 4.2))
+        subplots_adjust(left=0.09, bottom=0.11, right=0.98, top=0.78, wspace=0.32)
+
+        # chi2_map is [alpha_idx, beta_idx]; imshow wants [row=beta, col=alpha] → transpose
+        extent = [alphas_deg[1], alphas_deg[end], betas_deg[1], betas_deg[end]]
+
+        # --- Panel 1: low frequency ---
+        ax1 = subplot(1, 2, 1)
+        im1 = imshow(dchi2_l_plot',
+                     origin="lower", extent=extent, aspect="auto",
+                     cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
+        ax1.clabel(ax1.contour(alphas_deg, betas_deg, height_map_l',
+                               levels=height_contours, colors="purple", linewidths=0.7),
+                   fmt="%g", fontsize=6)
+        ax1.set_xlabel("alpha [deg]")
+        ax1.set_ylabel("beta [deg]")
+        ax1.set_title("low frequency", pad=3)
+        ax1.minorticks_on()
+
+        # --- Panel 2: high frequency ---
+        ax2 = subplot(1, 2, 2)
+        imshow(dchi2_h_plot',
+               origin="lower", extent=extent, aspect="auto",
+               cmap=cmap, vmin=0., vmax=dmax, interpolation="nearest")
+        ax2.clabel(ax2.contour(alphas_deg, betas_deg, height_map_h',
+                               levels=height_contours, colors="purple", linewidths=0.7),
+                   fmt="%g", fontsize=6)
+        ax2.set_xlabel("alpha [deg]")
+        ax2.set_ylabel("beta [deg]")
+        ax2.set_title("high frequency", pad=3)
+        ax2.minorticks_on()
+
+        # Shared horizontal colorbar at the top
+        cbar_ax = fig.add_axes([0.09, 0.86, 0.89, 0.05])
+        cbar = fig.colorbar(im1, cax=cbar_ax, orientation="horizontal")
+        cbar.set_label(chi2_label, labelpad=2)
+        cbar_ax.xaxis.set_label_position("top")
+        cbar_ax.xaxis.set_ticks_position("top")
+
+        savepath = joinpath(outdir, "$(name_mod)_geometry.pdf")
+        println(savepath)
+        savefig(savepath)
+        savefig(replace(savepath, "pdf" => "png"))
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
 
 
 end  # module Plot

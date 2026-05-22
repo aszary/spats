@@ -10,6 +10,7 @@ module Tools
     using CubicSplines
     using Trapz
     using JSON
+    using SavitzkyGolay
 
     using PyPlot
     using DSP
@@ -693,131 +694,6 @@ module Tools
         return peaks
     end
 
-
-    function track_subpulses_snr2(data, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=3)
-        """ based on S/N of the signal """
-
-        f = open(snrfile)
-        snrs = []
-        for line in readlines(f)
-            push!(snrs, parse(Float64, line))
-        end
-
-        println("obs. SNR (no?): ", round(sum(snrs) / sqrt(size(snrs)[1])))
-        println("mean SNR: ", mean(snrs))
-        println("median SNR: ", median(snrs))
-
-        pulses, bins = size(data)
-        p2_bins = floor(Int, p2 / 360 * bins)
-        peaks = [] # [pulse_num, [p1, p2, p3...]]
-        ppeaks = [] # [p1, p2, p3...]
-        σ = p2_bins / 2 / 2.35482
-        kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
-        detected_pulses = 0
-        located_subpulses = 0
-        for i in 1:pulses
-            #y = view(data, i, on_st:on_end)
-            y = view(data, i, :)
-            (mi, ma) = extrema(y)
-            #y = (y .- mi) / (ma - mi)
-            y = y ./ ma # this is much much better!
-
-            res = conv(y, kernel)
-            (mi, ma) = extrema(res)
-            res = (res .- mi) / (ma - mi)
-            re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
-
-            #on = maximum(re[on_st:on_end])
-            #off = rms(y[off_st:off_end])
-            #sigma = on / off
-            #println("$i $sigma")
-            #println("$i $(snrs[i])")
-            snr = snrs[i]
-
-            if (snr > thresh) && ~isnan(re[1])  # why re is sometimes NaN?
-                peak = Tools.peaks(re)
-                # new syntax?
-                ma, pa = peakprom(Maxima(), re, floor(Int, p2_bins/4))
-                #ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
-                #ma, pa = peakprom(re, Maxima(), p2_bins/2)
-                inds = sortperm(pa, rev=true)
-                ppeaks = []
-                # get new thresh2 (maximum in off pulse region)
-                #=
-                new_thresh = 0.
-                for ii in inds
-                    if ((ma[ii] < on_st) || (ma[ii] > on_end)) && (new_thresh < re[ma[ii]])
-                        new_thresh = re[ma[ii]]
-                    end
-                end
-                thresh2 = maximum([new_thresh, thresh2_old])
-                #println(thresh2)
-                =#
-                # TODO add singnal to noise calculation HERE
-                #thresh2 = 0.7
-                for ii in inds
-                    st = floor(Int, ma[ii] - p2_bins / 2)
-                    en = ceil(Int, ma[ii] + p2_bins / 2)
-                    if (st >= on_st) && (en <= on_end)
-                        #println(y)
-                        yy = y[st:en]
-                        signal = simps(yy, collect(st:en))
-                        #signal2 = trapz(collect(st:en), yy) # should work
-                        #println("$signal, $signal2")
-
-                        # do not use integration for noise!
-                        #nn = y[off_st:off_st+(en-st)]
-                        #noise = simps(nn, collect(off_st:off_st+(en-st)))
-
-                        #nn = y[off_st:off_st+(en-st)]
-                        nn = y[off_st:off_end]
-                        noise = std(nn) * (en-st)^0.5
-                        #nn2 = y[off_st:off_st+(en-st)]
-                        #noise2 = std(nn2) * (en-st)^0.5
-                        #println("$noise $noise2")
-
-                        #println(signal / noise)
-
-                        if signal / noise > thresh
-                            push!(ppeaks, ma[ii])
-                        end
-
-                    end
-                    #if (re[ma[ii]] >= thresh2) &&  (ma[ii] > on_st) && (ma[ii] < on_end)
-                    #    push!(ppeaks, ma[ii])
-                    #end
-                end
-                if length(ppeaks) > 0
-                    located_subpulses += 1
-                end
-                push!(peaks, [i, ppeaks])
-                detected_pulses += 1
-                #println("$i $ppeaks")
-                #=
-                PyPlot.close()
-                plot(y, c="black")
-                plot(re, c="red")
-                plot(kernel, c="blue")
-                #for ii in inds
-                for p in ppeaks
-                    axvline(x=p-1, c="pink")
-                end
-                #axvline(x=ma[inds[1]]-1, c="green") # TODO plotting starts from 0!
-                #axvline(x=ma[inds[2]]-1, c="magenta") # TODO plotting starts from 0!
-                #axvline(x=ma[inds[3]]-1, c="brown") # TODO plotting starts from 0!
-                show()
-                st = readline(stdin; keep=false)
-                if st == "q"
-                    break
-                end
-                =#
-            end
-        end
-        println("Number of pulses: $pulses  Included pulses : $detected_pulses  Pulses with located subpulses: $located_subpulses")
-        frac = located_subpulses / pulses * 100
-        println("Fraction of pulses used: $(round(frac)) (before grouping (overestimated!))")
-        return peaks
-    end
 
 
 
@@ -2118,6 +1994,8 @@ module Tools
             "_nbin" => "Number of pulse phase bins",
             "nfft" => 256,
             "_nfft" => "Set size of fft's [default=256]",
+            "period" => nothing,
+            "_period" => "Pulsar rotational period [seconds]",
             "bin_st" => nothing,
             "bin_end" => nothing,
             "pulse_start" => 1,
@@ -2127,7 +2005,8 @@ module Tools
             "p3_error" => -1.0,
             "p3_ybins" => nothing,
             "clean_threshold" => 0.5,
-            "_clean_threshold" => "threshold for polarization cleaning"
+            "_clean_threshold" => "threshold for polarization cleaning",
+            "zaps" => nothing
         )
         f = open(filename, "w")
         JSON.print(f, p)
@@ -2135,6 +2014,393 @@ module Tools
         return p
     end
 
+    # TODO TODO TODO revive/use function
+
+    # track_subpulses_snr
+    # track_subpulses_snr2 <-- ten!
+    function track_subpulses_snr2(data, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=3)
+        """ based on S/N of the signal """
+
+        f = open(snrfile)
+        snrs = []
+        for line in readlines(f)
+            push!(snrs, parse(Float64, line))
+        end
+
+        println("obs. SNR (no?): ", round(sum(snrs) / sqrt(size(snrs)[1])))
+        println("mean SNR: ", mean(snrs))
+        println("median SNR: ", median(snrs))
+
+        pulses, bins = size(data)
+        p2_bins = floor(Int, p2 / 360 * bins)
+        peaks = [] # [pulse_num, [p1, p2, p3...]]
+        ppeaks = [] # [p1, p2, p3...]
+        σ = p2_bins / 2 / 2.35482
+        kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+        detected_pulses = 0
+        located_subpulses = 0
+        for i in 1:pulses
+            #y = view(data, i, on_st:on_end)
+            y = view(data, i, :)
+            (mi, ma) = extrema(y)
+            #y = (y .- mi) / (ma - mi)
+            y = y ./ ma # this is much much better!
+
+            res = conv(y, kernel)
+            (mi, ma) = extrema(res)
+            res = (res .- mi) / (ma - mi)
+            re = res[floor(Int,p2_bins/2):end-floor(Int,p2_bins/2)]
+
+            #on = maximum(re[on_st:on_end])
+            #off = rms(y[off_st:off_end])
+            #sigma = on / off
+            #println("$i $sigma")
+            #println("$i $(snrs[i])")
+            snr = snrs[i]
+
+            if (snr > thresh) && ~isnan(re[1])  # why re is sometimes NaN?
+                peak = Tools.peaks(re)
+                # new syntax?
+                ma, pa = peakprom(Maxima(), re, floor(Int, p2_bins/4))
+                #ma, pa = peakprom(re, Maxima(), floor(Int, p2_bins/4))
+                #ma, pa = peakprom(re, Maxima(), p2_bins/2)
+                inds = sortperm(pa, rev=true)
+                ppeaks = []
+                # get new thresh2 (maximum in off pulse region)
+                #=
+                new_thresh = 0.
+                for ii in inds
+                    if ((ma[ii] < on_st) || (ma[ii] > on_end)) && (new_thresh < re[ma[ii]])
+                        new_thresh = re[ma[ii]]
+                    end
+                end
+                thresh2 = maximum([new_thresh, thresh2_old])
+                #println(thresh2)
+                =#
+                # TODO add singnal to noise calculation HERE
+                #thresh2 = 0.7
+                for ii in inds
+                    st = floor(Int, ma[ii] - p2_bins / 2)
+                    en = ceil(Int, ma[ii] + p2_bins / 2)
+                    if (st >= on_st) && (en <= on_end)
+                        #println(y)
+                        yy = y[st:en]
+                        signal = simps(yy, collect(st:en))
+                        #signal2 = trapz(collect(st:en), yy) # should work
+                        #println("$signal, $signal2")
+
+                        # do not use integration for noise!
+                        #nn = y[off_st:off_st+(en-st)]
+                        #noise = simps(nn, collect(off_st:off_st+(en-st)))
+
+                        #nn = y[off_st:off_st+(en-st)]
+                        nn = y[off_st:off_end]
+                        noise = std(nn) * (en-st)^0.5
+                        #nn2 = y[off_st:off_st+(en-st)]
+                        #noise2 = std(nn2) * (en-st)^0.5
+                        #println("$noise $noise2")
+
+                        #println(signal / noise)
+
+                        if signal / noise > thresh
+                            push!(ppeaks, ma[ii])
+                        end
+
+                    end
+                    #if (re[ma[ii]] >= thresh2) &&  (ma[ii] > on_st) && (ma[ii] < on_end)
+                    #    push!(ppeaks, ma[ii])
+                    #end
+                end
+                if length(ppeaks) > 0
+                    located_subpulses += 1
+                end
+                push!(peaks, [i, ppeaks])
+                detected_pulses += 1
+                #println("$i $ppeaks")
+                #=
+                PyPlot.close()
+                plot(y, c="black")
+                plot(re, c="red")
+                plot(kernel, c="blue")
+                #for ii in inds
+                for p in ppeaks
+                    axvline(x=p-1, c="pink")
+                end
+                #axvline(x=ma[inds[1]]-1, c="green") # TODO plotting starts from 0!
+                #axvline(x=ma[inds[2]]-1, c="magenta") # TODO plotting starts from 0!
+                #axvline(x=ma[inds[3]]-1, c="brown") # TODO plotting starts from 0!
+                show()
+                st = readline(stdin; keep=false)
+                if st == "q"
+                    break
+                end
+                =#
+            end
+        end
+        println("Number of pulses: $pulses  Included pulses : $detected_pulses  Pulses with located subpulses: $located_subpulses")
+        frac = located_subpulses / pulses * 100
+        println("Fraction of pulses used: $(round(frac)) (before grouping (overestimated!))")
+        return peaks
+    end
+
+
+    """ 
+    Track subpulses based on S/N of the signal 
+    new version 
+    """
+    function track_subpulses_snr3(data, data2, data_mid, p2, snrfile; on_st=350, on_end=650, off_st=20, off_end=320, thresh=3)
+
+        f = open(snrfile)
+        snrs = []
+        for line in readlines(f)
+            push!(snrs, parse(Float64, line))
+        end
+
+        println("obs. SNR (no?): ", round(sum(snrs) / sqrt(size(snrs)[1])))
+        println("mean SNR: ", mean(snrs))
+        println("median SNR: ", median(snrs))
+
+        pulses, bins = size(data)
+
+        p2_bins = floor(Int, p2 / 360 * bins)
+        if p2_bins % 2 == 0
+            p2_bins += 1  # we force an odd length
+        end
+        σ = p2_bins / 2 / 2.35482 # why like that?
+        kernel = gauss(collect(1:p2_bins), [1, p2_bins/2, σ, 0])
+
+        pulse_st = 1
+        pulse_end = 150
+
+        pu_1 = []
+        loc_1 = []
+        pu_2 = []
+        loc_2 = []
+
+        for i in pulse_st:pulse_end # pulses
+            y = view(data, i, on_st:on_end) # single pulse
+
+            # normalize the data
+            (mi, ma) = extrema(y)
+            #y = (y .- mi) / (ma - mi)
+            y = y ./ ma # this is much much better!
+
+            # convolution with gauss function
+            res = conv(y, kernel)
+            (mi, ma) = extrema(res)
+            # full convolution result
+            res = (res .- mi) / (ma - mi) 
+            # removes boundry artifacts => re and y should have the same sizes
+            half_kernel = div(p2_bins, 2)
+            re = res[half_kernel+1:end-half_kernel] # this is why ind-1?
+
+            #sg = savitzky_golay(y, 21, 3)
+
+            # work with data2
+            y2 = view(data2, i, on_st:on_end) # single pulse
+            # normalize the data
+            (mi, ma) = extrema(y2)
+            y2 = y2 ./ ma
+            res2 = conv(y2, kernel)
+            (mi, ma) = extrema(res2)
+            # full convolution result
+            res2 = (res2 .- mi) / (ma - mi) 
+            # removes boundry artifacts => re and y should have the same sizes
+            half_kernel = div(p2_bins, 2)
+            re2 = res2[half_kernel+1:end-half_kernel] # this is why ind-1?
+            #sg2 = savitzky_golay(y2, 21, 3)
+
+            snr = snrs[i]
+
+            # just maximum finding
+            #=
+            val, idx = findmax(y)
+            println("Max. val=$val i=$idx pulse=$i")
+            push!(pu_1, i)
+            push!(loc_1, idx)
+            val2, idx2 = findmax(y2)
+            push!(pu_2, i)
+            push!(loc_2, idx2)
+            =#
+
+            if snr > thresh
+
+                pks = findmaxima(re)
+                pks = peakproms(pks)
+                #pks = peakwidths(pks)
+
+                pks2 = findmaxima(re2)
+                pks2 = peakproms(pks2)
+                #pks2 = peakwidths(pks2)
+
+                #println(pks)
+                println(i)
+                println(keys(pks))
+                
+                #println(pks[:proms])
+                #println(pks[:widths])
+                
+
+                PyPlot.close()
+
+                for (j,ind) in enumerate(pks[:indices])
+                    if pks[:proms][j] > 0.5
+                        #scatter([ind-1],[pks[:heights][j]]) # why ind-1?
+                        #plot([ind-1, ind-1],[pks[:heights][j], pks[:heights][j]-pks[:proms][j]], c="red")
+                        push!(pu_1,i)
+                        push!(loc_1, ind-1)
+                    end
+                end
+
+                for (j,ind) in enumerate(pks2[:indices])
+                    if pks2[:proms][j] > 0.5
+                        #scatter([ind-1],[pks2[:heights][j]]) # why ind-1?
+                        #plot([ind-1, ind-1],[pks2[:heights][j], pks2[:heights][j]-pks2[:proms][j]], c="C2")
+                        push!(pu_2, i)
+                        push!(loc_2, ind-1)
+                    end
+                end
+
+            #=
+
+                plot(y, c="black", lw=1)
+                #plot(sg.y, c="black", lw=3, alpha=0.5)
+                plot(re, c="red")
+                #plot(sg.y, c="blue")
+
+
+                plot(y2, c="C1", lw=1)
+                #plot(sg2.y, c="C1", lw=3, alpha=0.5)
+                plot(re2, c="C2")
+                
+                #xlim(on_st, on_end) # if full
+                
+                #show()
+                #st = readline(stdin; keep=false)
+                st = 1
+                if st == "q"
+                    break
+                end
+
+            =#
+            end
+
+        end
+
+        PyPlot.close()
+        figure()
+
+        subplot2grid((1, 3), (0, 0))
+        imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        scatter(loc_1 .+0.5, pu_1.+0.5, marker="x", color="C1", s=50)
+        #minorticks_on()
+        #grid(true, linestyle="-", linewidth=1, c="white", which="both")
+
+
+        subplot2grid((1, 3), (0, 1))
+        imshow(data2[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        # mid shows same results...
+        #imshow(data_mid[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        scatter(loc_2 .+ 0.5, pu_2 .+0.5, marker="x", color="C2", s=50)
+        #minorticks_on()
+        #grid(true, linestyle="-", linewidth=1, c="white", which="both")
+
+        subplot2grid((1, 3), (0, 2))
+        # mid shows same results...
+        imshow(data_mid[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+
+        PyPlot.show()
+        st = readline(stdin; keep=false)
+        PyPlot.close()
+
+
+    end
+
+
+    """
+    Manual subpulses tracking
+    """
+    function track_subpulses_manual(data; on_st=350, on_end=650)
+
+        pulses, bins = size(data)
+
+        max = maximum(data)
+        thre = 0.0
+
+        for i in 1:pulses
+            for j in 1:bins
+                if data[i, j] < thre * max
+                    data[i,j] = 0
+                end
+            end
+
+        end
+
+        #data = rebin(data, 3)
+
+        PyPlot.close()
+        figure()
+
+        #subplot2grid((1, 3), (0, 0))
+        #imshow(data[:,on_st:on_end], origin="lower", cmap="viridis", interpolation="none", aspect="auto", extent=[1, on_end-on_st + 1+1, 1, pulses+1])
+        imshow(data[:,:], origin="lower", cmap="viridis", interpolation="none", aspect="auto")
+ 
+        PyPlot.show()
+        st = readline(stdin; keep=false)
+        PyPlot.close()
+
+
+    end
+
+
+    """
+    function integrates / adds (pulses_num) single pulses
+    """
+    function integrate(data, pulses_num)
+        pulses, bins = size(data)
+        groups = div(pulses, pulses_num)
+        result = zeros(groups, bins)
     
+        for g in 1:groups
+            start_idx = (g - 1) * pulses_num + 1
+            end_idx = g * pulses_num
+            result[g, :] = sum(data[start_idx:end_idx, :], dims=1)
+        end
+        
+        return result
+    end
+
+
+    """
+    rebin(data, bins_num)
+
+    Reduces the number of bins by summing adjacent bins into groups of `bins_num`.
+    """
+    function rebin(data, bins_num)
+        pulses, bins = size(data)
+        groups = div(bins, bins_num)
+        result = zeros(pulses, groups)
+        
+        for g in 1:groups
+            start_idx = (g - 1) * bins_num + 1
+            end_idx = g * bins_num
+            result[:, g] = sum(data[:, start_idx:end_idx], dims=2)
+        end
+        
+        return result
+    end
+    
+
+
+    function clean_all(dir)
+        for entry in readdir(dir; join=true)
+            isdir(entry) || continue
+            contents = readdir(entry)
+            if isempty(contents) || contents == ["params.json"]
+                rm(entry; recursive=true)
+                println("Removed: $entry")
+            end
+        end
+    end
 
 end  # module Tools

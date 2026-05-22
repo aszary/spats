@@ -37,32 +37,11 @@ module Functions
     Find the best number of bins for a given P3 value
     """
     function find_ybins(p3)
-        max_bins = round(Int, 5 * p3)
-
-        best_diff = Inf  # Initialize the best difference with a large number
-        best_ybins = 0   # Initialize the best number of bins
-        
-        # Start checking from p3
-        start_ybins = round(Int, p3)
-        
-        # Loop through possible values of ybins from start_ybins to max_bins
-        for ybins in start_ybins:max_bins
-            # Calculate the ratio ybins / p3
-            ratio = ybins / p3
-            
-            # Find the nearest integer to the ratio
-            nearest_int = round(ratio)
-            
-            # Calculate the absolute difference between the ratio and the nearest integer
-            diff = abs(ratio - nearest_int)
-            
-            # If this difference is smaller than the current best difference, update best_ybins
-            if diff < best_diff
-                best_diff = diff
-                best_ybins = ybins
-            end
+        if p3 > 8
+            return ceil(Int, p3)
+        else
+            return ceil(Int, 2 * p3)
         end
-        return best_ybins
     end
 
 
