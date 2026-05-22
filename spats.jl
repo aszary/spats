@@ -89,10 +89,7 @@ module SpaTs
         Data.process_psrdata_single(indir, outdir)
     end
 
-
     function main()
-        # Define data locations here
-        dataroot = "/home/psr/data/new/"
         # output directory for VPM
         vpmout = "/home/psr/output/"
 
@@ -127,7 +124,7 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        Data.analyse_all(dataroot, vpmout)
+        Data.analyse_all()
     end
 
 end # module

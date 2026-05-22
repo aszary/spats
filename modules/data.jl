@@ -1699,7 +1699,7 @@ end
     processing and analysis. Errors for individual pulsars are caught to allow the 
     loop to continue.
     """
-    function analyse_all(dataroot, vpmout; n_comp=2)
+    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/"; n_comp=2)
         isdir(dataroot) || error("dataroot not found: $dataroot")
         
         # Filter for directories (pulsars) and sort them
