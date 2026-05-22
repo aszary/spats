@@ -1692,4 +1692,45 @@ end
 
     end
 
+    """
+    Automatically process all pulsars found in `dataroot`.
+    
+    For each pulsar directory, picks the first observation subdirectory and runs 
+    processing and analysis. Errors for individual pulsars are caught to allow the 
+    loop to continue.
+    """
+    function analyse_all(dataroot, vpmout; n_comp=2)
+        isdir(dataroot) || error("dataroot not found: $dataroot")
+        
+        # Filter for directories (pulsars) and sort them
+        for psr_path in sort(filter(isdir, readdir(dataroot, join=true)))
+            psr_name = basename(psr_path)
+            obs_dirs = sort(filter(isdir, readdir(psr_path, join=true)))
+            
+            if isempty(obs_dirs)
+                @warn "No observation subdirectory for $psr_name, skipping"
+                continue
+            end
+
+            indir  = obs_dirs[1]
+            outdir = joinpath(vpmout, psr_name * "_16")
+
+            if isdir(outdir)
+                println("=== Skipping $psr_name (output directory exists) ===")
+                continue
+            end
+
+            println("=== Processing $psr_name ===")
+            try
+                process_psrdata_16(indir, outdir)
+                analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
+            catch e
+                @warn "Failed for $psr_name" exception=e
+            end
+
+            print("Continue? [Enter = next, q = quit]: ")
+            strip(readline()) == "q" && break
+        end
+    end
+
 end # module
