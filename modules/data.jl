@@ -139,22 +139,7 @@ module Data
     files: list of files to add (filenames only)
     txt: convert to txt?
     """
-<<<<<<< HEAD
-    function add_psrfiles(indir, outfile; files=nothing, sixteen=false, txt=false)
-
-
-                if files === nothing
-            # Find all .spCF files in the input directory
-            if sixteen == false
-                files = filter(f -> endswith(f, ".spCF"), readdir(indir))
-            else
-                files = filter(f -> endswith(f, ".spCf16"), readdir(indir))
-            end
-        end
-
-=======
     function add_psrfiles(indir, outfile; files=nothing, sixteen=false)
->>>>>>> d4ae76be29d3622f9fa50642ed2a46495fc9b9f6
 
         if files === nothing
             # Find all .spCF files in the input directory
