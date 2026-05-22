@@ -3,8 +3,7 @@ module SpaTs
     using Glob
     using JSON
     using Statistics
-    using PyCall
-    const PyPlot = pyimport("matplotlib.pyplot")
+    using PyPlot
 
     include("modules/data.jl")
     include("modules/plot.jl")
