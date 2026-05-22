@@ -151,7 +151,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J0034-0721/2019-10-18-22:29:51/", vpmout*"J0034-0721_16")
         #Data.analyse_p3folds_16(vpmout*"J0034-0721_16", "norefine")
         #process_psrdata(vpmout*"J0034-0721", vpmout*"J0034-0721") # P. nice
-        Data.analyse_p3folds_16_new(vpmout*"J0034-0721_16", "norefine"; n_comp=2)
+        #Data.analyse_p3folds_16_new(vpmout*"J0034-0721_16", "norefine"; n_comp=2)
         #Data.analyse_p3folds_16_new(vpmout*"J0034-0721_16", "refine"; n_comp=2)
         #Data.position_angle(vpmout*"J0034-0721_16")
         #Data.geometry_analysis(vpmout*"J0034-0721_16")
@@ -402,7 +402,7 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        #analyse_all()
+        analyse_all()
     end
 
 end # module
