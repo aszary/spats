@@ -383,6 +383,7 @@ module SpaTs
         #Data.remove_folders(vpmout)
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
+        Tools.clean_all(vpmout)
         #analyse_all()
     end
 

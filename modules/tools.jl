@@ -2391,4 +2391,16 @@ module Tools
     end
     
 
+
+    function clean_all(dir)
+        for entry in readdir(dir; join=true)
+            isdir(entry) || continue
+            contents = readdir(entry)
+            if isempty(contents) || contents == ["params.json"]
+                rm(entry; recursive=true)
+                println("Removed: $entry")
+            end
+        end
+    end
+
 end  # module Tools
