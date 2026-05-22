@@ -393,19 +393,19 @@ module SpaTs
     """
     Replicate Johnston+2023 RVM geometry analysis.
 
-    For each pulsar subdirectory under `dataroot` containing a `.ar` file:
+    Processes every .ar file found flat in `dataroot`.  For each pulsar:
       1. Convert .ar → ASCII (cached)
-      2. Load data, detect on-pulse, compute off-pulse noise from Q/U
-      3. Compute PA, apply deopm_pa and optional OPM shift
+      2. Load data, circshift to centre profile peak, detect on-pulse
+      3. Compute PA from Q/U, apply deopm_pa and optional OPM shift
       4. Two-pass Data.fit_rvm (scale errors by sqrt(χ²ᵣ) between passes)
-      5. Save position_angle.pdf and geometry.pdf to `outdir/<PSR>`
+      5. Save <PSR>_rvm.pdf to `outdir/<PSR>_rvm/`
 
     Parameters:
-      dataroot      – parent directory with JXXXX-XXXX subdirs containing .ar files
-      outdir        – root output directory (one subdir per pulsar is created)
-      snr_threshold – L/σ threshold for PA inclusion (default 5)
-      max_pa_err_deg – secondary ceiling on PA error (default 10°)
-      pa_shift_deg  – global OPM branch rotation applied after deopm (default 0°)
+      dataroot       – flat directory containing JXXXX-XXXX_*.ar files
+      outdir         – root output directory (one subdir per pulsar is created)
+      snr_threshold  – L/σ threshold for PA inclusion (default 5)
+      max_pa_err_deg – ceiling on PA error (default 10°)
+      pa_shift_deg   – global OPM branch rotation applied after deopm (default 0°)
     """
     function run_johnston2023(dataroot, outdir;
                               snr_threshold   = 5.0,
@@ -413,38 +413,15 @@ module SpaTs
                               pa_shift_deg    = 0.0)
         mkpath(outdir)
 
-        # Johnston+2023 pulsars (original list + examples from Figs 1-3, 8, 9)
-        johnston_psrs = Set([
-            # original 17
-            "J0108-1431", "J0304+1932", "J0631+1036", "J0738-4042", "J0846-3533",
-            "J1110-5637", "J1141-3322", "J1524-5625", "J1539-6322", "J1607-0032",
-            "J1614-3937", "J1622-6617", "J1648-6044", "J1722-4400", "J1751-4657",
-            "J1852-0635", "J2243+1518",
-            # Fig 1 (RVM class)
-            "J1048-5832", "J1842-0359",
-            # Fig 2 (flat class)
-            "J1232-4742", "J1511-5414",
-            # Fig 3 (non-RVM class)
-            "J1625-4048", "J2046-0421",
-            # Fig 8 (partial cones)
-            "J0134-2937", "J1615-5444",
-        ])
-
-        # Files are flat in dataroot: JXXXX-XXXX_DATE_....ar
-        # Group by pulsar name (everything before the first '_')
+        # Collect all .ar files and group by pulsar name (prefix before first '_')
         all_ar = sort(Glob.glob("*.ar", dataroot))
         isempty(all_ar) && (@warn "No .ar files found in $dataroot"; return)
 
         psr_to_file = Dict{String,String}()
         for f in all_ar
-            base = basename(f)
-            psr  = split(base, "_")[1]
-            psr in johnston_psrs || continue
+            psr = split(basename(f), "_")[1]
             haskey(psr_to_file, psr) || (psr_to_file[psr] = f)
         end
-
-        missing = setdiff(johnston_psrs, keys(psr_to_file))
-        !isempty(missing) && @warn "No .ar file found for: $(join(sort(collect(missing)), ", "))"
 
         for psr in sort(collect(keys(psr_to_file)))
             ar_file    = psr_to_file[psr]
@@ -480,13 +457,25 @@ module SpaTs
             Q_avg = vec(mean(data4[:, :, 2], dims=1))
             U_avg = vec(mean(data4[:, :, 3], dims=1))
             V_avg = vec(mean(data4[:, :, 4], dims=1))
+
+            # --- baseline subtract, find raw peak ---
+            I_bl    = I_avg .- minimum(I_avg)
+            pk_raw  = argmax(I_bl)
+
+            # --- circshift so peak is at bin n_bins÷2 (prevents wrapping artefacts) ---
+            shift = n_bins ÷ 2 - pk_raw
+            I_avg = circshift(I_avg, shift)
+            Q_avg = circshift(Q_avg, shift)
+            U_avg = circshift(U_avg, shift)
+            V_avg = circshift(V_avg, shift)
+            I_bl  = circshift(I_bl,  shift)
+            pk    = n_bins ÷ 2   # peak is now at centre
+
             L_avg = sqrt.(Q_avg .^ 2 .+ U_avg .^ 2)
 
-            # --- on-pulse detection (baseline-subtracted) ---
-            I_bl  = I_avg .- minimum(I_avg)
+            # --- on-pulse detection ---
             I_max = maximum(I_bl)
             thr   = 0.1 * I_max
-            pk    = argmax(I_bl)
 
             # expand contiguously from peak while above threshold
             bin_st  = pk
@@ -494,7 +483,7 @@ module SpaTs
             bin_end = pk
             while bin_end < n_bins && I_bl[bin_end + 1] > thr; bin_end += 1; end
 
-            # if result is still too broad (>30% of bins) fall back to ±8% around peak
+            # if still too broad (>30% of bins) fall back to ±8% around peak
             if bin_end - bin_st + 1 > 0.30 * n_bins
                 half    = round(Int, 0.08 * n_bins)
                 bin_st  = max(1, pk - half)
@@ -521,7 +510,6 @@ module SpaTs
             lon_full = lon_full .- lon_full[pk]   # peak → 0°
             lon_on   = lon_full[on_rng]
 
-            I_on = I_avg[on_rng]
             L_on = L_avg[on_rng]
             V_on = V_avg[on_rng]
             Q_on = Q_avg[on_rng]
@@ -587,57 +575,74 @@ module SpaTs
             # --- combined figure: PA + Stokes (left) | chi2 map (right) ---
             chi2_red_map = chi2_map ./ res2.ndof
             dmax_geo     = 10.0
-            chi2_plot    = map(x -> (isfinite(x) && x <= dmax_geo) ? x : NaN, chi2_red_map)
+            # Values > dmax_geo → NaN so they render as white via set_bad
+            chi2_plot = map(x -> (isfinite(x) && x <= dmax_geo) ? x : NaN, chi2_red_map)
 
             rc("font", size=8.)
+            rc("axes", linewidth=0.6)
             fig = figure(figsize=(10.0, 5.5))
             subplots_adjust(left=0.09, bottom=0.11, right=0.98, top=0.93,
-                            wspace=0.38, hspace=0.05)
+                            wspace=0.40, hspace=0.05)
 
-            # PA panel (top-left)
+            # PA panel (top-left, 1/3 height)
             ax1 = subplot2grid((3, 2), (0, 0))
             ax1.errorbar(lon_on, pa_plot, yerr=pa_err, fmt=".", ms=2,
-                         elinewidth=0.6, c="black", zorder=3)
+                         elinewidth=0.6, c="black", zorder=3, capsize=0)
             ax1.plot(lon_rvm, pa_rvm,       c="darkorange", lw=1.2, zorder=2)
-            ax1.plot(lon_rvm, pa_rvm_ortho, c="darkorange", lw=1.2, zorder=2)
-            ax1.axvline(res2.phi0, c="tab:blue", lw=1.5, zorder=4)
-            ax1.set_ylabel("PA [deg]")
+            ax1.plot(lon_rvm, pa_rvm_ortho, c="darkorange", lw=1.2, ls="--", zorder=2)
+            ax1.axvline(res2.phi0, c="tab:blue", lw=1.0, ls="--", zorder=4)
+            ax1.set_ylabel("PA (°)")
             ax1.tick_params(labelbottom=false)
             ax1.set_title(psr, fontsize=9, pad=3)
             ax1.minorticks_on()
-
-            # Stokes panel (bottom-left, 2× taller)
-            ax2 = subplot2grid((3, 2), (1, 0), rowspan=2)
-            I_max_on = maximum(abs.(filter(isfinite, I_on)))
-            ax2.plot(lon_on, I_on ./ I_max_on, c="black", lw=0.8, label="I")
-            ax2.plot(lon_on, L_on ./ I_max_on, c="red",   lw=0.8, label="L")
-            ax2.plot(lon_on, V_on ./ I_max_on, c="blue",  lw=0.8, label="V")
-            ax2.set_xlabel("Longitude [deg]")
-            ax2.set_ylabel("Flux Density [norm]")
-            ax2.legend(fontsize=7, loc="upper right")
-            ax2.minorticks_on()
             ax1.set_xlim(lon_on[1], lon_on[end])
-            ax2.set_xlim(lon_on[1], lon_on[end])
+            # sensible PA y-range: data ± 10°
+            valid_pa = filter(isfinite, pa_plot)
+            if !isempty(valid_pa)
+                pa_ctr = (maximum(valid_pa) + minimum(valid_pa)) / 2
+                pa_hw  = max((maximum(valid_pa) - minimum(valid_pa)) / 2 + 10.0, 20.0)
+                ax1.set_ylim(pa_ctr - pa_hw, pa_ctr + pa_hw)
+            end
 
-            # chi2 map (right, full height)
+            # Stokes panel (bottom-left, 2/3 height)
+            ax2 = subplot2grid((3, 2), (1, 0), rowspan=2)
+            I_bl_on  = I_bl[on_rng]
+            I_peak   = maximum(I_bl_on)
+            ax2.plot(lon_on, I_bl_on ./ I_peak, c="black", lw=0.9, label="I")
+            ax2.plot(lon_on, L_on    ./ I_peak, c="red",   lw=0.9, label="L")
+            ax2.plot(lon_on, V_on    ./ I_peak, c="blue",  lw=0.9, label="V")
+            ax2.axvline(res2.phi0, c="tab:blue", lw=1.0, ls="--", zorder=4)
+            ax2.axhline(0.0, c="gray", lw=0.5, ls=":")
+            ax2.set_xlabel("Pulse longitude (°)")
+            ax2.set_ylabel("Normalised flux")
+            ax2.legend(fontsize=7, loc="upper right", framealpha=0.7)
+            ax2.minorticks_on()
+            ax2.set_xlim(lon_on[1], lon_on[end])
+            ax2.set_ylim(-0.15, 1.15)
+
+            # chi2_red map (right, full height) — white where > dmax_geo
             ax3 = subplot2grid((3, 2), (0, 1), rowspan=3)
-            da = length(alphas_deg) > 1 ? alphas_deg[2] - alphas_deg[1] : 1.0
-            db = length(betas_deg)  > 1 ? betas_deg[2]  - betas_deg[1]  : 1.0
+            da  = length(alphas_deg) > 1 ? alphas_deg[2] - alphas_deg[1] : 1.0
+            db  = length(betas_deg)  > 1 ? betas_deg[2]  - betas_deg[1]  : 1.0
             ext = [alphas_deg[1]-da/2, alphas_deg[end]+da/2,
                    betas_deg[1]-db/2,  betas_deg[end]+db/2]
+            cmap_geo = PyPlot.matplotlib.cm.get_cmap("viridis")
+            cmap_geo.set_bad(color="white")
             img = ax3.imshow(chi2_plot', origin="lower", aspect="auto",
                              extent=ext, vmin=0.0, vmax=dmax_geo,
-                             cmap="viridis", interpolation="nearest")
+                             cmap=cmap_geo, interpolation="nearest")
             cb = fig.colorbar(img, ax=ax3, pad=0.02)
-            cb.set_label(raw"$\chi^2_{\mathrm{red}}$", fontsize=8)
-            ax3.set_xlabel("α [deg]")
-            ax3.set_ylabel("β [deg]")
+            cb.set_label(raw"$\chi^2_\mathrm{red}$", fontsize=8)
+            # mark best-fit point
+            ax3.plot(res2.alpha, res2.beta, "+", ms=8, c="white", mew=1.5, zorder=5)
+            ax3.set_xlabel("α (°)")
+            ax3.set_ylabel("β (°)")
             ax3.minorticks_on()
 
             outpdf = joinpath(psr_outdir, "$(psr)_rvm.pdf")
-            savefig(outpdf, dpi=200)
+            savefig(outpdf, dpi=200, bbox_inches="tight")
             PyPlot.close("all")
-            println("  Saved to: $psr_outdir")
+            println("  Saved → $psr_outdir")
         end
     end
 
