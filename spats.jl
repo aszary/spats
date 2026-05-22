@@ -137,6 +137,7 @@ module SpaTs
             catch e
                 @warn "Failed for $psr: $e"
             end
+            println("Analysis finished for PSR $psr")
             print("Continue? [Enter/y/yes = next, q = quit]: ")
             input = strip(readline())
             input == "q" && break
