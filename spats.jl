@@ -543,8 +543,7 @@ module SpaTs
                 @warn "  fit_rvm pass1 returned nothing for $psr"
                 continue
             end
-            @printf("  pass1: α=%.1f°  β=%.1f°  χ²ᵣ=%.2f\n",
-                    res1.alpha, res1.beta, res1.chi2_red)
+            println("  pass1: α=$(round(res1.alpha,digits=1))°  β=$(round(res1.beta,digits=1))°  χ²ᵣ=$(round(res1.chi2_red,digits=2))")
 
             scale      = max(1.0, sqrt(res1.chi2_red))
             pa_err_sc  = map(x -> isnan(x) ? NaN : x * scale, pa_err)
@@ -555,8 +554,7 @@ module SpaTs
                 @warn "  fit_rvm pass2 returned nothing for $psr"
                 continue
             end
-            @printf("  pass2: α=%.1f°  β=%.1f°  φ₀=%.1f°  PA₀=%.1f°  χ²ᵣ=%.2f\n",
-                    res2.alpha, res2.beta, res2.phi0, res2.pa0, res2.chi2_red)
+            println("  pass2: α=$(round(res2.alpha,digits=1))°  β=$(round(res2.beta,digits=1))°  φ₀=$(round(res2.phi0,digits=1))°  PA₀=$(round(res2.pa0,digits=1))°  χ²ᵣ=$(round(res2.chi2_red,digits=2))")
 
             # --- RVM curve ---
             lon_rvm, pa_rvm, pa_rvm_ortho =
