@@ -262,8 +262,8 @@ module SpaTs
         #process_psrdata(vpmout*"J1514-4834", vpmout*"J1514-4834") #
 
         # PSR J1524-5706
-        #Data.analyse_p3folds_16(vpmout*"JJ1524-5706_16", "norefine")
-        #Data.analyse_p3folds_16_new(vpmout*"J1524-5706_16", "norefine")
+        Data.analyse_p3folds_16(vpmout*"J1645+1012_16", "norefine")
+        Data.analyse_p3folds_16_new(vpmout*"J1645+1012_16", "norefine")
 
         # PSR J1534-4428
         #process_psrdata_16("/home/psr/data/new/J1534-4428/2020-01-03-01:03:02/", vpmout*"J1534-4428_16")
@@ -278,11 +278,6 @@ module SpaTs
         #Data.position_angle(vpmout*"J1539-6322_16")
         #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single")
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
-<<<<<<< HEAD
-        #process_psrdata(vpmout*"J1555-3134", vpmout*"J1555-3134") # single not stable, P. p3fold (10 ybins)
-        process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") 
-        #Data.process_psrdata16("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_16")
-=======
 
         # PSR J1555-3134
         #process_psrdata_16("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_16")
@@ -303,7 +298,6 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1703-1846/2019-11-05-16:26:36/", vpmout*"J1703-1846_16")
         #Data.analyse_p3folds_16(vpmout*"J1703-1846_16", "norefine")
 
->>>>>>> d4ae76be29d3622f9fa50642ed2a46495fc9b9f6
 
         # PSR J1741-0840
         #process_psrdata_16("/home/psr/data/new/J1741-0840/2019-11-05-16:44:10/", vpmout*"J1741-0840_16")
