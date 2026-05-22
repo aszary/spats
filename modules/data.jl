@@ -1186,6 +1186,8 @@ module Data
             ca = cos(alpha); sa = sin(alpha)
             for (ib, beta) in enumerate(betas)
                 zeta = alpha + beta
+                # skip unphysical viewing angles
+                (zeta <= 0.0 || zeta >= π) && continue
                 cz = cos(zeta);  sz = sin(zeta)
                 best_ab  = Inf
                 best_phi0_ab = phi0s[1]
@@ -1225,6 +1227,11 @@ module Data
         end
 
         ndof = max(sum(mask) - 4, 1)
+        # normalise to α < 90°: mirror solution (π-α, -β) gives identical χ²
+        if best_alpha > π/2
+            best_alpha = π - best_alpha
+            best_beta  = -best_beta
+        end
         result = (alpha    = best_alpha * (180/π),
                   beta     = best_beta  * (180/π),
                   phi0     = best_phi0  * (180/π),

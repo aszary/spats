@@ -406,12 +406,12 @@ module SpaTs
       outdir        – root output directory (one subdir per pulsar is created)
       snr_threshold – L/σ threshold for PA inclusion (default 5)
       max_pa_err_deg – secondary ceiling on PA error (default 10°)
-      pa_shift_deg  – global OPM branch rotation applied after deopm (default 90°)
+      pa_shift_deg  – global OPM branch rotation applied after deopm (default 0°)
     """
     function run_johnston2023(dataroot, outdir;
                               snr_threshold   = 5.0,
                               max_pa_err_deg  = 10.0,
-                              pa_shift_deg    = 90.0)
+                              pa_shift_deg    = 0.0)
         mkpath(outdir)
 
         # Johnston+2023 pulsar list (Table 1)
@@ -475,20 +475,22 @@ module SpaTs
             L_avg = sqrt.(Q_avg .^ 2 .+ U_avg .^ 2)
 
             # --- on-pulse detection (baseline-subtracted) ---
-            I_bl    = I_avg .- minimum(I_avg)
-            I_max   = maximum(I_bl)
-            on_mask = I_bl .> 0.1 * I_max
+            I_bl  = I_avg .- minimum(I_avg)
+            I_max = maximum(I_bl)
+            thr   = 0.1 * I_max
+            pk    = argmax(I_bl)
 
-            if sum(on_mask) > 0.5 * n_bins
-                # broad profile: use ±8% window around peak
-                pk     = argmax(I_bl)
-                half   = round(Int, 0.08 * n_bins)
-                bin_st = max(1, pk - half)
+            # expand contiguously from peak while above threshold
+            bin_st  = pk
+            while bin_st  > 1      && I_bl[bin_st  - 1] > thr; bin_st  -= 1; end
+            bin_end = pk
+            while bin_end < n_bins && I_bl[bin_end + 1] > thr; bin_end += 1; end
+
+            # if result is still too broad (>30% of bins) fall back to ±8% around peak
+            if bin_end - bin_st + 1 > 0.30 * n_bins
+                half    = round(Int, 0.08 * n_bins)
+                bin_st  = max(1, pk - half)
                 bin_end = min(n_bins, pk + half)
-            else
-                idxs   = findall(on_mask)
-                bin_st  = first(idxs)
-                bin_end = last(idxs)
             end
             println("  on-pulse bins: $bin_st:$bin_end")
 
@@ -573,31 +575,57 @@ module SpaTs
             lon_rvm, pa_rvm, pa_rvm_ortho =
                 Data.rvm_curve(res2, lon_on[1], lon_on[end])
 
-            # --- plots ---
-            # position_angle expects two bands; pass single-freq data for both
-            Plot.position_angle(
-                lon_on, pa_plot, pa_err,
-                I_on, L_on, V_on,
-                lon_on, pa_plot, pa_err,
-                I_on, L_on, V_on,
-                psr_outdir;
-                show_        = false,
-                lon_rvm_l    = lon_rvm,
-                pa_rvm_l     = pa_rvm,
-                pa_rvm_l_ortho = pa_rvm_ortho,
-                phi0_l       = res2.phi0
-            )
+            # --- combined figure: PA + Stokes (left) | chi2 map (right) ---
+            chi2_red_map = chi2_map ./ res2.ndof
+            dmax_geo     = 10.0
+            chi2_plot    = map(x -> (isfinite(x) && x <= dmax_geo) ? x : NaN, chi2_red_map)
 
-            Plot.geometry(
-                chi2_map, chi2_map,
-                alphas_deg, betas_deg,
-                psr_outdir;
-                show_    = false,
-                name_mod = psr,
-                ndof_l   = res2.ndof,
-                ndof_h   = res2.ndof
-            )
+            rc("font", size=8.)
+            fig = figure(figsize=(10.0, 5.5))
+            subplots_adjust(left=0.09, bottom=0.11, right=0.98, top=0.93,
+                            wspace=0.38, hspace=0.05)
 
+            # PA panel (top-left)
+            ax1 = subplot2grid((3, 2), (0, 0))
+            ax1.errorbar(lon_on, pa_plot, yerr=pa_err, fmt=".", ms=2,
+                         elinewidth=0.6, c="tab:orange", zorder=3)
+            ax1.plot(lon_rvm, pa_rvm,       c="darkorange", lw=1.2, zorder=2)
+            ax1.plot(lon_rvm, pa_rvm_ortho, c="darkorange", lw=1.2, zorder=2)
+            ax1.axvline(res2.phi0, c="tab:blue", lw=1.5, zorder=4)
+            ax1.set_ylabel("PA [deg]")
+            ax1.tick_params(labelbottom=false)
+            ax1.set_title(psr, fontsize=9, pad=3)
+            ax1.minorticks_on()
+
+            # Stokes panel (bottom-left, 2× taller)
+            ax2 = subplot2grid((3, 2), (1, 0), rowspan=2)
+            I_max_on = maximum(abs.(filter(isfinite, I_on)))
+            ax2.plot(lon_on, I_on ./ I_max_on, c="black", lw=0.8, label="I")
+            ax2.plot(lon_on, L_on ./ I_max_on, c="red",   lw=0.8, label="L")
+            ax2.plot(lon_on, V_on ./ I_max_on, c="blue",  lw=0.8, label="V")
+            ax2.set_xlabel("Longitude [deg]")
+            ax2.set_ylabel("Flux Density [norm]")
+            ax2.legend(fontsize=7, loc="upper right")
+            ax2.minorticks_on()
+            ax1.get_shared_x_axes().join(ax1, ax2)
+
+            # chi2 map (right, full height)
+            ax3 = subplot2grid((3, 2), (0, 1), rowspan=3)
+            da = length(alphas_deg) > 1 ? alphas_deg[2] - alphas_deg[1] : 1.0
+            db = length(betas_deg)  > 1 ? betas_deg[2]  - betas_deg[1]  : 1.0
+            ext = [alphas_deg[1]-da/2, alphas_deg[end]+da/2,
+                   betas_deg[1]-db/2,  betas_deg[end]+db/2]
+            img = ax3.imshow(chi2_plot', origin="lower", aspect="auto",
+                             extent=ext, vmin=0.0, vmax=dmax_geo,
+                             cmap="viridis", interpolation="nearest")
+            cb = fig.colorbar(img, ax=ax3, pad=0.02)
+            cb.set_label(raw"$\chi^2_{\mathrm{red}}$", fontsize=8)
+            ax3.set_xlabel("α [deg]")
+            ax3.set_ylabel("β [deg]")
+            ax3.minorticks_on()
+
+            outpdf = joinpath(psr_outdir, "$(psr)_rvm.pdf")
+            savefig(outpdf, dpi=200)
             PyPlot.close("all")
             println("  Saved to: $psr_outdir")
         end
