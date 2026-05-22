@@ -1700,37 +1700,40 @@ end
     loop to continue.
     """
     function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/"; n_comp=2)
-        isdir(dataroot) || error("dataroot not found: $dataroot")
+    isdir(dataroot) || error("dataroot not found: $dataroot")
+    
+    # Added rev=true to reverse the pulsar directory order
+    for psr_path in sort(filter(isdir, readdir(dataroot, join=true)), rev=true)
+        psr_name = basename(psr_path)
         
-        # Filter for directories (pulsars) and sort them
-        for psr_path in sort(filter(isdir, readdir(dataroot, join=true)))
-            psr_name = basename(psr_path)
-            obs_dirs = sort(filter(isdir, readdir(psr_path, join=true)))
-            
-            if isempty(obs_dirs)
-                @warn "No observation subdirectory for $psr_name, skipping"
-                continue
-            end
-
-            indir  = obs_dirs[1]
-            outdir = joinpath(vpmout, psr_name * "_16")
-
-            if isdir(outdir)
-                println("=== Skipping $psr_name (output directory exists) ===")
-                continue
-            end
-
-            println("=== Processing $psr_name ===")
-            try
-                process_psrdata_16(indir, outdir)
-                analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
-            catch e
-                @warn "Failed for $psr_name" exception=e
-            end
-
-            print("Continue? [Enter = next, q = quit]: ")
-            strip(readline()) == "q" && break
+        # Added rev=true here as well
+        obs_dirs = sort(filter(isdir, readdir(psr_path, join=true)), rev=true)
+        
+        if isempty(obs_dirs)
+            @warn "No observation subdirectory for $psr_name, skipping"
+            continue
         end
+
+        # Because obs_dirs is reversed, obs_dirs[1] is now the LAST item
+        indir  = obs_dirs[1]
+        outdir = joinpath(vpmout, psr_name * "_16")
+
+        if isdir(outdir)
+            println("=== Skipping $psr_name (output directory exists) ===")
+            continue
+        end
+
+        println("=== Processing $psr_name ===")
+        try
+            process_psrdata_16(indir, outdir)
+            analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
+        catch e
+            @warn "Failed for $psr_name" exception=e
+        end
+
+        print("Continue? [Enter = next, q = quit]: ")
+        strip(readline()) == "q" && break
     end
+end
 
 end # module
