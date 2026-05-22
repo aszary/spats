@@ -1155,10 +1155,10 @@ module Data
     """
     function fit_rvm(lon_deg, pa_deg, pa_err_deg;
                      return_map=false,
-                     n_alpha=85, n_beta=40, n_phi0=60,
+                     n_alpha=85, n_beta=40, n_phi0=120,
                      alpha_range=(5.0, 175.0), beta_range=(-20.0, 20.0))
         mask = .!isnan.(pa_deg) .& .!isnan.(pa_err_deg) .& (pa_err_deg .> 0)
-        if sum(mask) < 5
+        if sum(mask) < 10
             return nothing
         end
 

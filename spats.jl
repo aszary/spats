@@ -413,6 +413,15 @@ module SpaTs
                               pa_shift_deg    = 0.0)
         mkpath(outdir)
 
+        # Pulsars shown in figures of Johnston+2023 (only those with plots, not full Table A1)
+        johnston_psrs = Set([
+            "J1048-5832", "J1722-4400", "J1110-5637", "J1842-0359",  # Fig 1  RVM class
+            "J0108-1431", "J1232-4742", "J1511-5414", "J1524-5625",  # Fig 2  flat class
+            "J1625-4048", "J2046-0421", "J1607-0032", "J0846-3533",  # Fig 3  non-RVM class
+            "J0134-2937", "J1648-6044", "J1615-5444", "J0631+1036",  # Fig 8  partial cones
+            "J0738-4042",                                              # Fig 9  OPM jumps
+        ])
+
         # Collect all .ar files and group by pulsar name (prefix before first '_')
         all_ar = sort(Glob.glob("*.ar", dataroot))
         isempty(all_ar) && (@warn "No .ar files found in $dataroot"; return)
@@ -420,8 +429,12 @@ module SpaTs
         psr_to_file = Dict{String,String}()
         for f in all_ar
             psr = split(basename(f), "_")[1]
+            psr in johnston_psrs || continue
             haskey(psr_to_file, psr) || (psr_to_file[psr] = f)
         end
+
+        missing_psrs = setdiff(johnston_psrs, keys(psr_to_file))
+        !isempty(missing_psrs) && @warn "No .ar file found for: $(join(sort(collect(missing_psrs)), ", "))"
 
         for psr in sort(collect(keys(psr_to_file)))
             ar_file    = psr_to_file[psr]
@@ -544,8 +557,8 @@ module SpaTs
 
             n_valid = sum(.!isnan.(pa_plot))
             println("  valid PA bins: $n_valid")
-            if n_valid < 5
-                @warn "  Too few valid PA points for $psr — skipping RVM"
+            if n_valid < 10
+                @warn "  Too few valid PA points for $psr (need ≥10, got $n_valid) — skipping RVM"
                 continue
             end
 
