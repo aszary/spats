@@ -557,8 +557,8 @@ module SpaTs
 
             n_valid = sum(.!isnan.(pa_plot))
             println("  valid PA bins: $n_valid")
-            if n_valid < 10
-                @warn "  Too few valid PA points for $psr (need ≥10, got $n_valid) — skipping RVM"
+            if n_valid < 7
+                @warn "  Too few valid PA points for $psr (need ≥7, got $n_valid) — skipping RVM"
                 continue
             end
 
@@ -582,8 +582,35 @@ module SpaTs
             println("  pass2: α=$(round(res2.alpha,digits=1))°  β=$(round(res2.beta,digits=1))°  φ₀=$(round(res2.phi0,digits=1))°  PA₀=$(round(res2.pa0,digits=1))°  χ²ᵣ=$(round(res2.chi2_red,digits=2))")
 
             # --- RVM curve ---
+            # For flat PA (chi2_red << 1) phi0 is degenerate; grid picks an arbitrary minimum.
+            # Override phi0 to the data centroid so the orange curve passes through the data.
+            phi0_display = res2.phi0
+            pa0_display  = res2.pa0
+            if res2.chi2_red < 0.15
+                valid_idx = findall(isfinite.(pa_plot))
+                if !isempty(valid_idx)
+                    phi0_display = mean(lon_on[valid_idx])
+                    phi0_r  = phi0_display * (π/180)
+                    alpha_r = res2.alpha * (π/180)
+                    zeta_r  = (res2.alpha + res2.beta) * (π/180)
+                    lon_v   = lon_on[valid_idx] .* (π/180)
+                    pa_v    = pa_plot[valid_idx] .* (π/180)
+                    erv     = pa_err[valid_idx]
+                    inv_var = 1.0 ./ (erv .^ 2 .* (π/180)^2)
+                    dphi_v  = lon_v .- phi0_r
+                    shape_v = atan.(.-sin(alpha_r) .* sin.(dphi_v),
+                                    sin(zeta_r) .* cos(alpha_r) .- cos(zeta_r) .* sin(alpha_r) .* cos.(dphi_v))
+                    diffs_v = pa_v .- shape_v
+                    Sx = sum(sin.(2 .* diffs_v) .* inv_var)
+                    Cx = sum(cos.(2 .* diffs_v) .* inv_var)
+                    pa0_display = atan(Sx, Cx) / 2 * (180/π)
+                    println("  flat PA override: φ₀_display=$(round(phi0_display,digits=1))°  PA₀_display=$(round(pa0_display,digits=1))°")
+                end
+            end
+            params_display = (alpha=res2.alpha, beta=res2.beta,
+                              phi0=phi0_display, pa0=pa0_display, ndof=res2.ndof)
             lon_rvm, pa_rvm, pa_rvm_ortho =
-                Data.rvm_curve(res2, lon_on[1], lon_on[end])
+                Data.rvm_curve(params_display, lon_on[1], lon_on[end])
 
             # --- combined figure: PA + Stokes (left) | chi2 map (right) ---
             chi2_red_map = chi2_map ./ res2.ndof
@@ -603,7 +630,7 @@ module SpaTs
                          elinewidth=0.6, c="black", zorder=3, capsize=0)
             ax1.plot(lon_rvm, pa_rvm,       c="darkorange", lw=1.2, zorder=2)
             ax1.plot(lon_rvm, pa_rvm_ortho, c="darkorange", lw=1.2, ls="--", zorder=2)
-            ax1.axvline(res2.phi0, c="tab:blue", lw=1.0, ls="--", zorder=4)
+            ax1.axvline(phi0_display, c="tab:blue", lw=1.0, ls="--", zorder=4)
             ax1.set_ylabel("PA (°)")
             ax1.tick_params(labelbottom=false)
             ax1.set_title(psr, fontsize=9, pad=3)
@@ -624,7 +651,7 @@ module SpaTs
             ax2.plot(lon_on, I_bl_on ./ I_peak, c="black", lw=0.9, label="I")
             ax2.plot(lon_on, L_on    ./ I_peak, c="red",   lw=0.9, label="L")
             ax2.plot(lon_on, V_on    ./ I_peak, c="blue",  lw=0.9, label="V")
-            ax2.axvline(res2.phi0, c="tab:blue", lw=1.0, ls="--", zorder=4)
+            ax2.axvline(phi0_display, c="tab:blue", lw=1.0, ls="--", zorder=4)
             ax2.axhline(0.0, c="gray", lw=0.5, ls=":")
             ax2.set_xlabel("Pulse longitude (°)")
             ax2.set_ylabel("Normalised flux")
