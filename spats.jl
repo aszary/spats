@@ -3,6 +3,8 @@ module SpaTs
     using Glob
     using JSON
     using Statistics
+    using PyCall
+    const PyPlot = pyimport("matplotlib.pyplot")
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -472,13 +474,14 @@ module SpaTs
             V_avg = vec(mean(data4[:, :, 4], dims=1))
             L_avg = sqrt.(Q_avg .^ 2 .+ U_avg .^ 2)
 
-            # --- on-pulse detection ---
-            I_max = maximum(abs.(I_avg))
-            on_mask = I_avg .> 0.1 * I_max
+            # --- on-pulse detection (baseline-subtracted) ---
+            I_bl    = I_avg .- minimum(I_avg)
+            I_max   = maximum(I_bl)
+            on_mask = I_bl .> 0.1 * I_max
 
             if sum(on_mask) > 0.5 * n_bins
                 # broad profile: use ±8% window around peak
-                pk     = argmax(I_avg)
+                pk     = argmax(I_bl)
                 half   = round(Int, 0.08 * n_bins)
                 bin_st = max(1, pk - half)
                 bin_end = min(n_bins, pk + half)
