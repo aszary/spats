@@ -411,28 +411,25 @@ module SpaTs
                               pa_shift_deg    = 90.0)
         mkpath(outdir)
 
-        psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
-        isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
+        # Files are flat in dataroot: JXXXX-XXXX_DATE_....ar
+        # Group by pulsar name (everything before the first '_')
+        all_ar = sort(Glob.glob("*.ar", dataroot))
+        isempty(all_ar) && (@warn "No .ar files found in $dataroot"; return)
 
-        for psr in psr_dirs
-            psr_path   = joinpath(dataroot, psr)
-            psr_outdir = joinpath(outdir, psr)
+        psr_to_file = Dict{String,String}()
+        for f in all_ar
+            base = basename(f)
+            psr  = split(base, "_")[1]
+            haskey(psr_to_file, psr) || (psr_to_file[psr] = f)
+        end
+
+        for psr in sort(collect(keys(psr_to_file)))
+            ar_file    = psr_to_file[psr]
+            psr_outdir = joinpath(outdir, psr * "_rvm")
             mkpath(psr_outdir)
 
             println("\n=== $psr ===")
-
-            # --- locate .ar file ---
-            ar_files = Glob.glob("*.ar", psr_path)
-            if isempty(ar_files)
-                for (root, _, files) in walkdir(psr_path)
-                    append!(ar_files, filter(f -> endswith(f, ".ar"),
-                                             joinpath.(root, files)))
-                end
-            end
-            if isempty(ar_files)
-                @warn "  No .ar files found for $psr — skipping"
-                continue
-            end
+            println("  ar: $(basename(ar_file))")
 
             # --- convert to ASCII (cached) ---
             txt_file = joinpath(psr_outdir, "$(psr).txt")
@@ -593,6 +590,6 @@ module SpaTs
 
 end # module
 
-SpaTs.main()
+SpaTs.run_johnston2023("/home/psr/data/posselt/ar_files/", "/home/psr/output/")
 
 println("Bye")
