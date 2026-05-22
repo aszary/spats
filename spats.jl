@@ -606,7 +606,8 @@ module SpaTs
             ax2.set_ylabel("Flux Density [norm]")
             ax2.legend(fontsize=7, loc="upper right")
             ax2.minorticks_on()
-            ax1.get_shared_x_axes().join(ax1, ax2)
+            ax1.set_xlim(lon_on[1], lon_on[end])
+            ax2.set_xlim(lon_on[1], lon_on[end])
 
             # chi2 map (right, full height)
             ax3 = subplot2grid((3, 2), (0, 1), rowspan=3)
