@@ -1605,7 +1605,7 @@ function process_psrdata16(indir, outdir; files=nothing, outfile="pulsar.spCf16"
     end
 
     # --- split to low/high halves ---
-    low_file, high_file = multifrequency_split(outfile)
+    low_file, high_file, mid_file = multifrequency_split(outfile)
 
     # --- debase LOW ---
     println("\n>>> Debasing LOW half...")
@@ -1664,33 +1664,6 @@ end
 
 
 
-
-
-
-
-
-
-    function multifrequency_split(spCf16_file)
-        println(spCf16_file)
-        low = replace(spCf16_file, ".spCf16"=>".low")
-        low_txt = replace(spCf16_file, ".spCf16"=>"_low.txt")
-        high = replace(spCf16_file, ".spCf16"=>".high")
-        high_txt = replace(spCf16_file, ".spCf16"=>"_high.txt")
-
-        run(pipeline(`paz -Z 0-7 -e high $spCf16_file`,stderr="errs.txt"))
-        run(pipeline(`paz -Z 8-15 -e low $spCf16_file`,stderr="errs.txt"))
-
-        run(pipeline(`pdv -F -e $high`, stdout=high_txt, stderr="errs.txt"))
-        run(pipeline(`pdv -F -e $low`, stdout=low_txt, stderr="errs.txt"))
-
-
-        run(pipeline(`pdv -A -F $high`, stdout=high_txt, stderr="errs.txt"))
-        run(pipeline(`pdv -A -F $low`, stdout=low_txt, stderr="errs.txt"))
-        #println("done")
-        # change -t to -A to get frequancy information
-        return low, high
-
-    end
 
     """
     Automatically process all pulsars found in `dataroot`.
