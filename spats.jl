@@ -411,6 +411,14 @@ module SpaTs
                               pa_shift_deg    = 90.0)
         mkpath(outdir)
 
+        # Johnston+2023 pulsar list (Table 1)
+        johnston_psrs = Set([
+            "J0108-1431", "J0304+1932", "J0631+1036", "J0738-4042", "J0846-3533",
+            "J1110-5637", "J1141-3322", "J1524-5625", "J1539-6322", "J1607-0032",
+            "J1614-3937", "J1622-6617", "J1648-6044", "J1722-4400", "J1751-4657",
+            "J1852-0635", "J2243+1518"
+        ])
+
         # Files are flat in dataroot: JXXXX-XXXX_DATE_....ar
         # Group by pulsar name (everything before the first '_')
         all_ar = sort(Glob.glob("*.ar", dataroot))
@@ -420,8 +428,12 @@ module SpaTs
         for f in all_ar
             base = basename(f)
             psr  = split(base, "_")[1]
+            psr in johnston_psrs || continue
             haskey(psr_to_file, psr) || (psr_to_file[psr] = f)
         end
+
+        missing = setdiff(johnston_psrs, keys(psr_to_file))
+        !isempty(missing) && @warn "No .ar file found for: $(join(sort(collect(missing)), ", "))"
 
         for psr in sort(collect(keys(psr_to_file)))
             ar_file    = psr_to_file[psr]
@@ -435,9 +447,9 @@ module SpaTs
             txt_file = joinpath(psr_outdir, "$(psr).txt")
             if !isfile(txt_file)
                 try
-                    Data.convert_psrfit_ascii(ar_files[1], txt_file)
+                    Data.convert_psrfit_ascii(ar_file, txt_file)
                 catch e
-                    @warn "  convert failed for $(ar_files[1]): $e"
+                    @warn "  convert failed for $ar_file: $e"
                     continue
                 end
             end
