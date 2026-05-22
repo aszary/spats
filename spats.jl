@@ -413,12 +413,21 @@ module SpaTs
                               pa_shift_deg    = 0.0)
         mkpath(outdir)
 
-        # Johnston+2023 pulsar list (Table 1)
+        # Johnston+2023 pulsars (original list + examples from Figs 1-3, 8, 9)
         johnston_psrs = Set([
+            # original 17
             "J0108-1431", "J0304+1932", "J0631+1036", "J0738-4042", "J0846-3533",
             "J1110-5637", "J1141-3322", "J1524-5625", "J1539-6322", "J1607-0032",
             "J1614-3937", "J1622-6617", "J1648-6044", "J1722-4400", "J1751-4657",
-            "J1852-0635", "J2243+1518"
+            "J1852-0635", "J2243+1518",
+            # Fig 1 (RVM class)
+            "J1048-5832", "J1842-0359",
+            # Fig 2 (flat class)
+            "J1232-4742", "J1511-5414",
+            # Fig 3 (non-RVM class)
+            "J1625-4048", "J2046-0421",
+            # Fig 8 (partial cones)
+            "J0134-2937", "J1615-5444",
         ])
 
         # Files are flat in dataroot: JXXXX-XXXX_DATE_....ar
