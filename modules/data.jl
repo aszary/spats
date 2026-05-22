@@ -1169,10 +1169,8 @@ module Data
 
         alphas = range(alpha_range[1], alpha_range[2], length=n_alpha) .* (π / 180)
         betas  = range(beta_range[1],  beta_range[2],  length=n_beta)  .* (π / 180)
-        # Search φ0 over the full longitude range
-        lon_min, lon_max = extrema(lon_rad)
-        margin = (lon_max - lon_min) * 0.5
-        phi0s = range(lon_min - margin, lon_max + margin, length=n_phi0)
+        # Search φ0 over the full ±180° period
+        phi0s = range(-π, π, length=n_phi0)
 
         best_chi2  = Inf
         best_alpha = 0.0

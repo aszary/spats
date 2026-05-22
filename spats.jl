@@ -387,6 +387,212 @@ module SpaTs
         #analyse_all()
     end
 
+
+    """
+    Replicate Johnston+2023 RVM geometry analysis.
+
+    For each pulsar subdirectory under `dataroot` containing a `.ar` file:
+      1. Convert .ar → ASCII (cached)
+      2. Load data, detect on-pulse, compute off-pulse noise from Q/U
+      3. Compute PA, apply deopm_pa and optional OPM shift
+      4. Two-pass Data.fit_rvm (scale errors by sqrt(χ²ᵣ) between passes)
+      5. Save position_angle.pdf and geometry.pdf to `outdir/<PSR>`
+
+    Parameters:
+      dataroot      – parent directory with JXXXX-XXXX subdirs containing .ar files
+      outdir        – root output directory (one subdir per pulsar is created)
+      snr_threshold – L/σ threshold for PA inclusion (default 5)
+      max_pa_err_deg – secondary ceiling on PA error (default 10°)
+      pa_shift_deg  – global OPM branch rotation applied after deopm (default 90°)
+    """
+    function run_johnston2023(dataroot, outdir;
+                              snr_threshold   = 5.0,
+                              max_pa_err_deg  = 10.0,
+                              pa_shift_deg    = 90.0)
+        mkpath(outdir)
+
+        psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
+        isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
+
+        for psr in psr_dirs
+            psr_path   = joinpath(dataroot, psr)
+            psr_outdir = joinpath(outdir, psr)
+            mkpath(psr_outdir)
+
+            println("\n=== $psr ===")
+
+            # --- locate .ar file ---
+            ar_files = Glob.glob("*.ar", psr_path)
+            if isempty(ar_files)
+                for (root, _, files) in walkdir(psr_path)
+                    append!(ar_files, filter(f -> endswith(f, ".ar"),
+                                             joinpath.(root, files)))
+                end
+            end
+            if isempty(ar_files)
+                @warn "  No .ar files found for $psr — skipping"
+                continue
+            end
+
+            # --- convert to ASCII (cached) ---
+            txt_file = joinpath(psr_outdir, "$(psr).txt")
+            if !isfile(txt_file)
+                try
+                    Data.convert_psrfit_ascii(ar_files[1], txt_file)
+                catch e
+                    @warn "  convert failed for $(ar_files[1]): $e"
+                    continue
+                end
+            end
+
+            # --- load ---
+            data4 = try
+                Data.load_ascii_all(txt_file)
+            catch e
+                @warn "  load failed for $txt_file: $e"
+                continue
+            end
+            n_pulses, n_bins, _ = size(data4)
+            println("  n_pulses=$n_pulses  n_bins=$n_bins")
+
+            # --- average profiles ---
+            I_avg = vec(mean(data4[:, :, 1], dims=1))
+            Q_avg = vec(mean(data4[:, :, 2], dims=1))
+            U_avg = vec(mean(data4[:, :, 3], dims=1))
+            V_avg = vec(mean(data4[:, :, 4], dims=1))
+            L_avg = sqrt.(Q_avg .^ 2 .+ U_avg .^ 2)
+
+            # --- on-pulse detection ---
+            I_max = maximum(abs.(I_avg))
+            on_mask = I_avg .> 0.1 * I_max
+
+            if sum(on_mask) > 0.5 * n_bins
+                # broad profile: use ±8% window around peak
+                pk     = argmax(I_avg)
+                half   = round(Int, 0.08 * n_bins)
+                bin_st = max(1, pk - half)
+                bin_end = min(n_bins, pk + half)
+            else
+                idxs   = findall(on_mask)
+                bin_st  = first(idxs)
+                bin_end = last(idxs)
+            end
+            println("  on-pulse bins: $bin_st:$bin_end")
+
+            # --- off-pulse noise from Q/U ---
+            off_rng = vcat(1:(bin_st - 1), (bin_end + 1):n_bins)
+            if length(off_rng) < 10
+                @warn "  Too few off-pulse bins for $psr — skipping"
+                continue
+            end
+            sigma_Q   = std(vec(data4[:, off_rng, 2]))
+            sigma_U   = std(vec(data4[:, off_rng, 3]))
+            sigma_avg = (sigma_Q + sigma_U) / 2.0 / sqrt(n_pulses)
+            thresh    = snr_threshold * sigma_avg
+            println("  σ_avg=$(round(sigma_avg, sigdigits=3))  thresh=$(round(thresh, sigdigits=3))")
+
+            # --- on-pulse slices & longitude grid ---
+            on_rng  = bin_st:bin_end
+            n_on    = length(on_rng)
+            lon_full = collect(range(-180.0, 180.0, length=n_bins + 1)[1:end-1])
+            lon_on  = lon_full[on_rng]
+
+            I_on = I_avg[on_rng]
+            L_on = L_avg[on_rng]
+            V_on = V_avg[on_rng]
+            Q_on = Q_avg[on_rng]
+            U_on = U_avg[on_rng]
+
+            # --- PA + error ---
+            pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
+            pa_err  = fill(NaN, n_on)
+            for i in 1:n_on
+                if L_on[i] > thresh
+                    e = 0.5 * sigma_avg / L_on[i] * (180.0 / π)
+                    if e <= max_pa_err_deg
+                        pa_err[i] = e
+                    else
+                        pa_raw[i] = NaN
+                    end
+                else
+                    pa_raw[i] = NaN
+                end
+            end
+
+            # --- remove OPM jumps ---
+            pa_deopm, n_flipped = Data.deopm_pa(pa_raw)
+            println("  deopm: $n_flipped bins flipped")
+
+            # --- optional global OPM shift ---
+            pa_plot = if pa_shift_deg != 0.0
+                map(x -> isnan(x) ? NaN : mod(x + pa_shift_deg + 90.0, 180.0) - 90.0, pa_deopm)
+            else
+                pa_deopm
+            end
+
+            n_valid = sum(.!isnan.(pa_plot))
+            println("  valid PA bins: $n_valid")
+            if n_valid < 5
+                @warn "  Too few valid PA points for $psr — skipping RVM"
+                continue
+            end
+
+            # --- two-pass RVM fit ---
+            res1 = Data.fit_rvm(lon_on, pa_plot, pa_err)
+            if isnothing(res1)
+                @warn "  fit_rvm pass1 returned nothing for $psr"
+                continue
+            end
+            @printf("  pass1: α=%.1f°  β=%.1f°  χ²ᵣ=%.2f\n",
+                    res1.alpha, res1.beta, res1.chi2_red)
+
+            scale      = max(1.0, sqrt(res1.chi2_red))
+            pa_err_sc  = map(x -> isnan(x) ? NaN : x * scale, pa_err)
+
+            res2, chi2_map, alphas_deg, betas_deg =
+                Data.fit_rvm(lon_on, pa_plot, pa_err_sc; return_map=true)
+            if isnothing(res2)
+                @warn "  fit_rvm pass2 returned nothing for $psr"
+                continue
+            end
+            @printf("  pass2: α=%.1f°  β=%.1f°  φ₀=%.1f°  PA₀=%.1f°  χ²ᵣ=%.2f\n",
+                    res2.alpha, res2.beta, res2.phi0, res2.pa0, res2.chi2_red)
+
+            # --- RVM curve ---
+            lon_rvm, pa_rvm, pa_rvm_ortho =
+                Data.rvm_curve(res2, lon_on[1], lon_on[end])
+
+            # --- plots ---
+            # position_angle expects two bands; pass single-freq data for both
+            Plot.position_angle(
+                lon_on, pa_plot, pa_err,
+                I_on, L_on, V_on,
+                lon_on, pa_plot, pa_err,
+                I_on, L_on, V_on,
+                psr_outdir;
+                show_        = false,
+                lon_rvm_l    = lon_rvm,
+                pa_rvm_l     = pa_rvm,
+                pa_rvm_l_ortho = pa_rvm_ortho,
+                phi0_l       = res2.phi0
+            )
+
+            Plot.geometry(
+                chi2_map, chi2_map,
+                alphas_deg, betas_deg,
+                psr_outdir;
+                show_    = false,
+                name_mod = psr,
+                ndof_l   = res2.ndof,
+                ndof_h   = res2.ndof
+            )
+
+            PyPlot.close("all")
+            println("  Saved to: $psr_outdir")
+        end
+    end
+
+
 end # module
 
 SpaTs.main()
