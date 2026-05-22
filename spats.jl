@@ -505,11 +505,12 @@ module SpaTs
             thresh    = snr_threshold * sigma_avg
             println("  σ_avg=$(round(sigma_avg, sigdigits=3))  thresh=$(round(thresh, sigdigits=3))")
 
-            # --- on-pulse slices & longitude grid ---
-            on_rng  = bin_st:bin_end
-            n_on    = length(on_rng)
+            # --- on-pulse slices & longitude grid (peak centred at 0°) ---
+            on_rng   = bin_st:bin_end
+            n_on     = length(on_rng)
             lon_full = collect(range(-180.0, 180.0, length=n_bins + 1)[1:end-1])
-            lon_on  = lon_full[on_rng]
+            lon_full = lon_full .- lon_full[pk]   # peak → 0°
+            lon_on   = lon_full[on_rng]
 
             I_on = I_avg[on_rng]
             L_on = L_avg[on_rng]
@@ -587,7 +588,7 @@ module SpaTs
             # PA panel (top-left)
             ax1 = subplot2grid((3, 2), (0, 0))
             ax1.errorbar(lon_on, pa_plot, yerr=pa_err, fmt=".", ms=2,
-                         elinewidth=0.6, c="tab:orange", zorder=3)
+                         elinewidth=0.6, c="black", zorder=3)
             ax1.plot(lon_rvm, pa_rvm,       c="darkorange", lw=1.2, zorder=2)
             ax1.plot(lon_rvm, pa_rvm_ortho, c="darkorange", lw=1.2, zorder=2)
             ax1.axvline(res2.phi0, c="tab:blue", lw=1.5, zorder=4)
