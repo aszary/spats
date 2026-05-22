@@ -103,6 +103,16 @@ module SpaTs
     """
     function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/"; n_comp=2)
         isdir(dataroot) || error("dataroot not found: $dataroot")
+
+        p3_file = joinpath(@__DIR__, "input/drift_pulsars_P3.txt")
+        p3_map = Dict{String,String}()
+        if isfile(p3_file)
+            for line in eachline(p3_file)
+                parts = split(strip(line))
+                length(parts) >= 2 && (p3_map[parts[1]] = parts[2])
+            end
+        end
+
         psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
         isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
 
@@ -119,7 +129,8 @@ module SpaTs
                 println("=== Skipping $psr (outdir exists) ===")
                 continue
             end
-            println("=== Processing $psr (obs: $(obs_dirs[1])) ===")
+            p3_str = get(p3_map, psr, "unknown")
+            println("=== Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
             try
                 process_psrdata_16(indir, outdir)
                 Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
