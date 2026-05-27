@@ -101,7 +101,7 @@ module SpaTs
       vpmout    – output directory prefix (same convention as main())
       n_comp    – number of components passed to analyse_p3folds_16_new
     """
-    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/"; n_comp=2)
+    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/")
         isdir(dataroot) || error("dataroot not found: $dataroot")
 
         p3_file = joinpath(@__DIR__, "input/drift_pulsars_P3.txt")
@@ -133,6 +133,9 @@ module SpaTs
             println("=== Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
             try
                 process_psrdata_16(indir, outdir)
+                print("n_comp for $psr [default=2]: ")
+                n_comp_input = strip(readline())
+                n_comp = isempty(n_comp_input) ? 2 : parse(Int, n_comp_input)
                 Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
             catch e
                 @warn "Failed for $psr: $e"
@@ -403,7 +406,7 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        analyse_all(; n_comp=1)
+        analyse_all()
     end
 
 end # module
