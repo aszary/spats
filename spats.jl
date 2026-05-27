@@ -403,7 +403,7 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        analyse_all(; n_comp=2)
+        analyse_all(; n_comp=1)
     end
 
 end # module
