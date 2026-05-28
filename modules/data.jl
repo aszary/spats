@@ -1169,11 +1169,10 @@ module Data
 
         alphas = range(alpha_range[1], alpha_range[2], length=n_alpha) .* (π / 180)
         betas  = range(beta_range[1],  beta_range[2],  length=n_beta)  .* (π / 180)
-        # Search φ0 centred on the data, ±max(3×on-pulse width, 90°)
+        # Search φ0 over data range ± 50% margin (same convention as master branch)
         lon_min, lon_max = extrema(lon_rad)
-        lon_center = (lon_min + lon_max) / 2
-        phi0_half  = max((lon_max - lon_min) * 3.0, π / 2)
-        phi0s = range(lon_center - phi0_half, lon_center + phi0_half, length=n_phi0)
+        margin = (lon_max - lon_min) * 0.5
+        phi0s = range(lon_min - margin, lon_max + margin, length=n_phi0)
 
         best_chi2  = Inf
         best_alpha = 0.0
@@ -1189,8 +1188,6 @@ module Data
             ca = cos(alpha); sa = sin(alpha)
             for (ib, beta) in enumerate(betas)
                 zeta = alpha + beta
-                # skip unphysical viewing angles
-                (zeta <= 0.0 || zeta >= π) && continue
                 cz = cos(zeta);  sz = sin(zeta)
                 best_ab  = Inf
                 best_phi0_ab = phi0s[1]
@@ -1201,26 +1198,14 @@ module Data
                     rvm_shape = atan.(.-sa .* sin.(dphi),
                                       sz .* ca .- cz .* sa .* cos.(dphi))
 
-                    # Step 1: initial PA0 via weighted circular mean
+                    # PA is defined mod π. Weighted circular mean gives PA0,
+                    # then wrap residuals to (−π/2, π/2].
                     diffs = pa_rad .- rvm_shape
                     Sx = sum(sin.(2 .* diffs) .* inv_var)
                     Cx = sum(cos.(2 .* diffs) .* inv_var)
                     pa0 = atan(Sx, Cx) / 2
-
-                    # Step 2: OPM-aware mode assignment — flip each point to the
-                    # nearer of the two orthogonal modes, then refine PA0.
-                    rA = mod.(diffs .- pa0 .+ π/2, π) .- π/2   # residual to mode A
-                    rB = mod.(diffs .- pa0,         π) .- π/2   # residual to mode B
-                    use_B  = abs.(rB) .< abs.(rA)
-                    aligned = diffs .- use_B .* (π/2)
-                    Sx2 = sum(sin.(2 .* aligned) .* inv_var)
-                    Cx2 = sum(cos.(2 .* aligned) .* inv_var)
-                    pa0 = atan(Sx2, Cx2) / 2
-
-                    # Step 3: final chi2 using per-point minimum-mode residual
-                    rA = mod.(diffs .- pa0 .+ π/2, π) .- π/2
-                    rB = mod.(diffs .- pa0,         π) .- π/2
-                    chi2 = sum(min.(rA .^ 2, rB .^ 2) .* inv_var)
+                    residuals = mod.(diffs .- pa0 .+ π/2, π) .- π/2
+                    chi2 = sum((residuals .^ 2) .* inv_var)
 
                     if chi2 < best_ab
                         best_ab      = chi2
@@ -1242,11 +1227,8 @@ module Data
         end
 
         ndof = max(sum(mask) - 4, 1)
-        # normalise to α < 90°: mirror solution (π-α, -β) gives identical χ²
-        if best_alpha > π/2
-            best_alpha = π - best_alpha
-            best_beta  = -best_beta
-        end
+        # Do NOT normalise α — (α,β) and (π−α,−β) give opposite slope directions;
+        # normalising would flip β and reverse the displayed RVM curve.
         result = (alpha    = best_alpha * (180/π),
                   beta     = best_beta  * (180/π),
                   phi0     = best_phi0  * (180/π),
