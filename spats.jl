@@ -455,6 +455,21 @@ module SpaTs
                 end
             end
 
+            # --- spin period (for emission height contours) ---
+            period_s = let p = NaN
+                for cmd in [Cmd(["vap", "-n", "-c", "period", ar_file]),
+                            Cmd(["psrinfo", "-p", ar_file])]
+                    isnan(p) || break
+                    try
+                        raw = strip(read(cmd, String))
+                        p = parse(Float64, split(raw)[end])
+                    catch
+                    end
+                end
+                p
+            end
+            isnan(period_s) || println("  period=$(round(period_s, sigdigits=5)) s")
+
             # --- load ---
             data4 = try
                 Data.load_ascii_all(txt_file)
@@ -503,6 +518,9 @@ module SpaTs
                 bin_end = min(n_bins, pk + half)
             end
             println("  on-pulse bins: $bin_st:$bin_end")
+
+            # W10: width at 10% of peak (full profile) — for emission height contours
+            w10_deg = sum(I_bl .>= 0.1 * I_max) * (360.0 / n_bins)
 
             # --- off-pulse noise from Q/U ---
             off_rng = vcat(1:(bin_st - 1), (bin_end + 1):n_bins)
@@ -631,6 +649,27 @@ module SpaTs
             lon_rvm, pa_rvm, pa_rvm_ortho =
                 Data.rvm_curve(params_display, lon_on[1], lon_on[end])
 
+            # --- post-fit OPM correction for display ---
+            # Flip each PA point to whichever of the two orthogonal modes is closer
+            # to the fitted RVM curve, so the displayed PA is clean (no OPM artefacts).
+            pa_display = copy(pa_plot)
+            let ϕ0 = phi0_display*(π/180), αr = alpha_display*(π/180),
+                ζr = (alpha_display+beta_display)*(π/180), p0 = pa0_display*(π/180)
+                for i in eachindex(pa_display)
+                    isnan(pa_display[i]) && continue
+                    dφ    = lon_on[i]*(π/180) - ϕ0
+                    rvm_i = p0 + atan(-sin(αr)*sin(dφ),
+                                      sin(ζr)*cos(αr) - cos(ζr)*sin(αr)*cos(dφ))
+                    pa_i  = pa_display[i] * (π/180)
+                    rA = mod(pa_i - rvm_i + π/2, π) - π/2
+                    rB = mod(pa_i - rvm_i,       π) - π/2
+                    if abs(rB) < abs(rA)  # point is in orthogonal mode → flip
+                        pa_display[i] = pa_display[i] <= 0.0 ?
+                                        pa_display[i] + 90.0 : pa_display[i] - 90.0
+                    end
+                end
+            end
+
             # --- combined figure: PA + Stokes (left) | chi2 map (right) ---
             chi2_red_map = chi2_map ./ res2.ndof
             dmax_geo     = 10.0
@@ -645,7 +684,7 @@ module SpaTs
 
             # PA panel (top-left, 1/3 height)
             ax1 = subplot2grid((3, 2), (0, 0))
-            ax1.errorbar(lon_on, pa_plot, yerr=pa_err, fmt=".", ms=2,
+            ax1.errorbar(lon_on, pa_display, yerr=pa_err, fmt=".", ms=2,
                          elinewidth=0.6, c="black", zorder=3, capsize=0)
             ax1.plot(lon_rvm, pa_rvm,       c="darkorange", lw=1.2, zorder=2)
             ax1.plot(lon_rvm, pa_rvm_ortho, c="darkorange", lw=1.2, ls="--", zorder=2)
@@ -655,12 +694,12 @@ module SpaTs
             ax1.set_title(psr, fontsize=9, pad=3)
             ax1.minorticks_on()
             ax1.set_xlim(lon_on[1], lon_on[end])
-            # sensible PA y-range: data ± 10°
-            valid_pa = filter(isfinite, pa_plot)
+            # PA y-range: ±90° or tighter around data
+            valid_pa = filter(isfinite, pa_display)
             if !isempty(valid_pa)
                 pa_ctr = (maximum(valid_pa) + minimum(valid_pa)) / 2
-                pa_hw  = max((maximum(valid_pa) - minimum(valid_pa)) / 2 + 10.0, 20.0)
-                ax1.set_ylim(pa_ctr - pa_hw, pa_ctr + pa_hw)
+                pa_hw  = max((maximum(valid_pa) - minimum(valid_pa)) / 2 + 15.0, 25.0)
+                ax1.set_ylim(max(pa_ctr - pa_hw, -90.0), min(pa_ctr + pa_hw, 90.0))
             end
 
             # Stokes panel (bottom-left, 2/3 height)
@@ -694,6 +733,27 @@ module SpaTs
             cb.set_label(raw"$\chi^2_\mathrm{red}$", fontsize=8)
             # mark best-fit point
             ax3.plot(res2.alpha, res2.beta, "+", ms=8, c="white", mew=1.5, zorder=5)
+
+            # emission height contours (Rankin 1990 eq.2 + Gil+1984 eq.3)
+            if !isnan(period_s) && w10_deg > 0.0
+                c_light   = 3e8          # m/s
+                w10_r     = w10_deg * π/180
+                h_levels  = [50.0, 100.0, 200.0, 300.0, 500.0, 1000.0]  # km
+                na_c = length(alphas_deg); nb_c = length(betas_deg)
+                h_grid = fill(NaN, na_c, nb_c)
+                for ia in 1:na_c, ib in 1:nb_c
+                    a_r = alphas_deg[ia] * π/180
+                    z_r = (alphas_deg[ia] + betas_deg[ib]) * π/180
+                    (z_r <= 0.0 || z_r >= π) && continue
+                    cosρ = cos(a_r)*cos(z_r) + sin(a_r)*sin(z_r)*cos(w10_r/2)
+                    ρ    = acos(clamp(cosρ, -1.0, 1.0))
+                    h_grid[ia, ib] = 2*period_s*c_light*ρ^2 / (9π) / 1e3   # km
+                end
+                ax3.contour(alphas_deg, betas_deg, h_grid',
+                            levels=h_levels, colors="white",
+                            linewidths=0.7, alpha=0.75, zorder=4)
+            end
+
             ax3.set_xlabel("α (°)")
             ax3.set_ylabel("β (°)")
             ax3.minorticks_on()

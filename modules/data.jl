@@ -1201,14 +1201,26 @@ module Data
                     rvm_shape = atan.(.-sa .* sin.(dphi),
                                       sz .* ca .- cz .* sa .* cos.(dphi))
 
-                    # PA is defined mod π. Use a weighted circular mean on
-                    # 2·diff to get PA0, then wrap residuals to (-π/2, π/2].
+                    # Step 1: initial PA0 via weighted circular mean
                     diffs = pa_rad .- rvm_shape
                     Sx = sum(sin.(2 .* diffs) .* inv_var)
                     Cx = sum(cos.(2 .* diffs) .* inv_var)
                     pa0 = atan(Sx, Cx) / 2
-                    residuals = mod.(diffs .- pa0 .+ π/2, π) .- π/2
-                    chi2 = sum((residuals .^ 2) .* inv_var)
+
+                    # Step 2: OPM-aware mode assignment — flip each point to the
+                    # nearer of the two orthogonal modes, then refine PA0.
+                    rA = mod.(diffs .- pa0 .+ π/2, π) .- π/2   # residual to mode A
+                    rB = mod.(diffs .- pa0,         π) .- π/2   # residual to mode B
+                    use_B  = abs.(rB) .< abs.(rA)
+                    aligned = diffs .- use_B .* (π/2)
+                    Sx2 = sum(sin.(2 .* aligned) .* inv_var)
+                    Cx2 = sum(cos.(2 .* aligned) .* inv_var)
+                    pa0 = atan(Sx2, Cx2) / 2
+
+                    # Step 3: final chi2 using per-point minimum-mode residual
+                    rA = mod.(diffs .- pa0 .+ π/2, π) .- π/2
+                    rB = mod.(diffs .- pa0,         π) .- π/2
+                    chi2 = sum(min.(rA .^ 2, rB .^ 2) .* inv_var)
 
                     if chi2 < best_ab
                         best_ab      = chi2
