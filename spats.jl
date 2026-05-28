@@ -678,10 +678,13 @@ module SpaTs
             end
 
             # --- combined figure: PA + Stokes (left) | chi2 map (right) ---
-            chi2_red_map = chi2_map ./ res2.ndof
-            dmax_geo     = 10.0
-            # Values > dmax_geo → NaN so they render as white via set_bad
-            chi2_plot = map(x -> (isfinite(x) && x <= dmax_geo) ? x : NaN, chi2_red_map)
+            # Paper convention: display absolute χ² (not χ²_red), white for χ² > 10.
+            # Pass2 used scaled errors (scale = max(1,√χ²ᵣ_pass1)), so chi2_map is
+            # chi2_original / scale².  Recover original chi2 by multiplying back.
+            scale_sq  = max(1.0, res1.chi2_red)
+            chi2_abs  = chi2_map .* scale_sq
+            dmax_geo  = 10.0
+            chi2_plot = map(x -> (isfinite(x) && x <= dmax_geo) ? x : NaN, chi2_abs)
 
             rc("font", size=8.)
             rc("axes", linewidth=0.6)
@@ -737,9 +740,9 @@ module SpaTs
                              extent=ext, vmin=0.0, vmax=dmax_geo,
                              cmap=cmap_geo, interpolation="nearest")
             cb = fig.colorbar(img, ax=ax3, pad=0.02)
-            cb.set_label(raw"$\chi^2_\mathrm{red}$", fontsize=8)
+            cb.set_label(raw"$\chi^2$", fontsize=8)
             # mark best-fit point
-            ax3.plot(res2.alpha, res2.beta, "+", ms=8, c="white", mew=1.5, zorder=5)
+            ax3.plot(res2.alpha, res2.beta, "+", ms=10, c="white", mew=2.0, zorder=6)
 
             # emission height contours (Rankin 1990 eq.2 + Gil+1984 eq.3)
             if !isnan(period_s) && w10_deg > 0.0
@@ -756,9 +759,10 @@ module SpaTs
                     ρ    = acos(clamp(cosρ, -1.0, 1.0))
                     h_grid[ia, ib] = 2*period_s*c_light*ρ^2 / (9π) / 1e3   # km
                 end
-                ax3.contour(alphas_deg, betas_deg, h_grid',
-                            levels=h_levels, colors="white",
-                            linewidths=0.7, alpha=0.75, zorder=4)
+                cs = ax3.contour(alphas_deg, betas_deg, h_grid',
+                                 levels=h_levels, colors="white",
+                                 linewidths=1.0, alpha=1.0, zorder=4)
+                ax3.clabel(cs, fmt="%g", fontsize=6, inline=true)
             end
 
             ax3.set_xlabel("α (°)")
