@@ -1198,6 +1198,7 @@ module Data
                 best_ab  = Inf
                 best_phi0_ab = phi0s[1]
                 best_pa0_ab  = 0.0
+                # --- coarse grid search over phi0 ---
                 for phi0 in phi0s
                     dphi = lon_rad .- phi0
                     # Komesaroff (1970) sign convention (matches publication).
@@ -1219,6 +1220,49 @@ module Data
                         best_pa0_ab  = pa0
                     end
                 end
+
+                # --- parabolic refinement of phi0 ---
+                # Fits a parabola through chi2 at {min-h, min, min+h} to locate
+                # the sub-grid minimum. Adds 2 evaluations per (α,β) pair.
+                if length(phi0s) > 1 && best_ab < Inf
+                    h_par = phi0s[2] - phi0s[1]
+                    if best_phi0_ab > phi0s[1] + h_par/2 &&
+                       best_phi0_ab < phi0s[end] - h_par/2
+                        # left neighbour
+                        dp_L  = lon_rad .- (best_phi0_ab - h_par)
+                        sh_L  = atan.(.-sa .* sin.(dp_L), sz .* ca .- cz .* sa .* cos.(dp_L))
+                        di_L  = pa_rad .- sh_L
+                        p0_L  = atan(sum(sin.(2 .* di_L) .* inv_var),
+                                     sum(cos.(2 .* di_L) .* inv_var)) / 2
+                        c2_L  = sum((mod.(di_L .- p0_L .+ π/2, π) .- π/2) .^ 2 .* inv_var)
+                        # right neighbour
+                        dp_R  = lon_rad .- (best_phi0_ab + h_par)
+                        sh_R  = atan.(.-sa .* sin.(dp_R), sz .* ca .- cz .* sa .* cos.(dp_R))
+                        di_R  = pa_rad .- sh_R
+                        p0_R  = atan(sum(sin.(2 .* di_R) .* inv_var),
+                                     sum(cos.(2 .* di_R) .* inv_var)) / 2
+                        c2_R  = sum((mod.(di_R .- p0_R .+ π/2, π) .- π/2) .^ 2 .* inv_var)
+                        denom_par = c2_L - 2*best_ab + c2_R
+                        if denom_par > 0
+                            phi0_ref = best_phi0_ab - h_par/2 * (c2_R - c2_L) / denom_par
+                            phi0_ref = clamp(phi0_ref, best_phi0_ab - h_par,
+                                                       best_phi0_ab + h_par)
+                            dp_ref  = lon_rad .- phi0_ref
+                            sh_ref  = atan.(.-sa .* sin.(dp_ref),
+                                            sz .* ca .- cz .* sa .* cos.(dp_ref))
+                            di_ref  = pa_rad .- sh_ref
+                            p0_ref  = atan(sum(sin.(2 .* di_ref) .* inv_var),
+                                           sum(cos.(2 .* di_ref) .* inv_var)) / 2
+                            c2_ref  = sum((mod.(di_ref .- p0_ref .+ π/2, π) .- π/2) .^ 2 .* inv_var)
+                            if c2_ref < best_ab
+                                best_ab      = c2_ref
+                                best_phi0_ab = phi0_ref
+                                best_pa0_ab  = p0_ref
+                            end
+                        end
+                    end
+                end
+
                 if return_map
                     chi2_map[ia, ib] = best_ab
                 end
