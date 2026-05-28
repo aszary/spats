@@ -597,17 +597,23 @@ module SpaTs
                 @warn "  fit_rvm pass2 returned nothing for $psr"
                 continue
             end
-            println("  pass2: α=$(round(res2.alpha,digits=1))°  β=$(round(res2.beta,digits=1))°  φ₀=$(round(res2.phi0,digits=1))°  PA₀=$(round(res2.pa0,digits=1))°  χ²ᵣ=$(round(res2.chi2_red,digits=2))")
+            println("  pass2: α=$(round(res2.alpha,digits=1))°  β=$(round(res2.beta,digits=1))°  φ₀=$(round(res2.phi0,digits=1))°  PA₀=$(round(res2.pa0,digits=1))°  χ²ᵣ=$(round(res2.chi2_red,digits=3))")
 
             # --- RVM curve ---
-            # For flat PA (chi2_red << 1), all (α,β) are degenerate.
-            # Pick the combination with the smallest RVM slope |sinα/sinβ| so the
-            # displayed curve is actually flat, and place φ₀ at the data centroid.
+            # For truly flat PA, (α,β) are degenerate: display the flattest valid curve.
+            # Use res1.chi2_red (unscaled errors) as the indicator — res2.chi2_red can be
+            # artificially small for any pulsar when pass1 was bad and errors were scaled up.
+            # Additionally require the PA range to be small (< 20°) to avoid misclassifying
+            # RVM pulsars whose deopm left both OPM modes visible.
             phi0_display  = res2.phi0
             pa0_display   = res2.pa0
             alpha_display = res2.alpha
             beta_display  = res2.beta
-            if res2.chi2_red < 0.15
+            valid_pa_vals = filter(isfinite, pa_plot)
+            pa_data_range = isempty(valid_pa_vals) ? 0.0 :
+                            maximum(valid_pa_vals) - minimum(valid_pa_vals)
+            println("  PA range: $(round(pa_data_range,digits=1))°   pass1 χ²ᵣ=$(round(res1.chi2_red,digits=3))")
+            if res1.chi2_red < 0.5 && pa_data_range < 20.0
                 valid_idx = findall(isfinite.(pa_plot))
                 if !isempty(valid_idx)
                     phi0_display = mean(lon_on[valid_idx])
@@ -657,10 +663,11 @@ module SpaTs
                 ζr = (alpha_display+beta_display)*(π/180), p0 = pa0_display*(π/180)
                 for i in eachindex(pa_display)
                     isnan(pa_display[i]) && continue
-                    dφ    = lon_on[i]*(π/180) - ϕ0
-                    rvm_i = p0 + atan(-sin(αr)*sin(dφ),
-                                      sin(ζr)*cos(αr) - cos(ζr)*sin(αr)*cos(dφ))
-                    pa_i  = pa_display[i] * (π/180)
+                    dφ      = lon_on[i]*(π/180) - ϕ0
+                    rvm_raw = p0 + atan(-sin(αr)*sin(dφ),
+                                        sin(ζr)*cos(αr) - cos(ζr)*sin(αr)*cos(dφ))
+                    rvm_i   = mod(rvm_raw + π/2, π) - π/2  # wrap to (-π/2, π/2]
+                    pa_i    = pa_display[i] * (π/180)
                     rA = mod(pa_i - rvm_i + π/2, π) - π/2
                     rB = mod(pa_i - rvm_i,       π) - π/2
                     if abs(rB) < abs(rA)  # point is in orthogonal mode → flip
