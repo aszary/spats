@@ -680,7 +680,13 @@ module SpaTs
             ax2.legend(fontsize=7, loc="upper right", framealpha=0.7)
             ax2.minorticks_on()
             ax2.set_xlim(lon_disp[1], lon_disp[end])
-            ax2.set_ylim(-0.15, 1.15)
+            let i_disp = I_bl[disp_rng] ./ I_peak,
+                l_disp = L_avg[disp_rng] ./ I_peak,
+                v_disp = V_avg[disp_rng] ./ I_peak
+                ylo = min(-0.05, minimum(v_disp) - 0.05, minimum(l_disp) - 0.05)
+                yhi = max(1.05, maximum(i_disp) + 0.05, maximum(l_disp) + 0.05)
+                ax2.set_ylim(ylo, yhi)
+            end
 
             # chi2_red map (right, full height) — white where > dmax_geo
             ax3 = subplot2grid((3, 2), (0, 1), rowspan=3)
@@ -734,6 +740,6 @@ module SpaTs
 
 end # module
 
-SpaTs.run_johnston2023("/home/psr/data/posselt/ar_files/", "/home/psr/output/"; snr_threshold=3.0)
+SpaTs.run_johnston2023("/home/psr/data/posselt/ar_files/", "/home/psr/output/"; snr_threshold=2.0)
 
 println("Bye")
