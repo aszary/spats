@@ -613,7 +613,7 @@ module SpaTs
                 for i in eachindex(pa_display)
                     isnan(pa_display[i]) && continue
                     dφ      = lon_on[i]*(π/180) - ϕ0
-                    rvm_raw = p0 + atan(sin(αr)*sin(dφ),
+                    rvm_raw = p0 + atan(-sin(αr)*sin(dφ),
                                         sin(ζr)*cos(αr) - cos(ζr)*sin(αr)*cos(dφ))
                     rvm_i   = mod(rvm_raw + π/2, π) - π/2  # wrap to (-π/2, π/2]
                     pa_i    = pa_display[i] * (π/180)
