@@ -619,9 +619,8 @@ module SpaTs
                     pa_i    = pa_display[i] * (π/180)
                     rA = mod(pa_i - rvm_i + π/2, π) - π/2
                     rB = mod(pa_i - rvm_i,       π) - π/2
-                    if abs(rB) < abs(rA)  # point is in orthogonal mode → flip
-                        pa_display[i] = pa_display[i] <= 0.0 ?
-                                        pa_display[i] + 90.0 : pa_display[i] - 90.0
+                    if abs(rB) < abs(rA)  # point is in orthogonal mode → flip to mode A
+                        pa_display[i] = mod((rvm_i + rA) * (180/π) + 90, 180) - 90
                     end
                 end
             end
@@ -709,10 +708,10 @@ module SpaTs
                     h_grid[ia, ib] = 2*period_s*c_light*ρ^2 / (9π) / 1e3   # km
                 end
                 cs = ax3.contour(alphas_deg, betas_deg, h_grid',
-                                 levels=h_levels, colors="yellow",
-                                 linewidths=1.5, alpha=0.85, zorder=4)
-                ax3.clabel(cs, fmt="%g", fontsize=7, inline=true,
-                           inline_spacing=2, colors="yellow")
+                                 levels=h_levels, colors="mediumpurple",
+                                 linewidths=0.8, alpha=0.9, zorder=4)
+                ax3.clabel(cs, fmt="%g", fontsize=6, inline=true,
+                           inline_spacing=1, colors="mediumpurple")
             end
 
             ax3.set_xlabel("α (°)")
