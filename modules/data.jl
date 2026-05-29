@@ -1719,6 +1719,7 @@ end
                 p_val = tryparse(Float64, num_part)
                 if !isnothing(p_val)
                     p_current["p3"] = p_val
+                    p_current["p3_ybins"] = Functions.find_ybins(p_val)
                     Tools.save_params(params_file, p_current)
                 end
             end
