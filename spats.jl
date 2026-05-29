@@ -620,7 +620,7 @@ module SpaTs
                     rA = mod(pa_i - rvm_i + π/2, π) - π/2
                     rB = mod(pa_i - rvm_i,       π) - π/2
                     if abs(rB) < abs(rA)  # point is in orthogonal mode → flip to mode A
-                        pa_display[i] = mod((rvm_i + rA) * (180/π) + 90, 180) - 90
+                        pa_display[i] = mod((rvm_i + rB) * (180/π) + 90, 180) - 90
                     end
                 end
             end
