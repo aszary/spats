@@ -510,13 +510,17 @@ module SpaTs
 
             # --- on-pulse detection ---
             I_max = maximum(I_bl)
-            thr   = 0.02 * I_max   # 2% threshold — captures full pulse wings
+            thr   = 0.02 * I_max   # 2% threshold
 
-            # expand contiguously from peak while above threshold
-            bin_st  = pk
-            while bin_st  > 1      && I_bl[bin_st  - 1] > thr; bin_st  -= 1; end
-            bin_end = pk
-            while bin_end < n_bins && I_bl[bin_end + 1] > thr; bin_end += 1; end
+            # Use full span of all bins above threshold (not contiguous from peak),
+            # so multi-component profiles with dips don't lose the outer components.
+            above = findall(I_bl .> thr)
+            if isempty(above)
+                @warn "  No bins above threshold for $psr — skipping"
+                continue
+            end
+            bin_st  = minimum(above)
+            bin_end = maximum(above)
 
             # hard cap at 40% of total bins to avoid runaway on noisy baselines
             if bin_end - bin_st + 1 > 0.40 * n_bins
@@ -565,9 +569,17 @@ module SpaTs
             U_on = U_avg[on_rng]
 
             # --- PA + error ---
-            # RM correction is already applied in the .fluxcal.ar files by PSRCHIVE.
-            # vap -c rm returns the stored (already applied) RM — do not apply again.
             pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
+
+            # Faraday RM correction: PA_intrinsic = PA_obs - RM * lambda^2
+            # Applied only if RM != 0 (non-zero RM means it has NOT been applied yet).
+            if isfinite(rm_val) && abs(rm_val) > 0.5 && isfinite(freq_mhz) && freq_mhz > 0
+                lambda_sq      = (3e8 / (freq_mhz * 1e6))^2
+                rm_corr_deg    = rm_val * lambda_sq * (180.0 / π)
+                pa_raw         = map(x -> isnan(x) ? NaN :
+                                     mod(x - rm_corr_deg + 90, 180) - 90, pa_raw)
+                println("  RM correction: $(round(rm_corr_deg, digits=1))°")
+            end
 
             pa_err  = fill(NaN, n_on)
             for i in 1:n_on
