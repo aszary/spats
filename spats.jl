@@ -502,7 +502,7 @@ module SpaTs
 
             # --- on-pulse detection ---
             I_max = maximum(I_bl)
-            thr   = 0.1 * I_max
+            thr   = 0.02 * I_max   # 2% threshold — captures full pulse wings
 
             # expand contiguously from peak while above threshold
             bin_st  = pk
@@ -510,9 +510,9 @@ module SpaTs
             bin_end = pk
             while bin_end < n_bins && I_bl[bin_end + 1] > thr; bin_end += 1; end
 
-            # if still too broad (>30% of bins) fall back to ±8% around peak
-            if bin_end - bin_st + 1 > 0.30 * n_bins
-                half    = round(Int, 0.08 * n_bins)
+            # hard cap at 40% of total bins to avoid runaway on noisy baselines
+            if bin_end - bin_st + 1 > 0.40 * n_bins
+                half    = round(Int, 0.15 * n_bins)
                 bin_st  = max(1, pk - half)
                 bin_end = min(n_bins, pk + half)
             end
@@ -540,8 +540,14 @@ module SpaTs
             lon_full = lon_full .- lon_full[pk]   # peak → 0°
             lon_on   = lon_full[on_rng]
 
+            # Display range: on-pulse + 20% margin each side (matches paper style)
+            margin_bins = max(5, round(Int, 0.20 * (bin_end - bin_st + 1)))
+            disp_st  = max(1,      bin_st  - margin_bins)
+            disp_end = min(n_bins, bin_end + margin_bins)
+            disp_rng = disp_st:disp_end
+            lon_disp = lon_full[disp_rng]
+
             L_on = L_avg[on_rng]
-            V_on = V_avg[on_rng]
             Q_on = Q_avg[on_rng]
             U_on = U_avg[on_rng]
 
@@ -651,7 +657,7 @@ module SpaTs
             ax1.tick_params(labelbottom=false)
             ax1.set_title(psr, fontsize=9, pad=3)
             ax1.minorticks_on()
-            ax1.set_xlim(lon_on[1], lon_on[end])
+            ax1.set_xlim(lon_disp[1], lon_disp[end])
             # PA y-range: ±90° or tighter around data
             valid_pa = filter(isfinite, pa_display)
             if !isempty(valid_pa)
@@ -664,16 +670,16 @@ module SpaTs
             ax2 = subplot2grid((3, 2), (1, 0), rowspan=2)
             I_bl_on  = I_bl[on_rng]
             I_peak   = maximum(I_bl_on)
-            ax2.plot(lon_on, I_bl_on ./ I_peak, c="black", lw=0.9, label="I")
-            ax2.plot(lon_on, L_on    ./ I_peak, c="red",   lw=0.9, label="L")
-            ax2.plot(lon_on, V_on    ./ I_peak, c="blue",  lw=0.9, label="V")
+            ax2.plot(lon_disp, I_bl[disp_rng] ./ I_peak, c="black", lw=0.9, label="I")
+            ax2.plot(lon_disp, L_avg[disp_rng] ./ I_peak, c="red",   lw=0.9, label="L")
+            ax2.plot(lon_disp, V_avg[disp_rng] ./ I_peak, c="blue",  lw=0.9, label="V")
             ax2.axvline(phi0_display, c="tab:blue", lw=1.0, ls="--", zorder=4)
             ax2.axhline(0.0, c="gray", lw=0.5, ls=":")
             ax2.set_xlabel("Pulse longitude (°)")
             ax2.set_ylabel("Normalised flux")
             ax2.legend(fontsize=7, loc="upper right", framealpha=0.7)
             ax2.minorticks_on()
-            ax2.set_xlim(lon_on[1], lon_on[end])
+            ax2.set_xlim(lon_disp[1], lon_disp[end])
             ax2.set_ylim(-0.15, 1.15)
 
             # chi2_red map (right, full height) — white where > dmax_geo
