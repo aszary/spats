@@ -708,7 +708,7 @@ module SpaTs
                     ρ    = acos(clamp(cosρ, -1.0, 1.0))
                     h_grid[ia, ib] = 2*period_s*c_light*ρ^2 / (9π) / 1e3   # km
                 end
-                cs = ax3.contour(alphas_deg, betas_deg, h_grid,
+                cs = ax3.contour(alphas_deg, betas_deg, h_grid',
                                  levels=h_levels, colors="white",
                                  linewidths=1.0, alpha=1.0, zorder=4)
                 ax3.clabel(cs, fmt="%g", fontsize=6, inline=true)
