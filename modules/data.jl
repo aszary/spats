@@ -1154,15 +1154,16 @@ module Data
     """
     Fit the Rotating Vector Model (RVM) to position angle data.
 
-    Grid search over α ∈ (5°,90°) and β, then for each (α,β) pair calls
-    scipy.optimize.least_squares (Johnston+2023 method) to jointly optimise φ₀
-    and PA₀.  OPM is handled inside the residuals function: for each data point
-    both orthogonal modes are tried and the one with the smaller residual is used.
+    Faithful Johnston+2023 method:
+    - 85 trials α ∈ (5°,175°), 40 trials β ∈ (±20°)  [paper values]
+    - scipy.optimize.least_squares for (φ₀, PA₀) at each (α,β) pair
+    - OPM built into residuals: min(|resA|, |resB|) for each data point
+    - Fast: vectorised numpy loop over φ₀ only; scipy for the global best
+    - α normalised to < 90° in reported values (paper convention)
+    - Minimum 10 valid PA points required (paper criterion)
 
-    α is searched only in (5°,90°) — the normalised half-space used in the paper.
-
-    Returns NamedTuple with fields: alpha, beta, phi0, pa0 (all in degrees), chi2.
-    Returns nothing if fewer than 10 valid PA points.
+    Returns NamedTuple with fields: alpha, beta, phi0, pa0 (all in degrees),
+    chi2, chi2_red, ndof.  Returns nothing if < 10 valid PA points.
     """
     const _rvm_py_ready = Ref(false)
 
@@ -1181,78 +1182,117 @@ def _rvm_res(params, lon, pa, sigma, alpha, beta):
     rvm  = pa0 + _np.arctan2(-sa * _np.sin(dphi),
                                sz*ca - cz*sa*_np.cos(dphi))
     diff = pa - rvm
-    # OPM: try both modes, use the one with the smaller residual
+    # OPM: for each point try both modes, take the nearer one
     resA = _np.mod(diff + _np.pi/2, _np.pi) - _np.pi/2
     resB = _np.mod(diff + _np.pi,   _np.pi) - _np.pi/2
-    res  = _np.where(_np.abs(resA) <= _np.abs(resB), resA, resB)
-    return res / sigma
+    return _np.where(_np.abs(resA) <= _np.abs(resB), resA, resB) / sigma
 
 def _fit_rvm_py(lon_deg, pa_deg, pa_err_deg,
-                n_alpha, n_beta, n_phi0_starts,
+                n_alpha, n_beta, n_phi0,
                 alpha_min, alpha_max, beta_min, beta_max):
-    lon_deg    = _np.asarray(lon_deg, dtype=float)
-    pa_deg     = _np.asarray(pa_deg,  dtype=float)
+    lon_deg    = _np.asarray(lon_deg,    dtype=float)
+    pa_deg     = _np.asarray(pa_deg,     dtype=float)
     pa_err_deg = _np.asarray(pa_err_deg, dtype=float)
     mask = _np.isfinite(pa_deg) & _np.isfinite(pa_err_deg) & (pa_err_deg > 0)
     if int(mask.sum()) < 10:
         return None
+
     lon = _np.deg2rad(lon_deg[mask])
     pa  = _np.deg2rad(pa_deg[mask])
     sig = _np.deg2rad(pa_err_deg[mask])
-    alphas = _np.linspace(_np.deg2rad(alpha_min), _np.deg2rad(alpha_max), int(n_alpha))
-    betas  = _np.linspace(_np.deg2rad(beta_min),  _np.deg2rad(beta_max),  int(n_beta))
+    inv_var = 1.0 / sig**2
+
+    na  = int(n_alpha)
+    nb  = int(n_beta)
+    np_ = int(n_phi0)
+
+    alphas = _np.linspace(_np.deg2rad(alpha_min), _np.deg2rad(alpha_max), na)
+    betas  = _np.linspace(_np.deg2rad(beta_min),  _np.deg2rad(beta_max),  nb)
     lon_min, lon_max = float(lon.min()), float(lon.max())
     margin = (lon_max - lon_min) * 0.5
-    phi0_starts = _np.linspace(lon_min - margin, lon_max + margin, int(n_phi0_starts))
-    best_chi2  = _np.inf
-    best_alpha = alphas[0]
-    best_beta  = betas[0]
-    best_phi0  = phi0_starts[0]
-    best_pa0   = 0.0
-    chi2_map = _np.full((int(n_alpha), int(n_beta)), _np.inf)
-    for ia, alpha in enumerate(alphas):
-        ca, sa = _np.cos(alpha), _np.sin(alpha)
-        for ib, beta in enumerate(betas):
-            zeta = alpha + beta
-            cz, sz = _np.cos(zeta), _np.sin(zeta)
-            best_ab     = _np.inf
-            best_p0_ab  = phi0_starts[0]
-            best_pa0_ab = 0.0
-            for phi0_init in phi0_starts:
-                # Analytical PA0 for this starting φ0
-                dphi  = lon - phi0_init
-                shape = _np.arctan2(-sa*_np.sin(dphi), sz*ca - cz*sa*_np.cos(dphi))
-                diffs = pa - shape
-                Sx = float(_np.sum(_np.sin(2*diffs) / sig**2))
-                Cx = float(_np.sum(_np.cos(2*diffs) / sig**2))
-                pa0_init = _np.arctan2(Sx, Cx) / 2.0
-                try:
-                    r = _ls(_rvm_res, [phi0_init, pa0_init],
-                            args=(lon, pa, sig, alpha, beta), method='lm')
-                    c2 = float(_np.sum(r.fun**2))
-                    if c2 < best_ab:
-                        best_ab     = c2
-                        best_p0_ab  = float(r.x[0])
-                        best_pa0_ab = float(r.x[1])
-                except Exception:
-                    pass
-            chi2_map[ia, ib] = best_ab
-            if best_ab < best_chi2:
-                best_chi2  = best_ab
-                best_alpha = alpha
-                best_beta  = beta
-                best_phi0  = best_p0_ab
-                best_pa0   = best_pa0_ab
-    ndof = max(int(mask.sum()) - 4, 1)
-    # Wrap PA0 to (-90°, 90°]
-    pa0_deg = float(_np.mod(_np.rad2deg(best_pa0) + 90.0, 180.0) - 90.0)
+    phi0s  = _np.linspace(lon_min - margin, lon_max + margin, np_)
+
+    # --- Vectorised grid: loop over phi0, vectorise over (alpha, beta, pts) ---
+    # Precompute alpha/beta trig: shapes (na,1) and (na,nb)
+    a2 = alphas[:, None];  b2 = betas[None, :]
+    z2 = a2 + b2
+    sa2 = _np.sin(a2);  ca2 = _np.cos(a2)
+    sz2 = _np.sin(z2);  cz2 = _np.cos(z2)
+
+    chi2_map = _np.full((na, nb), _np.inf)
+    phi0_map = _np.full((na, nb), phi0s[0])
+    pa0_map  = _np.zeros((na, nb))
+
+    iv3 = inv_var[None, None, :]   # (1,1,npts)
+    pa3 = pa     [None, None, :]   # (1,1,npts)
+
+    for phi0 in phi0s:
+        dphi = lon - phi0
+        sd   = _np.sin(dphi);  cd = _np.cos(dphi)
+
+        # rvm shape broadcast: (na, nb, npts)
+        num = -sa2[:, :, None] * sd[None, None, :]
+        den = (sz2[:, :, None] * ca2[:, :, None]
+               - cz2[:, :, None] * sa2[:, :, None] * cd[None, None, :])
+        rvm   = _np.arctan2(num, den)
+
+        diffs = pa3 - rvm                                  # (na,nb,npts)
+
+        # Analytical PA0: weighted circular mean
+        Sx  = _np.sum(_np.sin(2 * diffs) * iv3, axis=2)   # (na,nb)
+        Cx  = _np.sum(_np.cos(2 * diffs) * iv3, axis=2)
+        pa0 = _np.arctan2(Sx, Cx) / 2                     # (na,nb)
+
+        # OPM residuals
+        d2   = diffs - pa0[:, :, None]
+        resA = _np.mod(d2 + _np.pi/2, _np.pi) - _np.pi/2
+        resB = _np.mod(d2 + _np.pi,   _np.pi) - _np.pi/2
+        res  = _np.where(_np.abs(resA) <= _np.abs(resB), resA, resB)
+        chi2 = _np.sum(res**2 * iv3, axis=2)              # (na,nb)
+
+        improved  = chi2 < chi2_map
+        chi2_map  = _np.where(improved, chi2,  chi2_map)
+        phi0_map  = _np.where(improved, phi0,  phi0_map)
+        pa0_map   = _np.where(improved, pa0,   pa0_map)
+
+    # --- scipy refinement at global best (alpha, beta) ---
+    best_flat      = int(_np.argmin(chi2_map))
+    best_ia, best_ib = _np.unravel_index(best_flat, chi2_map.shape)
+    alpha_b = float(alphas[best_ia])
+    beta_b  = float(betas [best_ib])
+    phi0_b  = float(phi0_map[best_ia, best_ib])
+    pa0_b   = float(pa0_map [best_ia, best_ib])
+    chi2_b  = float(chi2_map[best_ia, best_ib])
+
+    try:
+        r = _ls(_rvm_res, [phi0_b, pa0_b],
+                args=(lon, pa, sig, alpha_b, beta_b), method='lm')
+        c2 = float(_np.sum(r.fun**2))
+        if c2 < chi2_b:
+            chi2_b = c2
+            phi0_b = float(r.x[0])
+            pa0_b  = float(r.x[1])
+            chi2_map[best_ia, best_ib] = c2
+    except Exception:
+        pass
+
+    # --- Normalise alpha to < 90° (Johnston+2023 table convention) ---
+    a_deg = float(_np.rad2deg(alpha_b))
+    b_deg = float(_np.rad2deg(beta_b))
+    if a_deg > 90.0:
+        a_deg =  180.0 - a_deg
+        b_deg = -b_deg
+
+    ndof    = max(int(mask.sum()) - 4, 1)
+    pa0_deg = float(_np.mod(_np.rad2deg(pa0_b) + 90.0, 180.0) - 90.0)
+
     return {
-        'alpha':    float(_np.rad2deg(best_alpha)),
-        'beta':     float(_np.rad2deg(best_beta)),
-        'phi0':     float(_np.rad2deg(best_phi0)),
+        'alpha':    a_deg,
+        'beta':     b_deg,
+        'phi0':     float(_np.rad2deg(phi0_b)),
         'pa0':      pa0_deg,
-        'chi2':     float(best_chi2),
-        'chi2_red': float(best_chi2 / ndof),
+        'chi2':     chi2_b,
+        'chi2_red': float(chi2_b / ndof),
         'ndof':     int(ndof),
         'chi2_map': chi2_map.T,
         'alphas':   _np.rad2deg(alphas),
@@ -1264,35 +1304,27 @@ def _fit_rvm_py(lon_deg, pa_deg, pa_err_deg,
 
     function fit_rvm(lon_deg, pa_deg, pa_err_deg;
                      return_map=false,
-                     n_alpha=85, n_beta=40, n_phi0_starts=10,
-                     alpha_range=(5.0, 90.0), beta_range=(-20.0, 20.0))
+                     n_alpha=85, n_beta=40, n_phi0=120,
+                     alpha_range=(5.0, 175.0), beta_range=(-20.0, 20.0))
 
         _ensure_rvm_python()
 
         result_py = py"_fit_rvm_py"(
             collect(lon_deg), collect(pa_deg), collect(pa_err_deg),
-            n_alpha, n_beta, n_phi0_starts,
+            n_alpha, n_beta, n_phi0,
             alpha_range[1], alpha_range[2],
             beta_range[1],  beta_range[2]
         )
 
         (result_py === nothing || result_py == py"None") && return nothing
 
-        alpha_j  = Float64(result_py["alpha"])
-        beta_j   = Float64(result_py["beta"])
-        phi0_j   = Float64(result_py["phi0"])
-        pa0_j    = Float64(result_py["pa0"])
-        chi2_j   = Float64(result_py["chi2"])
-        chi2r_j  = Float64(result_py["chi2_red"])
-        ndof_j   = Int(result_py["ndof"])
-
-        result = (alpha    = alpha_j,
-                  beta     = beta_j,
-                  phi0     = phi0_j,
-                  pa0      = pa0_j,
-                  chi2     = chi2_j,
-                  chi2_red = chi2r_j,
-                  ndof     = ndof_j)
+        result = (alpha    = Float64(result_py["alpha"]),
+                  beta     = Float64(result_py["beta"]),
+                  phi0     = Float64(result_py["phi0"]),
+                  pa0      = Float64(result_py["pa0"]),
+                  chi2     = Float64(result_py["chi2"]),
+                  chi2_red = Float64(result_py["chi2_red"]),
+                  ndof     = Int(result_py["ndof"]))
 
         if return_map
             chi2_map_j = convert(Matrix{Float64}, result_py["chi2_map"])

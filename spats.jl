@@ -408,9 +408,8 @@ module SpaTs
       pa_shift_deg   – global OPM branch rotation applied after deopm (default 0°)
     """
     function run_johnston2023(dataroot, outdir;
-                              snr_threshold   = 5.0,
-                              max_pa_err_deg  = 10.0,
-                              pa_shift_deg    = 0.0)
+                              snr_threshold = 5.0,
+                              pa_shift_deg  = 0.0)
         mkpath(outdir)
 
         # Pulsars shown in figures of Johnston+2023 (only those with plots, not full Table A1)
@@ -547,16 +546,12 @@ module SpaTs
             U_on = U_avg[on_rng]
 
             # --- PA + error ---
+            # Include all bins with L > 5σ (paper criterion); no extra error ceiling.
             pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
             pa_err  = fill(NaN, n_on)
             for i in 1:n_on
                 if L_on[i] > thresh
-                    e = 0.5 * sigma_avg / L_on[i] * (180.0 / π)
-                    if e <= max_pa_err_deg
-                        pa_err[i] = e
-                    else
-                        pa_raw[i] = NaN
-                    end
+                    pa_err[i] = 0.5 * sigma_avg / L_on[i] * (180.0 / π)
                 else
                     pa_raw[i] = NaN
                 end
