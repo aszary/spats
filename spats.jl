@@ -141,7 +141,7 @@ module SpaTs
                     dot_pos = findfirst('.', val_str)
                     decimal_places = isnothing(dot_pos) ? 0 : length(val_str) - dot_pos
                     p3_error = err_digits * 10.0^(-decimal_places)
-                    p3_ybins = Functions.find_ybins(p3_value)
+                    p3_ybins = Data.Functions.find_ybins(p3_value)
                     isdir(outdir) || mkdir(outdir)
                     params_file = joinpath(outdir, "params.json")
                     p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
