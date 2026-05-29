@@ -575,8 +575,8 @@ module SpaTs
 
             n_valid = sum(.!isnan.(pa_plot))
             println("  valid PA bins: $n_valid")
-            if n_valid < 7
-                @warn "  Too few valid PA points for $psr (need ≥7, got $n_valid) — skipping RVM"
+            if n_valid < 10
+                @warn "  Too few valid PA points for $psr (need ≥10, got $n_valid) — skipping RVM"
                 continue
             end
 
@@ -600,56 +600,10 @@ module SpaTs
             println("  pass2: α=$(round(res2.alpha,digits=1))°  β=$(round(res2.beta,digits=1))°  φ₀=$(round(res2.phi0,digits=1))°  PA₀=$(round(res2.pa0,digits=1))°  χ²ᵣ=$(round(res2.chi2_red,digits=3))")
 
             # --- RVM curve ---
-            # For truly flat PA, (α,β) are degenerate: display the flattest valid curve.
-            # Use res1.chi2_red (unscaled errors) as the indicator — res2.chi2_red can be
-            # artificially small for any pulsar when pass1 was bad and errors were scaled up.
-            # Additionally require the PA range to be small (< 20°) to avoid misclassifying
-            # RVM pulsars whose deopm left both OPM modes visible.
             phi0_display  = res2.phi0
             pa0_display   = res2.pa0
             alpha_display = res2.alpha
             beta_display  = res2.beta
-            valid_pa_vals = filter(isfinite, pa_plot)
-            pa_data_range = isempty(valid_pa_vals) ? 0.0 :
-                            maximum(valid_pa_vals) - minimum(valid_pa_vals)
-            println("  PA range: $(round(pa_data_range,digits=1))°   pass1 χ²ᵣ=$(round(res1.chi2_red,digits=3))")
-            if res1.chi2_red < 0.5 && pa_data_range < 20.0
-                valid_idx = findall(isfinite.(pa_plot))
-                if !isempty(valid_idx)
-                    phi0_display = mean(lon_on[valid_idx])
-                    # search grid for flattest valid curve
-                    min_slope = Inf
-                    for a_deg in alphas_deg
-                        for b_deg in betas_deg
-                            z_deg = a_deg + b_deg
-                            (z_deg <= 0.0 || z_deg >= 180.0) && continue
-                            abs(b_deg) < 0.1 && continue
-                            s = abs(sind(a_deg) / sind(b_deg))
-                            if s < min_slope
-                                min_slope     = s
-                                alpha_display = a_deg
-                                beta_display  = b_deg
-                            end
-                        end
-                    end
-                    # recompute PA₀ for the chosen (α,β,φ₀)
-                    phi0_r  = phi0_display * (π/180)
-                    alpha_r = alpha_display * (π/180)
-                    zeta_r  = (alpha_display + beta_display) * (π/180)
-                    lon_v   = lon_on[valid_idx] .* (π/180)
-                    pa_v    = pa_plot[valid_idx] .* (π/180)
-                    erv     = pa_err[valid_idx]
-                    inv_var = 1.0 ./ (erv .^ 2 .* (π/180)^2)
-                    dphi_v  = lon_v .- phi0_r
-                    shape_v = atan.(.-sin(alpha_r) .* sin.(dphi_v),
-                                    sin(zeta_r) .* cos(alpha_r) .- cos(zeta_r) .* sin(alpha_r) .* cos.(dphi_v))
-                    diffs_v = pa_v .- shape_v
-                    Sx = sum(sin.(2 .* diffs_v) .* inv_var)
-                    Cx = sum(cos.(2 .* diffs_v) .* inv_var)
-                    pa0_display = atan(Sx, Cx) / 2 * (180/π)
-                    println("  flat PA override: φ₀=$(round(phi0_display,digits=1))°  α=$(round(alpha_display,digits=1))°  β=$(round(beta_display,digits=1))°  PA₀=$(round(pa0_display,digits=1))°  slope=$(round(min_slope,digits=3))")
-                end
-            end
             params_display = (alpha=alpha_display, beta=beta_display,
                               phi0=phi0_display, pa0=pa0_display, ndof=res2.ndof)
             lon_rvm, pa_rvm, pa_rvm_ortho =
