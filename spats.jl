@@ -567,13 +567,14 @@ module SpaTs
             # --- PA + error ---
             pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
 
-            # Faraday RM de-rotation: PA_intrinsic = PA_obs - RM [rad/m²] * lambda² [m²]
+            # Faraday RM de-rotation: PA_intrinsic = PA_obs + RM * lambda²
+            # (PSRCHIVE sign convention: stored RM has opposite sign to standard)
             if isfinite(rm_val) && isfinite(freq_mhz) && freq_mhz > 0
-                lambda_m   = 3e8 / (freq_mhz * 1e6)          # wavelength in metres
-                rot_deg    = rm_val * lambda_m^2 * (180.0/π)  # rotation in degrees
+                lambda_m   = 3e8 / (freq_mhz * 1e6)
+                rot_deg    = rm_val * lambda_m^2 * (180.0/π)
                 pa_raw     = map(x -> isnan(x) ? NaN :
-                                 mod(x - rot_deg + 90.0, 180.0) - 90.0, pa_raw)
-                println("  RM=$(round(rm_val,digits=1)) rad/m²  λ²=$(round(lambda_m^2,sigdigits=3)) m²  rot=$(round(rot_deg,digits=1))°")
+                                 mod(x + rot_deg + 90.0, 180.0) - 90.0, pa_raw)
+                println("  RM=$(round(rm_val,digits=1)) rad/m²  rot=$(round(rot_deg,digits=1))°")
             end
 
             pa_err  = fill(NaN, n_on)
@@ -683,9 +684,9 @@ module SpaTs
             # PA y-range: ±90° or tighter around data
             valid_pa = filter(isfinite, pa_display)
             if !isempty(valid_pa)
-                pa_ctr = (maximum(valid_pa) + minimum(valid_pa)) / 2
-                pa_hw  = max((maximum(valid_pa) - minimum(valid_pa)) / 2 + 15.0, 25.0)
-                ax1.set_ylim(max(pa_ctr - pa_hw, -90.0), min(pa_ctr + pa_hw, 90.0))
+                pa_lo = minimum(valid_pa) - 10.0
+                pa_hi = maximum(valid_pa) + 10.0
+                ax1.set_ylim(pa_lo, pa_hi)
             end
 
             # Stokes panel (bottom-left, 2/3 height)
