@@ -454,20 +454,30 @@ module SpaTs
                 end
             end
 
-            # --- spin period (for emission height contours) ---
-            period_s = let p = NaN
-                for cmd in [Cmd(["vap", "-n", "-c", "period", ar_file]),
-                            Cmd(["psrinfo", "-p", ar_file])]
-                    isnan(p) || break
+            # --- spin period, RM, frequency (for height contours + PA correction) ---
+            period_s = NaN
+            rm_val   = NaN
+            freq_mhz = NaN
+            for (sym, cmds) in [
+                    (:period, [Cmd(["vap", "-n", "-c", "period", ar_file]),
+                               Cmd(["psrinfo", "-p", ar_file])]),
+                    (:rm,     [Cmd(["vap", "-n", "-c", "rm",     ar_file])]),
+                    (:freq,   [Cmd(["vap", "-n", "-c", "freq",   ar_file])])]
+                for cmd in cmds
                     try
                         raw = strip(read(cmd, String))
-                        p = parse(Float64, split(raw)[end])
-                    catch
-                    end
+                        v   = parse(Float64, split(raw)[end])
+                        sym == :period && (period_s = v)
+                        sym == :rm     && (rm_val   = v)
+                        sym == :freq   && (freq_mhz = v)
+                        break
+                    catch; end
                 end
-                p
             end
             isnan(period_s) || println("  period=$(round(period_s, sigdigits=5)) s")
+            if isfinite(rm_val) && isfinite(freq_mhz) && freq_mhz > 0
+                println("  RM=$(round(rm_val, sigdigits=4)) rad/m²  freq=$(round(freq_mhz, sigdigits=5)) MHz")
+            end
 
             # --- load ---
             data4 = try
@@ -555,8 +565,18 @@ module SpaTs
             U_on = U_avg[on_rng]
 
             # --- PA + error ---
-            # Include all bins with L > 5σ (paper criterion); no extra error ceiling.
             pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
+
+            # Apply Faraday RM correction: PA_corr = PA_obs - RM * lambda^2
+            # pdv -t -F does not apply RM derotation; must be done manually.
+            if isfinite(rm_val) && isfinite(freq_mhz) && freq_mhz > 0
+                lambda_sq        = (3e8 / (freq_mhz * 1e6))^2   # m^2
+                pa_rm_corr_deg   = rm_val * lambda_sq * (180.0 / π)
+                pa_raw           = map(x -> isnan(x) ? NaN : mod(x - pa_rm_corr_deg + 90, 180) - 90,
+                                       pa_raw)
+                println("  RM correction: $(round(pa_rm_corr_deg, digits=1))°")
+            end
+
             pa_err  = fill(NaN, n_on)
             for i in 1:n_on
                 if L_on[i] > thresh
