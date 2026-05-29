@@ -709,9 +709,10 @@ module SpaTs
                     h_grid[ia, ib] = 2*period_s*c_light*ρ^2 / (9π) / 1e3   # km
                 end
                 cs = ax3.contour(alphas_deg, betas_deg, h_grid',
-                                 levels=h_levels, colors="white",
-                                 linewidths=1.0, alpha=1.0, zorder=4)
-                ax3.clabel(cs, fmt="%g", fontsize=6, inline=true)
+                                 levels=h_levels, colors="yellow",
+                                 linewidths=1.5, alpha=0.85, zorder=4)
+                ax3.clabel(cs, fmt="%g", fontsize=7, inline=true,
+                           inline_spacing=2, colors="yellow")
             end
 
             ax3.set_xlabel("α (°)")
@@ -728,6 +729,6 @@ module SpaTs
 
 end # module
 
-SpaTs.run_johnston2023("/home/psr/data/posselt/ar_files/", "/home/psr/output/")
+SpaTs.run_johnston2023("/home/psr/data/posselt/ar_files/", "/home/psr/output/"; snr_threshold=3.0)
 
 println("Bye")
