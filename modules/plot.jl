@@ -891,9 +891,16 @@ module Plot
                 if isempty(d.err) || all(d.err .== 0.0)
                     continue
                 end
-                w = 1.0 ./ (d.err .^ 2)
-                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d)",
-                    comp, sum(w .* d.off) / sum(w), 1.0 / sqrt(sum(w)), length(d.off)))
+                w      = 1.0 ./ (d.err .^ 2)
+                n      = length(d.off)
+                mu     = sum(w .* d.off) / sum(w)
+                sigma_int = 1.0 / sqrt(sum(w))
+                chi2   = sum(w .* (d.off .- mu) .^ 2)
+                dof    = n - 1
+                chi2_red = dof > 0 ? chi2 / dof : NaN
+                sigma_ext = sigma_int * sqrt(max(1.0, chi2_red))
+                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)",
+                    comp, mu, sigma_int, n, chi2_red, sigma_ext))
             end
             println()
         end
@@ -921,6 +928,7 @@ module Plot
         end
 
     end
+
 
 
     function position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
