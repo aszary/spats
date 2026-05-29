@@ -1124,7 +1124,9 @@ module Data
         flipped = 0
         for i in 1:n
             if isnan(pa_out[i])
-                continue  # keep offset/last_unwrapped across NaN gaps
+                last_unwrapped = NaN   # reset across gaps — prevents false flips on steep S-curves
+                offset = 0.0
+                continue
             end
             pa_in = pa_out[i]
             if isnan(last_unwrapped)
