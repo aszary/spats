@@ -498,8 +498,6 @@ module SpaTs
             I_bl  = circshift(I_bl,  shift)
             pk    = n_bins ÷ 2   # peak is now at centre
 
-            L_avg = sqrt.(Q_avg .^ 2 .+ U_avg .^ 2)
-
             # --- on-pulse detection ---
             I_max = maximum(I_bl)
             thr   = 0.02 * I_max   # 2% threshold — captures full pulse wings
@@ -532,6 +530,11 @@ module SpaTs
             sigma_avg = (sigma_Q + sigma_U) / 2.0 / sqrt(n_pulses)
             thresh    = snr_threshold * sigma_avg
             println("  σ_avg=$(round(sigma_avg, sigdigits=3))  thresh=$(round(thresh, sigdigits=3))")
+
+            # Subtract off-pulse baseline from Q and U (removes calibration DC offset)
+            Q_avg = Q_avg .- mean(Q_avg[off_rng])
+            U_avg = U_avg .- mean(U_avg[off_rng])
+            L_avg = sqrt.(Q_avg .^ 2 .+ U_avg .^ 2)
 
             # --- on-pulse slices & longitude grid (peak centred at 0°) ---
             on_rng   = bin_st:bin_end
