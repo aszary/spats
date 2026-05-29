@@ -1124,11 +1124,7 @@ module Data
         flipped = 0
         for i in 1:n
             if isnan(pa_out[i])
-                # Reset across NaN gaps: an S-curve can span >90° across a gap,
-                # so carrying the offset over a gap causes incorrect flips.
-                last_unwrapped = NaN
-                offset = 0.0
-                continue
+                continue  # keep offset/last_unwrapped across NaN gaps
             end
             pa_in = pa_out[i]
             if isnan(last_unwrapped)

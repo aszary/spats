@@ -685,7 +685,7 @@ module SpaTs
                    betas_deg[1]-db/2,  betas_deg[end]+db/2]
             cmap_geo = PyPlot.matplotlib.cm.get_cmap("viridis")
             cmap_geo.set_bad(color="white")
-            img = ax3.imshow(chi2_plot', origin="lower", aspect="auto",
+            img = ax3.imshow(chi2_plot, origin="lower", aspect="auto",
                              extent=ext, vmin=0.0, vmax=dmax_geo,
                              cmap=cmap_geo, interpolation="nearest")
             cb = fig.colorbar(img, ax=ax3, pad=0.02)
@@ -708,7 +708,7 @@ module SpaTs
                     ρ    = acos(clamp(cosρ, -1.0, 1.0))
                     h_grid[ia, ib] = 2*period_s*c_light*ρ^2 / (9π) / 1e3   # km
                 end
-                cs = ax3.contour(alphas_deg, betas_deg, h_grid',
+                cs = ax3.contour(alphas_deg, betas_deg, h_grid,
                                  levels=h_levels, colors="white",
                                  linewidths=1.0, alpha=1.0, zorder=4)
                 ax3.clabel(cs, fmt="%g", fontsize=6, inline=true)
