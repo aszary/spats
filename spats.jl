@@ -565,17 +565,9 @@ module SpaTs
             U_on = U_avg[on_rng]
 
             # --- PA + error ---
+            # RM correction is already applied in the .fluxcal.ar files by PSRCHIVE.
+            # vap -c rm returns the stored (already applied) RM — do not apply again.
             pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
-
-            # Apply Faraday RM correction: PA_corr = PA_obs - RM * lambda^2
-            # pdv -t -F does not apply RM derotation; must be done manually.
-            if isfinite(rm_val) && isfinite(freq_mhz) && freq_mhz > 0
-                lambda_sq        = (3e8 / (freq_mhz * 1e6))^2   # m^2
-                pa_rm_corr_deg   = rm_val * lambda_sq * (180.0 / π)
-                pa_raw           = map(x -> isnan(x) ? NaN : mod(x - pa_rm_corr_deg + 90, 180) - 90,
-                                       pa_raw)
-                println("  RM correction: $(round(pa_rm_corr_deg, digits=1))°")
-            end
 
             pa_err  = fill(NaN, n_on)
             for i in 1:n_on
