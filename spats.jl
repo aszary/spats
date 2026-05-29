@@ -132,6 +132,24 @@ module SpaTs
             p3_str = get(p3_map, psr, "unknown")
             println("=== Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
             try
+                # parse P3 value and error from "6.6(2)" notation and write to params.json
+                m = match(r"^(\d+(?:\.\d+)?)\((\d+)\)$", p3_str)
+                if !isnothing(m)
+                    val_str = m.captures[1]
+                    err_digits = parse(Int, m.captures[2])
+                    p3_value = parse(Float64, val_str)
+                    dot_pos = findfirst('.', val_str)
+                    decimal_places = isnothing(dot_pos) ? 0 : length(val_str) - dot_pos
+                    p3_error = err_digits * 10.0^(-decimal_places)
+                    p3_ybins = Functions.find_ybins(p3_value)
+                    isdir(outdir) || mkdir(outdir)
+                    params_file = joinpath(outdir, "params.json")
+                    p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
+                    p["p3"] = p3_value
+                    p["p3_error"] = p3_error
+                    p["p3_ybins"] = p3_ybins
+                    Tools.save_params(params_file, p)
+                end
                 process_psrdata_16(indir, outdir)
                 print("n_comp for $psr [default=2]: ")
                 n_comp_input = strip(readline())
