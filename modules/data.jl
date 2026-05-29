@@ -1179,8 +1179,8 @@ def _rvm_res(params, lon, pa, sigma, alpha, beta):
     ca, sa = _np.cos(alpha), _np.sin(alpha)
     cz, sz = _np.cos(zeta),  _np.sin(zeta)
     dphi = lon - phi0
-    rvm  = pa0 + _np.arctan2(-sa * _np.sin(dphi),
-                               sz*ca - cz*sa*_np.cos(dphi))
+    rvm  = pa0 + _np.arctan2(sa * _np.sin(dphi),
+                              sz*ca - cz*sa*_np.cos(dphi))
     diff = pa - rvm
     # OPM: for each point try both modes, take the nearer one
     resA = _np.mod(diff + _np.pi/2, _np.pi) - _np.pi/2
@@ -1245,7 +1245,7 @@ def _fit_rvm_py(lon_deg, pa_deg, pa_err_deg,
     for phi0 in phi0s:
         dphi = lon - phi0
         sd = _np.sin(dphi);  cd = _np.cos(dphi)
-        num = -sa2[:, :, None] * sd[None, None, :]
+        num = sa2[:, :, None] * sd[None, None, :]
         den = (sz2[:, :, None] * ca2[:, :, None]
                - cz2[:, :, None] * sa2[:, :, None] * cd[None, None, :])
         rvm   = _np.arctan2(num, den)
@@ -1374,7 +1374,7 @@ def _fit_rvm_py(lon_deg, pa_deg, pa_err_deg,
 
         dphi = lon_r .- phi0
         # Komesaroff (1970) sign convention (matches publication).
-        pa_r = pa0 .+ atan.(.-sin(alpha) .* sin.(dphi),
+        pa_r = pa0 .+ atan.(sin(alpha) .* sin.(dphi),
                              sin(zeta) .* cos(alpha) .- cos(zeta) .* sin(alpha) .* cos.(dphi))
         pa_deg       = mod.(pa_r .* (180/π) .+ 90, 180) .- 90
         pa_ortho_deg = mod.(pa_deg .+ 90, 180) .- 90
