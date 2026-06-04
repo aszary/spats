@@ -565,17 +565,10 @@ module SpaTs
             U_on = U_avg[on_rng]
 
             # --- PA + error ---
-            pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
-
-            # Faraday RM de-rotation: PA_intrinsic = PA_obs + RM * lambda²
-            # (PSRCHIVE sign convention: stored RM has opposite sign to standard)
-            if isfinite(rm_val) && isfinite(freq_mhz) && freq_mhz > 0
-                lambda_m   = 3e8 / (freq_mhz * 1e6)
-                rot_deg    = rm_val * lambda_m^2 * (180.0/π)
-                pa_raw     = map(x -> isnan(x) ? NaN :
-                                 mod(x + rot_deg + 90.0, 180.0) - 90.0, pa_raw)
-                println("  RM=$(round(rm_val,digits=1)) rad/m²  rot=$(round(rot_deg,digits=1))°")
-            end
+            # Use -U (negated Stokes U) to match IAU convention (PA increases
+            # counter-clockwise on sky). MeerKAT/PSRCHIVE stores U with opposite
+            # sign. meerpipe already applies RM correction — do not re-apply.
+            pa_raw  = 0.5 .* atan.(-U_on, Q_on) .* (180.0 / π)
 
             pa_err  = fill(NaN, n_on)
             for i in 1:n_on
