@@ -631,7 +631,25 @@ module SpaTs
             lon_rvm, pa_rvm, pa_rvm_ortho =
                 Data.rvm_curve(params_display, lon_on[1], lon_on[end])
 
-            pa_display = pa_plot
+            # Post-fit OPM correction: use fitted RVM as absolute reference to flip
+            # points that are closer to the orthogonal mode than the main mode.
+            pa_display = copy(pa_plot)
+            let ϕ0 = phi0_display*(π/180), αr = alpha_display*(π/180),
+                ζr = (alpha_display+beta_display)*(π/180), p0 = pa0_display*(π/180)
+                for i in eachindex(pa_display)
+                    isnan(pa_display[i]) && continue
+                    dφ    = lon_on[i]*(π/180) - ϕ0
+                    rvm_i = p0 + atan(-sin(αr)*sin(dφ),
+                                       sin(ζr)*cos(αr) - cos(ζr)*sin(αr)*cos(dφ))
+                    rvm_i = mod(rvm_i + π/2, π) - π/2
+                    pa_i  = pa_display[i] * (π/180)
+                    rA    = mod(pa_i - rvm_i + π/2, π) - π/2
+                    rB    = mod(pa_i - rvm_i,        π) - π/2
+                    if abs(rB) < abs(rA)
+                        pa_display[i] = mod((rvm_i + rB) * (180/π) + 90, 180) - 90
+                    end
+                end
+            end
 
             # --- combined figure: PA + Stokes (left) | chi2 map (right) ---
             # Paper convention: display absolute χ² (not χ²_red), white for χ² > 10.
