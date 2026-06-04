@@ -510,7 +510,7 @@ module SpaTs
 
             # --- on-pulse detection ---
             I_max = maximum(I_bl)
-            thr   = 0.02 * I_max   # 2% threshold
+            thr   = 0.01 * I_max   # 1% threshold to capture profile wings
 
             # expand contiguously from peak while above threshold
             bin_st  = pk
