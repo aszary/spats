@@ -761,6 +761,6 @@ module SpaTs
 
 end # module
 
-SpaTs.run_johnston2023("/home/psr/data/zenodo_ar/ar_files/", "/home/psr/output/"; snr_threshold=3.0)
+SpaTs.run_johnston2023("/home/psr/data/zenodo_ar/ar_files/", "/home/psr/output/"; snr_threshold=2.0)
 
 println("Bye")
