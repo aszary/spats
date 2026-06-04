@@ -553,8 +553,8 @@ module SpaTs
             lon_full = lon_full .- lon_full[pk]   # peak → 0°
             lon_on   = lon_full[on_rng]
 
-            # Display range: on-pulse + 20% margin each side (matches paper style)
-            margin_bins = max(5, round(Int, 0.20 * (bin_end - bin_st + 1)))
+            # Display range: on-pulse + 10% margin each side
+            margin_bins = max(3, round(Int, 0.10 * (bin_end - bin_st + 1)))
             disp_st  = max(1,      bin_st  - margin_bins)
             disp_end = min(n_bins, bin_end + margin_bins)
             disp_rng = disp_st:disp_end
