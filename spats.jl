@@ -567,11 +567,12 @@ module SpaTs
             # --- PA + error ---
             pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
 
-            # RM de-rotation: PA_intrinsic = PA_obs - RM * lambda^2
+            # RM de-rotation: PA_intrinsic = PA_obs + RM * lambda^2
+            # (PSRCHIVE stores RM with opposite sign convention)
             if isfinite(rm_val) && isfinite(freq_mhz) && freq_mhz > 0
                 λ²  = (299792458.0 / (freq_mhz * 1e6))^2   # m²
                 Δpa = rm_val * λ² * (180.0 / π)             # degrees
-                pa_raw = mod.(pa_raw .- Δpa .+ 90.0, 180.0) .- 90.0
+                pa_raw = mod.(pa_raw .+ Δpa .+ 90.0, 180.0) .- 90.0
             end
 
             pa_err  = fill(NaN, n_on)
