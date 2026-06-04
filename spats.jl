@@ -565,10 +565,8 @@ module SpaTs
             U_on = U_avg[on_rng]
 
             # --- PA + error ---
-            # Use -U (negated Stokes U) to match IAU convention (PA increases
-            # counter-clockwise on sky). MeerKAT/PSRCHIVE stores U with opposite
-            # sign. meerpipe already applies RM correction — do not re-apply.
-            pa_raw  = 0.5 .* atan.(-U_on, Q_on) .* (180.0 / π)
+            # PA from Stokes Q and U. meerpipe archives are fully calibrated.
+            pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
 
             pa_err  = fill(NaN, n_on)
             for i in 1:n_on
