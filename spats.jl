@@ -534,11 +534,11 @@ module SpaTs
             # sigma_I: noise level of averaged I profile
             sigma_I = std(I_avg[off_rng])
 
-            # --- final on-pulse: SPAN from first to last bin with I > 3*sigma_I ---
-            # Non-contiguous: includes valleys between profile components
-            search_half = round(Int, 0.20 * n_bins)
+            # --- final on-pulse: SPAN from first to last bin with I > 1*sigma_I ---
+            # S/N > 1 matches Posselt+2023; span (not contiguous) includes valleys
+            search_half = round(Int, 0.25 * n_bins)
             search_rng  = max(1, pk - search_half):min(n_bins, pk + search_half)
-            above_I = filter(i -> I_bl[i] > 3.0 * sigma_I, collect(search_rng))
+            above_I = filter(i -> I_bl[i] > sigma_I, collect(search_rng))
             if isempty(above_I)
                 bin_st = bin_st_r; bin_end = bin_end_r   # fallback
             else
