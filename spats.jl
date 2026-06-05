@@ -569,14 +569,21 @@ module SpaTs
             lon_full = lon_full .- lon_full[pk]   # peak → 0°
             lon_on   = lon_full[on_rng]
 
-            # Display range: on-pulse + 10% margin each side
-            margin_bins = max(3, round(Int, 0.10 * (bin_end - bin_st + 1)))
-            disp_st  = max(1,      bin_st  - margin_bins)
-            disp_end = min(n_bins, bin_end + margin_bins)
+            # Display range: based on I > 5% of peak (tight, paper style)
+            # Separate from PA computation range (on_rng)
+            disp_above = findall(i -> I_bl[i] >= 0.05 * I_max, 1:n_bins)
+            if !isempty(disp_above)
+                d_margin = max(3, round(Int, 0.03 * n_bins))
+                disp_st  = max(1,      first(disp_above) - d_margin)
+                disp_end = min(n_bins, last(disp_above)  + d_margin)
+            else
+                disp_st = bin_st; disp_end = bin_end
+            end
             disp_rng = disp_st:disp_end
             lon_disp = lon_full[disp_rng]
 
-            L_on = L_avg[on_rng]
+            L_raw_on = L_raw[on_rng]   # raw L for threshold check
+            L_on     = L_avg[on_rng]   # debiased L for error formula
             Q_on = Q_avg[on_rng]
             U_on = U_avg[on_rng]
 
@@ -593,8 +600,8 @@ module SpaTs
 
             pa_err  = fill(NaN, n_on)
             for i in 1:n_on
-                if L_on[i] > thresh
-                    pa_err[i] = 0.5 * sigma_avg / L_on[i] * (180.0 / π)
+                if L_raw_on[i] > thresh          # raw L for inclusion (paper criterion)
+                    pa_err[i] = 0.5 * sigma_avg / max(L_on[i], sigma_avg) * (180.0 / π)
                 else
                     pa_raw[i] = NaN
                 end
