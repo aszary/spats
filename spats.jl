@@ -116,6 +116,9 @@ module SpaTs
         psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
         isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
 
+        mid = div(length(psr_dirs), 2) + 1
+        psr_dirs = vcat(psr_dirs[mid:end], psr_dirs[1:mid-1])
+
         for psr in psr_dirs
             psr_path = joinpath(dataroot, psr)
             obs_dirs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
