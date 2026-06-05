@@ -544,7 +544,12 @@ module SpaTs
             # Subtract off-pulse baseline from Q and U (removes calibration DC offset)
             Q_avg = Q_avg .- mean(Q_avg[off_rng])
             U_avg = U_avg .- mean(U_avg[off_rng])
-            L_avg = sqrt.(Q_avg .^ 2 .+ U_avg .^ 2)
+            # Debias L: remove positive noise bias (Everett & Weisberg 2001 / Posselt+2023)
+            L_raw = sqrt.(Q_avg .^ 2 .+ U_avg .^ 2)
+            L_avg = map(L_raw) do lm
+                r = lm / sigma_avg
+                r >= 1.57 ? sigma_avg * sqrt(r^2 - 1.0) : 0.0
+            end
 
             # --- on-pulse slices & longitude grid (peak centred at 0°) ---
             on_rng   = bin_st:bin_end
@@ -567,13 +572,6 @@ module SpaTs
             # --- PA + error ---
             pa_raw  = 0.5 .* atan.(U_on, Q_on) .* (180.0 / π)
 
-            # RM de-rotation: PA_intrinsic = PA_obs + RM * lambda^2
-            # (PSRCHIVE stores RM with opposite sign convention)
-            if isfinite(rm_val) && isfinite(freq_mhz) && freq_mhz > 0
-                λ²  = (299792458.0 / (freq_mhz * 1e6))^2   # m²
-                Δpa = rm_val * λ² * (180.0 / π)             # degrees
-                pa_raw = mod.(pa_raw .+ Δpa .+ 90.0, 180.0) .- 90.0
-            end
 
             pa_err  = fill(NaN, n_on)
             for i in 1:n_on
