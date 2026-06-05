@@ -508,29 +508,21 @@ module SpaTs
             I_bl  = circshift(I_bl,  shift)
             pk    = n_bins ÷ 2   # peak is now at centre
 
-            # --- on-pulse detection ---
-            I_max = maximum(I_bl)
-            thr   = 0.01 * I_max   # 1% threshold to capture profile wings
-
-            # expand contiguously from peak while above threshold
-            bin_st  = pk
-            while bin_st  > 1      && I_bl[bin_st  - 1] > thr; bin_st  -= 1; end
-            bin_end = pk
-            while bin_end < n_bins && I_bl[bin_end + 1] > thr; bin_end += 1; end
-
-            # hard cap at 40% of total bins to avoid runaway on noisy baselines
-            if bin_end - bin_st + 1 > 0.40 * n_bins
-                half    = round(Int, 0.15 * n_bins)
-                bin_st  = max(1, pk - half)
-                bin_end = min(n_bins, pk + half)
+            # --- rough on-pulse (1% peak) to define off-pulse region ---
+            I_max    = maximum(I_bl)
+            thr_rough = 0.01 * I_max
+            bin_st_r = pk
+            while bin_st_r > 1      && I_bl[bin_st_r - 1] > thr_rough; bin_st_r -= 1; end
+            bin_end_r = pk
+            while bin_end_r < n_bins && I_bl[bin_end_r + 1] > thr_rough; bin_end_r += 1; end
+            if bin_end_r - bin_st_r + 1 > 0.40 * n_bins
+                half      = round(Int, 0.15 * n_bins)
+                bin_st_r  = max(1, pk - half)
+                bin_end_r = min(n_bins, pk + half)
             end
-            println("  on-pulse bins: $bin_st:$bin_end")
 
-            # W10: width at 10% of peak (full profile) — for emission height contours
-            w10_deg = sum(I_bl .>= 0.1 * I_max) * (360.0 / n_bins)
-
-            # --- off-pulse noise from Q/U ---
-            off_rng = vcat(1:(bin_st - 1), (bin_end + 1):n_bins)
+            # --- off-pulse noise ---
+            off_rng = vcat(1:(bin_st_r - 1), (bin_end_r + 1):n_bins)
             if length(off_rng) < 10
                 @warn "  Too few off-pulse bins for $psr — skipping"
                 continue
@@ -538,6 +530,25 @@ module SpaTs
             sigma_Q   = std(vec(data4[:, off_rng, 2]))
             sigma_U   = std(vec(data4[:, off_rng, 3]))
             sigma_avg = (sigma_Q + sigma_U) / 2.0 / sqrt(n_pulses)
+
+            # sigma_I: noise level of averaged I profile
+            sigma_I = std(I_avg[off_rng])
+
+            # --- final on-pulse: SPAN from first to last bin with I > 3*sigma_I ---
+            # Non-contiguous: includes valleys between profile components
+            search_half = round(Int, 0.20 * n_bins)
+            search_rng  = max(1, pk - search_half):min(n_bins, pk + search_half)
+            above_I = filter(i -> I_bl[i] > 3.0 * sigma_I, collect(search_rng))
+            if isempty(above_I)
+                bin_st = bin_st_r; bin_end = bin_end_r   # fallback
+            else
+                bin_st  = first(above_I)
+                bin_end = last(above_I)
+            end
+            println("  on-pulse bins: $bin_st:$bin_end")
+
+            # W10: width at 10% of peak — for emission height contours
+            w10_deg = sum(I_bl .>= 0.1 * I_max) * (360.0 / n_bins)
             thresh    = snr_threshold * sigma_avg
             println("  σ_avg=$(round(sigma_avg, sigdigits=3))  thresh=$(round(thresh, sigdigits=3))")
 
