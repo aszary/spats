@@ -416,8 +416,8 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J2139+2242_16", "norefine", n_comp=2)
 
         # PSR J1224-6407
-        process_psrdata_16("/home/psr/data/new/J1224-6407/2019-10-28-03:47:09/", vpmout*"J1224-6407_16")
-        Data.analyse_p3folds_16_new(vpmout*"J1224-6407_16", "norefine", n_comp=3)
+        #process_psrdata_16("/home/psr/data/new/J1224-6407/2019-10-28-03:47:09/", vpmout*"J1224-6407_16")
+        Data.analyse_p3folds_16_new(vpmout*"J1224-6407_16", "norefine", n_comp=2)
 
         #test(vpmout)
         #test2(vpmout)
