@@ -958,8 +958,10 @@ module Data
 
         p = Tools.read_params(joinpath(indir, "params.json"))
 
-        l = Data.load_ascii(joinpath(indir, "pulsar_low.txt"))
-        h = Data.load_ascii(joinpath(indir, "pulsar_high.txt"))
+        l_all = Data.load_ascii_all(joinpath(indir, "pulsar_low.txt"))
+        h_all = Data.load_ascii_all(joinpath(indir, "pulsar_high.txt"))
+        l = l_all[:, :, 1]
+        h = h_all[:, :, 1]
 
         n_pulses = size(l, 1)
         bins     = size(l, 2)
