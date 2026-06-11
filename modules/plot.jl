@@ -958,22 +958,27 @@ module Plot
             y_high = nh[i, p["bin_st"]:p["bin_end"]]
 
             fit_l = GaussianFit.fit_gaussians(x_data, y_low,  n_comp)
-            GaussianFit.print_fit_summary(fit_l, n_comp; label="low  (profile $i)", nbin=1024)
             fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
-            GaussianFit.print_fit_summary(fit_h, n_comp; label="high (profile $i)", nbin=1024)
 
-            pulse_center = (i - 0.5) * npulse
+            if fit_l.converged && fit_h.converged
+                GaussianFit.print_fit_summary(fit_l, n_comp; label="low  (profile $i)", nbin=1024)
+                GaussianFit.print_fit_summary(fit_h, n_comp; label="high (profile $i)", nbin=1024)
 
-            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
-                @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
-                    o.component, o.longitude, o.longitude_bin,
-                    o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
-                if !haskey(offset_data, o.component)
-                    offset_data[o.component] = (idx=Float64[], off=Float64[], err=Float64[])
+                pulse_center = (i - 0.5) * npulse
+
+                for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
+                    @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
+                        o.component, o.longitude, o.longitude_bin,
+                        o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
+                    if !haskey(offset_data, o.component)
+                        offset_data[o.component] = (idx=Float64[], off=Float64[], err=Float64[])
+                    end
+                    push!(offset_data[o.component].idx, pulse_center)
+                    push!(offset_data[o.component].off, o.offset_deg)
+                    push!(offset_data[o.component].err, o.offset_deg_err)
                 end
-                push!(offset_data[o.component].idx, pulse_center)
-                push!(offset_data[o.component].off, o.offset_deg)
-                push!(offset_data[o.component].err, o.offset_deg_err)
+            else
+                println("Profile $i: fit did not converge (low=$(fit_l.converged), high=$(fit_h.converged))")
             end
 
             figure(figsize=(6, 7))
