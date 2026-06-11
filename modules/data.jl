@@ -941,6 +941,47 @@ module Data
     end
 
 
+    """
+    Offset analysis on single-pulse data.
+
+    Groups single pulses (pulsar_low.txt / pulsar_high.txt) into blocks of
+    npulse pulses each and averages every block into one mean profile.
+    The last block may contain fewer pulses if npulse does not divide evenly.
+    Then fits Gaussian components to measure the frequency-dependent offset.
+
+    # Arguments
+    - `indir`:  data directory (must contain params.json, pulsar_low.txt, pulsar_high.txt)
+    - `n_comp`: number of Gaussian components to fit (default 3)
+    - `npulse`: number of single pulses per averaged profile (default 150)
+    """
+    function analyse_average_offset(indir; n_comp=3, npulse=150)
+
+        p = Tools.read_params(joinpath(indir, "params.json"))
+
+        l = Data.load_ascii(joinpath(indir, "pulsar_low.txt"))
+        h = Data.load_ascii(joinpath(indir, "pulsar_high.txt"))
+
+        n_pulses = size(l, 1)
+        bins     = size(l, 2)
+        @assert size(h, 1) == n_pulses "Low and high pulse counts differ ($(n_pulses) vs $(size(h,1)))"
+
+        n_profiles = cld(n_pulses, npulse)
+
+        nl_avg = zeros(n_profiles, bins)
+        nh_avg = zeros(n_profiles, bins)
+
+        for i in 1:n_profiles
+            st = (i - 1) * npulse + 1
+            en = min(i * npulse, n_pulses)
+            nl_avg[i, :] = vec(mean(l[st:en, :], dims=1))
+            nh_avg[i, :] = vec(mean(h[st:en, :], dims=1))
+        end
+
+        println("Created $n_profiles averaged profiles from $n_pulses pulses (npulse = $npulse, last block = $(n_pulses - (n_profiles-1)*npulse))")
+
+        Plot.analyse_average_offset(nl_avg, nh_avg, p, n_comp; npulse=npulse, n_pulses=n_pulses)
+
+    end
 
 
     function normalize_01(data)

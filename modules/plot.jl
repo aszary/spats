@@ -930,6 +930,157 @@ module Plot
     end
 
 
+    """
+    For each averaged profile (row in nl/nh) fit n_comp Gaussians to the
+    low- and high-frequency profiles and collect the frequency-dependent
+    offset per component.  Interactive: press Enter to advance, 'q' to quit.
+
+    # Arguments
+    - `nl`:         matrix (n_profiles × bins) of averaged low-freq profiles
+    - `nh`:         matrix (n_profiles × bins) of averaged high-freq profiles
+    - `p`:          params dict (must contain bin_st, bin_end)
+    - `n_comp`:     number of Gaussian components
+    - `npulse`:    single pulses per averaged profile (used for x-axis labels)
+    - `n_pulses`:  total number of single pulses (used for last-block label)
+    """
+    function analyse_average_offset(nl, nh, p, n_comp; npulse=150, n_pulses=nothing)
+        n_profiles = size(nl, 1)
+
+        offset_data = Dict{Int, NamedTuple{(:idx, :off, :err),
+                                           Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
+
+        low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
+        high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
+
+        for i in 1:n_profiles
+            x_data = p["bin_st"]:p["bin_end"]
+            y_low  = nl[i, p["bin_st"]:p["bin_end"]]
+            y_high = nh[i, p["bin_st"]:p["bin_end"]]
+
+            fit_l = GaussianFit.fit_gaussians(x_data, y_low,  n_comp)
+            GaussianFit.print_fit_summary(fit_l, n_comp; label="low  (profile $i)", nbin=1024)
+            fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
+            GaussianFit.print_fit_summary(fit_h, n_comp; label="high (profile $i)", nbin=1024)
+
+            pulse_center = (i - 0.5) * npulse
+
+            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
+                @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
+                    o.component, o.longitude, o.longitude_bin,
+                    o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
+                if !haskey(offset_data, o.component)
+                    offset_data[o.component] = (idx=Float64[], off=Float64[], err=Float64[])
+                end
+                push!(offset_data[o.component].idx, pulse_center)
+                push!(offset_data[o.component].off, o.offset_deg)
+                push!(offset_data[o.component].err, o.offset_deg_err)
+            end
+
+            figure(figsize=(6, 7))
+
+            subplot(2, 1, 1)
+            plot(x_data, y_low,  color="steelblue",  lw=1.2, alpha=0.7, label="Low")
+            plot(x_data, y_high, color="darkorange",  lw=1.2, alpha=0.7, label="High")
+            if fit_l.converged
+                plot(x_data, fit_l.yfit, "--", color="blue", lw=2.0, label="Fit low")
+                for (j, c) in enumerate(fit_l.components)
+                    plot(x_data, fit_l.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
+                         color=low_colors[mod1(j, length(low_colors))], lw=1.8, alpha=0.9, label="Low G$j")
+                end
+            end
+            if fit_h.converged
+                plot(x_data, fit_h.yfit, "--", color="darkorange", lw=2.0, label="Fit high")
+                for (j, c) in enumerate(fit_h.components)
+                    plot(x_data, fit_h.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
+                         color=high_colors[mod1(j, length(high_colors))], lw=1.8, alpha=0.9, label="High G$j")
+                end
+            end
+            st_pulse = (i - 1) * npulse + 1
+            en_pulse = isnothing(n_pulses) ? i * npulse : min(i * npulse, n_pulses)
+            title("Profile $i  (pulses $(st_pulse)-$(en_pulse))")
+            legend(fontsize=7)
+            xlim(p["bin_st"], p["bin_end"])
+
+            subplot(2, 1, 2)
+            if fit_l.converged
+                for (j, c) in enumerate(fit_l.components)
+                    scatter([c.mu], [fit_l.baseline + c.A],
+                            color=low_colors[mod1(j, length(low_colors))],
+                            marker="o", s=60, label="Low G$j", zorder=3)
+                end
+            end
+            if fit_h.converged
+                for (j, c) in enumerate(fit_h.components)
+                    scatter([c.mu], [fit_h.baseline + c.A],
+                            color=high_colors[mod1(j, length(high_colors))],
+                            marker="s", s=60, label="High G$j", zorder=3)
+                end
+            end
+            xlabel("μ (bin)")
+            ylabel("Amplitude")
+            title("Components: μ vs amplitude")
+            legend(fontsize=7)
+            xlim(p["bin_st"], p["bin_end"])
+
+            tight_layout()
+            show()
+
+            println("Press Enter for next profile ($i/$n_profiles), 'q' to quit.")
+            user_input = readline(stdin; keep=false)
+            close("all")
+
+            if lowercase(strip(user_input)) == "q"
+                println("Exiting analysis.")
+                break
+            end
+        end
+
+        # Weighted mean offset per component
+        if !isempty(offset_data)
+            println("\n=== Weighted mean offsets ===")
+            for comp in sort(collect(keys(offset_data)))
+                d = offset_data[comp]
+                if isempty(d.err) || all(d.err .== 0.0)
+                    continue
+                end
+                w         = 1.0 ./ (d.err .^ 2)
+                n         = length(d.off)
+                mu        = sum(w .* d.off) / sum(w)
+                sigma_int = 1.0 / sqrt(sum(w))
+                chi2      = sum(w .* (d.off .- mu) .^ 2)
+                dof       = n - 1
+                chi2_red  = dof > 0 ? chi2 / dof : NaN
+                sigma_ext = sigma_int * sqrt(max(1.0, chi2_red))
+                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)",
+                    comp, mu, sigma_int, n, chi2_red, sigma_ext))
+            end
+            println()
+        end
+
+        # Final summary: pulse number vs offset per component
+        if !isempty(offset_data)
+            figure(figsize=(8, 5))
+            colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0"]
+            for comp in sort(collect(keys(offset_data)))
+                d = offset_data[comp]
+                errorbar(d.idx, d.off, yerr=d.err,
+                         fmt="o", capsize=4, lw=1.2,
+                         color=colors[mod1(comp, length(colors))],
+                         label="G$comp")
+            end
+            axhline(0.0, color="gray", lw=0.8, ls="--")
+            minorticks_on()
+            xlabel("Pulse number (center of chunk)")
+            ylabel("Offset (°)")
+            title("Offset vs pulse number")
+            legend()
+            tight_layout()
+            show()
+        end
+
+    end
+
+
     function position_angle(lon_l, pa_l, pa_err_l, I_l, Lin_l, V_l,
                             lon_h, pa_h, pa_err_h, I_h, Lin_h, V_h,
                             outdir; show_=true,
