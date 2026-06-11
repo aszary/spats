@@ -977,6 +977,8 @@ module Data
             en = min(i * npulse, n_pulses)
             prof_l = vec(mean(l[st:en, :], dims=1))
             prof_h = vec(mean(h[st:en, :], dims=1))
+            prof_l .-= minimum(prof_l)
+            prof_h .-= minimum(prof_h)
             nl_avg[i, :] = prof_l / maximum(prof_l)
             nh_avg[i, :] = prof_h / maximum(prof_h)
         end
