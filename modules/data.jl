@@ -975,8 +975,10 @@ module Data
         for i in 1:n_profiles
             st = (i - 1) * npulse + 1
             en = min(i * npulse, n_pulses)
-            nl_avg[i, :] = vec(mean(l[st:en, :], dims=1))
-            nh_avg[i, :] = vec(mean(h[st:en, :], dims=1))
+            prof_l = vec(mean(l[st:en, :], dims=1))
+            prof_h = vec(mean(h[st:en, :], dims=1))
+            nl_avg[i, :] = prof_l / maximum(prof_l)
+            nh_avg[i, :] = prof_h / maximum(prof_h)
         end
 
         println("Created $n_profiles averaged profiles from $n_pulses pulses (npulse = $npulse, last block = $(n_pulses - (n_profiles-1)*npulse))")
