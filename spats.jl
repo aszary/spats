@@ -419,6 +419,14 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1224-6407/2019-10-28-03:47:09/", vpmout*"J1224-6407_16")
         #Data.analyse_p3folds_16_new(vpmout*"J1224-6407_16", "norefine", n_comp=2)
 
+        # PSR J1703-4442
+        process_psrdata_16("/home/psr/data/new/J1703-4442/2020-03-11-02:22:24/", vpmout*"J1703-4442_16")
+        #Data.analyse_p3folds_16_new(vpmout*"J1703-4442_16", "norefine", n_comp=2)
+
+
+
+
+
         # PSR J0304+1932 # AVERAGE
         #process_psrdata_16("/home/psr/data/new/J0304+1932/2019-10-18-23:05:44/", vpmout*"J0304+1932_16")
         #Data.analyse_p3folds_16_new(vpmout*"J0304+1932_16", "norefine", n_comp=2)
