@@ -441,7 +441,7 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        analyse_all()
+        #analyse_all()
     end
 
 end # module
