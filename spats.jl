@@ -420,8 +420,8 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J1224-6407_16", "norefine", n_comp=2)
 
         # PSR J1703-4442
-        process_psrdata_16("/home/psr/data/new/J1703-4442/2020-03-11-02:22:24/", vpmout*"J1703-4442_16")
-        #Data.analyse_p3folds_16_new(vpmout*"J1703-4442_16", "norefine", n_comp=2)
+        #process_psrdata_16("/home/psr/data/new/J1703-4442/2020-03-11-02:22:24/", vpmout*"J1703-4442_16")
+        Data.analyse_p3folds_16_new(vpmout*"J1703-4442_16", "norefine", n_comp=2)
 
 
 
