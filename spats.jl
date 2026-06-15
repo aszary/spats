@@ -6,6 +6,7 @@ module SpaTs
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
+    include("modules/phase_modulation.jl")
 
 
     function test(outdir)
@@ -87,6 +88,32 @@ module SpaTs
 
     function process_psrdata_single(indir, outdir)
         Data.process_psrdata_single(indir, outdir)
+    end
+
+
+    """
+    Phase-drift vs amplitude-modulation test on already-processed data.
+
+    Reads pulsar.debase.txt and params.json from `outdir`, computes the
+    coherent phase-slope statistic at f3 = 1/P3, compares against an
+    amplitude-modulation null distribution, and saves a 3-panel PDF/PNG.
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
+      phase_modulation(vpmout*"J1110-5637")
+    """
+    function phase_modulation(outdir; nreal=6000, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        result = PhaseDrift.drift_test(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            nreal=nreal)
+        println("Slope:        $(round(result.slope, digits=4)) rad/bin  " *
+                "($(round(rad2deg(result.slope), digits=2)) °/bin)")
+        println("Significance: $(round(result.significance, digits=1)) σ")
+        Plot.phase_drift(result, outdir, Int(p["nbin"]);
+                         name_mod="pulsar", show_=show_)
+        return result
     end
 
 
@@ -251,6 +278,7 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J1110-5637_16", "norefine"; n_comp=2)
         #Data.position_angle(vpmout*"J1110-5637_16")
         #Data.geometry_analysis(vpmout*"J1110-5637_16")
+        phase_modulation(vpmout*"J1110-5637") # HERE
 
         # PSR J1114-6100
         #process_psrdata_16("/home/psr/data/new/J1114-6100/2019-10-19-08:30:30/", vpmout*"J1114-6100_16")
@@ -421,10 +449,7 @@ module SpaTs
 
         # PSR J1703-4442
         #process_psrdata_16("/home/psr/data/new/J1703-4442/2020-03-11-02:22:24/", vpmout*"J1703-4442_16")
-        Data.analyse_p3folds_16_new(vpmout*"J1703-4442_16", "norefine", n_comp=2)
-
-
-
+        #Data.analyse_p3folds_16_new(vpmout*"J1703-4442_16", "norefine", n_comp=2)
 
 
         # PSR J0304+1932 # AVERAGE

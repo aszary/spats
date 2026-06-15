@@ -1298,4 +1298,85 @@ module Plot
     end
 
 
+    """
+        phase_drift(result, outdir, nbin; name_mod, show_)
+
+    3-panel diagnostic for the phase-drift vs amplitude-modulation test.
+
+    Panel 1: |L(φ)| – amplitude of complex LRFS slice at f3 vs longitude.
+    Panel 2: ψ(φ) = arg(L(φ)) – phase vs longitude, with fitted slope line.
+    Panel 3: amplitude-null histogram with measured slope and ±1σ marked.
+
+    Arguments:
+      result  – NamedTuple from PhaseDrift.drift_test
+      outdir  – output directory
+      nbin    – total profile bins (for longitude axis scale)
+    """
+    function phase_drift(result, outdir, nbin::Int;
+                         name_mod="pulsar", show_=false)
+        on_bins = result.on_bins
+        L_on    = result.L_on
+        null    = result.null
+
+        npts    = last(on_bins) - first(on_bins) + 1
+        lon     = collect(range(-180.0 * npts / nbin, 180.0 * npts / nbin, length=npts))
+        phi     = collect(on_bins)
+        psi_deg = rad2deg.(angle.(L_on))
+        null_deg     = rad2deg.(null)
+        null_std_deg = std(null_deg)
+        slope_deg    = rad2deg(result.slope)
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.5, 5.5))
+        subplots_adjust(left=0.18, bottom=0.08, right=0.97, top=0.93, hspace=0.50)
+
+        # Panel 1: Amplitude
+        subplot(3, 1, 1)
+        plot(lon, abs.(L_on), c="black", lw=0.8)
+        xlabel("longitude (\$^\\circ\$)")
+        ylabel("\$|L|\$")
+        minorticks_on()
+
+        # Panel 2: Phase
+        subplot(3, 1, 2)
+        plot(lon, psi_deg, ".", ms=2, c="black", zorder=3)
+        plot(lon, rad2deg.(result.slope .* (phi .- mean(phi))), "-", c="red", lw=1.0,
+             label=@sprintf("%.1f\$\\sigma\$", result.significance))
+        xlabel("longitude (\$^\\circ\$)")
+        ylabel("\$\\psi\$ (\$^\\circ\$)")
+        ylim(-200, 200)
+        minorticks_on()
+        legend(fontsize=6, loc="upper right")
+
+        # Panel 3: Null distribution
+        subplot(3, 1, 3)
+        hist(null_deg, bins=60, density=true, color="grey", alpha=0.7)
+        axvline(x=slope_deg,      color="red",       lw=1.2, label="\$s_{\\mathrm{obs}}\$")
+        axvline(x=null_std_deg,   color="steelblue", lw=0.8, ls="--")
+        axvline(x=-null_std_deg,  color="steelblue", lw=0.8, ls="--", label="\$\\pm1\\sigma\$")
+        xlabel("slope (\$^\\circ\$/bin)")
+        ylabel("density")
+        minorticks_on()
+        legend(fontsize=6, loc="upper right")
+
+        suptitle(@sprintf("P3 = %.1f P0  |  %.1f\$\\sigma\$",
+                          result.p3, result.significance), fontsize=7)
+
+        savepath = joinpath(outdir, "$(name_mod)_phase_drift.pdf")
+        savefig(savepath)
+        savefig(replace(savepath, ".pdf" => ".png"))
+        println(savepath)
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
 end  # module Plot
