@@ -518,7 +518,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
         #Data.analyse_p3folds_16(vpmout*"J2139+2242_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J2139+2242_16", "norefine", n_comp=2)
-        phase_modulation(vpmout*"J2139+2242")
+        #phase_modulation(vpmout*"J2139+2242")
         p3fold_coherent(vpmout*"J2139+2242")
 
 
