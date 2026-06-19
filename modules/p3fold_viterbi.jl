@@ -1,6 +1,8 @@
 module P3FoldViterbi
 
 using Statistics
+using FFTW
+using DSP
 
 # Background / design rationale: p3fold-refine-notes.md §3.1-3.2.
 #
@@ -259,6 +261,138 @@ function fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
 
     return (folded=template, phase=path, confidence=confidence, margin=margin,
             p3_per_pulse=p3_per_pulse)
+end
+
+
+"""
+    windowed_slope(y, window) -> Vector{Float64}
+
+Local slope dy/dx of `y` (sampled at integer x=1..length(y)), from a
+sliding linear-regression window of `window` samples centered at each
+point (the window shrinks near the edges).
+"""
+function windowed_slope(y::AbstractVector, window::Int)
+    N = length(y)
+    slope = zeros(Float64, N)
+    halfw = max(1, window ÷ 2)
+    for i in 1:N
+        lo = max(1, i - halfw)
+        hi = min(N, i + halfw)
+        if hi - lo < 2
+            slope[i] = i > 1 ? y[i] - y[i-1] : (N > 1 ? y[2] - y[1] : 0.0)
+            continue
+        end
+        xs = lo:hi
+        ys = @view y[lo:hi]
+        xbar = mean(xs)
+        ybar = mean(ys)
+        num = sum((x - xbar) * (yy - ybar) for (x, yy) in zip(xs, ys))
+        den = sum((x - xbar)^2 for x in xs)
+        slope[i] = den == 0 ? 0.0 : num / den
+    end
+    return slope
+end
+
+
+"""
+    coherent_fold(data, p3, bin_st, bin_end; ybins, lowpass_cutoff, filter_order, p3_window) -> NamedTuple
+
+Coherent, matched-filter P3-fold — an alternative to `fold` (per-pulse
+Viterbi) for pulsars where the per-pulse modulation depth is far below the
+noise floor but the *aggregate* signal is highly significant (see
+p3fold-refine-notes.md §3.3, "niezależny estymator fazy: transformacja
+Hilberta", and the conversation that motivated this: `PhaseDrift.drift_test`
+can detect a coherent phase slope at tens of σ even when blind per-pulse
+template matching, i.e. `fold`, has essentially nothing to lock onto).
+
+No per-pulse blind matching is attempted here. Instead:
+  1. a single, full-length (non-segmented) FFT gives the complex spatial
+     template `L_on` at f3 = 1/p3 — the same un-chunked estimate
+     `PhaseDrift.drift_test` uses, and for the same reason: chunking (like
+     `pspec`'s segmented LRFS, see `Data.twodfs_lrfs`) requires phase
+     coherence *between* segments, which P3 wobble destroys; a single
+     global FFT only ever needs coherence *within* one frequency bin, which
+     survives mild wobble.
+  2. every pulse is projected onto `conj(L_on)` — a spatial matched filter
+     using *all* on-pulse bins, weighted optimally — giving one high-SNR
+     complex number per pulse instead of relying on raw per-pulse shape
+     correlation.
+  3. that per-pulse series is coherently demodulated at f3 and low-pass
+     filtered (`DSP.filtfilt`, zero-phase) — a *sliding*, unsegmented
+     analogue of pspec's blocked averaging, so there are no hard block
+     boundaries for P3 wobble to decohere across.
+  4. the slowly-varying phase left after filtering is added back onto the
+     f3 ramp to get each pulse's absolute P3-phase directly, which drives
+     the fold — replacing blind per-pulse correlation with a directly
+     measured, high-SNR phase.
+
+Arguments:
+  data     – single-pulse matrix (N_pulses × N_bins), real intensity
+  p3       – nominal P3 [pulse periods]; sets the demodulation frequency f3 = 1/p3
+  bin_st, bin_end – on-pulse window (1-indexed)
+  ybins    – number of P3-phase bins for the output fold, default 10
+  lowpass_cutoff – low-pass cutoff [cycles/pulse] applied after
+             demodulation; sets the fastest P3 wobble that can still be
+             tracked (higher = more responsive to fast change but noisier;
+             lower = smoother but assumes more stable P3), default 1/200
+  filter_order – Butterworth filter order for the low-pass, default 4
+  p3_window – smoothing window [pulses] for `p3_per_pulse`, default 20
+
+Returns:
+  folded       – ybins × N_bins matrix, the coherently-refolded p3-fold
+  phase        – Vector{Float64}, total unwrapped P3-phase per pulse [rad]
+  bin          – Vector{Int}, assigned phase bin (1..ybins) per pulse
+  p3_per_pulse – Vector{Float64}, instantaneous P3 [pulse periods] from the
+                 local slope of `phase`
+  snr          – matched-filter detection significance (≈ the same
+                 quantity `drift_test` reports) — a sanity check that there
+                 is signal to track at all before trusting the fold
+"""
+function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                        ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
+                        p3_window::Int=20)
+    N = size(data, 1)
+    on = bin_st:bin_end
+    f3 = 1.0 / p3
+
+    # 1. single, full-length (non-segmented) complex spatial template at f3
+    F = fft(data, 1)
+    k = clamp(round(Int, N / p3), 1, N ÷ 2)
+    L = F[k+1, :]
+    L_on = L[on]
+
+    off = vcat(1:bin_st-1, bin_end+1:size(data, 2))
+    sigma_off = isempty(off) ? 0.0 : std([real.(L[off]); imag.(L[off])])
+    snr = sigma_off == 0 ? Inf : sqrt(sum(abs2, L_on)) / (sigma_off * sqrt(length(on)))
+
+    # 2. spatial matched-filter projection: one high-SNR complex number per pulse.
+    # The static (non-modulated) average profile must be removed first — it lives at
+    # frequency 0 and, unlike in `drift_test` (which reads a single FFT bin and never
+    # mixes frequencies), a time-domain projection like this carries every frequency
+    # through, so the huge DC term would otherwise swamp the low-pass filter below.
+    on_data = data[:, on]
+    on_data_demeaned = on_data .- mean(on_data, dims=1)
+    w = conj.(L_on)
+    z = on_data_demeaned * w
+
+    # 3. coherent demodulation at f3, then low-pass filter (sliding, no block edges)
+    n = 1:N
+    carrier = exp.((-1im * 2π * f3) .* n)
+    baseband = z .* carrier
+    respf = digitalfilter(Lowpass(lowpass_cutoff), Butterworth(filter_order); fs=1.0)
+    baseband_smooth = filtfilt(respf, real.(baseband)) .+ im .* filtfilt(respf, imag.(baseband))
+
+    # 4. residual phase -> total phase -> fold-bin assignment
+    resid = DSP.unwrap(angle.(baseband_smooth))
+    phase_total = (2π * f3) .* n .+ resid
+
+    bin = [Int(floor(mod(phase_total[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
+    template = build_template(data, bin, ybins)
+
+    slope = windowed_slope(phase_total, p3_window)
+    p3_per_pulse = (2π) ./ slope
+
+    return (folded=template, phase=phase_total, bin=bin, p3_per_pulse=p3_per_pulse, snr=snr)
 end
 
 end # module P3FoldViterbi

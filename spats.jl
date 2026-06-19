@@ -152,6 +152,41 @@ module SpaTs
 
 
     """
+    Coherent, matched-filter P3-fold (`P3FoldViterbi.coherent_fold`) — for
+    pulsars where the per-pulse modulation depth is too weak for any blind
+    per-pulse matching (`p3fold_refine`/Viterbi, or `pfold`'s own block
+    refine) to resolve, but where `phase_modulation`/`drift_test` still
+    detects a highly significant *aggregate* coherent phase drift. See
+    p3fold-refine-notes.md §3.3 and the conversation that motivated this.
+
+    Reads pulsar.debase.txt and params.json from `outdir` (same convention
+    as `phase_modulation`/`p3fold_refine`).
+
+    Typical call after process_psrdata, once `phase_modulation` has
+    confirmed a significant coherent drift:
+      process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
+      phase_modulation(vpmout*"J1110-5637")
+      p3fold_coherent(vpmout*"J1110-5637")
+    """
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/200, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        p3   = Float64(p["p3"])
+        result = P3FoldViterbi.coherent_fold(
+            data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
+            ybins=yb, lowpass_cutoff=lowpass_cutoff)
+        println("Matched-filter SNR: $(round(result.snr, digits=1))")
+        folded_const = Tools.p3fold(data, p3, yb)
+        Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
+                            bin_st=p["bin_st"], bin_end=p["bin_end"],
+                            name_mod="pulsar_coherent", show_=show_, repeat_num=4,
+                            label="coherent fold")
+        return result
+    end
+
+
+    """
     Automatically process all pulsars found in `dataroot`.
     For each pulsar directory, picks the lexicographically first observation
     subdirectory and runs process_psrdata_16 + analyse_p3folds_16_new.
@@ -312,8 +347,9 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J1110-5637_16", "norefine"; n_comp=2)
         #Data.position_angle(vpmout*"J1110-5637_16")
         #Data.geometry_analysis(vpmout*"J1110-5637_16")
-        phase_modulation(vpmout*"J1110-5637")
+        #phase_modulation(vpmout*"J1110-5637")
         #p3fold_refine(vpmout*"J1110-5637", continuity_weight=0.05)
+        p3fold_coherent(vpmout*"J1110-5637")
 
         # PSR J1114-6100
         #process_psrdata_16("/home/psr/data/new/J1114-6100/2019-10-19-08:30:30/", vpmout*"J1114-6100_16")

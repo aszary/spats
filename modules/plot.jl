@@ -355,7 +355,7 @@ module Plot
     """
     function p3fold_compare(folded_viterbi, folded_const, p3_per_pulse, p3_nominal, outdir;
                              bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=0.5,
-                             repeat_num=4, name_mod="0", show_=false)
+                             repeat_num=4, name_mod="0", show_=false, label="Viterbi refine")
 
         _, bins = size(folded_viterbi)
         if bin_st == nothing bin_st = 1 end
@@ -379,7 +379,7 @@ module Plot
         subplot2grid((3, 2), (0, 0), rowspan=2)
         imshow(dv, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dv))
         yticks(ticks, ti)
-        title("Viterbi refine")
+        title(label)
 
         subplot2grid((3, 2), (0, 1), rowspan=2)
         imshow(dc, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dc))
