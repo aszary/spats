@@ -1306,9 +1306,7 @@ module Plot
     Panel 1: |L(φ)| – amplitude of complex LRFS slice at f3 vs longitude.
     Panel 2: ψ(φ) = arg(L(φ)) – phase vs longitude, with fitted slope line.
              Error bars (if result.p3_error > 0) come from the spread of
-             ψ(φ) across every P3 value consistent with the quoted error;
-             those individual alternative-P3 phase profiles are also shown
-             as faint grey points so the underlying distribution is visible.
+             ψ(φ) across the P3 values consistent with the quoted error.
     Panel 3: amplitude-null histogram with measured slope and ±1σ marked.
 
     Arguments:
@@ -1347,13 +1345,6 @@ module Plot
         # Panel 2: Phase
         subplot(3, 1, 2)
         psi_err_deg = rad2deg.(result.p3err_sigma)
-        if !isempty(result.p3err_psi)
-            # faint overlay: phase profile for every P3 within its error bar
-            psi_alt_deg = rad2deg.(result.p3err_psi)
-            for row in eachrow(psi_alt_deg)
-                plot(lon, row, "o", ms=2.5, c="tab:orange", alpha=0.35, mew=0, zorder=4)
-            end
-        end
         if any(psi_err_deg .> 0)
             errorbar(lon, psi_deg, yerr=psi_err_deg, fmt=".", ms=2, c="black",
                      ecolor="black", elinewidth=0.4, capsize=0, zorder=3)
