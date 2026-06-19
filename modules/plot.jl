@@ -356,7 +356,7 @@ module Plot
     function p3fold_compare(folded_viterbi, folded_const, p3_per_pulse, p3_nominal, outdir;
                              bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=0.5,
                              repeat_num=4, name_mod="0", show_=false, label="Viterbi refine",
-                             p3_per_pulse_err=nothing)
+                             p3_per_pulse_err=nothing, intensity=nothing)
 
         _, bins = size(folded_viterbi)
         if bin_st == nothing bin_st = 1 end
@@ -374,22 +374,34 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(6.29921, 6.29921))  # 16cm x 16cm
+        nrows = intensity === nothing ? 3 : 4
+        figure(figsize=(6.29921, 6.29921 * nrows / 3))
+
         subplots_adjust(left=0.1, bottom=0.07, right=0.99, top=0.96, wspace=0.15, hspace=0.35)
 
-        subplot2grid((3, 2), (0, 0), rowspan=2)
+        subplot2grid((nrows, 2), (0, 0), rowspan=2)
         imshow(dv, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dv))
         yticks(ticks, ti)
         title(label)
 
-        subplot2grid((3, 2), (0, 1), rowspan=2)
+        subplot2grid((nrows, 2), (0, 1), rowspan=2)
         imshow(dc, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dc))
         tick_params(labelleft=false)
         title("constant \$P_3\$")
 
-        subplot2grid((3, 2), (2, 0), colspan=2)
-        minorticks_on()
         pulses_x = 1:length(p3_per_pulse)
+
+        if intensity !== nothing
+            subplot2grid((nrows, 2), (2, 0), colspan=2)
+            minorticks_on()
+            plot(pulses_x, intensity, c="grey", lw=0.6)
+            xlim(1, length(p3_per_pulse))
+            tick_params(labelbottom=false)
+            ylabel("intensity")
+        end
+
+        subplot2grid((nrows, 2), (nrows - 1, 0), colspan=2)
+        minorticks_on()
         if p3_per_pulse_err !== nothing
             fill_between(pulses_x, p3_per_pulse .- p3_per_pulse_err, p3_per_pulse .+ p3_per_pulse_err,
                          color="grey", alpha=0.3, linewidth=0)

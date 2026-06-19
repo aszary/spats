@@ -178,10 +178,12 @@ module SpaTs
             ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups)
         println("Matched-filter SNR: $(round(result.snr, digits=1))")
         folded_const = Tools.p3fold(data, p3, yb)
+        intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
         Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
                             bin_st=p["bin_st"], bin_end=p["bin_end"],
                             name_mod="pulsar_coherent", show_=show_, repeat_num=4,
-                            label="coherent fold", p3_per_pulse_err=result.p3_per_pulse_err)
+                            label="coherent fold", p3_per_pulse_err=result.p3_per_pulse_err,
+                            intensity=intensity)
         return result
     end
 
@@ -360,8 +362,8 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_16")
         #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
         #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
-        phase_modulation(vpmout*"J1133-6250")
-        #p3fold_coherent(vpmout*"J1133-6250")
+        #phase_modulation(vpmout*"J1133-6250")
+        p3fold_coherent(vpmout*"J1133-6250")
 
         # PSR J1137-6700
         #process_psrdata_16("/home/psr/data/new/J1137-6700/2019-11-06-00:36:02/", vpmout*"J1137-6700_16")
