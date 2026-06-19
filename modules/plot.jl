@@ -374,17 +374,22 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        nrows = intensity === nothing ? 3 : 4
-        figure(figsize=(6.29921, 6.29921 * nrows / 3))
+        # intensity panel is a thin strip, not a full extra row — keeps the figure
+        # close to its original height instead of growing proportionally per panel
+        nrows = intensity === nothing ? 3 : 8
+        img_rowspan = intensity === nothing ? 2 : 4
+        p3_rowspan  = intensity === nothing ? 1 : 3
+        fig_height = intensity === nothing ? 6.29921 : 7.3
+        figure(figsize=(6.29921, fig_height))
 
         subplots_adjust(left=0.1, bottom=0.07, right=0.99, top=0.96, wspace=0.15, hspace=0.35)
 
-        subplot2grid((nrows, 2), (0, 0), rowspan=2)
+        subplot2grid((nrows, 2), (0, 0), rowspan=img_rowspan)
         imshow(dv, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dv))
         yticks(ticks, ti)
         title(label)
 
-        subplot2grid((nrows, 2), (0, 1), rowspan=2)
+        subplot2grid((nrows, 2), (0, 1), rowspan=img_rowspan)
         imshow(dc, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dc))
         tick_params(labelleft=false)
         title("constant \$P_3\$")
@@ -392,7 +397,7 @@ module Plot
         pulses_x = 1:length(p3_per_pulse)
 
         if intensity !== nothing
-            subplot2grid((nrows, 2), (2, 0), colspan=2)
+            subplot2grid((nrows, 2), (img_rowspan, 0), rowspan=1, colspan=2)
             minorticks_on()
             plot(pulses_x, intensity, c="grey", lw=0.6)
             xlim(1, length(p3_per_pulse))
@@ -400,7 +405,7 @@ module Plot
             ylabel("intensity")
         end
 
-        subplot2grid((nrows, 2), (nrows - 1, 0), colspan=2)
+        subplot2grid((nrows, 2), (nrows - p3_rowspan, 0), rowspan=p3_rowspan, colspan=2)
         minorticks_on()
         if p3_per_pulse_err !== nothing
             fill_between(pulses_x, p3_per_pulse .- p3_per_pulse_err, p3_per_pulse .+ p3_per_pulse_err,
