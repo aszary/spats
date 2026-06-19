@@ -7,6 +7,7 @@ module SpaTs
     include("modules/plot.jl")
     include("modules/tools.jl")
     include("modules/phase_modulation.jl")
+    include("modules/p3fold_viterbi.jl")
 
 
     function test(outdir)
@@ -114,6 +115,35 @@ module SpaTs
         println("Significance: $(round(result.significance, digits=1)) σ")
         Plot.phase_drift(result, outdir, Int(p["nbin"]);
                          name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+    """
+    Globally-optimized P3-fold (per-pulse Viterbi phase assignment), as an
+    alternative to the `pfold -p3fold` refine used elsewhere in this file
+    (e.g. `Data.process_psrdata_16` / `Data.p3fold_psrdata`). See
+    p3fold-refine-notes.md for the rationale.
+
+    Reads pulsar.debase.txt and params.json from `outdir` (same convention
+    as `phase_modulation`), runs `P3FoldViterbi.fold`, plots the refined
+    p3-fold, and reports per-pulse confidence/margin diagnostics.
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
+      p3fold_refine(vpmout*"J1110-5637")
+    """
+    function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.05, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        result = P3FoldViterbi.fold(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            ybins=yb, n_iter=n_iter, continuity_weight=continuity_weight)
+        println("Mean confidence: $(round(sum(result.confidence)/length(result.confidence), digits=3))")
+        println("Mean margin:     $(round(sum(result.margin)/length(result.margin), digits=3))")
+        Plot.p3fold(result.folded, outdir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"],
+                    name_mod="pulsar_viterbi", show_=show_, repeat_num=4)
         return result
     end
 
@@ -280,6 +310,7 @@ module SpaTs
         #Data.position_angle(vpmout*"J1110-5637_16")
         #Data.geometry_analysis(vpmout*"J1110-5637_16")
         #phase_modulation(vpmout*"J1110-5637")
+        p3fold_refine(vpmout*"J1110-5637")
 
         # PSR J1114-6100
         #process_psrdata_16("/home/psr/data/new/J1114-6100/2019-10-19-08:30:30/", vpmout*"J1114-6100_16")
@@ -290,7 +321,7 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_16")
         #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
         #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
-        phase_modulation(vpmout*"J1133-6250")
+        #phase_modulation(vpmout*"J1133-6250")
 
         # PSR J1137-6700
         #process_psrdata_16("/home/psr/data/new/J1137-6700/2019-11-06-00:36:02/", vpmout*"J1137-6700_16")
