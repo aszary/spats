@@ -133,7 +133,7 @@ module SpaTs
       process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
       p3fold_refine(vpmout*"J1110-5637")
     """
-    function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.05, show_=true)
+    function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.2, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
@@ -313,7 +313,7 @@ module SpaTs
         #Data.position_angle(vpmout*"J1110-5637_16")
         #Data.geometry_analysis(vpmout*"J1110-5637_16")
         #phase_modulation(vpmout*"J1110-5637")
-        p3fold_refine(vpmout*"J1110-5637", continuity_weight=0.2)
+        p3fold_refine(vpmout*"J1110-5637", continuity_weight=0.05)
 
         # PSR J1114-6100
         #process_psrdata_16("/home/psr/data/new/J1114-6100/2019-10-19-08:30:30/", vpmout*"J1114-6100_16")

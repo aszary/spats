@@ -212,7 +212,7 @@ Arguments:
   ybins    – number of P3-phase bins (states), default 10
   n_iter   – number of refit rounds, default 5
   continuity_weight – transition penalty strength; 0 = flat (any phase
-             jump equally likely, pure template matching), default 0.05
+             jump equally likely, pure template matching), default 0.2
   p3_window – smoothing window [pulses] for `p3_per_pulse`, default 20
 
 Returns:
@@ -228,7 +228,7 @@ Returns:
                  the Viterbi path is actually tracking at each pulse
 """
 function fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
-              ybins::Int=10, n_iter::Int=5, continuity_weight::Real=0.05,
+              ybins::Int=10, n_iter::Int=5, continuity_weight::Real=0.2,
               p3_window::Int=20)
     N = size(data, 1)
     on = bin_st:bin_end
