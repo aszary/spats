@@ -355,7 +355,8 @@ module Plot
     """
     function p3fold_compare(folded_viterbi, folded_const, p3_per_pulse, p3_nominal, outdir;
                              bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=0.5,
-                             repeat_num=4, name_mod="0", show_=false, label="Viterbi refine")
+                             repeat_num=4, name_mod="0", show_=false, label="Viterbi refine",
+                             p3_per_pulse_err=nothing)
 
         _, bins = size(folded_viterbi)
         if bin_st == nothing bin_st = 1 end
@@ -388,7 +389,12 @@ module Plot
 
         subplot2grid((3, 2), (2, 0), colspan=2)
         minorticks_on()
-        plot(1:length(p3_per_pulse), p3_per_pulse, c="grey", lw=0.8)
+        pulses_x = 1:length(p3_per_pulse)
+        if p3_per_pulse_err !== nothing
+            fill_between(pulses_x, p3_per_pulse .- p3_per_pulse_err, p3_per_pulse .+ p3_per_pulse_err,
+                         color="grey", alpha=0.3, linewidth=0)
+        end
+        plot(pulses_x, p3_per_pulse, c="grey", lw=0.8)
         axhline(p3_nominal, c="red", ls="--", lw=0.8)
         xlim(1, length(p3_per_pulse))
         xlabel("pulse number")

@@ -395,4 +395,65 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     return (folded=template, phase=phase_total, bin=bin, p3_per_pulse=p3_per_pulse, snr=snr)
 end
 
+
+"""
+    coherent_fold_jackknife(data, p3, bin_st, bin_end; ybins, lowpass_cutoff, filter_order,
+                             p3_window, n_groups) -> NamedTuple
+
+Empirical error bars on `coherent_fold`'s `p3_per_pulse` and `phase`, via
+the bootstrap/jackknife idea from p3fold-refine-notes.md §3.4 ("wielkość
+skoku fazy vs typowy rozrzut fazy w spokojnych, niewątpliwych odcinkach").
+
+The on-pulse window is split into `n_groups` disjoint, contiguous longitude
+sub-ranges. Different longitude bins carry independent detector noise, so
+running `coherent_fold` separately on each sub-range gives `n_groups`
+*independent* measurements of the same underlying phase track. Their
+spread at each pulse — divided by `√n_groups` — estimates the uncertainty
+of the full-bin estimate (the one that uses all the bins together),
+analogous to how splitting a sample into subsamples and looking at the
+scatter of subsample means estimates the standard error of the full mean.
+
+This is empirical, not a closed-form noise propagation: it automatically
+captures whatever correlation the demodulation + low-pass filtering
+introduces, without having to model it. The trade-off is that each group
+has less on-pulse signal than the full window, so `n_groups` shouldn't be
+pushed so high that individual groups have too little signal to track
+phase at all (watch the per-group SNR if results look like pure noise).
+
+Arguments: same as `coherent_fold`, plus
+  n_groups – number of independent longitude sub-ranges, default 4
+
+Returns: the full-bin `coherent_fold` result, plus
+  p3_per_pulse_err – Vector{Float64}, 1σ uncertainty on `p3_per_pulse`
+  phase_err        – Vector{Float64}, 1σ uncertainty on `phase` [rad]
+                      (sub-range phase tracks are de-meaned first, since
+                      each has its own arbitrary unwrap integration
+                      constant that carries no physical information)
+"""
+function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                                  ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
+                                  p3_window::Int=20, n_groups::Int=4)
+    main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
+                          filter_order=filter_order, p3_window=p3_window)
+
+    N = size(data, 1)
+    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+    group_p3 = fill(NaN, n_groups, N)
+    group_phase = fill(NaN, n_groups, N)
+    for g in 1:n_groups
+        st, en = edges[g], edges[g+1] - 1
+        en < st && continue
+        r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
+                           filter_order=filter_order, p3_window=p3_window)
+        group_p3[g, :] = r.p3_per_pulse
+        group_phase[g, :] = r.phase .- mean(r.phase)
+    end
+
+    p3_per_pulse_err = [std(@view group_p3[:, i]) / sqrt(n_groups) for i in 1:N]
+    phase_err = [std(@view group_phase[:, i]) / sqrt(n_groups) for i in 1:N]
+
+    return (folded=main.folded, phase=main.phase, bin=main.bin, p3_per_pulse=main.p3_per_pulse,
+            snr=main.snr, p3_per_pulse_err=p3_per_pulse_err, phase_err=phase_err)
+end
+
 end # module P3FoldViterbi

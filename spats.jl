@@ -168,20 +168,20 @@ module SpaTs
       phase_modulation(vpmout*"J1110-5637")
       p3fold_coherent(vpmout*"J1110-5637")
     """
-    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, show_=true)
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         yb   = 100 #isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
-        result = P3FoldViterbi.coherent_fold(
+        result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
-            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order)
+            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups)
         println("Matched-filter SNR: $(round(result.snr, digits=1))")
         folded_const = Tools.p3fold(data, p3, yb)
         Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
                             bin_st=p["bin_st"], bin_end=p["bin_end"],
                             name_mod="pulsar_coherent", show_=show_, repeat_num=4,
-                            label="coherent fold")
+                            label="coherent fold", p3_per_pulse_err=result.p3_per_pulse_err)
         return result
     end
 
