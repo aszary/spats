@@ -105,9 +105,10 @@ module SpaTs
     function phase_modulation(outdir; nreal=6000, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
         result = PhaseDrift.drift_test(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
-            nreal=nreal)
+            p3_error=p3_error, nreal=nreal)
         println("Slope:        $(round(result.slope, digits=4)) rad/bin  " *
                 "($(round(rad2deg(result.slope), digits=2)) °/bin)")
         println("Significance: $(round(result.significance, digits=1)) σ")

@@ -40,6 +40,71 @@ end
 
 
 """
+    k_from_p3(N, p3) -> Int
+
+Frequency index k = round(N/P3), clamped to the valid FFT range [1, N÷2].
+Same convention as `complex_lrfs_at_f3`.
+"""
+function k_from_p3(N::Int, p3::Real)
+    k = round(Int, N / p3)
+    return clamp(k, 1, N ÷ 2)
+end
+
+
+"""
+    circ_std(angles) -> Float64
+
+Circular standard deviation of a set of angles [rad], sqrt(-2 log R) with
+R the mean resultant length. Safe under phase wrapping, unlike a plain std.
+"""
+function circ_std(angles::AbstractVector)
+    n = length(angles)
+    n == 0 && return 0.0
+    R = clamp(abs(sum(exp.(1im .* angles))) / n, 1e-12, 1.0)
+    return sqrt(-2 * log(R))
+end
+
+
+"""
+    p3_error_phases(data, p3, p3_error, bin_st, bin_end) -> NamedTuple
+
+Phase profiles ψ(φ) at every FFT harmonic k consistent with the P3
+uncertainty (p3 ± p3_error). `drift_test` locks onto a single integer
+frequency index k = round(N/P3); a quoted P3 error therefore corresponds to
+a discrete band of alternative k's. Recomputing ψ(φ) at each of them shows
+how the phase profile would look for any P3 value inside the error
+interval, and their spread gives the phase error induced by the P3
+uncertainty.
+
+Returns (empty arrays if p3_error <= 0):
+  k_grid    – alternative k indices spanned by [p3-p3_error, p3+p3_error]
+  p3_grid   – P3 value implied by each k (N/k)
+  psi_grid  – phase array, size (length(k_grid), length(on_bins)) [rad]
+  psi_sigma – per-bin circular std across k_grid [rad], the panel-2 error bar
+"""
+function p3_error_phases(data::AbstractMatrix, p3::Real, p3_error::Real,
+                         bin_st::Int, bin_end::Int)
+    on_bins = bin_st:bin_end
+    N = size(data, 1)
+    if !(p3_error > 0)
+        return (k_grid=Int[], p3_grid=Float64[],
+                psi_grid=zeros(0, length(on_bins)), psi_sigma=zeros(length(on_bins)))
+    end
+    k_lo = k_from_p3(N, p3 + p3_error)
+    k_hi = k_from_p3(N, max(p3 - p3_error, eps(Float64)))
+    k_grid = collect(k_lo:k_hi)
+    F = fft(data, 1)
+    psi_grid = Array{Float64}(undef, length(k_grid), length(on_bins))
+    for (i, k) in enumerate(k_grid)
+        psi_grid[i, :] = angle.(F[k + 1, on_bins])
+    end
+    psi_sigma = [circ_std(psi_grid[:, j]) for j in axes(psi_grid, 2)]
+    p3_grid = N ./ k_grid
+    return (k_grid=k_grid, p3_grid=p3_grid, psi_grid=psi_grid, psi_sigma=psi_sigma)
+end
+
+
+"""
     slope_stat(L_on) -> Float64
 
 Coherent estimator of the phase gradient dψ/dφ [rad/bin].
@@ -79,7 +144,7 @@ end
 
 
 """
-    drift_test(data, p3, bin_st, bin_end; nreal, seed) -> NamedTuple
+    drift_test(data, p3, bin_st, bin_end; p3_error, nreal, seed) -> NamedTuple
 
 Phase-drift vs amplitude-modulation discriminator.
 
@@ -87,26 +152,37 @@ Computes the complex LRFS at f3=1/P3, measures the coherent phase slope,
 and compares it against a null distribution for pure amplitude modulation
 (flat phase + off-pulse noise). Returns significance in σ units.
 
+If `p3_error` > 0, also computes the phase profiles ψ(φ) for every FFT
+harmonic k consistent with P3 ± p3_error (see `p3_error_phases`); their
+spread is the phase error induced by the P3 uncertainty, used for the
+panel-2 error bars and faint overlay points.
+
 Arguments:
-  data    – single-pulse matrix (N_pulses × N_bins), real intensity
-  p3      – P3 period [pulse periods P0]
-  bin_st  – first on-pulse bin (1-indexed)
-  bin_end – last on-pulse bin (1-indexed)
-  nreal   – number of null realisations (default 6000)
-  seed    – RNG seed (default 7, nothing for non-reproducible)
+  data      – single-pulse matrix (N_pulses × N_bins), real intensity
+  p3        – P3 period [pulse periods P0]
+  bin_st    – first on-pulse bin (1-indexed)
+  bin_end   – last on-pulse bin (1-indexed)
+  p3_error  – P3 uncertainty [pulse periods P0] (default 0.0, disabled)
+  nreal     – number of null realisations (default 6000)
+  seed      – RNG seed (default 7, nothing for non-reproducible)
 
 Fields of returned NamedTuple:
-  L            – complex LRFS slice at f3, all N_bins
-  on_bins      – on-pulse bin UnitRange
-  L_on         – L restricted to on-pulse
-  sigma_off    – off-pulse noise estimate in complex L
-  slope        – measured phase slope [rad/bin]
-  null         – null slope distribution [nreal]
-  significance – slope / std(null)  [σ]
-  p3           – P3 used
+  L              – complex LRFS slice at f3, all N_bins
+  on_bins        – on-pulse bin UnitRange
+  L_on           – L restricted to on-pulse
+  sigma_off      – off-pulse noise estimate in complex L
+  slope          – measured phase slope [rad/bin]
+  null           – null slope distribution [nreal]
+  significance   – slope / std(null)  [σ]
+  p3             – P3 used
+  p3_error       – P3 uncertainty used
+  p3err_k        – alternative k indices spanned by the P3 error
+  p3err_p3       – P3 value implied by each k (N/k)
+  p3err_psi      – phase array from the P3 sweep [rad], (length(p3err_k) × N_on)
+  p3err_sigma    – per-bin circular std across the P3 sweep [rad]
 """
 function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
-                    nreal::Int=6000, seed::Union{Int,Nothing}=7)
+                    p3_error::Real=0.0, nreal::Int=6000, seed::Union{Int,Nothing}=7)
     on_bins   = bin_st:bin_end
     L         = complex_lrfs_at_f3(data, p3)
     sigma_off = off_pulse_sigma(L, bin_st, bin_end)
@@ -114,6 +190,7 @@ function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
     slope     = slope_stat(L_on)
     null      = amp_null_slopes(L_on, sigma_off; nreal=nreal, seed=seed)
     significance = slope / std(null)
+    p3err = p3_error_phases(data, p3, p3_error, bin_st, bin_end)
     return (
         L            = L,
         on_bins      = on_bins,
@@ -123,6 +200,11 @@ function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
         null         = null,
         significance = significance,
         p3           = p3,
+        p3_error     = p3_error,
+        p3err_k      = p3err.k_grid,
+        p3err_p3     = p3err.p3_grid,
+        p3err_psi    = p3err.psi_grid,
+        p3err_sigma  = p3err.psi_sigma,
     )
 end
 

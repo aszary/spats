@@ -1305,6 +1305,10 @@ module Plot
 
     Panel 1: |L(φ)| – amplitude of complex LRFS slice at f3 vs longitude.
     Panel 2: ψ(φ) = arg(L(φ)) – phase vs longitude, with fitted slope line.
+             Error bars (if result.p3_error > 0) come from the spread of
+             ψ(φ) across every P3 value consistent with the quoted error;
+             those individual alternative-P3 phase profiles are also shown
+             as faint grey points so the underlying distribution is visible.
     Panel 3: amplitude-null histogram with measured slope and ±1σ marked.
 
     Arguments:
@@ -1342,7 +1346,20 @@ module Plot
 
         # Panel 2: Phase
         subplot(3, 1, 2)
-        plot(lon, psi_deg, ".", ms=2, c="black", zorder=3)
+        psi_err_deg = rad2deg.(result.p3err_sigma)
+        if !isempty(result.p3err_psi)
+            # faint overlay: phase profile for every P3 within its error bar
+            psi_alt_deg = rad2deg.(result.p3err_psi)
+            for row in eachrow(psi_alt_deg)
+                plot(lon, row, ".", ms=1, c="grey", alpha=0.06, mew=0, zorder=1)
+            end
+        end
+        if any(psi_err_deg .> 0)
+            errorbar(lon, psi_deg, yerr=psi_err_deg, fmt=".", ms=2, c="black",
+                     ecolor="black", elinewidth=0.4, capsize=0, zorder=3)
+        else
+            plot(lon, psi_deg, ".", ms=2, c="black", zorder=3)
+        end
         plot(lon, rad2deg.(result.slope .* (phi .- mean(phi))), "-", c="red", lw=1.0,
              label=@sprintf("%.1f\$\\sigma\$", result.significance))
         xlabel("longitude (\$^\\circ\$)")
@@ -1362,8 +1379,13 @@ module Plot
         minorticks_on()
         legend(fontsize=6, loc="upper right")
 
-        suptitle(@sprintf("P3 = %.1f P0  |  %.1f\$\\sigma\$",
-                          result.p3, result.significance), fontsize=7)
+        if result.p3_error > 0
+            suptitle(@sprintf("P3 = %.1f \$\\pm\$ %.1f P0  |  %.1f\$\\sigma\$",
+                              result.p3, result.p3_error, result.significance), fontsize=7)
+        else
+            suptitle(@sprintf("P3 = %.1f P0  |  %.1f\$\\sigma\$",
+                              result.p3, result.significance), fontsize=7)
+        end
 
         savepath = joinpath(outdir, "$(name_mod)_phase_drift.pdf")
         savefig(savepath)
