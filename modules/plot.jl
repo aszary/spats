@@ -1347,8 +1347,7 @@ module Plot
         psi_err_deg = rad2deg.(result.p3err_sigma)
         if any(psi_err_deg .> 0)
             errorbar(lon, psi_deg, yerr=psi_err_deg, fmt=".", ms=2, c="black",
-                     ecolor="black", elinewidth=0.4, capsize=0, zorder=3,
-                     error_kw=Dict("alpha" => 0.4))
+                     ecolor="grey", elinewidth=0.4, capsize=0, zorder=3)
         else
             plot(lon, psi_deg, ".", ms=2, c="black", zorder=3)
         end
