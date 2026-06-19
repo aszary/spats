@@ -66,40 +66,42 @@ end
 
 
 """
-    p3_error_phases(data, p3, p3_error, bin_st, bin_end) -> NamedTuple
+    p3_error_phases(data, p3, p3_error, bin_st, bin_end; n_samples) -> NamedTuple
 
-Phase profiles ψ(φ) at every FFT harmonic k consistent with the P3
-uncertainty (p3 ± p3_error). `drift_test` locks onto a single integer
-frequency index k = round(N/P3); a quoted P3 error therefore corresponds to
-a discrete band of alternative k's. Recomputing ψ(φ) at each of them shows
-how the phase profile would look for any P3 value inside the error
-interval, and their spread gives the phase error induced by the P3
-uncertainty.
+Phase profiles ψ(φ) swept densely over the P3 uncertainty interval
+(p3 ± p3_error). `drift_test` locks onto a single integer frequency index
+k = round(N/P3), so a continuous P3 only ever produces a handful of distinct
+k's — but those k's are not equally likely a priori: under a uniform prior
+on P3 within its error bar, some k's correspond to a wider slice of that
+interval than others. Sampling `n_samples` P3 values evenly across
+[p3-p3_error, p3+p3_error] (rather than each distinct k once) reproduces
+that weighting naturally, since the more probable k's simply recur more
+often among the samples, both in the overlay scatter and in psi_sigma.
 
 Returns (empty arrays if p3_error <= 0):
-  k_grid    – alternative k indices spanned by [p3-p3_error, p3+p3_error]
-  p3_grid   – P3 value implied by each k (N/k)
-  psi_grid  – phase array, size (length(k_grid), length(on_bins)) [rad]
-  psi_sigma – per-bin circular std across k_grid [rad], the panel-2 error bar
+  k_grid    – k index used by each of the n_samples sweep points
+  p3_grid   – the n_samples P3 values themselves
+  psi_grid  – phase array, size (n_samples, length(on_bins)) [rad]
+  psi_sigma – per-bin circular std across the sweep [rad], the panel-2 error bar
 """
 function p3_error_phases(data::AbstractMatrix, p3::Real, p3_error::Real,
-                         bin_st::Int, bin_end::Int)
+                         bin_st::Int, bin_end::Int; n_samples::Int=151)
     on_bins = bin_st:bin_end
     N = size(data, 1)
     if !(p3_error > 0)
         return (k_grid=Int[], p3_grid=Float64[],
                 psi_grid=zeros(0, length(on_bins)), psi_sigma=zeros(length(on_bins)))
     end
-    k_lo = k_from_p3(N, p3 + p3_error)
-    k_hi = k_from_p3(N, max(p3 - p3_error, eps(Float64)))
-    k_grid = collect(k_lo:k_hi)
+    p3_grid = collect(range(p3 - p3_error, p3 + p3_error, length=n_samples))
     F = fft(data, 1)
-    psi_grid = Array{Float64}(undef, length(k_grid), length(on_bins))
-    for (i, k) in enumerate(k_grid)
+    psi_grid = Array{Float64}(undef, n_samples, length(on_bins))
+    k_grid = Vector{Int}(undef, n_samples)
+    for (i, p3i) in enumerate(p3_grid)
+        k = k_from_p3(N, p3i)
+        k_grid[i] = k
         psi_grid[i, :] = angle.(F[k + 1, on_bins])
     end
     psi_sigma = [circ_std(psi_grid[:, j]) for j in axes(psi_grid, 2)]
-    p3_grid = N ./ k_grid
     return (k_grid=k_grid, p3_grid=p3_grid, psi_grid=psi_grid, psi_sigma=psi_sigma)
 end
 
@@ -176,8 +178,8 @@ Fields of returned NamedTuple:
   significance   – slope / std(null)  [σ]
   p3             – P3 used
   p3_error       – P3 uncertainty used
-  p3err_k        – alternative k indices spanned by the P3 error
-  p3err_p3       – P3 value implied by each k (N/k)
+  p3err_k        – k index used by each densely-sampled P3 sweep point
+  p3err_p3       – the swept P3 values themselves
   p3err_psi      – phase array from the P3 sweep [rad], (length(p3err_k) × N_on)
   p3err_sigma    – per-bin circular std across the P3 sweep [rad]
 """
