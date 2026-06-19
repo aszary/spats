@@ -1351,7 +1351,7 @@ module Plot
             # faint overlay: phase profile for every P3 within its error bar
             psi_alt_deg = rad2deg.(result.p3err_psi)
             for row in eachrow(psi_alt_deg)
-                plot(lon, row, ".", ms=1, c="grey", alpha=0.06, mew=0, zorder=1)
+                plot(lon, row, ".", ms=2.5, c="orange", alpha=0.4, mew=0, zorder=2)
             end
         end
         if any(psi_err_deg .> 0)
