@@ -132,6 +132,62 @@ end
 
 
 """
+    circ_unwrap_steps(path, ybins, delta) -> Vector{Float64}
+
+Per-pulse phase increment `path[i+1] - path[i]`, unwrapped: each step is
+resolved to the representative value closest to the expected nominal
+increment `delta`, removing the ±ybins circular ambiguity. Length N-1.
+"""
+function circ_unwrap_steps(path::AbstractVector{Int}, ybins::Int, delta::Real)
+    N = length(path)
+    steps = zeros(Float64, N - 1)
+    for i in 1:N-1
+        raw = path[i+1] - path[i]
+        steps[i] = delta + circ_residual(raw - delta, ybins)
+    end
+    return steps
+end
+
+
+"""
+    instantaneous_p3(path, ybins, p3_nominal; window=20) -> Vector{Float64}
+
+Smoothed, per-pulse instantaneous P3 [pulse periods] implied by the Viterbi
+phase path — this is "the P3 actually used" for each pulse, as opposed to
+the single nominal `p3` fed into `fold`.
+
+The discrete per-pulse phase increments are unwrapped into a continuous
+phase track (`circ_unwrap_steps`), then a local linear fit over a sliding
+window of `window` pulses gives the local slope dphase/dpulse, from which
+`P3 = ybins / slope`. Pulses too close to either end for a full window keep
+`p3_nominal`.
+"""
+function instantaneous_p3(path::AbstractVector{Int}, ybins::Int, p3_nominal::Real; window::Int=20)
+    delta = ybins / p3_nominal
+    N = length(path)
+    steps = circ_unwrap_steps(path, ybins, delta)
+    cum = vcat(0.0, cumsum(steps))   # cum[i] = unwrapped phase relative to pulse 1
+
+    p3_inst = fill(Float64(p3_nominal), N)
+    halfw = max(1, window ÷ 2)
+    for i in 1:N
+        lo = max(1, i - halfw)
+        hi = min(N, i + halfw)
+        hi - lo < 2 && continue
+        xs = lo:hi
+        ys = @view cum[lo:hi]
+        xbar = mean(xs)
+        ybar = mean(ys)
+        num = sum((x - xbar) * (y - ybar) for (x, y) in zip(xs, ys))
+        den = sum((x - xbar)^2 for x in xs)
+        slope = den == 0 ? delta : num / den
+        p3_inst[i] = slope == 0 ? p3_nominal : ybins / slope
+    end
+    return p3_inst
+end
+
+
+"""
     fold(data, p3, bin_st, bin_end; ybins, n_iter, continuity_weight) -> NamedTuple
 
 Refined P3-fold via per-pulse Viterbi phase assignment, intended as a
@@ -157,18 +213,23 @@ Arguments:
   n_iter   – number of refit rounds, default 5
   continuity_weight – transition penalty strength; 0 = flat (any phase
              jump equally likely, pure template matching), default 0.05
+  p3_window – smoothing window [pulses] for `p3_per_pulse`, default 20
 
 Returns:
-  folded     – ybins × N_bins matrix, the refined p3-fold
-  phase      – Vector{Int}, assigned phase bin (1..ybins) per pulse
-  confidence – Vector{Float64}, correlation of each pulse against its
-               assigned phase bin (low ⇒ poor match, e.g. nulled pulse)
-  margin     – Vector{Float64}, correlation gap between the best and
-               second-best phase bin per pulse (low ⇒ ambiguous phase,
-               notes §3.4)
+  folded       – ybins × N_bins matrix, the refined p3-fold
+  phase        – Vector{Int}, assigned phase bin (1..ybins) per pulse
+  confidence   – Vector{Float64}, correlation of each pulse against its
+                 assigned phase bin (low ⇒ poor match, e.g. nulled pulse)
+  margin       – Vector{Float64}, correlation gap between the best and
+                 second-best phase bin per pulse (low ⇒ ambiguous phase,
+                 notes §3.4)
+  p3_per_pulse – Vector{Float64}, smoothed instantaneous P3 [pulse periods]
+                 implied by `phase` (see `instantaneous_p3`) — the local P3
+                 the Viterbi path is actually tracking at each pulse
 """
 function fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
-              ybins::Int=10, n_iter::Int=5, continuity_weight::Real=0.05)
+              ybins::Int=10, n_iter::Int=5, continuity_weight::Real=0.05,
+              p3_window::Int=20)
     N = size(data, 1)
     on = bin_st:bin_end
     delta = ybins / p3
@@ -194,7 +255,10 @@ function fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
         end
     end
 
-    return (folded=template, phase=path, confidence=confidence, margin=margin)
+    p3_per_pulse = instantaneous_p3(path, ybins, p3; window=p3_window)
+
+    return (folded=template, phase=path, confidence=confidence, margin=margin,
+            p3_per_pulse=p3_per_pulse)
 end
 
 end # module P3FoldViterbi

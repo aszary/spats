@@ -137,13 +137,16 @@ module SpaTs
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        p3   = Float64(p["p3"])
         result = P3FoldViterbi.fold(
-            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             ybins=yb, n_iter=n_iter, continuity_weight=continuity_weight)
         println("Mean confidence: $(round(sum(result.confidence)/length(result.confidence), digits=3))")
         println("Mean margin:     $(round(sum(result.margin)/length(result.margin), digits=3))")
-        Plot.p3fold(result.folded, outdir; start=1, bin_st=p["bin_st"], bin_end=p["bin_end"],
-                    name_mod="pulsar_viterbi", show_=show_, repeat_num=4)
+        folded_const = Tools.p3fold(data, p3, yb)
+        Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
+                            bin_st=p["bin_st"], bin_end=p["bin_end"],
+                            name_mod="pulsar_viterbi", show_=show_, repeat_num=4)
         return result
     end
 

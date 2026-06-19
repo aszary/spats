@@ -346,6 +346,67 @@ module Plot
     end
 
 
+    """
+    Diagnostic figure for `P3FoldViterbi.fold`: the Viterbi-refined p3-fold
+    next to the constant-P3 (naive, `Tools.p3fold`) fold of the same data,
+    with a panel underneath showing the per-pulse instantaneous P3 implied
+    by the Viterbi phase path (`p3_per_pulse`) against the nominal P3 used
+    as input (dashed line).
+    """
+    function p3fold_compare(folded_viterbi, folded_const, p3_per_pulse, p3_nominal, outdir;
+                             bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=0.5,
+                             repeat_num=4, name_mod="0", show_=false)
+
+        _, bins = size(folded_viterbi)
+        if bin_st == nothing bin_st = 1 end
+        if bin_end == nothing bin_end = bins end
+
+        dv = repeat(folded_viterbi[:, bin_st:bin_end], repeat_num)
+        dc = repeat(folded_const[:, bin_st:bin_end], repeat_num)
+
+        le = size(dv, 1)
+        ticks = [floor(Int, le / 4), floor(Int, le / 2), floor(Int, le * 3 / 4)]
+        fracs = [repeat_num / 4, repeat_num / 2, repeat_num * 3 / 4]
+        ti = ["$(fracs[i])\$P_3\$" for i in 1:3]
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(6.29921, 6.29921))  # 16cm x 16cm
+        subplots_adjust(left=0.1, bottom=0.07, right=0.99, top=0.96, wspace=0.15, hspace=0.35)
+
+        subplot2grid((3, 2), (0, 0), rowspan=2)
+        imshow(dv, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dv))
+        yticks(ticks, ti)
+        title("Viterbi refine")
+
+        subplot2grid((3, 2), (0, 1), rowspan=2)
+        imshow(dc, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dc))
+        tick_params(labelleft=false)
+        title("constant \$P_3\$")
+
+        subplot2grid((3, 2), (2, 0), colspan=2)
+        minorticks_on()
+        plot(1:length(p3_per_pulse), p3_per_pulse, c="grey", lw=0.8)
+        axhline(p3_nominal, c="red", ls="--", lw=0.8)
+        xlim(1, length(p3_per_pulse))
+        xlabel("pulse number")
+        ylabel("\$P_3\$ (P)")
+
+        savefig("$outdir/$(name_mod)_p3fold_compare.pdf")
+        println("$outdir/$(name_mod)_p3fold_compare.pdf")
+        savefig("$outdir/$(name_mod)_p3fold_compare.png")
+        println("$outdir/$(name_mod)_p3fold_compare.png")
+        if show_ == true
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
    function twodfs(data, outdir, params; cmap="viridis", darkness=0.3, name_mod="PSR_NAME", show_=false, average=nothing)
 
         p = params
