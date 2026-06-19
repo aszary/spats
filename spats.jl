@@ -168,14 +168,14 @@ module SpaTs
       phase_modulation(vpmout*"J1110-5637")
       p3fold_coherent(vpmout*"J1110-5637")
     """
-    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/200, show_=true)
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/200, filter_order=4, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        yb   = 30 #isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.coherent_fold(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
-            ybins=yb, lowpass_cutoff=lowpass_cutoff)
+            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order)
         println("Matched-filter SNR: $(round(result.snr, digits=1))")
         folded_const = Tools.p3fold(data, p3, yb)
         Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
