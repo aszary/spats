@@ -168,7 +168,7 @@ module SpaTs
       phase_modulation(vpmout*"J1110-5637")
       p3fold_coherent(vpmout*"J1110-5637")
     """
-    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/50, filter_order=8, n_groups=4, show_=true)
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         yb   = 300 #isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
