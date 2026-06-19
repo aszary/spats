@@ -171,7 +171,7 @@ module SpaTs
     function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/50, filter_order=6, n_groups=4, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        yb   = 300 #isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        yb   = 100 #isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
