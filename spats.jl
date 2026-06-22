@@ -106,6 +106,7 @@ module SpaTs
     function phase_modulation(outdir; nreal=6000, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
         result = PhaseDrift.drift_test(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
@@ -136,6 +137,7 @@ module SpaTs
     function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.2, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.fold(
@@ -171,6 +173,7 @@ module SpaTs
     function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         yb   = 17 #isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.coherent_fold_jackknife(

@@ -14,22 +14,26 @@ module Data
 
 
     """
-    Zero selected pulses
+    Zero selected pulses (in place).
 
+    `ranges` is the same `paz -w`-style string stored in `p["zaps"]`
+    (e.g. `"120-135 640-705"` or a lone `"42"`), space-separated tokens of
+    either a single 0-based subint number or a `start-end` 0-based,
+    inclusive range — matching the `-Z 0-12` channel-zap syntax already
+    used elsewhere in this file. `nothing` (no zaps defined) is a no-op.
     """
     function zap!(data; ranges=nothing)
-        pulses, bins = size(data)
-        zaps = []
-        for rn in ranges
-            if length(rn) == 1
-                push!(zaps, rn)
-            else
-                zaps = vcat(zaps, collect(rn[1]:rn[2]))
+        isnothing(ranges) && return data
+        pulses = size(data, 1)
+        for tok in split(ranges)
+            bounds = split(tok, "-")
+            lo = parse(Int, bounds[1]) + 1  # PSRCHIVE subints are 0-based, Julia rows are 1-based
+            hi = length(bounds) == 1 ? lo : parse(Int, bounds[2]) + 1
+            if lo < 1 || hi > pulses
+                @warn "zap! range $tok (1-based $lo:$hi) outside data bounds 1:$pulses, clamping"
             end
-            for z in zaps
-                for i in 1:bins
-                    data[z,i] = 0
-                end
+            for z in max(lo, 1):min(hi, pulses)
+                data[z, :] .= 0
             end
         end
     end
