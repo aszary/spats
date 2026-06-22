@@ -558,6 +558,7 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J2053-7200_16", "norefine", n_comp=2)
         #Data.position_angle(vpmout*"J2053-7200_16")
         #Data.geometry_analysis(vpmout*"J2053-7200_16")
+        phase_modulation(vpmout*"J2053-7200")
         p3fold_coherent(vpmout*"J2053-7200")
 
         # PSR J2139+2242
