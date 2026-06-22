@@ -365,13 +365,13 @@ module Plot
         dv = repeat(folded_viterbi[:, bin_st:bin_end], repeat_num)
         dc = repeat(folded_const[:, bin_st:bin_end], repeat_num)
 
-        # shared, zero-floored clip range so both panels sit on the same
-        # color scale (previously each used its own independent vmax, so
-        # the two folds were never actually visually comparable) and so a
-        # handful of noise bins dipping below zero don't eat into the
-        # colormap's dynamic range
-        vmax = darkness * max(maximum(dv), maximum(dc))
-        vmin = 0.0
+        # each panel still scaled to its own max (the two folds aren't
+        # necessarily on the same absolute intensity scale, e.g. psrsalsa's
+        # pfold output vs Tools.p3fold's raw unnormalized sum — a shared
+        # vmax washed `norefine` out entirely). `darkness` is the one shared
+        # clip fraction: darkness=1 -> vmax = true max, no clipping;
+        # darkness -> 0 -> vmax -> 0, everything saturates to the
+        # colormap's brightest color.
 
         le = size(dv, 1)
         ticks = [floor(Int, le / 4), floor(Int, le / 2), floor(Int, le * 3 / 4)]
@@ -393,12 +393,12 @@ module Plot
         subplots_adjust(left=0.1, bottom=0.07, right=0.99, top=0.96, wspace=0.15, hspace=0.35)
 
         subplot2grid((nrows, 2), (0, 0), rowspan=img_rowspan)
-        imshow(dv, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmin=vmin, vmax=vmax)
+        imshow(dv, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dv))
         yticks(ticks, ti)
         title(label)
 
         subplot2grid((nrows, 2), (0, 1), rowspan=img_rowspan)
-        imshow(dc, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmin=vmin, vmax=vmax)
+        imshow(dc, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dc))
         tick_params(labelleft=false)
         title("constant \$P_3\$")
 

@@ -134,7 +134,7 @@ module SpaTs
       process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
       p3fold_refine(vpmout*"J1110-5637")
     """
-    function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.2, show_=true)
+    function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.2, darkness=0.5, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -147,7 +147,7 @@ module SpaTs
         println("Mean margin:     $(round(sum(result.margin)/length(result.margin), digits=3))")
         folded_const = Tools.p3fold(data, p3, yb)
         Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
-                            bin_st=p["bin_st"], bin_end=p["bin_end"],
+                            bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
                             name_mod="pulsar_viterbi", show_=show_, repeat_num=4)
         return result
     end
@@ -170,7 +170,7 @@ module SpaTs
       phase_modulation(vpmout*"J1110-5637")
       p3fold_coherent(vpmout*"J1110-5637")
     """
-    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, show_=true)
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, darkness=0.5, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -183,7 +183,7 @@ module SpaTs
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
         Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
-                            bin_st=p["bin_st"], bin_end=p["bin_end"],
+                            bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
                             name_mod="pulsar_coherent", show_=show_, repeat_num=4,
                             label="coherent fold", p3_per_pulse_err=result.p3_per_pulse_err,
                             intensity=intensity)
@@ -210,7 +210,7 @@ module SpaTs
       process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
       p3fold_norefine_compare(vpmout*"J1110-5637")
     """
-    function p3fold_norefine_compare(outdir; ybins=nothing, show_=true)
+    function p3fold_norefine_compare(outdir; ybins=nothing, darkness=0.5, show_=true)
         p  = Tools.read_params(joinpath(outdir, "params.json"))
         p3 = Float64(p["p3"])
         yb = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
@@ -225,7 +225,7 @@ module SpaTs
         folded_const = Tools.p3fold(data, p3, yb)
 
         Plot.p3fold_compare(folded_norefine, folded_const, fill(p3, size(data, 1)), p3, outdir;
-                            bin_st=p["bin_st"], bin_end=p["bin_end"],
+                            bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
                             name_mod="pulsar_norefine_compare", show_=show_, repeat_num=4,
                             label="psrsalsa norefine")
         return (folded_norefine=folded_norefine, folded_const=folded_const)
