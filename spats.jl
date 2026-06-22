@@ -134,7 +134,7 @@ module SpaTs
       process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
       p3fold_refine(vpmout*"J1110-5637")
     """
-    function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.2, darkness=0.5, show_=true)
+    function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.2, darkness=1.0, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -170,7 +170,7 @@ module SpaTs
       phase_modulation(vpmout*"J1110-5637")
       p3fold_coherent(vpmout*"J1110-5637")
     """
-    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, darkness=0.5, show_=true)
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, darkness=1.0, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -210,7 +210,7 @@ module SpaTs
       process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
       p3fold_norefine_compare(vpmout*"J1110-5637")
     """
-    function p3fold_norefine_compare(outdir; ybins=nothing, darkness=0.5, show_=true)
+    function p3fold_norefine_compare(outdir; ybins=nothing, darkness=1.0, show_=true)
         p  = Tools.read_params(joinpath(outdir, "params.json"))
         p3 = Float64(p["p3"])
         yb = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
@@ -564,7 +564,7 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J2139+2242_16", "norefine", n_comp=2)
         #phase_modulation(vpmout*"J2139+2242")
         #p3fold_coherent(vpmout*"J2139+2242")
-        p3fold_norefine_compare(vpmout*"J2139+2242"; darkness=2.0)
+        p3fold_norefine_compare(vpmout*"J2139+2242"; darkness=1.0)
 
 
 

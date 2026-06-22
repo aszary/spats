@@ -354,7 +354,7 @@ module Plot
     as input (dashed line).
     """
     function p3fold_compare(folded_viterbi, folded_const, p3_per_pulse, p3_nominal, outdir;
-                             bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=0.5,
+                             bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=1.0,
                              repeat_num=4, name_mod="0", show_=false, label="Viterbi refine",
                              p3_per_pulse_err=nothing, intensity=nothing)
 
