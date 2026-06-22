@@ -192,6 +192,47 @@ module SpaTs
 
 
     """
+    Controlled comparison of `Tools.p3fold` (the "constant P3" naive fold
+    used inside `p3fold_coherent`/`p3fold_refine`) against PSRSALSA's own
+    `pfold -p3fold_norefine`, run on the *same* archive (`pulsar.debase.gg`)
+    that `pulsar.debase.txt` was dumped from — unlike the low/high
+    frequency-split norefine comparison in `Data.process_psrdata_16`
+    ([data.jl:711-721]), which uses a different (half-bandwidth) archive and
+    can't isolate whether a "looks much worse" gap is data or algorithm.
+
+    Both sides see: the same pulses, the same zaps (PSRSALSA via its own
+    `-w`, ours via `Data.zap!`), the same nominal P3/ybins/on-pulse window.
+    If they still don't match after this, the difference is genuinely
+    algorithmic (PSRSALSA's norefine fold vs `Tools.p3fold`'s modulo-P3
+    sum), not a data/preprocessing mismatch.
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
+      p3fold_norefine_compare(vpmout*"J1110-5637")
+    """
+    function p3fold_norefine_compare(outdir; ybins=nothing, show_=true)
+        p  = Tools.read_params(joinpath(outdir, "params.json"))
+        p3 = Float64(p["p3"])
+        yb = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+
+        debase_gg = joinpath(outdir, "pulsar.debase.gg")
+        run(pipeline(`pfold -p3fold_norefine -p3fold "$p3 $yb" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debase_gg`, stderr="errs.txt"))
+        mv(replace(debase_gg, ".gg"=>".p3fold"), replace(debase_gg, ".gg"=>".p3fold_norefine"), force=true)
+        folded_norefine = Data.load_ascii(replace(debase_gg, ".gg"=>".p3fold_norefine"))
+
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        folded_const = Tools.p3fold(data, p3, yb)
+
+        Plot.p3fold_compare(folded_norefine, folded_const, fill(p3, size(data, 1)), p3, outdir;
+                            bin_st=p["bin_st"], bin_end=p["bin_end"],
+                            name_mod="pulsar_norefine_compare", show_=show_, repeat_num=4,
+                            label="psrsalsa norefine")
+        return (folded_norefine=folded_norefine, folded_const=folded_const)
+    end
+
+
+    """
     Automatically process all pulsars found in `dataroot`.
     For each pulsar directory, picks the lexicographically first observation
     subdirectory and runs process_psrdata_16 + analyse_p3folds_16_new.
@@ -522,7 +563,8 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J2139+2242_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J2139+2242_16", "norefine", n_comp=2)
         #phase_modulation(vpmout*"J2139+2242")
-        p3fold_coherent(vpmout*"J2139+2242")
+        #p3fold_coherent(vpmout*"J2139+2242")
+        p3fold_norefine_compare(vpmout*"J2139+2242")
 
 
 
