@@ -395,7 +395,7 @@ module SpaTs
         #Data.geometry_analysis(vpmout*"J1110-5637_16")
         #phase_modulation(vpmout*"J1110-5637")
         #p3fold_refine(vpmout*"J1110-5637", continuity_weight=0.05)
-        p3fold_coherent(vpmout*"J1110-5637")
+        #p3fold_coherent(vpmout*"J1110-5637")
 
         # PSR J1114-6100
         #process_psrdata_16("/home/psr/data/new/J1114-6100/2019-10-19-08:30:30/", vpmout*"J1114-6100_16")
@@ -407,7 +407,7 @@ module SpaTs
         #process_psrdata_single("/home/psr/data/new/J1133-6250/2019-11-06-00:46:43/", vpmout*"J1133-6250_single") # some offset? probably not
         #process_psrdata(vpmout*"J1133-6250", vpmout*"J1133-6250") # single not stable, P. p3fold (10 ybins)
         #phase_modulation(vpmout*"J1133-6250")
-        p3fold_coherent(vpmout*"J1133-6250")
+        #p3fold_coherent(vpmout*"J1133-6250")
 
         # PSR J1137-6700
         #process_psrdata_16("/home/psr/data/new/J1137-6700/2019-11-06-00:36:02/", vpmout*"J1137-6700_16")
@@ -458,6 +458,9 @@ module SpaTs
         #Data.position_angle(vpmout*"J1539-6322_16")
         #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single")
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
+        p3fold_coherent(vpmout*"J1539-6322")
+
+
 
         # PSR J1555-3134
         #process_psrdata_16("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_16")
@@ -563,7 +566,7 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J2139+2242_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J2139+2242_16", "norefine", n_comp=2)
         #phase_modulation(vpmout*"J2139+2242")
-        p3fold_coherent(vpmout*"J2139+2242")
+        #p3fold_coherent(vpmout*"J2139+2242")
         #p3fold_norefine_compare(vpmout*"J2139+2242"; darkness=1.0)
 
 
