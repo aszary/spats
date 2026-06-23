@@ -458,8 +458,8 @@ module SpaTs
         #Data.position_angle(vpmout*"J1539-6322_16")
         #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single")
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
-        phase_modulation(vpmout*"J1539-6322")
-        p3fold_coherent(vpmout*"J1539-6322")
+        #phase_modulation(vpmout*"J1539-6322")
+        #p3fold_coherent(vpmout*"J1539-6322")
 
         # PSR J1555-3134
         #process_psrdata_16("/home/psr/data/new/J1555-3134/2019-10-31-06:34:39/", vpmout*"J1555-3134_16")
@@ -572,18 +572,6 @@ module SpaTs
         #p3fold_norefine_compare(vpmout*"J2139+2242"; darkness=1.0)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
         # PSR J1224-6407
         #process_psrdata_16("/home/psr/data/new/J1224-6407/2019-10-28-03:47:09/", vpmout*"J1224-6407_16")
         #Data.analyse_p3folds_16_new(vpmout*"J1224-6407_16", "norefine", n_comp=2)
@@ -597,6 +585,13 @@ module SpaTs
         #process_psrdata_16("/home/psr/data/new/J0304+1932/2019-10-18-23:05:44/", vpmout*"J0304+1932_16")
         #Data.analyse_p3folds_16_new(vpmout*"J0304+1932_16", "norefine", n_comp=2)
         #Data.analyse_average_offset(vpmout*"J0304+1932_16";n_comp=2, npulse=150)
+
+        # PSR J1750-3503
+        process_psrdata("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12/", vpmout*"J1750-3503")
+        #phase_modulation(vpmout*"J1750-3503")
+        #p3fold_coherent(vpmout*"J1750-3503")
+
+
 
         #test(vpmout)
         #test2(vpmout)
