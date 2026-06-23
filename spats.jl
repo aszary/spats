@@ -558,16 +558,16 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J2053-7200_16", "norefine", n_comp=2)
         #Data.position_angle(vpmout*"J2053-7200_16")
         #Data.geometry_analysis(vpmout*"J2053-7200_16")
-        phase_modulation(vpmout*"J2053-7200")
-        p3fold_coherent(vpmout*"J2053-7200")
+        #phase_modulation(vpmout*"J2053-7200")
+        #p3fold_coherent(vpmout*"J2053-7200")
 
         # PSR J2139+2242
         #process_psrdata("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242")
         #process_psrdata_16("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242_16")
         #Data.analyse_p3folds_16(vpmout*"J2139+2242_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J2139+2242_16", "norefine", n_comp=2)
-        #phase_modulation(vpmout*"J2139+2242")
-        #p3fold_coherent(vpmout*"J2139+2242")
+        phase_modulation(vpmout*"J2139+2242")
+        p3fold_coherent(vpmout*"J2139+2242")
         #p3fold_norefine_compare(vpmout*"J2139+2242"; darkness=1.0)
 
 
