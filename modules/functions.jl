@@ -64,9 +64,14 @@ module Functions
         # candidates from divisors and multiples of both floor and ceil of p3
         candidates = Set{Int}()
         for p3r in (p3lo, p3hi)
-            for k in 1:max_ybins
-                v = k * p3r
-                v <= target && push!(candidates, v)
+            # multiples: only small k needed, stop when exceeds target
+            k = 1
+            while k * p3r <= target
+                push!(candidates, k * p3r)
+                k += 1
+            end
+            # divisors: must iterate up to p3r itself (e.g. 85÷17=5 needs k=17)
+            for k in 1:p3r
                 d, r = divrem(p3r, k)
                 r == 0 && 1 <= d <= target && push!(candidates, d)
             end
