@@ -928,7 +928,7 @@ module Data
         =#
         # TODO work here...
 
-        Plot.analyse_p3folds3(nl, nh, p, n_comp)
+        Plot.analyse_p3folds4(nl, nh, p, n_comp)
 
 
         #println(size(nl))
