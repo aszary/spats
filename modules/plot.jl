@@ -942,12 +942,19 @@ module Plot
         y_low = low[i, p["bin_st"]:p["bin_end"]]
         y_high = high[i, p["bin_st"]:p["bin_end"]]
 
+        #=
+        # Tutaj fity nie działają...
+        x_data = collect(1:bins)
+        y_low = low[i, :]
+        y_high = high[i, :]
+        =#
+
         fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
         GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
         fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
         GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024)
 
-        # Plotting setup
+        # Plot setup for visual evaluation
         figure(figsize=(6, 7))
 
         # Subplot for low
@@ -997,20 +1004,20 @@ module Plot
         tight_layout()
         show()
         
-        # User Interaction
-        println("analyse_p3folds4: Press Enter for next pulse, 's' to skip point, 'q' to quit.")
+        # User evaluation prompt
+        println("analyse_p3folds4: Press Enter for next pulse, 's' to skip this point, 'q' to quit.")
         user_input = lowercase(strip(readline(stdin; keep=false)))
         close("all")
         
         if user_input == "q"
-            println("Exiting analysis.")
+            println("Exiting analysis loop early.")
             break
         elseif user_input == "s"
-            println("Skipping pulse $i from analysis and tracking.")
-            continue # Skips processing and jumps to the next iteration loop (next pulse)
+            println("Skipped pulse $i from downstream analysis.")
+            continue # Move immediately to loop step i+1 without processing offsets
         end
 
-        # Component offsets - Only saved if NOT skipped
+        # Component offsets (only processed/saved if not skipped)
         for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
             @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
                 o.component, o.longitude, o.longitude_bin, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
@@ -1022,10 +1029,52 @@ module Plot
             push!(offset_data[o.component].err, o.offset_deg_err)
         end
     end
-    
-    return offset_data
-end
 
+    # Weighted mean offset per component
+    if !isempty(offset_data)
+        println("\n=== Weighted mean offsets ===")
+        for comp in sort(collect(keys(offset_data)))
+            d = offset_data[comp]
+            if isempty(d.err) || all(d.err .== 0.0)
+                continue
+            end
+            w       = 1.0 ./ (d.err .^ 2)
+            n       = length(d.off)
+            mu      = sum(w .* d.off) / sum(w)
+            sigma_int = 1.0 / sqrt(sum(w))
+            chi2   = sum(w .* (d.off .- mu) .^ 2)
+            dof    = n - 1
+            chi2_red = dof > 0 ? chi2 / dof : NaN
+            sigma_ext = sigma_int * sqrt(max(1.0, chi2_red))
+            println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)",
+                comp, mu, sigma_int, n, chi2_red, sigma_ext))
+        end
+        println()
+    end
+
+    # Final plot: longitude vs. offset for each component
+    if !isempty(offset_data)
+        figure(figsize=(8, 5))
+        colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0"]
+        for comp in sort(collect(keys(offset_data)))
+            d = offset_data[comp]
+            errorbar(d.lon, d.off, yerr=d.err,
+                     fmt="o", capsize=4, lw=1.2,
+                     color=colors[mod1(comp, length(colors))],
+                     label="G$comp")
+        end
+        #ylim(-0.5, 1.5)
+        axhline(0.0, color="gray", lw=0.8, ls="--")
+        minorticks_on()
+        xlabel("Longitude (°)")
+        ylabel("Offset (°)")
+        title("Longitude vs. offset")
+        legend()
+        tight_layout()
+        show()
+    end
+
+end
 
 
 
