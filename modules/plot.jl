@@ -669,7 +669,7 @@ module Plot
             legend()
 
             show()
-            println("Press Enter for next pulse, 'q' to quit.")
+            println("analyse_single: Press Enter for next pulse, 'q' to quit.")
             user_input = readline(stdin; keep=false)
             close("all")
             
@@ -693,7 +693,7 @@ module Plot
             plot(high[i, p["bin_st"]:p["bin_end"]])
 
             show()
-            println("Press Enter for next pulse, 'q' to quit.")
+            println(" analyse_p3_folds: Press Enter for next pulse, 'q' to quit.")
             user_input = readline(stdin; keep=false)
             close("all")
             
@@ -767,7 +767,7 @@ module Plot
             tight_layout()
             show()
             
-            println("Press Enter for next pulse, 'q' to quit.")
+            println(" analyse_p3_folds2: Press Enter for next pulse, 'q' to quit.")
             user_input = readline(stdin; keep=false)
             close("all")
             
@@ -869,7 +869,7 @@ module Plot
             tight_layout()
             show()
             
-            println("Press Enter for next pulse, 'q' to quit.")
+            println("analyse_p3folds3: Press Enter for next pulse, 'q' to quit.")
             user_input = readline(stdin; keep=false)
             close("all")
             
@@ -1136,7 +1136,7 @@ module Plot
 
         if show_
             PyPlot.show()
-            println("Press Enter to close the figure.")
+            println("Geometry plot: Press Enter to close the figure.")
             readline(stdin; keep=false)
         end
         close()
