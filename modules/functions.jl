@@ -45,7 +45,7 @@ module Functions
     end
 
 
-    function find_ybins(p3, n_pulses=nothing; min_ppb=30, max_ybins=10)
+    function find_ybins(p3, n_pulses=nothing; min_ppb=30, max_ybins=15)
         # Step 1: find k (1..20) that makes k*p3 closest to an integer
         # (best rational approximation of p3 as n/k)
         best_k = 1
@@ -66,13 +66,26 @@ module Functions
         end
 
         # Step 3: largest divisor of base that fits within ybins_max
-        result = 1
-        for k in 1:base
-            d, r = divrem(base, k)
-            r == 0 && 1 <= d <= ybins_max && (result = max(result, d))
+        # if base itself is prime > ybins_max, try neighbouring integers for better divisors
+        function best_divisor(n)
+            res = 1
+            for k in 1:n
+                d, r = divrem(n, k)
+                r == 0 && 1 <= d <= ybins_max && (res = max(res, d))
+            end
+            return res
         end
 
-        return p3 > 30 ? max(5, result) : result
+        result = best_divisor(base)
+        if result < 5 && p3 > 10
+            # base has no useful divisors — try base±1, base±2
+            for delta in (1, -1, 2, -2)
+                alt = base + delta
+                alt >= 1 && (result = max(result, best_divisor(alt)))
+            end
+        end
+
+        return p3 > 10 ? max(5, result) : result
     end
 
 
