@@ -46,40 +46,33 @@ module Functions
 
 
     function find_ybins(p3, n_pulses=nothing; min_ppb=30, max_ybins=10)
-        p3lo = max(1, floor(Int, p3))
-        p3hi = max(1, ceil(Int, p3))
-
-        target = if p3 <= 5
-            ceil(Int, 2p3)
-        elseif p3 <= 15
-            ceil(Int, p3)
-        else
-            max(ceil(Int, p3 / 2), 5)
+        # Step 1: find k (1..20) that makes k*p3 closest to an integer
+        # (best rational approximation of p3 as n/k)
+        best_k = 1
+        best_rel_err = abs(p3 - round(p3)) / p3
+        for k in 2:20
+            rel_err = abs(k * p3 - round(k * p3)) / (k * p3)
+            if rel_err < best_rel_err
+                best_rel_err = rel_err
+                best_k = k
+            end
         end
+        base = round(Int, best_k * p3)
 
+        # Step 2: apply SNR cap
+        ybins_max = max_ybins
         if !isnothing(n_pulses)
-            target = min(target, max(1, n_pulses ÷ min_ppb))
-        end
-        target = min(target, max_ybins)
-
-        # candidates from divisors and multiples of both floor and ceil of p3
-        candidates = Set{Int}()
-        for p3r in (p3lo, p3hi)
-            # multiples: only small k needed, stop when exceeds target
-            k = 1
-            while k * p3r <= target
-                push!(candidates, k * p3r)
-                k += 1
-            end
-            # divisors: must iterate up to p3r itself (e.g. 85÷17=5 needs k=17)
-            for k in 1:p3r
-                d, r = divrem(p3r, k)
-                r == 0 && 1 <= d <= target && push!(candidates, d)
-            end
+            ybins_max = min(ybins_max, max(1, n_pulses ÷ min_ppb))
         end
 
-        push!(candidates, target)
-        return p3 > 30 ? max(5, maximum(candidates)) : maximum(candidates)
+        # Step 3: largest divisor of base that fits within ybins_max
+        result = 1
+        for k in 1:base
+            d, r = divrem(base, k)
+            r == 0 && 1 <= d <= ybins_max && (result = max(result, d))
+        end
+
+        return p3 > 30 ? max(5, result) : result
     end
 
 
