@@ -77,7 +77,8 @@ module Functions
             end
         end
 
-        return isempty(candidates) ? 1 : maximum(candidates)
+        result = isempty(candidates) ? 1 : maximum(candidates)
+        return p3 > 30 ? max(5, result) : result
     end
 
 
