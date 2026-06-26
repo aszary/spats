@@ -262,7 +262,7 @@ module Data
                 println("Found P3 = $p3_value ± $p3_error P0")
             end
 
-            ybins = Functions.find_ybins(p3_value)
+            ybins = Functions.find_ybins(p3_value, p["nsubint"])
             println("Number of ybins: $ybins")
             p["p3"] = p3_value
             p["p3_error"] = p3_error

@@ -34,6 +34,24 @@ module Functions
 
 
     """
+    Count total pulses in an observation directory by parsing filenames.
+    Files are expected to match pattern: ..._NNNNN-MMMMM.spCf16 or .spCF
+    Returns the last pulse index + 1, or nothing if no files match.
+    """
+    function count_pulses(indir)
+        files = filter(f -> endswith(f, ".spCf16") || endswith(f, ".spCF"), readdir(indir))
+        max_pulse = -1
+        for f in files
+            m = match(r"_(\d+)-(\d+)\.(spCf16|spCF)$", f)
+            if !isnothing(m)
+                max_pulse = max(max_pulse, parse(Int, m.captures[2]))
+            end
+        end
+        return max_pulse >= 0 ? max_pulse + 1 : nothing
+    end
+
+
+    """
     Find the best number of ybins for a given P3 value and optional pulse count.
 
     Rules:
@@ -44,7 +62,7 @@ module Functions
     - hard cap at max_ybins (default 20)
     - result snapped to nearest multiple or divisor of round(p3) for clean folds
     """
-    function find_ybins(p3, n_pulses=nothing; min_ppb=15, max_ybins=10)
+    function find_ybins(p3, n_pulses=nothing; min_ppb=30, max_ybins=10)
         p3lo = max(1, floor(Int, p3))
         p3hi = max(1, ceil(Int, p3))
 
