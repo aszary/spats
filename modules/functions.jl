@@ -50,11 +50,11 @@ module Functions
         p3hi = max(1, ceil(Int, p3))
 
         target = if p3 <= 5
-            round(Int, 2p3)
+            ceil(Int, 2p3)
         elseif p3 <= 15
-            round(Int, p3)
+            ceil(Int, p3)
         else
-            max(round(Int, p3 / 2), 5)
+            max(ceil(Int, p3 / 2), 5)
         end
 
         if !isnothing(n_pulses)
@@ -78,10 +78,10 @@ module Functions
             end
         end
 
-        result = isempty(candidates) ? 1 : maximum(candidates)
-        return p3 > 30 ? max(5, result) : result
-    end
+        push!(candidates, target)
+        return p3 > 30 ? max(5, maximum(candidates)) : maximum(candidates)
 
+    end
 
 
     """
