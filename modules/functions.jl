@@ -36,14 +36,49 @@ module Functions
     """
     Find the best number of bins for a given P3 value
     """
-    function find_ybins(p3)
+    function find_ybins_old(p3)
         if p3 > 8
             return ceil(Int, p3)
         else
             return ceil(Int, 2 * p3)
         end
     end
+        function find_ybins(p3, n_pulses=nothing; min_ppb=30, max_ybins=10)
+        p3lo = max(1, floor(Int, p3))
+        p3hi = max(1, ceil(Int, p3))
 
+        target = if p3 <= 5
+            round(Int, 2p3)
+        elseif p3 <= 15
+            round(Int, p3)
+        else
+            max(round(Int, p3 / 2), 5)
+        end
+
+        if !isnothing(n_pulses)
+            target = min(target, max(1, n_pulses ÷ min_ppb))
+        end
+        target = min(target, max_ybins)
+
+        # candidates from divisors and multiples of both floor and ceil of p3
+        candidates = Set{Int}()
+        for p3r in (p3lo, p3hi)
+            # multiples: only small k needed, stop when exceeds target
+            k = 1
+            while k * p3r <= target
+                push!(candidates, k * p3r)
+                k += 1
+            end
+            # divisors: must iterate up to p3r itself (e.g. 85÷17=5 needs k=17)
+            for k in 1:p3r
+                d, r = divrem(p3r, k)
+                r == 0 && 1 <= d <= target && push!(candidates, d)
+            end
+        end
+
+        result = isempty(candidates) ? 1 : maximum(candidates)
+        return p3 > 30 ? max(5, result) : result
+    end
 
     """
         normalize(data)
