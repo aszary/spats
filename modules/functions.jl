@@ -36,14 +36,14 @@ module Functions
     """
     Find the best number of bins for a given P3 value
     """
-    function find_ybins_old(p3)
+    function find_ybins_older(p3)
         if p3 > 8
             return ceil(Int, p3)
         else
             return ceil(Int, 2 * p3)
         end
     end
-        function find_ybins(p3, n_pulses=nothing; min_ppb=30, max_ybins=10)
+    function find_ybins_old(p3, n_pulses=nothing; min_ppb=30, max_ybins=10)
         p3lo = max(1, floor(Int, p3))
         p3hi = max(1, ceil(Int, p3))
 
@@ -79,6 +79,16 @@ module Functions
         result = isempty(candidates) ? 1 : maximum(candidates)
         return p3 > 30 ? max(5, result) : result
     end
+
+
+    function find_ybins(p3, n_pulses=nothing; min_ppb=50)
+        ybins = floor(Int, 2 * p3)
+        if !isnothing(n_pulses)
+            ybins = min(ybins, floor(Int, n_pulses / min_ppb))
+        end
+        return max(4, ybins)
+    end
+
 
     """
         normalize(data)
