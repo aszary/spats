@@ -356,7 +356,7 @@ module Plot
     function p3fold_compare(folded_viterbi, folded_const, p3_per_pulse, p3_nominal, outdir;
                              bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=1.0,
                              repeat_num=4, name_mod="0", show_=false, label="Viterbi refine",
-                             p3_per_pulse_err=nothing, intensity=nothing)
+                             p3_per_pulse_err=nothing, intensity=nothing, p3_ylim=nothing)
 
         _, bins = size(folded_viterbi)
         if bin_st == nothing bin_st = 1 end
@@ -422,6 +422,9 @@ module Plot
         plot(pulses_x, p3_per_pulse, c="grey", lw=0.8)
         axhline(p3_nominal, c="red", ls="--", lw=0.8)
         xlim(1, length(p3_per_pulse))
+        if p3_ylim !== nothing
+            ylim(p3_ylim)
+        end
         xlabel("pulse number")
         ylabel("\$P_3\$ (P)")
 
