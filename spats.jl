@@ -111,6 +111,7 @@ module SpaTs
         result = PhaseDrift.drift_test(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
             p3_error=p3_error, nreal=nreal)
+        println("Feature SNR:  $(round(result.snr, digits=1))")
         println("Slope:        $(round(result.slope, digits=4)) rad/bin  " *
                 "($(round(rad2deg(result.slope), digits=2)) °/bin)")
         println("Significance: $(round(result.significance, digits=1)) σ")

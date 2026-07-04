@@ -128,13 +128,17 @@ end
 
 Amplitude-modulation null distribution.
 
-Model: preserve |L_on|, set phase to zero (flat), add complex noise N(0, σ_off).
+Model: keep the measured amplitude with the noise contribution removed
+(|L|² is chi²-biased upward by 2σ²; using raw |L_on| would make the null
+phases artificially stable and inflate the significance when the f3
+feature is weak — pure noise then reads as several σ), set phase to zero
+(flat), add complex noise N(0, σ_off).
 Returns nreal null slope values [rad/bin].
 """
 function amp_null_slopes(L_on::AbstractVector, sigma_off::Real;
                          nreal::Int=6000, seed::Union{Int,Nothing}=7)
     rng = isnothing(seed) ? Random.default_rng() : MersenneTwister(seed)
-    A = abs.(L_on)
+    A = sqrt.(max.(abs2.(L_on) .- 2 * sigma_off^2, 0.0))
     n = length(A)
     slopes = zeros(nreal)
     for i in 1:nreal
@@ -173,6 +177,8 @@ Fields of returned NamedTuple:
   on_bins        – on-pulse bin UnitRange
   L_on           – L restricted to on-pulse
   sigma_off      – off-pulse noise estimate in complex L
+  snr            – f3 feature strength, mean(|L_on|)/σ_off; pure noise gives
+                   ~1.25 (Rayleigh mean), a warning is issued below 3
   slope          – measured phase slope [rad/bin]
   null           – null slope distribution [nreal]
   significance   – slope / std(null)  [σ]
@@ -189,6 +195,9 @@ function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
     L         = complex_lrfs_at_f3(data, p3)
     sigma_off = off_pulse_sigma(L, bin_st, bin_end)
     L_on      = L[on_bins]
+    snr       = sum(abs.(L_on)) / length(L_on) / sigma_off
+    snr < 3 && @warn "Weak f3 feature (SNR = $(round(snr, digits=2)), pure noise gives ~1.25): " *
+                     "the drift-vs-modulation significance is not meaningful without a detected P3 feature"
     slope     = slope_stat(L_on)
     null      = amp_null_slopes(L_on, sigma_off; nreal=nreal, seed=seed)
     significance = slope / std(null)
@@ -198,6 +207,7 @@ function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
         on_bins      = on_bins,
         L_on         = L_on,
         sigma_off    = sigma_off,
+        snr          = snr,
         slope        = slope,
         null         = null,
         significance = significance,
