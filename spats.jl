@@ -568,7 +568,7 @@ module SpaTs
         #Data.analyse_p3folds_16(vpmout*"J2139+2242_16", "norefine")
         #Data.analyse_p3folds_16_new(vpmout*"J2139+2242_16", "norefine", n_comp=2)
         #phase_modulation(vpmout*"J2139+2242")
-        #p3fold_coherent(vpmout*"J2139+2242")
+        p3fold_coherent(vpmout*"J2139+2242")
         #p3fold_norefine_compare(vpmout*"J2139+2242"; darkness=1.0)
 
 
@@ -589,7 +589,7 @@ module SpaTs
         # PSR J1750-3503
         #process_psrdata("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12/", vpmout*"J1750-3503")
         #phase_modulation(vpmout*"J1750-3503")
-        p3fold_coherent(vpmout*"J1750-3503")
+        #p3fold_coherent(vpmout*"J1750-3503")
 
 
 
