@@ -45,47 +45,12 @@ module Functions
     end
 
 
-    function find_ybins(p3, n_pulses=nothing; min_ppb=30, max_ybins=15)
-        # Step 1: find k (1..20) that makes k*p3 closest to an integer
-        # (best rational approximation of p3 as n/k)
-        best_k = 1
-        best_rel_err = abs(p3 - round(p3)) / p3
-        for k in 2:20
-            rel_err = abs(k * p3 - round(k * p3)) / (k * p3)
-            if rel_err < best_rel_err
-                best_rel_err = rel_err
-                best_k = k
-            end
-        end
-        base = round(Int, best_k * p3)
-
-        # Step 2: apply SNR cap
-        ybins_max = max_ybins
+    function find_ybins(p3, n_pulses=nothing; min_ppb=50)
+        ybins = floor(Int, 2 * p3)
         if !isnothing(n_pulses)
-            ybins_max = min(ybins_max, max(1, n_pulses ÷ min_ppb))
+            ybins = min(ybins, floor(Int, n_pulses / min_ppb))
         end
-
-        # Step 3: largest divisor of base that fits within ybins_max
-        # if base itself is prime > ybins_max, try neighbouring integers for better divisors
-        function best_divisor(n)
-            res = 1
-            for k in 1:n
-                d, r = divrem(n, k)
-                r == 0 && 1 <= d <= ybins_max && (res = max(res, d))
-            end
-            return res
-        end
-
-        result = best_divisor(base)
-        if result < 5 && p3 > 10
-            # base has no useful divisors — try base±1, base±2
-            for delta in (1, -1, 2, -2)
-                alt = base + delta
-                alt >= 1 && (result = max(result, best_divisor(alt)))
-            end
-        end
-
-        return p3 > 10 ? max(5, result) : result
+        return max(4, ybins)
     end
 
 
