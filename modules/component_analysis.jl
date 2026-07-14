@@ -332,9 +332,12 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
                 total_amp = sum(c.A for c in best_fit.components)
                 cen = total_amp > 0 ?
                       sum(c.A * c.mu for c in best_fit.components) / total_amp : NaN
-                valid_comps = filter(c -> !isnan(c.mu_err), best_fit.components)
-                cerr = (!isnan(cen) && total_amp > 0 && !isempty(valid_comps)) ?
-                       sqrt(sum((c.A * c.mu_err)^2 for c in valid_comps)) / total_amp : NaN
+                # fallback mu_err: use fit RMS when covariance estimation failed
+                fallback_err = best_fit.rms
+                mu_errs = [isnan(c.mu_err) ? fallback_err : c.mu_err for c in best_fit.components]
+                cerr = (!isnan(cen) && total_amp > 0) ?
+                       sqrt(sum((best_fit.components[i].A * mu_errs[i])^2
+                                for i in eachindex(best_fit.components))) / total_amp : NaN
 
                 centers[bin, ci, fi] = cen
                 c_errs[bin,  ci, fi] = cerr
