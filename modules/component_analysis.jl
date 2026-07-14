@@ -315,11 +315,7 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
 
                 noise = std(y)
                 snr   = noise > 0 ? maximum(y)/noise : 0.0
-                if snr < min_snr
-                    @printf("  G%d: SNR=%.1f — too low, skipped\n", ci, snr)
-                    push!(fits_list, nothing)
-                    continue
-                end
+                snr_low = snr < min_snr
 
                 best_fit, best_n, _ = GaussianFit.best_ngaussians(x, y; max_n=max_gauss_per_window)
                 push!(fits_list, best_fit.converged ? (x=x, y=y, fit=best_fit, n=best_n) : nothing)
@@ -332,7 +328,6 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
                 total_amp = sum(c.A for c in best_fit.components)
                 cen = total_amp > 0 ?
                       sum(c.A * c.mu for c in best_fit.components) / total_amp : NaN
-                # fallback mu_err: use fit RMS when covariance estimation failed
                 fallback_err = best_fit.rms
                 mu_errs = [isnan(c.mu_err) ? fallback_err : c.mu_err for c in best_fit.components]
                 cerr = (!isnan(cen) && total_amp > 0) ?
@@ -344,8 +339,20 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
 
                 off_bins = cen - wref
                 off_deg  = off_bins / n_phase * 360.0
-                @printf("  G%d: n_gauss=%d  center=%.2f  offset=%+.3f bins (%+.3f°)\n",
-                        ci, best_n, cen, off_bins, off_deg)
+                snr_tag  = snr_low ? @sprintf(" [SNR=%.1f, low]", snr) : ""
+                @printf("  G%d: n_gauss=%d  center=%.2f  offset=%+.3f bins (%+.3f°)%s\n",
+                        ci, best_n, cen, off_bins, off_deg, snr_tag)
+            end
+
+            # fill NaN errors using median of valid errors for this freq/bin
+            valid_errs = filter(!isnan, [c_errs[bin, ci, fi] for ci in 1:n_comp])
+            if !isempty(valid_errs)
+                med_err = median(valid_errs)
+                for ci in 1:n_comp
+                    if isnan(c_errs[bin, ci, fi]) && !isnan(centers[bin, ci, fi])
+                        c_errs[bin, ci, fi] = med_err
+                    end
+                end
             end
         end
 
