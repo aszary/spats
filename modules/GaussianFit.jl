@@ -169,6 +169,7 @@ function fit_gaussians(x::AbstractVector, y::AbstractVector, n::Int;
 
     p0_val  = isnothing(p0)    ? _auto_p0(x, y, n)        : p0
     lo, hi  = isnothing(lower) ? _default_bounds(x, y, n) : (lower, upper)
+    p0_val  = clamp.(p0_val, lo, hi)
 
     model(xdata, p) = _multi_gauss(xdata, p, n)
 
