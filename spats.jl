@@ -6,6 +6,7 @@ module SpaTs
     include("modules/data.jl")
     include("modules/plot.jl")
     include("modules/tools.jl")
+    include("modules/component_analysis.jl")
 
 
     function test(outdir)
@@ -173,10 +174,18 @@ module SpaTs
                     Tools.save_params(params_file, p)
                 end
                 process_psrdata_16(indir, outdir)
-                print("n_comp for $psr [default=2]: ")
-                n_comp_input = strip(readline())
-                n_comp = isempty(n_comp_input) ? 2 : parse(Int, n_comp_input)
-                Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
+                mode = ComponentAnalysis.ask_analysis_mode()
+                if mode == :simple
+                    print("n_comp for $psr [default=2]: ")
+                    n_comp_input = strip(readline())
+                    n_comp = isempty(n_comp_input) ? 2 : parse(Int, n_comp_input)
+                    Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
+                else
+                    p_cur = Tools.read_params(joinpath(outdir, "params.json"))
+                    nl = Data.load_ascii(joinpath(outdir, "pulsar_low.debase.p3fold_norefine"))
+                    nh = Data.load_ascii(joinpath(outdir, "pulsar_high.debase.p3fold_norefine"))
+                    ComponentAnalysis.analyse_components(nl, nh, p_cur, outdir)
+                end
             catch e
                 @warn "Failed for $psr: $e"
             end
