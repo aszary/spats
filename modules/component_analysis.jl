@@ -2,6 +2,8 @@ module ComponentAnalysis
 
 using Statistics
 using Printf
+using PyPlot
+PyPlot.matplotlib.use("Tkagg")
 
 include("GaussianFit.jl")
 using .GaussianFit
@@ -22,122 +24,47 @@ function ask_analysis_mode()
 end
 
 # ---------------------------------------------------------------------------
-# ASCII plot of profile + fit with component markers
+# Plot profile + fit with component markers (PyPlot window)
 # ---------------------------------------------------------------------------
 
-function _ascii_plot(x, y, yfit, components; width=70, height=14)
-    ymax = maximum(y)
-    ymin = minimum(y)
-    yrange = ymax - ymin
-    yrange < 1e-10 && (yrange = 1.0)
+function _plot_components(x, y, fit, components, title_str)
+    figure(figsize=(8, 5))
 
-    x_step = max(1, div(length(x), width))
-    ys_d = y[1:x_step:end]
-    ys_f = yfit[1:x_step:end]
-    cols  = length(ys_d)
+    low_colors = ["#2196F3", "#4CAF50", "#9C27B0", "#E65100", "#FF5722"]
 
-    # build marker line showing component positions
-    marker_line = fill(' ', cols)
-    for (i, c) in enumerate(components)
-        col = round(Int, (c.mu - x[1]) / x_step) + 1
-        col = clamp(col, 1, cols)
-        marker_line[col] = string(i)[1]
-    end
-
-    println("  " * String(marker_line) * "  ← component numbers")
-    for row in height:-1:1
-        thresh = ymin + yrange * (row - 1) / height
-        line = ""
-        for col in 1:cols
-            d = ys_d[col]; f = ys_f[col]
-            if d >= thresh && f >= thresh;  line *= "█"
-            elseif d >= thresh;             line *= "▒"
-            elseif f >= thresh;             line *= "░"
-            else;                           line *= " "
-            end
-        end
-        if row == height
-            @printf("%.4f │%s\n", ymax, line)
-        elseif row == 1
-            @printf("%.4f │%s\n", ymin, line)
-        else
-            @printf("       │%s\n", line)
+    plot(x, y, color="steelblue", lw=1.5, alpha=0.8, label="Data")
+    if fit.converged
+        plot(x, fit.yfit, "--", color="black", lw=1.8, label="Total fit")
+        for (j, c) in enumerate(components)
+            col = low_colors[mod1(j, length(low_colors))]
+            gauss_y = fit.baseline .+ GaussianFit._gauss.(x, c.A, c.mu, c.sigma)
+            plot(x, gauss_y, color=col, lw=1.8, alpha=0.9, label="G$j (mu=$(round(c.mu,digits=1)))")
+            axvline(c.mu, color=col, lw=0.8, ls=":")
         end
     end
-    println("       └" * "─"^cols)
-    println("  █=data+fit  ▒=data only  ░=fit only")
+    legend(fontsize=8)
+    xlabel("Bin")
+    ylabel("Intensity")
+    title(title_str)
+    tight_layout()
+    show()
 end
 
 # ---------------------------------------------------------------------------
-# Print current component table
-# ---------------------------------------------------------------------------
-
-function _print_components(components)
-    println("  ┌─────┬──────────────┬──────────────┬──────────────┐")
-    println("  │  #  │  center(bin) │    sigma     │   amplitude  │")
-    println("  ├─────┼──────────────┼──────────────┼──────────────┤")
-    for (i, c) in enumerate(components)
-        @printf("  │ %3d │  %9.2f   │  %9.2f   │  %9.4f   │\n",
-                i, c.mu, c.sigma, c.A)
-    end
-    println("  └─────┴──────────────┴──────────────┴──────────────┘")
-end
-
-# ---------------------------------------------------------------------------
-# Print help for manual mode
-# ---------------------------------------------------------------------------
-
-function _print_manual_help()
-    println("  ┌─────────────────────────────────────────────────────────┐")
-    println("  │  COMMANDS (manual component editor)                      │")
-    println("  ├─────────────────────────────────────────────────────────┤")
-    println("  │  move N center sigma  – move component N to new center  │")
-    println("  │                         and set its sigma               │")
-    println("  │  add center sigma     – add new component               │")
-    println("  │  del N                – delete component N              │")
-    println("  │  show                 – redraw plot                     │")
-    println("  │  fit                  – re-fit Gaussians to current pos │")
-    println("  │  y                    – accept and continue             │")
-    println("  │  b                    – go back, pick different bin     │")
-    println("  └─────────────────────────────────────────────────────────┘")
-end
-
-# ---------------------------------------------------------------------------
-# Fit Gaussians with given initial positions (manual override)
-# ---------------------------------------------------------------------------
-
-function _fit_with_positions(x, y, centers_sigmas)
-    n = length(centers_sigmas)
-    baseline_est = minimum(y)
-    p0 = [baseline_est]
-    ymax = maximum(y)
-    for (mu, sigma) in centers_sigmas
-        # estimate amplitude from data near center
-        idx = argmin(abs.(x .- mu))
-        A_est = max(y[idx] - baseline_est, 0.01 * ymax)
-        append!(p0, [A_est, mu, sigma])
-    end
-    lo, hi = GaussianFit._default_bounds(x, y, n)
-    p0 = clamp.(p0, lo, hi)
-    return GaussianFit.fit_gaussians(x, y, n; p0=p0, lower=lo, upper=hi)
-end
-
-# ---------------------------------------------------------------------------
-# Interactive window definition: pick bin or manual mode
-# Returns list of (win_st, win_end, ref_center) tuples, or nothing
+# Interactive window definition using PyPlot + text commands
+# Returns list of (win_st, win_end, ref_center) or nothing
 # ---------------------------------------------------------------------------
 
 function define_windows(nl, nh, p)
-    bin_st    = Int(p["bin_st"])
-    bin_end   = Int(p["bin_end"])
-    n_bins    = size(nl, 1)
+    bin_st  = Int(p["bin_st"])
+    bin_end = Int(p["bin_end"])
+    n_bins  = size(nl, 1)
+
     mean_low  = vec(mean(nl, dims=1))
     mean_high = vec(mean(nh, dims=1))
     mean_both = (mean_low .+ mean_high) ./ 2
 
     x = Float64.(bin_st:bin_end)
-
-    current_bin = 0   # 0 = mean profile
 
     while true
         # --- choose reference ---
@@ -149,21 +76,19 @@ function define_windows(nl, nh, p)
         print("Choice: ")
         inp = strip(readline())
 
+        local y
+        local title_ref
         if isempty(inp)
-            current_bin = 0
             y = mean_both[bin_st:bin_end]
-            println("  Using mean profile.")
+            title_ref = "Mean profile"
         else
             b = tryparse(Int, inp)
             if isnothing(b) || b < 1 || b > n_bins
                 println("  Invalid bin number.")
                 continue
             end
-            current_bin = b
-            y_low  = nl[b, bin_st:bin_end]
-            y_high = nh[b, bin_st:bin_end]
-            y = (y_low .+ y_high) ./ 2
-            @printf("  Using bin %d.\n", b)
+            y = ((nl[b, bin_st:bin_end] .+ nh[b, bin_st:bin_end]) ./ 2)
+            title_ref = "p3fold bin $b"
         end
 
         # --- initial fit ---
@@ -172,29 +97,50 @@ function define_windows(nl, nh, p)
         n = isempty(n_inp) ? 2 : parse(Int, n_inp)
 
         fit = GaussianFit.fit_gaussians(x, y, n)
+        components = fit.converged ? sort(collect(fit.components), by=c->c.mu) : []
+
         if !fit.converged
-            println("  Fit did not converge. Try different bin or N.")
+            println("  Fit did not converge.")
+            close("all")
             continue
         end
 
-        components = collect(fit.components)
-        sort!(components, by = c -> c.mu)
+        _plot_components(x, y, fit, components, "$title_ref — component fit")
 
-        # --- review / manual edit loop ---
+        # --- print table ---
+        println()
+        println("  ┌─────┬──────────────┬──────────────┬──────────────┐")
+        println("  │  #  │  center(bin) │    sigma     │   amplitude  │")
+        println("  ├─────┼──────────────┼──────────────┼──────────────┤")
+        for (i, c) in enumerate(components)
+            @printf("  │ %3d │  %9.2f   │  %9.2f   │  %9.4f   │\n",
+                    i, c.mu, c.sigma, c.A)
+        end
+        println("  └─────┴──────────────┴──────────────┴──────────────┘")
+        @printf("  RMS=%.5f   AIC=%.1f\n", fit.rms, fit.aic)
+
+        # --- commands ---
+        println()
+        println("  COMMANDS:")
+        println("    y                  – accept windows")
+        println("    b                  – pick different bin/profile")
+        println("    move N center sigma – move component N")
+        println("    add  center sigma  – add component")
+        println("    del  N             – delete component N")
+        println("    refit              – refit Gaussians to current positions")
+        println("    show               – redraw plot")
+
+        cs = [(c.mu, c.sigma) for c in components]
+
         while true
-            println()
-            _ascii_plot(x, y, fit.yfit, components)
-            println()
-            _print_components(components)
-            @printf("  RMS=%.5f   AIC=%.1f\n", fit.rms, fit.aic)
-            println()
-            println("  [y] Accept   [m] Manual edit   [b] Pick different bin/profile")
-            print("  Choice: ")
-            ans = strip(readline())
+            print("  cmd> ")
+            cmd = strip(readline())
+            parts = split(cmd)
+            isempty(parts) && continue
 
-            if ans == "y"
-                # build windows
-                sort!(components, by = c -> c.mu)
+            if parts[1] == "y"
+                close("all")
+                sort!(components, by=c->c.mu)
                 windows = [(max(bin_st, round(Int, c.mu - 2.5*c.sigma)),
                             min(bin_end, round(Int, c.mu + 2.5*c.sigma)),
                             c.mu)
@@ -205,127 +151,121 @@ function define_windows(nl, nh, p)
                 end
                 return windows
 
-            elseif ans == "b"
-                break   # back to bin selection
+            elseif parts[1] == "b"
+                close("all")
+                break
 
-            elseif ans == "m"
-                _print_manual_help()
-                # manual edit sub-loop
-                cs = [(c.mu, c.sigma) for c in components]
-                while true
-                    print("  cmd> ")
-                    cmd = strip(readline())
-                    parts = split(cmd)
-                    isempty(parts) && continue
-
-                    if parts[1] == "y"
-                        fit2 = _fit_with_positions(x, y, cs)
-                        if fit2.converged
-                            fit = fit2
-                            components = collect(fit.components)
-                        end
-                        break
-
-                    elseif parts[1] == "b"
-                        break
-
-                    elseif parts[1] == "show"
-                        fit2 = _fit_with_positions(x, y, cs)
-                        if fit2.converged
-                            fit = fit2
-                            components = collect(fit.components)
-                        end
-                        _ascii_plot(x, y, fit.yfit, components)
-                        _print_components(components)
-
-                    elseif parts[1] == "fit"
-                        fit2 = _fit_with_positions(x, y, cs)
-                        if fit2.converged
-                            fit = fit2
-                            components = collect(fit.components)
-                            cs = [(c.mu, c.sigma) for c in components]
-                            _ascii_plot(x, y, fit.yfit, components)
-                            _print_components(components)
-                        else
-                            println("  Fit failed, try adjusting positions.")
-                        end
-
-                    elseif parts[1] == "move" && length(parts) == 4
-                        idx = tryparse(Int, parts[2])
-                        mu  = tryparse(Float64, parts[3])
-                        sig = tryparse(Float64, parts[4])
-                        if isnothing(idx) || isnothing(mu) || isnothing(sig) ||
-                           idx < 1 || idx > length(cs)
-                            println("  Usage: move N center sigma")
-                        else
-                            cs[idx] = (mu, sig)
-                            fit2 = _fit_with_positions(x, y, cs)
-                            if fit2.converged
-                                fit = fit2
-                                components = collect(fit.components)
-                                sort!(components, by = c -> c.mu)
-                                cs = [(c.mu, c.sigma) for c in components]
-                            end
-                            _ascii_plot(x, y, fit.yfit, components)
-                            _print_components(components)
-                        end
-
-                    elseif parts[1] == "add" && length(parts) == 3
-                        mu  = tryparse(Float64, parts[2])
-                        sig = tryparse(Float64, parts[3])
-                        if isnothing(mu) || isnothing(sig)
-                            println("  Usage: add center sigma")
-                        else
-                            push!(cs, (mu, sig))
-                            fit2 = _fit_with_positions(x, y, cs)
-                            if fit2.converged
-                                fit = fit2
-                                components = collect(fit.components)
-                                sort!(components, by = c -> c.mu)
-                                cs = [(c.mu, c.sigma) for c in components]
-                            end
-                            _ascii_plot(x, y, fit.yfit, components)
-                            _print_components(components)
-                        end
-
-                    elseif parts[1] == "del" && length(parts) == 2
-                        idx = tryparse(Int, parts[2])
-                        if isnothing(idx) || idx < 1 || idx > length(cs)
-                            println("  Usage: del N")
-                        elseif length(cs) == 1
-                            println("  Cannot delete last component.")
-                        else
-                            deleteat!(cs, idx)
-                            fit2 = _fit_with_positions(x, y, cs)
-                            if fit2.converged
-                                fit = fit2
-                                components = collect(fit.components)
-                                sort!(components, by = c -> c.mu)
-                                cs = [(c.mu, c.sigma) for c in components]
-                            end
-                            _ascii_plot(x, y, fit.yfit, components)
-                            _print_components(components)
-                        end
-
-                    else
-                        _print_manual_help()
-                    end
-                end  # manual sub-loop
-
-                # after manual: re-enter review loop with updated fit
+            elseif parts[1] == "show"
+                close("all")
                 fit2 = _fit_with_positions(x, y, cs)
                 if fit2.converged
                     fit = fit2
-                    components = collect(fit.components)
-                    sort!(components, by = c -> c.mu)
+                    components = sort(collect(fit.components), by=c->c.mu)
                 end
+                _plot_components(x, y, fit, components, "$title_ref — component fit")
+
+            elseif parts[1] == "refit"
+                fit2 = _fit_with_positions(x, y, cs)
+                if fit2.converged
+                    fit = fit2
+                    components = sort(collect(fit.components), by=c->c.mu)
+                    cs = [(c.mu, c.sigma) for c in components]
+                    close("all")
+                    _plot_components(x, y, fit, components, "$title_ref — component fit")
+                    println()
+                    println("  ┌─────┬──────────────┬──────────────┬──────────────┐")
+                    println("  │  #  │  center(bin) │    sigma     │   amplitude  │")
+                    println("  ├─────┼──────────────┼──────────────┼──────────────┤")
+                    for (i, c) in enumerate(components)
+                        @printf("  │ %3d │  %9.2f   │  %9.2f   │  %9.4f   │\n",
+                                i, c.mu, c.sigma, c.A)
+                    end
+                    println("  └─────┴──────────────┴──────────────┴──────────────┘")
+                else
+                    println("  Fit failed.")
+                end
+
+            elseif parts[1] == "move" && length(parts) == 4
+                idx = tryparse(Int, parts[2])
+                mu  = tryparse(Float64, parts[3])
+                sig = tryparse(Float64, parts[4])
+                if isnothing(idx) || isnothing(mu) || isnothing(sig) || idx < 1 || idx > length(cs)
+                    println("  Usage: move N center sigma")
+                else
+                    cs[idx] = (mu, sig)
+                    fit2 = _fit_with_positions(x, y, cs)
+                    if fit2.converged
+                        fit = fit2
+                        components = sort(collect(fit.components), by=c->c.mu)
+                        cs = [(c.mu, c.sigma) for c in components]
+                    end
+                    close("all")
+                    _plot_components(x, y, fit, components, "$title_ref — component fit")
+                end
+
+            elseif parts[1] == "add" && length(parts) == 3
+                mu  = tryparse(Float64, parts[2])
+                sig = tryparse(Float64, parts[3])
+                if isnothing(mu) || isnothing(sig)
+                    println("  Usage: add center sigma")
+                else
+                    push!(cs, (mu, sig))
+                    fit2 = _fit_with_positions(x, y, cs)
+                    if fit2.converged
+                        fit = fit2
+                        components = sort(collect(fit.components), by=c->c.mu)
+                        cs = [(c.mu, c.sigma) for c in components]
+                    end
+                    close("all")
+                    _plot_components(x, y, fit, components, "$title_ref — component fit")
+                end
+
+            elseif parts[1] == "del" && length(parts) == 2
+                idx = tryparse(Int, parts[2])
+                if isnothing(idx) || idx < 1 || idx > length(cs)
+                    println("  Usage: del N")
+                elseif length(cs) == 1
+                    println("  Cannot delete last component.")
+                else
+                    deleteat!(cs, idx)
+                    fit2 = _fit_with_positions(x, y, cs)
+                    if fit2.converged
+                        fit = fit2
+                        components = sort(collect(fit.components), by=c->c.mu)
+                        cs = [(c.mu, c.sigma) for c in components]
+                    end
+                    close("all")
+                    _plot_components(x, y, fit, components, "$title_ref — component fit")
+                end
+
+            else
+                println("  Unknown command. Type 'y' to accept, 'b' to go back.")
             end
-        end  # review loop
-    end  # bin selection loop
+        end
+    end
 end
 
 # ---------------------------------------------------------------------------
-# Per-bin detailed analysis
+# Fit Gaussians with given initial positions
+# ---------------------------------------------------------------------------
+
+function _fit_with_positions(x, y, centers_sigmas)
+    n = length(centers_sigmas)
+    baseline_est = minimum(y)
+    ymax = maximum(y)
+    p0 = [baseline_est]
+    for (mu, sigma) in centers_sigmas
+        idx = argmin(abs.(x .- mu))
+        A_est = max(y[idx] - baseline_est, 0.01 * ymax)
+        append!(p0, [A_est, mu, sigma])
+    end
+    lo, hi = GaussianFit._default_bounds(x, y, n)
+    p0 = clamp.(p0, lo, hi)
+    return GaussianFit.fit_gaussians(x, y, n; p0=p0, lower=lo, upper=hi)
+end
+
+# ---------------------------------------------------------------------------
+# Main detailed analysis
 # ---------------------------------------------------------------------------
 
 function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3.0)
@@ -340,17 +280,31 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
     freq_low  = round(Int, get(p, "freq_low",  1023.0))
     freq_high = round(Int, get(p, "freq_high", 1523.0))
 
+    low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
+    high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
+
     centers = fill(NaN, n_bins, n_comp, 2)
     c_errs  = fill(NaN, n_bins, n_comp, 2)
 
+    offset_data = Dict{Int, NamedTuple{(:lon,:off,:err), Tuple{Vector{Float64},Vector{Float64},Vector{Float64}}}}()
+
     println("\n══════════════════════════════════════════")
-    println("  Detailed per-bin analysis")
+    println("  DETAILED PER-COMPONENT ANALYSIS")
+    println("  (precise center tracking per window)")
     println("══════════════════════════════════════════")
 
     for bin in 1:n_bins
         @printf("\n══ p3fold bin %d / %d ══\n", bin, n_bins)
 
-        for (fi, (data, freq)) in enumerate(zip((nl, nh), (freq_low, freq_high)))
+        # collect per-window fits for this bin
+        fits_low  = []
+        fits_high = []
+
+        for (fi, (data, freq, fits_list)) in enumerate(zip(
+                (nl, nh),
+                (freq_low, freq_high),
+                (fits_low, fits_high)))
+
             @printf("=== %d MHz ===\n", freq)
             profile = data[bin, :]
 
@@ -363,20 +317,24 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
                 snr   = noise > 0 ? maximum(y)/noise : 0.0
                 if snr < min_snr
                     @printf("  G%d: SNR=%.1f — too low, skipped\n", ci, snr)
+                    push!(fits_list, nothing)
                     continue
                 end
 
                 best_fit, best_n, _ = GaussianFit.best_ngaussians(x, y; max_n=max_gauss_per_window)
+                push!(fits_list, best_fit.converged ? (x=x, y=y, fit=best_fit, n=best_n) : nothing)
+
                 if !best_fit.converged
                     @printf("  G%d: fit failed\n", ci)
                     continue
                 end
 
                 total_amp = sum(c.A for c in best_fit.components)
-                cen  = total_amp > 0 ?
-                       sum(c.A * c.mu     for c in best_fit.components) / total_amp : NaN
-                cerr = total_amp > 0 ?
-                       sqrt(sum((c.A * c.mu_err)^2 for c in best_fit.components)) / total_amp : NaN
+                cen = total_amp > 0 ?
+                      sum(c.A * c.mu for c in best_fit.components) / total_amp : NaN
+                valid_comps = filter(c -> !isnan(c.mu_err), best_fit.components)
+                cerr = (!isnan(cen) && total_amp > 0 && !isempty(valid_comps)) ?
+                       sqrt(sum((c.A * c.mu_err)^2 for c in valid_comps)) / total_amp : NaN
 
                 centers[bin, ci, fi] = cen
                 c_errs[bin,  ci, fi] = cerr
@@ -388,50 +346,124 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
             end
         end
 
-        # frequency comparison
-        any_valid = false
+        # frequency offsets
+        println("  ── Δ(high − low) ──")
         for ci in 1:n_comp
-            lo = centers[bin, ci, 1]; hi = centers[bin, ci, 2]
-            isnan(lo) || isnan(hi) && continue
-            any_valid = true
-        end
-        if any_valid
-            println("  ── Δ(high − low) ──")
-            for ci in 1:n_comp
-                lo = centers[bin, ci, 1]; hi = centers[bin, ci, 2]
-                el = c_errs[bin, ci, 1]; eh = c_errs[bin, ci, 2]
-                (isnan(lo) || isnan(hi)) && continue
-                diff     = hi - lo
-                diff_deg = diff / n_phase * 360.0
-                err      = sqrt(el^2 + eh^2)
-                err_deg  = err / n_phase * 360.0
-                @printf("  G%d: %+.3f ± %.3f bins  (%+.3f° ± %.3f°)\n",
-                        ci, diff, err, diff_deg, err_deg)
+            lo_c = centers[bin, ci, 1]; hi_c = centers[bin, ci, 2]
+            el   = c_errs[bin,  ci, 1]; eh   = c_errs[bin,  ci, 2]
+            (isnan(lo_c) || isnan(hi_c)) && continue
+            diff     = hi_c - lo_c
+            diff_deg = diff / n_phase * 360.0
+            lon_deg  = (lo_c + hi_c) / 2 / n_phase * 360.0
+            err      = (isnan(el) || isnan(eh)) ? NaN : sqrt(el^2 + eh^2)
+            err_deg  = isnan(err) ? NaN : err / n_phase * 360.0
+            @printf("  G%d: lon=%.2f°  %+.3f ± %.3f bins  (%+.3f° ± %.3f°)\n",
+                    ci, lon_deg, diff, isnan(err) ? 0.0 : err,
+                    diff_deg, isnan(err_deg) ? 0.0 : err_deg)
+
+            if !haskey(offset_data, ci)
+                offset_data[ci] = (lon=Float64[], off=Float64[], err=Float64[])
             end
+            push!(offset_data[ci].lon, lon_deg)
+            push!(offset_data[ci].off, diff_deg)
+            push!(offset_data[ci].err, isnan(err_deg) ? 0.0 : err_deg)
         end
 
-        print("  Press Enter for next bin, 'q' to quit: ")
-        strip(readline()) == "q" && break
+        # --- PyPlot per-bin window (like normal analysis) ---
+        x_data = Float64.(Int(p["bin_st"]):Int(p["bin_end"]))
+        y_low  = nl[bin, Int(p["bin_st"]):Int(p["bin_end"])]
+        y_high = nh[bin, Int(p["bin_st"]):Int(p["bin_end"])]
+
+        figure(figsize=(8, 6))
+        suptitle("DETAILED ANALYSIS — p3fold bin $bin / $n_bins", fontsize=11, fontweight="bold")
+
+        subplot(2, 1, 1)
+        plot(x_data, y_low,  color="steelblue",  lw=1.2, alpha=0.7, label="Low $(freq_low) MHz")
+        plot(x_data, y_high, color="darkorange", lw=1.2, alpha=0.7, label="High $(freq_high) MHz")
+
+        # draw per-window fits
+        for (ci, (ws, we, wref)) in enumerate(windows)
+            axvspan(ws, we, alpha=0.08, color=low_colors[mod1(ci, length(low_colors))])
+            axvline(wref, color=low_colors[mod1(ci, length(low_colors))], lw=0.8, ls=":")
+        end
+        for (ci, fd) in enumerate(fits_low)
+            isnothing(fd) && continue
+            plot(fd.x, fd.fit.yfit, "--",
+                 color=low_colors[mod1(ci, length(low_colors))], lw=1.8, label="Low G$ci fit")
+        end
+        for (ci, fd) in enumerate(fits_high)
+            isnothing(fd) && continue
+            plot(fd.x, fd.fit.yfit, "--",
+                 color=high_colors[mod1(ci, length(high_colors))], lw=1.8, label="High G$ci fit")
+        end
+        legend(fontsize=7)
+        xlim(p["bin_st"], p["bin_end"])
+        ylabel("Intensity")
+
+        subplot(2, 1, 2)
+        for ci in 1:n_comp
+            lo_c = centers[bin, ci, 1]; hi_c = centers[bin, ci, 2]
+            isnan(lo_c) || scatter([lo_c], [1.0],
+                color=low_colors[mod1(ci, length(low_colors))],
+                marker="o", s=80, label="Low G$ci", zorder=3)
+            isnan(hi_c) || scatter([hi_c], [2.0],
+                color=high_colors[mod1(ci, length(high_colors))],
+                marker="s", s=80, label="High G$ci", zorder=3)
+        end
+        yticks([1.0, 2.0], ["Low", "High"])
+        xlim(p["bin_st"], p["bin_end"])
+        xlabel("Center position (bin)")
+        legend(fontsize=7)
+        tight_layout()
+        show()
+
+        println("Press Enter for next bin, 'q' to quit.")
+        user_input = readline(stdin; keep=false)
+        close("all")
+        lowercase(strip(user_input)) == "q" && break
     end
 
     # --- weighted mean summary ---
     println("\n══════════════════════════════════════════")
     println("=== Weighted mean offsets (high − low) ===")
-    for ci in 1:n_comp
-        diffs = [centers[b,ci,2] - centers[b,ci,1] for b in 1:n_bins]
-        errs  = [sqrt(c_errs[b,ci,1]^2 + c_errs[b,ci,2]^2) for b in 1:n_bins]
-        valid = .!isnan.(diffs) .& .!isnan.(errs) .& (errs .> 0)
-        if !any(valid)
-            println("  G$ci: no valid measurements")
-            continue
+    for ci in sort(collect(keys(offset_data)))
+        d = offset_data[ci]
+        isempty(d.err) || all(d.err .== 0.0) && continue
+        w        = 1.0 ./ max.(d.err, 1e-10).^2
+        n        = length(d.off)
+        mu       = sum(w .* d.off) / sum(w)
+        sig_int  = 1.0 / sqrt(sum(w))
+        chi2     = sum(w .* (d.off .- mu).^2)
+        dof      = n - 1
+        chi2_red = dof > 0 ? chi2/dof : NaN
+        sig_ext  = sig_int * sqrt(max(1.0, chi2_red))
+        @printf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)\n",
+                ci, mu, sig_int, n, chi2_red, sig_ext)
+    end
+    println()
+
+    # --- final offset plot (like normal analysis) ---
+    if !isempty(offset_data)
+        colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0"]
+        figure(figsize=(8, 5))
+        for ci in sort(collect(keys(offset_data)))
+            d = offset_data[ci]
+            errorbar(d.lon, d.off, yerr=d.err,
+                     fmt="o", capsize=4, lw=1.2,
+                     color=colors[mod1(ci, length(colors))],
+                     label="G$ci")
         end
-        w     = 1.0 ./ errs[valid].^2
-        wm    = sum(w .* diffs[valid]) / sum(w)
-        we    = 1.0 / sqrt(sum(w))
-        wm_d  = wm / n_phase * 360.0
-        we_d  = we / n_phase * 360.0
-        @printf("  G%d: offset = %+.4f ± %.4f bins  (%+.4f° ± %.4f°)  n=%d\n",
-                ci, wm, we, wm_d, we_d, sum(valid))
+        axhline(0.0, color="gray", lw=0.8, ls="--")
+        minorticks_on()
+        xlabel("Longitude (°)")
+        ylabel("Offset high−low (°)")
+        title("Detailed analysis — component offsets")
+        legend()
+        tight_layout()
+        show()
+        println("Press Enter to close final plot.")
+        readline(stdin; keep=false)
+        close("all")
     end
 
     # --- save ---
@@ -450,7 +482,7 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
             println(f, row)
         end
     end
-    println("\nSaved to $outfile")
+    println("Saved to $outfile")
     return centers
 end
 
