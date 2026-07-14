@@ -181,10 +181,16 @@ module SpaTs
                 n_comp = isempty(n_comp_input) ? 2 : parse(Int, n_comp_input)
                 Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
                 if mode == :detailed
-                    p_cur = Tools.read_params(joinpath(outdir, "params.json"))
-                    nl = Data.load_ascii(joinpath(outdir, "pulsar_low.debase.p3fold_norefine"))
-                    nh = Data.load_ascii(joinpath(outdir, "pulsar_high.debase.p3fold_norefine"))
-                    ComponentAnalysis.analyse_components(nl, nh, p_cur, outdir)
+                    print("Proceed with detailed analysis? [Enter=yes, s=skip]: ")
+                    det_inp = strip(readline())
+                    if det_inp != "s"
+                        p_cur = Tools.read_params(joinpath(outdir, "params.json"))
+                        nl = Data.load_ascii(joinpath(outdir, "pulsar_low.debase.p3fold_norefine"))
+                        nh = Data.load_ascii(joinpath(outdir, "pulsar_high.debase.p3fold_norefine"))
+                        ComponentAnalysis.analyse_components(nl, nh, p_cur, outdir)
+                    else
+                        println("  Detailed analysis skipped.")
+                    end
                 end
             catch e
                 @warn "Failed for $psr: $e" exception=(e, catch_backtrace())
