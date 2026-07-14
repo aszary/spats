@@ -43,6 +43,48 @@ function detect_components(mean_profile, p)
             continue
         end
 
+        # ASCII plot
+        width = 60
+        height = 12
+        ymax = maximum(y)
+        ymin = minimum(y)
+        yrange = ymax - ymin
+        x_step = max(1, div(length(x), width))
+        ys_data = y[1:x_step:end]
+        ys_fit  = fit.yfit[1:x_step:end]
+        cols = length(ys_data)
+        println("──────────────────────────────────────────")
+        for row in height:-1:1
+            thresh = ymin + yrange * (row - 1) / height
+            line = ""
+            for col in 1:cols
+                d = ys_data[col]
+                f = ys_fit[col]
+                if d >= thresh && f >= thresh
+                    line *= "█"
+                elseif d >= thresh
+                    line *= "▒"
+                elseif f >= thresh
+                    line *= "░"
+                else
+                    line *= " "
+                end
+            end
+            if row == height
+                @printf("%.4f |%s\n", ymax, line)
+            elseif row == 1
+                @printf("%.4f |%s\n", ymin, line)
+            else
+                @printf("       |%s\n", line)
+            end
+        end
+        println("       └" * "─"^cols)
+        println("  █=data+fit  ▒=data only  ░=fit only")
+        for (i, c) in enumerate(fit.components)
+            marker_col = round(Int, (c.mu - x[1]) / x_step) + 1
+            marker_col = clamp(marker_col, 1, cols)
+            @printf("  comp%d @ bin %.1f (col %d)\n", i, c.mu, marker_col)
+        end
         println("──────────────────────────────────────────")
         println("  Detected components (bins):")
         for (i, c) in enumerate(fit.components)
@@ -99,6 +141,7 @@ function analyse_components(nl, nh, p, outdir; n_gauss_per_window=2, min_snr=3.0
     mean_both = (mean_low .+ mean_high) ./ 2
 
     println("\n--- Detecting components from mean profile ---")
+    println("  (Define windows for detailed per-bin analysis)")
     components = detect_components(mean_both, p)
     isnothing(components) && return
 
