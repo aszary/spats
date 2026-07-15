@@ -141,11 +141,19 @@ function define_windows(nl, nh, p)
             if parts[1] == "y"
                 close("all")
                 sort!(components, by=c->c.mu)
-                windows = [(max(bin_st, round(Int, c.mu - 1.5*c.sigma)),
-                            min(bin_end, round(Int, c.mu + 1.5*c.sigma)),
-                            c.mu)
-                           for c in components]
-                println("\n  Windows accepted:")
+                n_c = length(components)
+                mus = [c.mu for c in components]
+                windows = Vector{Tuple{Int,Int,Float64}}(undef, n_c)
+                for i in 1:n_c
+                    # left boundary: midpoint to previous component (or bin_st)
+                    ws = i == 1 ? bin_st :
+                         round(Int, (mus[i-1] + mus[i]) / 2.0)
+                    # right boundary: midpoint to next component (or bin_end)
+                    we = i == n_c ? bin_end :
+                         round(Int, (mus[i] + mus[i+1]) / 2.0)
+                    windows[i] = (max(bin_st, ws), min(bin_end, we), mus[i])
+                end
+                println("\n  Windows accepted (midpoint boundaries):")
                 for (i, (ws, we, wc)) in enumerate(windows)
                     @printf("    G%d: bins %d–%d  (center=%.1f)\n", i, ws, we, wc)
                 end
