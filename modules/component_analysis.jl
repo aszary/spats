@@ -147,16 +147,14 @@ function define_windows(nl, nh, p)
                 # precompute inner midpoints between adjacent components
                 mids = [(mus[i] + mus[i+1]) / 2.0 for i in 1:n_c-1]
                 for i in 1:n_c
-                    if n_c == 1
-                        # single component: symmetric ±1.5σ
-                        ws = round(Int, components[i].mu - 1.5*components[i].sigma)
-                        we = round(Int, components[i].mu + 1.5*components[i].sigma)
-                    else
-                        right_mid = i < n_c ? mids[i]   : 2*mus[i] - mids[i-1]
-                        left_mid  = i > 1   ? mids[i-1] : 2*mus[i] - mids[i]
-                        ws = round(Int, left_mid)
-                        we = round(Int, right_mid)
-                    end
+                    # outer boundaries: ±1.5σ (tied to actual component width)
+                    # inner boundaries: midpoint between adjacent centers (no overlap)
+                    ws = i == 1 ?
+                         round(Int, components[i].mu - 1.5*components[i].sigma) :
+                         round(Int, mids[i-1])
+                    we = i == n_c ?
+                         round(Int, components[i].mu + 1.5*components[i].sigma) :
+                         round(Int, mids[i])
                     windows[i] = (max(bin_st, ws), min(bin_end, we), mus[i])
                 end
                 println("\n  Windows accepted (midpoint boundaries):")
