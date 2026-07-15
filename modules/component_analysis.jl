@@ -141,8 +141,8 @@ function define_windows(nl, nh, p)
             if parts[1] == "y"
                 close("all")
                 sort!(components, by=c->c.mu)
-                windows = [(max(bin_st, round(Int, c.mu - 2.5*c.sigma)),
-                            min(bin_end, round(Int, c.mu + 2.5*c.sigma)),
+                windows = [(max(bin_st, round(Int, c.mu - 1.5*c.sigma)),
+                            min(bin_end, round(Int, c.mu + 1.5*c.sigma)),
                             c.mu)
                            for c in components]
                 println("\n  Windows accepted:")
@@ -268,7 +268,7 @@ end
 # Main detailed analysis
 # ---------------------------------------------------------------------------
 
-function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3.0)
+function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3.0)
     n_bins  = size(nl, 1)
     n_phase = size(nl, 2)
 
