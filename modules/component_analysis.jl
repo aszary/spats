@@ -317,7 +317,27 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3
                 snr     = noise > 0 ? maximum(y)/noise : 0.0
                 snr_low = snr < min_snr
 
-                best_fit, best_n, _ = GaussianFit.best_ngaussians(x, y; max_n=max_gauss_per_window)
+                half_win  = (we - ws) / 2.0
+                sigma_max = half_win / 1.5
+                ymax      = maximum(y)
+                function _wbounds(ng)
+                    lo = zeros(Float64, 1 + 3*ng)
+                    hi = zeros(Float64, 1 + 3*ng)
+                    lo[1] = 0.0;    hi[1] = ymax
+                    for k in 1:ng
+                        lo[2+3*(k-1)] = 0.0;          hi[2+3*(k-1)] = 2*ymax
+                        lo[3+3*(k-1)] = Float64(ws);  hi[3+3*(k-1)] = Float64(we)
+                        lo[4+3*(k-1)] = 1.0;          hi[4+3*(k-1)] = sigma_max
+                    end
+                    return lo, hi
+                end
+                _fits = Vector{Any}(undef, max_gauss_per_window)
+                for ng in 1:max_gauss_per_window
+                    lo_w, hi_w = _wbounds(ng)
+                    _fits[ng] = GaussianFit.fit_gaussians(x, y, ng; lower=lo_w, upper=hi_w)
+                end
+                best_n   = argmin([_fits[ng].aic for ng in 1:max_gauss_per_window])
+                best_fit = _fits[best_n]
                 push!(fits_list, best_fit.converged ? (x=x, y=y, fit=best_fit, n=best_n) : nothing)
 
                 if !best_fit.converged
