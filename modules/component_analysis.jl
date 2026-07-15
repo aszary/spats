@@ -308,13 +308,13 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
             @printf("=== %d MHz ===\n", freq)
             profile = data[bin, :]
 
-            for (ci, (ws, we, wref)) in enumerate(windows)
+            for (ci, (ws, we, _)) in enumerate(windows)
                 ws >= we && continue
                 x = Float64.(ws:we)
                 y = profile[ws:we]
 
-                noise = std(y)
-                snr   = noise > 0 ? maximum(y)/noise : 0.0
+                noise   = std(y)
+                snr     = noise > 0 ? maximum(y)/noise : 0.0
                 snr_low = snr < min_snr
 
                 best_fit, best_n, _ = GaussianFit.best_ngaussians(x, y; max_n=max_gauss_per_window)
@@ -328,7 +328,6 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
                 total_amp = sum(c.A for c in best_fit.components)
                 cen = total_amp > 0 ?
                       sum(c.A * c.mu for c in best_fit.components) / total_amp : NaN
-                # use mu_err of dominant Gaussian — same as standard analysis
                 dominant = argmax([c.A for c in best_fit.components])
                 dom_err  = best_fit.components[dominant].mu_err
                 cerr     = isnan(dom_err) ? best_fit.rms : dom_err
@@ -336,11 +335,9 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
                 centers[bin, ci, fi] = cen
                 c_errs[bin,  ci, fi] = cerr
 
-                off_bins = cen - wref
-                off_deg  = off_bins / n_phase * 360.0
-                snr_tag  = snr_low ? @sprintf(" [SNR=%.1f, low]", snr) : ""
-                @printf("  G%d: n_gauss=%d  center=%.2f  offset=%+.3f bins (%+.3f°)%s\n",
-                        ci, best_n, cen, off_bins, off_deg, snr_tag)
+                snr_tag = snr_low ? @sprintf(" [SNR=%.1f, low]", snr) : ""
+                @printf("  G%d: n_gauss=%d  center=%.2f bins (%.2f°)%s\n",
+                        ci, best_n, cen, cen/n_phase*360.0, snr_tag)
             end
 
             # fill NaN errors using median of valid errors for this freq/bin
@@ -355,15 +352,15 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
             end
         end
 
-        # frequency offsets
-        println("  ── Δ(high − low) ──")
+        # offset = high - low per component (like standard analysis)
+        println("  ── Offset high − low ──")
         for ci in 1:n_comp
             lo_c = centers[bin, ci, 1]; hi_c = centers[bin, ci, 2]
             el   = c_errs[bin,  ci, 1]; eh   = c_errs[bin,  ci, 2]
             (isnan(lo_c) || isnan(hi_c)) && continue
             diff     = hi_c - lo_c
             diff_deg = diff / n_phase * 360.0
-            lon_deg  = (lo_c + hi_c) / 2 / n_phase * 360.0
+            lon_deg  = (lo_c + hi_c) / 2.0 / n_phase * 360.0
             err      = (isnan(el) || isnan(eh)) ? NaN : sqrt(el^2 + eh^2)
             err_deg  = isnan(err) ? NaN : err / n_phase * 360.0
             @printf("  G%d: lon=%.2f°  %+.3f ± %.3f bins  (%+.3f° ± %.3f°)\n",
@@ -403,6 +400,9 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
                 g = fd.fit.baseline .+ GaussianFit._gauss.(fd.x, c.A, c.mu, c.sigma)
                 plot(fd.x, g, color=col, lw=0.8, alpha=0.5)
             end
+            cen_lo = centers[bin, ci, 1]
+            isnan(cen_lo) || axvline(cen_lo, color=col, lw=1.2, ls="-",
+                                     label="Low G$ci center")
         end
         for (ci, fd) in enumerate(fits_high)
             isnothing(fd) && continue
@@ -412,6 +412,9 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
                 g = fd.fit.baseline .+ GaussianFit._gauss.(fd.x, c.A, c.mu, c.sigma)
                 plot(fd.x, g, color=col, lw=0.8, alpha=0.5)
             end
+            cen_hi = centers[bin, ci, 2]
+            isnan(cen_hi) || axvline(cen_hi, color=col, lw=1.2, ls="-",
+                                     label="High G$ci center")
         end
         legend(fontsize=7)
         xlim(p["bin_st"], p["bin_end"])
