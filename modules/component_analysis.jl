@@ -358,10 +358,9 @@ function analyse_components(nl, nh, p, outdir; min_snr=3.0)
                 best_fit = GaussianFit.fit_gaussians(x, y, 1)
                 push!(fits_list, best_fit.converged ? (x=x, y=y, fit=best_fit, n=1) : nothing)
 
-                # error: propagation of noise through weighted centroid
-                # cerr = sqrt(Σ w_i*(x_i - cen)²) * noise / Σ w_i
-                var_x = sum(ym .* (xm .- cen).^2) / sum(ym)
-                cerr  = sqrt(var_x) * noise / sum(ym)
+                # error: exact propagation of noise through weighted centroid
+                # σ_cen = noise · sqrt(Σ(x_i − cen)²) / Σw_i
+                cerr = noise * sqrt(sum((xm .- cen).^2)) / sum(ym)
 
                 centers[bin, ci, fi] = cen
                 c_errs[bin,  ci, fi] = cerr
