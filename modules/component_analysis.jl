@@ -144,15 +144,19 @@ function define_windows(nl, nh, p)
                 n_c = length(components)
                 mus = [c.mu for c in components]
                 windows = Vector{Tuple{Int,Int,Float64}}(undef, n_c)
+                # precompute inner midpoints between adjacent components
+                mids = [(mus[i] + mus[i+1]) / 2.0 for i in 1:n_c-1]
                 for i in 1:n_c
-                    # left boundary: 1.5σ for outermost, midpoint for inner
-                    ws = i == 1 ?
-                         round(Int, components[i].mu - 1.5*components[i].sigma) :
-                         round(Int, (mus[i-1] + mus[i]) / 2.0)
-                    # right boundary: 1.5σ for outermost, midpoint for inner
-                    we = i == n_c ?
-                         round(Int, components[i].mu + 1.5*components[i].sigma) :
-                         round(Int, (mus[i] + mus[i+1]) / 2.0)
+                    if n_c == 1
+                        # single component: symmetric ±1.5σ
+                        ws = round(Int, components[i].mu - 1.5*components[i].sigma)
+                        we = round(Int, components[i].mu + 1.5*components[i].sigma)
+                    else
+                        right_mid = i < n_c ? mids[i]   : 2*mus[i] - mids[i-1]
+                        left_mid  = i > 1   ? mids[i-1] : 2*mus[i] - mids[i]
+                        ws = round(Int, left_mid)
+                        we = round(Int, right_mid)
+                    end
                     windows[i] = (max(bin_st, ws), min(bin_end, we), mus[i])
                 end
                 println("\n  Windows accepted (midpoint boundaries):")
