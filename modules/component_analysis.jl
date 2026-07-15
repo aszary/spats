@@ -145,11 +145,13 @@ function define_windows(nl, nh, p)
                 mus = [c.mu for c in components]
                 windows = Vector{Tuple{Int,Int,Float64}}(undef, n_c)
                 for i in 1:n_c
-                    # left boundary: midpoint to previous component (or bin_st)
-                    ws = i == 1 ? bin_st :
+                    # left boundary: 1.5σ for outermost, midpoint for inner
+                    ws = i == 1 ?
+                         round(Int, components[i].mu - 1.5*components[i].sigma) :
                          round(Int, (mus[i-1] + mus[i]) / 2.0)
-                    # right boundary: midpoint to next component (or bin_end)
-                    we = i == n_c ? bin_end :
+                    # right boundary: 1.5σ for outermost, midpoint for inner
+                    we = i == n_c ?
+                         round(Int, components[i].mu + 1.5*components[i].sigma) :
                          round(Int, (mus[i] + mus[i+1]) / 2.0)
                     windows[i] = (max(bin_st, ws), min(bin_end, we), mus[i])
                 end
