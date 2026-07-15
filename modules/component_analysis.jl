@@ -318,7 +318,7 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3
                 snr_low = snr < min_snr
 
                 half_win  = (we - ws) / 2.0
-                sigma_max = half_win / 2.0        # max sigma so ±2σ fits in window
+                sigma_max = half_win / 3.0        # max sigma so ±3σ fits in window
                 mu_margin = sigma_max             # center at least 1σ from edge
                 mu_lo     = Float64(ws) + mu_margin
                 mu_hi     = Float64(we) - mu_margin
