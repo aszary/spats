@@ -117,7 +117,7 @@ module SpaTs
         psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
         isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
 
-        start_psr = "J0134-2937"
+        start_psr = "J0304+1932"
         start_idx = findfirst(==(start_psr), psr_dirs)
         isnothing(start_idx) || (psr_dirs = psr_dirs[start_idx:end])
 
