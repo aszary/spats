@@ -398,13 +398,21 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
         end
         for (ci, fd) in enumerate(fits_low)
             isnothing(fd) && continue
-            plot(fd.x, fd.fit.yfit, "--",
-                 color=low_colors[mod1(ci, length(low_colors))], lw=1.8, label="Low G$ci fit")
+            col = low_colors[mod1(ci, length(low_colors))]
+            plot(fd.x, fd.fit.yfit, "--", color=col, lw=1.8, label="Low G$ci fit")
+            for c in fd.fit.components
+                g = fd.fit.baseline .+ GaussianFit._gauss.(fd.x, c.A, c.mu, c.sigma)
+                plot(fd.x, g, color=col, lw=0.8, alpha=0.5)
+            end
         end
         for (ci, fd) in enumerate(fits_high)
             isnothing(fd) && continue
-            plot(fd.x, fd.fit.yfit, "--",
-                 color=high_colors[mod1(ci, length(high_colors))], lw=1.8, label="High G$ci fit")
+            col = high_colors[mod1(ci, length(high_colors))]
+            plot(fd.x, fd.fit.yfit, "--", color=col, lw=1.8, label="High G$ci fit")
+            for c in fd.fit.components
+                g = fd.fit.baseline .+ GaussianFit._gauss.(fd.x, c.A, c.mu, c.sigma)
+                plot(fd.x, g, color=col, lw=0.8, alpha=0.5)
+            end
         end
         legend(fontsize=7)
         xlim(p["bin_st"], p["bin_end"])
