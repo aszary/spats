@@ -328,11 +328,10 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
                 total_amp = sum(c.A for c in best_fit.components)
                 cen = total_amp > 0 ?
                       sum(c.A * c.mu for c in best_fit.components) / total_amp : NaN
-                fallback_err = best_fit.rms
-                mu_errs = [isnan(c.mu_err) ? fallback_err : c.mu_err for c in best_fit.components]
-                cerr = (!isnan(cen) && total_amp > 0) ?
-                       sqrt(sum((best_fit.components[i].A * mu_errs[i])^2
-                                for i in eachindex(best_fit.components))) / total_amp : NaN
+                # use mu_err of dominant Gaussian — same as standard analysis
+                dominant = argmax([c.A for c in best_fit.components])
+                dom_err  = best_fit.components[dominant].mu_err
+                cerr     = isnan(dom_err) ? best_fit.rms : dom_err
 
                 centers[bin, ci, fi] = cen
                 c_errs[bin,  ci, fi] = cerr
