@@ -354,14 +354,19 @@ function analyse_components(nl, nh, p, outdir; min_snr=3.0)
                 ym  = ys[mask]
                 cen = sum(ym .* xm) / sum(ym)
 
-                # error: spread of weighted distribution / sqrt(effective N)
-                var_x = sum(ym .* (xm .- cen).^2) / sum(ym)
-                n_eff = sum(ym)^2 / sum(ym.^2)   # effective number of points
-                cerr  = sqrt(var_x / max(n_eff, 1.0))
-
-                # also store a single-Gaussian fit for visualization only
+                # single Gaussian for visualization + error estimate
                 best_fit = GaussianFit.fit_gaussians(x, y, 1)
                 push!(fits_list, best_fit.converged ? (x=x, y=y, fit=best_fit, n=1) : nothing)
+
+                # error: sigma*rms/A — same formula as standard analysis
+                if best_fit.converged && best_fit.components[1].A > 0
+                    g = best_fit.components[1]
+                    cerr = g.sigma * best_fit.rms / g.A
+                else
+                    # fallback: rms of intensity weighted spread
+                    var_x = sum(ym .* (xm .- cen).^2) / sum(ym)
+                    cerr  = sqrt(var_x)
+                end
 
                 centers[bin, ci, fi] = cen
                 c_errs[bin,  ci, fi] = cerr
