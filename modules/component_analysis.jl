@@ -278,7 +278,7 @@ end
 # Main detailed analysis
 # ---------------------------------------------------------------------------
 
-function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3.0)
+function analyse_components(nl, nh, p, outdir; min_snr=3.0)
     n_bins  = size(nl, 1)
     n_phase = size(nl, 2)
 
@@ -323,57 +323,52 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3
                 x = Float64.(ws:we)
                 y = profile[ws:we]
 
-                noise   = std(y)
-                snr     = noise > 0 ? maximum(y)/noise : 0.0
-                snr_low = snr < min_snr
+                # estimate noise from edges of window (10% on each side, min 2 pts)
+                n_edge   = max(2, round(Int, 0.1 * length(y)))
+                edge_y   = vcat(y[1:n_edge], y[end-n_edge+1:end])
+                baseline = median(edge_y)
+                noise    = std(edge_y)
+                noise    = noise > 0 ? noise : std(y)
 
-                half_win  = (we - ws) / 2.0
-                sigma_max = half_win / 3.0        # max sigma so ±3σ fits in window
-                mu_margin = sigma_max             # center at least 1σ from edge
-                mu_lo     = Float64(ws) + mu_margin
-                mu_hi     = Float64(we) - mu_margin
-                # fallback: if window too narrow, allow full range
-                mu_lo, mu_hi = mu_lo < mu_hi ? (mu_lo, mu_hi) : (Float64(ws), Float64(we))
-                ymax      = maximum(y)
-                function _wbounds(ng)
-                    lo = zeros(Float64, 1 + 3*ng)
-                    hi = zeros(Float64, 1 + 3*ng)
-                    lo[1] = 0.0;    hi[1] = ymax
-                    for k in 1:ng
-                        lo[2+3*(k-1)] = 0.0;    hi[2+3*(k-1)] = 2*ymax
-                        lo[3+3*(k-1)] = mu_lo;  hi[3+3*(k-1)] = mu_hi
-                        lo[4+3*(k-1)] = 1.0;    hi[4+3*(k-1)] = sigma_max
-                    end
-                    return lo, hi
-                end
-                _fits = Vector{Any}(undef, max_gauss_per_window)
-                for ng in 1:max_gauss_per_window
-                    lo_w, hi_w = _wbounds(ng)
-                    _fits[ng] = GaussianFit.fit_gaussians(x, y, ng; lower=lo_w, upper=hi_w)
-                end
-                best_n   = argmin([_fits[ng].aic for ng in 1:max_gauss_per_window])
-                best_fit = _fits[best_n]
-                push!(fits_list, best_fit.converged ? (x=x, y=y, fit=best_fit, n=best_n) : nothing)
+                ys       = y .- baseline          # baseline-subtracted
+                peak     = maximum(ys)
+                snr      = noise > 0 ? peak / noise : 0.0
+                snr_low  = snr < min_snr
 
-                if !best_fit.converged
-                    @printf("  G%d: fit failed\n", ci)
+                # threshold: 20% of peak or 2σ noise, whichever is higher
+                thresh   = max(0.2 * peak, 2.0 * noise)
+                mask     = ys .>= thresh
+
+                if sum(mask) < 2
+                    # fallback: use all points above 0
+                    mask = ys .> 0
+                end
+
+                if sum(mask) < 2
+                    @printf("  G%d: too few points above threshold\n", ci)
+                    push!(fits_list, nothing)
                     continue
                 end
 
-                dominant  = argmax([c.A for c in best_fit.components])
-                dom_c     = best_fit.components[dominant]
-                # weight by A^2: dominant Gaussian dominates, others contribute a little
-                w2        = [c.A^2 for c in best_fit.components]
-                cen       = sum(w2[i] * best_fit.components[i].mu for i in eachindex(w2)) / sum(w2)
-                # error: sigma*rms/A (standard radio-astronomy centroid formula)
-                cerr      = dom_c.A > 0 ? dom_c.sigma * best_fit.rms / dom_c.A : best_fit.rms
+                xm  = x[mask]
+                ym  = ys[mask]
+                cen = sum(ym .* xm) / sum(ym)
+
+                # error: spread of weighted distribution / sqrt(effective N)
+                var_x = sum(ym .* (xm .- cen).^2) / sum(ym)
+                n_eff = sum(ym)^2 / sum(ym.^2)   # effective number of points
+                cerr  = sqrt(var_x / max(n_eff, 1.0))
+
+                # also store a single-Gaussian fit for visualization only
+                best_fit = GaussianFit.fit_gaussians(x, y, 1)
+                push!(fits_list, best_fit.converged ? (x=x, y=y, fit=best_fit, n=1) : nothing)
 
                 centers[bin, ci, fi] = cen
                 c_errs[bin,  ci, fi] = cerr
 
                 snr_tag = snr_low ? @sprintf(" [SNR=%.1f, low]", snr) : ""
-                @printf("  G%d: n_gauss=%d  center=%.2f bins (%.2f°)%s\n",
-                        ci, best_n, cen, cen/n_phase*360.0, snr_tag)
+                @printf("  G%d: centroid=%.2f bins (%.2f°)  err=%.3f bins%s\n",
+                        ci, cen, cen/n_phase*360.0, cerr, snr_tag)
             end
 
             # fill NaN errors using median of valid errors for this freq/bin
