@@ -318,16 +318,21 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3
                 snr_low = snr < min_snr
 
                 half_win  = (we - ws) / 2.0
-                sigma_max = half_win / 1.5
+                sigma_max = half_win / 2.0        # max sigma so ±2σ fits in window
+                mu_margin = sigma_max             # center at least 1σ from edge
+                mu_lo     = Float64(ws) + mu_margin
+                mu_hi     = Float64(we) - mu_margin
+                # fallback: if window too narrow, allow full range
+                mu_lo, mu_hi = mu_lo < mu_hi ? (mu_lo, mu_hi) : (Float64(ws), Float64(we))
                 ymax      = maximum(y)
                 function _wbounds(ng)
                     lo = zeros(Float64, 1 + 3*ng)
                     hi = zeros(Float64, 1 + 3*ng)
                     lo[1] = 0.0;    hi[1] = ymax
                     for k in 1:ng
-                        lo[2+3*(k-1)] = 0.0;          hi[2+3*(k-1)] = 2*ymax
-                        lo[3+3*(k-1)] = Float64(ws);  hi[3+3*(k-1)] = Float64(we)
-                        lo[4+3*(k-1)] = 1.0;          hi[4+3*(k-1)] = sigma_max
+                        lo[2+3*(k-1)] = 0.0;    hi[2+3*(k-1)] = 2*ymax
+                        lo[3+3*(k-1)] = mu_lo;  hi[3+3*(k-1)] = mu_hi
+                        lo[4+3*(k-1)] = 1.0;    hi[4+3*(k-1)] = sigma_max
                     end
                     return lo, hi
                 end
@@ -350,7 +355,8 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3
                 # weight by A^2: dominant Gaussian dominates, others contribute a little
                 w2        = [c.A^2 for c in best_fit.components]
                 cen       = sum(w2[i] * best_fit.components[i].mu for i in eachindex(w2)) / sum(w2)
-                cerr      = isnan(dom_c.mu_err) ? best_fit.rms : dom_c.mu_err
+                # error: sigma*rms/A (standard radio-astronomy centroid formula)
+                cerr      = dom_c.A > 0 ? dom_c.sigma * best_fit.rms / dom_c.A : best_fit.rms
 
                 centers[bin, ci, fi] = cen
                 c_errs[bin,  ci, fi] = cerr
@@ -412,13 +418,14 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3
             axvspan(ws, we, alpha=0.08, color=low_colors[mod1(ci, length(low_colors))])
             axvline(wref, color=low_colors[mod1(ci, length(low_colors))], lw=0.8, ls=":")
         end
+        x_plot = collect(x_data)  # full profile range for plotting Gaussians
         for (ci, fd) in enumerate(fits_low)
             isnothing(fd) && continue
             col = low_colors[mod1(ci, length(low_colors))]
             plot(fd.x, fd.fit.yfit, "--", color=col, lw=1.8, label="Low G$ci fit")
             for c in fd.fit.components
-                g = fd.fit.baseline .+ GaussianFit._gauss.(fd.x, c.A, c.mu, c.sigma)
-                plot(fd.x, g, color=col, lw=0.8, alpha=0.5)
+                g = fd.fit.baseline .+ GaussianFit._gauss.(x_plot, c.A, c.mu, c.sigma)
+                plot(x_plot, g, color=col, lw=0.8, alpha=0.5)
             end
             cen_lo = centers[bin, ci, 1]
             isnan(cen_lo) || axvline(cen_lo, color=col, lw=1.2, ls="-",
@@ -429,8 +436,8 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=3, min_snr=3
             col = high_colors[mod1(ci, length(high_colors))]
             plot(fd.x, fd.fit.yfit, "--", color=col, lw=1.8, label="High G$ci fit")
             for c in fd.fit.components
-                g = fd.fit.baseline .+ GaussianFit._gauss.(fd.x, c.A, c.mu, c.sigma)
-                plot(fd.x, g, color=col, lw=0.8, alpha=0.5)
+                g = fd.fit.baseline .+ GaussianFit._gauss.(x_plot, c.A, c.mu, c.sigma)
+                plot(x_plot, g, color=col, lw=0.8, alpha=0.5)
             end
             cen_hi = centers[bin, ci, 2]
             isnan(cen_hi) || axvline(cen_hi, color=col, lw=1.2, ls="-",
