@@ -476,6 +476,36 @@ function analyse_components(nl, nh, p, outdir; max_gauss_per_window=5, min_snr=3
         close("all")
     end
 
+    # --- additional plot: center position vs p3fold bin, low and high separately ---
+    bins_axis = 1:n_bins
+    low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
+    high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
+    figure(figsize=(8, 5))
+    for ci in 1:n_comp
+        lo_cen = [centers[b, ci, 1] for b in 1:n_bins]
+        hi_cen = [centers[b, ci, 2] for b in 1:n_bins]
+        lo_err = [c_errs[b,  ci, 1] for b in 1:n_bins]
+        hi_err = [c_errs[b,  ci, 2] for b in 1:n_bins]
+        errorbar(collect(bins_axis), lo_cen, yerr=lo_err,
+                 fmt="o-", capsize=4, lw=1.2,
+                 color=low_colors[mod1(ci, length(low_colors))],
+                 label="G$ci low")
+        errorbar(collect(bins_axis), hi_cen, yerr=hi_err,
+                 fmt="s--", capsize=4, lw=1.2,
+                 color=high_colors[mod1(ci, length(high_colors))],
+                 label="G$ci high")
+    end
+    minorticks_on()
+    xlabel("p3fold bin")
+    ylabel("Center position (bin)")
+    title("Component center vs p3fold bin — low and high")
+    legend(fontsize=8)
+    tight_layout()
+    show()
+    println("Press Enter to close drift plot.")
+    readline(stdin; keep=false)
+    close("all")
+
     # --- save ---
     outfile = joinpath(outdir, "component_offsets.txt")
     open(outfile, "w") do f
