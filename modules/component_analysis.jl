@@ -361,12 +361,10 @@ end
 """
     _measure_centers_global(profile, windows, bin_st, bin_end; min_snr)
 
-Fit N Gaussians on the full on-pulse (same model as Simple), seeded by window
-centres. Assign each fitted component to the nearest window. This makes
-Detailed ≈ Simple for clear 1–2 component profiles.
-
-Returns Vector of NamedTuples (one per window), or `nothing` if the global
-fit is unusable.
+Fit N Gaussians on the full on-pulse, seeded by window centres (Detailed path —
+not the same auto-p0 as Simple). Assign each fitted component to the nearest
+window. For clear separated components this usually agrees with Simple within
+errors, while still being a window-guided method.
 """
 function _measure_centers_global(profile, windows, bin_st, bin_end; min_snr=3.0)
     n_comp = length(windows)
@@ -401,7 +399,6 @@ function _measure_centers_global(profile, windows, bin_st, bin_end; min_snr=3.0)
         for (j, c) in enumerate(comps)
             used[j] && continue
             d = abs(c.mu - wref)
-            # must land near the window
             in_win = (c.mu >= ws - 2) && (c.mu <= we + 2)
             if in_win && d < best_d
                 best_d = d
@@ -415,7 +412,6 @@ function _measure_centers_global(profile, windows, bin_st, bin_end; min_snr=3.0)
         snr = noise > 0 ? peak / noise : 0.0
         mu_err = isfinite(c.mu_err) && c.mu_err > 0 ? c.mu_err :
                  noise * c.sigma / max(c.A, eps())
-        # local fit object for plotting this component only
         local_fit = (
             converged = true,
             baseline = fit.baseline,
@@ -459,7 +455,7 @@ function analyse_components(nl, nh, p, outdir; min_snr=3.0)
 
     println("\n══════════════════════════════════════════")
     println("  DETAILED PER-COMPONENT ANALYSIS")
-    println("  Primary: global N-Gaussian (same as Simple, seeded by windows)")
+    println("  Primary: window-seeded N-Gaussian on onpulse (gauss_global)")
     println("  Fallback: 1-Gaussian / centroid per window")
     println("══════════════════════════════════════════")
 
