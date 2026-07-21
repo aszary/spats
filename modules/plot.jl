@@ -780,49 +780,49 @@ module Plot
 
     function analyse_p3folds3(low, high, p, n_comp)
         pulses, bins = size(low)
+        nbin = Int(get(p, "nbin", bins))
+        if nbin != bins
+            @warn "params nbin=$nbin differs from data bins=$bins — using data size"
+            nbin = bins
+        end
+        freq_low  = round(Int, get(p, "freq_low",  1023.0))
+        freq_high = round(Int, get(p, "freq_high", 1523.0))
 
         # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
         offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
 
         for i in 1:pulses
-            # Extract data in the range bin_st:bin_end
             x_data = p["bin_st"]:p["bin_end"]
             y_low = low[i, p["bin_st"]:p["bin_end"]]
             y_high = high[i, p["bin_st"]:p["bin_end"]]
 
-            #=
-            # Tutaj fity nie działają...
-            x_data = collect(1:bins)
-            y_low = low[i, :]
-            y_high = high[i, :]
-            =#
-
-
             fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
-            #println(fit_l)
-            GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
             fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
-            GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024)
 
+            if !fit_l.converged || !fit_h.converged
+                @warn "Gaussian fit failed for p3fold bin $i — skipping offsets" low_ok=fit_l.converged high_ok=fit_h.converged
+            else
+                GaussianFit.print_fit_summary(fit_l, n_comp; label="$(freq_low) MHz", nbin=nbin)
+                GaussianFit.print_fit_summary(fit_h, n_comp; label="$(freq_high) MHz", nbin=nbin)
 
-            # Component offsets
-            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
-                @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
-                    o.component, o.longitude, o.longitude_bin, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
-                if !haskey(offset_data, o.component)
-                    offset_data[o.component] = (lon=Float64[], off=Float64[], err=Float64[])
+                for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=nbin)
+                    @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
+                        o.component, o.longitude, o.longitude_bin, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
+                    # skip NaN / zero errors so they don't dominate the weighted mean
+                    if !(isfinite(o.offset_deg_err) && o.offset_deg_err > 0)
+                        continue
+                    end
+                    if !haskey(offset_data, o.component)
+                        offset_data[o.component] = (lon=Float64[], off=Float64[], err=Float64[])
+                    end
+                    push!(offset_data[o.component].lon, o.longitude)
+                    push!(offset_data[o.component].off, o.offset_deg)
+                    push!(offset_data[o.component].err, o.offset_deg_err)
                 end
-                push!(offset_data[o.component].lon, o.longitude)
-                push!(offset_data[o.component].off, o.offset_deg)
-                push!(offset_data[o.component].err, o.offset_deg_err)
             end
-
-
-
 
             figure(figsize=(6, 7))
 
-            # Subplot for low
             low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
             high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
 
@@ -834,6 +834,7 @@ module Plot
                 for (j, c) in enumerate(fit_l.components)
                     plot(x_data, fit_l.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
                          color=low_colors[mod1(j, length(low_colors))], lw=1.8, alpha=0.9, label="Low G$j")
+                    axvline(c.mu, color=low_colors[mod1(j, length(low_colors))], lw=1.0, ls="-")
                 end
             end
             if fit_h.converged
@@ -841,12 +842,12 @@ module Plot
                 for (j, c) in enumerate(fit_h.components)
                     plot(x_data, fit_h.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
                          color=high_colors[mod1(j, length(high_colors))], lw=1.8, alpha=0.9, label="High G$j")
+                    axvline(c.mu, color=high_colors[mod1(j, length(high_colors))], lw=1.0, ls="-")
                 end
             end
             legend()
             xlim(p["bin_st"], p["bin_end"])
 
-            # Bottom panel: mu vs amplitude for each component
             subplot(2, 1, 2)
             if fit_l.converged
                 for (j, c) in enumerate(fit_l.components)
@@ -877,10 +878,6 @@ module Plot
                 println("Exiting analysis.")
                 break
             end
-
-
-
-
         end
 
         # Weighted mean offset per component
@@ -888,7 +885,7 @@ module Plot
             println("\n=== Weighted mean offsets ===")
             for comp in sort(collect(keys(offset_data)))
                 d = offset_data[comp]
-                if isempty(d.err) || all(d.err .== 0.0)
+                if isempty(d.err) || all(e -> !(isfinite(e) && e > 0), d.err)
                     continue
                 end
                 w      = 1.0 ./ (d.err .^ 2)
@@ -916,7 +913,6 @@ module Plot
                          color=colors[mod1(comp, length(colors))],
                          label="G$comp")
             end
-            #ylim(-0.5, 1.5)
             axhline(0.0, color="gray", lw=0.8, ls="--")
             minorticks_on()
             xlabel("Longitude (°)")

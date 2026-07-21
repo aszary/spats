@@ -183,8 +183,10 @@ module SpaTs
                     Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
                 else
                     p_cur = Tools.read_params(joinpath(outdir, "params.json"))
-                    nl = Data.load_ascii(joinpath(outdir, "pulsar_low.debase.p3fold_norefine"))
-                    nh = Data.load_ascii(joinpath(outdir, "pulsar_high.debase.p3fold_norefine"))
+                    nl = Data.normalize_per_pulse(
+                        Data.load_ascii(joinpath(outdir, "pulsar_low.debase.p3fold_norefine")))
+                    nh = Data.normalize_per_pulse(
+                        Data.load_ascii(joinpath(outdir, "pulsar_high.debase.p3fold_norefine")))
                     ComponentAnalysis.analyse_components(nl, nh, p_cur, outdir)
                 end
             catch e

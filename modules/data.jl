@@ -955,7 +955,12 @@ module Data
             pulse = data[i, :]
             min_val = minimum(pulse)
             max_val = maximum(pulse)
-            normalized[i, :] = (pulse .- min_val) ./ (max_val - min_val)
+            span = max_val - min_val
+            if span > 0
+                normalized[i, :] = (pulse .- min_val) ./ span
+            else
+                normalized[i, :] .= 0.0
+            end
         end
         return normalized
     end
