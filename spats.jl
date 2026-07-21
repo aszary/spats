@@ -90,6 +90,40 @@ module SpaTs
         Data.process_psrdata_single(indir, outdir)
     end
 
+    """
+    Re-run Simple / Detailed analysis on an already processed `*_16` outdir
+    (skips process_psrdata_16). Useful for testing complex multi-component pulsars.
+
+    Example:
+      SpaTs.reanalyse("/home/psr/output/J1700-3312_16")
+    """
+    function reanalyse(outdir)
+        isdir(outdir) || error("outdir not found: $outdir")
+        params_file = joinpath(outdir, "params.json")
+        isfile(params_file) || error("missing params.json in $outdir")
+        low_f  = joinpath(outdir, "pulsar_low.debase.p3fold_norefine")
+        high_f = joinpath(outdir, "pulsar_high.debase.p3fold_norefine")
+        isfile(low_f)  || error("missing $low_f — run process_psrdata_16 first")
+        isfile(high_f) || error("missing $high_f — run process_psrdata_16 first")
+
+        println("=== Re-analyse: $outdir ===")
+        mode = ComponentAnalysis.ask_analysis_mode()
+        if mode == :simple
+            print("n_comp [default=2]: ")
+            n_inp = strip(readline())
+            n_comp = isempty(n_inp) ? 2 : parse(Int, n_inp)
+            Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
+        else
+            p = Tools.read_params(params_file)
+            nl = Data.normalize_per_pulse(Data.load_ascii(low_f))
+            nh = Data.normalize_per_pulse(Data.load_ascii(high_f))
+            println("  Loaded p3fold: $(size(nl,1)) bins × $(size(nl,2)) phase")
+            println("  Tip (complex PSR): set n_comp to the number of clear peaks")
+            println("  you see on the mean profile; use move/add/del until windows fit.")
+            ComponentAnalysis.analyse_components(nl, nh, p, outdir)
+        end
+        println("=== Done: $outdir ===")
+    end
 
     """
     Automatically process all pulsars found in `dataroot`.
@@ -102,7 +136,8 @@ module SpaTs
       vpmout    – output directory prefix (same convention as main())
       n_comp    – number of components passed to analyse_p3folds_16_new
     """
-    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/")
+    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/";
+                         start_psr="J0304+1932")
         isdir(dataroot) || error("dataroot not found: $dataroot")
 
         p3_file = joinpath(@__DIR__, "input/drift_pulsars_P3.txt")
@@ -117,9 +152,12 @@ module SpaTs
         psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
         isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
 
-        start_psr = "J0304+1932"
         start_idx = findfirst(==(start_psr), psr_dirs)
-        isnothing(start_idx) || (psr_dirs = psr_dirs[start_idx:end])
+        if isnothing(start_idx)
+            @warn "start_psr $start_psr not found — analysing full list"
+        else
+            psr_dirs = psr_dirs[start_idx:end]
+        end
 
         for psr in psr_dirs
             psr_path = joinpath(dataroot, psr)
@@ -137,7 +175,8 @@ module SpaTs
             p3_str = get(p3_map, psr, "unknown")
             println("=== Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
             try
-                # parse P3 value and error from "6.6(2)" notation and write to params.json
+                # If P3 is in catalog ("6.6(2)"), write it to params.
+                # If not, leave p3=-1 so twodfs_lrfs opens the interactive P3 window.
                 m = match(r"^(\d+(?:\.\d+)?)\((\d+)\)$", p3_str)
                 if !isnothing(m)
                     val_str = m.captures[1]
@@ -458,7 +497,8 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        analyse_all()
+        # Start from J1625-4048 (delete old *_16 on server first if reprocessing)
+        analyse_all(start_psr="J1625-4048")
     end
 
 end # module

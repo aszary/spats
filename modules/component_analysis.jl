@@ -448,8 +448,8 @@ function analyse_components(nl, nh, p, outdir; min_snr=3.0)
     freq_low  = round(Int, get(p, "freq_low",  1023.0))
     freq_high = round(Int, get(p, "freq_high", 1523.0))
 
-    low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
-    high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
+    low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0", "#4CAF50", "#9C27B0", "#00897B", "#5D4037"]
+    high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17", "#FF7043", "#D84315", "#FFAB00", "#BF360C"]
 
     centers = fill(NaN, n_bins, n_comp, 2)
     c_errs  = fill(NaN, n_bins, n_comp, 2)
