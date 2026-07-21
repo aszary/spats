@@ -498,7 +498,7 @@ module SpaTs
 
         #Tools.clean_all(vpmout)
         # Start from J1625-4048 (delete old *_16 on server first if reprocessing)
-        analyse_all(start_psr="J1625-4048")
+        analyse_all(start_psr="J1700-3312")
     end
 
 end # module
