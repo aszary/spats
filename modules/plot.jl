@@ -808,16 +808,17 @@ module Plot
                 for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=nbin)
                     @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
                         o.component, o.longitude, o.longitude_bin, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
-                    # skip NaN / zero errors so they don't dominate the weighted mean
-                    if !(isfinite(o.offset_deg_err) && o.offset_deg_err > 0)
-                        continue
+                end
+            end
+
+            # Pending offsets for this bin — added only if user accepts (Enter)
+            pending = NamedTuple{(:comp, :lon, :off, :err), Tuple{Int,Float64,Float64,Float64}}[]
+            if fit_l.converged && fit_h.converged
+                for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=nbin)
+                    if isfinite(o.offset_deg_err) && o.offset_deg_err > 0
+                        push!(pending, (comp=o.component, lon=o.longitude,
+                                        off=o.offset_deg, err=o.offset_deg_err))
                     end
-                    if !haskey(offset_data, o.component)
-                        offset_data[o.component] = (lon=Float64[], off=Float64[], err=Float64[])
-                    end
-                    push!(offset_data[o.component].lon, o.longitude)
-                    push!(offset_data[o.component].off, o.offset_deg)
-                    push!(offset_data[o.component].err, o.offset_deg_err)
                 end
             end
 
@@ -870,13 +871,26 @@ module Plot
             tight_layout()
             show()
             
-            println("Press Enter for next pulse, 'q' to quit.")
-            user_input = readline(stdin; keep=false)
+            println("Enter = accept bin,  s = skip bin,  q = quit")
+            user_input = lowercase(strip(readline(stdin; keep=false)))
             close("all")
-            
-            if lowercase(strip(user_input)) == "q"
-                println("Exiting analysis.")
+
+            if user_input == "q"
+                println("Exiting analysis (current bin not saved).")
                 break
+            elseif user_input == "s" || user_input == "n" || user_input == "skip"
+                println("  Bin $i skipped — not included in mean / final plot.")
+                continue
+            else
+                # Enter / y / anything else → accept
+                for o in pending
+                    if !haskey(offset_data, o.comp)
+                        offset_data[o.comp] = (lon=Float64[], off=Float64[], err=Float64[])
+                    end
+                    push!(offset_data[o.comp].lon, o.lon)
+                    push!(offset_data[o.comp].off, o.off)
+                    push!(offset_data[o.comp].err, o.err)
+                end
             end
         end
 

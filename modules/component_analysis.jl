@@ -516,6 +516,7 @@ function analyse_components(nl, nh, p, outdir; min_snr=3.0)
         end
 
         println("  ── Offset high − low ──")
+        pending = NamedTuple{(:ci, :lon, :off, :err), Tuple{Int,Float64,Float64,Float64}}[]
         for ci in 1:n_comp
             lo_c = centers[bin, ci, 1]; hi_c = centers[bin, ci, 2]
             el   = c_errs[bin,  ci, 1]; eh   = c_errs[bin,  ci, 2]
@@ -532,12 +533,7 @@ function analyse_components(nl, nh, p, outdir; min_snr=3.0)
                     diff_deg, isnan(err_deg) ? 0.0 : err_deg, keep_tag)
 
             if keep
-                if !haskey(offset_data, ci)
-                    offset_data[ci] = (lon=Float64[], off=Float64[], err=Float64[])
-                end
-                push!(offset_data[ci].lon, lon_deg)
-                push!(offset_data[ci].off, diff_deg)
-                push!(offset_data[ci].err, err_deg)
+                push!(pending, (ci=ci, lon=lon_deg, off=diff_deg, err=err_deg))
             end
         end
 
@@ -606,10 +602,31 @@ function analyse_components(nl, nh, p, outdir; min_snr=3.0)
         tight_layout()
         show()
 
-        println("Press Enter for next bin, 'q' to quit.")
-        user_input = readline(stdin; keep=false)
+        println("Enter = accept bin,  s = skip bin,  q = quit")
+        user_input = lowercase(strip(readline(stdin; keep=false)))
         close("all")
-        lowercase(strip(user_input)) == "q" && break
+
+        if user_input == "q"
+            println("Exiting analysis (current bin not saved).")
+            # clear current bin from arrays so it won't appear on drift plot / file
+            centers[bin, :, :] .= NaN
+            c_errs[bin, :, :]  .= NaN
+            break
+        elseif user_input == "s" || user_input == "n" || user_input == "skip"
+            println("  Bin $bin skipped — not included in mean / final plots.")
+            centers[bin, :, :] .= NaN
+            c_errs[bin, :, :]  .= NaN
+            continue
+        else
+            for o in pending
+                if !haskey(offset_data, o.ci)
+                    offset_data[o.ci] = (lon=Float64[], off=Float64[], err=Float64[])
+                end
+                push!(offset_data[o.ci].lon, o.lon)
+                push!(offset_data[o.ci].off, o.off)
+                push!(offset_data[o.ci].err, o.err)
+            end
+        end
     end
 
     # --- weighted mean summary ---
