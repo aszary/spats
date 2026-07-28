@@ -137,7 +137,7 @@ module SpaTs
       n_comp    – number of components passed to analyse_p3folds_16_new
     """
     function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/";
-                         start_psr="J0304+1932")
+                         start_psr="J0304+1932", downward=false)
         isdir(dataroot) || error("dataroot not found: $dataroot")
 
         p3_file = joinpath(@__DIR__, "input/drift_pulsars_P3.txt")
@@ -155,8 +155,14 @@ module SpaTs
         start_idx = findfirst(==(start_psr), psr_dirs)
         if isnothing(start_idx)
             @warn "start_psr $start_psr not found — analysing full list"
+            downward && reverse!(psr_dirs)
+        elseif downward
+            # J1609 → J1600 → J1500 … (numerically / alphabetically downward)
+            psr_dirs = reverse(psr_dirs[1:start_idx])
+            println("Order: downward from $start_psr ($(length(psr_dirs)) pulsars)")
         else
             psr_dirs = psr_dirs[start_idx:end]
+            println("Order: upward from $start_psr ($(length(psr_dirs)) pulsars)")
         end
 
         for psr in psr_dirs
@@ -497,8 +503,8 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        # Start from J1609-4616, then alphabetically downward (delete old *_16 if reprocessing)
-        analyse_all(start_psr="J1609-4616")
+        # Start from J1609-4616, then downward toward J1500, J1400, … 
+        analyse_all(start_psr="J1609-4616", downward=true)
     end
 
 end # module
