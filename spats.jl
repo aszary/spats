@@ -129,7 +129,7 @@ module SpaTs
 
         Data.analyse_p3folds_interactive(vpmout*"J2037+1942_16", "norefine")
 
-        Data.analyse_all()
+        #Data.analyse_all()
     end
 
 end # module
