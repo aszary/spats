@@ -497,8 +497,8 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        # Start from J1625-4048 (delete old *_16 on server first if reprocessing)
-        analyse_all(start_psr="J0459-0210")
+        # Start from J1609-4616, then alphabetically downward (delete old *_16 if reprocessing)
+        analyse_all(start_psr="J1609-4616")
     end
 
 end # module
