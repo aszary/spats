@@ -1740,4 +1740,39 @@ end
     end
 end
 
+
+
+
+
+function analyse_p3folds_interactive(indir, type)
+    p = Tools.read_params(joinpath(indir, "params.json"))
+    low  = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
+    high = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
+    l = Data.load_ascii(low)
+    h = Data.load_ascii(high)
+    nl = normalize_per_pulse(l)
+    nh = normalize_per_pulse(h)
+    Plot.analyse_p3folds5(nl, nh, p)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 end # module

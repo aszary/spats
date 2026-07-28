@@ -26,6 +26,7 @@ module Plot
     #include("pyrmodule.jl")
     include("functions.jl")
     include("GaussianFit.jl")
+    include("gaus_peak_select.jl")
 
 
     function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
@@ -1075,6 +1076,182 @@ module Plot
     end
 
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function analyse_p3folds5(low, high, p)
+        pulses, bins = size(low)
+        # Collected offsets per pulse
+        offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
+        for i in 1:pulses
+            x_data = p["bin_st"]:p["bin_end"]
+            y_low  = low[i, p["bin_st"]:p["bin_end"]]
+            y_high = high[i, p["bin_st"]:p["bin_end"]]
+            println("\n━━━ Pulse $i / $pulses ━━━")
+            # --- Low frequency: interactive peak selection ---
+            println("\n  ▸ LOW frequency profile:")
+            fit_l = GausPeakSelect.select_and_fit(x_data, y_low;
+                        title_str="LOW freq — Pulse $i — Click peaks, right-click/Enter to finish")
+            GausPeakSelect.print_fit_summary(fit_l; label="1023 MHz", nbin=1024)
+            # --- High frequency: interactive peak selection ---
+            println("\n  ▸ HIGH frequency profile:")
+            fit_h = GausPeakSelect.select_and_fit(x_data, y_high;
+                        title_str="HIGH freq — Pulse $i — Click peaks, right-click/Enter to finish")
+            GausPeakSelect.print_fit_summary(fit_h; label="1523 MHz", nbin=1024)
+            # --- Plot results ---
+            figure(figsize=(6, 7))
+            low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
+            high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
+            subplot(2, 1, 1)
+            plot(x_data, y_low,  color="steelblue",  lw=1.2, alpha=0.7, label="Low data")
+            plot(x_data, y_high, color="darkorange",  lw=1.2, alpha=0.7, label="High data")
+            if fit_l.converged
+                plot(x_data, fit_l.yfit, "--", color="blue", lw=2.0, label="Fit low")
+                for (j, c) in enumerate(fit_l.components)
+                    plot(x_data, fit_l.baseline .+ GausPeakSelect._gauss.(x_data, c.A, c.mu, c.sigma),
+                         color=low_colors[mod1(j, length(low_colors))], lw=1.8, alpha=0.9, label="Low G$j")
+                end
+            end
+            if fit_h.converged
+                plot(x_data, fit_h.yfit, "--", color="darkorange", lw=2.0, label="Fit high")
+                for (j, c) in enumerate(fit_h.components)
+                    plot(x_data, fit_h.baseline .+ GausPeakSelect._gauss.(x_data, c.A, c.mu, c.sigma),
+                         color=high_colors[mod1(j, length(high_colors))], lw=1.8, alpha=0.9, label="High G$j")
+                end
+            end
+            legend()
+            xlim(p["bin_st"], p["bin_end"])
+            subplot(2, 1, 2)
+            if fit_l.converged
+                for (j, c) in enumerate(fit_l.components)
+                    scatter([c.mu], [fit_l.baseline + c.A], color=low_colors[mod1(j, length(low_colors))],
+                            marker="o", s=60, label="Low G$j", zorder=3)
+                end
+            end
+            if fit_h.converged
+                for (j, c) in enumerate(fit_h.components)
+                    scatter([c.mu], [fit_h.baseline + c.A], color=high_colors[mod1(j, length(high_colors))],
+                            marker="s", s=60, label="High G$j", zorder=3)
+                end
+            end
+            xlabel("μ (bin)")
+            ylabel("Amplitude")
+            title("Components: μ vs amplitude")
+            legend()
+            xlim(p["bin_st"], p["bin_end"])
+            tight_layout()
+            show()
+            # User evaluation
+            println("Press Enter for next, 's' to skip, 'q' to quit.")
+            user_input = lowercase(strip(readline(stdin; keep=false)))
+            close("all")
+            user_input == "q" && (println("Exiting."); break)
+            user_input == "s" && (println("Skipped pulse $i."); continue)
+            # Component offsets (only if both have same number of components)
+            if fit_l.converged && fit_h.converged
+                nl = length(fit_l.components)
+                nh = length(fit_h.components)
+                if nl == nh
+                    for o in GausPeakSelect.component_offsets(fit_h, fit_l; nbin=1024)
+                        @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
+                            o.component, o.longitude, o.longitude_bin,
+                            o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
+                        if !haskey(offset_data, o.component)
+                            offset_data[o.component] = (lon=Float64[], off=Float64[], err=Float64[])
+                        end
+                        push!(offset_data[o.component].lon, o.longitude)
+                        push!(offset_data[o.component].off, o.offset_deg)
+                        push!(offset_data[o.component].err, o.offset_deg_err)
+                    end
+                else
+                    @warn "Component count mismatch: low=$nl, high=$nh — skipping offset for pulse $i"
+                end
+            end
+        end
+        # Weighted mean offset per component
+        if !isempty(offset_data)
+            println("\n=== Weighted mean offsets ===")
+            for comp in sort(collect(keys(offset_data)))
+                d = offset_data[comp]
+                if isempty(d.err) || all(d.err .== 0.0)
+                    continue
+                end
+                w      = 1.0 ./ (d.err .^ 2)
+                n      = length(d.off)
+                mu     = sum(w .* d.off) / sum(w)
+                sigma_int = 1.0 / sqrt(sum(w))
+                chi2   = sum(w .* (d.off .- mu) .^ 2)
+                dof    = n - 1
+                chi2_red = dof > 0 ? chi2 / dof : NaN
+                sigma_ext = sigma_int * sqrt(max(1.0, chi2_red))
+                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)",
+                    comp, mu, sigma_int, n, chi2_red, sigma_ext))
+            end
+            println()
+        end
+        # Final plot
+        if !isempty(offset_data)
+            figure(figsize=(8, 5))
+            colors = ["#2196F3", "#E65100", "#4CAF50", "#9C27B0"]
+            for comp in sort(collect(keys(offset_data)))
+                d = offset_data[comp]
+                errorbar(d.lon, d.off, yerr=d.err,
+                         fmt="o", capsize=4, lw=1.2,
+                         color=colors[mod1(comp, length(colors))],
+                         label="G$comp")
+            end
+            axhline(0.0, color="gray", lw=0.8, ls="--")
+            minorticks_on()
+            xlabel("Longitude (°)")
+            ylabel("Offset (°)")
+            title("Longitude vs. offset")
+            legend()
+            tight_layout()
+            show()
+        end
+    end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

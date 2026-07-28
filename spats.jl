@@ -124,6 +124,11 @@ module SpaTs
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
+
+
+
+        Data.analyse_p3folds_interactive(vpmout*"J0034-0721_16", "norefine")
+
         Data.analyse_all()
     end
 
