@@ -348,14 +348,14 @@ function _measure_center_windowed(x, y, ref_mu; profile, bin_st, bin_end, min_sn
             mu_err = isfinite(c.mu_err) && c.mu_err > 0 ? c.mu_err :
                      noise * sig0 / max(c.A, eps())
             return (center=c.mu, err=mu_err, method=:gauss, fit=fit,
-                    snr=snr, keep=(snr >= min_snr))
+                    snr=snr, keep=true)
         end
     end
 
     cen, cerr = _centroid_center(x, y, baseline, noise)
     return (center=cen, err=cerr, method=:centroid,
             fit=(fit.converged ? fit : nothing),
-            snr=snr, keep=(snr >= min_snr && isfinite(cen)))
+            snr=snr, keep=isfinite(cen))
 end
 
 """
@@ -419,7 +419,7 @@ function _measure_centers_global(profile, windows, bin_st, bin_end; min_snr=3.0)
             yfit = fit.baseline .+ GaussianFit._gauss.(Float64.(ws:we), c.A, c.mu, c.sigma),
         )
         assigned[ci] = (center=c.mu, err=mu_err, method=:gauss_global,
-                        fit=local_fit, snr=snr, keep=(snr >= min_snr),
+                        fit=local_fit, snr=snr, keep=true,
                         x=Float64.(ws:we), y=profile[ws:we])
     end
     any(isnothing, assigned) && return nothing
@@ -526,11 +526,11 @@ function analyse_components(nl, nh, p, outdir; min_snr=3.0)
             lon_deg  = (lo_c + hi_c) / 2.0 / n_phase * 360.0
             err      = (isnan(el) || isnan(eh) || !(el > 0) || !(eh > 0)) ? NaN : sqrt(el^2 + eh^2)
             err_deg  = isnan(err) ? NaN : err / n_phase * 360.0
-            keep = keep_freq[bin, ci, 1] && keep_freq[bin, ci, 2] && isfinite(err_deg) && err_deg > 0
-            keep_tag = keep ? "" : " [excluded from mean]"
-            @printf("  G%d: lon=%.2f°  %+.3f ± %.3f bins  (%+.3f° ± %.3f°)%s\n",
+            # Only exclude if err is literally missing — SNR/size not a reason to auto-exclude
+            keep = isfinite(err_deg) && err_deg > 0
+            @printf("  G%d: lon=%.2f°  %+.3f ± %.3f bins  (%+.3f° ± %.3f°)\n",
                     ci, lon_deg, diff, isnan(err) ? 0.0 : err,
-                    diff_deg, isnan(err_deg) ? 0.0 : err_deg, keep_tag)
+                    diff_deg, isnan(err_deg) ? 0.0 : err_deg)
 
             if keep
                 push!(pending, (ci=ci, lon=lon_deg, off=diff_deg, err=err_deg))
