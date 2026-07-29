@@ -1508,6 +1508,111 @@ module Data
                       chi2_red_max=chi2_red_max)
     end
 
+
+
+
+
+
+
+
+    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/")
+    isdir(dataroot) || error("dataroot not found: $dataroot")
+    
+    p3_file = joinpath(dirname(@__DIR__), "input", "drift_pulsars_P3.txt")
+    p3_map = Dict{String,String}()
+    if isfile(p3_file)
+        for line in eachline(p3_file)
+            parts = split(strip(line))
+            length(parts) >= 2 && (p3_map[parts[1]] = parts[2])
+        end
+    end
+
+    # Added rev=true to reverse the pulsar directory order
+    for psr_path in sort(filter(isdir, readdir(dataroot, join=true)), rev=true)
+        psr_name = basename(psr_path)
+        
+        # Added rev=true here as well
+        obs_dirs = sort(filter(isdir, readdir(psr_path, join=true)), rev=true)
+        
+        if isempty(obs_dirs)
+            @warn "No observation subdirectory for $psr_name, skipping"
+            continue
+        end
+
+        # Because obs_dirs is reversed, obs_dirs[1] is now the LAST item
+        indir  = obs_dirs[1]
+        outdir = joinpath(vpmout, psr_name * "_16")
+
+        if isdir(outdir)
+            println("=== Skipping $psr_name (output directory exists) ===")
+            continue
+        end
+
+            p3_str = get(p3_map, psr_name, "unknown")
+            println("=== Processing $psr_name, P3 = $p3_str ===")
+        try
+            # Ensure directory exists and inject P3 into params.json before processing
+            mkpath(outdir)
+            params_file = joinpath(outdir, "params.json")
+            p_current = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
+            
+            if p3_str != "unknown"
+                # Extract numeric part (e.g., "6.6" from "6.6(2)")
+                num_part = split(p3_str, '(')[1]
+                p_val = tryparse(Float64, num_part)
+                if !isnothing(p_val)
+                    p_current["p3"] = p_val
+                    p_current["p3_ybins"] = Functions.find_ybins(p_val)
+                    Tools.save_params(params_file, p_current)
+                end
+            end
+
+            process_psrdata_16(indir, outdir)
+
+            print("n_comp for $psr_name [default=2]: ")
+            n_comp_input = strip(readline())
+            n_comp = isempty(n_comp_input) ? 2 : parse(Int, n_comp_input)
+            analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
+        catch e
+            @warn "Failed for $psr_name" exception=e
+        end
+            println("Analysis finished for PSR $psr_name")
+
+        print("Continue? [Enter = next, q = quit]: ")
+        strip(readline()) == "q" && break
+    end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     """
     W_frac (e.g. W10): distance between the outermost longitude bins above
     `frac * peak`, following Posselt et al. 2021 / Johnston et al. 2023.
