@@ -51,53 +51,13 @@ module Functions
     end
 
 
-    """
-    Find the best number of ybins for a given P3 value and optional pulse count.
-
-    Rules:
-    - p3 ≤ 5:  aim for 2×p3 bins (fine resolution for tight drifts)
-    - 5 < p3 ≤ 15: aim for 1×p3 bins
-    - p3 > 15: aim for p3÷2 bins, at least 5 (coarse to concentrate signal)
-    - if n_pulses given: cap so that avg pulses/bin ≥ min_ppb (default 15)
-    - hard cap at max_ybins (default 20)
-    - result snapped to nearest multiple or divisor of round(p3) for clean folds
-    """
-    function find_ybins(p3, n_pulses=nothing; min_ppb=30, max_ybins=10)
-        p3lo = max(1, floor(Int, p3))
-        p3hi = max(1, ceil(Int, p3))
-
-        target = if p3 <= 5
-            round(Int, 2p3)
-        elseif p3 <= 15
-            round(Int, p3)
-        else
-            max(round(Int, p3 / 2), 5)
-        end
-
-        if !isnothing(n_pulses)
-            target = min(target, max(1, n_pulses ÷ min_ppb))
-        end
-        target = min(target, max_ybins)
-
-        # candidates from divisors and multiples of both floor and ceil of p3
-        candidates = Set{Int}()
-        for p3r in (p3lo, p3hi)
-            # multiples: only small k needed, stop when exceeds target
-            k = 1
-            while k * p3r <= target
-                push!(candidates, k * p3r)
-                k += 1
+    function find_ybins(p3, n_pulses=nothing; min_ppb=50)
+            ybins = floor(Int, 2 * p3)
+            if !isnothing(n_pulses)
+                ybins = min(ybins, floor(Int, n_pulses / min_ppb))
             end
-            # divisors: must iterate up to p3r itself (e.g. 85÷17=5 needs k=17)
-            for k in 1:p3r
-                d, r = divrem(p3r, k)
-                r == 0 && 1 <= d <= target && push!(candidates, d)
-            end
+            return max(4, ybins)
         end
-
-        result = isempty(candidates) ? 1 : maximum(candidates)
-        return p3 > 30 ? max(5, result) : result
-    end
 
 
     """
