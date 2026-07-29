@@ -1547,13 +1547,12 @@ module Data
             println("=== Skipping $psr_name (output directory exists) ===")
             continue
         end
-
-            p3_str = get(p3_map, psr_name, "unknown")
-            println("=== Processing $psr_name, P3 = $p3_str ===")
-        try
-            # Ensure directory exists and inject P3 into params.json before processing
-            mkpath(outdir)
-        m = match(r"^(\d+(?:\.\d+)?)\((\d+)\)$", p3_str)
+            p3_str = get(p3_map, psr, "unknown")
+            println("=== Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
+            try
+                # If P3 is in catalog ("6.6(2)"), write it to params.
+                # If not, leave p3=-1 so twodfs_lrfs opens the interactive P3 window.
+                m = match(r"^(\d+(?:\.\d+)?)\((\d+)\)$", p3_str)
                 if !isnothing(m)
                     val_str = m.captures[1]
                     err_digits = parse(Int, m.captures[2])
@@ -1589,21 +1588,30 @@ module Data
                     p["p3_ybins"] = p3_ybins
                     Tools.save_params(params_file, p)
                 end
-            process_psrdata_16(indir, outdir)
-
-            print("n_comp for $psr_name [default=2]: ")
-            n_comp_input = strip(readline())
-            n_comp = isempty(n_comp_input) ? 2 : parse(Int, n_comp_input)
-            analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
-        catch e
-            @warn "Failed for $psr_name" exception=e
+                process_psrdata_16(indir, outdir)
+                mode = ComponentAnalysis.ask_analysis_mode()
+                if mode == :simple
+                    print("n_comp for $psr [default=2]: ")
+                    n_comp_input = strip(readline())
+                    n_comp = isempty(n_comp_input) ? 2 : parse(Int, n_comp_input)
+                    Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
+                else
+                    p_cur = Tools.read_params(joinpath(outdir, "params.json"))
+                    nl = Data.normalize_per_pulse(
+                        Data.load_ascii(joinpath(outdir, "pulsar_low.debase.p3fold_norefine")))
+                    nh = Data.normalize_per_pulse(
+                        Data.load_ascii(joinpath(outdir, "pulsar_high.debase.p3fold_norefine")))
+                    ComponentAnalysis.analyse_components(nl, nh, p_cur, outdir)
+                end
+            catch e
+                @warn "Failed for $psr: $e" exception=(e, catch_backtrace())
+            end
+            println("Analysis finished for PSR $psr")
+            print("Continue? [Enter/y/yes = next, q = quit]: ")
+            input = strip(readline())
+            input == "q" && break
         end
-            println("Analysis finished for PSR $psr_name")
-
-        print("Continue? [Enter = next, q = quit]: ")
-        strip(readline()) == "q" && break
     end
-end
 
 
 
