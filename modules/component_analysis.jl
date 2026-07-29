@@ -6,7 +6,7 @@ using PyPlot
 PyPlot.matplotlib.use("Tkagg")
 
 include("GaussianFit.jl")
-include("modules/component_analysis.jl")
+
 using .GaussianFit
 
 # ---------------------------------------------------------------------------

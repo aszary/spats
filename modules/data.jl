@@ -11,6 +11,7 @@ module Data
     include("functions.jl")
     include("tools.jl")
     include("plot.jl")
+    include("component_analysis.jl")
 
 
     """
