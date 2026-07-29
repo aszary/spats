@@ -1553,20 +1553,42 @@ module Data
         try
             # Ensure directory exists and inject P3 into params.json before processing
             mkpath(outdir)
-            params_file = joinpath(outdir, "params.json")
-            p_current = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
-            
-            if p3_str != "unknown"
-                # Extract numeric part (e.g., "6.6" from "6.6(2)")
-                num_part = split(p3_str, '(')[1]
-                p_val = tryparse(Float64, num_part)
-                if !isnothing(p_val)
-                    p_current["p3"] = p_val
-                    p_current["p3_ybins"] = Functions.find_ybins(p_val)
-                    Tools.save_params(params_file, p_current)
+        m = match(r"^(\d+(?:\.\d+)?)\((\d+)\)$", p3_str)
+                if !isnothing(m)
+                    val_str = m.captures[1]
+                    err_digits = parse(Int, m.captures[2])
+                    p3_value = parse(Float64, val_str)
+                    dot_pos = findfirst('.', val_str)
+                    decimal_places = isnothing(dot_pos) ? 0 : length(val_str) - dot_pos
+                    p3_error = err_digits * 10.0^(-decimal_places)
+                    n_pulses = Data.Functions.count_pulses(indir)
+                    p3_ybins_auto = Data.Functions.find_ybins(p3_value, n_pulses)
+                    isdir(outdir) || mkdir(outdir)
+                    params_file = joinpath(outdir, "params.json")
+                    p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
+                    p3_ybins_old = get(p, "p3_ybins", nothing)
+                    p3_ybins = p3_ybins_auto
+                    println("──────────────────────────────────────────")
+                    println("  P3          = $p3_value ± $p3_error P0")
+                    println("  Pulses      = $(isnothing(n_pulses) ? "unknown" : n_pulses)")
+                    println("  p3_ybins    = $p3_ybins_auto  (auto)")
+                    println("  p3_ybins    = $(isnothing(p3_ybins_old) ? "none" : p3_ybins_old)  (previous)")
+                    println("──────────────────────────────────────────")
+                    print("New p3_ybins [Enter=auto $p3_ybins_auto, 'k'=keep $(isnothing(p3_ybins_old) ? "none" : p3_ybins_old), or enter value]: ")
+                    inp = strip(readline())
+                    if inp == "k" && !isnothing(p3_ybins_old)
+                        p3_ybins = p3_ybins_old
+                    elseif !isempty(inp) && inp != "k"
+                        p3_ybins = parse(Int, inp)
+                    end
+                    print("New p3 [Enter=$p3_value, or enter value]: ")
+                    inp = strip(readline())
+                    isempty(inp) || (p3_value = parse(Float64, inp))
+                    p["p3"] = p3_value
+                    p["p3_error"] = p3_error
+                    p["p3_ybins"] = p3_ybins
+                    Tools.save_params(params_file, p)
                 end
-            end
-
             process_psrdata_16(indir, outdir)
 
             print("n_comp for $psr_name [default=2]: ")
