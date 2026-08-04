@@ -514,7 +514,7 @@ end
 
         #Tools.clean_all(vpmout)
         # Start from J1609-4616, then downward toward J1500, J1400, … 
-        Data.analyse_all()
+        analyse_all()
     end
 
 end # module
