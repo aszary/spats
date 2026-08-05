@@ -594,9 +594,9 @@ module SpaTs
 
 
         # PSR J1429-5935
-        process_psrdata("/home/psr/data/new/J1429-5935/2020-02-14-04:21:11", vpmout*"J1429-5935")
-        #phase_modulation(vpmout*"J1429-5935")
-        #p3fold_coherent(vpmout*"J1429-5935")
+        #process_psrdata("/home/psr/data/new/J1429-5935/2020-02-14-04:21:11", vpmout*"J1429-5935")
+        phase_modulation(vpmout*"J1429-5935")
+        p3fold_coherent(vpmout*"J1429-5935")
 
         
 
