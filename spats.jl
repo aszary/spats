@@ -175,7 +175,7 @@ module SpaTs
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
-        yb   = 17 #isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
@@ -587,16 +587,16 @@ module SpaTs
         #Data.analyse_p3folds_16_new(vpmout*"J0304+1932_16", "norefine", n_comp=2)
         #Data.analyse_average_offset(vpmout*"J0304+1932_16";n_comp=2, npulse=150)
 
+        # PSR J1429-5935
+        #process_psrdata("/home/psr/data/new/J1429-5935/2020-02-14-04:21:11", vpmout*"J1429-5935")
+        #phase_modulation(vpmout*"J1429-5935")
+        p3fold_coherent(vpmout*"J1429-5935")
+
         # PSR J1750-3503
         #process_psrdata("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12/", vpmout*"J1750-3503")
         #phase_modulation(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503")
 
-
-        # PSR J1429-5935
-        #process_psrdata("/home/psr/data/new/J1429-5935/2020-02-14-04:21:11", vpmout*"J1429-5935")
-        phase_modulation(vpmout*"J1429-5935")
-        p3fold_coherent(vpmout*"J1429-5935")
 
         
 
