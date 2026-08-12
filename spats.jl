@@ -122,6 +122,55 @@ module SpaTs
 
 
     """
+    Phase-stability variant of `phase_modulation` — same data, same
+    `PhaseDrift.drift_test`, same top two panels, but the bottom panel shows
+    the local phase gradient dψ/dφ(φ) instead of the null-slope histogram,
+    and a reduced χ² quantifies it.
+
+    The coherent slope of `phase_modulation` collapses the whole profile into
+    one number, so it cannot tell a systematic drift from a phase jump: pure
+    amplitude modulation with a node produces a 180° step in ψ, which averages
+    to a slope near zero and reads as "no drift". Here that case shows up as
+    an isolated spike in dψ/dφ and a huge χ²_red.
+
+      χ²_red ~ 1  – phase changes systematically (constant gradient fits)
+      χ²_red ≫ 1  – phase jumps with longitude
+
+    `snr_min` (default 3) sets which bins are trusted in that χ²; below it the
+    Gaussian phase-error approximation σ_ψ ≈ σ_off/|L| breaks down. Writes
+    `pulsar_phase_stability.pdf/.png`, so `phase_modulation` output is kept.
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
+      phase_modulation2(vpmout*"J1110-5637")
+    """
+    function phase_modulation2(outdir; nreal=6000, snr_min=3.0, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
+        result = PhaseDrift.drift_test(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            p3_error=p3_error, nreal=nreal, snr_min=snr_min)
+        println("Feature SNR:  $(round(result.snr, digits=1))")
+        println("Slope:        $(round(result.slope, digits=4)) rad/bin  " *
+                "($(round(rad2deg(result.slope), digits=2)) °/bin)")
+        println("Significance: $(round(result.significance, digits=1)) σ")
+        if isnan(result.chi2_red)
+            println("Stability:    too few high-S/N bins for χ² " *
+                    "(only $(result.chi2_n) usable increments)")
+        else
+            println("Stability:    χ²_red = $(round(result.chi2_red, digits=2)) " *
+                    "(dof $(result.chi2_dof)) — " *
+                    (result.chi2_red < 2 ? "systematic drift" : "phase jumps with longitude"))
+        end
+        Plot.phase_stability(result, outdir, Int(p["nbin"]);
+                             name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+    """
     Globally-optimized P3-fold (per-pulse Viterbi phase assignment), as an
     alternative to the `pfold -p3fold` refine used elsewhere in this file
     (e.g. `Data.process_psrdata_16` / `Data.p3fold_psrdata`). See
