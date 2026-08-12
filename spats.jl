@@ -630,9 +630,11 @@ end
 
         #Tools.clean_all(vpmout)
         # Start from J1609-4616, then downward toward J1500, J1400, … 
-        #analyse_all_2()
-        process_psrdata_16("/home/psr/data/new/J1915+0752/2020-05-06-03:23:45", vpmout*"J1915+0752_16")
-        Data.analyse_p3folds_16_new(vpmout*"J1915+0752_16", "norefine"; n_comp=1)
+        analyse_all_2()
+
+        #how to do with zapping below
+        #process_psrdata_16("/home/psr/data/new/J1915+0752/2020-05-06-03:23:45", vpmout*"J1915+0752_16")
+        #Data.analyse_p3folds_16_new(vpmout*"J1915+0752_16", "norefine"; n_comp=1)
     end
 
 end # module
