@@ -1640,4 +1640,118 @@ module Plot
     end
 
 
+    """
+    Phase-drift diagnostic, stability variant — same top two panels as
+    `phase_drift` (|L| and ψ vs longitude), but the bottom panel shows the
+    *local* phase gradient dψ/dφ instead of the null-slope histogram.
+
+    That panel answers a question the single coherent slope cannot: does the
+    phase change systematically, or does it jump? Pure amplitude modulation
+    gives a piecewise-constant ψ with a 180° step at every node of |L|, so
+    dψ/dφ sits at zero except for isolated spikes; a genuine drift gives a
+    flat dψ/dφ at the global slope. Increments whose bins fall below
+    snr_min·σ_off are drawn in light grey and excluded from χ² — the phase
+    there is essentially random.
+
+    Writes `<name_mod>_phase_stability.pdf/.png`, so it does not overwrite
+    the `phase_drift` output.
+
+    Arguments:
+      result  – NamedTuple from PhaseDrift.drift_test
+      outdir  – output directory
+      nbin    – total profile bins (for longitude axis scale)
+    """
+    function phase_stability(result, outdir, nbin::Int;
+                             name_mod="pulsar", show_=false)
+        on_bins = result.on_bins
+        L_on    = result.L_on
+
+        npts    = last(on_bins) - first(on_bins) + 1
+        lon     = collect(range(-180.0 * npts / nbin, 180.0 * npts / nbin, length=npts))
+        phi     = collect(on_bins)
+        psi_deg = rad2deg.(angle.(L_on))
+        null_std_deg = std(rad2deg.(result.null))
+        slope_deg    = rad2deg(result.slope)
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.5, 5.5))
+        subplots_adjust(left=0.18, bottom=0.08, right=0.97, top=0.93, hspace=0.50)
+
+        # Panel 1: Amplitude
+        subplot(3, 1, 1)
+        plot(lon, abs.(L_on), c="black", lw=0.8)
+        xlabel("longitude (\$^\\circ\$)")
+        ylabel("\$|L|\$")
+        minorticks_on()
+
+        # Panel 2: Phase
+        subplot(3, 1, 2)
+        psi_err_deg = rad2deg.(result.p3err_sigma)
+        if any(psi_err_deg .> 0)
+            errorbar(lon, psi_deg, yerr=psi_err_deg, fmt=".", ms=2, c="black",
+                     ecolor="grey", elinewidth=0.4, capsize=0, zorder=3)
+        else
+            plot(lon, psi_deg, ".", ms=2, c="black", zorder=3)
+        end
+        plot(lon, rad2deg.(result.slope .* (phi .- mean(phi))), "-", c="red", lw=1.0,
+             label=@sprintf("%.1f\$\\sigma\$", result.significance))
+        xlabel("longitude (\$^\\circ\$)")
+        ylabel("\$\\psi\$ (\$^\\circ\$)")
+        ylim(-200, 200)
+        minorticks_on()
+        legend(fontsize=6, loc="upper right")
+
+        # Panel 3: Local phase gradient — is the drift systematic or a jump?
+        subplot(3, 1, 3)
+        lon_mid  = 0.5 .* (lon[1:end-1] .+ lon[2:end])
+        dpsi_deg = rad2deg.(result.dpsi)
+        derr_deg = rad2deg.(result.dpsi_sigma)
+        good     = result.dpsi_good
+        bad      = .!good
+        axhline(y=0.0, color="grey", lw=0.4, ls=":")
+        # low-S/N increments: phase is essentially random there, no error bars
+        if any(bad)
+            plot(lon_mid[bad], dpsi_deg[bad], ".", ms=2, c="lightgrey", zorder=2)
+        end
+        if any(good)
+            errorbar(lon_mid[good], dpsi_deg[good], yerr=derr_deg[good], fmt=".",
+                     ms=2.5, c="black", ecolor="grey", elinewidth=0.4, capsize=0,
+                     zorder=3)
+        end
+        chi2_lab = isnan(result.chi2_red) ? "\$\\chi^2_r\$ = n/a" :
+            @sprintf("\$\\chi^2_r\$ = %.1f (%d)", result.chi2_red, result.chi2_dof)
+        axhline(y=slope_deg, color="red", lw=1.0, label=chi2_lab)
+        axhspan(slope_deg - null_std_deg, slope_deg + null_std_deg,
+                color="red", alpha=0.10, lw=0)
+        xlabel("longitude (\$^\\circ\$)")
+        ylabel("\$d\\psi/d\\varphi\$ (\$^\\circ\$/bin)")
+        ylim(-190, 190)
+        minorticks_on()
+        legend(fontsize=6, loc="upper right")
+
+        if result.p3_error > 0
+            suptitle(@sprintf("P3 = %.1f \$\\pm\$ %.1f P0  |  %.1f\$\\sigma\$",
+                              result.p3, result.p3_error, result.significance), fontsize=7)
+        else
+            suptitle(@sprintf("P3 = %.1f P0  |  %.1f\$\\sigma\$",
+                              result.p3, result.significance), fontsize=7)
+        end
+
+        savepath = joinpath(outdir, "$(name_mod)_phase_stability.pdf")
+        savefig(savepath)
+        savefig(replace(savepath, ".pdf" => ".png"))
+        println(savepath)
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
 end  # module Plot

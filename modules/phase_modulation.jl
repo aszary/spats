@@ -3,6 +3,7 @@ module PhaseDrift
 using FFTW
 using Statistics
 using Random
+using LinearAlgebra
 
 """
     complex_lrfs_at_f3(data, p3) -> Vector{ComplexF64}
@@ -124,6 +125,104 @@ end
 
 
 """
+    wrap_pi(x) -> Float64
+
+Wrap an angle into (-π, π].
+"""
+wrap_pi(x::Real) = atan(sin(x), cos(x))
+
+
+"""
+    local_slopes(L_on, sigma_off; snr_min) -> NamedTuple
+
+Local phase gradient, longitude bin by longitude bin — the resolved version
+of `slope_stat`, which collapses the same quantity into a single number:
+
+  Δψ_j = arg( conj(L[j]) · L[j+1] )     [rad/bin],  j = 1 … n-1
+
+This is what discriminates a *systematic* drift from a phase *jump*. Pure
+amplitude modulation gives a ψ(φ) that is piecewise constant with 180° steps
+wherever |L| passes through a node, so Δψ is ~0 everywhere except at isolated
+spikes; a genuine subpulse drift gives Δψ flat at the global slope.
+
+Errors from noise propagation: for L = A·exp(iψ) + n with n complex and
+σ_off per component, σ_ψ ≈ σ_off/A, hence
+
+  σ_Δψ,j = σ_off · sqrt(1/A_j² + 1/A_{j+1}²)
+
+That Gaussian-phase approximation breaks down once A ≲ 3σ_off (the phase
+error saturates at the uniform-circle value ~104°), so increments touching
+such a bin are flagged as unusable rather than trusted.
+
+Fields:
+  dpsi       – local increments Δψ_j [rad], length n-1
+  sigma      – 1σ error on each Δψ_j [rad]
+  good       – Bool mask, both bins of the increment above snr_min·σ_off
+  phase_var  – per-bin phase variance σ_off²/A² [rad²], length n (for the
+               covariance matrix in `slope_chi2`)
+"""
+function local_slopes(L_on::AbstractVector, sigma_off::Real; snr_min::Real=3.0)
+    n = length(L_on)
+    n < 3 && error("Need at least 3 on-pulse bins for local slopes (got $n)")
+    A = abs.(L_on)
+    phase_var = (sigma_off ./ max.(A, eps())) .^ 2
+    dpsi  = [angle(conj(L_on[j]) * L_on[j+1]) for j in 1:n-1]
+    sigma = sqrt.(phase_var[1:n-1] .+ phase_var[2:n])
+    good  = [A[j] > snr_min * sigma_off && A[j+1] > snr_min * sigma_off for j in 1:n-1]
+    return (dpsi=dpsi, sigma=sigma, good=good, phase_var=phase_var)
+end
+
+
+"""
+    slope_chi2(ls, slope) -> NamedTuple
+
+Goodness of fit of a *constant* phase gradient to the local increments of
+`local_slopes`, i.e. the "is the drift systematic?" statistic.
+
+Consecutive increments are not independent — Δψ_j and Δψ_{j+1} share the bin
+j+1 — so the residuals must be weighted by the full covariance matrix, not by
+σ_Δψ alone. With v_j = σ_off²/A_j² the per-bin phase variance:
+
+  Cov(Δψ_j, Δψ_j)   =  v_j + v_{j+1}
+  Cov(Δψ_j, Δψ_l)   = -v_{j+1}   for l = j+1  (and symmetric)
+  Cov(Δψ_j, Δψ_l)   =  0         otherwise
+
+  χ² = rᵀ C⁻¹ r,   r_j = wrap(Δψ_j - slope)
+
+Only increments flagged `good` enter; the covariance is built from the general
+shares-a-bin rule, so a non-contiguous mask is handled correctly. One free
+parameter (the slope itself) is subtracted from the dof.
+
+χ²_red ≈ 1  → phase changes systematically (constant gradient fits).
+χ²_red ≫ 1  → phase jumps with longitude.
+
+Returns (chi2, dof, chi2_red, n_used); all NaN/0 if fewer than 3 usable
+increments survive the S/N mask.
+"""
+function slope_chi2(ls::NamedTuple, slope::Real)
+    idx = findall(ls.good)
+    m   = length(idx)
+    m < 3 && return (chi2=NaN, dof=0, chi2_red=NaN, n_used=m)
+    v = ls.phase_var
+    C = zeros(m, m)
+    for a in 1:m, b in 1:m
+        j, l = idx[a], idx[b]
+        if j == l
+            C[a, b] = v[j] + v[j+1]
+        elseif l == j + 1
+            C[a, b] = -v[j+1]
+        elseif j == l + 1
+            C[a, b] = -v[j]
+        end
+    end
+    r    = [wrap_pi(ls.dpsi[j] - slope) for j in idx]
+    chi2 = dot(r, C \ r)
+    dof  = m - 1
+    return (chi2=chi2, dof=dof, chi2_red=chi2 / dof, n_used=m)
+end
+
+
+"""
     amp_null_slopes(L_on, sigma_off; nreal, seed) -> Vector{Float64}
 
 Amplitude-modulation null distribution.
@@ -188,9 +287,16 @@ Fields of returned NamedTuple:
   p3err_p3       – the swept P3 values themselves
   p3err_psi      – phase array from the P3 sweep [rad], (length(p3err_k) × N_on)
   p3err_sigma    – per-bin circular std across the P3 sweep [rad]
+  dpsi           – local phase gradient per bin pair [rad/bin] (`local_slopes`)
+  dpsi_sigma     – 1σ noise error on dpsi [rad/bin]
+  dpsi_good      – mask: both bins of the increment above snr_min·σ_off
+  chi2, chi2_dof, chi2_red, chi2_n
+                 – fit of a constant gradient to dpsi (`slope_chi2`);
+                   χ²_red ~ 1 systematic drift, ≫ 1 phase jumps
 """
 function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
-                    p3_error::Real=0.0, nreal::Int=6000, seed::Union{Int,Nothing}=7)
+                    p3_error::Real=0.0, nreal::Int=6000, seed::Union{Int,Nothing}=7,
+                    snr_min::Real=3.0)
     on_bins   = bin_st:bin_end
     L         = complex_lrfs_at_f3(data, p3)
     sigma_off = off_pulse_sigma(L, bin_st, bin_end)
@@ -202,6 +308,8 @@ function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
     null      = amp_null_slopes(L_on, sigma_off; nreal=nreal, seed=seed)
     significance = slope / std(null)
     p3err = p3_error_phases(data, p3, p3_error, bin_st, bin_end)
+    ls    = local_slopes(L_on, sigma_off; snr_min=snr_min)
+    chi2  = slope_chi2(ls, slope)
     return (
         L            = L,
         on_bins      = on_bins,
@@ -217,6 +325,13 @@ function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
         p3err_p3     = p3err.p3_grid,
         p3err_psi    = p3err.psi_grid,
         p3err_sigma  = p3err.psi_sigma,
+        dpsi         = ls.dpsi,
+        dpsi_sigma   = ls.sigma,
+        dpsi_good    = ls.good,
+        chi2         = chi2.chi2,
+        chi2_dof     = chi2.dof,
+        chi2_red     = chi2.chi2_red,
+        chi2_n       = chi2.n_used,
     )
 end
 
