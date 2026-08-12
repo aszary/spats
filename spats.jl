@@ -630,7 +630,9 @@ end
 
         #Tools.clean_all(vpmout)
         # Start from J1609-4616, then downward toward J1500, J1400, … 
-        analyse_all_2()
+        #analyse_all_2()
+
+        Data.analyse_p3folds_16_new(vpmout*"J1915+0752", "norefine"; n_comp=1)
     end
 
 end # module
