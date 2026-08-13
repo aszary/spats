@@ -645,8 +645,8 @@ module SpaTs
         #Data.position_angle(vpmout*"J1539-6322_16")
         #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single")
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
-        phase_modulation(vpmout*"J1539-6322")
-        phase_modulation2(vpmout*"J1539-6322")
+        #phase_modulation(vpmout*"J1539-6322")
+        #phase_modulation2(vpmout*"J1539-6322")
         #p3fold_coherent(vpmout*"J1539-6322")
         
 
