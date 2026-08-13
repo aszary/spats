@@ -335,4 +335,348 @@ function drift_test(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
     )
 end
 
+"""
+    windowed_lrfs(data, f3, window, stride) -> NamedTuple
+
+Sliding-window complex LRFS at exactly f3 [cycles/pulse]: for every window
+position b the complex amplitude
+
+  L_b(φ) = Σ_{n∈b} data[n,φ] · e^(-2πi f3 n)
+
+is computed for all longitude bins via one carrier multiplication and a
+cumulative sum along the pulse axis, so the cost is O(N·N_bins) regardless
+of `stride`. Unlike `complex_lrfs_at_f3` there is no quantisation of f3 to
+an integer FFT index, and the short window's wide response (main lobe
+f3 ± 1/window) captures a wobbling P3 without loss.
+
+DC and slow intensity fluctuations must be removed from `data` *before*
+calling this (`drift_test_sliding` uses `subtract_running_mean`): for
+window < P3 the window's response at f3 overlaps f = 0, so slow power
+would leak straight into every L_b. Deliberately there is no *per-window*
+demeaning — with under one carrier cycle per window the f3 signal is
+largely indistinguishable from an offset, so per-window demeaning would
+remove much of the signal along with the DC. Residual leakage has a
+longitude-stationary pattern and lands in Re(g) of `drift_test_sliding`'s
+statistic, which only uses Im(g) — see there.
+
+Returns (L, starts): L is nwin × N_bins complex, window b spans pulses
+starts[b] : starts[b]+window-1.
+"""
+function windowed_lrfs(data::AbstractMatrix, f3::Real, window::Int, stride::Int)
+    N, nbins = size(data)
+    window < 2       && error("window must be ≥ 2 (got $window)")
+    stride < 1       && error("stride must be ≥ 1 (got $stride)")
+    N < window       && error("Need at least window=$window pulses (got $N)")
+    carrier = [exp(-2im * π * f3 * n) for n in 1:N]
+    C = cumsum(data .* carrier, dims=1)
+    starts = collect(1:stride:N-window+1)
+    L = Array{ComplexF64}(undef, length(starts), nbins)
+    for (b, s) in enumerate(starts)
+        e = s + window - 1
+        if s == 1
+            L[b, :] = C[e, :]
+        else
+            L[b, :] = C[e, :] .- C[s-1, :]
+        end
+    end
+    return (L=L, starts=starts)
+end
+
+
+"""
+    subtract_running_mean(X, halfwin) -> Matrix{Float64}
+
+Per-bin high-pass: subtract from every time series X[:, j] its centred
+running mean over 2·halfwin+1 pulses (edge-truncated). With halfwin ≈ P3
+the running-mean's frequency response has a null at f3 = 1/P3 (its length
+is then ≈ 2 cycles of f3), so the subtraction removes the static profile
+*and* slow intensity fluctuations (nulling, scintillation) while leaving
+the f3 modulation essentially untouched (~1% for P3 ≫ 1). This matters for
+short-window LRFS: slow power leaking into a window biases the coherent
+slope arg(g) toward zero (it adds a longitude-stationary, flat-phase
+component to Re g). halfwin ≤ 0 falls back to plain mean subtraction.
+"""
+function subtract_running_mean(X::AbstractMatrix, halfwin::Int)
+    halfwin <= 0 && return X .- mean(X, dims=1)
+    N = size(X, 1)
+    C = cumsum(X, dims=1)
+    Y = Matrix{Float64}(undef, size(X))
+    for n in 1:N
+        lo, hi = max(1, n - halfwin), min(N, n + halfwin)
+        if lo == 1
+            Y[n, :] = X[n, :] .- (@view C[hi, :]) ./ hi
+        else
+            Y[n, :] = X[n, :] .- ((@view C[hi, :]) .- (@view C[lo-1, :])) ./ (hi - lo + 1)
+        end
+    end
+    return Y
+end
+
+
+"""
+    null_im_g!(im_g, At, L_offt, pidx, rot, rng, replace) -> im_g
+
+One flat-phase surrogate realisation for `drift_test_sliding`: fills `im_g`
+with Im g_b per window, where L_b^null(φ_j) = A_b(φ_j) + N_b(φ_j). A_b are
+the measured (debiased, power-matched, real) per-window amplitudes in `At`
+(n_on × nwin, transposed for access order). The noise N_b is *bootstrapped
+from the pulsar's own off-pulse windowed LRFS* `L_offt` (n_off × nwin):
+each on-pulse bin j is assigned a random off-pulse bin (a fresh draw
+`pidx`, without replacement when n_off suffices) and a random phase
+rotation `rot[j]`, both held fixed across windows within the realisation.
+Off-pulse bins carry no signal but went through the identical high-pass +
+windowed-DFT pipeline, so N_b has exactly the real noise level, spectrum
+and window-to-window correlation — overlapping windows share noise just as
+in the data, which is what makes the null spread of S = Σ|Im g_b| honest
+for stride < window, with no noise model or calibration constant at all.
+"""
+function null_im_g!(im_g::Vector{Float64}, At::Matrix{Float64},
+                    L_offt::Matrix{ComplexF64}, pidx::Vector{Int},
+                    rot::Vector{ComplexF64}, rng, replace::Bool)
+    non, nwin = size(At)
+    noff = size(L_offt, 1)
+    if replace
+        rand!(rng, pidx, 1:noff)
+    else
+        # first non entries of a fresh permutation of the off-pulse bins
+        randperm!(rng, pidx)
+    end
+    for j in 1:non
+        rot[j] = cis(2π * rand(rng))
+    end
+    @inbounds for b in 1:nwin
+        g  = zero(ComplexF64)
+        Lj = At[1, b] + rot[1] * L_offt[pidx[1], b]
+        for j in 2:non
+            Lj1 = At[j, b] + rot[j] * L_offt[pidx[j], b]
+            g += conj(Lj) * Lj1
+            Lj = Lj1
+        end
+        im_g[b] = imag(g)
+    end
+    return im_g
+end
+
+
+"""
+    drift_test_sliding(data, p3, bin_st, bin_end;
+                       window, stride, nreal, seed, sig_min) -> NamedTuple
+
+Reversal-tolerant, time-resolved drift detector — the sliding-window
+counterpart of `drift_test`, built for drifters that change drift direction
+(e.g. J1750-3503: negative-drift episodes of 28±4 P, positive of 88±15 P,
+Szary+2022). For such pulsars the global coherent slope of `drift_test`
+mixes episodes of opposite phase gradient and averages to ~zero — "no
+drift" at any significance, no matter how strong the drift is — and its
+single FFT bin loses most of the feature to P3 wobble on top.
+
+Per window position b (length `window`, step `stride`):
+
+  L_b(φ) = Σ_{n∈b} (data[n,φ] - mean profile) · e^(-2πi f3 n)
+  g_b    = Σ_φ conj(L_b[φ]) · L_b[φ+1]        (per-window `slope_stat`)
+
+and the detection statistic combines the drift quadratures incoherently:
+
+  S = Σ_b |Im g_b|
+
+Why Im g: any longitude-stationary modulation — pure amplitude modulation,
+but also short-window leakage from nulling and slow intensity changes —
+contributes c_b·B(φ) with B real, which lands entirely in Re g_b (a common
+per-window phase cancels in the conjugate products). A phase *gradient* is
+exactly what rotates power into Im g_b, and |·| makes S invariant under
+drift-sign reversals between windows: episodes of + and − drift add
+instead of cancelling. arg g_b is the usual slope [rad/bin], returned as
+slope(t) — for a reversing drifter it flips sign between episodes, which
+is the direct measurement `phase_modulation`/`p3fold_coherent` never show.
+
+Null ("same modulation power, no drift"): per-window measured amplitudes
+with the phase flattened — so P3 wobble, nulls and envelope evolution are
+all kept — plus noise bootstrapped from the pulsar's own off-pulse
+windowed LRFS (`null_im_g!`), which shares one noise field across
+overlapping windows exactly as the data does. That sharing is essential
+for stride < window: overlapping windows have positively correlated
+|Im g_b|, which widens the null spread of S — independent per-window noise
+would narrow it and inflate the significance. The amplitudes are
+noise-debiased per bin (A_b = sqrt(max(|L_b|² − 2σ_b², 0))) and then
+rescaled per window so the *total* signal power matches Σ(|L_b|² − 2σ_b²):
+without that rescale the truncation at 0 leaves phantom amplitude in weak
+bins, and because mean(S)/std(S) is large, a few-percent power mismatch
+shifts the significance by several σ.
+
+Preprocessing: the static profile and slow intensity fluctuations are
+removed by `subtract_running_mean` with half-width `hp_halfwin` (default
+round(p3), which nulls the filter response exactly at f3). Slow power
+leaking into short windows is longitude-stationary and flat-phase, so it
+cannot fake drift (it lands in Re g), but it dilutes the *measured* slope
+arg(g_b) toward zero — the high-pass keeps slope(t) honest.
+
+Caveat: S detects any longitude-dependence of the modulation phase. Two
+longitude-separated components modulated with independent temporal phases
+(a phase step, not a drift) also put power into Im g; `drift_test`'s
+chi2_red and the slope(t) panel distinguish the two cases.
+
+Choosing `window`: about half the shortest expected drift episode. Upper
+limit — a window longer than an episode never fits inside one and
+partially self-cancels (the global-slope pathology in miniature). Lower
+limit — per-window feature SNR scales as √window and the incoherent sum
+loses power steeply once it drops below ~1 (the |·| folding buries weak
+signal in the Rayleigh floor); a warning is issued when the median window
+SNR is < 1.5 (pure noise gives ~1.25). If you scan `window` (8/16/32/64/128
+is a useful diagnostic), quote the significance at the pre-chosen default
+or apply a trials correction — the maximum of a scan is biased high.
+
+Arguments:
+  data     – single-pulse matrix (N_pulses × N_bins), real intensity
+  p3       – nominal P3 [P0]; sets f3 = 1/p3 (aliased P3 < 2 not supported)
+  bin_st   – first on-pulse bin (1-indexed)
+  bin_end  – last on-pulse bin (1-indexed)
+  window   – sliding window length [pulses] (default 16)
+  stride   – window step [pulses]; 1 = sliding (default), window = disjoint blocks
+  nreal    – number of null realisations (default 1000)
+  seed     – RNG seed (default 7, nothing for non-reproducible)
+  sig_min  – per-window |Im g_b|/σ threshold for the `detected` mask (default 3)
+  hp_halfwin – half-width of the running-mean high-pass [pulses];
+             nothing (default) → round(p3), 0 → plain mean subtraction
+  amp_smooth – half-width [bins] of the longitude boxcar smoothing the null
+             amplitude profiles (default 5); the null is driven by the
+             amplitude gradient, so raw noisy |L| would inflate it. With the
+             defaults the null is deliberately left slightly conservative
+             (H0 reads ≈ −1σ in synthetic calibration, never positive)
+
+Fields of returned NamedTuple:
+  p3, f3, window, stride – inputs echoed back
+  on_bins      – on-pulse bin UnitRange
+  starts       – first pulse of each window
+  centers      – window centre pulse numbers (x-axis of the time panels)
+  L_on         – windowed complex LRFS, nwin × N_on
+  Lmap         – |L_on| in units of the per-window noise σ_b (nwin × N_on)
+  sigma_win    – per-window off-pulse noise σ_b in L
+  snr_win      – per-window feature SNR, mean(|L_b|)/σ_b; noise gives ~1.25
+  snr_med      – median of snr_win
+  g            – per-window coherent statistic g_b (complex)
+  slope        – arg g_b [rad/bin], the time-resolved drift slope
+  slope_err    – 1σ error on slope from the null Im-spread, min-capped at π
+  slope_sig    – |Im g_b| / σ_Im,b, per-window drift significance
+  detected     – slope_sig .≥ sig_min
+  S            – observed Σ|Im g_b|
+  S_null       – null distribution of S [nreal]
+  significance – (S − mean(S_null)) / std(S_null)  [σ]
+  p_value      – empirical p, count(S_null ≥ S)/nreal (0 means < 1/nreal)
+"""
+function drift_test_sliding(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                            window::Int=16, stride::Int=1, nreal::Int=1000,
+                            seed::Union{Int,Nothing}=7, sig_min::Real=3.0,
+                            hp_halfwin::Union{Int,Nothing}=nothing, amp_smooth::Int=5)
+    p3 > 2 || error("p3 must be > 2 P0 (got $p3): f3 = 1/p3 would exceed Nyquist")
+    nbins = size(data, 2)
+    on  = bin_st:bin_end
+    non = length(on)
+    non < 3 && error("Need at least 3 on-pulse bins (got $non)")
+    f3 = 1.0 / p3
+
+    # high-pass: kill DC + slow fluctuations, filter null sits at f3 (see docstrings)
+    hp = isnothing(hp_halfwin) ? round(Int, p3) : hp_halfwin
+    data_dm = subtract_running_mean(data, hp)
+    wl = windowed_lrfs(data_dm, f3, window, stride)
+    L, starts = wl.L, wl.starts
+    nwin    = length(starts)
+    centers = starts .+ (window - 1) / 2
+
+    off = vcat(1:bin_st-1, bin_end+1:nbins)
+    isempty(off) && error(
+        "No off-pulse bins available (bin_st=$bin_st bin_end=$bin_end N_bins=$nbins)")
+    sigma_win = [std([real.(@view L[b, off]); imag.(@view L[b, off])]) for b in 1:nwin]
+    L_on = L[:, on]
+    snr_win = [mean(abs.(@view L_on[b, :])) / sigma_win[b] for b in 1:nwin]
+    snr_med = median(snr_win)
+    snr_med < 1.5 && @warn "Weak per-window f3 feature (median SNR = " *
+        "$(round(snr_med, digits=2)), pure noise gives ~1.25): detection power " *
+        "collapses below SNR ~1 — consider a longer `window`"
+
+    g = Vector{ComplexF64}(undef, nwin)
+    @inbounds for b in 1:nwin
+        acc = zero(ComplexF64)
+        for j in 1:non-1
+            acc += conj(L_on[b, j]) * L_on[b, j+1]
+        end
+        g[b] = acc
+    end
+    slope = angle.(g)
+    S = sum(abs, imag.(g))
+
+    # flat-phase surrogates: smoothed, debiased, power-matched amplitudes
+    # + off-pulse-bootstrap noise. Var(Im g) under the null is driven by the
+    # amplitude *gradient* Σ_j (A[j-1]-A[j+1])² — the raw per-bin |L| jitters
+    # at the noise level, which would inflate that gradient (and the null) by
+    # a large factor, so the power profile is boxcar-smoothed in longitude;
+    # the per-window power match then keeps the total signal power unbiased
+    # (the truncations at 0 leave phantom power, hence the max(·,0) bookkeeping).
+    At    = Matrix{Float64}(undef, non, nwin)
+    pow_u = Vector{Float64}(undef, nwin)
+    for b in 1:nwin
+        p2 = abs2.(@view L_on[b, :])
+        pow_u[b] = sum(p2) - 2 * sigma_win[b]^2 * non
+        for j in 1:non
+            lo, hi = max(1, j - amp_smooth), min(non, j + amp_smooth)
+            At[j, b] = sqrt(max(mean(@view p2[lo:hi]) - 2 * sigma_win[b]^2, 0.0))
+        end
+        pow_t = sum(abs2, @view At[:, b])
+        At[:, b] .*= pow_t > 0 ? sqrt(max(pow_u[b], 0.0) / pow_t) : 0.0
+    end
+    # global clipping-bias correction: per-window max(·,0) keeps the upward
+    # noise fluctuations of the window power; rescale so the summed surrogate
+    # power matches the (unbiased) unclipped sum
+    tot_clip = sum(x -> max(x, 0.0), pow_u)
+    At .*= tot_clip > 0 ? sqrt(max(sum(pow_u), 0.0) / tot_clip) : 0.0
+    noff = length(off)
+    replace = noff < non
+    replace && @warn "Fewer off-pulse than on-pulse bins ($noff < $non): " *
+        "null noise bootstrap samples with replacement"
+    L_offt = collect(permutedims(L[:, off]))
+    rng     = isnothing(seed) ? Random.default_rng() : MersenneTwister(seed)
+    pidx    = collect(1:(replace ? non : noff))
+    rot     = Vector{ComplexF64}(undef, non)
+    S_null  = zeros(nreal)
+    im_sum  = zeros(nwin)
+    im_sum2 = zeros(nwin)
+    im_g    = zeros(nwin)
+    for i in 1:nreal
+        null_im_g!(im_g, At, L_offt, pidx, rot, rng, replace)
+        S_null[i] = sum(abs, im_g)
+        im_sum  .+= im_g
+        im_sum2 .+= im_g .^ 2
+    end
+    sigma_im = sqrt.(max.(im_sum2 ./ nreal .- (im_sum ./ nreal) .^ 2, eps()))
+
+    significance = (S - mean(S_null)) / std(S_null)
+    p_value      = count(>=(S), S_null) / nreal
+    slope_sig    = abs.(imag.(g)) ./ sigma_im
+    slope_err    = min.(sigma_im ./ abs.(g), Float64(π))
+    detected     = slope_sig .>= sig_min
+
+    return (
+        p3           = p3,
+        f3           = f3,
+        window       = window,
+        stride       = stride,
+        on_bins      = on,
+        starts       = starts,
+        centers      = centers,
+        L_on         = L_on,
+        Lmap         = abs.(L_on) ./ sigma_win,
+        sigma_win    = sigma_win,
+        snr_win      = snr_win,
+        snr_med      = snr_med,
+        g            = g,
+        slope        = slope,
+        slope_err    = slope_err,
+        slope_sig    = slope_sig,
+        detected     = detected,
+        S            = S,
+        S_null       = S_null,
+        significance = significance,
+        p_value      = p_value,
+    )
+end
+
 end  # module PhaseDrift

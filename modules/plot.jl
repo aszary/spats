@@ -1754,4 +1754,100 @@ module Plot
     end
 
 
+    """
+    Sliding-window drift diagnostic (`PhaseDrift.drift_test_sliding`) — the
+    reversal-tolerant counterpart of `phase_drift`.
+
+    Panel 1: |L_b(φ)|/σ_b map, longitude vs pulse number — where in time and
+    longitude the f3 modulation power lives.
+    Panel 2: per-window drift slope arg g_b vs pulse number. Windows below the
+    per-window significance threshold are light grey (their phase is noise);
+    detected windows are black with 1σ error bars. For a drifter that reverses
+    direction this slope(t) curve flips sign between episodes — the direct
+    measurement the global `phase_drift` slope averages away. Structure
+    narrower than the window length is smoothing artefact, not signal.
+    Panel 3: null distribution of S = Σ_b |Im g_b| (flat-phase surrogates with
+    shared noise) against the observed S.
+
+    Writes `<name_mod>_phase_drift_sliding.pdf/.png`, so `phase_drift` and
+    `phase_stability` outputs are kept.
+
+    Arguments:
+      result  – NamedTuple from PhaseDrift.drift_test_sliding
+      outdir  – output directory
+      nbin    – total profile bins (for longitude axis scale)
+    """
+    function phase_drift_sliding(result, outdir, nbin::Int;
+                                 name_mod="pulsar", show_=false)
+        npts      = length(result.on_bins)
+        lon       = collect(range(-180.0 * npts / nbin, 180.0 * npts / nbin, length=npts))
+        centers   = result.centers
+        slope_deg = rad2deg.(result.slope)
+        err_deg   = rad2deg.(result.slope_err)
+        det       = result.detected
+        nd        = .!det
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.5, 5.5))
+        subplots_adjust(left=0.18, bottom=0.08, right=0.97, top=0.93, hspace=0.50)
+
+        # Panel 1: modulation power map
+        subplot(3, 1, 1)
+        imshow(permutedims(result.Lmap), origin="lower", aspect="auto",
+               extent=(centers[1], centers[end], lon[1], lon[end]),
+               cmap="viridis", interpolation="nearest")
+        xlabel("pulse number")
+        ylabel("longitude (\$^\\circ\$)")
+
+        # Panel 2: time-resolved drift slope — sign flips are drift reversals
+        subplot(3, 1, 2)
+        axhline(y=0.0, color="grey", lw=0.4, ls=":")
+        if any(nd)
+            plot(centers[nd], slope_deg[nd], ".", ms=1.5, c="lightgrey", zorder=2)
+        end
+        if any(det)
+            errorbar(centers[det], slope_deg[det], yerr=err_deg[det], fmt=".",
+                     ms=2, c="black", ecolor="grey", elinewidth=0.3, capsize=0,
+                     zorder=3)
+            lim = min(190.0, 1.5 * maximum(abs.(slope_deg[det]) .+ err_deg[det]))
+            ylim(-lim, lim)
+        else
+            ylim(-190, 190)
+        end
+        xlim(centers[1], centers[end])
+        xlabel("pulse number")
+        ylabel("slope (\$^\\circ\$/bin)")
+        minorticks_on()
+
+        # Panel 3: incoherent drift statistic vs its null
+        subplot(3, 1, 3)
+        hist(result.S_null, bins=60, density=true, color="grey", alpha=0.7)
+        axvline(x=result.S, color="red", lw=1.2,
+                label=@sprintf("\$S_{\\mathrm{obs}}\$ (%.1f\$\\sigma\$)",
+                               result.significance))
+        xlabel("\$S = \\sum_b |\\mathrm{Im}\\,g_b|\$")
+        ylabel("density")
+        minorticks_on()
+        legend(fontsize=6, loc="upper right")
+
+        suptitle(@sprintf("P3 = %.1f P0  |  W = %d  |  %.1f\$\\sigma\$",
+                          result.p3, result.window, result.significance), fontsize=7)
+
+        savepath = joinpath(outdir, "$(name_mod)_phase_drift_sliding.pdf")
+        savefig(savepath)
+        savefig(replace(savepath, ".pdf" => ".png"))
+        println(savepath)
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
 end  # module Plot

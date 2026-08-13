@@ -171,6 +171,53 @@ module SpaTs
 
 
     """
+    Sliding-window, reversal-tolerant drift test — the detector that
+    `phase_modulation`/`phase_modulation2` cannot be for drifters that switch
+    drift direction (e.g. J1750-3503): their single coherent slope averages
+    episodes of opposite sign to ~zero. Here the coherent slope statistic is
+    evaluated in a short window slid pulse-by-pulse and the per-window drift
+    quadratures |Im g_b| are combined incoherently, so episodes of + and −
+    drift add instead of cancelling; the slope(t) panel shows the reversals
+    directly. Significance comes from flat-phase surrogates whose noise is
+    bootstrapped from the pulsar's own off-pulse region, shared across
+    overlapping windows (see `PhaseDrift.drift_test_sliding` for the full
+    construction and the caveats).
+
+    `window` should be about half the shortest expected drift episode
+    (J1750-3503: negative episodes 28±4 P → default 16). Scanning window
+    ∈ {8,16,32,64,128} is a useful diagnostic, but quote the significance at
+    the pre-chosen default or apply a trials correction. `stride=window`
+    turns it into the disjoint-block variant.
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J1750-3503/.../", vpmout*"J1750-3503")
+      phase_modulation3(vpmout*"J1750-3503")
+    """
+    function phase_modulation3(outdir; window=16, stride=1, nreal=1000, sig_min=3.0, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        result = PhaseDrift.drift_test_sliding(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            window=window, stride=stride, nreal=nreal, sig_min=sig_min)
+        ptxt = result.p_value == 0 ? "p < $(round(1/nreal, sigdigits=1))" :
+                                     "p = $(round(result.p_value, sigdigits=2))"
+        npos = count(result.detected .& (result.slope .> 0))
+        nneg = count(result.detected .& (result.slope .< 0))
+        println("Median window SNR: $(round(result.snr_med, digits=2))")
+        println("Drift detection:   $(round(result.significance, digits=1)) σ ($ptxt)")
+        println("Windows ≥ $(sig_min)σ:    $(npos + nneg) of $(length(result.slope)) " *
+                "($npos positive, $nneg negative drift)")
+        if npos > 0 && nneg > 0
+            println("                   both drift senses present — direction reverses")
+        end
+        Plot.phase_drift_sliding(result, outdir, Int(p["nbin"]);
+                                 name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+    """
     Globally-optimized P3-fold (per-pulse Viterbi phase assignment), as an
     alternative to the `pfold -p3fold` refine used elsewhere in this file
     (e.g. `Data.process_psrdata_16` / `Data.p3fold_psrdata`). See
