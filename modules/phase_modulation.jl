@@ -13,13 +13,20 @@ frequency f3 = 1/P3 for every longitude bin.
 
 Frequency index k = round(N_pulses / P3), Julia 1-indexed as k+1.
 Result shape: (N_bins,)
+
+Sign convention: the coefficient is conjugated, i.e. the effective kernel is
+e^(+2πi f3 n). Positive drift in the publication sense (subpulses moving from
+early to later longitudes, Szary+2022) means later longitudes light up later
+in time, and with the +i kernel a time delay is a *positive* phase shift —
+so dψ/dφ > 0 ⇔ positive drift. With the raw forward-FFT kernel e^(-2πi f3 n)
+the sign would come out inverted.
 """
 function complex_lrfs_at_f3(data::AbstractMatrix, p3::Real)
     N = size(data, 1)
     F = fft(data, 1)                      # (N_pulses, N_bins)
     k = round(Int, N / p3)
     k = clamp(k, 1, N ÷ 2)
-    return F[k + 1, :]                    # +1: Julia 1-indexed (DC is at index 1)
+    return conj.(F[k + 1, :])             # +1: Julia 1-indexed; conj: see docstring
 end
 
 
@@ -100,7 +107,8 @@ function p3_error_phases(data::AbstractMatrix, p3::Real, p3_error::Real,
     for (i, p3i) in enumerate(p3_grid)
         k = k_from_p3(N, p3i)
         k_grid[i] = k
-        psi_grid[i, :] = angle.(F[k + 1, on_bins])
+        # conj: same e^(+2πi f3 n) sign convention as `complex_lrfs_at_f3`
+        psi_grid[i, :] = angle.(conj.(F[k + 1, on_bins]))
     end
     psi_sigma = [circ_std(psi_grid[:, j]) for j in axes(psi_grid, 2)]
     return (k_grid=k_grid, p3_grid=p3_grid, psi_grid=psi_grid, psi_sigma=psi_sigma)
@@ -116,6 +124,9 @@ Coherent estimator of the phase gradient dψ/dφ [rad/bin].
   slope = arg(g)
 
 Naturally weighted by |L[φ]||L[φ+1]|, robust against phase wrapping.
+
+With `complex_lrfs_at_f3`'s sign convention: slope > 0 ⇔ positive drift,
+i.e. subpulses moving from early to later longitudes (Szary+2022).
 """
 function slope_stat(L_on::AbstractVector)
     n = length(L_on)
@@ -278,7 +289,8 @@ Fields of returned NamedTuple:
   sigma_off      – off-pulse noise estimate in complex L
   snr            – f3 feature strength, mean(|L_on|)/σ_off; pure noise gives
                    ~1.25 (Rayleigh mean), a warning is issued below 3
-  slope          – measured phase slope [rad/bin]
+  slope          – measured phase slope [rad/bin]; > 0 = positive drift
+                   (early → later longitudes, Szary+2022 convention)
   null           – null slope distribution [nreal]
   significance   – slope / std(null)  [σ]
   p3             – P3 used
@@ -341,13 +353,15 @@ end
 Sliding-window complex LRFS at exactly f3 [cycles/pulse]: for every window
 position b the complex amplitude
 
-  L_b(φ) = Σ_{n∈b} data[n,φ] · e^(-2πi f3 n)
+  L_b(φ) = Σ_{n∈b} data[n,φ] · e^(+2πi f3 n)
 
 is computed for all longitude bins via one carrier multiplication and a
 cumulative sum along the pulse axis, so the cost is O(N·N_bins) regardless
-of `stride`. Unlike `complex_lrfs_at_f3` there is no quantisation of f3 to
-an integer FFT index, and the short window's wide response (main lobe
-f3 ± 1/window) captures a wobbling P3 without loss.
+of `stride`. There is no quantisation of f3 to an integer FFT index, and
+the short window's wide response (main lobe f3 ± 1/window) captures a
+wobbling P3 without loss. The +i kernel matches `complex_lrfs_at_f3`'s
+sign convention: dψ/dφ > 0 ⇔ positive drift (early → later longitudes,
+Szary+2022) — see there.
 
 DC and slow intensity fluctuations must be removed from `data` *before*
 calling this (`drift_test_sliding` uses `subtract_running_mean`): for
@@ -367,7 +381,7 @@ function windowed_lrfs(data::AbstractMatrix, f3::Real, window::Int, stride::Int)
     window < 2       && error("window must be ≥ 2 (got $window)")
     stride < 1       && error("stride must be ≥ 1 (got $stride)")
     N < window       && error("Need at least window=$window pulses (got $N)")
-    carrier = [exp(-2im * π * f3 * n) for n in 1:N]
+    carrier = [exp(2im * π * f3 * n) for n in 1:N]
     C = cumsum(data .* carrier, dims=1)
     starts = collect(1:stride:N-window+1)
     L = Array{ComplexF64}(undef, length(starts), nbins)
@@ -472,7 +486,7 @@ single FFT bin loses most of the feature to P3 wobble on top.
 
 Per window position b (length `window`, step `stride`):
 
-  L_b(φ) = Σ_{n∈b} (data[n,φ] - mean profile) · e^(-2πi f3 n)
+  L_b(φ) = Σ_{n∈b} (data[n,φ] - running mean) · e^(+2πi f3 n)
   g_b    = Σ_φ conj(L_b[φ]) · L_b[φ+1]        (per-window `slope_stat`)
 
 and the detection statistic combines the drift quadratures incoherently:
@@ -554,7 +568,8 @@ Fields of returned NamedTuple:
   snr_win      – per-window feature SNR, mean(|L_b|)/σ_b; noise gives ~1.25
   snr_med      – median of snr_win
   g            – per-window coherent statistic g_b (complex)
-  slope        – arg g_b [rad/bin], the time-resolved drift slope
+  slope        – arg g_b [rad/bin], the time-resolved drift slope; > 0 =
+                 positive drift (early → later longitudes, Szary+2022)
   slope_err    – 1σ error on slope from the null Im-spread, min-capped at π
   slope_sig    – |Im g_b| / σ_Im,b, per-window drift significance
   detected     – slope_sig .≥ sig_min

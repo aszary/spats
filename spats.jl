@@ -218,39 +218,6 @@ module SpaTs
 
 
     """
-    Constant-P3 fold of a pulse sub-range — the sign-convention check for
-    `phase_modulation3`: fold *only* the pulses of one drift episode
-    identified in slope(t) and read the drift direction straight off the
-    band tilt, then tie it to the slope sign of that episode. Constant P3
-    is fine here because a single episode is short enough for the phase to
-    stay coherent (that's what defined the episode in the first place),
-    but the range must still span at least ~2 P3 cycles for the fold to
-    fill up (J1750-3503: negative-slope block at pulses ~200-330 ≈ 2.7
-    cycles; the short positive episodes ~20 P are below one cycle and
-    cannot be folded this way).
-
-    Typical call, after phase_modulation3 has shown the episodes:
-      p3fold_range(vpmout*"J1750-3503"; pulse_st=200, pulse_end=330)
-    """
-    function p3fold_range(outdir; pulse_st=200, pulse_end=330, ybins=nothing,
-                          darkness=1.0, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
-        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
-        p3   = Float64(p["p3"])
-        ncyc = (pulse_end - pulse_st + 1) / p3
-        ncyc < 2 && @warn "Range covers only $(round(ncyc, digits=1)) P3 cycles — " *
-            "the fold will be sparse; use a longer episode"
-        folded = Tools.p3fold(data[pulse_st:pulse_end, :], p3, yb)
-        Plot.p3fold(folded, outdir; bin_st=Int(p["bin_st"])-20, bin_end=Int(p["bin_end"])+20,
-                    darkness=darkness, name_mod="pulsar_$(pulse_st)_$(pulse_end)",
-                    show_=show_, repeat_num=4)
-        return folded
-    end
-
-
-    """
     Globally-optimized P3-fold (per-pulse Viterbi phase assignment), as an
     alternative to the `pfold -p3fold` refine used elsewhere in this file
     (e.g. `Data.process_psrdata_16` / `Data.p3fold_psrdata`). See
@@ -714,9 +681,8 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12/", vpmout*"J1750-3503")
         #phase_modulation(vpmout*"J1750-3503")
         #phase_modulation2(vpmout*"J1750-3503")
-        #phase_modulation3(vpmout*"J1750-3503")
+        phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/300)
-        p3fold_range(vpmout*"J1750-3503"; pulse_st=730, pulse_end=770)  # sign check: fold of the negative-slope episode
 
         
         # PSR J1539-6322
