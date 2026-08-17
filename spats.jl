@@ -283,7 +283,7 @@ module SpaTs
                             bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
                             name_mod="pulsar_coherent", show_=show_, repeat_num=4,
                             label="coherent fold", p3_per_pulse_err=result.p3_per_pulse_err,
-                            intensity=intensity) , p3_ylim=(-150, 150))
+                            intensity=intensity , p3_ylim=(-150, 150))
         return result
     end
 
