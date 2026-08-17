@@ -645,8 +645,9 @@ module SpaTs
         #Data.position_angle(vpmout*"J2053-7200_16")
         #Data.geometry_analysis(vpmout*"J2053-7200_16")
         #phase_modulation(vpmout*"J2053-7200")
-        phase_modulation3(vpmout*"J2053-7200")
-        p3fold_coherent(vpmout*"J2053-7200")
+        phase_modulation2(vpmout*"J2053-7200")
+        #phase_modulation3(vpmout*"J2053-7200")
+        #p3fold_coherent(vpmout*"J2053-7200")
 
         # PSR J2139+2242
         #process_psrdata("/home/psr/data/new/J2139+2242/2020-09-07-20:01:41/", vpmout*"J2139+2242")
