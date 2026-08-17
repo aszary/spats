@@ -193,7 +193,7 @@ module SpaTs
       process_psrdata("/home/psr/data/new/J1750-3503/.../", vpmout*"J1750-3503")
       phase_modulation3(vpmout*"J1750-3503")
     """
-    function phase_modulation3(outdir; window=24, stride=1, nreal=1000, sig_min=2.0, show_=true)
+    function phase_modulation3(outdir; window=24, stride=1, nreal=1000, sig_min=3.0, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
