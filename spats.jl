@@ -682,7 +682,7 @@ module SpaTs
         #phase_modulation(vpmout*"J1750-3503")
         #phase_modulation2(vpmout*"J1750-3503")
         phase_modulation3(vpmout*"J1750-3503")
-        #p3fold_coherent(vpmout*"J1750-3503")
+        p3fold_coherent(vpmout*"J1750-3503")
 
         # PSR J1539-6322
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
