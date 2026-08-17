@@ -679,7 +679,7 @@ module SpaTs
 
         # PSR J1750-3503
         #process_psrdata("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12/", vpmout*"J1750-3503")
-        #phase_modulation(vpmout*"J1750-3503")
+        phase_modulation(vpmout*"J1750-3503")
         phase_modulation2(vpmout*"J1750-3503")
         phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503")
