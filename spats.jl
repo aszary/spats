@@ -716,7 +716,7 @@ module SpaTs
         #phase_modulation2(vpmout*"J1750-3503")
         #phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/300)
-        p3fold_range(vpmout*"J1750-3503"; pulse_st=620, pulse_end=770)  # sign check: fold of the negative-slope episode
+        p3fold_range(vpmout*"J1750-3503"; pulse_st=730, pulse_end=770)  # sign check: fold of the negative-slope episode
 
         
         # PSR J1539-6322
