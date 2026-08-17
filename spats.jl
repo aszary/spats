@@ -681,7 +681,7 @@ module SpaTs
         #process_psrdata("/home/psr/data/new/J1750-3503/2019-12-14-14:22:12/", vpmout*"J1750-3503")
         #phase_modulation(vpmout*"J1750-3503")
         #phase_modulation2(vpmout*"J1750-3503")
-        phase_modulation3(vpmout*"J1750-3503")
+        #phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/300)
 
         
@@ -696,7 +696,8 @@ module SpaTs
         #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
         #phase_modulation(vpmout*"J1539-6322")
         #phase_modulation2(vpmout*"J1539-6322")
-        #p3fold_coherent(vpmout*"J1539-6322")
+        phase_modulation3(vpmout*"J1539-6322")
+        p3fold_coherent(vpmout*"J1539-6322")
         
 
         #test(vpmout)
