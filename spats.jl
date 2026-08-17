@@ -171,6 +171,67 @@ module SpaTs
 
 
     """
+    Windowed phase-stability test — `phase_modulation2` for pulsars whose
+    global LRFS bin is empty.
+
+    `phase_modulation2` asks the right question (is the phase gradient
+    systematic, or is it a jump?) but reads it off the single global FFT bin,
+    which P3 wobble empties: the f3 feature smears over Δk ≈ k·ΔP3/P3 bins
+    with k = N/P3, so at short P3 in a long observation nothing is left. For
+    J2053-7200 (P3 = 3.06, k ≈ 340, wobble ±1.3% ⇒ ~9 bins) it reports 0.5σ
+    and a χ² from 8 usable increments, while `phase_modulation3` sees the same
+    modulation at 80σ in short windows.
+
+    This variant measures the same increments from the *windowed* LRFS:
+    dψ/dφ(φ) = arg Σ_b conj(L_b[φ])·L_b[φ+1], summing the pairwise products
+    over windows instead of over longitude (`phase_modulation3` does the
+    latter and gets slope(t)). The products are invariant to each window's
+    absolute phase, so the sum survives P3 wobble. Goodness of fit of a
+    constant gradient is Monte-Carlo calibrated against flat-phase surrogates:
+
+      χ²_red ~ 1  – constant gradient fits → genuine drift
+      χ²_red ≫ 1  – phase jumps with longitude → not a drift
+
+    Interpret it only when the modulation is actually detected — run
+    `phase_modulation3` first and check its significance. The window sum is
+    coherent, so for a drifter that reverses (J1750-3503) restrict the range
+    to one episode with `pulse_st`/`pulse_end`, otherwise the episodes cancel.
+    See `PhaseDrift.drift_test_profile` for the synthetic calibration,
+    including the one regime that stays genuinely degenerate.
+
+    Writes `pulsar_phase_stability_windowed.pdf/.png`, so the
+    `phase_modulation2` output is kept.
+
+    Typical call after phase_modulation3 has shown a significant drift:
+      phase_modulation3(vpmout*"J2053-7200")
+      phase_modulation2a(vpmout*"J2053-7200")
+    """
+    function phase_modulation2a(outdir; window=32, stride=1, nreal=500,
+                                pulse_st=nothing, pulse_end=nothing, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        result = PhaseDrift.drift_test_profile(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            window=window, stride=stride, nreal=nreal,
+            pulse_st=pulse_st, pulse_end=pulse_end)
+        ptxt = result.p_value == 0 ? "p < $(round(1/nreal, sigdigits=1))" :
+                                     "p = $(round(result.p_value, sigdigits=2))"
+        println("Median window SNR: $(round(result.snr_med, digits=2))")
+        println("Windows summed:    $(result.nwin) " *
+                "(pulses $(result.pulse_range[1])-$(result.pulse_range[2]))")
+        println("Gradient:          $(round(rad2deg(result.slope), digits=2)) °/bin " *
+                "($(result.slope > 0 ? "positive" : "negative") drift sense)")
+        println("Stability:         χ²_red = $(round(result.chi2_red, digits=2)) " *
+                "($ptxt) — " *
+                (result.chi2_red < 2 ? "systematic drift" : "phase jumps with longitude"))
+        Plot.phase_stability_windowed(result, outdir, Int(p["nbin"]);
+                                      name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+    """
     Sliding-window, reversal-tolerant drift test — the detector that
     `phase_modulation`/`phase_modulation2` cannot be for drifters that switch
     drift direction (e.g. J1750-3503): their single coherent slope averages
@@ -645,7 +706,8 @@ module SpaTs
         #Data.position_angle(vpmout*"J2053-7200_16")
         #Data.geometry_analysis(vpmout*"J2053-7200_16")
         #phase_modulation(vpmout*"J2053-7200")
-        phase_modulation2(vpmout*"J2053-7200")
+        #phase_modulation2(vpmout*"J2053-7200")
+        phase_modulation2a(vpmout*"J2053-7200")
         #phase_modulation3(vpmout*"J2053-7200")
         #p3fold_coherent(vpmout*"J2053-7200")
 

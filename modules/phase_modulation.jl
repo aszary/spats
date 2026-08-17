@@ -428,6 +428,46 @@ end
 
 
 """
+    null_amplitudes(L_on, sigma_win; amp_smooth) -> Matrix{Float64}
+
+Per-window amplitude profiles for the flat-phase surrogates of
+`drift_test_sliding` / `drift_test_profile`: |L_b(φ)| with the noise
+contribution removed, returned transposed (n_on × nwin) for the access
+order of the surrogate loops.
+
+The null variance of the drift quadrature is driven by the amplitude
+*gradient* Σ_j (A[j-1] - A[j+1])², and the raw per-bin |L| jitters at the
+noise level — that jitter would inflate the gradient, and with it the null,
+by a large factor. So the power profile is boxcar-smoothed over
+±`amp_smooth` bins in longitude before the debias, and then rescaled per
+window so the total power still matches the unsmoothed, debiased sum. A
+final global rescale removes the bias left by the per-window truncations
+at zero (which otherwise keep the upward noise fluctuations of the window
+power). At mean(S)/std(S) ~ 100 a few-percent power error is worth several
+σ, so none of these corrections is cosmetic.
+"""
+function null_amplitudes(L_on::AbstractMatrix, sigma_win::AbstractVector;
+                         amp_smooth::Int=5)
+    nwin, non = size(L_on)
+    At    = Matrix{Float64}(undef, non, nwin)
+    pow_u = Vector{Float64}(undef, nwin)
+    for b in 1:nwin
+        p2 = abs2.(@view L_on[b, :])
+        pow_u[b] = sum(p2) - 2 * sigma_win[b]^2 * non
+        for j in 1:non
+            lo, hi = max(1, j - amp_smooth), min(non, j + amp_smooth)
+            At[j, b] = sqrt(max(mean(@view p2[lo:hi]) - 2 * sigma_win[b]^2, 0.0))
+        end
+        pow_t = sum(abs2, @view At[:, b])
+        At[:, b] .*= pow_t > 0 ? sqrt(max(pow_u[b], 0.0) / pow_t) : 0.0
+    end
+    tot_clip = sum(x -> max(x, 0.0), pow_u)
+    At .*= tot_clip > 0 ? sqrt(max(sum(pow_u), 0.0) / tot_clip) : 0.0
+    return At
+end
+
+
+"""
     null_im_g!(im_g, At, L_offt, pidx, rot, rng, replace) -> im_g
 
 One flat-phase surrogate realisation for `drift_test_sliding`: fills `im_g`
@@ -619,30 +659,7 @@ function drift_test_sliding(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end
     slope = angle.(g)
     S = sum(abs, imag.(g))
 
-    # flat-phase surrogates: smoothed, debiased, power-matched amplitudes
-    # + off-pulse-bootstrap noise. Var(Im g) under the null is driven by the
-    # amplitude *gradient* Σ_j (A[j-1]-A[j+1])² — the raw per-bin |L| jitters
-    # at the noise level, which would inflate that gradient (and the null) by
-    # a large factor, so the power profile is boxcar-smoothed in longitude;
-    # the per-window power match then keeps the total signal power unbiased
-    # (the truncations at 0 leave phantom power, hence the max(·,0) bookkeeping).
-    At    = Matrix{Float64}(undef, non, nwin)
-    pow_u = Vector{Float64}(undef, nwin)
-    for b in 1:nwin
-        p2 = abs2.(@view L_on[b, :])
-        pow_u[b] = sum(p2) - 2 * sigma_win[b]^2 * non
-        for j in 1:non
-            lo, hi = max(1, j - amp_smooth), min(non, j + amp_smooth)
-            At[j, b] = sqrt(max(mean(@view p2[lo:hi]) - 2 * sigma_win[b]^2, 0.0))
-        end
-        pow_t = sum(abs2, @view At[:, b])
-        At[:, b] .*= pow_t > 0 ? sqrt(max(pow_u[b], 0.0) / pow_t) : 0.0
-    end
-    # global clipping-bias correction: per-window max(·,0) keeps the upward
-    # noise fluctuations of the window power; rescale so the summed surrogate
-    # power matches the (unbiased) unclipped sum
-    tot_clip = sum(x -> max(x, 0.0), pow_u)
-    At .*= tot_clip > 0 ? sqrt(max(sum(pow_u), 0.0) / tot_clip) : 0.0
+    At = null_amplitudes(L_on, sigma_win; amp_smooth=amp_smooth)
     noff = length(off)
     replace = noff < non
     replace && @warn "Fewer off-pulse than on-pulse bins ($noff < $non): " *
@@ -691,6 +708,266 @@ function drift_test_sliding(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end
         S_null       = S_null,
         significance = significance,
         p_value      = p_value,
+    )
+end
+
+"""
+    null_G!(G, At, L_offt, pidx, rot, rng, replace) -> G
+
+One flat-phase surrogate realisation for `drift_test_profile`: fills `G`
+with G_j = Σ_b conj(L_b[j])·L_b[j+1] for the surrogate windowed LRFS
+L_b^null(φ_j) = A_b(φ_j) + N_b(φ_j).
+
+Same construction as `null_im_g!` — measured amplitudes `At` from
+`null_amplitudes`, noise bootstrapped from the off-pulse windowed LRFS
+`L_offt` (one random off-pulse bin plus one random phase rotation per
+on-pulse bin, held fixed across windows) — only the reduction differs:
+here the products are summed over *windows* at fixed longitude instead of
+over longitude at fixed window. Adjacent G_j share the noise of bin j+1
+exactly as in the data, so the correlation between neighbouring phase
+increments is reproduced without being modelled.
+"""
+function null_G!(G::Vector{ComplexF64}, At::Matrix{Float64},
+                 L_offt::Matrix{ComplexF64}, pidx::Vector{Int},
+                 rot::Vector{ComplexF64}, rng, replace::Bool)
+    non, nwin = size(At)
+    noff = size(L_offt, 1)
+    if replace
+        rand!(rng, pidx, 1:noff)
+    else
+        randperm!(rng, pidx)
+    end
+    for j in 1:non
+        rot[j] = cis(2π * rand(rng))
+    end
+    fill!(G, zero(ComplexF64))
+    @inbounds for b in 1:nwin
+        Lj = At[1, b] + rot[1] * L_offt[pidx[1], b]
+        for j in 2:non
+            Lj1 = At[j, b] + rot[j] * L_offt[pidx[j], b]
+            G[j-1] += conj(Lj) * Lj1
+            Lj = Lj1
+        end
+    end
+    return G
+end
+
+
+"""
+    profile_stat(G) -> (slope, resid, T)
+
+Constant-gradient fit to the longitude-resolved phase increments of
+`drift_test_profile`. The fitted gradient is the coherent slope
+`slope = arg(Σ_j G_j)` (identical estimator to `slope_stat`), and the
+residual of bin j is the component of G_j perpendicular to it,
+
+  resid_j = Im( G_j · e^(-i·slope) ),     T = Σ_j resid_j²
+
+`resid_j` vanishes whenever arg(G_j) equals the fitted slope, whatever the
+amplitude |G_j|, so T measures *only* departure from a constant gradient.
+Its natural weighting is also the correct one: the phase error of arg(G_j)
+scales as 1/|G_j|, so Im(G_j e^(-i·slope)) carries noise of roughly the
+same size in every bin regardless of how strong that bin is, and an
+unweighted sum of squares is already the inverse-variance form.
+"""
+function profile_stat(G::AbstractVector)
+    slope = angle(sum(G))
+    resid = [imag(G[j] * cis(-slope)) for j in eachindex(G)]
+    return (slope=slope, resid=resid, T=sum(abs2, resid))
+end
+
+
+"""
+    drift_test_profile(data, p3, bin_st, bin_end; window, stride, nreal, seed,
+                       hp_halfwin, amp_smooth, pulse_st, pulse_end) -> NamedTuple
+
+Longitude-resolved phase gradient from *windowed* LRFS — the test that
+separates a genuine subpulse drift from a phase step between two
+longitude-separated components, for pulsars where `drift_test`'s global
+single-bin LRFS carries no usable signal.
+
+`drift_test_sliding` reports Σ_φ of the pairwise products, which is a
+single number per window: it detects that the modulation phase depends on
+longitude, but not *how*. A steady drift (ψ rising across the profile) and
+a phase *step* inside the profile (ψ flat on either side, jumping once)
+both put power into that sum, and both read as a significant "drift" with
+a plausible slope. Only the longitude-resolved increments tell them apart,
+which is what `drift_test`/`slope_chi2` does — but from the global FFT
+bin, and that bin is empty whenever P3 wobbles: the feature smears over
+Δk ≈ k·ΔP3/P3 bins with k = N/P3, so a short P3 in a long observation
+(J2053-7200: k ≈ 340, ±1.3% wobble ⇒ ~9 bins) leaves nothing to measure.
+
+The fix uses the same pairwise products as `drift_test_sliding`, summed
+along the other axis. With P[b,j] = conj(L_b[j])·L_b[j+1]:
+
+  Σ_j P[b,j] = g_b  → slope(t), time-resolved   (`drift_test_sliding`)
+  Σ_b P[b,j] = G_j  → dψ/dφ(φ), longitude-resolved   (here)
+
+Summing over windows is legitimate despite P3 wobble because P[b,j] is
+invariant to the window's absolute phase: an unknown e^(iθ_b) cancels in
+the conjugate product. That is the same invariance the sliding statistic
+relies on, so the windowed LRFS keeps the signal that the global FFT bin
+loses, while short windows keep their wide response (f3 ± 1/window).
+
+Goodness of fit is Monte-Carlo calibrated rather than analytic: `T` from
+`profile_stat` is recomputed on flat-phase surrogates built from the
+measured amplitudes plus off-pulse-bootstrap noise (`null_G!`), which
+reproduces the correlation between neighbouring increments — they share a
+bin — without a covariance model. Reported as
+
+  chi2_red = T / median(T_null)      ≈ 1  constant gradient fits → drift
+                                     ≫ 1  phase jumps → not a drift
+
+with an empirical p-value alongside. This is a calibrated ratio, not a
+formal reduced χ²; it is built to read like `drift_test`'s `chi2_red` so
+the two can be compared directly.
+
+Synthetic calibration (scratchpad tests, W=32) of what it can and cannot
+separate:
+
+  * a sharp phase step inside one broad component — the case this exists
+    for — is caught decisively: S reads a spurious 25σ "drift" at a
+    plausible -2.2°/bin, while chi2_red = 20 with p = 0 and the largest
+    residuals land exactly on the step bin;
+  * a genuine steady drift reads chi2_red = 0.5-0.9 at S = 33-97σ, i.e.
+    the test stays quiet where it should;
+  * two *well-separated* components with a phase offset need no test at
+    all: the step falls in the low-amplitude gap between them, so it
+    barely contributes to the products and S does not detect it either;
+  * two *heavily overlapping* components with a phase offset (separation
+    ≲ 2 component widths) turn the step into a smooth ramp and read
+    chi2_red ≈ 1-1.8. That is a real physical degeneracy rather than a
+    failure — across an overlap region "two components offset in
+    modulation phase" and "drift" describe the same observable — and it
+    cannot be resolved from the f3 phase alone.
+
+chi2_red is only interpretable when the modulation itself is detected:
+check `snr_med` here and the significance from `drift_test_sliding` first,
+exactly as `drift_test`'s χ² is meaningless once its `snr` approaches the
+pure-noise value.
+
+Caveat — the window sum is coherent, so it assumes the drift keeps **one
+sense** through the analysed stretch. For a reversing drifter
+(J1750-3503) the episodes would cancel exactly as they do in `drift_test`;
+restrict the analysis to a single episode with `pulse_st`/`pulse_end`,
+which are applied before everything else (high-pass included).
+
+Arguments: as `drift_test_sliding`, plus
+  pulse_st, pulse_end – analyse only this pulse range (default: all)
+
+Fields of the returned NamedTuple:
+  p3, f3, window, stride, on_bins – inputs echoed back
+  nwin        – number of windows summed over
+  pulse_range – (first, last) pulse actually analysed
+  G           – Σ_b conj(L_b[j])·L_b[j+1], length n_on-1
+  dpsi        – arg G_j [rad/bin], the longitude-resolved phase gradient
+  dpsi_sigma  – 1σ on dpsi from the surrogates [rad]
+  psi_cum     – cumsum(dpsi) [rad]: ψ(φ) rebuilt from the increments —
+                a straight line under drift, a staircase under phase steps
+  slope       – fitted constant gradient [rad/bin] (> 0 = positive drift)
+  resid       – per-bin departure from that gradient (`profile_stat`)
+  amp         – mean_b |L_b(φ)| / σ_b, the on-pulse S/N profile
+  snr_med     – median per-window feature S/N (as in `drift_test_sliding`)
+  T, T_null   – fit statistic and its surrogate distribution
+  chi2_red    – T / median(T_null)
+  p_value     – count(T_null ≥ T)/nreal (0 means < 1/nreal)
+"""
+function drift_test_profile(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                            window::Int=32, stride::Int=1, nreal::Int=500,
+                            seed::Union{Int,Nothing}=7,
+                            hp_halfwin::Union{Int,Nothing}=nothing, amp_smooth::Int=5,
+                            pulse_st::Union{Int,Nothing}=nothing,
+                            pulse_end::Union{Int,Nothing}=nothing)
+    p3 > 2 || error("p3 must be > 2 P0 (got $p3): f3 = 1/p3 would exceed Nyquist")
+    nbins = size(data, 2)
+    on    = bin_st:bin_end
+    non   = length(on)
+    non < 3 && error("Need at least 3 on-pulse bins (got $non)")
+    f3 = 1.0 / p3
+
+    n_st  = isnothing(pulse_st) ? 1 : pulse_st
+    n_end = isnothing(pulse_end) ? size(data, 1) : pulse_end
+    (1 <= n_st < n_end <= size(data, 1)) ||
+        error("Bad pulse range $n_st:$n_end for $(size(data, 1)) pulses")
+    dsub = @view data[n_st:n_end, :]
+
+    hp      = isnothing(hp_halfwin) ? round(Int, p3) : hp_halfwin
+    data_dm = subtract_running_mean(dsub, hp)
+    wl      = windowed_lrfs(data_dm, f3, window, stride)
+    L       = wl.L
+    nwin    = size(L, 1)
+
+    off = vcat(1:bin_st-1, bin_end+1:nbins)
+    isempty(off) && error(
+        "No off-pulse bins available (bin_st=$bin_st bin_end=$bin_end N_bins=$nbins)")
+    sigma_win = [std([real.(@view L[b, off]); imag.(@view L[b, off])]) for b in 1:nwin]
+    L_on      = L[:, on]
+    snr_med   = median([mean(abs.(@view L_on[b, :])) / sigma_win[b] for b in 1:nwin])
+    snr_med < 1.5 && @warn "Weak per-window f3 feature (median SNR = " *
+        "$(round(snr_med, digits=2)), pure noise gives ~1.25): consider a longer `window`"
+
+    # G_j = Σ_b conj(L_b[j])·L_b[j+1] — the pairwise products of
+    # `drift_test_sliding` summed over windows instead of over longitude
+    G = zeros(ComplexF64, non - 1)
+    @inbounds for b in 1:nwin
+        Lj = L_on[b, 1]
+        for j in 2:non
+            Lj1 = L_on[b, j]
+            G[j-1] += conj(Lj) * Lj1
+            Lj = Lj1
+        end
+    end
+    st = profile_stat(G)
+
+    At      = null_amplitudes(L_on, sigma_win; amp_smooth=amp_smooth)
+    noff    = length(off)
+    replace = noff < non
+    replace && @warn "Fewer off-pulse than on-pulse bins ($noff < $non): " *
+        "null noise bootstrap samples with replacement"
+    L_offt = collect(permutedims(L[:, off]))
+    rng    = isnothing(seed) ? Random.default_rng() : MersenneTwister(seed)
+    pidx   = collect(1:(replace ? non : noff))
+    rot    = Vector{ComplexF64}(undef, non)
+    Gn     = zeros(ComplexF64, non - 1)
+    T_null = zeros(nreal)
+    a_sum  = zeros(non - 1)
+    a_sum2 = zeros(non - 1)
+    for i in 1:nreal
+        null_G!(Gn, At, L_offt, pidx, rot, rng, replace)
+        sn = profile_stat(Gn)
+        T_null[i] = sn.T
+        for j in eachindex(Gn)
+            d = wrap_pi(angle(Gn[j]) - sn.slope)
+            a_sum[j]  += d
+            a_sum2[j] += d^2
+        end
+    end
+    dpsi_sigma = sqrt.(max.(a_sum2 ./ nreal .- (a_sum ./ nreal) .^ 2, eps()))
+
+    med_null = median(T_null)
+    dpsi     = angle.(G)
+    amp      = [mean(abs(L_on[b, j]) / sigma_win[b] for b in 1:nwin) for j in 1:non]
+
+    return (
+        p3          = p3,
+        f3          = f3,
+        window      = window,
+        stride      = stride,
+        on_bins     = on,
+        nwin        = nwin,
+        pulse_range = (n_st, n_end),
+        G           = G,
+        dpsi        = dpsi,
+        dpsi_sigma  = dpsi_sigma,
+        psi_cum     = cumsum(dpsi),
+        slope       = st.slope,
+        resid       = st.resid,
+        amp         = amp,
+        snr_med     = snr_med,
+        T           = st.T,
+        T_null      = T_null,
+        chi2_red    = med_null > 0 ? st.T / med_null : NaN,
+        p_value     = count(>=(st.T), T_null) / nreal,
     )
 end
 

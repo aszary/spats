@@ -1850,4 +1850,118 @@ module Plot
     end
 
 
+    """
+    Windowed phase-stability diagnostic (`PhaseDrift.drift_test_profile`) —
+    the longitude-resolved counterpart of `phase_stability`, for pulsars whose
+    global LRFS bin is emptied by P3 wobble.
+
+    Panel 1: on-pulse S/N profile, mean over windows of |L_b(φ)|/σ_b (pure
+    noise sits at ~1.25) — says which longitudes carry modulation at all, and
+    therefore which increments below are worth reading.
+    Panel 2: ψ(φ) rebuilt by integrating the measured increments, against the
+    fitted constant gradient. This is the panel that answers the question by
+    eye: a drift follows the straight line, a phase step between components
+    shows up as a staircase.
+    Panel 3: dψ/dφ(φ) with 1σ surrogate errors and the fitted gradient. Bins
+    whose phase error exceeds `sigma_max` are drawn light grey and are not
+    worth interpreting.
+
+    Writes `<name_mod>_phase_stability_windowed.pdf/.png`, leaving the
+    `phase_stability` output intact.
+
+    Arguments:
+      result    – NamedTuple from PhaseDrift.drift_test_profile
+      outdir    – output directory
+      nbin      – total profile bins (for longitude axis scale)
+      sigma_max – phase error [rad] above which an increment is greyed out
+    """
+    function phase_stability_windowed(result, outdir, nbin::Int;
+                                      sigma_max=0.5, name_mod="pulsar", show_=false)
+        npts    = length(result.on_bins)
+        lon     = collect(range(-180.0 * npts / nbin, 180.0 * npts / nbin, length=npts))
+        lon_mid = 0.5 .* (lon[1:end-1] .+ lon[2:end])
+        x       = collect(1:npts-1)
+
+        dpsi_deg = rad2deg.(result.dpsi)
+        derr_deg = rad2deg.(result.dpsi_sigma)
+        slope_deg = rad2deg(result.slope)
+        good = result.dpsi_sigma .<= sigma_max
+        bad  = .!good
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.5, 5.5))
+        subplots_adjust(left=0.18, bottom=0.08, right=0.97, top=0.93, hspace=0.50)
+
+        # Panel 1: where is there modulation to measure?
+        subplot(3, 1, 1)
+        plot(lon, result.amp, c="black", lw=0.8)
+        axhline(y=1.25, color="grey", lw=0.4, ls=":")
+        xlabel("longitude (\$^\\circ\$)")
+        ylabel("\$\\langle|L_b|\\rangle/\\sigma_b\$")
+        minorticks_on()
+
+        # Panel 2: integrated phase — straight line = drift, staircase = jump.
+        # Referenced to the reliable bins only: cumsum integrates the noisy
+        # edge increments too, and letting those set the offset and the y-range
+        # would squash the part that carries the answer.
+        subplot(3, 1, 2)
+        ref     = any(good) ? good : trues(length(x))
+        psi_deg = rad2deg.(result.psi_cum)
+        psi_deg = psi_deg .- mean(psi_deg[ref])
+        fit_deg = slope_deg .* (x .- mean(x[ref]))
+        psi_rel = copy(psi_deg)
+        psi_rel[.!ref] .= NaN
+        plot(lon_mid, psi_deg, "-", c="lightgrey", lw=0.6, zorder=2)
+        plot(lon_mid, psi_rel, "-", c="black", lw=0.9, zorder=3,
+             label="\$\\int d\\psi\$")
+        plot(lon_mid, fit_deg, "-", c="red", lw=1.0, zorder=4,
+             label=@sprintf("%.2f\$^\\circ\$/bin", slope_deg))
+        lo_, hi_ = extrema(vcat(psi_deg[ref], fit_deg[ref]))
+        pad = 0.18 * max(hi_ - lo_, 1.0)
+        ylim(lo_ - pad, hi_ + pad)
+        xlabel("longitude (\$^\\circ\$)")
+        ylabel("\$\\psi\$ (\$^\\circ\$)")
+        minorticks_on()
+        legend(fontsize=6, loc="upper left")
+
+        # Panel 3: the increments themselves and the constant-gradient fit
+        subplot(3, 1, 3)
+        axhline(y=0.0, color="grey", lw=0.4, ls=":")
+        if any(bad)
+            plot(lon_mid[bad], dpsi_deg[bad], ".", ms=2, c="lightgrey", zorder=2)
+        end
+        if any(good)
+            errorbar(lon_mid[good], dpsi_deg[good], yerr=derr_deg[good], fmt=".",
+                     ms=2.5, c="black", ecolor="grey", elinewidth=0.4, capsize=0,
+                     zorder=3)
+        end
+        ptxt = result.p_value == 0 ? "p<1/n" : @sprintf("p=%.3g", result.p_value)
+        axhline(y=slope_deg, color="red", lw=1.0,
+                label=@sprintf("\$\\chi^2_r\$ = %.1f (%s)", result.chi2_red, ptxt))
+        xlabel("longitude (\$^\\circ\$)")
+        ylabel("\$d\\psi/d\\varphi\$ (\$^\\circ\$/bin)")
+        ylim(-190, 190)
+        minorticks_on()
+        legend(fontsize=6, loc="upper right")
+
+        suptitle(@sprintf("P3 = %.1f P0  |  W = %d  |  \$\\chi^2_r\$ = %.1f",
+                          result.p3, result.window, result.chi2_red), fontsize=7)
+
+        savepath = joinpath(outdir, "$(name_mod)_phase_stability_windowed.pdf")
+        savefig(savepath)
+        savefig(replace(savepath, ".pdf" => ".png"))
+        println(savepath)
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
 end  # module Plot
