@@ -636,8 +636,8 @@ end
         #process_psrdata_16("/home/psr/data/new/J1915+0752/2020-05-06-03:23:45", vpmout*"J1915+0752_16")
         #Data.analyse_p3folds_16_new(vpmout*"J1915+0752_16", "norefine"; n_comp=1)
         
-        process_psrdata_16("/home/psr/data/new/J1842+0257/2020-04-07-03:36:44", vpmout*"J1842+0257_16")
-        Data.analyse_p3folds_16_new(vpmout*"J1842+0257_16", "norefine"; n_comp=1)
+        process_psrdata_16("/home/psr/data/new/J1843-0211/2020-01-20-12:13:10", vpmout*"J1843-0211_16")
+        Data.analyse_p3folds_16_new(vpmout*"J1843-0211_16", "norefine"; n_comp=1)
     end
 
 end # module
