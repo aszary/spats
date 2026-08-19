@@ -637,7 +637,7 @@ end
         #Data.analyse_p3folds_16_new(vpmout*"J1915+0752_16", "norefine"; n_comp=1)
         
         process_psrdata_16("/home/psr/data/new/J1843-0211/2020-01-20-12:13:10", vpmout*"J1843-0211_16")
-        Data.analyse_p3folds_16_new(vpmout*"J1843-0211_16", "norefine"; n_comp=1)
+        Data.analyse_p3folds_16_new(vpmout*"J1843-0211_16", "norefine"; n_comp=2)
     end
 
 end # module
