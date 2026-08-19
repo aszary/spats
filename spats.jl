@@ -504,7 +504,7 @@ module SpaTs
 
         #Tools.clean_all(vpmout)
         # Start from J1609-4616, then downward toward J1500, J1400, … 
-        analyse_all(start_psr="J1750-3503", downward=false)
+        analyse_all(start_psr="J1748-1300", downward=false)
     end
 
 end # module
