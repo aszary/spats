@@ -1964,4 +1964,122 @@ module Plot
     end
 
 
+    """
+    Turn one psrcat record (parameter => value) into a (P, Pdot) entry.
+
+    A large fraction of the ATNF catalogue lists the spin frequency instead of
+    the period, hence
+        P = 1 / F0        Pdot = -F1 / F0^2
+    Records without both P and Pdot defined are dropped.
+    """
+    function _psrcat_record!(names, periods, pdots, name, rec)
+        f0 = get(rec, "F0", NaN)
+        p0 = get(rec, "P0", NaN)
+        # whichever of the two is missing, derive it from the other
+        if !isfinite(f0) && isfinite(p0) && p0 > 0
+            f0 = 1 / p0
+        elseif !isfinite(p0) && isfinite(f0) && f0 > 0
+            p0 = 1 / f0
+        end
+        p1 = get(rec, "P1", NaN)
+        if !isfinite(p1)
+            f1 = get(rec, "F1", NaN)
+            isfinite(f1) && isfinite(f0) && f0 > 0 && (p1 = -f1 / f0^2)
+        end
+        if isfinite(p0) && isfinite(p1) && p0 > 0
+            push!(names, name)
+            push!(periods, p0)
+            push!(pdots, p1)
+        end
+    end
+
+
+    """
+    Read (name, P, Pdot) from an ATNF psrcat database file (psrcat tarball).
+
+    The file is a sequence of records separated by lines starting with "@-";
+    within a record each line is "PARAM value [error] [reference]" and lines
+    starting with "#" are comments. Only the first occurrence of a parameter is
+    used (some quantities are listed several times, once per reference).
+    """
+    function read_psrcat(filename)
+        isfile(filename) || error("psrcat database not found: $filename")
+
+        names = String[]
+        periods = Float64[]
+        pdots = Float64[]
+
+        rec = Dict{String,Float64}()
+        name = ""
+
+        for line in eachline(filename)
+            if startswith(line, "@-")
+                _psrcat_record!(names, periods, pdots, name, rec)
+                empty!(rec)
+                name = ""
+                continue
+            end
+            (isempty(strip(line)) || startswith(line, "#")) && continue
+            parts = split(line)
+            length(parts) < 2 && continue
+            key, val = parts[1], parts[2]
+            if key == "PSRJ" || (key == "PSRB" && name == "")
+                name == "" && (name = val)
+            elseif key in ("P0", "P1", "F0", "F1") && !haskey(rec, key)
+                v = tryparse(Float64, val)
+                isnothing(v) || (rec[key] = v)
+            end
+        end
+        _psrcat_record!(names, periods, pdots, name, rec)  # last record (no trailing @-)
+
+        return names, periods, pdots
+    end
+
+
+    """
+    P-Pdot diagram of the ATNF catalogue.
+
+    Pulsars with Pdot <= 0 (mostly globular-cluster pulsars, where acceleration
+    in the cluster potential dominates the observed spin-down) are skipped —
+    they cannot be shown on a logarithmic axis.
+    """
+    function ppdot(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
+                   name_mod="psrcat", show_=false)
+
+        names, periods, pdots = read_psrcat(catalogue)
+        println("psrcat: $(length(names)) pulsars with P and Pdot ($catalogue)")
+
+        keep = pdots .> 0
+        println("psrcat: $(count(.!keep)) pulsars skipped (Pdot <= 0)")
+        p = periods[keep]
+        pd = pdots[keep]
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        figure(figsize=(3.14961, 2.755906), frameon=true)  # 8cm x 7cm
+        subplots_adjust(left=0.21, bottom=0.16, right=0.97, top=0.97)
+
+        plot(p, pd, ".", ms=1.3, c="black", mec="none", zorder=2)
+        xscale("log")
+        yscale("log")
+        xlabel("\$P\$ (s)")
+        ylabel("\$\\dot{P}\$ (s s\$^{-1}\$)")
+        minorticks_on()
+
+        savepath = joinpath(outdir, "ppdot_$(name_mod).pdf")
+        savefig(savepath)
+        savefig(replace(savepath, ".pdf" => ".png"))
+        println(savepath)
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
 end  # module Plot

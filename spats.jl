@@ -708,7 +708,7 @@ module SpaTs
         #phase_modulation(vpmout*"J2053-7200")
         #phase_modulation2(vpmout*"J2053-7200")
         #phase_modulation2a(vpmout*"J2053-7200")
-        phase_modulation3(vpmout*"J2053-7200")
+        #phase_modulation3(vpmout*"J2053-7200")
         #p3fold_coherent(vpmout*"J2053-7200")
 
         # PSR J2139+2242
@@ -774,6 +774,9 @@ module SpaTs
 
         #Tools.clean_all(vpmout)
         #analyse_all()
+
+        # P-Pdot diagram based on the ATNF catalogue (input/psrcat.db)
+        Plot.ppdot("output")
     end
 
 end # module
