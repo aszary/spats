@@ -2097,13 +2097,13 @@ module Plot
         p = periods[keep]
         pd = pdots[keep]
 
-        rc("font", size=8.)
-        rc("axes", linewidth=0.5)
-        rc("lines", linewidth=0.5)
+        rc("font", size=11.)
+        rc("axes", linewidth=0.7)
+        rc("lines", linewidth=0.7)
 
-        figsize = (3.54331, 3.14961)  # 9cm x 8cm
+        figsize = (7.08661, 6.29921)  # 18cm x 16cm
         figure(figsize=figsize, frameon=true)
-        subplots_adjust(left=0.19, bottom=0.14, right=0.97, top=0.97)
+        subplots_adjust(left=0.13, bottom=0.10, right=0.98, top=0.98)
 
         ax = gca()
         xscale("log")
@@ -2126,10 +2126,10 @@ module Plot
             seg = _ppdot_segment(A, m, plims, pdotlims)
             isnothing(seg) && return
             xs, ys = seg
-            ax.plot(xs, ys, ls=ls, lw=0.6, c=color, alpha=0.8, zorder=1)
+            ax.plot(xs, ys, ls=ls, lw=0.9, c=color, alpha=0.8, zorder=1)
             isnothing(txt) && return
             xt = 10^(log10(xs[1]) + frac * log10(xs[end] / xs[1]))
-            ax.text(xt, A * xt^m, txt, fontsize=5, color=color,
+            ax.text(xt, A * xt^m, txt, fontsize=7, color=color,
                     ha="center", va=va, rotation_mode="anchor", zorder=4,
                     rotation=_ppdot_angle(ax, m, plims, pdotlims, figsize))
         end
@@ -2147,18 +2147,18 @@ module Plot
         end
         line!((death_bp2 / 3.2e19)^2, 3, nothing, 0.5, c_death, "-")
 
-        plot(p, pd, ".", ms=1.3, c="black", mec="none", zorder=3)
+        plot(p, pd, ".", ms=2.0, c="black", mec="none", zorder=3)
 
         xlabel("\$P\$ (s)")
         ylabel("\$\\dot{P}\$ (s s\$^{-1}\$)")
         minorticks_on()
 
         L2D = PyPlot.matplotlib.lines.Line2D
-        legend(handles=[L2D([], [], c=c_b, ls="--", lw=0.6, label="\$B\$ (G)"),
-                        L2D([], [], c=c_age, ls="-.", lw=0.6, label="\$\\tau_c\$ (yr)"),
-                        L2D([], [], c=c_edot, ls=":", lw=0.6, label="\$\\dot{E}\$ (erg s\$^{-1}\$)"),
-                        L2D([], [], c=c_death, ls="-", lw=0.6, label="death line")],
-               fontsize=5, loc="lower right", framealpha=0.9, borderpad=0.4,
+        legend(handles=[L2D([], [], c=c_b, ls="--", lw=0.9, label="\$B\$ (G)"),
+                        L2D([], [], c=c_age, ls="-.", lw=0.9, label="\$\\tau_c\$ (yr)"),
+                        L2D([], [], c=c_edot, ls=":", lw=0.9, label="\$\\dot{E}\$ (erg s\$^{-1}\$)"),
+                        L2D([], [], c=c_death, ls="-", lw=0.9, label="death line")],
+               fontsize=8, loc="lower right", framealpha=0.9, borderpad=0.4,
                handlelength=2.5, labelspacing=0.35)
 
         savepath = joinpath(outdir, "ppdot_$(name_mod).pdf")
