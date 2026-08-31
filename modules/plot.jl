@@ -2037,6 +2037,43 @@ module Plot
 
 
     """
+    Visible part of the power law Pdot = A * P^m inside the (xlims, ylims) box.
+    Returns (xs, ys), or nothing when the line does not cross the box at all.
+    """
+    function _ppdot_segment(A, m, xlims, ylims)
+        xa = (ylims[1] / A)^(1 / m)
+        xb = (ylims[2] / A)^(1 / m)
+        xlo = max(xlims[1], min(xa, xb))
+        xhi = min(xlims[2], max(xa, xb))
+        xlo < xhi || return nothing
+        xs = 10 .^ range(log10(xlo), log10(xhi), length=32)
+        return xs, A .* xs .^ m
+    end
+
+
+    """
+    On-screen slope (degrees) of a power law with exponent m in a log-log plot,
+    used to rotate the line labels. Depends on the axes aspect ratio, hence the
+    axes position within the figure is needed.
+    """
+    function _ppdot_angle(ax, m, xlims, ylims, figsize)
+        bbox = ax.get_position()
+        w_in = figsize[1] * bbox.width
+        h_in = figsize[2] * bbox.height
+        return atand(m * (h_in / log10(ylims[2] / ylims[1])) /
+                         (w_in / log10(xlims[2] / xlims[1])))
+    end
+
+
+    """ Label a power of ten as 10^n, anything else as a plain number. """
+    function _pow10_label(v)
+        e = log10(v)
+        isapprox(e, round(e), atol=1e-9) && return "\$10^{$(Int(round(e)))}\$"
+        return @sprintf("%.3g", v)
+    end
+
+
+    """
     P-Pdot diagram of the ATNF catalogue.
 
     Pulsars with Pdot <= 0 (mostly globular-cluster pulsars, where acceleration
@@ -2044,7 +2081,13 @@ module Plot
     they cannot be shown on a logarithmic axis.
     """
     function ppdot(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
-                   name_mod="psrcat", show_=false)
+                   name_mod="psrcat", show_=false,
+                   b_lines=[1e10, 1e12, 1e14],     # surface magnetic field [G]
+                   age_lines=[1e3, 1e6, 1e9],      # characteristic age [yr]
+                   edot_lines=[1e30, 1e33, 1e36],  # spin-down luminosity [erg/s]
+                   death_bp2=0.17e12,              # death line B/P^2 [G s^-2]
+                   inertia=1e45,                   # moment of inertia [g cm^2]
+                   plims=(1e-3, 2e2), pdotlims=(1e-22, 1e-8))
 
         names, periods, pdots = read_psrcat(catalogue)
         println("psrcat: $(length(names)) pulsars with P and Pdot ($catalogue)")
@@ -2058,15 +2101,65 @@ module Plot
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
-        figure(figsize=(3.14961, 2.755906), frameon=true)  # 8cm x 7cm
-        subplots_adjust(left=0.21, bottom=0.16, right=0.97, top=0.97)
+        figsize = (3.54331, 3.14961)  # 9cm x 8cm
+        figure(figsize=figsize, frameon=true)
+        subplots_adjust(left=0.19, bottom=0.14, right=0.97, top=0.97)
 
-        plot(p, pd, ".", ms=1.3, c="black", mec="none", zorder=2)
+        ax = gca()
         xscale("log")
         yscale("log")
+        xlim(plims)
+        ylim(pdotlims)
+
+        # Reference lines, all power laws Pdot = A P^m (straight in log-log):
+        #   B     = 3.2e19 sqrt(P Pdot) G     ->  Pdot = (B / 3.2e19)^2 / P
+        #   tau_c = P / (2 Pdot)              ->  Pdot = P / (2 tau_c)
+        #   Edot  = 4 pi^2 I Pdot / P^3       ->  Pdot = Edot P^3 / (4 pi^2 I)
+        # The death line follows the constant polar-cap potential drop
+        # B / P^2 = const (Bhattacharya et al. 1992); pulsars below and to the
+        # right of it are not expected to emit in the radio band.
+        #   B / P^2 = death_bp2               ->  Pdot = (death_bp2 / 3.2e19)^2 P^3
+        c_b, c_age, c_edot, c_death = "tab:blue", "tab:green", "tab:orange", "tab:red"
+        yr_s = 3.15576e7
+
+        function line!(A, m, txt, frac, color, ls; va="bottom")
+            seg = _ppdot_segment(A, m, plims, pdotlims)
+            isnothing(seg) && return
+            xs, ys = seg
+            ax.plot(xs, ys, ls=ls, lw=0.6, c=color, alpha=0.8, zorder=1)
+            isnothing(txt) && return
+            xt = 10^(log10(xs[1]) + frac * log10(xs[end] / xs[1]))
+            ax.text(xt, A * xt^m, txt, fontsize=5, color=color,
+                    ha="center", va=va, rotation_mode="anchor", zorder=4,
+                    rotation=_ppdot_angle(ax, m, plims, pdotlims, figsize))
+        end
+
+        # the label fractions keep each family near a different edge of the box;
+        # the B labels hang below their lines to stay clear of the upper frame
+        for b in b_lines
+            line!((b / 3.2e19)^2, -1, _pow10_label(b), 0.10, c_b, "--"; va="top")
+        end
+        for tau in age_lines
+            line!(1 / (2 * tau * yr_s), 1, _pow10_label(tau), 0.85, c_age, "-.")
+        end
+        for edot in edot_lines
+            line!(edot / (4 * pi^2 * inertia), 3, _pow10_label(edot), 0.85, c_edot, ":")
+        end
+        line!((death_bp2 / 3.2e19)^2, 3, nothing, 0.5, c_death, "-")
+
+        plot(p, pd, ".", ms=1.3, c="black", mec="none", zorder=3)
+
         xlabel("\$P\$ (s)")
         ylabel("\$\\dot{P}\$ (s s\$^{-1}\$)")
         minorticks_on()
+
+        L2D = PyPlot.matplotlib.lines.Line2D
+        legend(handles=[L2D([], [], c=c_b, ls="--", lw=0.6, label="\$B\$ (G)"),
+                        L2D([], [], c=c_age, ls="-.", lw=0.6, label="\$\\tau_c\$ (yr)"),
+                        L2D([], [], c=c_edot, ls=":", lw=0.6, label="\$\\dot{E}\$ (erg s\$^{-1}\$)"),
+                        L2D([], [], c=c_death, ls="-", lw=0.6, label="death line")],
+               fontsize=5, loc="lower right", framealpha=0.9, borderpad=0.4,
+               handlelength=2.5, labelspacing=0.35)
 
         savepath = joinpath(outdir, "ppdot_$(name_mod).pdf")
         savefig(savepath)
