@@ -2010,27 +2010,34 @@ module Plot
         pdots = Float64[]
 
         rec = Dict{String,Float64}()
-        name = ""
+        jname = ""
+        bname = ""
 
         for line in eachline(filename)
             if startswith(line, "@-")
-                _psrcat_record!(names, periods, pdots, name, rec)
+                # the J name identifies the pulsar; PSRB is only a fallback, and
+                # it may well come first in a record
+                _psrcat_record!(names, periods, pdots, isempty(jname) ? bname : jname, rec)
                 empty!(rec)
-                name = ""
+                jname = ""
+                bname = ""
                 continue
             end
             (isempty(strip(line)) || startswith(line, "#")) && continue
             parts = split(line)
             length(parts) < 2 && continue
             key, val = parts[1], parts[2]
-            if key == "PSRJ" || (key == "PSRB" && name == "")
-                name == "" && (name = val)
+            if key == "PSRJ"
+                isempty(jname) && (jname = val)
+            elseif key == "PSRB"
+                isempty(bname) && (bname = val)
             elseif key in ("P0", "P1", "F0", "F1") && !haskey(rec, key)
                 v = tryparse(Float64, val)
                 isnothing(v) || (rec[key] = v)
             end
         end
-        _psrcat_record!(names, periods, pdots, name, rec)  # last record (no trailing @-)
+        # last record (no trailing @-)
+        _psrcat_record!(names, periods, pdots, isempty(jname) ? bname : jname, rec)
 
         return names, periods, pdots
     end
@@ -2065,6 +2072,42 @@ module Plot
     end
 
 
+    # Pulsars renamed in the catalogue: a J name encodes the position, so it has
+    # to follow whenever the position is corrected. Our input lists still carry
+    # the old names, hence the translation on the way in.
+    #   J1402-5124 -> J1402-5021 (= B1359-51, Molonglo MP 1359). Found in the
+    #   first Molonglo survey (Vaughan & Large 1970) with a declination wrong by
+    #   about a degree; re-localised to 14:02:56.0, -50:21:43 by Lower et al.
+    #   (2020, MNRAS 494, 228), which forced the new J name.
+    const PSR_RENAMED = Dict("J1402-5124" => "J1402-5021")
+
+
+    """
+    Read a list of pulsars to mark: one PSRJ name per line, blank lines and
+    lines starting with "#" ignored, anything after the name on a line is
+    dropped (so files with extra columns work as well). Names listed in
+    PSR_RENAMED are translated to the ones the catalogue uses now.
+    """
+    function _read_pulsar_list(filename)
+        selected = Set{String}()
+        if !isfile(filename)
+            @warn "pulsar list not found: $filename"
+            return selected
+        end
+        for line in eachline(filename)
+            s = strip(line)
+            (isempty(s) || startswith(s, "#")) && continue
+            name = String(first(split(s)))
+            if haskey(PSR_RENAMED, name)
+                println("  renamed pulsar: $name -> $(PSR_RENAMED[name])")
+                name = PSR_RENAMED[name]
+            end
+            push!(selected, name)
+        end
+        return selected
+    end
+
+
     """ Label a power of ten as 10^n, anything else as a plain number. """
     function _pow10_label(v)
         e = log10(v)
@@ -2087,6 +2130,8 @@ module Plot
                    edot_lines=[1e30, 1e33, 1e36],  # spin-down luminosity [erg/s]
                    death_bp2=0.17e12,              # death line B/P^2 [G s^-2]
                    inertia=1e45,                   # moment of inertia [g cm^2]
+                   highlight=normpath(joinpath(@__DIR__, "..", "input", "pulsars.txt")),
+                   highlight_label="selected",
                    plims=(1e-3, 2e2), pdotlims=(1e-22, 1e-8))
 
         names, periods, pdots = read_psrcat(catalogue)
@@ -2094,8 +2139,21 @@ module Plot
 
         keep = pdots .> 0
         println("psrcat: $(count(.!keep)) pulsars skipped (Pdot <= 0)")
+        nam = names[keep]
         p = periods[keep]
         pd = pdots[keep]
+
+        # pulsars to mark on top of the whole population
+        selected = isnothing(highlight) ? Set{String}() : _read_pulsar_list(highlight)
+        marked = [n in selected for n in nam]
+        if !isempty(selected)
+            println("psrcat: $(count(marked)) of $(length(selected)) pulsars from $(basename(highlight)) marked")
+            absent = sort(collect(setdiff(selected, Set(nam[marked]))))
+            if !isempty(absent)
+                shown = join(absent[1:min(10, end)], ", ")
+                println("  missing (no P/Pdot in the catalogue, or Pdot <= 0): $(length(absent)) — $shown$(length(absent) > 10 ? ", ..." : "")")
+            end
+        end
 
         rc("font", size=11.)
         rc("axes", linewidth=0.7)
@@ -2148,18 +2206,23 @@ module Plot
         line!((death_bp2 / 3.2e19)^2, 3, nothing, 0.5, c_death, "-")
 
         plot(p, pd, ".", ms=2.0, c="black", mec="none", zorder=3)
+        c_sel = "magenta"
+        any(marked) && plot(p[marked], pd[marked], ".", ms=3.0, c=c_sel, mec="none", zorder=4)
 
         xlabel("\$P\$ (s)")
         ylabel("\$\\dot{P}\$ (s s\$^{-1}\$)")
         minorticks_on()
 
         L2D = PyPlot.matplotlib.lines.Line2D
-        legend(handles=[L2D([], [], c=c_b, ls="--", lw=0.9, label="\$B\$ (G)"),
-                        L2D([], [], c=c_age, ls="-.", lw=0.9, label="\$\\tau_c\$ (yr)"),
-                        L2D([], [], c=c_edot, ls=":", lw=0.9, label="\$\\dot{E}\$ (erg s\$^{-1}\$)"),
-                        L2D([], [], c=c_death, ls="-", lw=0.9, label="death line")],
-               fontsize=8, loc="lower right", framealpha=0.9, borderpad=0.4,
-               handlelength=2.5, labelspacing=0.35)
+        handles = Any[]
+        any(marked) && push!(handles, L2D([], [], c=c_sel, ls="none", marker=".",
+                                          ms=4.0, mec="none", label=highlight_label))
+        push!(handles, L2D([], [], c=c_b, ls="--", lw=0.9, label="\$B\$ (G)"))
+        push!(handles, L2D([], [], c=c_age, ls="-.", lw=0.9, label="\$\\tau_c\$ (yr)"))
+        push!(handles, L2D([], [], c=c_edot, ls=":", lw=0.9, label="\$\\dot{E}\$ (erg s\$^{-1}\$)"))
+        push!(handles, L2D([], [], c=c_death, ls="-", lw=0.9, label="death line"))
+        legend(handles=handles, fontsize=8, loc="lower right", framealpha=0.9,
+               borderpad=0.4, handlelength=2.5, labelspacing=0.35)
 
         savepath = joinpath(outdir, "ppdot_$(name_mod).pdf")
         savefig(savepath)
