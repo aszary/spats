@@ -2081,7 +2081,7 @@ module Plot
     they cannot be shown on a logarithmic axis.
     """
     function ppdot(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
-                   name_mod="psrcat", show_=false,
+                   name_mod="psrcat", show_=true,
                    b_lines=[1e10, 1e12, 1e14],     # surface magnetic field [G]
                    age_lines=[1e3, 1e6, 1e9],      # characteristic age [yr]
                    edot_lines=[1e30, 1e33, 1e36],  # spin-down luminosity [erg/s]
