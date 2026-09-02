@@ -2108,6 +2108,67 @@ module Plot
     end
 
 
+    """
+    Read the component offsets measured between two observing frequencies
+    (input/offsets.csv), one pulsar per line:
+
+        name, offset 1, offset 1 err, ..., offset 4, offset 4 err, grade, comment
+
+    Offset i is the shift of the i-th component, mu(1523 MHz) - mu(1023 MHz) in
+    degrees of longitude, with the components ordered by longitude (see
+    GaussianFit.component_offsets). For a pulsar with two or more components the
+    quantity returned is the change of the component separation between the two
+    frequencies,
+
+        value = offset_last - offset_first = separation(1523) - separation(1023)
+
+    which is free of any shift common to the whole profile: a residual DM error
+    moves all components by the same amount and cancels in the difference
+    (Hassall et al. 2012). Negative means the profile is narrower at the higher
+    frequency, i.e. ordinary radius-to-frequency mapping. A pulsar with a single
+    component gives no such handle, so its raw shift is kept instead and flagged
+    with ncomp = 1 — the two are different quantities and must not be mixed.
+
+    Returns Dict(name => (value, err, ncomp, grade)), value and err in degrees,
+    grade the 1-10 quality mark of the fit.
+    """
+    function _read_offsets(filename)
+        out = Dict{String,NamedTuple{(:value, :err, :ncomp, :grade),
+                                     Tuple{Float64,Float64,Int,Int}}}()
+        if !isfile(filename)
+            @warn "offset file not found: $filename"
+            return out
+        end
+        for (nline, line) in enumerate(eachline(filename))
+            nline == 1 && continue  # header
+            s = strip(line)
+            (isempty(s) || startswith(s, "#")) && continue
+            f = split(s, ',')
+            length(f) < 10 && continue
+            name = String(strip(f[1]))
+            if haskey(PSR_RENAMED, name)
+                println("  renamed pulsar: $name -> $(PSR_RENAMED[name])")
+                name = PSR_RENAMED[name]
+            end
+            off, err = Float64[], Float64[]
+            for c in 1:4
+                v = tryparse(Float64, strip(f[2c]))
+                e = tryparse(Float64, strip(f[2c+1]))
+                (isnothing(v) || isnothing(e)) && continue
+                push!(off, v)
+                push!(err, e)
+            end
+            isempty(off) && continue
+            grade = something(tryparse(Int, strip(f[10])), 0)
+            out[name] = length(off) > 1 ?
+                (value = off[end] - off[1],
+                 err = sqrt(err[end]^2 + err[1]^2), ncomp = length(off), grade = grade) :
+                (value = off[1], err = err[1], ncomp = 1, grade = grade)
+        end
+        return out
+    end
+
+
     """ Label a power of ten as 10^n, anything else as a plain number. """
     function _pow10_label(v)
         e = log10(v)
@@ -2117,13 +2178,20 @@ module Plot
 
 
     """
-    P-Pdot diagram of the ATNF catalogue.
+    P-Pdot diagram of the ATNF catalogue, shared by ppdot and ppdot_offsets —
+    call one of those instead.
 
     Pulsars with Pdot <= 0 (mostly globular-cluster pulsars, where acceleration
     in the cluster potential dominates the observed spin-down) are skipped —
     they cannot be shown on a logarithmic axis.
+
+    When `offsets` points to a file (see _read_offsets), the pulsars with a
+    measured frequency offset are drawn on top of the population, colour-coded
+    by that offset. Measurements graded below `min_grade` are dropped and those
+    below `offset_nsigma` are drawn as open symbols. With `offsets = nothing`
+    nothing of that is drawn and the plain diagram comes out.
     """
-    function ppdot(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
+    function _ppdot(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
                    name_mod="psrcat", show_=true,
                    b_lines=[1e10, 1e12, 1e14],     # surface magnetic field [G]
                    age_lines=[1e3, 1e6, 1e9],      # characteristic age [yr]
@@ -2132,6 +2200,11 @@ module Plot
                    inertia=1e45,                   # moment of inertia [g cm^2]
                    highlight=normpath(joinpath(@__DIR__, "..", "input", "pulsars.txt")),
                    highlight_label="selected",
+                   offsets=nothing,                # component offsets, see ppdot_offsets
+                   min_grade=6,                    # lowest acceptable quality mark (1-10)
+                   offset_nsigma=3.0,              # below this the symbol is left open
+                   offset_linthresh=0.05,          # linear core of the symlog colour scale [deg]
+                   offset_cmap="RdBu_r",
                    plims=(1e-3, 2e2), pdotlims=(1e-22, 1e-8))
 
         names, periods, pdots = read_psrcat(catalogue)
@@ -2205,9 +2278,70 @@ module Plot
         end
         line!((death_bp2 / 3.2e19)^2, 3, nothing, 0.5, c_death, "-")
 
-        plot(p, pd, ".", ms=2.0, c="black", mec="none", zorder=3)
+        plot(p, pd, ".", ms=2.8, c="black", mec="none", zorder=3)
         c_sel = "magenta"
-        any(marked) && plot(p[marked], pd[marked], ".", ms=3.0, c=c_sel, mec="none", zorder=4)
+        any(marked) && plot(p[marked], pd[marked], ".", ms=4.0, c=c_sel, mec="none", zorder=4)
+
+        # Frequency offsets on top of the population. The colour carries the
+        # change of the component separation between 1023 and 1523 MHz (circles,
+        # >= 2 components) or the raw shift of the only component (diamonds);
+        # the scale is symlog because the offsets span three decades. Open
+        # symbols mark measurements below offset_nsigma.
+        off = isnothing(offsets) ? Dict{String,Any}() : _read_offsets(offsets)
+        idx = Int[]
+        if !isempty(off)
+            in_cat = Set(nam)
+            absent = sort([k for k in keys(off) if !(k in in_cat)])
+            faint = sort([k for (k, v) in off if v.grade < min_grade])
+            idx = [i for i in eachindex(nam)
+                   if haskey(off, nam[i]) && off[nam[i]].grade >= min_grade]
+            println("offsets: $(length(idx)) of $(length(off)) pulsars from $(basename(offsets)) plotted")
+            isempty(faint) || println("  below grade $min_grade: $(join(faint, ", "))")
+            isempty(absent) || println("  missing (no P/Pdot in the catalogue, or Pdot <= 0): $(join(absent, ", "))")
+        end
+
+        if !isempty(idx)
+            vals = [off[nam[i]].value for i in idx]
+            sig = [abs(off[nam[i]].value) / off[nam[i]].err for i in idx]
+            multi = [off[nam[i]].ncomp > 1 for i in idx]
+
+            vmax = ceil(maximum(abs, vals) * 10) / 10
+            cmap = PyPlot.matplotlib.pyplot.get_cmap(offset_cmap)
+            cnorm = PyPlot.matplotlib.colors.SymLogNorm(linthresh=offset_linthresh,
+                                                        vmin=-vmax, vmax=vmax, base=10)
+
+            function offset_points!(sel, marker, ms, filled)
+                any(sel) || return
+                xs, ys, vs = p[idx[sel]], pd[idx[sel]], vals[sel]
+                if filled
+                    ax.scatter(xs, ys, s=ms, marker=marker, c=vs, cmap=cmap, norm=cnorm,
+                               edgecolors="black", linewidths=0.4, zorder=5)
+                else
+                    ax.scatter(xs, ys, s=ms, marker=marker, facecolors="none",
+                               edgecolors=cmap(cnorm(vs)), linewidths=0.9, zorder=5)
+                end
+            end
+            strong = sig .>= offset_nsigma
+            for filled in (true, false)
+                keep_ = filled ? strong : .!strong
+                offset_points!(multi .& keep_, "o", 26.0, filled)
+                offset_points!(.!multi .& keep_, "D", 18.0, filled)
+            end
+
+            # the colorbar goes inside the axes: an external one would resize
+            # them and invalidate the label rotations set by _ppdot_angle above
+            cax = ax.inset_axes([0.04, 0.91, 0.38, 0.022])
+            sm = PyPlot.matplotlib.cm.ScalarMappable(norm=cnorm, cmap=cmap)
+            sm.set_array([])
+            decades = [10.0^k for k in
+                       (floor(Int, log10(offset_linthresh)) + 1):floor(Int, log10(vmax))]
+            ticks = [-vmax; -reverse(decades); decades; vmax]
+            cb = colorbar(sm, cax=cax, orientation="horizontal", ticks=ticks)
+            cb.ax.set_xticklabels([@sprintf("%g", t) for t in ticks], fontsize=6)
+            cb.ax.tick_params(length=2, pad=1)
+            cb.outline.set_linewidth(0.5)
+            cb.set_label("1523 \$-\$ 1023 MHz offset (\$^\\circ\$)", fontsize=7, labelpad=2)
+        end
 
         xlabel("\$P\$ (s)")
         ylabel("\$\\dot{P}\$ (s s\$^{-1}\$)")
@@ -2216,7 +2350,16 @@ module Plot
         L2D = PyPlot.matplotlib.lines.Line2D
         handles = Any[]
         any(marked) && push!(handles, L2D([], [], c=c_sel, ls="none", marker=".",
-                                          ms=4.0, mec="none", label=highlight_label))
+                                          ms=5.0, mec="none", label=highlight_label))
+        if !isempty(idx)
+            push!(handles, L2D([], [], mfc="0.6", ls="none", marker="o", ms=5.0,
+                               mec="black", mew=0.4, label="\$\\Delta\$ separation (\$\\geq\$2 comp.)"))
+            push!(handles, L2D([], [], mfc="0.6", ls="none", marker="D", ms=4.0,
+                               mec="black", mew=0.4, label="shift (1 comp.)"))
+            push!(handles, L2D([], [], mfc="none", ls="none", marker="o", ms=5.0,
+                               mec="0.4", mew=0.9,
+                               label=@sprintf("\$< %g\\sigma\$", offset_nsigma)))
+        end
         push!(handles, L2D([], [], c=c_b, ls="--", lw=0.9, label="\$B\$ (G)"))
         push!(handles, L2D([], [], c=c_age, ls="-.", lw=0.9, label="\$\\tau_c\$ (yr)"))
         push!(handles, L2D([], [], c=c_edot, ls=":", lw=0.9, label="\$\\dot{E}\$ (erg s\$^{-1}\$)"))
@@ -2235,6 +2378,29 @@ module Plot
             readline(stdin; keep=false)
         end
         close()
+    end
+
+
+    """
+    P-Pdot diagram of the ATNF catalogue, with the pulsars listed in `highlight`
+    marked. Keywords are those of _ppdot, except `offsets` and everything that
+    goes with it — use ppdot_offsets for that. Writes ppdot_<name_mod>.pdf/png.
+    """
+    ppdot(outdir; kwargs...) = _ppdot(outdir; kwargs..., offsets=nothing)
+
+
+    """
+    P-Pdot diagram with the component offsets measured between two observing
+    frequencies (see _read_offsets) drawn on top of the population: colour gives
+    the offset on a symlog scale, circles the change of the component separation
+    (>= 2 components), diamonds the shift of a single component, open symbols
+    the measurements below `offset_nsigma`. Pulsars graded below `min_grade` are
+    left out. The remaining keywords are those of _ppdot.
+    """
+    function ppdot_offsets(outdir;
+                           offsets=normpath(joinpath(@__DIR__, "..", "input", "offsets.csv")),
+                           name_mod="offsets", kwargs...)
+        _ppdot(outdir; kwargs..., offsets=offsets, name_mod=name_mod)
     end
 
 

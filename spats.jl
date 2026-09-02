@@ -776,7 +776,9 @@ module SpaTs
         #analyse_all()
 
         # P-Pdot diagram based on the ATNF catalogue (input/psrcat.db)
-        Plot.ppdot("output")
+        #Plot.ppdot("output")
+        # the same diagram with the component offsets (input/offsets.csv)
+        Plot.ppdot_offsets("output")
     end
 
 end # module
