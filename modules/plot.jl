@@ -2260,7 +2260,7 @@ module Plot
             ax.plot(xs, ys, ls=ls, lw=0.9, c=color, alpha=0.8, zorder=1)
             isnothing(txt) && return
             xt = 10^(log10(xs[1]) + frac * log10(xs[end] / xs[1]))
-            ax.text(xt, A * xt^m, txt, fontsize=7, color=color,
+            ax.text(xt, A * xt^m, txt, fontsize=11, color=color,
                     ha="center", va=va, rotation_mode="anchor", zorder=4,
                     rotation=_ppdot_angle(ax, m, plims, pdotlims, figsize))
         end
@@ -2271,7 +2271,7 @@ module Plot
             line!((b / 3.2e19)^2, -1, _pow10_label(b), 0.10, c_b, "--"; va="top")
         end
         for tau in age_lines
-            line!(1 / (2 * tau * yr_s), 1, _pow10_label(tau), 0.85, c_age, "-.")
+            line!(1 / (2 * tau * yr_s), 1, _pow10_label(tau), 0.95, c_age, "-.")
         end
         for edot in edot_lines
             line!(edot / (4 * pi^2 * inertia), 3, _pow10_label(edot), 0.85, c_edot, ":")
@@ -2330,7 +2330,7 @@ module Plot
 
             # the colorbar goes inside the axes: an external one would resize
             # them and invalidate the label rotations set by _ppdot_angle above
-            cax = ax.inset_axes([0.04, 0.91, 0.38, 0.022])
+            cax = ax.inset_axes([0.04, 0.86, 0.38, 0.022])
             sm = PyPlot.matplotlib.cm.ScalarMappable(norm=cnorm, cmap=cmap)
             sm.set_array([])
             decades = [10.0^k for k in
