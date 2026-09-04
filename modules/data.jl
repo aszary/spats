@@ -902,10 +902,11 @@ module Data
     - `type`: type of p3folds "refine" or "norefine" filenames are based on that
  
     """
-    function analyse_p3folds_16_new(indir, type; n_comp=3)
+    function analyse_p3folds_16_new(indir, type; n_comp=3, psr=nothing)
 
-        # parameters file 
+        # parameters file
         p = Tools.read_params(joinpath(indir, "params.json"))
+        psr = something(psr, psr_from_dir(indir))
 
         # low, high frequancy filename end
         low = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
@@ -937,7 +938,7 @@ module Data
         # TODO work here...
 
         #Plot.analyse_p3folds3(nl, nh, p, n_comp) # old
-        Plot.analyse_p3folds4(nl, nh, p, n_comp) # with 's' to skip added
+        Plot.analyse_p3folds4(nl, nh, p, n_comp; psr=psr) # with 's' to skip added
 
 
         #println(size(nl))
@@ -959,9 +960,10 @@ module Data
     - `n_comp`: number of Gaussian components to fit (default 3)
     - `npulse`: number of single pulses per averaged profile (default 150)
     """
-    function analyse_average_offset(indir; n_comp=3, npulse=150)
+    function analyse_average_offset(indir; n_comp=3, npulse=150, psr=nothing)
 
         p = Tools.read_params(joinpath(indir, "params.json"))
+        psr = something(psr, psr_from_dir(indir))
 
         l_all = Data.load_ascii_all(joinpath(indir, "pulsar_low.txt"))
         h_all = Data.load_ascii_all(joinpath(indir, "pulsar_high.txt"))
@@ -990,8 +992,21 @@ module Data
 
         println("Created $n_profiles averaged profiles from $n_pulses pulses (npulse = $npulse, last block = $(n_pulses - (n_profiles-1)*npulse))")
 
-        Plot.analyse_average_offset(nl_avg, nh_avg, p, n_comp; npulse=npulse, n_pulses=n_pulses)
+        Plot.analyse_average_offset(nl_avg, nh_avg, p, n_comp; npulse=npulse, n_pulses=n_pulses, psr=psr)
 
+    end
+
+
+    """
+    Pulsar name out of a data directory such as ".../J1842-0359_uhf_16" — the
+    directories carry a suffix (_16, _16c, _uhf_16) that the catalogue and
+    input/offsets.csv do not, so only the PSRJ part is kept. Returns "" when
+    the directory does not look like a pulsar at all, which leaves the
+    separations file untouched rather than writing a nonsense row.
+    """
+    function psr_from_dir(dir)
+        m = match(r"J\d{4}[+-]\d{2,4}", basename(rstrip(dir, '/')))
+        return isnothing(m) ? "" : m.match
     end
 
 

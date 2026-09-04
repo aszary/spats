@@ -873,6 +873,126 @@ module Plot
         end
     end    
 
+    """
+    Weighted mean offset and mean longitude per component, plus the component
+    separation that follows from them. Returns nothing when there is nothing
+    to summarise.
+
+    `offset_data` maps a component index to the per-profile longitudes (deg),
+    offsets (deg) and offset errors (deg) collected by the analyse_* routines.
+    The longitude GaussianFit.component_offsets returns is the mean over the
+    two frequencies, (mu_high + mu_low) / 2, so its error is half the offset
+    error — the same weights therefore serve both means and only sigma_int
+    halves.
+
+    The separation is taken between the outermost components, matching what
+    _read_offsets builds out of input/offsets.csv, so that joining the two by
+    pulsar name gives the fractional narrowing delta_sep / sep. Errors quoted
+    for the separation are the scatter-inflated sigma_ext, not sigma_int: the
+    profile-to-profile spread is what actually limits these numbers.
+
+    With a non-empty `psr` the same row is written to `outfile` (one line per
+    pulsar, an existing row for that pulsar is replaced).
+    """
+    function _offset_summary(offset_data; psr="",
+                             outfile=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
+
+        comps = sort(collect(keys(offset_data)))
+        filter!(c -> !isempty(offset_data[c].err) && !all(offset_data[c].err .== 0.0), comps)
+        isempty(comps) && return nothing
+
+        # per component: weighted means of the offset and of the longitude
+        stat = Dict{Int,NamedTuple}()
+        for c in comps
+            d = offset_data[c]
+            w = 1.0 ./ (d.err .^ 2)
+            n = length(d.off)
+            dof = n - 1
+            off_mu = sum(w .* d.off) / sum(w)
+            off_int = 1.0 / sqrt(sum(w))
+            off_chi2 = dof > 0 ? sum(w .* (d.off .- off_mu) .^ 2) / dof : NaN
+            lon_mu = sum(w .* d.lon) / sum(w)
+            lon_int = off_int / 2                     # lon_err = off_err / 2
+            lon_chi2 = dof > 0 ? sum(4 .* w .* (d.lon .- lon_mu) .^ 2) / dof : NaN
+            stat[c] = (n=n,
+                       off=off_mu, off_int=off_int, off_chi2=off_chi2,
+                       off_ext=off_int * sqrt(max(1.0, off_chi2)),
+                       lon=lon_mu, lon_int=lon_int, lon_chi2=lon_chi2,
+                       lon_ext=lon_int * sqrt(max(1.0, lon_chi2)))
+        end
+
+        println("\n=== Weighted mean offsets ===")
+        for c in comps
+            s = stat[c]
+            println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)",
+                             c, s.off, s.off_int, s.n, s.off_chi2, s.off_ext))
+        end
+
+        println("\n=== Component longitudes and separation ===")
+        for c in comps
+            s = stat[c]
+            println(@sprintf("G%d: longitude = %.4f° ± %.4f°  (χ²/dof = %.2f, σ_ext = %.4f°)",
+                             c, s.lon, s.lon_int, s.lon_chi2, s.lon_ext))
+        end
+
+        sep, sep_err = NaN, NaN
+        dsep, dsep_err = NaN, NaN
+        frac, frac_err = NaN, NaN
+        if length(comps) > 1
+            a, b = stat[comps[1]], stat[comps[end]]
+            sep       = b.lon - a.lon
+            sep_err   = sqrt(b.lon_ext^2 + a.lon_ext^2)
+            dsep      = b.off - a.off
+            dsep_err  = sqrt(b.off_ext^2 + a.off_ext^2)
+            # frac = dsep / sep, propagated so that dsep ~ 0 stays finite
+            frac      = dsep / sep
+            frac_err  = sqrt((dsep_err / sep)^2 + (dsep * sep_err / sep^2)^2)
+            println(@sprintf("separation G%d-G%d = %.4f° ± %.4f°  (mid-band)",
+                             comps[1], comps[end], sep, sep_err))
+            println(@sprintf("Δ separation       = %+.4f° ± %.4f°", dsep, dsep_err))
+            println(@sprintf("fractional ΔW/W    = %+.4f ± %.4f", frac, frac_err))
+        else
+            println("single component — no separation")
+        end
+        println()
+
+        isempty(psr) && return (comps=comps, stat=stat, sep=sep, sep_err=sep_err,
+                                dsep=dsep, dsep_err=dsep_err, frac=frac, frac_err=frac_err)
+
+        # one row per pulsar, the longitudes in the same four slots offsets.csv
+        # uses so that the two files join on the name
+        num(x) = isnan(x) ? "" : @sprintf("%.4f", x)
+        slots = String[]
+        for c in 1:4
+            i = findfirst(==(c), comps)
+            push!(slots, isnothing(i) ? "" : num(stat[c].lon),
+                         isnothing(i) ? "" : num(stat[c].lon_ext))
+        end
+        row = join([psr; string(length(comps)); slots; num(sep); num(sep_err)], ",")
+
+        header = "Nazwa,ncomp,lon 1,lon 1 err,lon 2,lon 2 err,lon 3,lon 3 err,lon 4,lon 4 err,sep,sep err"
+        kept = String[]
+        if isfile(outfile)
+            for (i, line) in enumerate(eachline(outfile))
+                i == 1 && continue
+                s = strip(line)
+                (isempty(s) || strip(first(split(s, ','))) == psr) && continue
+                push!(kept, s)
+            end
+        end
+        open(outfile, "w") do f
+            println(f, header)
+            for l in sort(push!(kept, row), by = l -> String(strip(first(split(l, ',')))))
+                println(f, l)
+            end
+        end
+        println("$psr written to $outfile")
+
+        return (comps=comps, stat=stat, sep=sep, sep_err=sep_err,
+                dsep=dsep, dsep_err=dsep_err, frac=frac, frac_err=frac_err)
+    end
+
+
     function analyse_p3folds3(low, high, p, n_comp)
         pulses, bins = size(low)
 
@@ -1025,8 +1145,13 @@ module Plot
     end
 
 
-    "added s to skip point"
-    function analyse_p3folds4(low, high, p, n_comp)
+    """
+    As analyse_p3folds3, with 's' added to skip a point. Passing `psr` makes
+    the component longitudes and the separation land in `separations` as well
+    (see _offset_summary); without it they are only printed.
+    """
+    function analyse_p3folds4(low, high, p, n_comp; psr="",
+                              separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
         pulses, bins = size(low)
 
         # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
@@ -1126,27 +1251,8 @@ module Plot
             end
         end
 
-        # Weighted mean offset per component
-        if !isempty(offset_data)
-            println("\n=== Weighted mean offsets ===")
-            for comp in sort(collect(keys(offset_data)))
-                d = offset_data[comp]
-                if isempty(d.err) || all(d.err .== 0.0)
-                    continue
-                end
-                w       = 1.0 ./ (d.err .^ 2)
-                n       = length(d.off)
-                mu      = sum(w .* d.off) / sum(w)
-                sigma_int = 1.0 / sqrt(sum(w))
-                chi2   = sum(w .* (d.off .- mu) .^ 2)
-                dof    = n - 1
-                chi2_red = dof > 0 ? chi2 / dof : NaN
-                sigma_ext = sigma_int * sqrt(max(1.0, chi2_red))
-                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)",
-                    comp, mu, sigma_int, n, chi2_red, sigma_ext))
-            end
-            println()
-        end
+        # Weighted mean offset and longitude per component, plus the separation
+        _offset_summary(offset_data; psr=psr, outfile=separations)
 
         # Final plot: longitude vs. offset for each component
         if !isempty(offset_data)
@@ -1191,11 +1297,12 @@ module Plot
     - `npulse`:    single pulses per averaged profile (used for x-axis labels)
     - `n_pulses`:  total number of single pulses (used for last-block label)
     """
-    function analyse_average_offset(nl, nh, p, n_comp; npulse=150, n_pulses=nothing)
+    function analyse_average_offset(nl, nh, p, n_comp; npulse=150, n_pulses=nothing, psr="",
+                                    separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
         n_profiles = size(nl, 1)
 
-        offset_data = Dict{Int, NamedTuple{(:idx, :off, :err),
-                                           Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
+        offset_data = Dict{Int, NamedTuple{(:idx, :lon, :off, :err),
+                                           Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
 
         low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
         high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
@@ -1219,9 +1326,11 @@ module Plot
                         o.component, o.longitude, o.longitude_bin,
                         o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
                     if !haskey(offset_data, o.component)
-                        offset_data[o.component] = (idx=Float64[], off=Float64[], err=Float64[])
+                        offset_data[o.component] = (idx=Float64[], lon=Float64[],
+                                                    off=Float64[], err=Float64[])
                     end
                     push!(offset_data[o.component].idx, pulse_center)
+                    push!(offset_data[o.component].lon, o.longitude)
                     push!(offset_data[o.component].off, o.offset_deg)
                     push!(offset_data[o.component].err, o.offset_deg_err)
                 end
@@ -1288,27 +1397,8 @@ module Plot
             end
         end
 
-        # Weighted mean offset per component
-        if !isempty(offset_data)
-            println("\n=== Weighted mean offsets ===")
-            for comp in sort(collect(keys(offset_data)))
-                d = offset_data[comp]
-                if isempty(d.err) || all(d.err .== 0.0)
-                    continue
-                end
-                w         = 1.0 ./ (d.err .^ 2)
-                n         = length(d.off)
-                mu        = sum(w .* d.off) / sum(w)
-                sigma_int = 1.0 / sqrt(sum(w))
-                chi2      = sum(w .* (d.off .- mu) .^ 2)
-                dof       = n - 1
-                chi2_red  = dof > 0 ? chi2 / dof : NaN
-                sigma_ext = sigma_int * sqrt(max(1.0, chi2_red))
-                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)",
-                    comp, mu, sigma_int, n, chi2_red, sigma_ext))
-            end
-            println()
-        end
+        # Weighted mean offset and longitude per component, plus the separation
+        _offset_summary(offset_data; psr=psr, outfile=separations)
 
         # Final summary: pulse number vs offset per component
         if !isempty(offset_data)
@@ -2188,8 +2278,12 @@ module Plot
     When `offsets` points to a file (see _read_offsets), the pulsars with a
     measured frequency offset are drawn on top of the population, colour-coded
     by that offset. Measurements graded below `min_grade` are dropped and those
-    below `offset_nsigma` are drawn as open symbols. With `offsets = nothing`
-    nothing of that is drawn and the plain diagram comes out.
+    below `offset_nsigma` are drawn as open symbols. The symlog colour scale
+    runs to `offset_vmax`, by default the `offset_vmax_quantile` quantile of
+    |offset| so that a few outliers do not flatten the rest of the sample;
+    whatever falls outside saturates and the colorbar gets its arrowheads.
+    With `offsets = nothing` nothing of that is drawn and the plain diagram
+    comes out.
     """
     function _ppdot(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
                    name_mod="psrcat", show_=true,
@@ -2203,7 +2297,9 @@ module Plot
                    offsets=nothing,                # component offsets, see ppdot_offsets
                    min_grade=6,                    # lowest acceptable quality mark (1-10)
                    offset_nsigma=3.0,              # below this the symbol is left open
-                   offset_linthresh=0.05,          # linear core of the symlog colour scale [deg]
+                   offset_linthresh=0.1,           # linear core of the symlog colour scale [deg]
+                   offset_vmax=nothing,            # colour range [deg]; nothing -> from offset_vmax_quantile
+                   offset_vmax_quantile=0.90,      # quantile of |offset| that sets the colour range
                    offset_cmap="RdBu_r",
                    plims=(1e-3, 2e2), pdotlims=(1e-22, 1e-8))
 
@@ -2305,7 +2401,19 @@ module Plot
             sig = [abs(off[nam[i]].value) / off[nam[i]].err for i in idx]
             multi = [off[nam[i]].ncomp > 1 for i in idx]
 
-            vmax = ceil(maximum(abs, vals) * 10) / 10
+            # The colour range is set by a quantile of |offset| rather than by
+            # the maximum: three quarters of the sample sit below 1 deg, while
+            # the largest offsets reach ~12 deg (J1733-3716, flagged in the
+            # input as needing a redo), so the maximum spends a good part of
+            # the scale on a handful of points. Measurements beyond +-vmax
+            # saturate, which the arrowheads on the colorbar mark.
+            vmax = isnothing(offset_vmax) ?
+                ceil(quantile(abs.(vals), offset_vmax_quantile) * 10) / 10 :
+                Float64(offset_vmax)
+            vmax = max(vmax, 10 * offset_linthresh)  # at least one decade of colour
+            nsat = count(>(vmax), abs.(vals))
+            println(@sprintf("offsets: colour range +-%.4g deg, %d of %d measurements saturated",
+                             vmax, nsat, length(vals)))
             cmap = PyPlot.matplotlib.pyplot.get_cmap(offset_cmap)
             cnorm = PyPlot.matplotlib.colors.SymLogNorm(linthresh=offset_linthresh,
                                                         vmin=-vmax, vmax=vmax, base=10)
@@ -2333,10 +2441,23 @@ module Plot
             cax = ax.inset_axes([0.04, 0.86, 0.38, 0.022])
             sm = PyPlot.matplotlib.cm.ScalarMappable(norm=cnorm, cmap=cmap)
             sm.set_array([])
-            decades = [10.0^k for k in
-                       (floor(Int, log10(offset_linthresh)) + 1):floor(Int, log10(vmax))]
-            ticks = [-vmax; -reverse(decades); decades; vmax]
-            cb = colorbar(sm, cax=cax, orientation="horizontal", ticks=ticks)
+            # Ticks: the two ends plus a 1-2-5 ladder between the linear core
+            # and vmax, thinned greedily from the core outwards. The spacing
+            # has to be judged in norm positions rather than in degrees — on a
+            # symlog bar the last decade crowds the end as soon as vmax comes
+            # near it (with linthresh 0.1 and vmax 2.2 the 1 deg tick sits only
+            # 0.07 of the bar width away from 2.2), and plain decades then
+            # leave the bar with no labels at all between its ends.
+            inner = Float64[]
+            for d in sort([m * 10.0^k for k in -3:2 for m in (1.0, 2.0, 5.0)])
+                (d >= 0.999 * offset_linthresh && d < vmax) || continue
+                cnorm(vmax) - cnorm(d) > 0.09 || continue
+                isempty(inner) || cnorm(d) - cnorm(inner[end]) > 0.09 || continue
+                push!(inner, d)
+            end
+            ticks = [-vmax; -reverse(inner); inner; vmax]
+            cb = colorbar(sm, cax=cax, orientation="horizontal", ticks=ticks,
+                          extend=(nsat > 0 ? "both" : "neither"))
             cb.ax.set_xticklabels([@sprintf("%g", t) for t in ticks], fontsize=6)
             cb.ax.tick_params(length=2, pad=1)
             cb.outline.set_linewidth(0.5)
@@ -2395,7 +2516,8 @@ module Plot
     the offset on a symlog scale, circles the change of the component separation
     (>= 2 components), diamonds the shift of a single component, open symbols
     the measurements below `offset_nsigma`. Pulsars graded below `min_grade` are
-    left out. The remaining keywords are those of _ppdot.
+    left out, and the colour range comes from `offset_vmax` /
+    `offset_vmax_quantile`. The remaining keywords are those of _ppdot.
     """
     function ppdot_offsets(outdir;
                            offsets=normpath(joinpath(@__DIR__, "..", "input", "offsets.csv")),
