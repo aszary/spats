@@ -297,7 +297,7 @@ function analyse_offset_correlations(;
             subplot(2, 2, pi)
             if length(xg) >= 2
                 scatter(xg, yg, c=gcol, s=35, alpha=0.8, zorder=3)
-                _linear_fit_ax!(gca(), xg, yg)
+                _plot_best_fit_ax!(gca(), xg, yg)
             end
             axhline(0, color="gray", lw=0.8, ls="--")
             xlabel(label, fontsize=8)
