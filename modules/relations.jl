@@ -246,17 +246,16 @@ function plot_all_relations(outdir;
 
     pairs = [
         ("LOG_P", "LOG_PD"),
-        ("LOG_P", "LOG_W50"),
-        ("LOG_EDOT", "LOG_W50"),
-        ("LOG_TAU", "LOG_W50"),
-        ("LOG_B", "LOG_W50"),
-        ("LOG_P", "DM"),
-        ("LOG_EDOT", "S1400"),
-        ("LOG_TAU", "LOG_EDOT")
+        ("LOG_P", "LOG_PD"),
+        ("LOG_EDOT", "LOG_PD"),
+        ("LOG_TAU", "LOG_PD"),
+        ("LOG_B", "LOG_PD"),
+        ("LOG_W50", "LOG_PD"),
+        ("S1400", "LOG_PD"),
     ]
 
     for (px, py) in pairs
-        plot_relation(records, px, py, drifting_set, p3only_set, outdir; show_=show_)
+        plot_relation(records, px, py, drifting_set, p3only_set, outdir; show_=true)
     end
 end
 
