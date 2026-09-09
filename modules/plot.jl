@@ -1850,6 +1850,18 @@ module Plot
     end
 
 
+
+
+
+
+
+
+
+
+
+
+
+    
     """
     Windowed phase-stability diagnostic (`PhaseDrift.drift_test_profile`) —
     the longitude-resolved counterpart of `phase_stability`, for pulsars whose
