@@ -779,10 +779,10 @@ module SpaTs
         #Plot.ppdot("output")
         # the same diagram with the component offsets (input/offsets.csv)
         Plot.ppdot_offsets("output")
-        Plot.ppdot_offsets_p3_only("output")
+        Plot.ppdot_offsets("output")
         
-
         Plot.ppdot_w50("output"; mode=:w50, name_mod="w50_ms")
+    end
 
 end # module
 
