@@ -2415,7 +2415,7 @@ module Plot
         _ppdot(outdir; kwargs..., offsets=offsets, name_mod=name_mod)
     end
     function ppdot_offsets_p3_only(outdir;
-                           offsets=normpath(joinpath(@__DIR__, "..", "input", "offsets_p3_only.csv")),
+                           offsets=normpath(joinpath(@__DIR__, "..", "input", "offsets_p3only.csv")),
                            name_mod="offsets", kwargs...)
         _ppdot(outdir; kwargs..., offsets=offsets, name_mod=name_mod)
     end
