@@ -2434,6 +2434,63 @@ Keywords:
   - `w50_cmap`: colormap name (default "viridis")
   - `w50_lims`: colorbar scale limits tuple (e.g. (0.1, 100))
 """
+
+function read_psrcat_w50(filename)
+    isfile(filename) || error("psrcat database not found: $filename")
+
+    names = String[]
+    periods = Float64[]
+    pdots = Float64[]
+    w50s = Float64[]
+
+    rec = Dict{String,Float64}()
+    jname, bname = "", ""
+
+    for line in eachline(filename)
+        if startswith(line, "@-")
+            f0 = get(rec, "F0", NaN)
+            p0 = get(rec, "P0", NaN)
+            !isfinite(f0) && isfinite(p0) && p0 > 0 && (f0 = 1 / p0)
+            !isfinite(p0) && isfinite(f0) && f0 > 0 && (p0 = 1 / f0)
+            p1 = get(rec, "P1", NaN)
+            if !isfinite(p1)
+                f1 = get(rec, "F1", NaN)
+                isfinite(f1) && isfinite(f0) && f0 > 0 && (p1 = -f1 / f0^2)
+            end
+            if isfinite(p0) && isfinite(p1) && p0 > 0
+                push!(names, isempty(jname) ? bname : jname)
+                push!(periods, p0)
+                push!(pdots, p1)
+                push!(w50s, get(rec, "W50", NaN))
+            end
+            empty!(rec)
+            jname, bname = "", ""
+            continue
+        end
+        (isempty(strip(line)) || startswith(line, "#")) && continue
+        parts = split(line)
+        length(parts) < 2 && continue
+        key, val = parts[1], parts[2]
+        if key == "PSRJ" && isempty(jname)
+            jname = val
+        elseif key == "PSRB" && isempty(bname)
+            bname = val
+        elseif key in ("P0", "P1", "F0", "F1", "W50") && !haskey(rec, key)
+            v = tryparse(Float64, val)
+            isnothing(v) || (rec[key] = v)
+        end
+    end
+
+    return names, periods, pdots, w50s
+end
+
+
+
+
+
+
+
+
 function ppdot_w50(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
                    name_mod="w50", show_=true, mode=:w50,
                    b_lines=[1e10, 1e12, 1e14],
