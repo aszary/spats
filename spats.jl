@@ -8,6 +8,7 @@ module SpaTs
     include("modules/tools.jl")
     include("modules/phase_modulation.jl")
     include("modules/p3fold_viterbi.jl")
+    include("modules/offset_analysis.jl")
 
 
     function test(outdir)
@@ -779,6 +780,8 @@ module SpaTs
         #Plot.ppdot("output")
         # the same diagram with the component offsets (input/offsets.csv)
         Plot.ppdot_offsets("output")
+        # correlation analysis: offset vs pulsar parameters
+        OffsetAnalysis.analyse_offset_correlations()
     end
 
 end # module
