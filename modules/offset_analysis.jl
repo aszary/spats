@@ -649,16 +649,16 @@ function _plot_best_fit_ax!(ax, x, y)
 
     A_lin = hcat(ones(n), x)
     c, r = ols_c(A_lin)
-    push!(cands, ("linear", aicc(r,2), xs -> c[1] .+ c[2].*xs))
+    let cv = copy(c); push!(cands, ("linear", aicc(r,2), xs -> cv[1] .+ cv[2].*xs)); end
 
     A_qua = hcat(ones(n), x, x.^2)
     c, r = ols_c(A_qua)
-    push!(cands, ("quadratic", aicc(r,3), xs -> c[1] .+ c[2].*xs .+ c[3].*xs.^2))
+    let cv = copy(c); push!(cands, ("quadratic", aicc(r,3), xs -> cv[1] .+ cv[2].*xs .+ cv[3].*xs.^2)); end
 
     if all(x .> 0)
         lx = log.(x); A_log = hcat(ones(n), lx)
         c, r = ols_c(A_log)
-        push!(cands, ("log", aicc(r,2), xs -> c[1] .+ c[2].*log.(max.(xs,1e-300))))
+        let cv = copy(c); push!(cands, ("log", aicc(r,2), xs -> cv[1] .+ cv[2].*log.(max.(xs,1e-300)))); end
     end
 
     if all(x .> 0) && all(abs.(y) .> 0)
@@ -666,8 +666,10 @@ function _plot_best_fit_ax!(ax, x, y)
         c_pw = A_pw \ log.(abs.(y))
         ypred_pw = signs .* exp.(A_pw * c_pw)
         r_pw = sum((y .- ypred_pw).^2)
-        push!(cands, ("power", aicc(r_pw,2),
-              xs -> signs[1] .* exp.(c_pw[1] .+ c_pw[2].*log.(max.(xs,1e-300)))))
+        let cpw = copy(c_pw), sg = signs[1]
+            push!(cands, ("power", aicc(r_pw,2),
+                  xs -> sg .* exp.(cpw[1] .+ cpw[2].*log.(max.(xs,1e-300)))))
+        end
     end
 
     best = argmin([c[2] for c in cands])
