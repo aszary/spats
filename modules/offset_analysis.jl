@@ -634,47 +634,38 @@ function _plot_best_fit_ax!(ax, x, y)
     n = length(x)
     n < 3 && return
 
-    # sigma-clip outliers in y (3σ based on MAD) before fitting
-    med_y  = median(y)
-    mad_y  = median(abs.(y .- med_y))
-    σ_est  = mad_y * 1.4826
-    keep   = σ_est > 0 ? abs.(y .- med_y) .<= 3.0 * σ_est : trues(n)
-    xf, yf = x[keep], y[keep]
-    length(xf) < 3 && (xf, yf = x, y)   # fallback: use all points
-
-    nf = length(xf)
-    xs_plot = collect(range(minimum(xf), maximum(xf), length=200))
+    xs_plot = collect(range(minimum(x), maximum(x), length=200))
 
     function aicc(rss, k)
         rss <= 0 && return Inf
-        d = nf - k - 1
+        d = n - k - 1
         d <= 0 && return Inf
-        nf * log(rss / nf) + 2 * k + 2 * k * (k + 1) / d
+        n * log(rss / n) + 2 * k + 2 * k * (k + 1) / d
     end
 
-    ols_c(A) = (c = A \ yf; (c, sum((yf .- A*c).^2)))
+    ols_c(A) = (c = A \ y; (c, sum((y .- A*c).^2)))
 
     cands = Tuple{String, Float64, Function}[]
 
-    A_lin = hcat(ones(nf), xf)
+    A_lin = hcat(ones(n), x)
     c, r = ols_c(A_lin)
     push!(cands, ("linear", aicc(r,2), xs -> c[1] .+ c[2].*xs))
 
-    A_qua = hcat(ones(nf), xf, xf.^2)
+    A_qua = hcat(ones(n), x, x.^2)
     c, r = ols_c(A_qua)
     push!(cands, ("quadratic", aicc(r,3), xs -> c[1] .+ c[2].*xs .+ c[3].*xs.^2))
 
-    if all(xf .> 0)
-        lx = log.(xf); A_log = hcat(ones(nf), lx)
+    if all(x .> 0)
+        lx = log.(x); A_log = hcat(ones(n), lx)
         c, r = ols_c(A_log)
         push!(cands, ("log", aicc(r,2), xs -> c[1] .+ c[2].*log.(max.(xs,1e-300))))
     end
 
-    if all(xf .> 0) && all(abs.(yf) .> 0)
-        signs = sign.(yf); lx = log.(xf); A_pw = hcat(ones(nf), lx)
-        c_pw = A_pw \ log.(abs.(yf))
+    if all(x .> 0) && all(abs.(y) .> 0)
+        signs = sign.(y); lx = log.(x); A_pw = hcat(ones(n), lx)
+        c_pw = A_pw \ log.(abs.(y))
         ypred_pw = signs .* exp.(A_pw * c_pw)
-        r_pw = sum((yf .- ypred_pw).^2)
+        r_pw = sum((y .- ypred_pw).^2)
         push!(cands, ("power", aicc(r_pw,2),
               xs -> signs[1] .* exp.(c_pw[1] .+ c_pw[2].*log.(max.(xs,1e-300)))))
     end
@@ -682,7 +673,13 @@ function _plot_best_fit_ax!(ax, x, y)
     best = argmin([c[2] for c in cands])
     bname, _, bfun = cands[best]
     ys = bfun(xs_plot)
-    ax.plot(xs_plot, ys, color="black", lw=1.5, ls="--", alpha=0.7,
+
+    # clip plotted line to data y-range (±20% padding) so bad extrapolation stays invisible
+    ylo = minimum(y) - 0.2 * (maximum(y) - minimum(y))
+    yhi = maximum(y) + 0.2 * (maximum(y) - minimum(y))
+    ys_clipped = clamp.(ys, ylo, yhi)
+
+    ax.plot(xs_plot, ys_clipped, color="black", lw=1.5, ls="--", alpha=0.7,
             label="$bname (best)", zorder=2)
 end
 
