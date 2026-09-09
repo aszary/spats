@@ -2504,7 +2504,7 @@ function ppdot_w50(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", 
                    w50_lims=nothing,
                    plims=(1e-3, 2e2), pdotlims=(1e-22, 1e-8))
 
-    names, periods, pdots, w50s = read_psrcat(catalogue)
+    names, periods, pdots, w50s = read_psrcat_w50(catalogue)
     println("psrcat: $(length(names)) pulsars with P and Pdot ($catalogue)")
 
     keep = pdots .> 0
