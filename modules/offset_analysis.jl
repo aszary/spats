@@ -326,8 +326,8 @@ function analyse_offset_correlations(;
         lowercase(strip(inp)) == "q" && break
     end
 
-    # --- summary bar chart per ncomp (stacked rows) ---
-    _plot_summary_by_nc(summary_by_nc, outdir)
+    # --- 2×2 summary: all / 1-comp / 2-comp / 3+comp ---
+    _plot_summary_grid(summary, summary_by_nc, outdir)
 
     # --- component separation vs P ---
     _plot_separation_vs_params(matched_names, good, cat, outdir)
