@@ -2290,9 +2290,11 @@ module Plot
         end
         line!((death_bp2 / 3.2e19)^2, 3, nothing, 0.5, c_death, "-")
 
+        #=
         plot(p, pd, ".", ms=2.8, c="black", mec="none", zorder=3)
         c_sel = "magenta"
         any(marked) && plot(p[marked], pd[marked], ".", ms=4.0, c=c_sel, mec="none", zorder=4)
+        =#
 
         # Frequency offsets on top of the population. The colour carries the
         # change of the component separation between 1023 and 1523 MHz (circles,
