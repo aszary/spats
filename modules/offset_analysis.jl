@@ -208,20 +208,35 @@ function analyse_offset_correlations(;
     @printf("Matched with catalogue: %d pulsars\n\n", length(matched_names))
     isempty(matched_names) && (@warn "No matches — check pulsar name format"; return)
 
-    # parameters to analyse (key in psrcat dict, label, log-scale for x-axis)
+    # parameters to analyse: (key, short label, use_log)
     params = [
-        ("LOG_P",    "Period P [s] (log₁₀)",             true),
-        ("LOG_PD",   "Period derivative Ṗ [s/s] (log₁₀)",true),
-        ("LOG_TAU",  "Characteristic age τ_c [yr] (log₁₀)",true),
-        ("LOG_B",    "Surface B field [G] (log₁₀)",       true),
-        ("LOG_EDOT", "Spin-down luminosity Ė [erg/s] (log₁₀)",true),
-        ("DM",       "Dispersion Measure DM [pc/cm³]",     false),
-        ("LOG_DM",   "DM [pc/cm³] (log₁₀)",               true),
-        ("W50",      "Pulse width W₅₀ [ms]",               false),
-        ("LOG_W50",  "Pulse width W₅₀ [ms] (log₁₀)",      true),
-        ("S1400",    "Flux S₁₄₀₀ [mJy]",                  false),
-        ("DIST_DM",  "Distance (DM) [kpc]",                false),
+        ("LOG_P",    "Period P [s] (log₁₀)",                  true),
+        ("LOG_PD",   "Period derivative Ṗ [s/s] (log₁₀)",     true),
+        ("LOG_TAU",  "Characteristic age τ_c [yr] (log₁₀)",   true),
+        ("LOG_B",    "Surface B field [G] (log₁₀)",            true),
+        ("LOG_EDOT", "Spin-down luminosity Ė [erg/s] (log₁₀)", true),
+        ("DM",       "Dispersion Measure DM [pc/cm³]",          false),
+        ("LOG_DM",   "DM [pc/cm³] (log₁₀)",                   true),
+        ("W50",      "Pulse width W₅₀ [ms]",                   false),
+        ("LOG_W50",  "Pulse width W₅₀ [ms] (log₁₀)",          true),
+        ("S1400",    "Flux S₁₄₀₀ [mJy]",                      false),
+        ("DIST_DM",  "Distance (DM) [kpc]",                    false),
     ]
+
+    # human-readable interpretation hint for each parameter
+    param_hints = Dict(
+        "LOG_P"    => "Dłuższy okres → pulsar wolniej się obraca, inny tryb emisji?\nKorelacja sugeruje czy aberracja/retardacja zależy od P.",
+        "LOG_PD"   => "Wyższe Ṗ → silniejszy spin-down, młodszy pulsar.\nKorelacja z Ṗ może wskazywać na związek z energią emisji.",
+        "LOG_TAU"  => "Starsze pulsary (duże τ_c) vs młode.\nCzy offset zmienia się w czasie życia pulsara?",
+        "LOG_B"    => "Silniejsze pole B → inny mechanizm emisji?\nModel A/R przewiduje zależność od geometrii magnetosfery.",
+        "LOG_EDOT" => "Pulsary tracące więcej energii często mają inny kształt profilu.\nKorelacja może wskazywać na wpływ wiatru pulsarowego.",
+        "DM"       => "DM ≈ całka z gęstości elektronów wzdłuż linii widzenia.\nBezpośredni wpływ na offset jest mało prawdopodobny,\nale DM koreluje z odległością i ze strumieniem.",
+        "LOG_DM"   => "To samo co DM ale w skali log — lepiej widać duży zakres wartości.",
+        "W50"      => "Szerszy impuls → bardziej rozległa emisja lub geometria pod większym kątem.\nMoże korelować z offset jeśli geometria decyduje o przesunięciu.",
+        "LOG_W50"  => "To samo co W₅₀ ale w skali log.",
+        "S1400"    => "Strumień na 1400 MHz — jaśniejsze pulsary są bliżej lub silniej emitują.\nSłaba korelacja z offsetem byłaby zaskoczeniem (to powinien być efekt geometryczny).",
+        "DIST_DM"  => "Odległość oszacowana z DM.\nBezpośrednio nie powinna wpływać na offset — to test na systematykę.",
+    )
 
     # collect all offset values
     colors_by_ncomp = Dict(1=>"#1976D2", 2=>"#E65100", 3=>"#388E3C", 4=>"#7B1FA2")
@@ -267,16 +282,25 @@ function analyse_offset_correlations(;
         end
 
         # linear regression line
-        _plot_regression!(xvals, yvals)
+        _plot_best_fit!(xvals, yvals)
 
         axhline(0.0, color="gray", lw=0.8, ls="--", zorder=1)
         xlabel(label, fontsize=10)
-        ylabel("Offset high − low (°)", fontsize=10)
-        sig_str = pval < 0.001 ? "p<0.001" : @sprintf("p=%.3f", pval)
-        title(@sprintf("r_s = %+.3f  %s  (n=%d)", rs, sig_str, length(xvals)),
-              fontsize=10)
-        legend(fontsize=8, loc="best")
-        tight_layout()
+        ylabel("Offset high − low (°)\n(>0: profil przesuwa się w prawo przy wyższej f)", fontsize=9)
+        sig_str  = pval < 0.001 ? "p<0.001" : @sprintf("p=%.3f", pval)
+        sig_word = pval < 0.05 ? "ISTOTNA" : "nieistotna"
+        title(@sprintf("Korelacja Spearmana: r_s = %+.3f  %s  (n=%d) — %s",
+                       rs, sig_str, length(xvals), sig_word), fontsize=9)
+
+        # interpretation hint in bottom margin
+        hint = get(param_hints, key, "")
+        if !isempty(hint)
+            gcf().text(0.01, 0.01, hint, fontsize=7, color="#444444",
+                       va="bottom", ha="left", wrap=true,
+                       transform=gcf().transFigure)
+        end
+        legend(fontsize=8, loc="upper right")
+        tight_layout(rect=[0, 0.12, 1, 1])
 
         safe_key = replace(key, "/" => "_", " " => "_")
         savefig(joinpath(outdir, "offset_corr_$(safe_key).pdf"))
@@ -295,20 +319,152 @@ function analyse_offset_correlations(;
     _plot_separation_vs_params(matched_names, good, cat, outdir)
 
     println("\nDone. Figures saved to $outdir")
+    _print_legend()
+end
+
+function _print_legend()
+    println("""
+\n╔══════════════════════════════════════════════════════════════════════╗
+║              JAK CZYTAĆ WYKRESY KORELACJI                           ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ OŚ Y (na każdym wykresie):                                          ║
+║   Offset high−low [°] = o ile stopni profil pulsara przesuwa się    ║
+║   między 1023 MHz a 1523 MHz.                                        ║
+║   >0 → profil przy wyższej częstotliwości jest przesunięty w prawo  ║
+║   <0 → profil przy wyższej częstotliwości jest przesunięty w lewo   ║
+║   Dla pulsarów z 2+ składowymi: zmiana separacji (ostatnia−pierwsza)║
+╠══════════════════════════════════════════════════════════════════════╣
+║ PARAMETRY (oś X):                                                   ║
+║                                                                     ║
+║  P (okres)     Jak szybko obraca się pulsar. Dłuższy okres = starszy║
+║                lub słabiej wyhamowany. Model A/R: offset ~ 1/P²     ║
+║                → spodziewana korelacja ujemna z P.                  ║
+║                                                                     ║
+║  Ṗ (dP/dt)    Jak szybko pulsar traci energię obrotową.             ║
+║                Ṗ duże = pulsar młody i energetyczny.                ║
+║                                                                     ║
+║  τ_c = P/(2Ṗ) Wiek charakterystyczny [lata]. Duże τ_c = stary.     ║
+║                Jeśli korelacja z τ_c → offset zmienia się z wiekiem.║
+║                                                                     ║
+║  B = 3.2e19√(PṖ)  Pole magnetyczne powierzchni [Gauss].            ║
+║                Duże B → silniejsza magnetosfera, inna geometria.    ║
+║                                                                     ║
+║  Ė = 4π²IṖ/P³ Świecistość spin-down [erg/s]. Proxy energii emisji. ║
+║                                                                     ║
+║  DM            Miara dyspersji [pc/cm³] = całka z gęstości e⁻.     ║
+║                Koreluje z odległością. Nie powinna wpływać na offset.║
+║                Korelacja byłaby artefaktem.                         ║
+║                                                                     ║
+║  W₅₀           Szerokość impulsu przy 50% maksimum [ms].           ║
+║                Szerszy profil → emisja z większego obszaru albo     ║
+║                obserwacja pod dużym kątem do osi magnetycznej.      ║
+║                                                                     ║
+║  S₁₄₀₀         Strumień radiowy [mJy]. Proxy jasności / odległości. ║
+║                Korelacja z offsetem byłaby podejrzana (selekcja?).  ║
+║                                                                     ║
+║  Odległość     Z DM. Nie powinna korelować — test systematyki.      ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ STATYSTYKA:                                                         ║
+║  r_s ∈ [-1,1]  Korelacja Spearmana (rangowa, odporna na outliery).  ║
+║  |r_s| > 0.5  → silna korelacja                                     ║
+║  |r_s| 0.3-0.5 → umiarkowana                                        ║
+║  |r_s| < 0.3  → słaba lub brak                                      ║
+║  p < 0.05     → korelacja statystycznie ISTOTNA (mało prawdopodobna ║
+║                 przy braku zależności)                               ║
+║  p > 0.05     → nie możemy odrzucić hipotezy że to przypadek        ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ MODELE DOPASOWANIA (czarna linia = najlepszy wg AIC):               ║
+║  linear     y = a + b·x          → prosta zależność liniowa         ║
+║  quadratic  y = a + b·x + c·x²  → minimum/maksimum w środku zakresu║
+║  log        y = a + b·log(x)    → efekt nasycenia (szybki wzrost,   ║
+║                                    potem plateau)                   ║
+║  power      |y| ~ x^b           → potęgowa (jak w astronomii B~P^α) ║
+║  AIC mniejszy = lepszy model (uwzględnia liczbę parametrów)         ║
+╚══════════════════════════════════════════════════════════════════════╝
+""")
 end
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-function _plot_regression!(x, y)
-    isempty(x) && return
-    mx, my = mean(x), mean(y)
-    b = sum((x .- mx) .* (y .- my)) / max(sum((x .- mx).^2), 1e-30)
-    a = my - b * mx
-    xs = range(minimum(x), maximum(x), length=50)
-    plot(collect(xs), a .+ b .* collect(xs),
-         color="black", lw=1.2, ls="-", alpha=0.6, zorder=2, label="_nolegend_")
+"""
+Fit multiple models to (x, y) data, pick the best by AIC, plot it.
+Returns (best_model_name, AIC_best).
+Models tried:
+  - linear:      y = a + b*x
+  - quadratic:   y = a + b*x + c*x²
+  - logarithmic: y = a + b*log(x)   (only when all x > 0)
+  - power law:   log|y| = a + b*log(x)  (only when all x>0 and all |y|>0)
+"""
+function _plot_best_fit!(x, y)
+    isempty(x) && return ("none", Inf)
+    n = length(x)
+    xs_plot = collect(range(minimum(x), maximum(x), length=200))
+
+    function aic(rss, k)
+        rss <= 0 && return Inf
+        n * log(rss / n) + 2 * k
+    end
+
+    function ols(A)
+        # ordinary least squares: A * coef ≈ y
+        coef = A \ y
+        rss  = sum((y .- A * coef).^2)
+        return coef, rss
+    end
+
+    results = Tuple{String, Float64, Vector{Float64}, Function}[]
+
+    # --- linear ---
+    A_lin = hcat(ones(n), x)
+    c_lin, rss_lin = ols(A_lin)
+    push!(results, ("linear", aic(rss_lin, 2), c_lin,
+          xs -> c_lin[1] .+ c_lin[2] .* xs))
+
+    # --- quadratic ---
+    A_qua = hcat(ones(n), x, x.^2)
+    c_qua, rss_qua = ols(A_qua)
+    push!(results, ("quadratic", aic(rss_qua, 3), c_qua,
+          xs -> c_qua[1] .+ c_qua[2] .* xs .+ c_qua[3] .* xs.^2))
+
+    # --- logarithmic (needs all x > 0) ---
+    if all(x .> 0)
+        lx = log.(x)
+        A_log = hcat(ones(n), lx)
+        c_log, rss_log = ols(A_log)
+        push!(results, ("log", aic(rss_log, 2), c_log,
+              xs -> c_log[1] .+ c_log[2] .* log.(max.(xs, 1e-300))))
+    end
+
+    # --- power law in log-log (needs all x>0 and |y| > 0 for all points) ---
+    if all(x .> 0) && all(abs.(y) .> 0)
+        signs = sign.(y)
+        lx   = log.(x)
+        A_pw = hcat(ones(n), lx)
+        c_pw, rss_pw = ols(A_pw)
+        push!(results, ("power", aic(rss_pw, 2), c_pw,
+              xs -> signs[1] .* exp.(c_pw[1] .+ c_pw[2] .* log.(max.(xs, 1e-300)))))
+    end
+
+    # pick best (lowest AIC)
+    best = argmin([r[2] for r in results])
+    bname = results[best][1]
+    baic  = results[best][2]
+
+    # plot all models faintly, best prominently
+    style_map = Dict("linear"=>"--", "quadratic"=>"-.", "log"=>":", "power"=>"--")
+    for (i, (mname, _, _, mfun)) in enumerate(results)
+        ys = mfun(xs_plot)
+        lw = i == best ? 1.8 : 0.8
+        al = i == best ? 0.85 : 0.3
+        col = i == best ? "black" : "gray"
+        lab = i == best ? "$mname (best, AIC=$(round(Int,baic)))" : "_nolegend_"
+        plot(xs_plot, ys, color=col, lw=lw, ls=get(style_map, mname, "-"),
+             alpha=al, zorder=2, label=lab)
+    end
+
+    return bname, baic
 end
 
 function _plot_summary(summary, outdir)
@@ -369,7 +525,7 @@ function _plot_separation_vs_params(matched_names, good, cat, outdir)
              fmt="none", ecolor="gray", alpha=0.5, capsize=2, zorder=2)
     colorbar(sc, label="log₁₀(τ_c / yr)")
     axhline(0, color="gray", lw=0.8, ls="--")
-    _plot_regression!(ps_f, sep_f)
+    _plot_best_fit!(ps_f, sep_f)
 
     rs = spearman_r(ps_f, sep_f)
     pval = spearman_pval(rs, length(ps_f))
