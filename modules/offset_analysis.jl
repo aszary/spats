@@ -402,48 +402,56 @@ function _plot_best_fit!(x, y)
     n = length(x)
     xs_plot = collect(range(minimum(x), maximum(x), length=200))
 
-    function aic(rss, k)
+    # AICc = corrected AIC for small samples: penalises extra params harder
+    function aicc(rss, k)
         rss <= 0 && return Inf
-        n * log(rss / n) + 2 * k
+        aic_val = n * log(rss / n) + 2 * k
+        # small-sample correction term
+        denom = n - k - 1
+        denom <= 0 && return Inf
+        aic_val + 2 * k * (k + 1) / denom
     end
 
-    function ols(A)
-        # ordinary least squares: A * coef ≈ y
-        coef = A \ y
-        rss  = sum((y .- A * coef).^2)
-        return coef, rss
+    function ols_rss_ypred(A)
+        coef   = A \ y
+        ypred  = A * coef
+        rss    = sum((y .- ypred).^2)
+        return coef, rss, ypred
     end
 
     results = Tuple{String, Float64, Vector{Float64}, Function}[]
 
     # --- linear ---
     A_lin = hcat(ones(n), x)
-    c_lin, rss_lin = ols(A_lin)
-    push!(results, ("linear", aic(rss_lin, 2), c_lin,
+    c_lin, rss_lin, _ = ols_rss_ypred(A_lin)
+    push!(results, ("linear", aicc(rss_lin, 2), c_lin,
           xs -> c_lin[1] .+ c_lin[2] .* xs))
 
     # --- quadratic ---
     A_qua = hcat(ones(n), x, x.^2)
-    c_qua, rss_qua = ols(A_qua)
-    push!(results, ("quadratic", aic(rss_qua, 3), c_qua,
+    c_qua, rss_qua, _ = ols_rss_ypred(A_qua)
+    push!(results, ("quadratic", aicc(rss_qua, 3), c_qua,
           xs -> c_qua[1] .+ c_qua[2] .* xs .+ c_qua[3] .* xs.^2))
 
     # --- logarithmic (needs all x > 0) ---
     if all(x .> 0)
         lx = log.(x)
         A_log = hcat(ones(n), lx)
-        c_log, rss_log = ols(A_log)
-        push!(results, ("log", aic(rss_log, 2), c_log,
+        c_log, rss_log, _ = ols_rss_ypred(A_log)
+        push!(results, ("log", aicc(rss_log, 2), c_log,
               xs -> c_log[1] .+ c_log[2] .* log.(max.(xs, 1e-300))))
     end
 
-    # --- power law in log-log (needs all x>0 and |y| > 0 for all points) ---
+    # --- power law: fit in log-log, but compute RSS back in y-space ---
     if all(x .> 0) && all(abs.(y) .> 0)
         signs = sign.(y)
-        lx   = log.(x)
-        A_pw = hcat(ones(n), lx)
-        c_pw, rss_pw = ols(A_pw)
-        push!(results, ("power", aic(rss_pw, 2), c_pw,
+        lx    = log.(x)
+        ly    = log.(abs.(y))
+        A_pw  = hcat(ones(n), lx)
+        c_pw  = A_pw \ ly
+        ypred_pw = signs .* exp.(A_pw * c_pw)   # back to y-space
+        rss_pw   = sum((y .- ypred_pw).^2)       # RSS in y-space
+        push!(results, ("power", aicc(rss_pw, 2), c_pw,
               xs -> signs[1] .* exp.(c_pw[1] .+ c_pw[2] .* log.(max.(xs, 1e-300)))))
     end
 
