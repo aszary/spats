@@ -2422,4 +2422,154 @@ module Plot
         _ppdot(outdir; kwargs..., offsets=offsets, name_mod=name_mod)
     end
 
+    
+
+
+"""
+P-Pdot diagram of the ATNF catalogue with pulsars color-coded by W50 (pulse width
+at 50% height in ms) or Duty Cycle (W50 / P * 100%).
+
+Keywords:
+  - `mode`: `:w50` (pulse width in ms) or `:duty_cycle` (W50 / P in %)
+  - `w50_cmap`: colormap name (default "viridis")
+  - `w50_lims`: colorbar scale limits tuple (e.g. (0.1, 100))
+"""
+function ppdot_w50(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
+                   name_mod="w50", show_=true, mode=:w50,
+                   b_lines=[1e10, 1e12, 1e14],
+                   age_lines=[1e3, 1e6, 1e9],
+                   edot_lines=[1e30, 1e33, 1e36],
+                   death_bp2=0.17e12,
+                   inertia=1e45,
+                   highlight=normpath(joinpath(@__DIR__, "..", "input", "pulsars.txt")),
+                   highlight_label="selected",
+                   w50_cmap="viridis",
+                   w50_lims=nothing,
+                   plims=(1e-3, 2e2), pdotlims=(1e-22, 1e-8))
+
+    names, periods, pdots, w50s = read_psrcat(catalogue)
+    println("psrcat: $(length(names)) pulsars with P and Pdot ($catalogue)")
+
+    keep = pdots .> 0
+    println("psrcat: $(count(.!keep)) pulsars skipped (Pdot <= 0)")
+    nam = names[keep]
+    p = periods[keep]
+    pd = pdots[keep]
+    w50 = w50s[keep]
+
+    selected = isnothing(highlight) ? Set{String}() : _read_pulsar_list(highlight)
+    marked = [n in selected for n in nam]
+
+    rc("font", size=11.)
+    rc("axes", linewidth=0.7)
+    rc("lines", linewidth=0.7)
+
+    figsize = (7.08661, 6.29921)  # 18cm x 16cm
+    figure(figsize=figsize, frameon=true)
+    subplots_adjust(left=0.13, bottom=0.10, right=0.98, top=0.98)
+
+    ax = gca()
+    xscale("log")
+    yscale("log")
+    xlim(plims)
+    ylim(pdotlims)
+
+    c_b, c_age, c_edot, c_death = "tab:blue", "tab:green", "tab:orange", "tab:red"
+    yr_s = 3.15576e7
+
+    function line!(A, m, txt, frac, color, ls; va="bottom")
+        seg = _ppdot_segment(A, m, plims, pdotlims)
+        isnothing(seg) && return
+        xs, ys = seg
+        ax.plot(xs, ys, ls=ls, lw=0.9, c=color, alpha=0.8, zorder=1)
+        isnothing(txt) && return
+        xt = 10^(log10(xs[1]) + frac * log10(xs[end] / xs[1]))
+        ax.text(xt, A * xt^m, txt, fontsize=11, color=color,
+                ha="center", va=va, rotation_mode="anchor", zorder=4,
+                rotation=_ppdot_angle(ax, m, plims, pdotlims, figsize))
+    end
+
+    for b in b_lines
+        line!((b / 3.2e19)^2, -1, _pow10_label(b), 0.10, c_b, "--"; va="top")
+    end
+    for tau in age_lines
+        line!(1 / (2 * tau * yr_s), 1, _pow10_label(tau), 0.95, c_age, "-.")
+    end
+    for edot in edot_lines
+        line!(edot / (4 * pi^2 * inertia), 3, _pow10_label(edot), 0.85, c_edot, ":")
+    end
+    line!((death_bp2 / 3.2e19)^2, 3, nothing, 0.5, c_death, "-")
+
+    has_w50 = isfinite.(w50) .& (w50 .> 0)
+    println("psrcat: $(count(has_w50)) of $(length(nam)) pulsars have measured W50")
+
+    # Background grey points for pulsars missing W50 in the catalogue
+    no_w50 = .!has_w50
+    plot(p[no_w50], pd[no_w50], ".", ms=2.5, c="0.75", alpha=0.35, mec="none", zorder=2)
+
+    # Color scatter for pulsars with measured W50
+    if count(has_w50) > 0
+        if mode == :duty_cycle
+            # W50 in ms, period p in seconds -> duty cycle in % = W50 / (10 * P)
+            vals = (w50[has_w50] ./ (10.0 .* p[has_w50]))
+            cbar_label = "\$W_{50} / P\$ (%)"
+            lims = isnothing(w50_lims) ? (0.1, 30.0) : w50_lims
+        else
+            vals = w50[has_w50]
+            cbar_label = "\$W_{50}\$ (ms)"
+            lims = isnothing(w50_lims) ? (0.1, 100.0) : w50_lims
+        end
+
+        cmap = PyPlot.matplotlib.pyplot.get_cmap(w50_cmap)
+        cnorm = PyPlot.matplotlib.colors.LogNorm(vmin=lims[1], vmax=lims[2])
+
+        sc = ax.scatter(p[has_w50], pd[has_w50], s=12.0, c=vals, cmap=cmap, norm=cnorm,
+                        edgecolors="black", linewidths=0.2, alpha=0.9, zorder=3)
+
+        cax = ax.inset_axes([0.04, 0.86, 0.38, 0.022])
+        cb = colorbar(sc, cax=cax, orientation="horizontal")
+        cb.ax.tick_params(labelsize=6, length=2, pad=1)
+        cb.outline.set_linewidth(0.5)
+        cb.set_label(cbar_label, fontsize=7, labelpad=2)
+    end
+
+    c_sel = "magenta"
+    any(marked) && plot(p[marked], pd[marked], "o", ms=4.5, mfc="none", mec=c_sel, mew=1.1, zorder=4)
+
+    xlabel("\$P\$ (s)")
+    ylabel("\$\\dot{P}\$ (s s\$^{-1}\$)")
+    minorticks_on()
+
+    L2D = PyPlot.matplotlib.lines.Line2D
+    handles = Any[]
+    any(marked) && push!(handles, L2D([], [], c=c_sel, ls="none", marker="o",
+                                      ms=5.0, mfc="none", mew=1.1, label=highlight_label))
+    push!(handles, L2D([], [], c=c_b, ls="--", lw=0.9, label="\$B\$ (G)"))
+    push!(handles, L2D([], [], c=c_age, ls="-.", lw=0.9, label="\$\\tau_c\$ (yr)"))
+    push!(handles, L2D([], [], c=c_edot, ls=":", lw=0.9, label="\$\\dot{E}\$ (erg s\$^{-1}\$)"))
+    push!(handles, L2D([], [], c=c_death, ls="-", lw=0.9, label="death line"))
+    legend(handles=handles, fontsize=8, loc="lower right", framealpha=0.9,
+           borderpad=0.4, handlelength=2.5, labelspacing=0.35)
+
+    savepath = joinpath(outdir, "ppdot_$(name_mod).pdf")
+    savefig(savepath)
+    savefig(replace(savepath, ".pdf" => ".png"))
+    println("Saved: $savepath")
+
+    if show_
+        PyPlot.show()
+        println("Press Enter to close the figure.")
+        readline(stdin; keep=false)
+    end
+    close()
+end
+
+
+
+
+
+
+
+
+
 end  # module Plot
