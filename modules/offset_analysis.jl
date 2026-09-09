@@ -290,50 +290,54 @@ function analyse_offset_correlations(;
         end
         println()
 
-        # --- scatter plot: 2 rows — all combined + per-ncomp ---
-        n_nc = length(nc_groups)
-        fig, axes = subplots(1, 1 + n_nc, figsize=(4 + 3.5*n_nc, 5),
-                             sharey=true)
-        axes = n_nc == 0 ? [axes] : collect(axes)
+        # --- scatter plot: one figure, stacked rows (all + per ncomp) ---
+        n_rows = 1 + length(nc_groups)
+        subplots(n_rows, 1, figsize=(8, 4 * n_rows))
+        axes = gcf().get_axes()
+        axes = n_rows == 1 ? [axes] : collect(axes)
 
-        # left panel: all data
+        # top row: all data combined
         ax = axes[1]
-        ax.set_title("Wszystkie (n=$(length(xvals)))\nr_s=$(round(rs,digits=3))  $(pval<0.001 ? "p<0.001" : @sprintf("p=%.3f",pval))",
-                     fontsize=8)
         for nc in nc_groups
             idx = nvals .== nc
             col = get(colors_by_ncomp, nc, "gray")
-            ax.scatter(xvals[idx], yvals[idx], c=col, s=35, alpha=0.75, zorder=3,
-                       label="$(nc)komp.")
+            ax.scatter(xvals[idx], yvals[idx], c=col, s=40, alpha=0.8, zorder=3,
+                       label="$(nc) komponent$(nc>1 ? "y" : "")")
         end
         _plot_best_fit_ax!(ax, xvals, yvals)
-        ax.axhline(0, color="gray", lw=0.7, ls="--")
-        ax.set_xlabel(label, fontsize=8)
-        ax.set_ylabel("Offset high−low (°)", fontsize=8)
-        ax.legend(fontsize=7)
+        ax.axhline(0, color="gray", lw=0.8, ls="--")
+        ax.set_ylabel("Offset high−low (°)", fontsize=9)
+        sig_str  = pval < 0.001 ? "p<0.001" : @sprintf("p=%.3f", pval)
+        sig_word = pval < 0.05 ? "ISTOTNA" : "nieistotna"
+        ax.set_title("WSZYSTKIE pulsary (n=$(length(xvals))): r_s=$(round(rs,digits=3))  $sig_str — $sig_word",
+                     fontsize=9, fontweight="bold")
+        ax.legend(fontsize=8, loc="best")
 
-        # per-ncomp panels
+        # subsequent rows: one per ncomp group
         for (j, nc) in enumerate(nc_groups)
             ax2 = axes[1 + j]
-            idx = nvals .== nc
+            idx  = nvals .== nc
             xg, yg = xvals[idx], yvals[idx]
-            col = get(colors_by_ncomp, nc, "gray")
-            ax2.scatter(xg, yg, c=col, s=40, alpha=0.85, zorder=3)
+            col  = get(colors_by_ncomp, nc, "gray")
+            ax2.scatter(xg, yg, c=col, s=45, alpha=0.85, zorder=3)
             length(xg) >= 4 && _plot_best_fit_ax!(ax2, xg, yg)
-            ax2.axhline(0, color="gray", lw=0.7, ls="--")
-            ax2.set_xlabel(label, fontsize=8)
-            s = get(nc_stats, nc, nothing)
-            tstr = isnothing(s) ? "n<4" :
-                   "r_s=$(round(s.rs,digits=3))  $(s.pval<0.001 ? "p<0.001" : @sprintf("p=%.3f",s.pval))"
-            ax2.set_title("$(nc) komponent$(nc>1 ? "y" : "") (n=$(count(idx)))\n$tstr", fontsize=8)
+            ax2.axhline(0, color="gray", lw=0.8, ls="--")
+            ax2.set_ylabel("Offset high−low (°)", fontsize=9)
+            s    = get(nc_stats, nc, nothing)
+            tstr = isnothing(s) ? "za mało danych (n<4)" :
+                   "r_s=$(round(s.rs,digits=3))  $(s.pval<0.001 ? "p<0.001" : @sprintf("p=%.3f",s.pval))  — $(s.pval<0.05 ? "ISTOTNA" : "nieistotna")"
+            ax2.set_title("$(nc) komponent$(nc>1 ? "y" : "") (n=$(count(idx))): $tstr",
+                          fontsize=9)
         end
+
+        axes[end].set_xlabel(label, fontsize=10)
 
         hint = get(param_hints, key, "")
         if !isempty(hint)
-            fig.text(0.01, 0.01, hint, fontsize=7, color="#444444",
-                     va="bottom", ha="left", wrap=true)
+            axes[end].annotate(hint, xy=(0.01, -0.28), xycoords="axes fraction",
+                               fontsize=7, color="#555555", va="top", ha="left")
         end
-        tight_layout(rect=[0, 0.10, 1, 1])
+        subplots_adjust(hspace=0.45, bottom=0.18, top=0.95, left=0.10, right=0.97)
 
         safe_key = replace(key, "/" => "_", " " => "_")
         savefig(joinpath(outdir, "offset_corr_$(safe_key).pdf"))
