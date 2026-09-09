@@ -326,8 +326,8 @@ function analyse_offset_correlations(;
         lowercase(strip(inp)) == "q" && break
     end
 
-    # --- summary 2×2: all + per ncomp ---
-    _plot_summary_grid(summary, summary_by_nc, outdir)
+    # --- summary bar chart per ncomp (stacked rows) ---
+    _plot_summary_by_nc(summary_by_nc, outdir)
 
     # --- component separation vs P ---
     _plot_separation_vs_params(matched_names, good, cat, outdir)
@@ -685,12 +685,12 @@ function _plot_summary_by_nc(summary_by_nc, outdir)
 
     nL = length(all_labels)
     nC = length(all_nc)
-    fig, axes = subplots(1, nC, figsize=(4*nC, max(4, 0.4*nL)), sharey=true)
-    axes = nC == 1 ? [axes] : collect(axes)
-
     nc_label = Dict(1=>"1 komponent", 2=>"2 komponenty", 99=>"3+ komponenty")
+
+    # stacked rows so all groups fit on screen
+    figure(figsize=(9, 3.5 * nC))
     for (j, nc) in enumerate(all_nc)
-        ax = axes[j]
+        subplot(nC, 1, j)
         rows = [(s[1], s[3], s[4]) for s in summary_by_nc if s[2] == nc]
         sort!(rows, by=r -> abs(r[2]), rev=true)
         labs = [r[1] for r in rows]
@@ -699,15 +699,14 @@ function _plot_summary_by_nc(summary_by_nc, outdir)
         cols = [p < 0.05 ? (r > 0 ? "#E53935" : "#1E88E5") :
                             (r > 0 ? "#EF9A9A" : "#90CAF9")
                 for (r,p) in zip(rs, pvs)]
-        ax.barh(1:length(labs), rs, color=cols, edgecolor="black", linewidth=0.4)
-        ax.axvline(0, color="black", lw=0.8)
-        ax.axvline( 0.3, color="gray", lw=0.6, ls="--", alpha=0.5)
-        ax.axvline(-0.3, color="gray", lw=0.6, ls="--", alpha=0.5)
-        ax.set_yticks(1:length(labs))
-        ax.set_yticklabels(labs, fontsize=7)
-        ax.set_xlim(-1, 1)
-        ax.set_xlabel("Spearman r_s", fontsize=9)
-        ax.set_title("$(get(nc_label, nc, "$nc komp."))\n(wypełnione=p<0.05)", fontsize=9)
+        barh(1:length(labs), rs, color=cols, edgecolor="black", linewidth=0.4)
+        axvline(0,    color="black", lw=0.8)
+        axvline( 0.3, color="gray",  lw=0.6, ls="--", alpha=0.5)
+        axvline(-0.3, color="gray",  lw=0.6, ls="--", alpha=0.5)
+        yticks(1:length(labs), labs, fontsize=7)
+        xlim(-1, 1)
+        xlabel("Spearman r_s", fontsize=8)
+        title("$(get(nc_label, nc, "$nc komp."))   (czerwony=p<0.05 dodatni, niebieski=p<0.05 ujemny)", fontsize=8)
     end
 
     tight_layout()
