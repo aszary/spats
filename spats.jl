@@ -466,6 +466,56 @@ module SpaTs
         end
     end
 
+
+
+
+
+
+
+
+
+
+
+function analyse_separations_todo(vpmout; csv_file=joinpath(@__DIR__, "..", "input", "separations_todo.csv"), type="norefine")
+    isfile(csv_file) || error("separations_todo.csv not found: $csv_file")
+    for (i, line) in enumerate(eachline(csv_file))
+        i == 1 && continue  # header
+        s = strip(line)
+        (isempty(s) || startswith(s, "#")) && continue
+        fields = split(s, ',')
+        length(fields) < 2 && continue
+        
+        name = String(strip(fields[1]))
+        n_comp_val = tryparse(Int, strip(fields[2]))
+        n_comp = isnothing(n_comp_val) ? 2 : n_comp_val
+        outdir = vpmout * name * "_16"
+        if !isdir(outdir)
+            @warn "Output directory for $name not found: $outdir, skipping"
+            continue
+        end
+        println("=== Running analyse_p3folds_16_new for $name (n_comp = $n_comp) ===")
+        try
+            Data.analyse_p3folds_16_new(outdir, type; n_comp=n_comp)
+        catch e
+            @warn "Failed for $name: $e"
+        end
+    end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     function main()
         # output directory for VPM
         vpmout = "/home/psr/output/"
@@ -775,6 +825,24 @@ module SpaTs
 
         #Tools.clean_all(vpmout)
         #analyse_all()
+
+        #Data.analyse_p3folds_16_new(vpmout*"J1539-6322_16", "norefine", n_comp=2)
+
+        analyse_separations_todo()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         # P-Pdot diagram based on the ATNF catalogue (input/psrcat.db)
         #Plot.ppdot("output")

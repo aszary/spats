@@ -1026,7 +1026,8 @@ module Plot
 
 
     "added s to skip point"
-    function analyse_p3folds4(low, high, p, n_comp)
+    function analyse_p3folds4(low, high, p, n_comp; psr="",
+                              separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
         pulses, bins = size(low)
 
         # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
@@ -1126,27 +1127,8 @@ module Plot
             end
         end
 
-        # Weighted mean offset per component
-        if !isempty(offset_data)
-            println("\n=== Weighted mean offsets ===")
-            for comp in sort(collect(keys(offset_data)))
-                d = offset_data[comp]
-                if isempty(d.err) || all(d.err .== 0.0)
-                    continue
-                end
-                w       = 1.0 ./ (d.err .^ 2)
-                n       = length(d.off)
-                mu      = sum(w .* d.off) / sum(w)
-                sigma_int = 1.0 / sqrt(sum(w))
-                chi2   = sum(w .* (d.off .- mu) .^ 2)
-                dof    = n - 1
-                chi2_red = dof > 0 ? chi2 / dof : NaN
-                sigma_ext = sigma_int * sqrt(max(1.0, chi2_red))
-                println(@sprintf("G%d: offset = %+.4f° ± %.4f°  (n=%d, χ²/dof = %.2f, σ_ext = %.4f°)",
-                    comp, mu, sigma_int, n, chi2_red, sigma_ext))
-            end
-            println()
-        end
+        # Weighted mean offset and longitude per component, plus the separation
+        _offset_summary(offset_data; psr=psr, outfile=separations)
 
         # Final plot: longitude vs. offset for each component
         if !isempty(offset_data)
@@ -1171,6 +1153,7 @@ module Plot
         end
 
     end
+
 
 
 
