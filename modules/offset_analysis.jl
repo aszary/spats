@@ -269,75 +269,52 @@ function analyse_offset_correlations(;
         pval = spearman_pval(rs, length(xvals))
         push!(summary, (label, rs, pval, length(xvals)))
 
-        # --- per-ncomp correlations ---
-        nc_groups = sort(unique(nvals))
-        nc_stats  = Dict{Int, NamedTuple{(:rs,:pval,:n), Tuple{Float64,Float64,Int}}}()
-        for nc in nc_groups
-            idx = nvals .== nc
-            xg, yg = xvals[idx], yvals[idx]
+        # --- per-ncomp correlations for summary ---
+        for (nc, idx_nc) in [(1, nvals.==1), (2, nvals.==2), (99, nvals.>=3)]
+            xg, yg = xvals[idx_nc], yvals[idx_nc]
             length(xg) < 4 && continue
-            rsg  = spearman_r(xg, yg)
-            pvg  = spearman_pval(rsg, length(xg))
-            nc_stats[nc] = (rs=rsg, pval=pvg, n=length(xg))
+            rsg = spearman_r(xg, yg)
+            pvg = spearman_pval(rsg, length(xg))
             push!(summary_by_nc, (label, nc, rsg, pvg, length(xg)))
         end
 
         # --- print ---
-        @printf("%-45s  r_s=%+.3f  p=%.3f  n=%d", label, rs, pval, length(xvals))
-        for nc in sort(collect(keys(nc_stats)))
-            s = nc_stats[nc]
-            @printf("  |  %dc: r_s=%+.3f p=%.3f n=%d", nc, s.rs, s.pval, s.n)
+        @printf("%-45s  r_s=%+.3f  p=%.3f  n=%d\n", label, rs, pval, length(xvals))
+
+        # --- scatter: fixed 2×2 grid, groups: all / 1c / 2c / 3+c ---
+        idx1  = nvals .== 1
+        idx2  = nvals .== 2
+        idx3p = nvals .>= 3
+        panel_groups = [
+            (xvals,       yvals,       "Wszystkie",    "#555555"),
+            (xvals[idx1], yvals[idx1], "1 komponent",  colors_by_ncomp[1]),
+            (xvals[idx2], yvals[idx2], "2 komponenty", colors_by_ncomp[2]),
+            (xvals[idx3p],yvals[idx3p],"3+ komponenty",colors_by_ncomp[3]),
+        ]
+
+        figure(figsize=(10, 7))
+        for (pi, (xg, yg, glabel, gcol)) in enumerate(panel_groups)
+            subplot(2, 2, pi)
+            if length(xg) >= 2
+                scatter(xg, yg, c=gcol, s=35, alpha=0.8, zorder=3)
+                _linear_fit_ax!(gca(), xg, yg)
+            end
+            axhline(0, color="gray", lw=0.8, ls="--")
+            xlabel(label, fontsize=8)
+            ylabel("Offset (°)", fontsize=8)
+            if length(xg) >= 4
+                rsg = spearman_r(xg, yg)
+                pvg = spearman_pval(rsg, length(xg))
+                sstr = pvg < 0.001 ? "p<0.001" : @sprintf("p=%.3f", pvg)
+                istr = pvg < 0.05 ? " ★" : ""
+                title("$glabel  (n=$(length(xg)))\nr_s=$(round(rsg,digits=3))  $sstr$istr",
+                      fontsize=8)
+            else
+                title("$glabel  (n=$(length(xg)))\nza mało danych", fontsize=8)
+            end
         end
-        println()
-
-        # --- scatter plot: one figure, stacked rows (all + per ncomp) ---
-        n_rows = 1 + length(nc_groups)
-        subplots(n_rows, 1, figsize=(8, 4 * n_rows))
-        axes = gcf().get_axes()
-        axes = n_rows == 1 ? [axes] : collect(axes)
-
-        # top row: all data combined
-        ax = axes[1]
-        for nc in nc_groups
-            idx = nvals .== nc
-            col = get(colors_by_ncomp, nc, "gray")
-            ax.scatter(xvals[idx], yvals[idx], c=col, s=40, alpha=0.8, zorder=3,
-                       label="$(nc) komponent$(nc>1 ? "y" : "")")
-        end
-        _plot_best_fit_ax!(ax, xvals, yvals)
-        ax.axhline(0, color="gray", lw=0.8, ls="--")
-        ax.set_ylabel("Offset high−low (°)", fontsize=9)
-        sig_str  = pval < 0.001 ? "p<0.001" : @sprintf("p=%.3f", pval)
-        sig_word = pval < 0.05 ? "ISTOTNA" : "nieistotna"
-        ax.set_title("WSZYSTKIE pulsary (n=$(length(xvals))): r_s=$(round(rs,digits=3))  $sig_str — $sig_word",
-                     fontsize=9, fontweight="bold")
-        ax.legend(fontsize=8, loc="best")
-
-        # subsequent rows: one per ncomp group
-        for (j, nc) in enumerate(nc_groups)
-            ax2 = axes[1 + j]
-            idx  = nvals .== nc
-            xg, yg = xvals[idx], yvals[idx]
-            col  = get(colors_by_ncomp, nc, "gray")
-            ax2.scatter(xg, yg, c=col, s=45, alpha=0.85, zorder=3)
-            length(xg) >= 4 && _plot_best_fit_ax!(ax2, xg, yg)
-            ax2.axhline(0, color="gray", lw=0.8, ls="--")
-            ax2.set_ylabel("Offset high−low (°)", fontsize=9)
-            s    = get(nc_stats, nc, nothing)
-            tstr = isnothing(s) ? "za mało danych (n<4)" :
-                   "r_s=$(round(s.rs,digits=3))  $(s.pval<0.001 ? "p<0.001" : @sprintf("p=%.3f",s.pval))  — $(s.pval<0.05 ? "ISTOTNA" : "nieistotna")"
-            ax2.set_title("$(nc) komponent$(nc>1 ? "y" : "") (n=$(count(idx))): $tstr",
-                          fontsize=9)
-        end
-
-        axes[end].set_xlabel(label, fontsize=10)
-
-        hint = get(param_hints, key, "")
-        if !isempty(hint)
-            axes[end].annotate(hint, xy=(0.01, -0.28), xycoords="axes fraction",
-                               fontsize=7, color="#555555", va="top", ha="left")
-        end
-        subplots_adjust(hspace=0.45, bottom=0.18, top=0.95, left=0.10, right=0.97)
+        suptitle(label, fontsize=10, fontweight="bold")
+        tight_layout()
 
         safe_key = replace(key, "/" => "_", " " => "_")
         savefig(joinpath(outdir, "offset_corr_$(safe_key).pdf"))
@@ -591,7 +568,17 @@ function _plot_separation_vs_params(matched_names, good, cat, outdir)
     close("all")
 end
 
-"""Same as _plot_best_fit! but draws on a given matplotlib Axes object."""
+"""Simple linear regression drawn on given Axes."""
+function _linear_fit_ax!(ax, x, y)
+    length(x) < 2 && return
+    mx, my = mean(x), mean(y)
+    b = sum((x .- mx) .* (y .- my)) / max(sum((x .- mx).^2), 1e-30)
+    a = my - b * mx
+    xs = collect(range(minimum(x), maximum(x), length=100))
+    ax.plot(xs, a .+ b .* xs, color="black", lw=1.4, ls="--", alpha=0.7, zorder=2)
+end
+
+"""Best-fit model selection drawn on given matplotlib Axes object."""
 function _plot_best_fit_ax!(ax, x, y)
     isempty(x) && return
     n = length(x)
@@ -651,6 +638,7 @@ function _plot_summary_by_nc(summary_by_nc, outdir)
     fig, axes = subplots(1, nC, figsize=(4*nC, max(4, 0.4*nL)), sharey=true)
     axes = nC == 1 ? [axes] : collect(axes)
 
+    nc_label = Dict(1=>"1 komponent", 2=>"2 komponenty", 99=>"3+ komponenty")
     for (j, nc) in enumerate(all_nc)
         ax = axes[j]
         rows = [(s[1], s[3], s[4]) for s in summary_by_nc if s[2] == nc]
@@ -669,7 +657,7 @@ function _plot_summary_by_nc(summary_by_nc, outdir)
         ax.set_yticklabels(labs, fontsize=7)
         ax.set_xlim(-1, 1)
         ax.set_xlabel("Spearman r_s", fontsize=9)
-        ax.set_title("$nc komponent$(nc>1 ? "y" : "")\n(wypełnione=p<0.05)", fontsize=9)
+        ax.set_title("$(get(nc_label, nc, "$nc komp."))\n(wypełnione=p<0.05)", fontsize=9)
     end
 
     tight_layout()
