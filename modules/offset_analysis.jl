@@ -505,7 +505,7 @@ function _plot_summary_grid(summary, summary_by_nc, outdir)
                                 r" \[.*?\]"    => "",
                                 r"Dispersion Measure " => "")
 
-    figure(figsize=(12, 8))
+    figure(figsize=(10, 7))
     for (pi, (ptitle, rows)) in enumerate(panels)
         subplot(2, 2, pi)
         isempty(rows) && (title("$ptitle\n(brak danych)", fontsize=8); continue)
