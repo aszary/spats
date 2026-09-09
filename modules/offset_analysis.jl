@@ -326,11 +326,8 @@ function analyse_offset_correlations(;
         lowercase(strip(inp)) == "q" && break
     end
 
-    # --- summary bar chart (all pulsars) ---
-    _plot_summary(summary, outdir)
-
-    # --- summary bar chart per ncomp ---
-    _plot_summary_by_nc(summary_by_nc, outdir)
+    # --- summary 2×2: all + per ncomp ---
+    _plot_summary_grid(summary, summary_by_nc, outdir)
 
     # --- component separation vs P ---
     _plot_separation_vs_params(matched_names, good, cat, outdir)
@@ -490,6 +487,59 @@ function _plot_best_fit!(x, y)
     end
 
     return bname, baic
+end
+
+"""Combined 2×2 summary: all pulsars + 1-comp + 2-comp + 3+comp."""
+function _plot_summary_grid(summary, summary_by_nc, outdir)
+    isempty(summary) && return
+
+    panels = [
+        ("Wszystkie",    [(s[1],s[2],s[3]) for s in summary]),
+        ("1 komponent",  [(s[1],s[3],s[4]) for s in summary_by_nc if s[2]==1]),
+        ("2 komponenty", [(s[1],s[3],s[4]) for s in summary_by_nc if s[2]==2]),
+        ("3+ komponenty",[(s[1],s[3],s[4]) for s in summary_by_nc if s[2]==99]),
+    ]
+
+    # short labels for y-axis (strip units/log info)
+    short_label(l) = replace(l, r" \(log₁₀\)" => " (log)",
+                                r" \[.*?\]"    => "",
+                                r"Dispersion Measure " => "")
+
+    figure(figsize=(12, 8))
+    for (pi, (ptitle, rows)) in enumerate(panels)
+        subplot(2, 2, pi)
+        isempty(rows) && (title("$ptitle\n(brak danych)", fontsize=8); continue)
+
+        sort!(rows, by=r -> abs(r[2]), rev=true)
+        labs  = [short_label(r[1]) for r in rows]
+        rs    = [r[2] for r in rows]
+        pvs   = [r[3] for r in rows]
+        n_bar = length(labs)
+
+        bar_colors = [isnan(p) ? "#cccccc" :
+                      p < 0.05 ? (r > 0 ? "#E53935" : "#1E88E5") :
+                                  (r > 0 ? "#FFCDD2" : "#BBDEFB")
+                      for (r, p) in zip(rs, pvs)]
+
+        ax = gca()
+        ax.barh(1:n_bar, rs, color=bar_colors, edgecolor="black", linewidth=0.4)
+        ax.axvline(0,    color="black", lw=0.8)
+        ax.axvline( 0.3, color="gray",  lw=0.6, ls="--", alpha=0.5)
+        ax.axvline(-0.3, color="gray",  lw=0.6, ls="--", alpha=0.5)
+        ax.set_yticks(1:n_bar)
+        ax.set_yticklabels(labs, fontsize=7)
+        ax.set_xlim(-1, 1)
+        ax.set_xlabel("Spearman r_s", fontsize=8)
+        ax.set_title("$ptitle\n(czerwony/niebieski = p<0.05, jasny = nieistotne)", fontsize=8)
+    end
+
+    tight_layout()
+    savefig(joinpath(outdir, "offset_corr_summary.pdf"))
+    savefig(joinpath(outdir, "offset_corr_summary.png"), dpi=150)
+    show()
+    println("Summary — Press Enter to continue.")
+    readline(stdin; keep=false)
+    close("all")
 end
 
 function _plot_summary(summary, outdir)
