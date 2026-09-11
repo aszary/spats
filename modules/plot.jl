@@ -1279,6 +1279,105 @@ module Plot
     end
 
 
+    """
+    Non-interactive counterpart of `analyse_p3folds4` for agent-driven review
+    (no `show()`, no `readline()`). Saves each pulse's diagnostic plot to
+    `outdir` instead of displaying it, and applies a pre-decided `keep` mask
+    (one Bool per pulse, default: keep all) instead of a per-pulse prompt.
+
+    Usage: call once with `psr=""` (default) to only render the review images
+    — with an empty `psr`, `_offset_summary` skips writing to `separations` —
+    inspect `outdir/p3folds4_agent_pulseNN.png` for each pulse, decide which to
+    keep, then call again with the real `psr` and that `keep` vector to write
+    the final `separations.csv` row.
+    """
+    function analyse_p3folds4_agent(low, high, p, n_comp; psr="", outdir=".",
+                                     keep=nothing,
+                                     separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
+        pulses, bins = size(low)
+        keep = something(keep, trues(pulses))
+        @assert length(keep) == pulses "keep must have $pulses entries, one per pulse"
+
+        offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
+
+        low_colors  = ["#2196F3", "#0D47A1", "#64B5F6", "#1565C0"]
+        high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
+
+        for i in 1:pulses
+            x_data = p["bin_st"]:p["bin_end"]
+            y_low = low[i, p["bin_st"]:p["bin_end"]]
+            y_high = high[i, p["bin_st"]:p["bin_end"]]
+
+            fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
+            GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
+            fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
+            GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024)
+
+            figure(figsize=(6, 7))
+
+            subplot(2, 1, 1)
+            plot(x_data, y_low,  color="steelblue",  lw=1.2, alpha=0.7, label="Low data")
+            plot(x_data, y_high, color="darkorange",  lw=1.2, alpha=0.7, label="High data")
+            if fit_l.converged
+                plot(x_data, fit_l.yfit, "--", color="blue", lw=2.0, label="Fit low")
+                for (j, c) in enumerate(fit_l.components)
+                    plot(x_data, fit_l.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
+                         color=low_colors[mod1(j, length(low_colors))], lw=1.8, alpha=0.9, label="Low G$j")
+                end
+            end
+            if fit_h.converged
+                plot(x_data, fit_h.yfit, "--", color="darkorange", lw=2.0, label="Fit high")
+                for (j, c) in enumerate(fit_h.components)
+                    plot(x_data, fit_h.baseline .+ GaussianFit._gauss.(x_data, c.A, c.mu, c.sigma),
+                         color=high_colors[mod1(j, length(high_colors))], lw=1.8, alpha=0.9, label="High G$j")
+                end
+            end
+            legend()
+            xlim(p["bin_st"], p["bin_end"])
+            title("pulse $i" * (keep[i] ? "" : "  [SKIPPED]"))
+
+            subplot(2, 1, 2)
+            if fit_l.converged
+                for (j, c) in enumerate(fit_l.components)
+                    scatter([c.mu], [fit_l.baseline + c.A], color=low_colors[mod1(j, length(low_colors))],
+                            marker="o", s=60, label="Low G$j", zorder=3)
+                end
+            end
+            if fit_h.converged
+                for (j, c) in enumerate(fit_h.components)
+                    scatter([c.mu], [fit_h.baseline + c.A], color=high_colors[mod1(j, length(high_colors))],
+                            marker="s", s=60, label="High G$j", zorder=3)
+                end
+            end
+            xlabel("μ (bin)")
+            ylabel("Amplituda")
+            title("Komponenty: μ vs amplituda")
+            legend()
+            xlim(p["bin_st"], p["bin_end"])
+
+            tight_layout()
+            savefig(joinpath(outdir, @sprintf("p3folds4_agent_pulse%02d.png", i)))
+            close("all")
+
+            if !keep[i]
+                println("pulse $i: skipped (keep[$i] = false)")
+                continue
+            end
+
+            for o in GaussianFit.component_offsets(fit_h, fit_l; nbin=1024)
+                @printf("G%d: lon=%.2f° bin=%.1f  %+.3f ± %.3f bins = %+.3f° ± %.3f°\n",
+                    o.component, o.longitude, o.longitude_bin, o.offset_bins, o.offset_err, o.offset_deg, o.offset_deg_err)
+                if !haskey(offset_data, o.component)
+                    offset_data[o.component] = (lon=Float64[], off=Float64[], err=Float64[])
+                end
+                push!(offset_data[o.component].lon, o.longitude)
+                push!(offset_data[o.component].off, o.offset_deg)
+                push!(offset_data[o.component].err, o.offset_deg_err)
+            end
+        end
+
+        _offset_summary(offset_data; psr=psr, outfile=separations)
+    end
 
 
 

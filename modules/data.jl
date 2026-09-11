@@ -948,6 +948,32 @@ module Data
 
 
     """
+    Non-interactive counterpart of `analyse_p3folds_16_new` for agent-driven
+    review — see `Plot.analyse_p3folds4_agent`. Saves review plots into `indir`
+    itself. Call once with `psr=""` explicitly (leaving it at the `nothing`
+    default resolves a real name via `psr_from_dir` and WILL write) to only
+    render the review images, inspect them, then call again with the real
+    `psr` and `keep` set from that review to write the final row.
+    """
+    function analyse_p3folds_16_new_agent(indir, type; n_comp=3, psr=nothing, keep=nothing)
+
+        p = Tools.read_params(joinpath(indir, "params.json"))
+        psr = something(psr, psr_from_dir(indir))
+
+        low = joinpath(indir, "pulsar_low.debase.p3fold_" * type)
+        high = joinpath(indir, "pulsar_high.debase.p3fold_" * type)
+
+        l = Data.load_ascii(low)
+        h = Data.load_ascii(high)
+
+        nl = normalize_per_pulse(l)
+        nh = normalize_per_pulse(h)
+
+        Plot.analyse_p3folds4_agent(nl, nh, p, n_comp; psr=psr, outdir=indir, keep=keep)
+    end
+
+
+    """
     Offset analysis on single-pulse data.
 
     Groups single pulses (pulsar_low.txt / pulsar_high.txt) into blocks of
