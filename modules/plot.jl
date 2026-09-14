@@ -1309,8 +1309,17 @@ module Plot
             y_high = high[i, p["bin_st"]:p["bin_end"]]
 
             fit_l = GaussianFit.fit_gaussians(x_data, y_low, n_comp)
-            GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
             fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
+
+            # A failed fit leaves `nothing` in the summary fields, which would throw
+            # in print_fit_summary and abort the whole run; drop the pulse instead
+            # (same guard analyse_average_offset uses).
+            if !(fit_l.converged && fit_h.converged)
+                println("pulse $i: fit did not converge (low=$(fit_l.converged), high=$(fit_h.converged)) — skipped")
+                continue
+            end
+
+            GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
             GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024)
 
             figure(figsize=(6, 7))
