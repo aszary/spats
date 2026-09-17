@@ -776,12 +776,40 @@ module SpaTs
         #Tools.clean_all(vpmout)
         #analyse_all()
 
-        # P-Pdot diagram based on the ATNF catalogue (input/psrcat.db)
-        #Plot.ppdot("output")
-        # the same diagram with the component offsets (input/offsets.csv)
-        Plot.ppdot_offsets("output")
-        # correlation analysis: offset vs pulsar parameters
-        OffsetAnalysis.analyse_offset_correlations()
+        # --- pętla po reprocess_list.csv ---
+        todo_file = joinpath(@__DIR__, "input", "reprocess_list.csv")
+        sep_file  = joinpath(@__DIR__, "input", "separations.csv")
+
+        # pulsary już przetworzone (są w separations.csv)
+        done_set = Set{String}()
+        if isfile(sep_file)
+            for line in eachline(sep_file)
+                parts = split(strip(line), ",")
+                length(parts) >= 1 && push!(done_set, strip(parts[1]))
+            end
+        end
+
+        todo_lines = readlines(todo_file)[2:end]  # skip header
+        for line in todo_lines
+            parts = split(strip(line), ",")
+            length(parts) < 2 && continue
+            psr_name = strip(parts[1])
+            n_comp   = parse(Int, strip(parts[2]))
+
+            if psr_name in done_set
+                println("SKIP $psr_name — już przetworzone")
+                continue
+            end
+
+            indir = vpmout * psr_name * "_16"
+            if !isdir(indir)
+                println("SKIP $psr_name — brak folderu $indir")
+                continue
+            end
+
+            println("\n=== $psr_name (n_comp=$n_comp) ===")
+            Data.analyse_p3folds_16_new(indir, "norefine", n_comp=n_comp)
+        end
     end
 
 end # module
