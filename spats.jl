@@ -808,7 +808,12 @@ module SpaTs
             end
 
             println("\n=== $psr_name (n_comp=$n_comp) ===")
-            Data.analyse_p3folds_16_new(indir, "norefine", n_comp=n_comp)
+            try
+                Data.analyse_p3folds_16_new(indir, "norefine", n_comp=n_comp)
+            catch e
+                println("ERROR $psr_name: $e")
+                println("Pomijam i idę dalej.")
+            end
         end
     end
 
