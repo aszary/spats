@@ -517,3 +517,201 @@ identycznie jak przed zmianą (wartości zgodne z komentarzem w kodzie).
 - Ocena jakości (`ocena` w `offsets.csv`) opisuje stare fity; J1714-1054 wypada przez to
   z wykresu, choć jego poprawiony wynik ma χ² = 0.91. Warto przenieść oceny do
   `separations.csv` albo zrewidować je dla 21 poprawionych pulsarów.
+
+### Analiza zależności ΔW/W od parametrów pulsara (2026-09-17)
+
+Próbka jak na wykresie: 90 pulsarów (ocena ≥ 6), P i Ṗ z `psrcat.db` (replika `read_psrcat`
+w pythonie, zwalidowana liczbą rekordów 2930). Tabela: `~/claude/work/ppdot_sep_table.json`,
+skrypt wykresu: `scripts/frac_vs_params.py` → `~/output/claude/frac_vs_params.png`.
+
+**Wagi 1/σ² są tu nieużywalne.** χ²/dof wokół średniej ważonej = 64 → rozrzut próbki (σ = 0.096)
+jest 8× większy niż mediana błędu pomiarowego (0.013). Wszystkie fity ważone dają absurdalne
+istotności (35-83σ przy r ≈ 0). Używane: Spearman + nachylenie MNK z błędem bootstrapowym.
+
+| parametr | ρ_S | p | nachylenie ΔW/W na dekadę |
+|---|---|---|---|
+| log Ėdot | +0.25 | 0.018 | +0.016 ± 0.010 |
+| log τ_c | −0.25 | 0.019 | −0.029 ± 0.012 |
+| log Ṗ | +0.18 | 0.094 | +0.024 ± 0.011 |
+| log B_d | +0.08 | 0.44 | +0.031 ± 0.019 |
+| log P | −0.10 | 0.33 | −0.007 ± 0.029 |
+
+Ėdot/τ_c/Ṗ to ten sam trend (te wielkości są współliniowe). Brak zależności od P i B_d.
+Odporny na podpróbki: grade≥8 (ρ = ±0.28, p ≈ 0.01), bez 4 podejrzanych wyników (p ≈ 0.02),
+|f|/err ≥ 3 (p = 0.02-0.08), usunięcie najstarszego J1548-4821 (ρ = −0.225, p = 0.034).
+Po korekcie na 7 testowanych parametrów — **poszlaka, nie wynik**. Bonferroni ×7 daje 0.124,
+ale jest zbyt ostry: te parametry to funkcje P i Ṗ, dwie pierwsze składowe główne biorą 88%
+wariancji (N_eff ≈ 5.2). Dokładny rachunek to permutacja ΔW/W ze statystyką max |ρ| po
+wszystkich siedmiu, 200 000 prób: **p_globalne = 0.075**. Z drugiej strony Ė wskazał już
+poprzedni raport, więc jako hipoteza postawiona z góry test nie wymaga korekty i zostaje
+p = 0.018 — tyle że wszystkie 90 pulsarów nowej próbki było w starej (105 wielokomponentowych,
+pokrycie 100%), więc to nie jest niezależne potwierdzenie. Uczciwy przedział: 0.018–0.075.
+Moc: przy prawdziwym ρ = 0.25 i N = 90 to 66% na p < 0.05 i 27% na 3σ; na rozstrzygnięcie
+trzeba 165 i 285 pulsarów.
+
+Wielkość efektu: mediana ΔW/W −0.062 (dolny kwartyl Ėdot) vs −0.035 (górny), różnica 2.7 p.p.,
+czyli ~28% rozrzutu próbki. Poszerzenia (ΔW/W > 0) 13% vs 30% (Fisher p = 0.28).
+
+**Kontrola normalizacji:** |Δsep| w stopniach silnie koreluje z szerokością profilu
+(ρ = +0.62), |ΔW/W| już nie (ρ = −0.14, p = 0.21) — dzielenie przez `sep` faktycznie usuwa
+zależność od szerokości, czyli frakcja jest właściwą wielkością.
+
+**Wniosek:** dominującego efektu nie ma. Rozrzut jest 8× większy od błędów, więc rządzi nim
+coś spoza płaszczyzny P-Ṗ — najbardziej naturalnie geometria (α, β). Następny krok:
+skorelować ΔW/W z geometrią RVM (katalogi `*_rvm` w `~/output/claude/`).
+
+## 2026-09-17 — inwentaryzacja ~/output/claude: co da się odzyskać
+
+Użytkownik potwierdził: pozostałe pulsary z próbki Song et al. (2023) BYŁY próbowane,
+ale wyniki nie zostały zapisane. Stąd brak śladu w `offsets.csv` (162 wiersze przy 533 w
+`pulsars.txt`).
+
+### Stan danych
+534 katalogi `<psr>_16` = cała próbka macierzysta. Zawartość (odczyt, nic nie ruszane):
+
+| plik | zmierzone (91) | próba b/w (71) | reszta (372) |
+|---|---|---|---|
+| `pulsar_low.debase.p3fold_refine` | 91 | 71 | 356 |
+| `pulsar_high.debase.p3fold_refine` | 91 | 71 | 348 |
+| `params.json` | 91 | 71 | 371 |
+
+**510 z 533 ma komplet low+high p3foldu** (refine i norefine). `params.json` trzyma
+`p3`, `p3_error`, `p3_ybins`, `bin_st`, `bin_end`, `nbin`, `nsubint`. P3-foldy są ASCII
+(nagłówek + wiersze `sub chan bin wartość`), czytelne bez PSRCHIVE.
+
+Wniosek kosztorysowy: **etap kosztowny (dedyspersja, debasing, LRFS/2DFS, p3-fold) jest
+policzony dla całej próbki.** Ponowny pomiar offsetów = wyłącznie dopasowanie gaussów na
+gotowych p3-foldach, bez dotykania `~/data`.
+
+### Wąskie gardło: n_comp
+`params.json` nie zawiera liczby składowych, a `analyse_p3folds_16_new` wymaga jej jako
+argumentu. Test wykonalności (`scripts/ncomp_probe.py`, wynik `ncomp_probe.csv`):
+prosty licznik pików (find_peaks, próg 5σ nad rms poza oknem, prominencja 3σ) na profilu
+scalonym z p3-foldu, walidowany na 91 pulsarach o znanym `n_comp`:
+
+- **zgodność dokładna 63%** (57/91) — za mało na przebieg wsadowy
+- główny tryb błędu: **19 z 75 dwuskładnikowych uznane za jednoskładnikowe** — składowe
+  zlane (rzędu 8 binów), piku nie ma, ale dopasowanie dwóch gaussów sobie radzi
+- poprawnie „≥2 składowe": 77%
+
+Licznik pików to zły przyrząd. Właściwy test: dopasować n = 1, 2, 3 i wybrać po BIC —
+do zrobienia i zwalidowania na tych samych 91.
+
+### Rozbicie 443 pulsarów bez wyniku ΔW/W
+| status automatu | liczba |
+|---|---|
+| ok (piki zgodne low/high) | 260 |
+| rozjazd liczby pików low vs high | 131 |
+| za niski S/N | 27 |
+| brak p3-foldu | 14 |
+| katalog szczątkowy (sam `params.json`) | 11 |
+
+Czyli **391 ma sprawne p3-foldy** i nadaje się do ponownej próby.
+
+Uboczne: flaga „rozjazd" trafia 9 z 15 pulsarów odrzuconych w tej kampanii, przy 33 ze 91
+zapisanych — sygnał jest, ale nie rozdziela czysto, więc nie nadaje się na samodzielne
+kryterium odrzucania.
+
+### Selektor n_comp po BIC — WYNIK NEGATYWNY (2026-09-17)
+
+`scripts/ncomp_bic.py` — dla każdego katalogu czyta p3-fold low i high, sumuje po binach
+P3, dopasowuje n = 1..4 gaussów (wielostart: piki, równy podział, podział przesunięty)
+i zapisuje RSS(n). Wybór n robiony offline, żeby dało się skanować kryterium bez
+ponownego dopasowywania. Dane: `ncomp_rss_known.csv` (105), `ncomp_rss_all.csv` (534).
+
+**BIC z prawdziwym szumem nie działa w ogóle.** Profil scalony ma ogromne S/N (suma
+p3_ybins wierszy po ~1000 pulsach), więc rms off-pulse jest o rzędy mniejszy niż realna,
+niegaussowska struktura profilu — kryterium zawsze wybiera n = 4. Użyta postać bezskalowa,
+z wariancją estymowaną z residuów: `BIC = N ln(RSS/N) + lam·k·ln N`.
+
+Trafność na 105 pulsarach o znanym n_comp (`separations_todo.csv`):
+
+| metoda | trafność |
+|---|---|
+| **stała n = 2 (linia bazowa)** | **79%** |
+| licznik pików (`ncomp_probe.py`) | 61% |
+| BIC, lam = 8, min(low, high) | 58% |
+| BIC przycięte do [2,3] | 68% |
+| zgoda piki+BIC, inaczej 2 — **w próbie** | 85% |
+| to samo, **uczciwa walidacja 2-fold** | **79%** |
+
+85% było artefaktem strojenia na tych samych danych. Po podziale na połowy (lam wybierane
+na treningu, ocena na teście) zostaje 79%, czyli dokładnie linia bazowa. McNemar konsensus
+vs stała 2: poprawia 9, psuje 5, **p = 0.42**. Żadnej poprawy.
+
+Rozkład prawdy: 83× n=2, 21× n=3, 1× n=4. Błędy reguły konsensusu: (3→2) 12×, (2→3) 5×,
+(4→3) 1× — dominuje niedoszacowanie.
+
+**Dlaczego to nie mogło zadziałać.** `n_comp` to liczba składowych, które da się ŚLEDZIĆ
+w p3-foldzie, a profil scalony wyrzuca dokładnie tę informację (dryf), która ją definiuje.
+Do tego realne profile mają skrzydła i asymetrie, które kryterium chce opisać dodatkowymi
+gaussami, a składowe zlane (rzędu 8 binów) nie dają osobnego minimum. Negatywny wynik
+dotyczy więc profilu scalonego, nie zagadnienia w ogóle — cechą fizycznie właściwą jest
+struktura 2-D p3-foldu (liczba ścieżek dryfu w płaszczyźnie faza–P3). Niesprawdzone.
+
+**Wniosek operacyjny: selektor jest niepotrzebny.** Puścić cały wsad z `n_comp=2`:
+79% trafień od razu, a błędy są wykrywalne kryteriami jakości z poprzedniej kampanii
+(χ², mediana |Δμ|). Kolejka do ręcznego przeglądu ~82 z 391 zamiast 391.
+
+Flaga „sprawdź, czy nie 3-składnikowy" (zgoda piki+BIC na n=3) w walidacji 2-fold:
+precyzja 53%, czułość 45%. Za słaba na decyzję, wystarczająca do posortowania kolejki.
+
+### Lista wsadowa gotowa: `~/claude/work/batch_todo.csv` (2026-09-17)
+
+Pełny przebieg `ncomp_bic.py rss all` na 534 katalogach (21 min) → `ncomp_rss_all.csv`.
+Status: 471 ok, 38 za niski S/N, 14 bez p3-foldu, 11 katalogów szczątkowych.
+
+Po odjęciu 91 pulsarów, które już mają ΔW/W: **380 pulsarów do przeliczenia**
+(70 próbowanych bez wyniku + 310 nigdy nietkniętych). Kolumny: `psr`, `n_comp` (wszędzie 2,
+patrz wynik negatywny wyżej), `flaga3` (11 pulsarów do sprawdzenia pod kątem n=3),
+`snr_low`, `snr_high`, `grupa`. Posortowane malejąco po S/N — najmocniejsze profile idą
+pierwsze, więc przerwany wsad zostawia najlepszy możliwy podzbiór.
+
+S/N profilu scalonego (low): mediana 63, kwartyle [30, 151], min 6. Progu S/N nie nakładam:
+przy rozrzucie populacyjnym 0.096 pomiar z błędem 0.08 nadal niesie 59% wagi, a słabe
+przypadki i tak odsieją kryteria jakości (χ², mediana |Δμ|).
+
+Oczekiwany plon, ostrożnie: 380 × 0.79 (trafiony n_comp) × 0.7–0.86 (skuteczność
+dopasowania; górny kraniec z poprzedniej kampanii, która była WYSELEKCJONOWANA) ≈ 210–260
+nowych pomiarów. Razem z obecnymi 90 daje to N ≈ 300–350, czyli okolice sufitu 349
+i moc ~90% na 3σ przy rho = 0.25.
+
+### Test wsadowy na 10 pulsarach (2026-09-17)
+
+`scripts/batch_run.jl` — czyta `batch_todo.csv`, dla każdego pulsara liczy kryterium
+jakości per puls (mediana + 4·MAD na max|Δμ|), stosuje maskę `keep` i woła
+**`Data.Plot.analyse_p3folds4_agent`** (wariant nieinteraktywny; zwykły `analyse_p3folds4`
+czeka na klawisz i zawiesiłby `psrx`). Zapis kierowany przez `separations=` do pliku
+roboczego, obrazki przez `outdir=` do `/home/psr/work/review/<psr>/` — repo i katalogi
+danych nietknięte.
+
+Trzy bramki: `MED_MAX = 10` binów (systematyczny rozjazd Low↔High we wszystkich pulsach —
+otwarte zadanie z 16.09, teraz zaimplementowane), `MIN_PULSES = 5`, oraz kontrola
+separacji po fakcie.
+
+**Kontrola separacji dodana po pierwszym przebiegu testowym.** J0837-4135 dał
+W = 0.100° ± 0.103° — `n_comp=2` narzucone pulsarowi jednoskładnikowemu dopasowało dwa
+gaussy w to samo miejsce, a `_offset_summary` policzył z tego ΔW/W = +0.095 ± 0.306.
+Progi `MIN_SEP = 1.0°` i `MIN_SEP_SN = 5`: w 91 zweryfikowanych pulsarach minimum to
+W = 2.61° przy 8.8σ, więc nie odrzucą niczego, co już przeszło weryfikację. Wiersz
+odrzuconego pulsara jest usuwany z pliku wyjściowego (`drop_row`).
+
+Wynik na pierwszej dziesiątce (posortowanej po S/N):
+
+| status | liczba | pulsary |
+|---|---|---|
+| ok | 6 | J0820-1350, J1001-5507, J1243-6423, J1534-5334, J1903+0135, J1921+2153 |
+| rozjazd systematyczny | 2 | J1645-0317 (mediana 13.8 bina), J1327-6222 (12.9) |
+| składowe zlane | 1 | J0837-4135 |
+| za mało pulsów | 1 | J2048-1616 (3 z 6 po odrzuceniach) |
+
+**Plon 60%** — powyżej dolnego krańca prognozy (0.79 × 0.7 ≈ 55%), ale to próbka 10
+pulsarów o najwyższym S/N, więc raczej górne oszacowanie niż typowe. Czas: ~5 min na
+10 pulsarów w jednym procesie Julii, czyli ~3 h na całe 380.
+
+Wyniki: `~/claude/work/separations_batch.csv` (6 wierszy), logi `logs/batch_test10*.log`,
+obrazki przeglądowe `~/claude/work/review/` (4.7 MB dla 7 pulsarów → ~250 MB dla 380).
+
+Do rozważenia przed pełnym przebiegiem: `bad_pulses` i `analyse_p3folds4_agent` dopasowują
+gaussy dwukrotnie (raz na kryterium, raz na wynik) — pełny przebieg da się skrócić o połowę,
+jeśli kryterium będzie liczone wewnątrz funkcji agentowej.
