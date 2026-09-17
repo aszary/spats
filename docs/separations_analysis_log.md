@@ -467,3 +467,53 @@ istniejącego wyniku. Backup sprzed zmiany: `~/claude/work/separations_przed_pop
 Wniosek: poprawka usuwa realną pułapkę na przyszłość (i dotyczy też interaktywnego
 `analyse_p3folds4` oraz `analyse_average_offset`, bo `_offset_summary` jest wspólne),
 ale nie odblokowuje żadnego z 15 odrzuconych pulsarów.
+
+---
+
+## 2026-09-17 — nowy diagram P-Ṗ: frakcyjne zwężenie ΔW/W
+
+### Odzyskanie poprawionych Δsep
+`_offset_summary` liczyło Δsep i ΔW/W, ale zapisywało do `separations.csv` wyłącznie `sep`
+(mid-band). Poprawione Δsep z całej kampanii istniały więc tylko w logach.
+Wyciągnięte skryptowo z `~/claude/work/logs/*.log`: dla każdego bloku
+`separation G..-G.. =` → `Δ separation =` → `<psr> written to` pobrana para (sep, Δsep),
+przypisana do pulsara z linii `written to`. **Walidacja: `sep` z logu zgadza się z wierszem
+w `separations.csv` co do 1e-4° dla 91/91** — czyli sparowany został dokładnie ten przebieg,
+który zapisał wiersz. Kopia wyciągu: `~/claude/work/separations_final.csv`.
+
+21 wartości różni się od `offsets.csv` o >0.05°, w tym potwierdzone wcześniej artefakty:
+J1733-3716 −12.208 → −1.827, J1714-1054 −2.241 → −0.944, J1527-5552 +0.836 → −0.857,
+zmiany znaku J1824-0127 (−0.310 → +0.960) i J1825-0935 (−0.273 → +0.513).
+`offsets.csv` NIE był ruszany (per-komponentowych offsetów nie da się odtworzyć z logów).
+
+### Zmiany w repo (gałąź claude)
+- `input/separations.csv` — dwie nowe kolumny `dsep,dsep err`, wypełnione dla 91 wierszy.
+  Backup sprzed zmiany: `~/claude/work/separations_przed_dsep.csv`.
+- `_offset_summary` — writer zapisuje teraz także `dsep`/`dsep err`, więc na przyszłość
+  ta wielkość nie ginie.
+- `_read_separations(file; grades=offsets.csv)` — nowy reader, zwraca `dsep/sep` (bezwymiarowe)
+  w tym samym NamedTuple co `_read_offsets`; oceny jakości dołączane po nazwie z `offsets.csv`
+  (w `separations.csv` ich nie ma).
+- `_ppdot` — `offsets` przyjmuje teraz także gotowy `Dict`, nie tylko ścieżkę; nowe kwargi
+  `offset_norm` (`:symlog` / `:linear`), `offset_label`, `offset_legend`; romb w legendzie
+  tylko gdy faktycznie jest pulsar 1-komponentowy; na skali liniowej colorbar dostaje tick
+  w zerze, a drabinka ticków startuje od zera (inaczej 0.01 nachodziło na 0).
+- `Plot.ppdot_separations(outdir)` — nowa funkcja. Domyślnie `highlight=nothing`:
+  wszystkie 91 pulsarów jest w `pulsars.txt`, więc magentowa warstwa 533 punktów tylko
+  zasłaniała symbole. Żeby ją przywrócić: `highlight=".../input/pulsars.txt"`.
+
+### Wynik
+`~/output/claude/ppdot_separations.png` / `.pdf`.
+90 z 91 narysowanych (J1714-1054 ma ocenę < 6 w `offsets.csv` — ocena dotyczy starego,
+błędnego fitu, do rewizji). Skala koloru liniowa ±0.2, 4 pomiary poza zakresem.
+Statystyka ΔW/W: mediana −0.045, zakres −0.309…+0.322, 66/91 ujemnych (zwykły RFM).
+Skrajne: J1824-0127 +0.322 ± 0.136, J1430-6623 −0.309 ± 0.031, J1922+1733 −0.266 ± 0.087.
+
+### Brak regresji
+`ppdot_offsets` i `ppdot` przeliczone: 159/161 pulsarów, zakres ±2.2, 15 nasyconych —
+identycznie jak przed zmianą (wartości zgodne z komentarzem w kodzie).
+
+### Otwarte
+- Ocena jakości (`ocena` w `offsets.csv`) opisuje stare fity; J1714-1054 wypada przez to
+  z wykresu, choć jego poprawiony wynik ma χ² = 0.91. Warto przenieść oceny do
+  `separations.csv` albo zrewidować je dla 21 poprawionych pulsarów.

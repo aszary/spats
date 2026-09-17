@@ -885,10 +885,12 @@ module Plot
     error — the same weights therefore serve both means and only sigma_int
     halves.
 
-    The separation is taken between the outermost components, matching what
-    _read_offsets builds out of input/offsets.csv, so that joining the two by
-    pulsar name gives the fractional narrowing delta_sep / sep. Errors quoted
-    for the separation are the scatter-inflated sigma_ext, not sigma_int: the
+    The separation is taken between the outermost components, and its change
+    between the two frequencies (delta_sep) is the same quantity _read_offsets
+    builds out of input/offsets.csv. Both are written, so the fractional
+    narrowing delta_sep / sep is read straight off one file (_read_separations)
+    instead of having to be joined by pulsar name. Errors quoted for the
+    separation are the scatter-inflated sigma_ext, not sigma_int: the
     profile-to-profile spread is what actually limits these numbers.
 
     With a non-empty `psr` the same row is written to `outfile` (one line per
@@ -979,9 +981,10 @@ module Plot
             push!(slots, isnothing(i) ? "" : num(stat[c].lon),
                          isnothing(i) ? "" : num(stat[c].lon_ext))
         end
-        row = join([psr; string(length(comps)); slots; num(sep); num(sep_err)], ",")
+        row = join([psr; string(length(comps)); slots;
+                    num(sep); num(sep_err); num(dsep); num(dsep_err)], ",")
 
-        header = "Nazwa,ncomp,lon 1,lon 1 err,lon 2,lon 2 err,lon 3,lon 3 err,lon 4,lon 4 err,sep,sep err"
+        header = "Nazwa,ncomp,lon 1,lon 1 err,lon 2,lon 2 err,lon 3,lon 3 err,lon 4,lon 4 err,sep,sep err,dsep,dsep err"
         kept = String[]
         if isfile(outfile)
             for (i, line) in enumerate(eachline(outfile))
@@ -2378,6 +2381,64 @@ module Plot
     end
 
 
+    """
+    Read the component separations measured between two observing frequencies
+    (input/separations.csv, written by _offset_summary), one pulsar per line:
+
+        name, ncomp, lon 1, lon 1 err, ..., lon 4, lon 4 err, sep, sep err, dsep, dsep err
+
+    and return the fractional change of the separation,
+
+        value = dsep / sep = (sep(1523) - sep(1023)) / sep(mid-band)
+
+    Unlike the offset in degrees this is dimensionless, so pulsars with widely
+    different profile widths compare directly: -0.1 means the profile is 10%
+    narrower at 1523 MHz. Rows without both a separation and its change (a
+    single component has neither) are skipped.
+
+    The quality mark lives in offsets.csv, not here, so `grades` points at that
+    file and the marks are joined by pulsar name; with `grades = nothing` every
+    row is given grade 10, i.e. nothing is dropped by `min_grade`.
+
+    Returns Dict(name => (value, err, ncomp, grade)), value and err dimensionless.
+    """
+    function _read_separations(filename;
+                               grades=normpath(joinpath(@__DIR__, "..", "input", "offsets.csv")))
+        out = Dict{String,NamedTuple{(:value, :err, :ncomp, :grade),
+                                     Tuple{Float64,Float64,Int,Int}}}()
+        if !isfile(filename)
+            @warn "separation file not found: $filename"
+            return out
+        end
+        marks = isnothing(grades) ? Dict{String,Any}() : _read_offsets(grades)
+        for (nline, line) in enumerate(eachline(filename))
+            nline == 1 && continue  # header
+            s = strip(line)
+            (isempty(s) || startswith(s, "#")) && continue
+            f = split(s, ',')
+            length(f) < 14 && continue
+            name = String(strip(f[1]))
+            if haskey(PSR_RENAMED, name)
+                println("  renamed pulsar: $name -> $(PSR_RENAMED[name])")
+                name = PSR_RENAMED[name]
+            end
+            ncomp = something(tryparse(Int, strip(f[2])), 0)
+            sep = tryparse(Float64, strip(f[11]))
+            sep_err = tryparse(Float64, strip(f[12]))
+            dsep = tryparse(Float64, strip(f[13]))
+            dsep_err = tryparse(Float64, strip(f[14]))
+            any(isnothing, (sep, sep_err, dsep, dsep_err)) && continue
+            (isfinite(sep) && sep != 0) || continue
+            # frac = dsep / sep, both errors propagated (as in _offset_summary)
+            frac = dsep / sep
+            frac_err = sqrt((dsep_err / sep)^2 + (dsep * sep_err / sep^2)^2)
+            grade = haskey(marks, name) ? marks[name].grade : 10
+            out[name] = (value = frac, err = frac_err, ncomp = ncomp, grade = grade)
+        end
+        return out
+    end
+
+
     """ Label a power of ten as 10^n, anything else as a plain number. """
     function _pow10_label(v)
         e = log10(v)
@@ -2416,10 +2477,13 @@ module Plot
                    offsets=nothing,                # component offsets, see ppdot_offsets
                    min_grade=6,                    # lowest acceptable quality mark (1-10)
                    offset_nsigma=3.0,              # below this the symbol is left open
+                   offset_norm=:symlog,            # :symlog (offsets in deg) or :linear (fractions)
                    offset_linthresh=0.1,           # linear core of the symlog colour scale [deg]
-                   offset_vmax=nothing,            # colour range [deg]; nothing -> from offset_vmax_quantile
+                   offset_vmax=nothing,            # colour range; nothing -> from offset_vmax_quantile
                    offset_vmax_quantile=0.90,      # quantile of |offset| that sets the colour range
                    offset_cmap="RdBu_r",
+                   offset_label="1523 \$-\$ 1023 MHz offset (\$^\\circ\$)",
+                   offset_legend=("\$\\Delta\$ separation (\$\\geq\$2 comp.)", "shift (1 comp.)"),
                    plims=(1e-3, 2e2), pdotlims=(1e-22, 1e-8))
 
         names, periods, pdots = read_psrcat(catalogue)
@@ -2502,7 +2566,9 @@ module Plot
         # >= 2 components) or the raw shift of the only component (diamonds);
         # the scale is symlog because the offsets span three decades. Open
         # symbols mark measurements below offset_nsigma.
-        off = isnothing(offsets) ? Dict{String,Any}() : _read_offsets(offsets)
+        off = isnothing(offsets) ? Dict{String,Any}() :
+              offsets isa AbstractString ? _read_offsets(offsets) : offsets
+        src = offsets isa AbstractString ? basename(offsets) : "the supplied table"
         idx = Int[]
         if !isempty(off)
             in_cat = Set(nam)
@@ -2510,7 +2576,7 @@ module Plot
             faint = sort([k for (k, v) in off if v.grade < min_grade])
             idx = [i for i in eachindex(nam)
                    if haskey(off, nam[i]) && off[nam[i]].grade >= min_grade]
-            println("offsets: $(length(idx)) of $(length(off)) pulsars from $(basename(offsets)) plotted")
+            println("offsets: $(length(idx)) of $(length(off)) pulsars from $src plotted")
             isempty(faint) || println("  below grade $min_grade: $(join(faint, ", "))")
             isempty(absent) || println("  missing (no P/Pdot in the catalogue, or Pdot <= 0): $(join(absent, ", "))")
         end
@@ -2526,16 +2592,27 @@ module Plot
             # input as needing a redo), so the maximum spends a good part of
             # the scale on a handful of points. Measurements beyond +-vmax
             # saturate, which the arrowheads on the colorbar mark.
-            vmax = isnothing(offset_vmax) ?
-                ceil(quantile(abs.(vals), offset_vmax_quantile) * 10) / 10 :
-                Float64(offset_vmax)
-            vmax = max(vmax, 10 * offset_linthresh)  # at least one decade of colour
+            q = quantile(abs.(vals), offset_vmax_quantile)
+            if isnothing(offset_vmax)
+                # round the quantile up to a readable number: a tenth of a
+                # degree on the symlog scale, half a decimal step on the linear
+                # one (0.19 -> 0.20), so the colorbar ends where a tick can sit
+                vmax = offset_norm === :linear ?
+                    (st = 10.0^floor(log10(max(q, 1e-12))) / 2; ceil(q / st) * st) :
+                    ceil(q * 10) / 10
+            else
+                vmax = Float64(offset_vmax)
+            end
+            offset_norm === :symlog &&
+                (vmax = max(vmax, 10 * offset_linthresh))  # at least one decade of colour
             nsat = count(>(vmax), abs.(vals))
-            println(@sprintf("offsets: colour range +-%.4g deg, %d of %d measurements saturated",
+            println(@sprintf("offsets: colour range +-%.4g, %d of %d measurements saturated",
                              vmax, nsat, length(vals)))
             cmap = PyPlot.matplotlib.pyplot.get_cmap(offset_cmap)
-            cnorm = PyPlot.matplotlib.colors.SymLogNorm(linthresh=offset_linthresh,
-                                                        vmin=-vmax, vmax=vmax, base=10)
+            cnorm = offset_norm === :linear ?
+                PyPlot.matplotlib.colors.Normalize(vmin=-vmax, vmax=vmax) :
+                PyPlot.matplotlib.colors.SymLogNorm(linthresh=offset_linthresh,
+                                                    vmin=-vmax, vmax=vmax, base=10)
 
             function offset_points!(sel, marker, ms, filled)
                 any(sel) || return
@@ -2567,20 +2644,29 @@ module Plot
             # near it (with linthresh 0.1 and vmax 2.2 the 1 deg tick sits only
             # 0.07 of the bar width away from 2.2), and plain decades then
             # leave the bar with no labels at all between its ends.
+            # A linear diverging bar reads off zero, so zero is a tick and the
+            # chain starts there — otherwise the first rung lands on top of it
+            # (with vmax 0.2 the 0.01 tick sits 0.025 of the bar from zero). A
+            # symlog bar has its linear core around zero instead and gets no
+            # tick for it, so its chain starts free.
+            floor_ = offset_norm === :linear ? 0.0 : 0.999 * offset_linthresh
+            last_ = offset_norm === :linear ? 0.0 : -Inf
             inner = Float64[]
             for d in sort([m * 10.0^k for k in -3:2 for m in (1.0, 2.0, 5.0)])
-                (d >= 0.999 * offset_linthresh && d < vmax) || continue
+                (d >= floor_ && d < vmax) || continue
                 cnorm(vmax) - cnorm(d) > 0.09 || continue
-                isempty(inner) || cnorm(d) - cnorm(inner[end]) > 0.09 || continue
+                isfinite(last_) && cnorm(d) - cnorm(last_) <= 0.09 && continue
                 push!(inner, d)
+                last_ = d
             end
-            ticks = [-vmax; -reverse(inner); inner; vmax]
+            zero_ = offset_norm === :linear ? [0.0] : Float64[]
+            ticks = [-vmax; -reverse(inner); zero_; inner; vmax]
             cb = colorbar(sm, cax=cax, orientation="horizontal", ticks=ticks,
                           extend=(nsat > 0 ? "both" : "neither"))
             cb.ax.set_xticklabels([@sprintf("%g", t) for t in ticks], fontsize=6)
             cb.ax.tick_params(length=2, pad=1)
             cb.outline.set_linewidth(0.5)
-            cb.set_label("1523 \$-\$ 1023 MHz offset (\$^\\circ\$)", fontsize=7, labelpad=2)
+            cb.set_label(offset_label, fontsize=7, labelpad=2)
         end
 
         xlabel("\$P\$ (s)")
@@ -2593,9 +2679,11 @@ module Plot
                                           ms=5.0, mec="none", label=highlight_label))
         if !isempty(idx)
             push!(handles, L2D([], [], mfc="0.6", ls="none", marker="o", ms=5.0,
-                               mec="black", mew=0.4, label="\$\\Delta\$ separation (\$\\geq\$2 comp.)"))
-            push!(handles, L2D([], [], mfc="0.6", ls="none", marker="D", ms=4.0,
-                               mec="black", mew=0.4, label="shift (1 comp.)"))
+                               mec="black", mew=0.4, label=offset_legend[1]))
+            # the diamonds only exist where a single-component pulsar does
+            any(.!multi) && push!(handles, L2D([], [], mfc="0.6", ls="none", marker="D",
+                                               ms=4.0, mec="black", mew=0.4,
+                                               label=offset_legend[2]))
             push!(handles, L2D([], [], mfc="none", ls="none", marker="o", ms=5.0,
                                mec="0.4", mew=0.9,
                                label=@sprintf("\$< %g\\sigma\$", offset_nsigma)))
@@ -2642,6 +2730,36 @@ module Plot
                            offsets=normpath(joinpath(@__DIR__, "..", "input", "offsets.csv")),
                            name_mod="offsets", kwargs...)
         _ppdot(outdir; kwargs..., offsets=offsets, name_mod=name_mod)
+    end
+
+
+    """
+    P-Pdot diagram colour-coded by the FRACTIONAL change of the component
+    separation between 1523 and 1023 MHz, delta_sep / sep, read off
+    input/separations.csv (see _read_separations). Negative (blue) means the
+    profile is narrower at the higher frequency — ordinary radius-to-frequency
+    mapping — and the value is the fraction of the mid-band separation, so
+    pulsars of very different profile width compare directly; that is what the
+    offset in degrees (ppdot_offsets) cannot do.
+
+    The colour scale is linear rather than symlog: the fractions span a single
+    decade around zero instead of the three that the offsets in degrees cover.
+    Quality marks are joined from `grades` (offsets.csv) and `min_grade` drops
+    the rest; open symbols mark measurements below `offset_nsigma`. Remaining
+    keywords are those of _ppdot. Writes ppdot_<name_mod>.pdf/png.
+    """
+    function ppdot_separations(outdir;
+                               separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")),
+                               grades=normpath(joinpath(@__DIR__, "..", "input", "offsets.csv")),
+                               name_mod="separations", kwargs...)
+        frac = _read_separations(separations; grades=grades)
+        # every measured pulsar is already in input/pulsars.txt, so the magenta
+        # layer would only cover the symbols this figure is about; pass
+        # highlight = ".../pulsars.txt" to put the parent sample back
+        _ppdot(outdir; offset_norm=:linear, highlight=nothing,
+               offset_label="fractional narrowing \$\\Delta W / W\$ (1523 vs 1023 MHz)",
+               offset_legend=("\$\\Delta W / W\$", "shift (1 comp.)"),
+               kwargs..., offsets=frac, name_mod=name_mod)
     end
 
 
