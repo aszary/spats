@@ -715,3 +715,40 @@ obrazki przeglądowe `~/claude/work/review/` (4.7 MB dla 7 pulsarów → ~250 MB
 Do rozważenia przed pełnym przebiegiem: `bad_pulses` i `analyse_p3folds4_agent` dopasowują
 gaussy dwukrotnie (raz na kryterium, raz na wynik) — pełny przebieg da się skrócić o połowę,
 jeśli kryterium będzie liczone wewnątrz funkcji agentowej.
+
+### Optymalizacja batch_run.jl — i korekta kosztorysu (2026-09-17)
+
+**Domniemane wąskie gardło nie istniało.** Podejrzenie padło na podwójne dopasowanie gaussów
+(raz w kryterium, raz w funkcji agentowej). Pomiar (`scripts/timing_probe2.jl`) pokazał coś
+innego:
+
+| etap | czas na pulsara |
+|---|---|
+| `include` + `using` | 9.7 s (raz na proces) |
+| wczytanie p3-foldów | 0.02 s |
+| kryterium jakości (wszystkie fity) | **0.02–0.06 s** |
+| `analyse_p3folds4_agent` | **1.8–6.8 s** |
+
+Po rozgrzaniu JIT dopasowania są praktycznie darmowe — cały koszt to matplotlib, ~0.3 s na
+puls. Usunięcie podwójnego fitu dałoby zero.
+
+**Co zostało zrobione:**
+- `Plot.analyse_p3folds4_agent` dostał kwarg `plots=true`; `plots=false` pomija rysowanie
+  (blok `if plots` wokół figury). Zmiana w repo, 10 linii.
+- `batch_run.jl`: jedno wczytanie zamiast dwóch, przebieg z `plots=false`, a wykresy
+  dorysowywane **tylko dla pulsarów idących do przeglądu** — gdy kryterium odrzuciło jakiś
+  puls, gdy max χ²/dof offsetu > `CHI_REVIEW = 5`, gdy wynik odpadł na kontroli separacji,
+  albo gdy pulsar ma `flaga3` w `batch_todo.csv`. Nowy status `ok_do_przegladu`.
+- 4. argument `plots` wymusza rysowanie dla wszystkich (regeneracja obrazków, benchmark).
+
+**Walidacja:** `separations_batch.csv` po optymalizacji jest **identyczny co do bajtu** z
+wersją sprzed niej, w obu trybach rysowania.
+
+**Zysk mniejszy, niż się wydawało:** 41 s vs 49 s na dziesiątce (powtarzalnie), czyli ~16%.
+Obrazków 2.9 MB zamiast 4.7 MB, 3 katalogi do obejrzenia zamiast 7 — i to jest realna
+korzyść: kolejka przeglądu zawiera tylko przypadki, które faktycznie tego wymagają.
+
+**KOREKTA:** wcześniejszy wpis mówił „~5 min na 10 pulsarów, ~3 h na całe 380". To było
+oszacowanie, którego nie zmierzyłem, i było zawyżone. Zmierzone: 41 s na 10 pulsarów, z czego
+~15 s to jednorazowy narzut (`include` + JIT), więc koszt krańcowy to ~2.6 s na pulsara.
+**Pełny przebieg 380 pulsarów: ~17 minut**, nie 3 godziny.

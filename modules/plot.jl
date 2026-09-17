@@ -1304,9 +1304,14 @@ module Plot
     inspect `outdir/p3folds4_agent_pulseNN.png` for each pulse, decide which to
     keep, then call again with the real `psr` and that `keep` vector to write
     the final `separations.csv` row.
+
+    `plots=false` skips the per-pulse figures. They cost about 0.3 s each while
+    the Gaussian fits behind them cost microseconds, so a batch that only wants
+    the numbers runs an order of magnitude faster without them; rerun the same
+    call with `plots=true` for the pulsars that turn out to need review.
     """
     function analyse_p3folds4_agent(low, high, p, n_comp; psr="", outdir=".",
-                                     keep=nothing,
+                                     keep=nothing, plots=true,
                                      separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
         pulses, bins = size(low)
         keep = something(keep, trues(pulses))
@@ -1335,6 +1340,8 @@ module Plot
 
             GaussianFit.print_fit_summary(fit_l, n_comp; label="1023 MHz", nbin=1024)
             GaussianFit.print_fit_summary(fit_h, n_comp; label="1523 MHz", nbin=1024)
+
+            if plots
 
             figure(figsize=(6, 7))
 
@@ -1381,6 +1388,8 @@ module Plot
             tight_layout()
             savefig(joinpath(outdir, @sprintf("p3folds4_agent_pulse%02d.png", i)))
             close("all")
+
+            end  # if plots
 
             if !keep[i]
                 println("pulse $i: skipped (keep[$i] = false)")
