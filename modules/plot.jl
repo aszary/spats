@@ -1019,9 +1019,69 @@ module Plot
             title("Longitude vs. offset")
             legend()
             tight_layout()
-            show()
         end
 
+    end
+
+
+    """
+    Compute weighted mean offset and longitude per component, plus separation between
+    components, and append the summary to `outfile`.
+    """
+    function _offset_summary(offset_data; psr="", outfile=nothing)
+        isempty(offset_data) && return
+
+        comps = sort(collect(keys(offset_data)))
+        summary = Dict{Int, NamedTuple{(:mean_lon, :mean_off, :err_off), Tuple{Float64, Float64, Float64}}}()
+
+        println("\n=== Offset Summary for $(psr) ===")
+        for c in comps
+            d = offset_data[c]
+            isempty(d.off) && continue
+
+            weights = [1.0 / (err^2) for err in d.err]
+            if any(.!isfinite.(weights)) || sum(weights) == 0
+                weights = ones(length(d.off))
+            end
+
+            w_sum = sum(weights)
+            mean_off = sum(weights .* d.off) / w_sum
+            err_off = 1.0 / sqrt(w_sum)
+            mean_lon = sum(weights .* d.lon) / w_sum
+
+            summary[c] = (mean_lon=mean_lon, mean_off=mean_off, err_off=err_off)
+            @printf("Component G%d (lon=%.2f°): offset = %+.3f° ± %.3f° (N=%d)\n",
+                    c, mean_lon, mean_off, err_off, length(d.off))
+        end
+
+        if length(summary) >= 2
+            c_min, c_max = comps[1], comps[end]
+            s_first = summary[c_min]
+            s_last = summary[c_max]
+            dsep = s_last.mean_off - s_first.mean_off
+            dsep_err = sqrt(s_last.err_off^2 + s_first.err_off^2)
+            @printf("Separation change (G%d - G%d): %+.3f° ± %.3f°\n", c_max, c_min, dsep, dsep_err)
+        end
+
+        if !isnothing(outfile) && !isempty(outfile)
+            try
+                mkpath(dirname(outfile))
+                write_header = !isfile(outfile)
+                open(outfile, "a") do io
+                    if write_header
+                        println(io, "name,component,mean_lon_deg,mean_offset_deg,offset_err_deg")
+                    end
+                    for c in sort(collect(keys(summary)))
+                        s = summary[c]
+                        @printf(io, "%s,%d,%.4f,%.4f,%.4f\n", psr, c, s.mean_lon, s.mean_off, s.err_off)
+                    end
+                end
+            catch e
+                @warn "Failed writing offset summary to $outfile: $e"
+            end
+        end
+
+        return summary
     end
 
 
