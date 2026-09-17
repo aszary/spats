@@ -476,7 +476,18 @@ module SpaTs
 
 
 
-function analyse_separations_todo(vpmout; csv_file=joinpath(@__DIR__, "..", "input", "separations_todo.csv"), type="norefine")
+
+    function analyse_separations_todo(vpmout; csv_file=normpath(joinpath(@__DIR__, "..", "input", "separations_todo.csv")), type="norefine")
+    if !isfile(csv_file)
+        for alt in [normpath(joinpath(pwd(), "input", "separations_todo.csv")),
+                    normpath(joinpath(@__DIR__, "input", "separations_todo.csv")),
+                    "input/separations_todo.csv"]
+            if isfile(alt)
+                csv_file = alt
+                break
+            end
+        end
+    end
     isfile(csv_file) || error("separations_todo.csv not found: $csv_file")
     for (i, line) in enumerate(eachline(csv_file))
         i == 1 && continue  # header
