@@ -828,7 +828,7 @@ end
 
         #Data.analyse_p3folds_16_new(vpmout*"J1539-6322_16", "norefine", n_comp=2)
 
-        analyse_separations_todo()
+        analyse_separations_todo(vpmout; csv_file=joinpath(@__DIR__, "..", "input", "separations_todo.csv"), type="norefine")
 
 
 
