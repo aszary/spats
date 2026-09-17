@@ -752,3 +752,57 @@ korzyść: kolejka przeglądu zawiera tylko przypadki, które faktycznie tego wy
 oszacowanie, którego nie zmierzyłem, i było zawyżone. Zmierzone: 41 s na 10 pulsarów, z czego
 ~15 s to jednorazowy narzut (`include` + JIT), więc koszt krańcowy to ~2.6 s na pulsara.
 **Pełny przebieg 380 pulsarów: ~17 minut**, nie 3 godziny.
+
+## 2026-09-17 — pełny przebieg 380 pulsarów: NIEZALEŻNE POTWIERDZENIE TRENDU
+
+`batch_run.jl 1 380` — 380 pulsarów w ~20 min. Wynik: `~/claude/work/separations_batch_full.csv`,
+log `logs/batch_full.log`, obrazki `~/claude/work/review/` (123 katalogi, 138 MB).
+
+| status | liczba |
+|---|---|
+| rozjazd systematyczny Low↔High | 184 |
+| ok, do przeglądu | 102 |
+| ok, czyste | 47 |
+| za mało pulsów | 26 |
+| składowe zlane (n_comp=2 na jednoskładnikowym) | 21 |
+
+**Plon 149 z 380 = 39%** — poniżej prognozy 55%, bo dominującym trybem awarii okazał się
+rozjazd systematyczny (48% przypadków), rosnący wraz ze spadkiem S/N wzdłuż posortowanej listy.
+
+### Wynik merytoryczny
+
+Nowe 149 pulsarów jest **rozłączne** ze starymi 91, więc po raz pierwszy da się sprawdzić
+trend z Ė na niezależnej próbce. Ė było wskazane przez poprzedni raport, więc jako hipoteza
+postawiona z góry test nie wymaga korekty na liczbę porównań.
+
+| próbka | N | ρ_S | p | przy ustalonym log P |
+|---|---|---|---|---|
+| stare (zweryfikowane) | 91 | +0.257 | 0.014 | +0.259, p=0.013 |
+| **nowe czyste, rozłączne** | **46** | **+0.350** | **0.017** | +0.273, p=0.066 |
+| nowe czyste bez ekstremum | 45 | +0.418 | 0.0043 | +0.341, p=0.022 |
+| **stare + nowe czyste** | **137** | **+0.286** | **0.0007** | +0.259, p=0.0023 |
+| stare + nowe czyste, bez ekstremum | 136 | +0.305 | 0.0003 | +0.282, p=0.0009 |
+
+Z 0.018 na jednej próbce zrobiło się **0.0007 przy N = 137**, z niezależnym potwierdzeniem
+po drodze. To już nie jest poszlaka.
+
+### Zastrzeżenia, bez których ta liczba jest myląca
+
+1. **Żaden z 149 nowych pomiarów nie był oglądany przez człowieka.** 46 „czystych" przeszło
+   wyłącznie bramki automatyczne.
+2. **Wynik zależy od odrzucenia 102 ze 149.** Z wszystkimi: ρ = −0.025, p = 0.76 — trend
+   znika. To zachowanie oczekiwane (mediana σ(ΔW/W) w kolejce do przeglądu to 0.046 wobec
+   0.029 dla czystych, i są tam wartości rzędu ΔW/W = −1.45), ale **to jest największy wybór
+   analityczny w całej tej analizie i musi zostać zweryfikowany ręcznie.**
+3. Brak dowodu, że cięcie jakościowe jest obciążone względem Ė: mediana log Ė 31.93 (czyste)
+   vs 32.21 (do przeglądu), KS p = 0.41. Test ma jednak umiarkowaną moc.
+4. Błędy nowych są 2× większe od starych (0.029 vs 0.013), ale wciąż 3× mniejsze od rozrzutu
+   populacyjnego (0.096), więc niosą ~92% wagi — zgodnie z wcześniejszym rachunkiem.
+5. **Bramki są niekompletne.** J1717-3425 dostał status „czysty" z ΔW/W = −0.74 ± 0.11, przy
+   maksimum 0.32 w 91 zweryfikowanych. Dodana bramka `MAX_FRAC = 0.4` kieruje takie przypadki
+   do przeglądu. Ekstremum **osłabia** trend, nie napędza go (bez niego p = 0.0043 zamiast
+   0.017 na próbce niezależnej).
+
+### Następny krok
+Przejrzeć 123 katalogi w `~/claude/work/review/`. Dopóki to nie jest zrobione,
+`separations_batch_full.csv` NIE jest scalany do `input/separations.csv`.
