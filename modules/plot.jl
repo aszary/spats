@@ -996,14 +996,17 @@ module Plot
     function analyse_p3folds3(low, high, p, n_comp)
         pulses, bins = size(low)
 
+        bin_st  = something(get(p, "bin_st",  nothing), 1)
+        bin_end = something(get(p, "bin_end", nothing), bins)
+
         # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
         offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
 
         for i in 1:pulses
             # Extract data in the range bin_st:bin_end
-            x_data = p["bin_st"]:p["bin_end"]
-            y_low = low[i, p["bin_st"]:p["bin_end"]]
-            y_high = high[i, p["bin_st"]:p["bin_end"]]
+            x_data = bin_st:bin_end
+            y_low = low[i, bin_st:bin_end]
+            y_high = high[i, bin_st:bin_end]
 
             #=
             # Tutaj fity nie działają...
@@ -1059,7 +1062,7 @@ module Plot
                 end
             end
             legend()
-            xlim(p["bin_st"], p["bin_end"])
+            xlim(bin_st, bin_end)
 
             # Bottom panel: mu vs amplitude for each component
             subplot(2, 1, 2)
@@ -1079,7 +1082,7 @@ module Plot
             ylabel("Amplituda")
             title("Komponenty: μ vs amplituda")
             legend()
-            xlim(p["bin_st"], p["bin_end"])
+            xlim(bin_st, bin_end)
 
             tight_layout()
             show()
@@ -1154,14 +1157,17 @@ module Plot
                               separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
         pulses, bins = size(low)
 
+        bin_st  = something(get(p, "bin_st",  nothing), 1)
+        bin_end = something(get(p, "bin_end", nothing), bins)
+
         # Collected offsets per pulse: Dict(component => (longitudes, offsets, errors))
         offset_data = Dict{Int, NamedTuple{(:lon, :off, :err), Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
 
         for i in 1:pulses
             # Extract data in the range bin_st:bin_end
-            x_data = p["bin_st"]:p["bin_end"]
-            y_low = low[i, p["bin_st"]:p["bin_end"]]
-            y_high = high[i, p["bin_st"]:p["bin_end"]]
+            x_data = bin_st:bin_end
+            y_low = low[i, bin_st:bin_end]
+            y_high = high[i, bin_st:bin_end]
 
             #=
             # Tutaj fity nie działają...
@@ -1200,7 +1206,7 @@ module Plot
                 end
             end
             legend()
-            xlim(p["bin_st"], p["bin_end"])
+            xlim(bin_st, bin_end)
 
             # Bottom panel: mu vs amplitude for each component
             subplot(2, 1, 2)
@@ -1220,7 +1226,7 @@ module Plot
             ylabel("Amplituda")
             title("Komponenty: μ vs amplituda")
             legend()
-            xlim(p["bin_st"], p["bin_end"])
+            xlim(bin_st, bin_end)
 
             tight_layout()
             show()
@@ -1300,6 +1306,10 @@ module Plot
     function analyse_average_offset(nl, nh, p, n_comp; npulse=150, n_pulses=nothing, psr="",
                                     separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
         n_profiles = size(nl, 1)
+        bins = size(nl, 2)
+
+        bin_st  = something(get(p, "bin_st",  nothing), 1)
+        bin_end = something(get(p, "bin_end", nothing), bins)
 
         offset_data = Dict{Int, NamedTuple{(:idx, :lon, :off, :err),
                                            Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}}}()
@@ -1308,9 +1318,9 @@ module Plot
         high_colors = ["#FF6F00", "#E65100", "#FFCA28", "#F57F17"]
 
         for i in 1:n_profiles
-            x_data = p["bin_st"]:p["bin_end"]
-            y_low  = nl[i, p["bin_st"]:p["bin_end"]]
-            y_high = nh[i, p["bin_st"]:p["bin_end"]]
+            x_data = bin_st:bin_end
+            y_low  = nl[i, bin_st:bin_end]
+            y_high = nh[i, bin_st:bin_end]
 
             fit_l = GaussianFit.fit_gaussians(x_data, y_low,  n_comp)
             fit_h = GaussianFit.fit_gaussians(x_data, y_high, n_comp)
@@ -1361,7 +1371,7 @@ module Plot
             en_pulse = isnothing(n_pulses) ? i * npulse : min(i * npulse, n_pulses)
             title("Profile $i  (pulses $(st_pulse)-$(en_pulse))")
             legend(fontsize=7)
-            xlim(p["bin_st"], p["bin_end"])
+            xlim(bin_st, bin_end)
 
             subplot(2, 1, 2)
             if fit_l.converged
@@ -1382,7 +1392,7 @@ module Plot
             ylabel("Amplitude")
             title("Components: μ vs amplitude")
             legend(fontsize=7)
-            xlim(p["bin_st"], p["bin_end"])
+            xlim(bin_st, bin_end)
 
             tight_layout()
             show()
