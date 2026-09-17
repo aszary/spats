@@ -806,3 +806,61 @@ po drodze. To już nie jest poszlaka.
 ### Następny krok
 Przejrzeć 123 katalogi w `~/claude/work/review/`. Dopóki to nie jest zrobione,
 `separations_batch_full.csv` NIE jest scalany do `input/separations.csv`.
+
+### Przegląd 123 katalogów kolejki — i KOREKTA wcześniejszego wniosku (2026-09-17)
+
+Metoda: zamiast oglądać ~1500 obrazków per-puls, `scripts/review_sheets.py` parsuje
+`print_fit_summary` z `logs/batch_full.log` i rysuje jeden panel na pulsara — ślad μ każdej
+składowej pulse po pulsie, osobno 1023 i 1523 MHz, składowe posortowane po μ (tak jak robi
+`component_offsets`). Arkusze po 12: `~/output/claude/review_sheets/sheet_01..11.png`.
+Werdykty: `~/claude/work/review_verdicts.csv` (123 wiersze z uzasadnieniem).
+
+Uwaga metodyczna: pierwsza wersja metryki liczyła „skrzyżowania" jako niezgodność kolejności
+surowego wydruku fitu z posortowaną — to artefakt, bo `component_offsets` i tak sortuje.
+Zastąpione liczbą skoków śladu po posortowaniu.
+
+**Werdykt: 57 zachowanych, 66 odrzuconych** ze 123. Razem z 47 auto-czystymi daje to
+**104 nowe pomiary** (z 149 przed przeglądem).
+
+Dominujące powody odrzucenia: bistabilne etykietowanie (ślad przeskakuje między dwiema
+pozycjami), pasmo high rozrzucone przy stabilnym low, ślady zbiegające się lub pokryte
+(n_comp=2 na jednej składowej), trwały rozjazd low↔high w jednej składowej.
+
+### KOREKTA: niezależne potwierdzenie nie przeżyło przeglądu
+
+Wcześniejszy wpis raportował na 46 auto-czystych ρ = +0.350, p = 0.017 jako niezależne
+potwierdzenie trendu z Ė. **Po dołożeniu 57 pulsarów zachowanych w przeglądzie sygnał
+w próbce niezależnej słabnie poniżej istotności:**
+
+| próbka | N | ρ_S | p | przy ustalonym log P |
+|---|---|---|---|---|
+| stare (zweryfikowane) | 91 | +0.257 | 0.014 | +0.259, p=0.013 |
+| nowe, tylko auto-czyste (poprzedni wpis) | 46 | +0.350 | 0.017 | +0.273, p=0.066 |
+| **nowe po pełnym przeglądzie** | **103** | **+0.158** | **0.110** | +0.089, p=0.37 |
+| wszystko po przeglądzie | 194 | +0.207 | 0.0037 | +0.175, p=0.015 |
+
+Czyli p = 0.0007, które raportowałem na próbce „stare + auto-czyste", schodzi do **0.0037**
+przy N = 194, a **niezależne potwierdzenie przestaje być istotne (p = 0.11)**. Te 46
+auto-czystych było podpróbką wybraną kryteriami (zero odrzuconych pulsów, niskie χ²), która
+dała mocniejszą korelację niż pełna zweryfikowana próbka. Nie umiem rozstrzygnąć, czy to
+przypadek, czy cięcie auto-czyste selekcjonuje coś, co korelację zawyża.
+
+### Czego to nie podważa
+
+Populacyjny charakter zwężenia jest odporny: **125 z 195 pulsarów zwęża profil (64%),
+p = 1.0 × 10⁻⁴**, mediana ΔW/W = −0.024.
+
+### Różnica rozkładów stare vs nowe
+
+Nowe: mediana −0.009, IQR [−0.042, +0.027], 57% zwężeń. Stare: −0.045, IQR [−0.088, +0.003],
+73%. KS p < 0.001. Nowe pulsary zwężają się słabiej. Prawdopodobna przyczyna: stare 91
+pochodzą z `separations_todo.csv`, listy wyselekcjonowanej z przypadków, w których offset
+dawał się zmierzyć i był istotny — czyli z obciążeniem w stronę dużych |ΔW/W|.
+
+### Luka w bramkach
+`MAX_FRAC` dodany PO przebiegu, więc nie zadziałał: **J1717-3425 (ΔW/W = −0.742)** przeszedł
+jako auto-czysty i nie trafił do kolejki, mimo że maksimum w 91 zweryfikowanych to 0.32.
+Nie był oglądany. Bez niego: nowe p = 0.064, wszystko p = 0.0020. Do przejrzenia ręcznie.
+
+Scalona tabela: `~/claude/work/separations_final_merged.csv` (195 wierszy, kolumna `zrodlo`:
+stare / auto / przeglad). Nadal NIE scalone do `input/separations.csv`.
