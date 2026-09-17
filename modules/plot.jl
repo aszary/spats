@@ -898,22 +898,33 @@ module Plot
                              outfile=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
 
         comps = sort(collect(keys(offset_data)))
-        filter!(c -> !isempty(offset_data[c].err) && !all(offset_data[c].err .== 0.0), comps)
+        # A usable measurement needs a finite, positive error: the weights are
+        # 1/err^2, so err = 0 gives Inf and err = NaN (singular covariance in the
+        # fit) gives NaN — and a single one of either turns every sum below, and
+        # therefore the whole weighted mean, into NaN. Drop them per component
+        # instead of letting one bad pulse discard the pulsar.
+        usable(c) = findall(e -> isfinite(e) && e > 0, offset_data[c].err)
+        filter!(c -> !isempty(usable(c)), comps)
         isempty(comps) && return nothing
 
         # per component: weighted means of the offset and of the longitude
         stat = Dict{Int,NamedTuple}()
         for c in comps
             d = offset_data[c]
-            w = 1.0 ./ (d.err .^ 2)
-            n = length(d.off)
+            k = usable(c)
+            ndrop = length(d.err) - length(k)
+            ndrop > 0 && println(@sprintf("G%d: dropped %d of %d measurements (err = 0, NaN or Inf)",
+                                          c, ndrop, length(d.err)))
+            off = d.off[k]; lon = d.lon[k]; err = d.err[k]
+            w = 1.0 ./ (err .^ 2)
+            n = length(off)
             dof = n - 1
-            off_mu = sum(w .* d.off) / sum(w)
+            off_mu = sum(w .* off) / sum(w)
             off_int = 1.0 / sqrt(sum(w))
-            off_chi2 = dof > 0 ? sum(w .* (d.off .- off_mu) .^ 2) / dof : NaN
-            lon_mu = sum(w .* d.lon) / sum(w)
+            off_chi2 = dof > 0 ? sum(w .* (off .- off_mu) .^ 2) / dof : NaN
+            lon_mu = sum(w .* lon) / sum(w)
             lon_int = off_int / 2                     # lon_err = off_err / 2
-            lon_chi2 = dof > 0 ? sum(4 .* w .* (d.lon .- lon_mu) .^ 2) / dof : NaN
+            lon_chi2 = dof > 0 ? sum(4 .* w .* (lon .- lon_mu) .^ 2) / dof : NaN
             stat[c] = (n=n,
                        off=off_mu, off_int=off_int, off_chi2=off_chi2,
                        off_ext=off_int * sqrt(max(1.0, off_chi2)),
