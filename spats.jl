@@ -781,6 +781,9 @@ module SpaTs
         sep_file  = joinpath(@__DIR__, "input", "separations.csv")
         summary_dir = joinpath(@__DIR__, "output", "offset_summaries")
 
+        # pulsary do wymuszonego przerobienia od nowa (nadpiszą wiersz w separations.csv)
+        force_redo = Set{String}(["J0812-3905", "J0952-3839", "J1034-3224"])
+
         # pulsary już przetworzone (są w separations.csv)
         done_set = Set{String}()
         if isfile(sep_file)
@@ -793,7 +796,10 @@ module SpaTs
         todo_lines = readlines(todo_file)[2:end]  # skip header
         half_n = cld(length(todo_lines), 2)
         todo_lines = todo_lines[1:half_n]
-        println("Przerabiam pierwszą połowę listy: $half_n pulsarów.")
+
+        # tym razem przerabiamy TYLKO wymuszone pulsary (force_redo)
+        todo_lines = filter(line -> strip(first(split(strip(line), ","))) in force_redo, todo_lines)
+        println("Przerabiam tylko wymuszone pulsary: ", join(force_redo, ", "))
 
         skipped = String[]
         errored = String[]
@@ -805,7 +811,7 @@ module SpaTs
             psr_name    = strip(parts[1])
             n_comp_default = parse(Int, strip(parts[2]))
 
-            if psr_name in done_set
+            if psr_name in done_set && !(psr_name in force_redo)
                 println("SKIP $psr_name — już przetworzone")
                 push!(skipped, psr_name)
                 continue
@@ -861,24 +867,6 @@ module SpaTs
         println("Przetworzone ($(length(processed))): ", join(processed, ", "))
         println("Pominięte ($(length(skipped))): ", join(skipped, ", "))
         println("Błędy ($(length(errored))): ", join(errored, ", "))
-
-        # --- pokaż wszystkie zapisane wykresy z tej sesji ---
-        if isdir(summary_dir)
-            pngs = sort(filter(f -> endswith(f, "_offset_summary.png"), readdir(summary_dir)))
-            println("\nWyświetlam $(length(pngs)) wykresów finalnych — Enter aby przejść dalej, 'q' aby przerwać.")
-            for fn in pngs
-                img = PyPlot.imread(joinpath(summary_dir, fn))
-                figure(figsize=(8, 5))
-                imshow(img)
-                axis("off")
-                title(fn)
-                show()
-                print("[$fn] Enter/'q': ")
-                inp = lowercase(strip(readline(stdin; keep=false)))
-                close("all")
-                inp == "q" && break
-            end
-        end
     end
 
 end # module
