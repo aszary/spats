@@ -221,8 +221,17 @@ Skrypt: `scripts/review_sheets.py`, werdykty z uzasadnieniem: `~/claude/work/rev
 
 ## 4. Wyniki
 
-Tabela finalna: `~/claude/work/separations_final_merged.csv` (195 wierszy, kolumna `zrodlo`).
-**Nie jest jeszcze scalona** do `input/separations.csv`.
+Tabela finalna: **`input/separations_merged.csv`** — 195 wierszy, kolumny
+`Nazwa, ncomp, sep, sep err, dsep, dsep err, frac, frac err, nu_low, nu_high, zrodlo, uwaga`.
+Kolumna `zrodlo` rozróżnia pochodzenie wiersza (`stare` 91 / `auto` 47 / `przeglad` 57),
+`uwaga` podaje, jak wiersz przeszedł weryfikację. Częstotliwości podpasm są wpisane przy
+każdym pulsarze, bo nie są stałe w próbce (§1.2).
+
+**`input/separations.csv` pozostaje nietknięty** — to nadal zweryfikowane 91 wierszy
+z pierwszej kampanii i to jego zapisuje `_offset_summary`. Scalenie obu plików jest
+decyzją otwartą: przegląd ręczny zmienił wniosek o zależności od Ė (§4.4), a nowa próbka
+ma inny rozkład ΔW/W niż stara (§4.2), więc połączenie ich w jedno źródło wymaga
+świadomej decyzji, nie automatu.
 
 ### 4.1 Zwężenie jest efektem populacyjnym
 
@@ -352,9 +361,9 @@ w odróżnieniu od §4.4, które zostaje otwarte.
 
 | co | gdzie |
 |---|---|
-| wyniki pierwszej kampanii | `input/separations.csv` (91 wierszy, w repo) |
-| wyniki wsadu | `~/claude/work/separations_batch_full.csv` (149) |
-| tabela finalna | `~/claude/work/separations_final_merged.csv` (195) |
+| wyniki pierwszej kampanii | `input/separations.csv` (91 wierszy, w repo) — **nietknięte** |
+| **tabela finalna** | **`input/separations_merged.csv` (195 wierszy, w repo)** |
+| wyniki wsadu, surowe | `~/claude/work/separations_batch_full.csv` (149) |
 | werdykty przeglądu | `~/claude/work/review_verdicts.csv` (123) |
 | arkusze przeglądowe | `~/output/claude/review_sheets/sheet_01..11.png` |
 | diagram P–Ṗ (ΔW/W) | `~/output/claude/ppdot_separations.png/.pdf` |
