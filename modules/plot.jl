@@ -1034,7 +1034,9 @@ module Plot
         comps = sort(collect(keys(offset_data)))
         summary = Dict{Int, NamedTuple{(:mean_lon, :mean_off, :err_off), Tuple{Float64, Float64, Float64}}}()
 
-        println("\n=== Offset Summary for $(psr) ===")
+        psr_name = (isnothing(psr) || isempty(psr) || psr == "nothing") ? "unknown" : psr
+
+        println("\n=== Offset Summary for $(psr_name) ===")
         for c in comps
             d = offset_data[c]
             isempty(d.off) && continue
@@ -1058,7 +1060,7 @@ module Plot
             c_min, c_max = comps[1], comps[end]
             s_first = summary[c_min]
             s_last = summary[c_max]
-            dsep = s_last.mean_off - s_first.mean_off
+            dsep = s_last.mean_lon - s_first.mean_lon
             dsep_err = sqrt(s_last.err_off^2 + s_first.err_off^2)
             @printf("Separation change (G%d - G%d): %+.3f° ± %.3f°\n", c_max, c_min, dsep, dsep_err)
         end
@@ -1069,12 +1071,35 @@ module Plot
                 write_header = !isfile(outfile)
                 open(outfile, "a") do io
                     if write_header
-                        println(io, "name,component,mean_lon_deg,mean_offset_deg,offset_err_deg")
+                        println(io, "Nazwa,ncomp,lon 1,lon 1 err,lon 2,lon 2 err,lon 3,lon 3 err,lon 4,lon 4 err,sep,sep err")
                     end
-                    for c in sort(collect(keys(summary)))
-                        s = summary[c]
-                        @printf(io, "%s,%d,%.4f,%.4f,%.4f\n", psr, c, s.mean_lon, s.mean_off, s.err_off)
+                    ncomp = length(summary)
+
+                    comp_fields = String[]
+                    for c in 1:4
+                        if haskey(summary, c)
+                            s = summary[c]
+                            push!(comp_fields, @sprintf("%.4f", s.mean_lon))
+                            push!(comp_fields, @sprintf("%.4f", s.err_off))
+                        else
+                            push!(comp_fields, "")
+                            push!(comp_fields, "")
+                        end
                     end
+
+                    sep_str, sep_err_str = "", ""
+                    if ncomp >= 2
+                        c_min, c_max = comps[1], comps[end]
+                        s_first = summary[c_min]
+                        s_last = summary[c_max]
+                        dsep = s_last.mean_lon - s_first.mean_lon
+                        dsep_err = sqrt(s_last.err_off^2 + s_first.err_off^2)
+                        sep_str = @sprintf("%.4f", dsep)
+                        sep_err_str = @sprintf("%.4f", dsep_err)
+                    end
+
+                    row_str = join([psr_name, string(ncomp), comp_fields..., sep_str, sep_err_str], ",")
+                    println(io, row_str)
                 end
             catch e
                 @warn "Failed writing offset summary to $outfile: $e"

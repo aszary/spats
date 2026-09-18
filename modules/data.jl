@@ -903,6 +903,10 @@ module Data
  
     """
     function analyse_p3folds_16_new(indir, type; n_comp=3, psr=nothing)
+        if isnothing(psr) || isempty(psr) || psr == "nothing"
+            folder = basename(rstrip(indir, '/'))
+            psr = replace(folder, "_16" => "")
+        end
 
         # parameters file 
         p = Tools.read_params(joinpath(indir, "params.json"))
@@ -1608,7 +1612,7 @@ module Data
 
             println("=== Running analyse_p3folds_16_new for $name (n_comp = $n_comp) ===")
             try
-                analyse_p3folds_16_new(outdir, type; n_comp=n_comp)
+                analyse_p3folds_16_new(outdir, type; n_comp=n_comp, psr=name)
             catch e
                 @warn "Failed for $name: $e"
             end
