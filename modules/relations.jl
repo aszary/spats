@@ -266,7 +266,7 @@ Generates key parameter relation figures.
 function plot_all_relations(outdir;
                             catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
                             offsets=normpath(joinpath(@__DIR__, "..", "input", "offsets.csv")),
-                            offsets_p3only=normpath(joinpath(@__DIR__, "..", "input", "offsets_p3only.csv")),
+                            offsets_p3only=normpath(joinpath(@__DIR__, "..", "input", "p3only_pulsars_P3.txt")),
                             drift_list=normpath(joinpath(@__DIR__, "..", "input", "drift_pulsars_P3.txt")),
                             show_=false)
 
