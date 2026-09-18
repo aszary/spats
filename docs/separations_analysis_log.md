@@ -867,3 +867,51 @@ Nie był oglądany. Bez niego: nowe p = 0.064, wszystko p = 0.0020. Do przejrzen
 
 Scalona tabela: `~/claude/work/separations_final_merged.csv` (195 wierszy, kolumna `zrodlo`:
 stare / auto / przeglad). Nadal NIE scalone do `input/separations.csv`.
+
+## 2026-09-18 — Porównanie `separations_maciej.csv` z istniejącymi pomiarami
+
+Cel: wczytać plik Macieja (50 pulsarów) do `input/` i skonfrontować z `separations.csv`,
+`separations_merged.csv`, `separations_todo.csv`.
+
+Skrypty: `work/scripts/cmp_maciej.py` (tabela porównań), `work/scripts/profile_check.py`
+(profile średnie). Log: `work/logs/cmp_maciej.log`. Wykres: `~/output/claude/cmp_maciej_profile.png`.
+
+### Pokrycie
+Wszystkie 50 pulsarów Macieja są w `separations_todo.csv` (i wszystkie mają puste `zrobione`).
+47 jest w `separations.csv`, 48 w `merged`. Nowych pulsarów brak.
+Brak w `separations.csv`: J1627-5936, J1819+1305, J1932+1059.
+
+### Zgodność
+41/47 zgodnych z `separations.csv` w granicach 3σ, w tym 32 identyczne co do 1e-4 stopnia.
+`ncomp` zgodne wszędzie.
+
+Rozbieżne (>3σ), zawsze przez JEDEN skrajny komponent, nie przez przesunięcie całego profilu:
+J1733-3716 (12.1σ), J1901+0716 (10.1σ), J1757-2421 (7.8σ), J1714-1054 (5.9σ),
+J1803-3329 (4.2σ), J1808-3249 (3.9σ). Dodatkowo vs `merged`: J1819+1305 (11.9σ).
+
+### Rozstrzygnięcie z zapisanych fitów per-pulse (`<PSR>_16/component_offsets.txt`)
+Odtworzenie procedury `_offset_summary` z surowych mu wszystkich pulsów:
+
+| pulsar | rekonstrukcja | separations.csv | Maciej | merged |
+|---|---|---|---|---|
+| J1757-2421 | 18.652 ± 0.132 | 18.7415 | 20.6813 | 18.7415 |
+| J1803-3329 | 4.075 ± 0.082 | 4.1425 | 4.7241 | 4.1425 |
+| J1808-3249 | 9.591 ± 0.112 | 9.6328 | 11.1026 | 9.6328 |
+| J1819+1305 | 17.403 ± 0.134 | — | 18.5010 | 13.3531 |
+
+Wniosek: dla trzech pierwszych `separations.csv` odtwarza się z surowych fitów (drobne różnice
+= maska `keep`), wartości Macieja nie. **J1819+1305 to osobny problem: wartość w `merged`
+(13.3531) nie wychodzi z zapisanych fitów dla ŻADNEJ pary komponentów** — lony to
+169.74 / 175.30 / 187.14. 13.35 leży na skraju zakresu osiągalnego tylko przy bardzo agresywnym
+odrzuceniu pulsów. Do sprawdzenia, skąd pochodzi.
+
+### Profile średnie (pdv -FTt na pulsar.low/high)
+- J1733-3716: drugi komponent ma szczyt 201.5 (low) / 200.4 (high) → `separations.csv` (201.87)
+  trafia w szczyt, Maciej (196.69) siedzi na zboczu narastającym.
+- J1714-1054: drugi komponent słaby (0.31 low, 0.17 high), szczyty 185.6 / 184.6 → nierozstrzygalne,
+  obie wartości (184.86 / 185.47) w obrębie komponentu.
+- J1901+0716: sporny komponent to szerokie ramię bez własnego maksimum → nierozstrzygalne z profilu
+  średniego, brak `component_offsets.txt`.
+
+Otwarte: (1) skąd 13.3531 dla J1819+1305 w merged; (2) czy wciągać dane Macieja jako osobne
+`zrodlo` — na razie NIE scalone, plik leży jako `input/separations_maciej.csv`.
