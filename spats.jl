@@ -796,14 +796,14 @@ module SpaTs
         todo_lines = readlines(todo_file)[2:end]  # skip header
         half_n = cld(length(todo_lines), 2)
         todo_lines = todo_lines[1:half_n]
-
-        # tym razem przerabiamy TYLKO wymuszone pulsary (force_redo)
-        todo_lines = filter(line -> strip(first(split(strip(line), ","))) in force_redo, todo_lines)
-        println("Przerabiam tylko wymuszone pulsary: ", join(force_redo, ", "))
+        println("Przerabiam pierwszą połowę listy: $half_n pulsarów.")
 
         skipped = String[]
         errored = String[]
         processed = String[]
+
+        # awaryjna kopia wyników w pamięci — na wypadek gdyby zapis do separations.csv zawiódł
+        fallback_rows = String[]
 
         for line in todo_lines
             parts = split(strip(line), ",")
@@ -854,7 +854,10 @@ module SpaTs
 
             println("\n=== $psr_name (n_comp=$n_comp) ===")
             try
-                Data.analyse_p3folds_16_new(indir, "norefine", n_comp=n_comp, save_summary_dir=summary_dir)
+                res = Data.analyse_p3folds_16_new(indir, "norefine", n_comp=n_comp, save_summary_dir=summary_dir)
+                if !isnothing(res) && !isnothing(res.row)
+                    push!(fallback_rows, res.row)
+                end
                 push!(processed, psr_name)
             catch e
                 println("ERROR $psr_name: $e")
@@ -867,6 +870,16 @@ module SpaTs
         println("Przetworzone ($(length(processed))): ", join(processed, ", "))
         println("Pominięte ($(length(skipped))): ", join(skipped, ", "))
         println("Błędy ($(length(errored))): ", join(errored, ", "))
+
+        # awaryjny wydruk CSV — na wypadek gdyby zapis do separations.csv gdzieś zawiódł
+        if !isempty(fallback_rows)
+            println("\n===== AWARYJNA KOPIA separations.csv (skopiuj ręcznie w razie potrzeby) =====")
+            println("Nazwa,ncomp,lon 1,lon 1 err,lon 2,lon 2 err,lon 3,lon 3 err,lon 4,lon 4 err,sep,sep err")
+            for r in fallback_rows
+                println(r)
+            end
+            println("===== KONIEC KOPII =====")
+        end
     end
 
 end # module

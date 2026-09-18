@@ -938,7 +938,7 @@ module Data
         # TODO work here...
 
         #Plot.analyse_p3folds3(nl, nh, p, n_comp) # old
-        Plot.analyse_p3folds4(nl, nh, p, n_comp; psr=psr, save_summary_dir=save_summary_dir) # with 's' to skip added
+        return Plot.analyse_p3folds4(nl, nh, p, n_comp; psr=psr, save_summary_dir=save_summary_dir) # with 's' to skip added
 
 
         #println(size(nl))

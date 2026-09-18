@@ -989,7 +989,8 @@ module Plot
         println("$psr written to $outfile")
 
         return (comps=comps, stat=stat, sep=sep, sep_err=sep_err,
-                dsep=dsep, dsep_err=dsep_err, frac=frac, frac_err=frac_err)
+                dsep=dsep, dsep_err=dsep_err, frac=frac, frac_err=frac_err,
+                row=row, header=header)
     end
 
 
@@ -1259,7 +1260,7 @@ module Plot
         end
 
         # Weighted mean offset and longitude per component, plus the separation
-        _offset_summary(offset_data; psr=psr, outfile=separations)
+        summary_result = _offset_summary(offset_data; psr=psr, outfile=separations)
 
         # Final plot: longitude vs. offset for each component
         if !isempty(offset_data)
@@ -1287,6 +1288,7 @@ module Plot
             show()
         end
 
+        return summary_result
     end
 
 
