@@ -2,7 +2,10 @@
 
 Wyznaczanie Δseparation (offset składowych profilu między 1023 a 1523 MHz) dla listy
 `input/separations_todo.csv`. Wyniki lądują w `input/separations.csv`.
-Powiązany dokument: [`component_position_methods.md`](component_position_methods.md).
+Powiązane dokumenty:
+[`profile_narrowing_summary.md`](profile_narrowing_summary.md) — zwięzłe podsumowanie całej
+analizy (dane, metoda, wyniki); ten plik to dziennik chronologiczny stojący za nim.
+[`component_position_methods.md`](component_position_methods.md).
 
 Plik jest dostępny także jako `~/claude/work/NOTES.md` (symlink) — zgodnie z konwencją
 prowadzenia dziennika z `CLAUDE.md`.
