@@ -1154,7 +1154,8 @@ module Plot
     (see _offset_summary); without it they are only printed.
     """
     function analyse_p3folds4(low, high, p, n_comp; psr="",
-                              separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")))
+                              separations=normpath(joinpath(@__DIR__, "..", "input", "separations.csv")),
+                              save_summary_dir=nothing)
         pulses, bins = size(low)
 
         bin_st  = something(get(p, "bin_st",  nothing), 1)
@@ -1276,9 +1277,13 @@ module Plot
             minorticks_on()
             xlabel("Longitude (°)")
             ylabel("Offset (°)")
-            title("Longitude vs. offset")
+            title("Longitude vs. offset" * (isempty(psr) ? "" : "  ($psr)"))
             legend()
             tight_layout()
+            if !isnothing(save_summary_dir)
+                mkpath(save_summary_dir)
+                savefig(joinpath(save_summary_dir, "$(psr)_offset_summary.png"), dpi=120)
+            end
             show()
         end
 

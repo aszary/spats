@@ -776,9 +776,10 @@ module SpaTs
         #Tools.clean_all(vpmout)
         #analyse_all()
 
-        # --- pętla po reprocess_list.csv ---
+        # --- pętla po reprocess_list.csv (tylko pierwsza połowa) ---
         todo_file = joinpath(@__DIR__, "input", "reprocess_list.csv")
         sep_file  = joinpath(@__DIR__, "input", "separations.csv")
+        summary_dir = joinpath(@__DIR__, "output", "offset_summaries")
 
         # pulsary już przetworzone (są w separations.csv)
         done_set = Set{String}()
@@ -790,29 +791,92 @@ module SpaTs
         end
 
         todo_lines = readlines(todo_file)[2:end]  # skip header
+        half_n = cld(length(todo_lines), 2)
+        todo_lines = todo_lines[1:half_n]
+        println("Przerabiam pierwszą połowę listy: $half_n pulsarów.")
+
+        skipped = String[]
+        errored = String[]
+        processed = String[]
+
         for line in todo_lines
             parts = split(strip(line), ",")
             length(parts) < 2 && continue
-            psr_name = strip(parts[1])
-            n_comp   = parse(Int, strip(parts[2]))
+            psr_name    = strip(parts[1])
+            n_comp_default = parse(Int, strip(parts[2]))
 
             if psr_name in done_set
                 println("SKIP $psr_name — już przetworzone")
+                push!(skipped, psr_name)
                 continue
             end
 
             indir = vpmout * psr_name * "_16"
             if !isdir(indir)
                 println("SKIP $psr_name — brak folderu $indir")
+                push!(skipped, psr_name)
                 continue
+            end
+
+            # --- pokaż uśredniony profil i zapytaj o liczbę komponentów ---
+            n_comp = n_comp_default
+            try
+                p_json   = Tools.read_params(joinpath(indir, "params.json"))
+                low_file = joinpath(indir, "pulsar_low.debase.p3fold_norefine")
+                l        = Data.load_ascii(low_file)
+                nl       = Data.normalize_per_pulse(l)
+                avg_prof = vec(sum(nl, dims=1))
+                bst = something(get(p_json, "bin_st", nothing), 1)
+                bnd = something(get(p_json, "bin_end", nothing), length(avg_prof))
+
+                figure(figsize=(8, 4))
+                plot(bst:bnd, avg_prof[bst:bnd], color="steelblue", lw=1.5)
+                title("$psr_name — ile komponentów widać?")
+                xlabel("bin")
+                tight_layout()
+                show()
+
+                print("Ile komponentów? (Enter = $n_comp_default): ")
+                inp = strip(readline(stdin; keep=false))
+                close("all")
+                if !isempty(inp)
+                    n_comp = parse(Int, inp)
+                end
+            catch e
+                println("Nie udało się pokazać podglądu ($e), używam n_comp=$n_comp_default")
             end
 
             println("\n=== $psr_name (n_comp=$n_comp) ===")
             try
-                Data.analyse_p3folds_16_new(indir, "norefine", n_comp=n_comp)
+                Data.analyse_p3folds_16_new(indir, "norefine", n_comp=n_comp, save_summary_dir=summary_dir)
+                push!(processed, psr_name)
             catch e
                 println("ERROR $psr_name: $e")
                 println("Pomijam i idę dalej.")
+                push!(errored, psr_name)
+            end
+        end
+
+        println("\n\n===== PODSUMOWANIE =====")
+        println("Przetworzone ($(length(processed))): ", join(processed, ", "))
+        println("Pominięte ($(length(skipped))): ", join(skipped, ", "))
+        println("Błędy ($(length(errored))): ", join(errored, ", "))
+
+        # --- pokaż wszystkie zapisane wykresy z tej sesji ---
+        if isdir(summary_dir)
+            pngs = sort(filter(f -> endswith(f, "_offset_summary.png"), readdir(summary_dir)))
+            println("\nWyświetlam $(length(pngs)) wykresów finalnych — Enter aby przejść dalej, 'q' aby przerwać.")
+            for fn in pngs
+                img = PyPlot.imread(joinpath(summary_dir, fn))
+                figure(figsize=(8, 5))
+                imshow(img)
+                axis("off")
+                title(fn)
+                show()
+                print("[$fn] Enter/'q': ")
+                inp = lowercase(strip(readline(stdin; keep=false)))
+                close("all")
+                inp == "q" && break
             end
         end
     end
