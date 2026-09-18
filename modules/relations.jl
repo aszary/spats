@@ -203,9 +203,43 @@ function plot_relation(records, px::String, py::String, drifting_set, p3only_set
         p3_y_plot = p3_y
     end
 
-    plot(bg_x_plot, bg_y_plot, ".", ms=2.5, c="0.75", alpha=0.35, label="ATNF background", zorder=1)
-    plot(drift_x_plot, drift_y_plot, "o", ms=4.5, c="tab:blue", alpha=0.85, mec="black", mew=0.4, label="Drifting", zorder=3)
-    plot(p3_x_plot, p3_y_plot, "^", ms=5.0, c="tab:red", alpha=0.85, mec="black", mew=0.4, label="P3-only", zorder=4)
+    if px == "LOG_P" && py == "LOG_PD"
+        plims = (1e-3, 2e2)
+        pdotlims = (1e-22, 1e-8)
+        xlim(plims)
+        ylim(pdotlims)
+
+        b_lines = [1e10, 1e12, 1e14]
+        age_lines = [1e3, 1e6, 1e9]
+        edot_lines = [1e30, 1e33, 1e36]
+        death_bp2 = 0.17e12
+        inertia = 1e45
+        yr_s = 3.15576e7
+        c_b, c_age, c_edot, c_death = "tab:blue", "tab:green", "tab:orange", "tab:red"
+
+        for b in b_lines
+            xs = [plims[1], plims[2]]
+            ys = (b / 3.2e19)^2 ./ xs
+            ax.plot(xs, ys, ls="--", lw=0.8, c=c_b, alpha=0.5, zorder=1)
+        end
+        for tau in age_lines
+            xs = [plims[1], plims[2]]
+            ys = xs ./ (2 * tau * yr_s)
+            ax.plot(xs, ys, ls="-.", lw=0.8, c=c_age, alpha=0.5, zorder=1)
+        end
+        for edot in edot_lines
+            xs = [plims[1], plims[2]]
+            ys = edot .* (xs.^3) ./ (4 * pi^2 * inertia)
+            ax.plot(xs, ys, ls=":", lw=0.8, c=c_edot, alpha=0.5, zorder=1)
+        end
+        xs = [plims[1], plims[2]]
+        ys = (death_bp2 / 3.2e19)^2 .* (xs.^3)
+        ax.plot(xs, ys, ls="-", lw=0.8, c=c_death, alpha=0.5, zorder=1)
+    end
+
+    plot(bg_x_plot, bg_y_plot, ".", ms=2.5, c="0.75", alpha=0.35, label="ATNF background", zorder=2)
+    plot(drift_x_plot, drift_y_plot, "o", ms=4.5, c="tab:blue", alpha=0.85, mec="black", mew=0.4, label="Drifting (offsets.csv)", zorder=3)
+    plot(p3_x_plot, p3_y_plot, "^", ms=5.0, c="tab:red", alpha=0.85, mec="black", mew=0.4, label="P3-only (offsets_p3only.csv)", zorder=4)
 
     xlabel(label_x)
     ylabel(label_y)
