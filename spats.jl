@@ -552,7 +552,7 @@ end
 
         #Data.analyse_p3folds_16_new(vpmout*"J1539-6322_16", "norefine", n_comp=2)
 
-        Data.analyse_separations_todo(vpmout; csv_file=joinpath(@__DIR__, "..", "input", "separations_todo.csv"), type="norefine")
+        #Data.analyse_separations_todo(vpmout; csv_file=joinpath(@__DIR__, "..", "input", "separations_todo.csv"), type="norefine")
 
 
 
@@ -569,14 +569,14 @@ end
 
 
         # P-Pdot diagram based on the ATNF catalogue (input/psrcat.db)
-        #Plot.ppdot("output")
+        Plot.ppdot("output")
         # the same diagram with the component offsets (input/offsets.csv)
-        #Plot.ppdot_offsets("output")
+        Plot.ppdot_offsets("output")
         
         #Plot.ppdot_w50("output"; mode=:w50, name_mod="w50_ms")
 
         # Parameter relations distinguishing Drifting vs P3-only pulsars
-        #Relations.plot_all_relations("output")
+        Relations.plot_all_relations("output")
     end
 
 end # module
