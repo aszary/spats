@@ -522,6 +522,223 @@ end
 
 
 
+"""
+Phase-drift vs amplitude-modulation test on already-processed data.
+
+    Reads pulsar.debase.txt and params.json from `outdir`, computes the
+    coherent phase-slope statistic at f3 = 1/P3, compares against an
+    amplitude-modulation null distribution, and saves a 3-panel PDF/PNG.
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
+      phase_modulation(vpmout*"J1110-5637")
+    """
+    function phase_modulation(outdir; nreal=6000, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
+        result = PhaseDrift.drift_test(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            p3_error=p3_error, nreal=nreal)
+        println("Feature SNR:  $(round(result.snr, digits=1))")
+        println("Slope:        $(round(result.slope, digits=4)) rad/bin  " *
+                "($(round(rad2deg(result.slope), digits=2)) °/bin)")
+        println("Significance: $(round(result.significance, digits=1)) σ")
+        Plot.phase_drift(result, outdir, Int(p["nbin"]);
+                         name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+    """
+    Phase-stability variant of `phase_modulation` — same data, same
+    `PhaseDrift.drift_test`, same top two panels, but the bottom panel shows
+    the local phase gradient dψ/dφ(φ) instead of the null-slope histogram,
+    and a reduced χ² quantifies it.
+
+    The coherent slope of `phase_modulation` collapses the whole profile into
+    one number, so it cannot tell a systematic drift from a phase jump: pure
+    amplitude modulation with a node produces a 180° step in ψ, which averages
+    to a slope near zero and reads as "no drift". Here that case shows up as
+    an isolated spike in dψ/dφ and a huge χ²_red.
+
+      χ²_red ~ 1  – phase changes systematically (constant gradient fits)
+      χ²_red ≫ 1  – phase jumps with longitude
+
+    `snr_min` (default 3) sets which bins are trusted in that χ²; below it the
+    Gaussian phase-error approximation σ_ψ ≈ σ_off/|L| breaks down. Writes
+    `pulsar_phase_stability.pdf/.png`, so `phase_modulation` output is kept.
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
+      phase_modulation2(vpmout*"J1110-5637")
+    """
+    function phase_modulation2(outdir; nreal=6000, snr_min=3.0, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
+        result = PhaseDrift.drift_test(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            p3_error=p3_error, nreal=nreal, snr_min=snr_min)
+        println("Feature SNR:  $(round(result.snr, digits=1))")
+        println("Slope:        $(round(result.slope, digits=4)) rad/bin  " *
+                "($(round(rad2deg(result.slope), digits=2)) °/bin)")
+        println("Significance: $(round(result.significance, digits=1)) σ")
+        if isnan(result.chi2_red)
+            println("Stability:    too few high-S/N bins for χ² " *
+                    "(only $(result.chi2_n) usable increments)")
+        else
+            println("Stability:    χ²_red = $(round(result.chi2_red, digits=2)) " *
+                    "(dof $(result.chi2_dof)) — " *
+                    (result.chi2_red < 2 ? "systematic drift" : "phase jumps with longitude"))
+        end
+        Plot.phase_stability(result, outdir, Int(p["nbin"]);
+                             name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+    """
+    Windowed phase-stability test — `phase_modulation2` for pulsars whose
+    global LRFS bin is empty.
+
+    `phase_modulation2` asks the right question (is the phase gradient
+    systematic, or is it a jump?) but reads it off the single global FFT bin,
+    which P3 wobble empties: the f3 feature smears over Δk ≈ k·ΔP3/P3 bins
+    with k = N/P3, so at short P3 in a long observation nothing is left. For
+    J2053-7200 (P3 = 3.06, k ≈ 340, wobble ±1.3% ⇒ ~9 bins) it reports 0.5σ
+    and a χ² from 8 usable increments, while `phase_modulation3` sees the same
+    modulation at 80σ in short windows.
+
+    This variant measures the same increments from the *windowed* LRFS:
+    dψ/dφ(φ) = arg Σ_b conj(L_b[φ])·L_b[φ+1], summing the pairwise products
+    over windows instead of over longitude (`phase_modulation3` does the
+    latter and gets slope(t)). The products are invariant to each window's
+    absolute phase, so the sum survives P3 wobble. Goodness of fit of a
+    constant gradient is Monte-Carlo calibrated against flat-phase surrogates:
+
+      χ²_red ~ 1  – constant gradient fits → genuine drift
+      χ²_red ≫ 1  – phase jumps with longitude → not a drift
+
+    Interpret it only when the modulation is actually detected — run
+    `phase_modulation3` first and check its significance. The window sum is
+    coherent, so for a drifter that reverses (J1750-3503) restrict the range
+    to one episode with `pulse_st`/`pulse_end`, otherwise the episodes cancel.
+    See `PhaseDrift.drift_test_profile` for the synthetic calibration,
+    including the one regime that stays genuinely degenerate.
+
+    Writes `pulsar_phase_stability_windowed.pdf/.png`, so the
+    `phase_modulation2` output is kept.
+
+    Typical call after phase_modulation3 has shown a significant drift:
+      phase_modulation3(vpmout*"J2053-7200")
+      phase_modulation2a(vpmout*"J2053-7200")
+    """
+    function phase_modulation2a(outdir; window=32, stride=1, nreal=500,
+                                pulse_st=nothing, pulse_end=nothing, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        result = PhaseDrift.drift_test_profile(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            window=window, stride=stride, nreal=nreal,
+            pulse_st=pulse_st, pulse_end=pulse_end)
+        ptxt = result.p_value == 0 ? "p < $(round(1/nreal, sigdigits=1))" :
+                                     "p = $(round(result.p_value, sigdigits=2))"
+        println("Median window SNR: $(round(result.snr_med, digits=2))")
+        println("Windows summed:    $(result.nwin) " *
+                "(pulses $(result.pulse_range[1])-$(result.pulse_range[2]))")
+        println("Gradient:          $(round(rad2deg(result.slope), digits=2)) °/bin " *
+                "($(result.slope > 0 ? "positive" : "negative") drift sense)")
+        println("Stability:         χ²_red = $(round(result.chi2_red, digits=2)) " *
+                "($ptxt) — " *
+                (result.chi2_red < 2 ? "systematic drift" : "phase jumps with longitude"))
+        Plot.phase_stability_windowed(result, outdir, Int(p["nbin"]);
+                                      name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+    """
+    Sliding-window, reversal-tolerant drift test — the detector that
+    `phase_modulation`/`phase_modulation2` cannot be for drifters that switch
+    drift direction (e.g. J1750-3503): their single coherent slope averages
+    episodes of opposite sign to ~zero. Here the coherent slope statistic is
+    evaluated in a short window slid pulse-by-pulse and the per-window drift
+    quadratures |Im g_b| are combined incoherently, so episodes of + and −
+    drift add instead of cancelling; the slope(t) panel shows the reversals
+    directly. Significance comes from flat-phase surrogates whose noise is
+    bootstrapped from the pulsar's own off-pulse region, shared across
+    overlapping windows (see `PhaseDrift.drift_test_sliding` for the full
+    construction and the caveats).
+
+    `window` should be about half the shortest expected drift episode
+    (J1750-3503: negative episodes 28±4 P → default 16). Scanning window
+    ∈ {8,16,32,64,128} is a useful diagnostic, but quote the significance at
+    the pre-chosen default or apply a trials correction. `stride=window`
+    turns it into the disjoint-block variant.
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J1750-3503/.../", vpmout*"J1750-3503")
+      phase_modulation3(vpmout*"J1750-3503")
+    """
+    function phase_modulation3(outdir; window=32, stride=1, nreal=1000, sig_min=3.0, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        result = PhaseDrift.drift_test_sliding(
+            data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+            window=window, stride=stride, nreal=nreal, sig_min=sig_min)
+        ptxt = result.p_value == 0 ? "p < $(round(1/nreal, sigdigits=1))" :
+                                     "p = $(round(result.p_value, sigdigits=2))"
+        npos = count(result.detected .& (result.slope .> 0))
+        nneg = count(result.detected .& (result.slope .< 0))
+        println("Median window SNR: $(round(result.snr_med, digits=2))")
+        println("Drift detection:   $(round(result.significance, digits=1)) σ ($ptxt)")
+        println("Windows ≥ $(sig_min)σ:    $(npos + nneg) of $(length(result.slope)) " *
+                "($npos positive, $nneg negative drift)")
+        if npos > 0 && nneg > 0
+            println("                   both drift senses present — direction reverses")
+        end
+        Plot.phase_drift_sliding(result, outdir, Int(p["nbin"]);
+                                 name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
