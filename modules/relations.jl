@@ -239,7 +239,7 @@ function plot_relation(records, px::String, py::String, drifting_set, p3only_set
 
     plot(bg_x_plot, bg_y_plot, ".", ms=2.5, c="0.75", alpha=0.35, label="ATNF background", zorder=2)
     plot(drift_x_plot, drift_y_plot, "o", ms=4.5, c="tab:blue", alpha=0.85, mec="black", mew=0.4, label="Drifting (offsets.csv)", zorder=3)
-    plot(p3_x_plot, p3_y_plot, "^", ms=5.0, c="tab:red", alpha=0.85, mec="black", mew=0.4, label="P3-only (offsets_p3only.csv)", zorder=4)
+    plot(p3_x_plot, p3_y_plot, "^", ms=5.0, c="tab:red", alpha=0.85, mec="black", mew=0.4, label="P3-only (offsets_p3only + P3.txt)", zorder=4)
 
     xlabel(label_x)
     ylabel(label_y)
@@ -277,6 +277,8 @@ function plot_all_relations(outdir;
     union!(drifting_set, read_pulsar_set(drift_list, is_csv=false))
 
     p3only_set = read_pulsar_set(offsets_p3only, is_csv=true)
+    p3only_txt = normpath(joinpath(@__DIR__, "..", "input", "p3only_pulsars_P3.txt"))
+    union!(p3only_set, read_pulsar_set(p3only_txt, is_csv=false))
 
     pairs = [
         ("LOG_P", "LOG_PD"),
