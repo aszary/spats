@@ -195,7 +195,31 @@ travel_T(X::AbstractMatrix, max_lag::Int, max_dphi::Int) =
 
 
 """
-    _travel_maps(X, max_lag, max_dphi, edges) -> (A, blocks)
+    sym_map(K) -> Matrix{Float64}
+
+The Δ-*even* companion of `antisym_map`: E(Δ,τ) = K(Δ,τ) + K(−Δ,τ), on the same
+quadrant (τ = 1…max_lag, Δ = 1…max_dphi).
+
+Everything `antisym_map` throws away lands here — including all of a separable
+amplitude modulation. On its own E discriminates nothing, which is the point:
+it measures how much coherent modulation the pulsar has at a given (P2, P3)
+*whether or not it travels*, and so provides the per-pulsar yardstick that turns
+the travel projection into a ratio. See `travel_test`'s `R` field.
+"""
+function sym_map(K::AbstractMatrix)
+    max_lag  = size(K, 1) - 1
+    max_dphi = (size(K, 2) - 1) ÷ 2
+    ctr = max_dphi + 1
+    E = Matrix{Float64}(undef, max_lag, max_dphi)
+    for i in 1:max_lag, d in 1:max_dphi
+        E[i, d] = K[i+1, ctr+d] + K[i+1, ctr-d]
+    end
+    return E
+end
+
+
+"""
+    _travel_maps(X, max_lag, max_dphi, edges) -> (K00, A, E, blocks)
 
 The travel map of the whole stretch together with the maps of the individual
 pulse blocks delimited by `edges`, computed in one place so that the observed
@@ -204,14 +228,16 @@ than `max_lag` are dropped.
 """
 function _travel_maps(X::AbstractMatrix, max_lag::Int, max_dphi::Int,
                       edges::Vector{Int})
-    A = antisym_map(corr_map(X, max_lag, max_dphi))
+    K = corr_map(X, max_lag, max_dphi)
+    A = antisym_map(K)
+    E = sym_map(K)
     blocks = Matrix{Float64}[]
     for b in 1:length(edges)-1
         rows = edges[b]:edges[b+1]-1
         length(rows) <= max_lag && continue
         push!(blocks, antisym_map(corr_map(@view(X[rows, :]), max_lag, max_dphi)))
     end
-    return A, blocks
+    return K[1, max_dphi+1], A, E, blocks
 end
 
 _inc_power(blocks) = isempty(blocks) ? 0.0 : sum(Ab -> sum(abs2, Ab), blocks)
@@ -249,6 +275,38 @@ function drift_template(max_lag::Int, max_dphi::Int, p2::Real, p3::Real;
     tap_t = isnothing(npulses) ? ones(max_lag)  : [1 - t / npulses for t in 1:max_lag]
     tap_d = isnothing(non)     ? ones(max_dphi) : [1 - d / non      for d in 1:max_dphi]
     return [2 * tap_t[t] * tap_d[d] * sin(2π * d / p2) * sin(2π * t / p3)
+            for t in 1:max_lag, d in 1:max_dphi]
+end
+
+
+"""
+    drift_template_even(max_lag, max_dphi, p2, p3; npulses, non) -> Matrix{Float64}
+
+The Δ-even half of the same drift model, to be projected onto `sym_map`:
+
+    E(Δ, τ) / K(0,0) = (1 − τ/N)(1 − Δ/M) · 2 · cos(2πΔ/P2) · cos(2πτ/P3)
+
+Writing the drift's correlation out,
+
+    cos(2π(Δ/P2 − τ/P3)) = cos(2πΔ/P2)·cos(2πτ/P3) + sin(2πΔ/P2)·sin(2πτ/P3)
+                           └──── even in Δ ────┘     └──── odd in Δ ────┘
+
+shows the two halves carry *equal* coefficients for a rigidly travelling
+pattern. Amplitude modulation, being separable, puts everything in the even half
+and nothing in the odd one. The ratio of the two projections is therefore 1 for
+a pure drift and 0 for pure amplitude modulation — and, unlike either projection
+alone, it needs no external yardstick: modulation strength, harmonic content,
+loss of coherence with lag and the triangular taper all multiply the two halves
+identically and cancel. See `travel_test`'s `R`.
+"""
+function drift_template_even(max_lag::Int, max_dphi::Int, p2::Real, p3::Real;
+                             npulses::Union{Int,Nothing}=nothing,
+                             non::Union{Int,Nothing}=nothing)
+    abs(p2) > 0 || error("p2 must be nonzero")
+    p3 > 0      || error("p3 must be positive (got $p3)")
+    tap_t = isnothing(npulses) ? ones(max_lag)  : [1 - t / npulses for t in 1:max_lag]
+    tap_d = isnothing(non)     ? ones(max_dphi) : [1 - d / non      for d in 1:max_dphi]
+    return [2 * tap_t[t] * tap_d[d] * cos(2π * d / p2) * cos(2π * t / p3)
             for t in 1:max_lag, d in 1:max_dphi]
 end
 
@@ -457,6 +515,44 @@ Fields of the returned NamedTuple:
                   Never demote on frac alone; require T and T_inc to be quiet
                   too, and require the modulation itself to be well detected,
                   otherwise the limit measures sensitivity rather than physics
+  frac_even, frac_even_err, R, R_err
+                – `frac_even` is the same projection onto the Δ-*even* half of
+                  the drift model (`drift_template_even` against `sym_map`),
+                  and R = frac / frac_even is the share of the pulsar's coherent
+                  modulation at that (P2, P3) which actually travels: 1 for a
+                  rigid drift, 0 for amplitude modulation.
+
+                  R exists to break a circularity. Judging `frac` needs to know
+                  what a genuine drifter returns, and the obvious reference
+                  sample — the pulsars already labelled `drift` — is exactly the
+                  set suspected of contamination, so calibrating on it teaches
+                  that drifters can have frac ≈ 0 and destroys the power to
+                  demote anything. R takes its yardstick from the same pulsar
+                  instead: both halves of the drift model carry equal
+                  coefficients, so modulation strength, harmonics, coherence
+                  loss and the taper cancel in the ratio and no external sample
+                  is needed. A pulsar that both drifts and has separable
+                  modulation lands between 0 and 1, which is the physically
+                  meaningful reading rather than a failure.
+
+                  NaN when the even projection is not itself measured at 3σ —
+                  without coherent modulation at the claimed geometry there is
+                  no denominator and the question is empty. R_err propagates the
+                  two errors ignoring their (positive) correlation, so it is
+                  mildly conservative.
+
+                  R is *not* a strict fraction and can overshoot 1. The
+                  denominator collects the even projection of the non-travelling
+                  modulation too, and that contribution carries no fixed sign:
+                  an a(φ) whose longitude autocorrelation happens to project
+                  negatively onto cos(2πΔ/P2) shrinks the denominator and pushes
+                  R above 1 (seen at R = 1.32 for a synthetic drift plus a
+                  monotonic-ramp modulation). The useful reading is therefore
+                  ordinal, not literal: R ≈ 0 means the coherent modulation at
+                  this geometry does not travel, R of order 1 means it does.
+                  Crucially the pathology lives at the high end, while demotion
+                  turns on the low end, where the numerator is what approaches
+                  zero and the ratio stays well behaved
   rank1_frac, tau_mode, dphi_mode, p2, p2_lower_limit, p3, direction
                 – structure of the map, from `ridge`
   block_proj    – leave-one-out projection of each pulse block's own map onto
@@ -508,53 +604,67 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     edges = round.(Int, range(1, N + 1, length=nb + 1))
 
     K   = corr_map(X, max_lag, md)
-    K00 = K[1, md+1]
-    A, blocks = _travel_maps(X, max_lag, md, edges)
+    K00, A, E, blocks = _travel_maps(X, max_lag, md, edges)
     T     = sum(abs2, A)
     T_inc = _inc_power(blocks)
 
-    tmpl  = (isnothing(p2_template) || isnothing(p3_template)) ? nothing :
-            drift_template(max_lag, md, p2_template, p3_template;
-                           npulses=N, non=M)
-    tnorm = isnothing(tmpl) ? 0.0 : sum(abs2, tmpl)
-    fracof(Am) = (isnothing(tmpl) || tnorm <= 0 || K00 <= 0) ? NaN :
-                 dot(Am, tmpl) / (K00 * tnorm)
-    frac = fracof(A)
+    have_t = !(isnothing(p2_template) || isnothing(p3_template))
+    tmpl  = have_t ? drift_template(max_lag, md, p2_template, p3_template;
+                                    npulses=N, non=M) : nothing
+    tmple = have_t ? drift_template_even(max_lag, md, p2_template, p3_template;
+                                         npulses=N, non=M) : nothing
+    tnorm  = have_t ? sum(abs2, tmpl)  : 0.0
+    tnorme = have_t ? sum(abs2, tmple) : 0.0
+    fracof(Am)  = (!have_t || tnorm  <= 0 || K00 <= 0) ? NaN :
+                  dot(Am, tmpl)  / (K00 * tnorm)
+    fraceof(Em) = (!have_t || tnorme <= 0 || K00 <= 0) ? NaN :
+                  dot(Em, tmple) / (K00 * tnorme)
+    frac      = fracof(A)
+    frac_even = fraceof(E)
 
     Xsig = separable_signal(X, noise_var)
     rng  = isnothing(seed) ? Random.default_rng() : MersenneTwister(seed)
     buf  = Matrix{Float64}(undef, N, M)
     Xn   = Matrix{Float64}(undef, N, M)
 
-    T_null     = zeros(nreal)
-    T_inc_null = zeros(nreal)
-    frac_null  = zeros(nreal)
+    T_null      = zeros(nreal)
+    T_inc_null  = zeros(nreal)
+    frac_null   = zeros(nreal)
+    frace_null  = zeros(nreal)
     for i in 1:nreal
         noise_block!(buf, Xhp, starts, M, rng)
         Xn .= Xsig .+ buf
-        As, bs = _travel_maps(Xn, max_lag, md, edges)
+        _, As, Es, bs = _travel_maps(Xn, max_lag, md, edges)
         T_null[i]     = sum(abs2, As)
         T_inc_null[i] = _inc_power(bs)
         frac_null[i]  = fracof(As)
+        frace_null[i] = fraceof(Es)
     end
     significance     = (T - mean(T_null)) / std(T_null)
     p_value          = count(>=(T), T_null) / nreal
     significance_inc = (T_inc - mean(T_inc_null)) / std(T_inc_null)
     p_value_inc      = count(>=(T_inc), T_inc_null) / nreal
-    frac_err   = isnothing(tmpl) ? NaN : std(frac_null)
-    frac_sig   = isnothing(tmpl) ? NaN : frac / frac_err
-    frac_limit = isnothing(tmpl) ? NaN : max(frac, 0.0) + 3 * frac_err
+    frac_err      = have_t ? std(frac_null)  : NaN
+    frac_sig      = have_t ? frac / frac_err : NaN
+    frac_limit    = have_t ? max(frac, 0.0) + 3 * frac_err : NaN
+    frac_even_err = have_t ? std(frace_null) : NaN
+    # travelling share of the coherent modulation; error propagated ignoring the
+    # (positive) correlation between numerator and denominator, so mildly
+    # conservative. Undefined unless the even projection is itself well measured
+    R     = (have_t && frac_even > 3 * frac_even_err) ? frac / frac_even : NaN
+    R_err = isnan(R) ? NaN :
+            abs(R) * sqrt((frac_err / frac)^2 + (frac_even_err / frac_even)^2)
 
     # off-pulse control: the same two statistics where there is no signal at all
     a0 = starts[length(starts) ÷ 2 + 1]
-    Aoff, boff = _travel_maps(@view(Xhp[:, a0:a0+M-1]), max_lag, md, edges)
+    _, Aoff, _, boff = _travel_maps(@view(Xhp[:, a0:a0+M-1]), max_lag, md, edges)
     T_off     = sum(abs2, Aoff)
     T_inc_off = _inc_power(boff)
     T_off_null     = zeros(nreal)
     T_inc_off_null = zeros(nreal)
     for i in 1:nreal
         noise_block!(buf, Xhp, starts, M, rng)
-        As, bs = _travel_maps(buf, max_lag, md, edges)
+        _, As, _, bs = _travel_maps(buf, max_lag, md, edges)
         T_off_null[i]     = sum(abs2, As)
         T_inc_off_null[i] = _inc_power(bs)
     end
@@ -597,6 +707,10 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         frac_err     = frac_err,
         frac_sig     = frac_sig,
         frac_limit   = frac_limit,
+        frac_even     = frac_even,
+        frac_even_err = frac_even_err,
+        R            = R,
+        R_err        = R_err,
         rank1_frac   = r.rank1_frac,
         tau_mode     = r.tau_mode,
         dphi_mode    = r.dphi_mode,
@@ -667,12 +781,37 @@ function selftest(; verbose::Bool=true)
     ok &= 0.9 < f < 1.1
     verbose && println("matched frac at true P2/P3: $(round(f, digits=3)) (expect ~1)")
 
+    # self-normalising ratio: 1 for a pure drift, 0 for separable modulation,
+    # intermediate for a mixture -- and no reference sample anywhere
+    tme = drift_template_even(30, 15, 18, 12; npulses=N, non=M)
+    Rof = function (Xf)
+        Kf = corr_map(Xf, 30, 15)
+        k0 = Kf[1, 16]
+        (dot(antisym_map(Kf), tm) / (k0 * sum(abs2, tm))) /
+        (dot(sym_map(Kf), tme)   / (k0 * sum(abs2, tme)))
+    end
+    R_drift = Rof(Xdr)
+    ok &= 0.9 < R_drift < 1.1
+    # travelling wave plus a standing wave of the same periods — the textbook
+    # mixture. A standing wave is half a forward plus half a backward traveller,
+    # so amplitudes a_f = 1 + s/2 and a_b = s/2 give the exact prediction
+    #   R = (a_f^2 - a_b^2) / (a_f^2 + a_b^2)
+    s = 2.0
+    Xmix = Xdr .+ [s * cos(2π * ph / 18) * cos(2π * n / 12) for n in 1:N, ph in phi]
+    af, ab = 1 + s / 2, s / 2
+    R_pred = (af^2 - ab^2) / (af^2 + ab^2)
+    R_mix  = Rof(Xmix)
+    ok &= abs(R_mix - R_pred) < 0.1
+    verbose && println("R pure drift: $(round(R_drift, digits=3)) (expect ~1);  " *
+                       "drift + standing wave: $(round(R_mix, digits=3)) " *
+                       "(predicted $(round(R_pred, digits=3)))")
+
     # a balanced reverser: the global map cancels, the incoherent block sum does not
     Nr = 800
     Xrev = vcat([cos(2π * (ph / 18 - n / 12)) for n in 1:Nr÷2, ph in phi],
                 [cos(2π * (-ph / 18 - n / 12)) for n in 1:Nr÷2, ph in phi])
     edges = [1, Nr÷2 + 1, Nr + 1]
-    Arev, brev = _travel_maps(Xrev, 30, 15, edges)
+    _, Arev, _, brev = _travel_maps(Xrev, 30, 15, edges)
     ratio = sum(abs2, Arev) / _inc_power(brev)
     ok &= ratio < 0.05
     verbose && println("balanced reverser, T/T_inc: $(round(ratio, sigdigits=2)) " *

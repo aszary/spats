@@ -1013,3 +1013,62 @@ a nie dryfu. Możliwa poprawka: surogat rank-r z niezależnie przesuwanymi w cza
 Do czasu rozstrzygnięcia: `T_inc` bez zgodności blokowej nie jest kandydatem na dryf.
 
 Werdykt degradacji jest zablokowany, gdy `T_inc` > 3σ — sprawdzone, dla J1907+0731 nie drukuje się.
+
+### 2026-09-22 (cd. 2) — iloraz R: próg bez kalibracji na skażonej próbce
+
+**Problem podniesiony przez AS.** Kalibracja progu degradacji na 418 pulsarach `drift` jest
+cyrkularna — to jest właśnie próbka podejrzana o skażenie. Kierunek biasu: ucząc się na mieszance
+dowiesz się, że „dryfer może mieć frac ≈ 0", próg spadnie i nic nie zdegradujesz. Nie psuje to
+kontroli fałszywych pozytywów, tylko kasuje moc testu.
+
+**Rozwiązanie: normalizacja z tego samego pulsara.** Model dryfu rozkłada się na dwie połowy
+o **równych współczynnikach**:
+
+```
+cos(2π(Δ/P₂ − τ/P₃)) = cos(2πΔ/P₂)cos(2πτ/P₃) + sin(2πΔ/P₂)sin(2πτ/P₃)
+                       └─ parzysta w Δ ─┘        └─ nieparzysta w Δ ─┘
+```
+
+Nieparzystą mierzy `A` (antisym_map), parzystą nowa `E` (`sym_map`). Modulacja amplitudowa, będąc
+separowalną, wkłada wszystko w parzystą i nic w nieparzystą. Stąd `R = frac_odd / frac_even` = 1
+dla dryfu, 0 dla AM — a siła modulacji, harmoniczne, zanik koherencji i taper mnożą obie połowy
+tak samo i **kasują się w ilorazie**. Zero liczb z zewnątrz.
+
+**Weryfikacja syntetyczna** (`selftest`): czysty dryf R = 1.000. Fala bieżąca + stojąca o tych
+samych okresach: R = 0.607 przy przewidzianym analitycznie 0.600 (fala stojąca to pół bieżącej
+w przód + pół w tył, więc R = (a_f²−a_b²)/(a_f²+a_b²)).
+
+**Weryfikacja na danych — to jest właściwy wynik:**
+
+| pulsar | frac_odd | frac_even | R | klasa |
+|---|---|---|---|---|
+| J0820-1350 | 0.1180 | 0.1067 | **1.106 ± 0.002** | dryfer |
+| J1110-5637 | 0.0062 | 0.0075 | **0.827 ± 0.034** | dryfer |
+| J2053-7200 | 0.0047 | 0.0036 | **1.305 ± 0.025** | dryfer |
+| J1750-3503 | 0.0114 | 0.0179 | **0.640 ± 0.003** | dryfer (reverser) |
+| J1907+0731 | 0.0004 | 0.0002 | NaN | P3-only |
+
+Sedno: **`frac_odd` rozciąga się na 25× między dryferami (0.0047–0.118), a R tylko na 2×
+(0.64–1.31)**. Na progu bezwzględnym J1110-5637 i J2053-7200 wyglądałyby jak „prawie zero" obok
+J0820-1350 i zostałyby błędnie zdegradowane. R je poprawnie trzyma przy 1. To jest dokładnie ta
+zmienność, której nie da się wyuczyć ze skażonej próbki — i którą R usuwa bez próbki.
+
+Próg `demote_R` = 0.3 leży w luce między obserwowanym pasmem dryferów a zerem z konstrukcji dla AM.
+
+**Zastrzeżenia (udokumentowane w kodzie):**
+- R **nie jest ścisłym ułamkiem i może przekroczyć 1** (tu 1.11 i 1.31). Mianownik zbiera też
+  parzystą projekcję modulacji nie-wędrującej, a ta nie ma ustalonego znaku. Pierwsza wersja testu
+  syntetycznego dała R = 1.32 dla dryfu + rampy monotonicznej. Odczyt jest porządkowy, nie
+  dosłowny. **Patologia siedzi przy górnym końcu, a degradacja rozgrywa się przy dolnym**, gdzie
+  do zera dąży licznik i iloraz zachowuje się dobrze.
+- **Reverser zaniża R** (J1750-3503: 0.64, najniżej z czwórki) — globalna mapa częściowo się kasuje.
+  Przed odczytem R sprawdzić `T_inc` i `block_proj`, a przy obu znakach ograniczyć się do jednego
+  epizodu przez `pulse_st`/`pulse_end`.
+- J1907+0731 daje NaN, bo `frac_even` nie jest zmierzone na 3σ — przy wmówionym P2 = 20 nie ma
+  koherentnej modulacji, więc nie ma mianownika ani hipotezy dryfu do odrzucenia. Guard zadziałał.
+
+**Błąd wyłapany przy okazji:** zmiana sygnatury `_travel_maps` na 4-krotkę zepsuła rozpakowanie
+w selfteście (test reversera czytał 2000 zamiast 3.4e-6). Selftest to złapał.
+
+**Następny krok:** batch po 533 (418 + 115) z tabelą, rozkład R, sprawdzenie bimodalności.
+Etykiety Song et al. wchodzą wtedy jako **zbiór testowy**, nie treningowy.

@@ -321,14 +321,20 @@ module SpaTs
     *rejected*. Require the modulation itself to be well detected first,
     otherwise the limit measures sensitivity rather than the pulsar.
 
-    `demote_frac` (default 0.05) is only the threshold at which that verdict is
-    printed, and it is a placeholder, not a calibrated number: the fraction a
-    *genuine* drifter returns is well below 1 because the template is a single
-    sinusoid while real modulation carries harmonics and loses coherence
-    (J0820-1350, a textbook drifter, returns 0.118 at its own P2 against 0.0004
-    for the P3-only J1907+0731 — a factor ~300, which is the usable dynamic
-    range). Fix the threshold by running the same pipeline over
-    `input/drift_pulsars_P3.txt` before demoting anything.
+    The verdict keys on `R`, not on the raw fraction, and that matters. The raw
+    fraction a *genuine* drifter returns varies enormously — 0.118 for
+    J0820-1350 against 0.0047 for J2053-7200, a factor of 25 — so no absolute
+    threshold separates drifters from non-drifters, and the obvious way to find
+    one (calibrate on the pulsars already labelled `drift`) is circular, since
+    that is the very sample suspected of contamination. `R` divides the
+    per-pulsar modulation strength out: measured on four known drifters it
+    lands at 1.11, 0.83, 1.31 and 0.64 while amplitude modulation gives 0 by
+    construction. `demote_R` (default 0.3) sits in the gap that opens up.
+
+    Handle a reverser before reading R: the global map partially cancels, which
+    drags the odd projection down (J1750-3503 gives 0.64, the lowest of the
+    four). Check `T_inc` and `block_proj` first and restrict to one episode with
+    `pulse_st`/`pulse_end` if both senses are present.
 
     `datafile` selects the single-pulse ASCII file inside `outdir`; the split
     sub-band products of `process_psrdata_16` are e.g. "pulsar_high_debase.txt".
@@ -339,7 +345,7 @@ module SpaTs
     """
     function travel_test(outdir; max_lag=40, max_dphi=nothing, hp_halfwin=50,
                          nreal=500, nblocks=4, p2_template=nothing, p3_template=nothing,
-                         demote_frac=0.05, pulse_st=nothing, pulse_end=nothing,
+                         demote_R=0.3, pulse_st=nothing, pulse_end=nothing,
                          datafile="pulsar.debase.txt", name_mod="pulsar", show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, datafile))
@@ -389,16 +395,26 @@ module SpaTs
         if !isnan(result.frac_limit)
             println("Claimed drift:     P2 = $(result.p2_template) bins, " *
                     "P3 = $(round(result.p3_template, digits=2))")
-            println("  drift fraction:  $(round(result.frac, digits=4)) ± " *
+            println("  odd (travel):    $(round(result.frac, digits=4)) ± " *
                     "$(round(result.frac_err, digits=4))  " *
                     "($(round(result.frac_sig, digits=1)) σ), " *
                     "< $(round(result.frac_limit, digits=4)) at 3σ")
-            if result.frac_limit < demote_frac && abs(result.significance) < 3 &&
-               abs(result.significance_inc) < 3
-                println("  VERDICT: at most $(round(100*result.frac_limit, digits=2))% " *
-                        "of the modulation can be travelling at the claimed P2, " *
-                        "and neither T nor T_inc sees anything — the drift " *
-                        "classification is rejected, not merely unconfirmed")
+            println("  even (coherent): $(round(result.frac_even, digits=4)) ± " *
+                    "$(round(result.frac_even_err, digits=4))")
+            if isnan(result.R)
+                println("  R:               undefined — no coherent modulation at " *
+                        "this P2, so there is no drift hypothesis to reject here")
+            else
+                println("  R = odd/even:    $(round(result.R, digits=3)) ± " *
+                        "$(round(result.R_err, digits=3))   " *
+                        "[1 = the coherent modulation travels, 0 = it does not]")
+                if result.R + 3 * result.R_err < demote_R &&
+                   abs(result.significance) < 3 && abs(result.significance_inc) < 3
+                    println("  VERDICT: R is below $demote_R at 3σ and neither T nor " *
+                            "T_inc sees anything — the coherent modulation at the " *
+                            "claimed P2 does not travel. The drift classification is " *
+                            "rejected, not merely unconfirmed")
+                end
             end
         end
         Plot.travel(result, outdir, Int(p["nbin"]); name_mod=name_mod, show_=show_)

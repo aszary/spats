@@ -2302,8 +2302,10 @@ module Plot
             @sprintf("\$P_2 > %.0f\$ bins", result.p2_lower_limit) :
             @sprintf("\$P_2 = %.0f\$ bins", result.p2)
         ftxt = isnan(result.frac_limit) ? "" :
-            @sprintf("  |  drift fraction at claimed \$P_2\$ = %.0f: %.3f \$\\pm\$ %.3f (< %.3f at 3\$\\sigma\$)",
-                     result.p2_template, result.frac, result.frac_err, result.frac_limit)
+            @sprintf("  |  at claimed \$P_2\$ = %.0f: odd %.4f, even %.4f",
+                     result.p2_template, result.frac, result.frac_even) *
+            (isnan(result.R) ? ", \$R\$ undefined" :
+             @sprintf(", \$R\$ = %.2f \$\\pm\$ %.2f", result.R, result.R_err))
         suptitle("travel test:  " * sigtxt * "  |  " * p2txt *
                  @sprintf("  |  \$P_3 \\approx\$ %.1f  |  off-pulse control %.1f\$\\sigma\$",
                           result.p3, result.significance_off) * ftxt, fontsize=7)
