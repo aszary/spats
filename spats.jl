@@ -305,6 +305,31 @@ module SpaTs
     not, the noise is not time-reversal symmetric (gain drift, RFI, a bad
     baseline) and the on-pulse number means nothing.
 
+    Two statistics are reported. The main one is coherent over the whole
+    observation; `T_inc` adds the pulse blocks' map power incoherently and is
+    the one that survives a drifter reversing sense in equal measure, which
+    cancels the coherent map almost exactly (verified in `Travel.selftest`:
+    T/T_inc = 3e-6 for a balanced reverser).
+
+    Turning the test around — demoting a "drift" to P3-only. A quiet T is not
+    proof of P3-only; failing to reject a null never is. Pass `p2_template` (the
+    claimed P2 in longitude bins, signed) to ask the answerable question
+    instead: how much of the observed modulation power can sit in a coherent
+    drift of exactly that geometry? `p3_template` defaults to the catalogue P3
+    in params.json. If the 3σ limit on that fraction comes out at a few per
+    cent while T and T_inc are both quiet, the drift classification is
+    *rejected*. Require the modulation itself to be well detected first,
+    otherwise the limit measures sensitivity rather than the pulsar.
+
+    `demote_frac` (default 0.05) is only the threshold at which that verdict is
+    printed, and it is a placeholder, not a calibrated number: the fraction a
+    *genuine* drifter returns is well below 1 because the template is a single
+    sinusoid while real modulation carries harmonics and loses coherence
+    (J0820-1350, a textbook drifter, returns 0.118 at its own P2 against 0.0004
+    for the P3-only J1907+0731 — a factor ~300, which is the usable dynamic
+    range). Fix the threshold by running the same pipeline over
+    `input/drift_pulsars_P3.txt` before demoting anything.
+
     `datafile` selects the single-pulse ASCII file inside `outdir`; the split
     sub-band products of `process_psrdata_16` are e.g. "pulsar_high_debase.txt".
 
@@ -313,21 +338,33 @@ module SpaTs
       travel_test(vpmout*"J0820-1350")
     """
     function travel_test(outdir; max_lag=40, max_dphi=nothing, hp_halfwin=50,
-                         nreal=500, nblocks=4, pulse_st=nothing, pulse_end=nothing,
+                         nreal=500, nblocks=4, p2_template=nothing, p3_template=nothing,
+                         demote_frac=0.05, pulse_st=nothing, pulse_end=nothing,
                          datafile="pulsar.debase.txt", name_mod="pulsar", show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, datafile))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        # a claimed P2 with no P3 given falls back to the catalogue P3
+        p3t = isnothing(p3_template) && !isnothing(p2_template) && haskey(p, "p3") ?
+              Float64(p["p3"]) : p3_template
         result = Travel.travel_test(
             data, Int(p["bin_st"]), Int(p["bin_end"]);
             max_lag=max_lag, max_dphi=max_dphi, hp_halfwin=hp_halfwin,
-            nreal=nreal, nblocks=nblocks, pulse_st=pulse_st, pulse_end=pulse_end)
+            nreal=nreal, nblocks=nblocks,
+            p2_template=p2_template, p3_template=p3t,
+            pulse_st=pulse_st, pulse_end=pulse_end)
         ptxt = result.p_value == 0 ? "p < $(round(1/nreal, sigdigits=1))" :
                                      "p = $(round(result.p_value, sigdigits=2))"
         # a very strong travel drives (T-<T>)/σ to absurd values; p is the bounded statement
         sigtxt = abs(result.significance) > 999 ? ">999" :
                  string(round(result.significance, digits=1))
-        println("Travel detection:  $sigtxt σ ($ptxt)")
+        itxt = result.p_value_inc == 0 ? "p < $(round(1/nreal, sigdigits=1))" :
+                                         "p = $(round(result.p_value_inc, sigdigits=2))"
+        sigitxt = abs(result.significance_inc) > 999 ? ">999" :
+                  string(round(result.significance_inc, digits=1))
+        println("Travel detection:  $sigtxt σ ($ptxt)   [coherent, whole observation]")
+        println("  incoherent T_inc: $sigitxt σ ($itxt)   " *
+                "[per block — catches a drifter that reverses symmetrically]")
         println("Off-pulse control: $(round(result.significance_off, digits=1)) σ " *
                 (abs(result.significance_off) > 3 ?
                  "— FAILED, noise is not time-symmetric, ignore the result above" :
@@ -345,8 +382,25 @@ module SpaTs
                 "$(round(result.p3, digits=1)) P0 (indicative)"))
         println("Block consistency: $(round(result.block_consistency, digits=2)) " *
                 "over $(length(result.block_proj)) blocks" *
-                (any(<(0), result.block_proj) && any(>(0), result.block_proj) ?
+                # only call it a reversal on projections well clear of the noise;
+                # a scatter of +-0.01 around zero is simply no travel
+                (any(<(-0.2), result.block_proj) && any(>(0.2), result.block_proj) ?
                  " — both signs present, travel direction reverses" : ""))
+        if !isnan(result.frac_limit)
+            println("Claimed drift:     P2 = $(result.p2_template) bins, " *
+                    "P3 = $(round(result.p3_template, digits=2))")
+            println("  drift fraction:  $(round(result.frac, digits=4)) ± " *
+                    "$(round(result.frac_err, digits=4))  " *
+                    "($(round(result.frac_sig, digits=1)) σ), " *
+                    "< $(round(result.frac_limit, digits=4)) at 3σ")
+            if result.frac_limit < demote_frac && abs(result.significance) < 3 &&
+               abs(result.significance_inc) < 3
+                println("  VERDICT: at most $(round(100*result.frac_limit, digits=2))% " *
+                        "of the modulation can be travelling at the claimed P2, " *
+                        "and neither T nor T_inc sees anything — the drift " *
+                        "classification is rejected, not merely unconfirmed")
+            end
+        end
         Plot.travel(result, outdir, Int(p["nbin"]); name_mod=name_mod, show_=show_)
         return result
     end

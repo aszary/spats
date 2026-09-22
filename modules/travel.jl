@@ -195,6 +195,65 @@ travel_T(X::AbstractMatrix, max_lag::Int, max_dphi::Int) =
 
 
 """
+    _travel_maps(X, max_lag, max_dphi, edges) -> (A, blocks)
+
+The travel map of the whole stretch together with the maps of the individual
+pulse blocks delimited by `edges`, computed in one place so that the observed
+data and the surrogates go through exactly the same reduction. Blocks shorter
+than `max_lag` are dropped.
+"""
+function _travel_maps(X::AbstractMatrix, max_lag::Int, max_dphi::Int,
+                      edges::Vector{Int})
+    A = antisym_map(corr_map(X, max_lag, max_dphi))
+    blocks = Matrix{Float64}[]
+    for b in 1:length(edges)-1
+        rows = edges[b]:edges[b+1]-1
+        length(rows) <= max_lag && continue
+        push!(blocks, antisym_map(corr_map(@view(X[rows, :]), max_lag, max_dphi)))
+    end
+    return A, blocks
+end
+
+_inc_power(blocks) = isempty(blocks) ? 0.0 : sum(Ab -> sum(abs2, Ab), blocks)
+
+
+"""
+    drift_template(max_lag, max_dphi, p2, p3; npulses, non) -> Matrix{Float64}
+
+The map a rigidly drifting pattern makes,
+
+    A(Δ, τ) / K(0,0) = (1 − τ/N)(1 − Δ/M) · 2 · sin(2πΔ/P2) · sin(2πτ/P3)
+
+on the same (τ, Δ) grid `antisym_map` returns. `p2` is in longitude bins and
+carries the drift sense in its sign (positive = later longitudes light up later,
+Szary+2022); `p3` is in pulse periods.
+
+The leading factor is the triangular taper of a *linear* correlation: `corr_map`
+sums over (N−τ)(M−|Δ|) pairs at lag (Δ,τ) against NM pairs at the origin, so the
+measured map is tapered even for a perfectly coherent pattern. It is pure
+geometry, known exactly, and leaving it out biases the matched projection low —
+by 23% at N=600, M=40 over the default lag ranges, which is the difference
+between "this pulsar barely drifts" and "it drifts as claimed". Pass `npulses`
+(N) and `non` (on-pulse width M) to apply it; omit them for the untapered form.
+
+Projecting the measured map onto this is what turns the test around: instead of
+asking "is there any travel", it asks "is the travel the one this pulsar is
+claimed to have", which is a hypothesis that can be *rejected* rather than
+merely left unconfirmed. See `travel_test`'s `frac` fields.
+"""
+function drift_template(max_lag::Int, max_dphi::Int, p2::Real, p3::Real;
+                        npulses::Union{Int,Nothing}=nothing,
+                        non::Union{Int,Nothing}=nothing)
+    abs(p2) > 0 || error("p2 must be nonzero")
+    p3 > 0      || error("p3 must be positive (got $p3)")
+    tap_t = isnothing(npulses) ? ones(max_lag)  : [1 - t / npulses for t in 1:max_lag]
+    tap_d = isnothing(non)     ? ones(max_dphi) : [1 - d / non      for d in 1:max_dphi]
+    return [2 * tap_t[t] * tap_d[d] * sin(2π * d / p2) * sin(2π * t / p3)
+            for t in 1:max_lag, d in 1:max_dphi]
+end
+
+
+"""
     separable_signal(X, noise_var) -> Matrix{Float64}
 
 Rank-1 (i.e. exactly separable, exactly H0) stand-in for the pulsar's own
@@ -351,7 +410,13 @@ Keywords:
                modulation. 0 = static profile only
   nreal      – surrogate realisations (default 500)
   seed       – RNG seed (default 7, nothing for non-reproducible)
-  nblocks    – contiguous pulse blocks for the consistency check (default 4)
+  nblocks    – contiguous pulse blocks for `T_inc` and the consistency check
+               (default 4). Set it so a block is shorter than the expected
+               drift episode, otherwise a reversal hides inside one block
+  p2_template, p3_template – claimed P2 (in longitude bins, signed) and P3 (in
+               pulse periods). Supplying both switches on the matched
+               projection, which is what makes a *demotion* possible; omitting
+               them leaves the `frac` fields NaN
   pulse_st, pulse_end – analyse only this pulse range (default: all)
 
 Fields of the returned NamedTuple:
@@ -362,6 +427,36 @@ Fields of the returned NamedTuple:
   T, T_null     – omnibus statistic and its surrogate distribution
   significance  – (T − mean(T_null)) / std(T_null)  [σ]
   p_value       – count(T_null ≥ T)/nreal (0 means < 1/nreal)
+  T_inc, T_inc_null, significance_inc, p_value_inc
+                – the same statistic summed *incoherently* over pulse blocks,
+                  Σ_b Σ A_b². T itself is computed on one global map, so a
+                  drifter that spends equal time in each sense cancels and reads
+                  as no travel at all — a false demotion waiting to happen.
+                  (J1750-3503 survives T only because its episodes are lopsided,
+                  28 P one way against 88 P the other.) T_inc adds the blocks'
+                  power instead of their maps, so opposite senses accumulate.
+                  It pays for that with a higher noise floor — nb blocks of
+                  noise instead of one coherent average — so it is the less
+                  sensitive of the two for a steady drift. Quote both; taking
+                  the better of the two costs a mild trials penalty
+  frac, frac_err, frac_sig, frac_limit
+                – matched projection onto `drift_template` at the claimed
+                  (p2_template, p3_template), as the fraction of the observed
+                  modulation power that sits in a coherent drift of exactly
+                  that geometry: frac = ⟨A, template⟩ / (K(0,0)·‖template‖²),
+                  so frac = 1 would mean the whole modulation is that drift.
+                  `frac_err` is its surrogate scatter and `frac_limit` the 3σ
+                  upper limit. This is the field that lets a "drift"
+                  classification be *rejected* rather than just unconfirmed: if
+                  the pulsar is labelled a drifter at some P2 and frac_limit
+                  comes out at a few per cent, at most a few per cent of its
+                  modulation can be travelling, which the label cannot survive.
+                  Model-dependent, unlike T — the template is a single sinusoid
+                  in each direction, so harmonics and coherence decay make a
+                  real drift project onto it imperfectly and bias frac low.
+                  Never demote on frac alone; require T and T_inc to be quiet
+                  too, and require the modulation itself to be well detected,
+                  otherwise the limit measures sensitivity rather than physics
   rank1_frac, tau_mode, dphi_mode, p2, p2_lower_limit, p3, direction
                 – structure of the map, from `ridge`
   block_proj    – leave-one-out projection of each pulse block's own map onto
@@ -373,16 +468,18 @@ Fields of the returned NamedTuple:
                   do not reproduce across blocks and land near zero even when
                   the global T looks significant
   block_consistency – mean of `block_proj`
-  T_off, significance_off, p_value_off
-                – the identical statistic on an off-pulse strip, which must be
+  T_off, significance_off, p_value_off, T_inc_off, significance_inc_off
+                – the identical statistics on an off-pulse strip, which must be
                   consistent with zero. A significant result here means the
                   noise is not time-reversal symmetric (gain drift, RFI, bad
-                  baseline) and the on-pulse number cannot be trusted
+                  baseline) and the on-pulse numbers cannot be trusted
 """
 function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
                      max_lag::Int=40, max_dphi::Union{Int,Nothing}=nothing,
                      hp_halfwin::Int=50, nreal::Int=500,
                      seed::Union{Int,Nothing}=7, nblocks::Int=4,
+                     p2_template::Union{Real,Nothing}=nothing,
+                     p3_template::Union{Real,Nothing}=nothing,
                      pulse_st::Union{Int,Nothing}=nothing,
                      pulse_end::Union{Int,Nothing}=nothing)
     nbins = size(data, 2)
@@ -405,46 +502,69 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         "no room for the noise surrogates or the off-pulse control")
     noise_var = var(vcat((vec(@view Xhp[:, a:a+M-1]) for a in starts[1:min(end, 8)])...))
 
-    K = corr_map(X, max_lag, md)
-    A = antisym_map(K)
-    T = sum(abs2, A)
+    # the block split is fixed up front: the incoherent statistic, the
+    # consistency check and the surrogates must all use the same one
+    nb = clamp(nblocks, 1, max(1, N ÷ (4 * max_lag)))
+    edges = round.(Int, range(1, N + 1, length=nb + 1))
+
+    K   = corr_map(X, max_lag, md)
+    K00 = K[1, md+1]
+    A, blocks = _travel_maps(X, max_lag, md, edges)
+    T     = sum(abs2, A)
+    T_inc = _inc_power(blocks)
+
+    tmpl  = (isnothing(p2_template) || isnothing(p3_template)) ? nothing :
+            drift_template(max_lag, md, p2_template, p3_template;
+                           npulses=N, non=M)
+    tnorm = isnothing(tmpl) ? 0.0 : sum(abs2, tmpl)
+    fracof(Am) = (isnothing(tmpl) || tnorm <= 0 || K00 <= 0) ? NaN :
+                 dot(Am, tmpl) / (K00 * tnorm)
+    frac = fracof(A)
 
     Xsig = separable_signal(X, noise_var)
     rng  = isnothing(seed) ? Random.default_rng() : MersenneTwister(seed)
     buf  = Matrix{Float64}(undef, N, M)
     Xn   = Matrix{Float64}(undef, N, M)
 
-    T_null = zeros(nreal)
+    T_null     = zeros(nreal)
+    T_inc_null = zeros(nreal)
+    frac_null  = zeros(nreal)
     for i in 1:nreal
         noise_block!(buf, Xhp, starts, M, rng)
         Xn .= Xsig .+ buf
-        T_null[i] = travel_T(Xn, max_lag, md)
+        As, bs = _travel_maps(Xn, max_lag, md, edges)
+        T_null[i]     = sum(abs2, As)
+        T_inc_null[i] = _inc_power(bs)
+        frac_null[i]  = fracof(As)
     end
-    significance = (T - mean(T_null)) / std(T_null)
-    p_value      = count(>=(T), T_null) / nreal
+    significance     = (T - mean(T_null)) / std(T_null)
+    p_value          = count(>=(T), T_null) / nreal
+    significance_inc = (T_inc - mean(T_inc_null)) / std(T_inc_null)
+    p_value_inc      = count(>=(T_inc), T_inc_null) / nreal
+    frac_err   = isnothing(tmpl) ? NaN : std(frac_null)
+    frac_sig   = isnothing(tmpl) ? NaN : frac / frac_err
+    frac_limit = isnothing(tmpl) ? NaN : max(frac, 0.0) + 3 * frac_err
 
-    # off-pulse control: same statistic where there is no signal at all
-    a0    = starts[length(starts) ÷ 2 + 1]
-    T_off = travel_T(@view(Xhp[:, a0:a0+M-1]), max_lag, md)
-    T_off_null = zeros(nreal)
+    # off-pulse control: the same two statistics where there is no signal at all
+    a0 = starts[length(starts) ÷ 2 + 1]
+    Aoff, boff = _travel_maps(@view(Xhp[:, a0:a0+M-1]), max_lag, md, edges)
+    T_off     = sum(abs2, Aoff)
+    T_inc_off = _inc_power(boff)
+    T_off_null     = zeros(nreal)
+    T_inc_off_null = zeros(nreal)
     for i in 1:nreal
         noise_block!(buf, Xhp, starts, M, rng)
-        T_off_null[i] = travel_T(buf, max_lag, md)
+        As, bs = _travel_maps(buf, max_lag, md, edges)
+        T_off_null[i]     = sum(abs2, As)
+        T_inc_off_null[i] = _inc_power(bs)
     end
-    significance_off = (T_off - mean(T_off_null)) / std(T_off_null)
-    p_value_off      = count(>=(T_off), T_off_null) / nreal
+    significance_off     = (T_off - mean(T_off_null)) / std(T_off_null)
+    p_value_off          = count(>=(T_off), T_off_null) / nreal
+    significance_inc_off = (T_inc_off - mean(T_inc_off_null)) / std(T_inc_off_null)
 
     # time-resolved consistency, leave-one-out so that pure noise gives zero:
     # projecting a block onto the *global* map would keep the block's own
     # contribution and yield ~1/sqrt(nblocks) for noise alone
-    nb = clamp(nblocks, 1, max(1, N ÷ (4 * max_lag)))
-    edges = round.(Int, range(1, N + 1, length=nb + 1))
-    blocks = Matrix{Float64}[]
-    for b in 1:nb
-        Xb = @view X[edges[b]:edges[b+1]-1, :]
-        size(Xb, 1) <= max_lag && continue
-        push!(blocks, antisym_map(corr_map(Xb, max_lag, md)))
-    end
     block_proj = Float64[]
     if length(blocks) >= 2
         Asum = sum(blocks)
@@ -467,6 +587,16 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         T_null       = T_null,
         significance = significance,
         p_value      = p_value,
+        T_inc        = T_inc,
+        T_inc_null   = T_inc_null,
+        significance_inc = significance_inc,
+        p_value_inc  = p_value_inc,
+        p2_template  = p2_template,
+        p3_template  = p3_template,
+        frac         = frac,
+        frac_err     = frac_err,
+        frac_sig     = frac_sig,
+        frac_limit   = frac_limit,
         rank1_frac   = r.rank1_frac,
         tau_mode     = r.tau_mode,
         dphi_mode    = r.dphi_mode,
@@ -479,6 +609,8 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         T_off        = T_off,
         significance_off = significance_off,
         p_value_off  = p_value_off,
+        T_inc_off    = T_inc_off,
+        significance_inc_off = significance_inc_off,
         pulse_range  = (ps, pe),
     )
 end
@@ -527,6 +659,24 @@ function selftest(; verbose::Bool=true)
     verbose && println("recovered P2 = $(round(r.p2, digits=1)) bins (true 18), " *
                        "P3 = $(round(r.p3, digits=1)) (true 12), " *
                        "rank1 = $(round(r.rank1_frac, digits=3))")
+
+    # matched projection recovers the full modulation power at the true geometry
+    K00 = corr_map(Xdr, 1, 1)[1, 2]
+    tm  = drift_template(30, 15, 18, 12; npulses=N, non=M)
+    f   = dot(Adr, tm) / (K00 * sum(abs2, tm))
+    ok &= 0.9 < f < 1.1
+    verbose && println("matched frac at true P2/P3: $(round(f, digits=3)) (expect ~1)")
+
+    # a balanced reverser: the global map cancels, the incoherent block sum does not
+    Nr = 800
+    Xrev = vcat([cos(2π * (ph / 18 - n / 12)) for n in 1:Nr÷2, ph in phi],
+                [cos(2π * (-ph / 18 - n / 12)) for n in 1:Nr÷2, ph in phi])
+    edges = [1, Nr÷2 + 1, Nr + 1]
+    Arev, brev = _travel_maps(Xrev, 30, 15, edges)
+    ratio = sum(abs2, Arev) / _inc_power(brev)
+    ok &= ratio < 0.05
+    verbose && println("balanced reverser, T/T_inc: $(round(ratio, sigdigits=2)) " *
+                       "(global map cancels, T_inc does not)")
 
     verbose && println(ok ? "selftest PASSED" : "selftest FAILED")
     return ok

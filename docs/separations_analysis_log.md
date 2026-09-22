@@ -965,3 +965,51 @@ blokowa liczona leave-one-out — projekcja na mapę globalną zawierałaby czł
 **Otwarte:** batch po 114/115 pulsarach P3-only (katalogi `<PSR>_16/`, plik
 `pulsar_high_debase.txt`); kontrola pozytywna na 418 dryferach z `input/drift_pulsars_P3.txt`;
 analiza populacyjna (π₀ z rozkładu p-value) zamiast 115 niezależnych progów 3σ.
+
+### 2026-09-22 (cd.) — kierunek degradacji: `T_inc` i projekcja matched
+
+**Problem.** Test travel w wersji podstawowej nie może zdegradować etykiety `drift` do P3-only:
+niska `T` to brak dowodu, nie dowód braku. Dodatkowo globalna mapa A ma ślepy punkt — dryfer
+odwracający kierunek **symetrycznie** kasuje się w sumie i czyta jako brak ruchu.
+
+**Dodane w `Travel.travel_test`:**
+
+1. `T_inc = Σ_b Σ A_b²` — suma niekoherentna po blokach impulsów. Zamyka ślepy punkt reversera.
+   Zweryfikowane w `selftest`: dla zbalansowanego reversera **T/T_inc = 3.4e-6**. Płaci za to
+   wyższym progiem szumu (nb bloków szumu zamiast jednego uśrednienia), więc dla stałego dryfu
+   jest mniej czuła — raportować obie, przy braniu lepszej doliczyć karę za trials.
+2. `drift_template(max_lag, max_dphi, p2, p3; npulses, non)` + pola `frac`, `frac_err`,
+   `frac_sig`, `frac_limit` — projekcja matched na mapę, jaką dałby dryf o **deklarowanym** P2:
+   `frac = ⟨A, szablon⟩ / (K(0,0)·‖szablon‖²)` = ułamek mocy modulacji siedzący w dryfie o tej
+   geometrii. To pozwala hipotezę dryfu **odrzucić**, nie tylko nie potwierdzić.
+
+**Błąd wyłapany przez selftest:** pierwsza wersja szablonu dawała `frac` = 0.767 zamiast 1 dla
+syntetycznego dryfu o znanym P2/P3. Przyczyna: korelacja liniowa sumuje po (N−τ)(M−|Δ|) parach
+przy opóźnieniu (Δ,τ) wobec NM w zerze, więc mapa jest przycięta trójkątnym taperem nawet dla
+idealnie koherentnego wzoru. Taper jest czystą geometrią, znaną dokładnie — po wstawieniu go do
+szablonu `frac` = 1.000. Bez tego projekcja zaniżała o 23% przy N=600, M=40.
+
+**Wyniki projekcji matched:**
+
+| przypadek | frac | limit 3σ |
+|---|---|---|
+| J0820-1350, szablon z właściwym P2 = −13.7 | +0.118 | — |
+| J0820-1350, odwrócony znak P2 = +13.7 | −0.118 | — |
+| J0820-1350, błędny P2 = +45 | −0.042 | — |
+| J1907+0731 (P3-only), wmówiony dryf P2 = +20 | 0.0004 ± 0.0001 | **0.0007** |
+
+Czyli zakres dynamiczny prawdziwy dryfer / P3-only ≈ **300×**. `frac` prawdziwego dryfera to 0.118,
+nie 1 — szablon jest pojedynczą sinusoidą, a realna modulacja ma harmoniczne i traci koherencję,
+więc `frac` jest dolnym ograniczeniem. **Próg degradacji (`demote_frac`, domyślnie 0.05) jest
+placeholderem** — trzeba go skalibrować przebiegiem po `input/drift_pulsars_P3.txt`.
+
+**Otwarty problem do rozstrzygnięcia:** J1907+0731 (kontrola negatywna) daje `T_inc` = 4.8–5.0σ przy
+`T` = 1.7σ. Kontrola off-pulse dla obu statystyk czysta (T_off = −0.3σ, **T_inc_off = 0.2σ**), więc
+to nie jest asymetria szumu ani zły null. Najbardziej prawdopodobna diagnoza: null używa surogatu
+**rank-1** (separowalnego), a jeśli pole jest rank ≥ 2 z niezależnymi modami czasowymi, surogat
+zaniża wariancję i zawyża istotność. Wskazówka zgodna: projekcje blokowe ≈ 0.00, czyli mapy bloków
+**nie zgadzają się ze sobą** — to sygnatura losowego uporządkowania między niezależnymi modami,
+a nie dryfu. Możliwa poprawka: surogat rank-r z niezależnie przesuwanymi w czasie modami.
+Do czasu rozstrzygnięcia: `T_inc` bez zgodności blokowej nie jest kandydatem na dryf.
+
+Werdykt degradacji jest zablokowany, gdy `T_inc` > 3σ — sprawdzone, dla J1907+0731 nie drukuje się.

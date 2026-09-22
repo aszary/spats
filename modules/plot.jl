@@ -2284,20 +2284,29 @@ module Plot
         subplot(2, 2, 4)
         nb = length(result.block_proj)
         if nb > 0
-            bar(1:nb, result.block_proj, color="steelblue", width=0.6)
+            cols = [x < 0 ? "indianred" : "steelblue" for x in result.block_proj]
+            bar(1:nb, result.block_proj, color=cols, width=0.6)
         end
         axhline(y=0, c="black", lw=0.5)
         xlabel("pulse block")
-        ylabel("\$\\langle A_b, A\\rangle\$ (normalised)")
+        ylabel("leave-one-out projection")
         ylim(-1.05, 1.05)
         minorticks_on()
+        # the incoherent sum is what catches a reverser the global map cancels
+        sigitxt = abs(result.significance_inc) > 999 ? ">999\$\\sigma\$" :
+                  @sprintf("%.1f\$\\sigma\$", result.significance_inc)
+        title("incoherent \$T_{\\mathrm{inc}} = \\sum_b \\sum A_b^2\$:  " * sigitxt,
+              fontsize=7)
 
         p2txt = isnan(result.p2) ?
             @sprintf("\$P_2 > %.0f\$ bins", result.p2_lower_limit) :
             @sprintf("\$P_2 = %.0f\$ bins", result.p2)
+        ftxt = isnan(result.frac_limit) ? "" :
+            @sprintf("  |  drift fraction at claimed \$P_2\$ = %.0f: %.3f \$\\pm\$ %.3f (< %.3f at 3\$\\sigma\$)",
+                     result.p2_template, result.frac, result.frac_err, result.frac_limit)
         suptitle("travel test:  " * sigtxt * "  |  " * p2txt *
                  @sprintf("  |  \$P_3 \\approx\$ %.1f  |  off-pulse control %.1f\$\\sigma\$",
-                          result.p3, result.significance_off), fontsize=7)
+                          result.p3, result.significance_off) * ftxt, fontsize=7)
 
         savepath = joinpath(outdir, "$(name_mod)_travel.pdf")
         savefig(savepath)
