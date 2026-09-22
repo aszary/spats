@@ -2186,6 +2186,134 @@ module Plot
 
 
     """
+    Travel-test diagnostic — four panels for `Travel.travel_test`.
+
+    Panel 1 is the statistic itself: the map A(Δ, τ) = K(Δ,τ) − K(−Δ,τ), the net
+    answer to "does longitude φ lead φ+Δ or the other way round?". Amplitude
+    modulation gives exactly zero there whatever its temporal behaviour, so any
+    coherent structure is travel. A drifting pattern makes a chequerboard —
+    A = 2·sin(2πΔ/P2)·sin(2πτ/P3) — whose cell size reads off both periods.
+
+    Panel 2 shows the two singular vectors of that map (the sinusoids above);
+    panel 3 the omnibus T = ΣA² against its surrogate distribution; panel 4 the
+    per-block projection, i.e. whether the same travel is present throughout the
+    observation, reverses, or fails to reproduce.
+
+    Writes `<name_mod>_travel.pdf/.png`.
+
+    Arguments:
+      result  – NamedTuple from Travel.travel_test
+      outdir  – output directory
+      nbin    – total profile bins (for the longitude-lag axis in degrees)
+    """
+    function travel(result, outdir, nbin::Int; name_mod="pulsar", show_=false)
+        A      = result.A_norm
+        dphis  = collect(result.dphis)
+        taus   = collect(result.taus)
+        dlon   = 360.0 .* dphis ./ nbin
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        # a hugely significant travel makes (T-<T>)/sigma enormous and unreadable;
+        # the p-value is the bounded statement, so cap what is printed
+        sigtxt = abs(result.significance) > 999 ? ">999\$\\sigma\$" :
+                 @sprintf("%.1f\$\\sigma\$", result.significance)
+
+        figure(figsize=(7.2, 5.0))
+        subplots_adjust(left=0.09, bottom=0.09, right=0.96, top=0.89,
+                        hspace=0.45, wspace=0.42)
+
+        # Panel 1: the travel map
+        subplot(2, 2, 1)
+        amax = maximum(abs.(A))
+        amax = amax > 0 ? amax : 1.0
+        imshow(A, origin="lower", aspect="auto", cmap="RdBu_r",
+               vmin=-amax, vmax=amax,
+               extent=[dlon[1], dlon[end], taus[1], taus[end]])
+        colorbar(fraction=0.046, pad=0.03)
+        xlabel("longitude lag \$\\Delta\$ (\$^\\circ\$)")
+        ylabel("pulse lag \$\\tau\$")
+        title("\$A(\\Delta,\\tau)/K(0,0)\$   " * sigtxt, fontsize=7)
+
+        # Panel 2: singular vectors of the map
+        ax2 = subplot(2, 2, 2)
+        ax2.plot(dlon, result.dphi_mode ./ maximum(abs.(result.dphi_mode)),
+                 "-", c="black", lw=0.9, label="\$\\Delta\$-mode")
+        ax2.axhline(y=0, c="grey", lw=0.4)
+        ax2.set_xlabel("longitude lag \$\\Delta\$ (\$^\\circ\$)")
+        ax2.set_ylabel("leading mode")
+        ax2.set_ylim(-1.2, 1.2)
+        ax2.minorticks_on()
+        ax2t = ax2.twiny()
+        ax2t.plot(taus, result.tau_mode ./ maximum(abs.(result.tau_mode)),
+                  "-", c="firebrick", lw=0.9, label="\$\\tau\$-mode")
+        ax2t.set_xlabel("pulse lag \$\\tau\$", color="firebrick")
+        ax2t.tick_params(axis="x", colors="firebrick")
+        h1, l1 = ax2.get_legend_handles_labels()
+        h2, l2 = ax2t.get_legend_handles_labels()
+        ax2.legend(vcat(h1, h2), vcat(l1, l2), fontsize=6, loc="lower right")
+        ax2.set_title(@sprintf("rank-1 fraction %.2f", result.rank1_frac),
+                      fontsize=7, pad=18)
+
+        # Panel 3: omnibus statistic against the surrogates, in units of the
+        # null spread so the histogram stays visible however strong the travel
+        subplot(2, 2, 3)
+        mu, sd = mean(result.T_null), std(result.T_null)
+        z_null = sd > 0 ? (result.T_null .- mu) ./ sd : zeros(length(result.T_null))
+        hist(z_null, bins=50, density=true, color="grey", alpha=0.7)
+        z_obs = result.significance
+        xhi = max(6.0, min(1.15 * z_obs, 20.0))
+        if z_obs <= xhi
+            axvline(x=z_obs, color="red", lw=1.2, label="\$T_{\\mathrm{obs}}\$")
+        else
+            axvline(x=0.97 * xhi, color="red", lw=1.2, ls=":",
+                    label="\$T_{\\mathrm{obs}}\$ " * sigtxt)
+        end
+        ptxt = result.p_value == 0 ?
+            @sprintf("p < %.1g", 1 / length(result.T_null)) :
+            @sprintf("p = %.2g", result.p_value)
+        xlim(-4, xhi)
+        xlabel("\$(T - \\langle T_{\\mathrm{null}}\\rangle) / \\sigma_{\\mathrm{null}}\$")
+        ylabel("density")
+        minorticks_on()
+        legend(fontsize=6, loc="upper right", title=ptxt, title_fontsize=6)
+
+        # Panel 4: is the same travel there all the way through?
+        subplot(2, 2, 4)
+        nb = length(result.block_proj)
+        if nb > 0
+            bar(1:nb, result.block_proj, color="steelblue", width=0.6)
+        end
+        axhline(y=0, c="black", lw=0.5)
+        xlabel("pulse block")
+        ylabel("\$\\langle A_b, A\\rangle\$ (normalised)")
+        ylim(-1.05, 1.05)
+        minorticks_on()
+
+        p2txt = isnan(result.p2) ?
+            @sprintf("\$P_2 > %.0f\$ bins", result.p2_lower_limit) :
+            @sprintf("\$P_2 = %.0f\$ bins", result.p2)
+        suptitle("travel test:  " * sigtxt * "  |  " * p2txt *
+                 @sprintf("  |  \$P_3 \\approx\$ %.1f  |  off-pulse control %.1f\$\\sigma\$",
+                          result.p3, result.significance_off), fontsize=7)
+
+        savepath = joinpath(outdir, "$(name_mod)_travel.pdf")
+        savefig(savepath)
+        savefig(replace(savepath, ".pdf" => ".png"))
+        println(savepath)
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
+    """
     Turn one psrcat record (parameter => value) into a (P, Pdot) entry.
 
     A large fraction of the ATNF catalogue lists the spin frequency instead of

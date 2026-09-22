@@ -8,6 +8,7 @@ module SpaTs
     include("modules/tools.jl")
     include("modules/phase_modulation.jl")
     include("modules/p3fold_viterbi.jl")
+    include("modules/travel.jl")
 
 
     function test(outdir)
@@ -274,6 +275,79 @@ module SpaTs
         end
         Plot.phase_drift_sliding(result, outdir, Int(p["nbin"]);
                                  name_mod="pulsar", show_=show_)
+        return result
+    end
+
+
+    """
+    Travel test — does the subpulse pattern move in longitude, or only brighten
+    and fade in place? Same question as `phase_modulation`, answered without
+    using P3 at all.
+
+    The statistic is the time asymmetry of the two-dimensional correlation of
+    the single-pulse stack, A(Δ,τ) = K(Δ,τ) − K(−Δ,τ): in words, "does longitude
+    φ light up before or after φ+Δ?". Amplitude modulation means every longitude
+    follows one waveform scaled by a real factor, and such a field gives A ≡ 0
+    *identically* — an algebraic property of the sum, not a statistical one, so
+    it holds for a wobbling P3, for nulls, for a modulation that is not periodic
+    at all, and for two components in antiphase (the case that reads as a
+    spurious high-significance drift in `phase_modulation3`). Zapped pulses are
+    harmless for the same reason. See the `Travel` module docstring for the
+    derivation and for how this differs from the 2DFS centroid criterion, which
+    uses the same information channel with a biased estimator.
+
+    Because no P3 is needed, this works on pulsars whose LRFS feature is smeared
+    away — and it *returns* an estimate of P3, plus P2 and the drift sense, from
+    the singular vectors of the map.
+
+    Always read `significance_off` alongside the result: it is the identical
+    statistic on an off-pulse strip and must be consistent with zero. If it is
+    not, the noise is not time-reversal symmetric (gain drift, RFI, a bad
+    baseline) and the on-pulse number means nothing.
+
+    `datafile` selects the single-pulse ASCII file inside `outdir`; the split
+    sub-band products of `process_psrdata_16` are e.g. "pulsar_high_debase.txt".
+
+    Typical call after process_psrdata:
+      process_psrdata("/home/psr/data/new/J0820-1350/.../", vpmout*"J0820-1350")
+      travel_test(vpmout*"J0820-1350")
+    """
+    function travel_test(outdir; max_lag=40, max_dphi=nothing, hp_halfwin=50,
+                         nreal=500, nblocks=4, pulse_st=nothing, pulse_end=nothing,
+                         datafile="pulsar.debase.txt", name_mod="pulsar", show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, datafile))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        result = Travel.travel_test(
+            data, Int(p["bin_st"]), Int(p["bin_end"]);
+            max_lag=max_lag, max_dphi=max_dphi, hp_halfwin=hp_halfwin,
+            nreal=nreal, nblocks=nblocks, pulse_st=pulse_st, pulse_end=pulse_end)
+        ptxt = result.p_value == 0 ? "p < $(round(1/nreal, sigdigits=1))" :
+                                     "p = $(round(result.p_value, sigdigits=2))"
+        # a very strong travel drives (T-<T>)/σ to absurd values; p is the bounded statement
+        sigtxt = abs(result.significance) > 999 ? ">999" :
+                 string(round(result.significance, digits=1))
+        println("Travel detection:  $sigtxt σ ($ptxt)")
+        println("Off-pulse control: $(round(result.significance_off, digits=1)) σ " *
+                (abs(result.significance_off) > 3 ?
+                 "— FAILED, noise is not time-symmetric, ignore the result above" :
+                 "— ok"))
+        println("Map structure:     rank-1 fraction $(round(result.rank1_frac, digits=2))")
+        if isnan(result.p2)
+            println("P2:                > $(round(result.p2_lower_limit, digits=0)) bins " *
+                    "(no zero crossing within the searched lag range)")
+        else
+            println("P2:                $(round(result.p2, digits=1)) bins " *
+                    "($(result.direction > 0 ? "positive" : "negative") drift sense)")
+        end
+        println("P3 (by-product):   " * (isnan(result.p3) ?
+                "not resolved — raise max_lag above ~P3/2" :
+                "$(round(result.p3, digits=1)) P0 (indicative)"))
+        println("Block consistency: $(round(result.block_consistency, digits=2)) " *
+                "over $(length(result.block_proj)) blocks" *
+                (any(<(0), result.block_proj) && any(>(0), result.block_proj) ?
+                 " — both signs present, travel direction reverses" : ""))
+        Plot.travel(result, outdir, Int(p["nbin"]); name_mod=name_mod, show_=show_)
         return result
     end
 

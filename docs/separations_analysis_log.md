@@ -915,3 +915,53 @@ odrzuceniu pulsów. Do sprawdzenia, skąd pochodzi.
 
 Otwarte: (1) skąd 13.3531 dla J1819+1305 w merged; (2) czy wciągać dane Macieja jako osobne
 `zrodlo` — na razie NIE scalone, plik leży jako `input/separations_maciej.csv`.
+
+---
+
+## 2026-09-22 — Test „travel": dryf vs modulacja amplitudowa bez użycia P3
+
+**Cel.** Nowa metoda rozróżniania dryfu od P3-only, niezależna od kryterium Song et al. 2023
+(offset centroidy mocy w 2DFS względem osi 1/P2 = 0). Motywacja: centroida mocy jest obciążona
+przez stochastyczną zmienność kształtu pulsu, która piętrzy moc wzdłuż 1/P2 = 0.
+
+**Metoda.** Dwuwymiarowa autokorelacja fluktuacji, K(Δ,τ) = Σ δI(n,φ)·δI(n+τ,φ+Δ), i jej część
+antysymetryczna A(Δ,τ) = K(Δ,τ) − K(−Δ,τ) — „czy długość φ wyprzedza φ+Δ, czy odwrotnie".
+Modulacja amplitudowa jest separowalna, δI = a(φ)w(n), więc K = C_a(Δ)·C_w(τ), a C_w jest
+**dokładnie** parzysta w τ (przeindeksowanie sumy, nie stacjonarność). Stąd A ≡ 0 tożsamościowo:
+dla dowolnego w(n) — wędrujące P3, nulling, brak okresowości — i dla a(φ) zmieniającego znak,
+czyli dla antyfazowej AM, która w `phase_modulation3` czyta 25σ fałszywego dryfu.
+
+Formalnie ten sam kanał informacji co asymetria 2DFS, ale estymator rzutuje część symetryczną
+do zera algebraicznie zamiast ją uśredniać w centroidzie, i całkuje po całej płaszczyźnie (Δ,τ)
+zamiast po jednym binie f3.
+
+**Implementacja.** `modules/travel.jl` (moduł `Travel`), `Plot.travel`, wrapper
+`SpaTs.travel_test(outdir; ...)` z parametrem `datafile` (obsługuje też `pulsar_high_debase.txt`
+z katalogów `_16`). Null: surogat separowalny rank-1 + szum bootstrapowany z ciągłych pasków
+off-pulse z losowym przesunięciem cyklicznym w czasie. Kontrola off-pulse wbudowana.
+
+**Walidacja** (`work/scripts/travel_check.jl`, `travel_stress.jl`, `Travel.selftest()`):
+
+| test | wynik |
+|---|---|
+| FFT vs suma wprost | zgodność 4e-16 |
+| pole separowalne (wędrujące P3 + nulling + skok znaku) | max\|A\| = 1.1e-16 × K(0,0) |
+| wzór bieżący syntetyczny | P2 = 18.0 (prawda 18), P3 = 12.0 (prawda 12), rank1 = 1.00 |
+| J0820-1350 (B0818−13, znany dryfer) | >999σ, rank1 = 0.999, P3 = 4.8 vs katalog 4.78 |
+| J1907+0731 (P3-only) | 1.7σ (p = 0.07), rank1 = 0.09, bloki ≈ 0.00 |
+| J2053-7200 (wobble P3 opróżnia bin LRFS) | **110σ** — `phase_modulation` daje tam 0.5σ |
+| J1750-3503 (dryf odwracający kierunek) | 163σ, bloki pokazują oba znaki wprost |
+| J1110-5637 (silny koherentny dryf) | 81σ |
+
+Kontrola off-pulse przeszła wszędzie (|σ| ≤ 2.1).
+
+**Uwagi.** (1) Przy bardzo silnym dryfie (T − ⟨T⟩)/σ eksploduje do 10⁵ — sensowną liczbą jest
+p-value ograniczone przez `nreal`; printout i rysunek zakrywają to jako „>999σ". (2) P2 i P3
+z przejść przez zero modów SVD są **poglądowe** (relacja P/2 jest ścisła tylko dla czystej
+sinusoidy; harmoniczne i zanik koherencji przesuwają przejście o kilka–20%). (3) Projekcja
+blokowa liczona leave-one-out — projekcja na mapę globalną zawierałaby człon własny i dawała
+~1/√n_bloków dla samego szumu (początkowo dawało to mylące 0.48 dla J1907+0731).
+
+**Otwarte:** batch po 114/115 pulsarach P3-only (katalogi `<PSR>_16/`, plik
+`pulsar_high_debase.txt`); kontrola pozytywna na 418 dryferach z `input/drift_pulsars_P3.txt`;
+analiza populacyjna (π₀ z rozkładu p-value) zamiast 115 niezależnych progów 3σ.
