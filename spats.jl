@@ -740,10 +740,10 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         results = Dict{String, Any}()
 
         for (i, name) in enumerate(names)
-            # Try joinpath(vpmout, name * "_16"), then vpmout * name * "_16", then fallback to name without _16
-            outdir = joinpath(vpmout, name * "_16")
+            # Try joinpath(vpmout, name), then vpmout * name * , then fallback to name without _16
+            outdir = joinpath(vpmout, name)
             if !isdir(outdir)
-                outdir = vpmout * name * "_16"
+                outdir = vpmout * name
             end
             if !isdir(outdir)
                 outdir = joinpath(vpmout, name)
@@ -753,7 +753,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
             end
 
             if !isdir(outdir)
-                @warn "[$i/$(length(names))] Output dir not found for $name (checked: $(joinpath(vpmout, name * "_16"))), skipping."
+                @warn "[$i/$(length(names))] Output dir not found for $name (checked: $(joinpath(vpmout, name))), skipping."
                 continue
             end
 
@@ -850,7 +850,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         
         
         
-        phase_modulation3(vpmout*"J1750-3503_16"; show_=true)
+        phase_modulation3(vpmout*"J1750-3503"; show_=true)
         phase_modulation3_list("output", "input/pulsars.txt")
 
 
