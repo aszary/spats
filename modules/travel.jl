@@ -355,7 +355,31 @@ end
 
 
 """
-    noise_block!(dest, Xhp, starts, width, rng)
+    offpulse_strips(bin_st, bin_end, nbins, width) -> (strips, wrapped)
+
+Column index sets for the noise surrogates, `width` bins each, all off-pulse.
+
+Normally these are the contiguous strips of `offpulse_starts`, which keep the
+correlation between neighbouring longitude bins exactly as the data has it. A
+pulsar whose profile is wider than the longest off-pulse run has no such strip
+(seen in the TPA sample for on-pulse windows of ~350 bins); rather than refuse
+to analyse it, the strips are then taken cyclically around the off-pulse index
+list, which costs one splice point per strip and is flagged by `wrapped`.
+"""
+function offpulse_strips(bin_st::Int, bin_end::Int, nbins::Int, width::Int)
+    s = offpulse_starts(bin_st, bin_end, nbins, width)
+    isempty(s) || return ([collect(a:a+width-1) for a in s], false)
+    off  = vcat(1:bin_st-1, bin_end+1:nbins)
+    noff = length(off)
+    noff >= width || error(
+        "Off-pulse region ($noff bins) is narrower than the on-pulse window " *
+        "($width bins): no noise surrogates possible")
+    return ([off[[mod1(a + k, noff) for k in 0:width-1]] for a in 1:noff], true)
+end
+
+
+"""
+    noise_block!(dest, Xhp, strips, rng)
 
 Draw one noise realisation into `dest`: a contiguous off-pulse strip of `width`
 longitude bins, taken from the already high-passed data `Xhp` and given a random
@@ -369,10 +393,10 @@ decorrelates realisations drawn from overlapping strips; it splices the end of
 the observation onto the start once, which is negligible over ~10³ pulses.
 """
 function noise_block!(dest::AbstractMatrix, Xhp::AbstractMatrix,
-                      starts::Vector{Int}, width::Int, rng)
-    a = starts[rand(rng, 1:length(starts))]
-    sh = rand(rng, 0:size(Xhp, 1)-1)
-    dest .= circshift(@view(Xhp[:, a:a+width-1]), (sh, 0))
+                      strips::Vector{Vector{Int}}, rng)
+    idx = strips[rand(rng, 1:length(strips))]
+    sh  = rand(rng, 0:size(Xhp, 1)-1)
+    dest .= circshift(@view(Xhp[:, idx]), (sh, 0))
     return dest
 end
 
@@ -444,6 +468,73 @@ end
 
 
 """
+    fit_geometry(E, K00, max_lag, max_dphi, npulses, non; n2, n3) -> NamedTuple
+
+Find the (|P2|, P3) at which the pulsar has the most coherent modulation, by
+maximising the *even* projection over a grid.
+
+Fitting on the even half and not the odd one is the whole point: the even half
+measures how much coherent modulation sits at a given geometry regardless of
+whether it travels, so choosing the geometry this way cannot manufacture travel.
+The odd projection is then measured at the geometry the pulsar itself picks, and
+its sign — not the grid — decides the drift direction.
+
+This replaces taking P3 from a catalogue, which fails badly: across the TPA
+sample the ratio of the map's own P3 to the catalogue value has median 0.37 for
+pulsars that then read R < 0.3, against 1.02 for those reading R > 0.7. A
+mismatched P3 puts the template's τ oscillation out of phase with the map and
+drives the projection *negative*, which looks exactly like "no travel" and is
+not.
+
+Evaluated in closed form rather than by building 1600 templates. With
+W[t,d] = E[t,d]·(1−t/N)(1−d/M), the numerator factorises into two matrix
+products, and ‖template‖² separates exactly into a τ factor times a Δ factor.
+"""
+function fit_geometry(E::AbstractMatrix, K00::Real, max_lag::Int, max_dphi::Int,
+                      npulses::Int, non::Int; n2::Int=48, n3::Int=48,
+                      p3_fixed::Union{Real,Nothing}=nothing)
+    p2g = exp.(range(log(4.0), log(8.0 * max_dphi), length=n2))
+    p3g = isnothing(p3_fixed) ?
+          exp.(range(log(2.0), log(max(4.0, 2.0 * max_lag)), length=n3)) :
+          [Float64(p3_fixed)]
+    n3  = length(p3g)
+    tapt = [1 - t / npulses for t in 1:max_lag]
+    tapd = [1 - d / non      for d in 1:max_dphi]
+
+    W  = E .* tapt .* tapd'                                  # (τ × Δ)
+    Cd = [cos(2π * d / p2g[i]) for d in 1:max_dphi, i in 1:n2]
+    Ct = [cos(2π * t / p3g[j]) for t in 1:max_lag,  j in 1:n3]
+    num = 2 .* (Ct' * (W * Cd))                              # ⟨E, te⟩, (p3 × p2)
+
+    nd = [sum(tapd[d]^2 * cos(2π * d / p2g[i])^2 for d in 1:max_dphi) for i in 1:n2]
+    nt = [sum(tapt[t]^2 * cos(2π * t / p3g[j])^2 for t in 1:max_lag)  for j in 1:n3]
+    den = 4 .* (nt * nd')                                    # ‖te‖²
+
+    # Selection must not be won by the smooth bulk of E. At large P2 and P3 the
+    # even template is nearly constant and simply matches the always-positive
+    # body of the correlation, which is how J2053-7200 (true P3 = 3.06) fitted
+    # P3 = 58 and read a spurious R = 0.12. So the geometry is chosen by the
+    # matched-filter amplitude of the template *orthogonalised against the
+    # constant* (taper-only) model, which that corner cannot exploit.
+    # Measurement then uses the plain template, keeping the equal-coefficient
+    # identity that R relies on; where the template oscillates over many cycles
+    # ⟨te,t0⟩ ≈ 0 anyway and the two coincide.
+    md0 = [sum(tapd[d]^2 * cos(2π * d / p2g[i]) for d in 1:max_dphi) for i in 1:n2]
+    mt0 = [sum(tapt[t]^2 * cos(2π * t / p3g[j]) for t in 1:max_lag)  for j in 1:n3]
+    te_t0 = 2 .* (mt0 * md0')                                # ⟨te, t0⟩
+    t0_t0 = sum(abs2, tapt) * sum(abs2, tapd)                # ⟨t0, t0⟩
+    E_t0  = sum(W)                                           # ⟨E, t0⟩
+
+    num_o  = num .- te_t0 .* (E_t0 / t0_t0)
+    den_o  = den .- te_t0 .^ 2 ./ t0_t0
+    S = num_o ./ sqrt.(max.(den_o, eps()))                   # matched-filter amplitude
+    S[.!isfinite.(S)] .= -Inf
+    j, i = Tuple(argmax(S))
+    return (p2 = p2g[i], p3 = p3g[j], frac_even = num[j, i] / (K00 * den[j, i]))
+end
+
+
+"""
     travel_test(data, bin_st, bin_end; kwargs...) -> NamedTuple
 
 Test whether the subpulse pattern travels in longitude, from the time asymmetry
@@ -474,7 +565,14 @@ Keywords:
   p2_template, p3_template – claimed P2 (in longitude bins, signed) and P3 (in
                pulse periods). Supplying both switches on the matched
                projection, which is what makes a *demotion* possible; omitting
-               them leaves the `frac` fields NaN
+               them leaves the `frac` fields NaN. Pass `p2_template=:auto` to
+               fit both from the pulsar's own map with `fit_geometry` (P3 is
+               then ignored) — the right choice for a blind batch, since a
+               catalogue P3 that disagrees with the map drives the projection
+               negative. Note the geometry is then chosen on the same data the
+               projection is measured from, which biases `frac_even` up and so
+               `R` slightly *down*; the surrogates use the fixed fitted
+               template and do not carry that selection
   pulse_st, pulse_end – analyse only this pulse range (default: all)
 
 Fields of the returned NamedTuple:
@@ -574,7 +672,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
                      max_lag::Int=40, max_dphi::Union{Int,Nothing}=nothing,
                      hp_halfwin::Int=50, nreal::Int=500,
                      seed::Union{Int,Nothing}=7, nblocks::Int=4,
-                     p2_template::Union{Real,Nothing}=nothing,
+                     p2_template::Union{Real,Symbol,Nothing}=nothing,
                      p3_template::Union{Real,Nothing}=nothing,
                      pulse_st::Union{Int,Nothing}=nothing,
                      pulse_end::Union{Int,Nothing}=nothing)
@@ -592,11 +690,8 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     X   = Xhp[:, on]
     N   = size(X, 1)
 
-    starts = offpulse_starts(bin_st, bin_end, nbins, M)
-    isempty(starts) && error(
-        "Off-pulse region narrower than the on-pulse window ($M bins): " *
-        "no room for the noise surrogates or the off-pulse control")
-    noise_var = var(vcat((vec(@view Xhp[:, a:a+M-1]) for a in starts[1:min(end, 8)])...))
+    strips, wrapped = offpulse_strips(bin_st, bin_end, nbins, M)
+    noise_var = var(vcat((vec(@view Xhp[:, ix]) for ix in strips[1:min(end, 8)])...))
 
     # the block split is fixed up front: the incoherent statistic, the
     # consistency check and the surrogates must all use the same one
@@ -608,10 +703,22 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     T     = sum(abs2, A)
     T_inc = _inc_power(blocks)
 
-    have_t = !(isnothing(p2_template) || isnothing(p3_template))
-    tmpl  = have_t ? drift_template(max_lag, md, p2_template, p3_template;
+    r = ridge(A)
+    # :auto takes the template geometry from the pulsar's own map. Convenient for
+    # a blind batch, but the P2 is then chosen on the same data the projection is
+    # measured from, which biases frac_odd up; the surrogates use the fixed
+    # template and so do not carry that selection. Read R only where T or T_inc
+    # actually detects something.
+    p2t, p3t = if p2_template === :auto
+        g = fit_geometry(E, K00, max_lag, md, N, M; p3_fixed=p3_template)
+        g.p2, g.p3          # |P2|; the sign is read off the odd projection below
+    else
+        p2_template, p3_template
+    end
+    have_t = !(isnothing(p2t) || isnothing(p3t) || isnan(p2t) || isnan(p3t))
+    tmpl  = have_t ? drift_template(max_lag, md, p2t, p3t;
                                     npulses=N, non=M) : nothing
-    tmple = have_t ? drift_template_even(max_lag, md, p2_template, p3_template;
+    tmple = have_t ? drift_template_even(max_lag, md, p2t, p3t;
                                          npulses=N, non=M) : nothing
     tnorm  = have_t ? sum(abs2, tmpl)  : 0.0
     tnorme = have_t ? sum(abs2, tmple) : 0.0
@@ -632,7 +739,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     frac_null   = zeros(nreal)
     frace_null  = zeros(nreal)
     for i in 1:nreal
-        noise_block!(buf, Xhp, starts, M, rng)
+        noise_block!(buf, Xhp, strips, rng)
         Xn .= Xsig .+ buf
         _, As, Es, bs = _travel_maps(Xn, max_lag, md, edges)
         T_null[i]     = sum(abs2, As)
@@ -656,14 +763,14 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
             abs(R) * sqrt((frac_err / frac)^2 + (frac_even_err / frac_even)^2)
 
     # off-pulse control: the same two statistics where there is no signal at all
-    a0 = starts[length(starts) ÷ 2 + 1]
-    _, Aoff, _, boff = _travel_maps(@view(Xhp[:, a0:a0+M-1]), max_lag, md, edges)
+    idx0 = strips[length(strips) ÷ 2 + 1]
+    _, Aoff, _, boff = _travel_maps(@view(Xhp[:, idx0]), max_lag, md, edges)
     T_off     = sum(abs2, Aoff)
     T_inc_off = _inc_power(boff)
     T_off_null     = zeros(nreal)
     T_inc_off_null = zeros(nreal)
     for i in 1:nreal
-        noise_block!(buf, Xhp, starts, M, rng)
+        noise_block!(buf, Xhp, strips, rng)
         _, As, _, bs = _travel_maps(buf, max_lag, md, edges)
         T_off_null[i]     = sum(abs2, As)
         T_inc_off_null[i] = _inc_power(bs)
@@ -685,7 +792,6 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         end
     end
 
-    r = ridge(A)
     return (
         on_bins      = on,
         taus         = 1:max_lag,
@@ -701,8 +807,8 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         T_inc_null   = T_inc_null,
         significance_inc = significance_inc,
         p_value_inc  = p_value_inc,
-        p2_template  = p2_template,
-        p3_template  = p3_template,
+        p2_template  = p2t,
+        p3_template  = p3t,
         frac         = frac,
         frac_err     = frac_err,
         frac_sig     = frac_sig,
@@ -726,6 +832,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         T_inc_off    = T_inc_off,
         significance_inc_off = significance_inc_off,
         pulse_range  = (ps, pe),
+        offpulse_wrapped = wrapped,
     )
 end
 
