@@ -843,7 +843,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         # Parameter relations distinguishing Drifting vs P3-only pulsars
         #Relations.plot_all_relations("output")
 
-        phase_modulation3()
+        phase_modulation3_list("output", "input/p3only_pulsars_P3.txt")
 
 
 
