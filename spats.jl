@@ -279,67 +279,7 @@ module SpaTs
     end
 
 
-    """
-    Run `phase_modulation3` on a list of pulsars (passed as a Vector of names or a file path).
-    Automatically resolves output directory structure: `vpmout * name * "_16"`.
-    """
-    function phase_modulation3_list(vpmout, psr_input;
-                                    window=32, stride=1, nreal=1000, sig_min=3.0, show_=false)
-        names = String[]
-        if psr_input isa AbstractString
-            path = normpath(psr_input)
-            if !isfile(path) && isfile(joinpath(@__DIR__, psr_input))
-                path = normpath(joinpath(@__DIR__, psr_input))
-            end
-            isfile(path) || error("Pulsar list file not found: $psr_input")
-            for line in eachline(path)
-                s = strip(line)
-                (isempty(s) || startswith(s, "#")) && continue
-                push!(names, String(first(split(s))))
-            end
-        elseif psr_input isa AbstractVector
-            for item in psr_input
-                push!(names, String(item))
-            end
-        else
-            error("Invalid psr_input: expected String file path or Vector of pulsar names")
-        end
-
-        results = Dict{String, Any}()
-
-        for (i, name) in enumerate(names)
-            # Try joinpath(vpmout, name * "_16"), then vpmout * name * "_16", then fallback to name without _16
-            outdir = joinpath(vpmout, name * "_16")
-            if !isdir(outdir)
-                outdir = vpmout * name * "_16"
-            end
-            if !isdir(outdir)
-                outdir = joinpath(vpmout, name)
-            end
-            if !isdir(outdir)
-                outdir = vpmout * name
-            end
-
-            if !isdir(outdir)
-                @warn "[$i/$(length(names))] Output dir not found for $name (checked: $(joinpath(vpmout, name * "_16"))), skipping."
-                continue
-            end
-
-            println("\n[$i/$(length(names))] Running phase_modulation3 for PSR $name ($outdir)...")
-            try
-                res = phase_modulation3(outdir; window=window, stride=stride,
-                                       nreal=nreal, sig_min=sig_min, show_=show_)
-                results[name] = res
-            catch e
-                @warn "Failed for $name: $e"
-            end
-        end
-
-        println("\nBatch phase_modulation3 complete: $(length(results)) / $(length(names)) processed.")
-        return results
-    end
-
-
+   
     """
     Globally-optimized P3-fold (per-pulse Viterbi phase assignment), as an
     alternative to the `pfold -p3fold` refine used elsewhere in this file
@@ -771,6 +711,66 @@ Phase-drift vs amplitude-modulation test on already-processed data.
 
 
 
+ """
+    Run `phase_modulation3` on a list of pulsars (passed as a Vector of names or a file path).
+    Automatically resolves output directory structure: `vpmout * name *`.
+    """
+    function phase_modulation3_list(vpmout, psr_input;
+                                    window=32, stride=1, nreal=1000, sig_min=3.0, show_=false)
+        names = String[]
+        if psr_input isa AbstractString
+            path = normpath(psr_input)
+            if !isfile(path) && isfile(joinpath(@__DIR__, psr_input))
+                path = normpath(joinpath(@__DIR__, psr_input))
+            end
+            isfile(path) || error("Pulsar list file not found: $psr_input")
+            for line in eachline(path)
+                s = strip(line)
+                (isempty(s) || startswith(s, "#")) && continue
+                push!(names, String(first(split(s))))
+            end
+        elseif psr_input isa AbstractVector
+            for item in psr_input
+                push!(names, String(item))
+            end
+        else
+            error("Invalid psr_input: expected String file path or Vector of pulsar names")
+        end
+
+        results = Dict{String, Any}()
+
+        for (i, name) in enumerate(names)
+            # Try joinpath(vpmout, name * "_16"), then vpmout * name * "_16", then fallback to name without _16
+            outdir = joinpath(vpmout, name * "_16")
+            if !isdir(outdir)
+                outdir = vpmout * name * "_16"
+            end
+            if !isdir(outdir)
+                outdir = joinpath(vpmout, name)
+            end
+            if !isdir(outdir)
+                outdir = vpmout * name
+            end
+
+            if !isdir(outdir)
+                @warn "[$i/$(length(names))] Output dir not found for $name (checked: $(joinpath(vpmout, name * "_16"))), skipping."
+                continue
+            end
+
+            println("\n[$i/$(length(names))] Running phase_modulation3 for PSR $name ($outdir)...")
+            try
+                res = phase_modulation3(outdir; window=window, stride=stride,
+                                       nreal=nreal, sig_min=sig_min, show_=show_)
+                results[name] = res
+            catch e
+                @warn "Failed for $name: $e"
+            end
+        end
+
+        println("\nBatch phase_modulation3 complete: $(length(results)) / $(length(names)) processed.")
+        return results
+    end
+
 
 
 
@@ -847,7 +847,11 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         # Parameter relations distinguishing Drifting vs P3-only pulsars
         #Relations.plot_all_relations("output")
 
-        phase_modulation3_list(vpmout, "input/p3only_pulsars_P3.txt")
+        
+        
+        
+        phase_modulation3(vpmout*"J1750-3503"; show_=true)
+        #phase_modulation3_list("output", "input/pulsars.txt")
 
 
 
