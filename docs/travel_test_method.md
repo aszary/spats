@@ -1,106 +1,125 @@
-# Test „travel": dryf podpulsów czy modulacja amplitudowa, bez użycia P3
+# Test „travel": dryf podpulsów czy modulacja amplitudowa
 
 **Stan na 2026-09-23.** Metoda rozstrzygania, czy wzór podpulsów **przemieszcza się** w długości
-(dryf, modulacja fazowa), czy tylko **jaśnieje i gaśnie w miejscu** (P3-only, modulacja
-amplitudowa) — niezależna od kryterium Song et al. (2023) i wolna od jego głównego obciążenia.
+(dryf), czy tylko **jaśnieje i gaśnie w miejscu** (P3-only) — niezależna od kryterium
+Song et al. (2023) i wolna od jego głównego obciążenia.
 
 Repozytorium: `github.com/aszary/spats`, gałąź `claude`.
 Kod: `modules/travel.jl` (moduł `Travel`), `Plot.travel`, `SpaTs.travel_test`.
 Skrypty: `~/claude/work/scripts/travel_*.jl`, `check_onpulse.jl`.
-Dziennik roboczy: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`, symlink).
+Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`, symlink).
 
 ---
 
 ## 1. Problem
 
 Song et al. (2023) klasyfikują cechę w 2DFS jako dryf, jeśli jej **centroida mocy** jest istotnie
-przesunięta względem osi 1/P₂ = 0; brak przesunięcia przy maksimum na niezerowym 1/P₃ to P3-only.
-
-Słabość jest w estymatorze, nie w idei. Stochastyczna zmienność kształtu pulsu wrzuca moc
-skoncentrowaną **wzdłuż osi 1/P₂ = 0**. Gdy ta moc jest asymetryczna — a zwykle jest — centroida
-liczona w ręcznie zakreślonym prostokącie przesuwa się od zera i przy niedoszacowanym błędzie
-przekracza próg. Pozorny offset bierze się wtedy z **biasu centroidy**, nie z faktycznego
-przemieszczania się podpulsów. Dodatkowo test istotności przez shuffle kolejności impulsów bada
-hipotezę „to tylko szum", a nie właściwą hipotezę zerową „to mogłaby być czysta modulacja
-amplitudowa".
+przesunięta względem osi 1/P₂ = 0. Słabość jest w estymatorze, nie w idei: stochastyczna zmienność
+kształtu pulsu wrzuca moc wzdłuż osi 1/P₂ = 0, a gdy ta moc jest asymetryczna — zwykle jest —
+centroida przesuwa się od zera i przy niedoszacowanym błędzie przekracza próg. Pozorny offset bierze
+się z **biasu centroidy**, nie z ruchu podpulsów. Dodatkowo test istotności przez shuffle bada
+hipotezę „to tylko szum", a nie właściwą „to mogłaby być czysta modulacja amplitudowa".
 
 ---
 
-## 2. Idea: separowalność i tożsamość zerowa
+## 2. Tożsamość zerowa
 
-Niech `δI(n, φ)` będzie fluktuacją natężenia po odjęciu profilu statycznego. Dwuwymiarowa
-autokorelacja:
+Dla fluktuacji `δI(n, φ)` po odjęciu profilu statycznego:
 
 ```
 K(Δ, τ) = Σ_{n,φ}  δI(n,φ) · δI(n+τ, φ+Δ)
 ```
 
-**Każda** modulacja amplitudowa jest *separowalna*: wszystkie długości podążają za jedną falą
-czasową, przeskalowaną rzeczywistym (także ujemnym) współczynnikiem, `δI(n,φ) = a(φ)·w(n)`. Wtedy
-`K(Δ,τ) = [Σ_φ a(φ)a(φ+Δ)]·[Σ_n w(n)w(n+τ)]`, a drugi czynnik jest **dokładnie parzysty w τ**:
+**Każda** modulacja amplitudowa jest *separowalna*: `δI(n,φ) = a(φ)·w(n)` z rzeczywistym (także
+ujemnym) a(φ). Wtedy `K = [Σ_φ a(φ)a(φ+Δ)]·[Σ_n w(n)w(n+τ)]`, a drugi czynnik jest **dokładnie
+parzysty w τ**:
 
 ```
 Ĉ_w(−τ) = Σ_n w(n)·w(n−τ)  = [m = n−τ] =  Σ_m w(m+τ)·w(m) = Ĉ_w(τ)
 ```
 
-To ta sama suma po tych samych parach, tylko przeindeksowana — **żadnego założenia o w(n)**: może
-wędrować okresem, gasnąć, przestać być okresowe. Stąd
+To ta sama suma po tych samych parach — **żadnego założenia o w(n)**. Stąd
 
 ```
 A(Δ, τ) = K(Δ, τ) − K(Δ, −τ)  ≡  0     przy modulacji amplitudowej
 ```
 
-**tożsamościowo**, dla zrealizowanych danych, a nie w wartości oczekiwanej. Fala bieżąca
-`δI = f(φ − v·n)` daje `K = C_f(Δ − vτ)`, co parzyste w τ nie jest.
-
-Bez zakładania separowalności `A(Δ,τ) = Σ_φ [C_{φ,φ+Δ}(τ) − C_{φ+Δ,φ}(τ)]`, czyli netto odpowiedź
-na pytanie **„czy długość φ wyprzedza φ+Δ?"**. Zeruje się dla: składowych w antyfazie (a(φ)
-zmieniające znak pozostaje separowalne), niezależnych modulacji o różnych P3, zapowanych impulsów
-i po filtrze wysokopasmowym (ten sam dla każdej długości).
+**tożsamościowo**, dla zrealizowanych danych. Bez zakładania separowalności
+`A = Σ_φ [C_{φ,φ+Δ}(τ) − C_{φ+Δ,φ}(τ)]`, czyli netto „czy długość φ wyprzedza φ+Δ?". Zeruje się
+dla składowych w antyfazie, niezależnych modulacji o różnych P3, impulsów zapowanych i po filtrze
+wysokopasmowym.
 
 ---
 
 ## 3. Związek z 2DFS
 
-To **nie jest nowy kanał informacji** — transformata K to widmo mocy 2D, a to, co przeżywa w A, to
-asymetria względem k_φ → −k_φ, formalnie ten sam kanał co klasyczne kryterium 2DFS. Różnica jest w
-estymatorze:
+To nie jest nowy kanał informacji — transformata K to widmo mocy 2D, a A to jego asymetria względem
+k_φ → −k_φ, formalnie ten sam kanał co kryterium 2DFS. Różnica jest w estymatorze: część symetryczna
+jest **rzutowana do zera algebraicznie** zamiast uśredniana w centroidzie, używana jest cała
+płaszczyzna (Δ, τ) zamiast ręcznego prostokąta, a model zerowy to modulacja amplitudowa, nie szum.
 
-| | Song et al. | test travel |
+---
+
+## 4. Dwa różne pytania
+
+Rozdzielenie ich jest kluczowe i długo je myliłem.
+
+| | pytanie | statystyka | założenia |
+|---|---|---|---|
+| **A** | czy jest **jakikolwiek** ruch? (czyli: czy to na pewno nie jest czysta modulacja amplitudowa) | `T`, `T_inc` | brak — tożsamość z §2 |
+| **B** | czy modulacja to **zasadniczo** ruch, o charakterze sztywnej translacji? | `ρ` | wymaga mierzalnej geometrii (P₂, P₃) |
+
+Klasyfikacja Song et al. jest jakościowa i binarna, więc odpowiada jej **pytanie A**. `ρ` to
+charakterystyka dodatkowa, cenna tam, gdzie da się ją policzyć, ale **nie jest produktem głównym** —
+przez pewien czas błędnie ją za taki uważałem.
+
+Różnica ma znaczenie praktyczne: `T` jest statystyką detekcyjną, więc jej istotność rośnie z S/N.
+Jasny pulsar, w którym wędruje 1% modulacji, da ogromne `T`. „T = 300σ" znaczy „ruch jest
+wykrywalny", a nie „ten pulsar jest dryferem".
+
+---
+
+## 5. Produkt główny: T, T_inc i kontrole
+
+### 5.1 Statystyki
+
+**`T = Σ A(Δ,τ)²`** — omnibus, bez założeń o geometrii.
+
+**`T_inc = Σ_b Σ A_b²`** — suma niekoherentna po blokach impulsów. `T` liczy się na jednej globalnej
+mapie, więc dryfer spędzający tyle samo czasu w każdym kierunku kasuje się; kalibracja: zbalansowany
+reverser daje **T/T_inc = 3.4·10⁻⁶**. `T_inc` płaci wyższym progiem szumu, więc dla dryfu stałego
+jest mniej czuła. Raportować obie.
+
+### 5.2 Kontrole, bez których wynik nie znaczy nic
+
+**Off-pulse.** Ta sama statystyka na pasku bez sygnału — musi wyjść zgodna z zerem. Jedyna realna
+podatność metody to szum niesymetryczny w czasie (dryf wzmocnienia, RFI, zła linia bazowa).
+W pełnym przebiegu odrzuciła 3 z 515.
+
+**Spójność blokowa** (leave-one-out; projekcja na mapę globalną zawierałaby człon własny i dawała
+~1/√n dla szumu). To filtr na dwie rzeczy naraz: prawdziwy dryf odtwarza się w kolejnych blokach,
+a **losowe uporządkowanie między niezależnymi modami — nie**. Bez niej `T_inc` bywa mylące
+(§7.2).
+
+### 5.3 Wynik na pełnej próbce
+
+| etykieta Song+23 | w analizie | z detekcją ≥5σ |
 |---|---|---|
-| część symetryczna | wchodzi do centroidy i ją obciąża | rzutowana do zera **algebraicznie** |
-| obszar | ręcznie zakreślony prostokąt | cała płaszczyzna (Δ, τ) |
-| założenie o P3 | trafienie w bin f₃ | żadne (P3 wchodzi dopiero w szablonie, §5) |
-| model zerowy | szum (shuffle) | modulacja amplitudowa |
+| drift | 405 | **330 (82%)** |
+| p3only | 107 | **57 (53%)** |
+
+Te 53% to potencjalnie mocny wynik — ponad połowa próbki P3-only pokazuje uporządkowanie w czasie,
+czyli nie jest czystą modulacją amplitudową. **Ale nie należy go wypowiadać przed naprawą nullu
+rank-1** (§7.2), bo część tych detekcji może być artefaktem modelu zerowego.
 
 ---
 
-## 4. Statystyki detekcji
+## 6. Charakterystyka dodatkowa: ρ
 
-**`T = Σ A(Δ,τ)²`** — omnibus, bez żadnych założeń o geometrii.
+### 6.1 Konstrukcja
 
-**`T_inc = Σ_b Σ A_b²`** — suma niekoherentna po blokach impulsów. T liczy się na jednej globalnej
-mapie, więc dryfer spędzający tyle samo czasu w każdym kierunku kasuje się. Kalibracja: zbalansowany
-reverser daje **T/T_inc = 3.4·10⁻⁶**. T_inc płaci wyższym progiem szumu, więc dla dryfu stałego jest
-mniej czuła — raportować obie.
-
----
-
-## 5. Klasyfikator ρ
-
-### 5.1 Szablon i dwie połowy modelu
-
-Dla wzoru `cos(2π(φ/P₂ − n/P₃))`:
-
-```
-A(Δ,τ)/K(0,0) = (1 − τ/N)(1 − Δ/M) · 2 · sin(2πΔ/P₂) · sin(2πτ/P₃)
-```
-
-Czynnik `(1 − τ/N)(1 − Δ/M)` to **trójkątny taper korelacji liniowej** — przy opóźnieniu (Δ,τ)
-sumuje się po (N−τ)(M−|Δ|) parach wobec NM w zerze. Czysta geometria; pominięcie zaniża projekcję
-o 23% przy N = 600, M = 40.
-
-Rozwinięcie cosinusa różnicy daje dwie połowy **o równych współczynnikach**:
+Dla wzoru `cos(2π(φ/P₂ − n/P₃))` rozwinięcie cosinusa różnicy daje dwie połowy **o równych
+współczynnikach**:
 
 ```
 cos(2π(Δ/P₂ − τ/P₃)) = cos(2πΔ/P₂)cos(2πτ/P₃)  +  sin(2πΔ/P₂)sin(2πτ/P₃)
@@ -108,98 +127,152 @@ cos(2π(Δ/P₂ − τ/P₃)) = cos(2πΔ/P₂)cos(2πτ/P₃)  +  sin(2πΔ/P�
 ```
 
 Nieparzystą mierzy `A = antisym_map(K)`, parzystą `E = sym_map(K)`. Modulacja amplitudowa, będąc
-separowalną, wkłada wszystko w parzystą i nic w nieparzystą.
-
-### 5.2 Dlaczego ρ, a nie iloraz R
-
-Pierwotnie używałem `R = frac_odd/frac_even` (1 dla dryfu, 0 dla AM). To **tangens** kąta w
-płaszczyźnie (odd, even) i ma biegun: gdy projekcja parzysta maleje, R eksploduje (zaobserwowane
-4.03 i 3.40) i wymaga strażnika „mianownik istotny", który generuje NaN-y. Lekarstwem byłyby progi
-na `rank1` i spójność blokową — czyli dwa parametry swobodne.
-
-Zamiast tego **sinus tego samego kąta**:
+separowalną, wkłada wszystko w parzystą. Rzutując na oba szablony (z trójkątnym taperem
+`(1−τ/N)(1−Δ/M)` korelacji liniowej — jego pominięcie zaniża projekcję o 23% przy N=600, M=40):
 
 ```
 ρ = √2 · frac_odd / √(frac_odd² + frac_even²)
 ```
 
-ρ = 1 dla sztywnego dryfu, 0 dla modulacji amplitudowej, **ograniczone przez √2**, zawsze
-zdefiniowane, zero parametrów. Znak niesie kierunek dryfu, więc klasyfikatorem jest **|ρ|**.
-`R` zostaje w wyniku, bo relacje w §5.1 są w nim sformułowane.
+ρ = 1 dla sztywnego dryfu, 0 dla modulacji amplitudowej, ograniczone przez √2, zawsze zdefiniowane.
+Klasyfikatorem jest |ρ|; znak niesie kierunek dryfu. (Wcześniejszy `R = odd/even` to tangens tego
+samego kąta i ma biegun — stąd wartości 4.03, NaN-y i potrzeba dwóch progów jakości. Zostaje w
+wyniku, bo relacje wyżej są w nim sformułowane.)
 
-### 5.3 Dlaczego iloraz w ogóle — problem cyrkularności
+### 6.2 Po co iloraz — cyrkularność
 
 Ocena samego `frac_odd` wymagałaby wiedzy, ile zwraca prawdziwy dryfer, a oczywista próbka
-referencyjna (pulsary oznaczone `drift`) to dokładnie zbiór podejrzany o skażenie. ρ bierze miarę
-**z tego samego pulsara**: siła modulacji, harmoniczne, zanik koherencji i taper mnożą obie połowy
-identycznie i kasują się. Skala problemu: wśród dryferów `frac_odd` rozciąga się na 25×, a ρ na 2×.
+referencyjna (pulsary oznaczone `drift`) to zbiór podejrzany o skażenie. ρ bierze miarę **z tego
+samego pulsara**: siła modulacji, harmoniczne, zanik koherencji i taper mnożą obie połowy tak samo
+i kasują się. Wśród dryferów `frac_odd` rozciąga się na 25×, a ρ na 2×.
 
-### 5.4 Wyznaczanie geometrii
+### 6.3 Geometria
 
-**|P₂| dopasowywane** skanem (siatka logarytmiczna, 48 punktów) maksymalizującym **projekcję
-parzystą**. To istotne: parzysta mierzy koherentną modulację niezależnie od ruchu, więc wybór
-geometrii **nie może wyprodukować ruchu**. Znak P₂ wychodzi ze znaku projekcji nieparzystej.
+**|P₂| dopasowywane** skanem maksymalizującym projekcję **parzystą** — parzysta mierzy koherentną
+modulację niezależnie od ruchu, więc wybór geometrii nie może wyprodukować ruchu. Znak P₂ wychodzi
+ze znaku projekcji nieparzystej.
 
-**P₃ NIE jest dopasowywane** — brane z pomiaru LRFS w `params.json`. Swobodny fit ucieka w róg
-dużych P₂/P₃, gdzie szablon jest prawie stały i łapie gładkie tło mapy (J2053-7200 dopasowało 63
-zamiast 3.06, ρ spadło do 0.12). Ortogonalizacja szablonu względem modelu stałego tego **nie
-naprawia** — sprawdzone, tło nie leży wzdłuż kierunku stałej.
+**P₃ NIE jest dopasowywane** — brane z pomiaru LRFS. Swobodny fit ucieka w róg dużych P₂/P₃
+(J2053-7200: 63 zamiast 3.06).
 
-Skan liczony w postaci zamkniętej (dwa mnożenia macierzy).
+**`max_dphi` powinno pochodzić z zasięgu emisji (W₃σ), nie z zadeklarowanego okna** — patrz §8.3.
 
----
+### 6.4 Wynik tam, gdzie geometria jest mierzalna
 
-## 6. Model zerowy i kontrole
+Reżim P₂fit ≤ M/2, 179 pulsarów:
 
-**Surogaty.** Pod H₀ sygnał wnosi do A dokładnie zero, więc cała wariancja pochodzi z członów
-szumowych. Surogat = wiodący mod SVD danych (czyli dokładnie separowalny) przeskalowany do
-odszumionej mocy, plus szum **bootstrapowany z własnego off-pulse'u pulsara** (ciągły pasek tej
-samej szerokości, losowe przesunięcie cykliczne w czasie). Gdy profil jest szerszy niż najdłuższy
-ciągły fragment off-pulse, pasek brany cyklicznie po liście binów (flaga `offpulse_wrapped`).
-
-**Kontrola off-pulse.** Ta sama statystyka na pasku bez sygnału — musi wyjść zgodna z zerem. Jedyna
-realna podatność metody to szum niesymetryczny w czasie (dryf wzmocnienia, RFI, zła linia bazowa).
-W pełnym przebiegu odrzuciła **3 z 515**.
-
-**Spójność blokowa.** Projekcja mapy każdego bloku na sumę pozostałych (**leave-one-out** —
-projekcja na mapę globalną zawierałaby człon własny i dawała ~1/√n_bloków dla szumu).
-
----
-
-## 7. Dane: pełne pasmo
-
-Katalogi `<PSR>_16/` zawierały tylko podpasma, tworzone z 16-kanałowego `pulsar.spCf16` przez
-`paz -Z` (zapuje wymienione kanały, zostaje reszta):
-
-| plik | `paz -Z` | zostaje | szerokość |
+| | n | mediana ρ | kwartyle |
 |---|---|---|---|
-| `low` | `3-15` | kanały 0–2 | 3/16 |
-| `mid` | `0-6 9-15` | kanały 7–8 | 2/16 |
-| `high` | `0-12` | kanały 13–15 | 3/16 |
+| **drift** | 172 | **1.011** | 0.830–1.087 |
+| p3only | 7 | 0.324 | 0.092–0.926 |
 
-Podpasmo kosztuje czynnik ~2.25 w RMS (J0601-0527: 0.0275 pełne pasmo wobec 0.062 dla `low`,
-zgodnie z √(16/3)). **Pierwszy przebieg mieszał dane** — 85 pulsarów pełnopasmowych i 430 na 3/16
-pasma — co dla frakcji detekcji jest niedopuszczalne. Pełne pasmo odtwarzane jest raz i **zostaje w
-katalogu `_16`**:
+**Mediana 1.011 na 172 niezależnych pulsarach przy przewidywaniu teorii dokładnie 1 i zerowej
+liczbie parametrów swobodnych.** Sama geometria też rozróżnia: mediana P₂fit/M = **0.39** dla drift
+(63% poniżej 1) wobec **1.39** dla p3only (21% poniżej 1).
 
-```
-pulsar.full             pam -F -u <dir> -e full pulsar.spCf16      8.5 MB
-pulsar_full.debase.gg   pmod -onpulse "<bst> <ben>" -device /NULL -debase   8.5 MB
-pulsar_full_debase.txt  pdv -t -F                                   55 MB
-```
-
-~7 s na pulsara, ~38 GB dla 534 katalogów. Katalogi bez `_16` mają `pulsar.debase.txt` już
-pełnopasmowe.
-
-**Wstępne przetwarzanie**: filtr wysokopasmowy biegnącą średnią, `hp_halfwin = 50` impulsów —
-świadomie łagodny. Ten sam dla każdej długości, więc separowalność (a z nią tożsamość zerowa)
-zostaje nienaruszona.
+ρ **nie zależy od S/N** — pozorna zależność w próbce zbiorczej była paradoksem Simpsona: w obu
+grupach geometrii ρ jest płaskie (0.912/1.006/1.032 oraz 0.342/0.326/0.318 dla rosnącego S/N),
+a S/N steruje tylko tym, do której grupy pulsar trafia (40%/54%/61% w grupie P₂/M < 0.5).
 
 ---
 
-## 8. Walidacja
+## 7. Model zerowy
 
-### 8.1 Syntetyczna (`Travel.selftest()`)
+### 7.1 Konstrukcja
+
+Pod H₀ sygnał wnosi do A dokładnie zero, więc cała wariancja pochodzi z członów szumowych. Surogat =
+wiodący mod SVD (czyli dokładnie separowalny) przeskalowany do odszumionej mocy, plus szum
+**bootstrapowany z własnego off-pulse'u** pulsara (ciągły pasek tej samej szerokości, losowe
+przesunięcie cykliczne w czasie; przy profilu szerszym niż najdłuższy ciągły fragment — cyklicznie
+po liście binów, flaga `offpulse_wrapped`).
+
+### 7.2 PRIORYTET: surogat jest rank-1, a pole może być rank ≥ 2
+
+To jest **najważniejszy otwarty problem**, bo od niego zależy wiarygodność produktu głównego.
+
+Jeśli pole ma dwa lub więcej niezależnych modów czasowych, surogat rank-1 zaniża wariancję i zawyża
+istotność `T` oraz `T_inc`. Objaw wzorcowy — J1907+0731: `T_inc` = 4.8σ przy `T` = 1.7σ, kontrole
+off-pulse czyste (−0.3σ i 0.2σ), a projekcje blokowe ≈ 0.00. Mapy bloków **nie zgadzają się ze
+sobą** — sygnatura losowego uporządkowania między niezależnymi modami, nie dryfu.
+
+Reguła robocza do czasu naprawy: **`T_inc` bez zgodności blokowej nie jest kandydatem na dryf.**
+Kierunek naprawy: surogat rank-r z niezależnie przesuwanymi w czasie modami.
+
+---
+
+## 8. Dane i okna
+
+### 8.1 Pełne pasmo
+
+Katalogi `<PSR>_16/` zawierały tylko podpasma z `paz -Z` (zapuje wymienione kanały, zostaje reszta):
+`low` = kanały 0–2, `mid` = 7–8, `high` = 13–15. Podpasmo kosztuje czynnik ~2.25 w RMS (J0601-0527:
+0.0275 wobec 0.062, zgodnie z √(16/3)). Pierwszy przebieg mieszał 85 pulsarów pełnopasmowych z 430
+na 3/16 pasma — niedopuszczalne dla frakcji detekcji. Pełne pasmo odtwarzane raz i **zostaje w
+katalogu `_16`**: `pulsar.full` / `pulsar_full.debase.gg` / `pulsar_full_debase.txt`, ~7 s i ~72 MB
+na pulsara.
+
+Wstępne przetwarzanie: filtr wysokopasmowy biegnącą średnią, `hp_halfwin = 50` — ten sam dla każdej
+długości, więc separowalność (a z nią tożsamość zerowa) zostaje nienaruszona.
+
+### 8.2 Okna on-pulse są hojne, ale poprawne
+
+Na 515 pulsarach: M medianowo **116 binów** wobec zasięgu emisji W₃σ = **56**, stosunek 0.49, szczyt
+wewnątrz okna u **512/515**. Okna są dwukrotnie szersze niż kontur 3σ, ale to normalna praktyka —
+próg 3σ obcina skrzydła — a nie błąd automatu `pmod`.
+
+### 8.3 Mechanizm zależności od okna i jego naprawa
+
+Okno **nie psuje ρ bezpośrednio**: przy P₂ ustalonym na sztywno ρ wynosi 0.871/0.906/0.977/0.894 dla
+M = 100…250, czyli bez trendu. Rozcieńczenie szumem kasuje się w ilorazie.
+
+Łańcuch przyczynowy jest inny:
+
+1. `max_dphi = M/2`, więc szersze okno = dalszy przeszukiwany zakres Δ, wchodzący w obszar bez
+   emisji.
+2. Fit P₂ maksymalizuje projekcję parzystą, a w rogu dużych P₂ szablon parzysty jest prawie stały
+   i dopasowuje się do gładkiego tła. P₂fit idzie 150 → 186 → 232 → **309** przy prawdziwym 150.
+3. Zawyżone P₂ kaleczy **asymetrycznie**: przy Δ → 0 `cos(2πΔ/P₂) → 1` (pełna waga tam, gdzie sygnał
+   jest), a `sin(2πΔ/P₂) → 0` (zerowa waga tam, gdzie sygnał jest). Kanał nieparzysty traci pokrycie
+   z sygnałem, parzysty nie. ρ leci w dół.
+
+**Naprawa: `max_dphi` z zasięgu emisji, nie z okna.** Zweryfikowane — P₂fit staje się idealnie
+stabilne (150.2 przy M = 100, 150, 200, 250), a zjazd ρ spada z 0.87→0.65 do 0.87→0.78. Bez nowych
+parametrów: W₃σ jest zmierzone dla wszystkich 515 pulsarów. **Niewdrożone w pełnym przebiegu.**
+
+Poszerzanie samego okna szkodzi niezależnie (rozcieńcza sygnał, zawyża P₂fit do 309 przy M = 250,
+zjada obszar off-pulse — przy M = 300 metoda przestaje działać). Zwiększanie samego zasięgu Δ też
+nie pomaga. Powód zasadniczy: **informacja o okresie w długości pochodzi wyłącznie z obszaru, który
+świeci.**
+
+---
+
+## 9. Reżimy: kiedy P₂ jest w ogóle mierzalne
+
+Liczba jednocześnie widocznych podpulsów to ≈ **W/P₂**. Jeśli **P₂ > W**, w danym impulsie widać
+najwyżej jeden podpuls, wędrujący przez profil. To jest fizycznie dopuszczalne: P₂ jest duże, gdy
+iskier w karuzeli jest mało albo gdy linia widzenia przecina pierścień emisji blisko prostopadle
+(wąski zakres azymutu karuzeli). Przy przejściu stycznym jest odwrotnie.
+
+**W tym reżimie P₂ nie jest mierzalne, a jedynie ograniczone od dołu.** Nie widać dwóch sąsiednich
+podpulsów naraz, więc w danych nie ma periodyczności w długości. Stąd:
+
+- ucieczka fitu na kraniec siatki **nie jest usterką**, tylko poprawną odpowiedzią „P₂ ≥ tyle";
+  wartości P₂fit powyżej M należy raportować jako **limity, nie pomiary**;
+- ρ degraduje się w sposób zmierzony: 0.85 przy P₂/M = 2, 0.64 przy 4 — częściowo z powodu
+  nieusuwalnego ubytku informacji (to samo ogranicza 2DFS), częściowo z powodu wyboru szablonu
+  wymagającego pełnego cyklu;
+- `T` i `T_inc` działają **bez zmian**, bo nie zakładają geometrii. W tym reżimie mamy więc
+  detekcję ruchu, ale klasyfikacja przez ρ jest niepewna i **nie wolno z niej robić degradacji**.
+
+W granicy dużego P₂ `sin(2πΔ/P₂) → 2πΔ/P₂`, czyli szablon nieparzysty staje się liniowy w Δ — to
+ta sama informacja, którą mierzy gradient fazy w `PhaseDrift.drift_test`. Dodanie tego wariantu
+granicznego jako osobnej statystyki dla reżimu P₂ > W jest naturalnym uzupełnieniem.
+
+---
+
+## 10. Walidacja
+
+### 10.1 Syntetyczna (`Travel.selftest()`)
 
 | test | wynik |
 |---|---|
@@ -208,225 +281,141 @@ zostaje nienaruszona.
 | syntetyczna fala bieżąca | P₂ = 18.0 (prawda 18), P₃ = 12.0 (prawda 12), rank1 = 1.00 |
 | projekcja matched w prawdziwej geometrii | frac = 1.000 |
 | ρ dla czystego dryfu | 1.000 |
-| ρ dla fali bieżącej + stojącej o tych samych okresach | 0.607 przy przewidzianym analitycznie 0.600 |
+| ρ dla fali bieżącej + stojącej | 0.607 przy przewidzianym analitycznie 0.600 |
 | zbalansowany reverser | T/T_inc = 3.4·10⁻⁶ |
 
-Przewidywanie dla mieszaniny: fala stojąca to pół bieżącej w przód plus pół w tył, więc
-`ρ = (a_f² − a_b²)/(a_f² + a_b²)` w wersji ilorazowej.
-
-### 8.2 Krzywa odniesienia ρ(P₂/M)
-
-Syntetyk z obwiednią gaussowską i szumem, sztywny dryf o rosnącym P₂:
+### 10.2 Krzywa odniesienia ρ(P₂/M)
 
 | P₂/M | 0.25 | 0.5 | 1.0 | 1.5 | 2.0 | 3.0 | 4.0 |
 |---|---|---|---|---|---|---|---|
-| **ρ** | 1.00 | 1.00 | 0.98 | 0.87 | 0.85 | 0.69 | 0.64 |
+| ρ | 1.00 | 1.00 | 0.98 | 0.87 | 0.85 | 0.69 | 0.64 |
 
-Dryf o P₂ szerszym niż profil jest tłumiony **łagodnie, nie zapada się**. To jest materiał
-odniesienia, nie kryterium stosowane przez kod.
+Materiał odniesienia, nie kryterium stosowane przez kod.
 
-### 8.3 Pełna próbka (533 pulsary, pełne pasmo)
+### 10.3 ρ wobec wartości P₃
 
-533 policzone, 18 błędów (5 bez danych, 7 bez okna on-pulse, 6 z profilem szerszym niż off-pulse),
-kontrola off-pulse odrzuciła 3 z 515, do analizy 512, z detekcją ≥5σ **387**.
+Sztywny dryf, P₂/M = 0.4, zmienne P₃: ρ = **0.988 / 0.988 / 0.989 / 0.989 / 0.989** dla
+P₃ = 2.05 / 2.5 / 3.5 / 5 / 9. **Wersja szablonowa jest zupełnie niewrażliwa na wartość P₃.**
 
-Etykiety Song et al. użyte **wyłącznie jako zbiór testowy** — nic się na nich nie uczy.
+**Wędrujące P₃** (P₃(n) = 5 + 2·sin(2πn/300), czyli 3–7): T = 8530σ, ρ = **1.387**. Detekcja bez
+problemu, klasyfikacja poprawna, ale ρ **przeskakuje powyżej 1**. To pierwsza hipoteza tłumacząca
+ogon ρ > 1.1 u 25 realnych dryferów (§11 pkt 2) — wędrujące P₃ jest u pulsarów powszechne.
 
-W **reżimie rozdzielczym** (P₂fit ≤ M/2, czyli szablon zamyka pełny cykl w przeszukiwanym zakresie
-Δ — warunek rozdzielczości, nie dobrany próg), 179 pulsarów:
+### 10.4 Test stabilności okna
 
-| | n | mediana ρ | kwartyle |
+ρ przy oknie 1.0 / 1.5 / 2.0 × W₃σ: prawdziwe dryfery są odporne (J0034-0721: 1.042/1.067/1.048;
+J0151-0635: 0.970/1.011/1.006), ale obiekty o niskim ρ chwieją się nawet 40-krotnie (J1239+2453:
+0.011/0.374/0.461). Walidacja populacyjna stoi, ale **pojedynczy obiekt o niskim ρ nie jest
+zmierzony bez tego testu**. Uwaga: kryterium „rozrzut/σ_ρ" **nie działa** — formalne σ_ρ łapie tylko
+szum surogatów i jest o rząd wielkości za małe dla jasnych (J0034-0721: rozrzut 0.025 przy
+σ_ρ = 0.001) i za duże dla słabych. Liczy się rozrzut bezwzględny.
+
+### 10.5 Wariant bez szablonu — sprawdzony i odrzucony
+
+Skoro sztywny dryf daje obu połowom równe współczynniki, ich **normy** też powinny być równe, więc
+`√(‖A‖²/‖E‖²)` byłoby klasyfikatorem bez żadnej geometrii. Na syntetyku działa i jest całkowicie
+odporne na szerokość okna (0.819/0.829/0.829/0.829 tam, gdzie wersja szablonowa spada 0.872 → 0.653).
+Ma też policzalną korektę na próbkowanie τ: bez niej przy P₃ = 2.05 czyta 0.407 zamiast 1, bo
+‖sin‖²/‖cos‖² = 0.160; po podzieleniu przez √(‖sin‖²/‖cos‖²) wraca do 1.017–1.021 w całym zakresie
+P₃ = 2–9.
+
+**Ale na danych rzeczywistych zawodzi:**
+
+| | mediana drift | mediana p3only | rozdzielczość |
 |---|---|---|---|
-| **drift** | 172 | **1.011** | 0.830–1.087 |
-| p3only | 7 | 0.324 | 0.092–0.926 |
+| z szablonem | **1.048** | **0.361** | **2.9×** |
+| bez szablonu + korekta | 0.746 | 0.599 | 1.25× |
 
-**Mediana 1.011 na 172 niezależnych pulsarach przy przewidywaniu teorii dokładnie 1 i zerowej
-liczbie parametrów swobodnych** — to najmocniejszy wynik tej pracy.
+J0034-0721 (B0031−08, podręcznikowy dryfer, T > 999σ) czyta **0.203**. Powód: `‖E‖²` zbiera **całe
+tło mapy** — autokorelację profilu przy małych Δ, harmoniczne, składowe niezwiązane z dryfem —
+a `‖A‖²` nie, bo A znika przy Δ = 0 z konstrukcji. Mianownik jest zawyżony o rzeczy, które z
+geometrią dryfu nie mają nic wspólnego.
 
-Poza reżimem: drift 0.32 (n≈121), p3only 0.15 (n≈45).
-
-Rozkład samej geometrii też rozróżnia: mediana P₂fit/M wynosi **0.39 dla drift** (63% poniżej 1)
-wobec **1.39 dla p3only** (21% poniżej 1). Dryfer ma znajdywalne P₂ wewnątrz profilu, P3-only nie ma
-preferowanej geometrii i fit ucieka w górę siatki.
-
-### 8.4 ρ nie zależy od S/N
-
-Pozorna zależność w próbce zbiorczej okazała się **efektem składu (paradoks Simpsona)**:
-
-| | T ∈ [5,30) | [30,300) | [300,∞) |
-|---|---|---|---|
-| ρ przy P₂/M < 0.5 (drift) | 0.912 | 1.006 | 1.032 |
-| ρ przy P₂/M ≥ 1 (drift) | 0.342 | 0.326 | 0.318 |
-| udział P₂/M < 0.5 wśród dryferów | 40% | 54% | 61% |
-
-W obu grupach ρ jest płaskie; S/N steruje tylko tym, do której grupy pulsar trafia.
+**To jest właściwa odpowiedź na pytanie „po co w ogóle fit P₂": szablon jest jedyną rzeczą, która
+wycina z mapy część związaną z dryfem i odrzuca resztę.** Syntetyk tego nie pokazał, bo pojedyncza
+sinusoida daje A i E identyczną strukturę. `rho_free` zostaje w module jako diagnostyka (ile w mapie
+jest struktury poza modelem dryfu), nie jako klasyfikator.
 
 ---
 
-## 9. Okna on-pulse i stabilność wyniku
+## 11. Ograniczenia, w kolejności ważności
 
-### 9.1 Same okna są w porządku
-
-Na 515 pulsarach (profile średnie z `pdv -t -F -T`, `check_onpulse.jl`):
-
-| | mediana | kwartyle |
-|---|---|---|
-| M (okno z `params.json`) | 116 binów | 90–157 |
-| W₃σ (zasięg emisji) | 56 binów | 37–80 |
-| **W₃σ / M** | **0.49** | 0.38–0.60 |
-
-Okna są medianowo dwukrotnie szersze niż kontur 3σ, ale szczyt leży wewnątrz okna u **512 z 515**.
-To normalna praktyka — próg 3σ obcina skrzydła — a nie błąd automatu `pmod`.
-
-### 9.2 Poszerzanie okna szkodzi, nie pomaga
-
-Syntetyk, ta sama emisja, coraz szersze okno (P₂ prawdziwe = 150 binów):
-
-| M | frac_odd | ρ | P₂fit |
-|---|---|---|---|
-| 100 (dopasowane) | 0.384 | **0.872** | **150.2** ✓ |
-| 150 | 0.213 | 0.802 | 185.7 |
-| 200 | 0.123 | 0.750 | 231.5 |
-| 250 | 0.070 | 0.653 | **308.9** ✗ |
-| 300 | — | — | błąd: on-pulse przerósł off-pulse |
-
-Zawyżone M rozcieńcza sygnał (K(0,0) rośnie o kolumny szumu), psuje ρ, **zawyża P₂** (taper zakłada
-dane sięgające M) i zjada obszar off-pulse. Zwiększanie samego zasięgu Δ przy stałym oknie też nie
-pomaga (md = 0.5M vs 0.9M: przy P₂/M = 3 ρ spada z 0.688 na 0.614). Powód jest zasadniczy:
-**informacja o okresie w długości pochodzi wyłącznie z obszaru, który świeci** — dokładanie szumu
-nie wydłuża bazy pomiarowej.
-
-### 9.3 Test stabilności okna — kluczowe zastrzeżenie
-
-ρ policzone przy oknie 1.0 / 1.5 / 2.0 × W₃σ:
-
-| pulsar | rola | ρ @1.0× | ρ @1.5× | ρ @2.0× |
-|---|---|---|---|---|
-| J0034-0721 | kontrola (dryfer) | 1.042 | 1.067 | 1.048 |
-| J0151-0635 | kontrola (dryfer) | 0.970 | 1.011 | 1.006 |
-| J1239+2453 | kand. degradacji | **0.011** | 0.374 | **0.461** |
-| J2048-1616 | kand. degradacji | 0.021 | 0.003 | **0.481** |
-| J1921+2003 | kand. degradacji | 0.055 | 0.084 | 0.035 |
-| J1810-5338 | kand. promocji | 0.566 | 0.438 | 0.770 |
-
-**Prawdziwe dryfery są odporne** (ρ i P₂ powtarzalne do kilku procent) — więc walidacja z §8.3 nie
-zależy od wyboru okien. **Ale obiekty o niskim ρ są chwiejne**, nawet 40-krotnie. Mechanizm jest
-zrozumiały: ρ = odd/hypot(odd, even), więc przy liczniku bliskim zeru drobne zmiany zawartości okna
-nim rzucają.
-
-**Konsekwencja: żadna lista kandydatów nie ma prawa iść dalej bez testu stabilności okna.** To nie
-jest dostrajany parametr, tylko wymóg odporności — obiekt, który przy 1.0× daje 0.01, a przy 2.0×
-daje 0.48, po prostu nie jest zmierzony. Dotyczy to obu kierunków; w szczególności J1810-5338,
-najczystszy kandydat do promocji z pierwszego przejścia, **nie przeszedł** tego testu.
-
----
-
-## 10. Ograniczenia i problemy otwarte
-
-1. **Listy kandydatów nie są jeszcze wiarygodne** — patrz §9.3. Potrzebny test stabilności okna na
-   każdym obiekcie (trzy przebiegi zamiast jednego, albo tylko dla obiektów skrajnych).
-
-2. **Systematyczne ρ > 1 u dobrych dryferów.** 25 obiektów przekracza 1.1 na 3σ, w tym J1519-6106 z
-   ρ = 1.315 ± 0.008 przy rank1 = 0.97 i spójności 0.91. Model przewiduje ρ ≤ 1. Mediana trzyma się
-   (1.011), ale rozrzut w górę nie jest szumem i **nie jest wyjaśniony**. Do rozstrzygnięcia przed
-   publikacją. Kandydaci: składowa stojąca odejmująca od kanału parzystego (zademonstrowane na
-   syntetyku, R = 1.32 dla dryfu z rampą), złe uwarunkowanie przy P₃ ≈ 2 (przy P₃ = 2.05 norma
-   szablonu nieparzystego jest 6× mniejsza niż parzystego), ruch nie-sztywny, bi-drifting.
-
-3. **Gdzie metoda ma moc.** Poza reżimem rozdzielczym obie klasy zapadają się do niskiego ρ. Ale
-   krzywa z §8.2 mówi, że prawdziwy dryf przy P₂/M = 1.5–3 dałby 0.69–0.87, a realne „drift" z
-   P₂/M ≥ 1 dają 0.32 — więc metoda tam **jednak rozróżnia**, słabiej. Ograniczenie do P₂ ≤ M/2
-   było za ostre; właściwym odniesieniem jest krzywa, nie cięcie próbki.
-
-4. **Null jest rank-1, a pole może być rank ≥ 2.** J1907+0731 daje T_inc = 4.8σ przy T = 1.7σ i
-   czystej kontroli off-pulse, przy projekcjach blokowych ≈ 0 — sygnatura losowego uporządkowania
-   między niezależnymi modami, nie dryfu. Reguła robocza: **T_inc bez zgodności blokowej nie jest
-   kandydatem na dryf.**
-
-5. **Geometria dopasowywana na tych samych danych**, na których mierzona jest projekcja, zawyża
-   `frac_even` i tym samym lekko zaniża ρ. Surogaty używają ustalonego szablonu.
-
-6. **Degeneracja nieusuwalna**: „dryf" i „kontinuum składowych opóźnionych w czasie" to ten sam
+1. **Null rank-1 wobec pola rank ≥ 2** (§7.2) — priorytet, bo dotyczy produktu głównego.
+2. **Niewyjaśnione ρ > 1 u 25 dobrych dryferów** (J1519-6106: 1.315 ± 0.008 przy rank1 = 0.97).
+   Model przewiduje ρ ≤ 1. Hipoteza: wędrujące P₃ (§10.3). Inne kandydatki: składowa stojąca
+   odejmująca od kanału parzystego (na syntetyku R = 1.32 dla dryfu z rampą), złe uwarunkowanie
+   przy P₃ ≈ 2, ruch nie-sztywny, bi-drifting.
+3. **`max_dphi` z emisji niewdrożone** w pełnym przebiegu (§8.3) — naprawa zweryfikowana, ale
+   wyniki w `travel_batch_full.csv` jej nie zawierają.
+4. **Listy kandydatów wymagają testu stabilności okna** (§10.4); dotąd żadna go nie ma.
+5. **Reżim P₂ > W**: detekcja działa, klasyfikacja przez ρ nie (§9).
+6. **Geometria dopasowywana na tych samych danych**, co zawyża `frac_even` i zaniża ρ.
+7. **Degeneracja nieusuwalna**: „dryf" i „kontinuum składowych opóźnionych w czasie" to ten sam
    obserwabl.
-
-7. **P₂ raportowane w binach**, a w literaturze w stopniach (`360·P₂/nbin`). Do zamiany w tabeli
-   wynikowej.
-
-8. **Kolejność kanałów niezweryfikowana** — zakładam kanał 0 = dół pasma za nazewnictwem w kodzie,
-   ale `vap`/`psredit` nie wystawiają częstotliwości per kanał dla tych plików. Bez znaczenia przy
-   pełnym paśmie, istotne przy porównaniu międzyczęstotliwościowym.
+8. **P₂ raportowane w binach**, w literaturze w stopniach (`360·P₂/nbin`).
+9. **Kolejność kanałów niezweryfikowana** (zakładam kanał 0 = dół pasma za nazewnictwem w kodzie).
 
 ---
 
-## 11. Historia poprawek
-
-Każdy z tych błędów dawał wynik wyglądający wiarygodnie.
+## 12. Historia poprawek
 
 | błąd | objaw | przyczyna |
 |---|---|---|
-| brak tapera w szablonie | `frac` = 0.767 zamiast 1 dla syntetyku o znanej geometrii | korelacja liniowa sumuje po (N−τ)(M−\|Δ\|) parach wobec NM w zerze |
-| projekcja blokowa z członem własnym | 0.48 dla czystego szumu | projekcja na mapę globalną zawiera wkład bloku → ~1/√n |
-| znak P₂ ze zgadywanki `ridge` | ujemne R czytane jako „brak ruchu", 31 fałszywych kandydatów | kryterium musi być na module; znak jest fizyczny |
-| swobodny fit P₃ | J2053-7200 dopasowało 63 zamiast 3.06, ρ = 0.12 | maksimum ucieka w róg dużych P₂/P₃; ortogonalizacja względem stałej nie wystarcza |
-| iloraz zamiast kąta | R = 4.03 i 3.40, cztery NaN-y, konieczność dwóch progów | tangens ma biegun — ρ (sinus) go nie ma |
-| batch mieszał dane | 85 pulsarów pełnopasmowych, 430 na 3/16 pasma | różnica czułości ~2.25× w amplitudzie |
-| zmiana sygnatury `_travel_maps` | test reversera czytał 2000 zamiast 3.4·10⁻⁶ | rozpakowanie 4-krotki do 2 zmiennych; złapane przez selftest |
-| sprawdzenie okna on-pulse po fakcie | 7 pulsarów z nieczytelnym `ArgumentError` z `Cmd` | `nothing` interpolowane do polecenia `pmod` |
+| brak tapera w szablonie | `frac` = 0.767 zamiast 1 | korelacja liniowa sumuje po (N−τ)(M−\|Δ\|) parach wobec NM w zerze |
+| projekcja blokowa z członem własnym | 0.48 dla czystego szumu | projekcja na mapę globalną zawiera wkład bloku |
+| znak P₂ ze zgadywanki `ridge` | 31 fałszywych kandydatów do degradacji | kryterium musi być na module; znak jest fizyczny |
+| swobodny fit P₃ | J2053-7200: 63 zamiast 3.06 | maksimum ucieka w róg dużych P₂/P₃ |
+| iloraz zamiast kąta | R = 4.03, NaN-y, potrzeba dwóch progów | tangens ma biegun, sinus nie |
+| batch mieszał dane | 85 pełnopasmowych, 430 na 3/16 | różnica czułości 2.25× |
+| zmiana sygnatury `_travel_maps` | test reversera czytał 2000 zamiast 3.4·10⁻⁶ | rozpakowanie 4-krotki do 2 zmiennych |
+| sprawdzenie okna po fakcie | 7 pulsarów z `ArgumentError` z `Cmd` | `nothing` interpolowane do polecenia |
 
-**Błędne wnioski, które trzeba odnotować:**
+**Błędne wnioski, wycofane:**
 
-1. Przypisałem ujemne R niezgodności katalogowego P₃, powołując się na medianę `p3_meas/p3_cat`
-   = 0.37 w grupie R < 0.3 wobec 1.02 w grupie R > 0.7. Nieuprawnione: `p3_meas` liczone jest z mapy
-   A, więc gdy ruchu nie ma, A jest szumem i `p3_meas` traci sens — korelacja **wynika** z niskiego
-   R, zamiast je powodować. Właściwą przyczyną był znak.
-2. Ogłosiłem, że korelacja ρ z P₂fit/M unieważnia klasyfikację. Przeceniałem: łańcuch jest
-   etykieta → czy istnieje znajdywalna geometria → ρ, czyli metoda działająca. Kontrola syntetyczna
-   (§8.2) pokazała, że tłumienie przy szerokim P₂ jest stopniowane i policzalne.
-3. Ograniczenie do reżimu P₂ ≤ M/2 przy budowie list kandydatów — za ostre, patrz §10 pkt 3.
-4. Przedstawiłem ρ > 1 jako wyjątkową kategorię na podstawie dwóch obiektów z pilota. W pełnej
-   próbce jest ich 25, głównie dryferów — to zaludniony ogon, nie anomalia.
+1. Ujemne R przypisane niezgodności katalogowego P₃ — `p3_meas` liczone jest z mapy A, więc przy
+   braku ruchu korelacja **wynika** z niskiego R, zamiast je powodować. Przyczyną był znak.
+2. Ogłoszenie, że korelacja ρ z P₂fit/M unieważnia klasyfikację — przeceniałem; łańcuch jest
+   etykieta → czy istnieje znajdywalna geometria → ρ, czyli metoda działająca.
+3. Ograniczenie list kandydatów do reżimu P₂ ≤ M/2 — za ostre.
+4. ρ > 1 jako wyjątkowa kategoria na podstawie dwóch obiektów z pilota — w pełnej próbce jest ich
+   25, głównie dryferów.
+5. **Ogłoszenie, że fit P₂ jest zbędny** na podstawie samego syntetyku — syntetyk był za czysty,
+   żeby to rozstrzygnąć (§10.5). Dane realne rozstrzygnęły w drugą stronę.
+6. **Postawienie ρ jako produktu głównego** — właściwym produktem dla pytania Song et al. jest
+   detekcja `T`/`T_inc`, a ρ jest charakterystyką dodatkową (§4).
 
-Wspólny mianownik: **sam pomiar ρ per pulsar nie zmienił się ani razu**; zmieniała się wyłącznie
-ocena, kiedy wolno go interpretować. Każda korekta wyszła z testu, nie z rozumowania.
+Wspólny mianownik: **sam pomiar nie zmienił się ani razu**; zmieniała się ocena, kiedy wolno go
+interpretować. Każda korekta wyszła z testu, nie z rozumowania.
 
 ---
 
-## 12. Użycie
+## 13. Użycie
 
 ```julia
-# pojedynczy pulsar
 SpaTs.travel_test(vpmout*"J0820-1350"; max_lag=15, show_=false)
-
-# z dopasowaniem geometrii (|P2| skanowane, P3 z LRFS)
 SpaTs.travel_test(vpmout*"J0820-1350"; max_lag=15, p2_template=:auto, show_=false)
-
-# pelnopasmowy plik z katalogu _16
 SpaTs.travel_test(vpmout*"J0601-0527_16"; datafile="pulsar_full_debase.txt", show_=false)
-
-# weryfikacja fundamentow
 julia --project=. -e 'include("modules/travel.jl"); Travel.selftest()'
 ```
 
-Argumenty: `max_lag` (domyślnie 40; przy znanym P₃ dobre 2–3·P₃), `max_dphi` (domyślnie M/2),
-`hp_halfwin` (50), `nblocks` (4), `p2_template=:auto` z `p3_template` z LRFS, `p2_cap_frac`,
-`orth_even`.
+Argumenty: `max_lag` (2–3·P₃), `max_dphi` (**docelowo z W₃σ**), `hp_halfwin` (50), `nblocks` (4),
+`p2_template=:auto` z `p3_template` z LRFS, `p2_cap_frac`, `orth_even`.
 
-Skrypty wsadowe (`~/claude/work/scripts/`): `travel_batch_full.jl` (533 pulsary, wznawialny, tryb
-pilotażowy `--limit N --out PLIK`), `travel_rho_summary.jl`, `travel_rho_pilot.jl`,
+Skrypty (`~/claude/work/scripts/`): `travel_batch_full.jl` (533 pulsary, wznawialny, tryb
+`--limit N --out PLIK`), `travel_rho_summary.jl`, `travel_rho_pilot.jl`, `travel_stability.jl`,
 `travel_variants.jl`, `check_onpulse.jl`, `travel_check.jl`, `travel_stress.jl`.
 
-Wyniki: `~/output/claude/travel_batch_full.csv`, `onpulse_check.csv`, `travel_rho_all.png`,
-`travel_rho_pilot.png`.
+Wyniki: `~/output/claude/travel_batch_full.csv`, `onpulse_check.csv`, `travel_stability.csv`,
+`travel_rho_all.png`, `travel_rho_pilot.png`.
 
-### Jak czytać wynik
+### Kolejność czytania wyniku
 
-1. **Kontrola off-pulse** — jeśli \|σ\| > 3 dla T lub T_inc, szum nie jest symetryczny w czasie i
-   reszta nie znaczy nic.
-2. **Detekcja** — max(T, T_inc) ≥ 5σ. Bez niej ρ mierzy czułość, nie pulsara.
-3. **Stabilność okna** — ρ przy kilku szerokościach musi być zgodne (§9.3). Bez tego pojedynczy
-   obiekt nie jest zmierzony.
-4. **Spójność blokowa** — oba znaki to reverser; wartości ≈ 0 przy istotnym T_inc to niezależne
-   mody, nie dryf (§10 pkt 4).
-5. **\|ρ\|** — blisko 1: koherentna modulacja wędruje; blisko 0: nie wędruje; odniesienie dla
-   szerokiego P₂ w §8.2. Znak ρ to kierunek dryfu (dodatni = od wcześniejszych do późniejszych
-   długości, Szary+2022).
+1. **Kontrola off-pulse** — |σ| > 3 dla T lub T_inc unieważnia wszystko poniżej.
+2. **Detekcja** — max(T, T_inc) ≥ 5σ. To jest odpowiedź na pytanie A: czy to nie jest czysta
+   modulacja amplitudowa.
+3. **Spójność blokowa** — oba znaki to reverser; wartości ≈ 0 przy istotnym T_inc to niezależne
+   mody, nie dryf. Bez tego detekcja z punktu 2 nie jest jeszcze kandydatem na dryf.
+4. **ρ** — tylko gdy P₂fit mieści się w profilu. Blisko 1: ruch ma charakter sztywnej translacji;
+   blisko 0: nie. Odniesienie dla szerokiego P₂ w §10.2. Znak to kierunek dryfu (dodatni = od
+   wcześniejszych do późniejszych długości, Szary+2022).
+5. **Stabilność okna** — dla pojedynczego obiektu obowiązkowa (§10.4).

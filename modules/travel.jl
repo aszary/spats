@@ -706,6 +706,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     K   = corr_map(X, max_lag, md)
     K00, A, E, blocks = _travel_maps(X, max_lag, md, edges)
     T     = sum(abs2, A)
+    E2    = sum(abs2, E)
     T_inc = _inc_power(blocks)
 
     r = ridge(A)
@@ -753,6 +754,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     Xn   = Matrix{Float64}(undef, N, M)
 
     T_null      = zeros(nreal)
+    E2_null     = zeros(nreal)
     T_inc_null  = zeros(nreal)
     frac_null   = zeros(nreal)
     frace_null  = zeros(nreal)
@@ -761,6 +763,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         Xn .= Xsig .+ buf
         _, As, Es, bs = _travel_maps(Xn, max_lag, md, edges)
         T_null[i]     = sum(abs2, As)
+        E2_null[i]    = sum(abs2, Es)
         T_inc_null[i] = _inc_power(bs)
         frac_null[i]  = fracof(As)
         frace_null[i] = fraceof(Es)
@@ -801,16 +804,57 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     T_off     = sum(abs2, Aoff)
     T_inc_off = _inc_power(boff)
     T_off_null     = zeros(nreal)
+    E2_off_null    = zeros(nreal)
     T_inc_off_null = zeros(nreal)
     for i in 1:nreal
         noise_block!(buf, Xhp, strips, rng)
-        _, As, _, bs = _travel_maps(buf, max_lag, md, edges)
+        _, As, Es, bs = _travel_maps(buf, max_lag, md, edges)
         T_off_null[i]     = sum(abs2, As)
+        E2_off_null[i]    = sum(abs2, Es)
         T_inc_off_null[i] = _inc_power(bs)
     end
     significance_off     = (T_off - mean(T_off_null)) / std(T_off_null)
     p_value_off          = count(>=(T_off), T_off_null) / nreal
     significance_inc_off = (T_inc_off - mean(T_inc_off_null)) / std(T_inc_off_null)
+
+    # rho_free — the same discrimination with no template and no geometry at all.
+    # A rigid drift puts equal coefficients in both halves of the model, so their
+    # *norms* are equal too: ‖A‖² = 4Σtaper²sin²sin² and ‖E‖² = 4Σtaper²cos²cos²,
+    # and ⟨sin²sin²⟩ = ⟨cos²cos²⟩ = 1/4 once a few cycles fit in the searched
+    # ranges. Hence sqrt(‖A‖²/‖E‖²) = 1 for drift, 0 for amplitude modulation —
+    # without fitting P2. That matters because fitting P2 is what made the result
+    # depend on the on-pulse window: a generous window drags the fit to large P2,
+    # and a too-large P2 cripples the odd channel specifically (sin → 0 at Δ → 0,
+    # exactly where the signal sits, while cos → 1). Both norms carry a positive
+    # noise bias, removed with the off-pulse maps that the control already builds.
+    # Price: no P2, no drift direction, and more variance than a matched filter,
+    # since noise-dominated grid cells enter the norms.
+    A_noise = mean(T_off_null)
+    E_noise = mean(E2_off_null)
+    As_sig  = max(T  - A_noise, 0.0)
+    Es_sig  = max(E2 - E_noise, 0.0)
+    rho_free = Es_sig > 0 ? sqrt(As_sig / Es_sig) : NaN
+    rho_free_err = (As_sig > 0 && Es_sig > 0 && !isnan(rho_free)) ?
+        0.5 * rho_free * sqrt((std(T_null) / As_sig)^2 + (std(E2_null) / Es_sig)^2) : NaN
+
+    # The equal-norms argument needs ⟨sin²(2πτ/P3)⟩ = ⟨cos²(2πτ/P3)⟩, which holds
+    # only once several cycles fit in τ = 1…max_lag. Near the temporal Nyquist
+    # limit it fails hard: at P3 = 2.05 the ratio is 0.160, so a genuine drift
+    # reads rho_free = 0.41 instead of 1 and would be called amplitude modulation.
+    # The factor depends only on P3 and max_lag — both known, no fitting — so it
+    # divides out analytically. Verified on synthetic drift at P3 = 2.05…9:
+    # raw 0.407/1.202/1.053/1.064/1.044 → corrected 1.017/1.019/1.021/1.020/1.020.
+    # The matching Δ factor would need P2 and is deliberately NOT applied; it is
+    # what makes rho_free fall off once P2 exceeds the searched longitude range.
+    ctau = NaN
+    if !isnothing(p3_template) && p3_template > 0
+        tp2 = [(1 - t / N)^2 for t in 1:max_lag]
+        sn  = sum(tp2[t] * sin(2π * t / p3_template)^2 for t in 1:max_lag)
+        cs  = sum(tp2[t] * cos(2π * t / p3_template)^2 for t in 1:max_lag)
+        (sn > 0 && cs > 0) && (ctau = sqrt(sn / cs))
+    end
+    rho_free_corr     = isnan(ctau) ? NaN : rho_free / ctau
+    rho_free_corr_err = isnan(ctau) ? NaN : rho_free_err / ctau
 
     # time-resolved consistency, leave-one-out so that pure noise gives zero:
     # projecting a block onto the *global* map would keep the block's own
@@ -852,6 +896,12 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         R_err        = R_err,
         rho          = rho,
         rho_err      = rho_err,
+        E2           = E2,
+        rho_free     = rho_free,
+        rho_free_err = rho_free_err,
+        ctau         = ctau,
+        rho_free_corr     = rho_free_corr,
+        rho_free_corr_err = rho_free_corr_err,
         rank1_frac   = r.rank1_frac,
         tau_mode     = r.tau_mode,
         dphi_mode    = r.dphi_mode,

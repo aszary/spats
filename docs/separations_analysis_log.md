@@ -1110,3 +1110,46 @@ J1810-5338, najczystszy kandydat do promocji, który go nie przeszedł (0.566/0.
 **Otwarte:** (1) test stabilności w pipeline i przeliczenie kandydatów; (2) niewyjaśnione ρ > 1 u
 25 dobrych dryferów (J1519-6106: 1.315 ± 0.008 przy rank1 = 0.97) — model przewiduje ρ ≤ 1;
 (3) null rank-1 wobec pola rank ≥ 2 (J1907+0731); (4) P₂ do zamiany na stopnie.
+
+### 2026-09-23 (cd.) — przestawienie hierarchii: T/T_inc jako produkt główny, ρ jako dodatek
+
+Po serii testów wyszło, że myliłem dwa różne pytania:
+
+- **A: czy jest jakikolwiek ruch?** — odpowiada `T`/`T_inc`, bez żadnych założeń (tożsamość A ≡ 0).
+  To jest binarne pytanie, które stawia klasyfikacja Song et al.
+- **B: czy modulacja to zasadniczo sztywna translacja?** — odpowiada ρ, ale wymaga mierzalnej
+  geometrii.
+
+ρ postawiłem jako produkt główny i to był błąd hierarchii. Wynik na pełnej próbce dla pytania A:
+detekcja ≥5σ u **330/405 dryferów (82%)** i **57/107 P3-only (53%)**. Tych 53% nie wolno jednak
+ogłaszać przed naprawą nullu rank-1, bo część może być artefaktem modelu zerowego.
+
+**Priorytet numer jeden to teraz surogat rank-1.** Dotąd był punktem na liście otwartych; skoro
+produktem głównym jest detekcja, to od niego zależy wszystko. Objaw wzorcowy: J1907+0731, T_inc =
+4.8σ przy czystych kontrolach off-pulse i projekcjach blokowych ≈ 0.
+
+**Wariant bez szablonu — sprawdzony i odrzucony.** Stosunek norm √(‖A‖²/‖E‖²) miał usunąć fit P₂.
+Na syntetyku działa i jest całkowicie odporny na okno (0.819/0.829/0.829/0.829 tam, gdzie wersja
+szablonowa spada 0.872 → 0.653), ma też analityczną korektę na próbkowanie τ (przy P₃ = 2.05 surowe
+0.407 → po korekcie 1.017). Ale na danych realnych rozdzielczość spada z 2.9× na **1.25×**, a
+J0034-0721 (podręcznikowy dryfer) czyta **0.203**. Powód: ‖E‖² zbiera całe tło mapy, a ‖A‖² nie, bo
+A znika przy Δ = 0. **To jest odpowiedź na pytanie, po co w ogóle fit P₂: szablon jest jedyną
+rzeczą, która wycina część związaną z dryfem i odrzuca resztę.** Syntetyk tego nie pokazał, bo
+pojedyncza sinusoida daje A i E identyczną strukturę.
+
+**Mechanizm zależności od okna — rozpracowany.** Okno nie psuje ρ bezpośrednio (przy P₂ ustalonym
+na sztywno ρ jest płaskie). Okno przeciąga **fit P₂** (150 → 309 przy M = 100 → 250), a zawyżone P₂
+kaleczy asymetrycznie: przy Δ → 0 cos → 1, a sin → 0, więc kanał nieparzysty traci pokrycie z
+sygnałem. Naprawa zweryfikowana: `max_dphi` z W₃σ zamiast z M usztywnia P₂fit na 150.2 we wszystkich
+szerokościach okna. **Niewdrożone w pełnym przebiegu.**
+
+**Fizyka: P₂ > W jest dopuszczalne** (mało iskier albo linia widzenia prostopadła do pierścienia).
+Wtedy widać najwyżej jeden podpuls naraz i **P₂ nie jest mierzalne, tylko ograniczone od dołu** —
+ucieczka fitu na kraniec siatki jest poprawną odpowiedzią, a nie usterką. Wartości P₂fit > M to
+limity. W tym reżimie T/T_inc działają, ale z ρ nie wolno robić degradacji.
+
+**Wędrujące P₃ podnosi ρ powyżej 1** (syntetyk: 1.387 przy P₃ wahającym się 3–7, T = 8530σ). To
+pierwsza hipoteza tłumacząca ogon ρ > 1.1 u 25 realnych dryferów.
+
+Dokumentacja `docs/travel_test_method.md` przepisana wokół nowej hierarchii; §11 to lista ograniczeń
+uporządkowana wg ważności, §12 zawiera sześć wycofanych wniosków.
