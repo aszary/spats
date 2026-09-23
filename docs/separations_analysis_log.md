@@ -1072,3 +1072,41 @@ w selfteście (test reversera czytał 2000 zamiast 3.4e-6). Selftest to złapał
 
 **Następny krok:** batch po 533 (418 + 115) z tabelą, rozkład R, sprawdzenie bimodalności.
 Etykiety Song et al. wchodzą wtedy jako **zbiór testowy**, nie treningowy.
+
+### 2026-09-23 — pełny przebieg 533, przejście na ρ, kontrola okien
+
+Opis metody: `docs/travel_test_method.md` (zaktualizowany do stanu na dziś).
+
+**Zmiany metodologiczne.** `R = odd/even` zastąpione przez `ρ = √2·odd/hypot(odd,even)` — ten sam
+kąt, ale sinus zamiast tangensa, więc bez bieguna, bez NaN-ów i **bez dwóch progów jakości**, które
+byłyby potrzebne tylko do tłumienia blow-upu. Geometria: |P₂| skanowane po projekcji parzystej,
+P₃ brane z LRFS (swobodny fit P₃ ucieka w róg dużych P₂/P₃ — J2053-7200 dopasowało 63 zamiast 3.06).
+
+**Dane.** Pierwszy przebieg mieszał pełne pasmo (85 pulsarów) z podpasmem `low` = 3/16 (430) —
+różnica czułości 2.25×, niedopuszczalna. Pełne pasmo odtworzone z `pulsar.spCf16` i **zostaje w
+katalogach `_16`** jako `pulsar.full` / `pulsar_full.debase.gg` / `pulsar_full_debase.txt`
+(~72 MB/pulsar, ~38 GB, QNAP ma 1.8 TB wolnego).
+
+**Wynik.** 533 policzone, 515 bez błędu, 3 odrzucone przez kontrolę off-pulse, 387 z detekcją.
+W reżimie rozdzielczym (P₂fit ≤ M/2): **mediana ρ dryferów = 1.011 przy n = 172**, wobec
+przewidywania teorii dokładnie 1, bez ani jednego parametru swobodnego. p3only: 0.324 (n=7).
+Sama geometria też rozróżnia: mediana P₂fit/M = 0.39 (drift) wobec 1.39 (p3only).
+
+Pozorna zależność ρ od S/N okazała się **paradoksem Simpsona** — w obu grupach geometrii ρ jest
+płaskie, S/N steruje tylko przynależnością do grupy.
+
+**Kontrola okien on-pulse** (`check_onpulse.jl`, profile średnie z `pdv -t -F -T`): M medianowo
+116 binów wobec zasięgu emisji 3σ = 56, szczyt wewnątrz okna u 512/515. Okna są hojne, ale nie
+błędne. Syntetyk potwierdza, że **poszerzanie okna szkodzi** (rozcieńcza sygnał, zawyża P₂ — przy
+M = 250 zamiast 100 P₂fit wychodzi 309 zamiast 150) i że większy zakres Δ też nie pomaga.
+Informacja o okresie w długości pochodzi wyłącznie z obszaru, który świeci.
+
+**Kluczowe zastrzeżenie — test stabilności okna.** ρ liczone przy 1.0/1.5/2.0 × W₃σ: prawdziwe
+dryfery są odporne (J0034-0721: 1.042/1.067/1.048), ale obiekty o niskim ρ **chwieją się nawet
+40-krotnie** (J1239+2453: 0.011/0.374/0.461; J2048-1616: 0.021/0.003/0.481). Więc walidacja
+populacyjna stoi, ale **żadna lista kandydatów nie jest wiarygodna bez testu stabilności** — w tym
+J1810-5338, najczystszy kandydat do promocji, który go nie przeszedł (0.566/0.438/0.770).
+
+**Otwarte:** (1) test stabilności w pipeline i przeliczenie kandydatów; (2) niewyjaśnione ρ > 1 u
+25 dobrych dryferów (J1519-6106: 1.315 ± 0.008 przy rank1 = 0.97) — model przewiduje ρ ≤ 1;
+(3) null rank-1 wobec pola rank ≥ 2 (J1907+0731); (4) P₂ do zamiany na stopnie.
