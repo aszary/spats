@@ -886,7 +886,7 @@ end
         # Parameter relations distinguishing Drifting vs P3-only pulsars
         #Relations.plot_all_relations("output")
 
-        phase_modulation3_list("output", "input/p3only_pulsars_P3.txt")
+        phase_modulation3()
 
 
 
