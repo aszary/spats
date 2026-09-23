@@ -96,11 +96,11 @@ jest mniej czuła. Raportować obie.
 podatność metody to szum niesymetryczny w czasie (dryf wzmocnienia, RFI, zła linia bazowa).
 W pełnym przebiegu odrzuciła 3 z 515.
 
-**Spójność blokowa** (leave-one-out; projekcja na mapę globalną zawierałaby człon własny i dawała
-~1/√n dla szumu). Prawdziwy dryf odtwarza się w kolejnych blokach. **Ale pojedyncza wartość nie
-wystarcza** — dudnienie dwóch bliskich okresów udaje spójność 0.95, jeśli bloki są dłuższe od okresu
-dudnienia. Potrzebny jest skan po długości bloku (§7.4), obecnie zablokowany przez przycięcie
-`nblocks`.
+**Spójność blokowa, skanowana po długości bloku** (`block_consistency_scan`, §7.4). Leave-one-out;
+projekcja na mapę globalną zawierałaby człon własny i dawała ~1/√n dla szumu. Pojedyncza wartość
+**nie wystarcza** — dudnienie dwóch bliskich okresów udaje spójność 0.95, jeśli bloki są dłuższe od
+okresu dudnienia. Raportowaną wielkością jest **`min(cons)`** po całym skanie, czytana **wyłącznie
+łącznie z siłą detekcji** (§7.4).
 
 ### 5.3 Wynik na pełnej próbce
 
@@ -266,11 +266,51 @@ wartość `block_consistency` nie wystarcza, a reguła „T_inc bez zgodności b
 kandydatem" jest **niewystarczająca**: najgorszy przypadek ma zgodność 0.95. Prawdziwy dryf jest
 niewzruszony przy każdej długości.
 
-**Blokada praktyczna:** liczba bloków jest w kodzie przycinana do `N ÷ (4·max_lag)`. Przy realnych
-danych (`max_lag` do 60, N ≈ 1000) daje to **maksymalnie 4 bloki**, czyli dokładnie reżim, w którym
-dudnienie udaje spójność. **W pełnym przebiegu ten test nie miał szans zadziałać.** Wdrożenie skanu
-wymaga poluzowania tego przycięcia, co z kolei wymaga krótszego `max_lag` dla krótkich bloków —
-do rozwiązania.
+**Blokada, która to uniemożliwiała, i jej usunięcie.** Liczba bloków była przycinana do
+`N ÷ (4·max_lag)`, bo blok musi pomieścić opóźnienia do `max_lag`. Przy realnych danych dawało to
+najwyżej 4 bloki — dokładnie reżim, w którym dudnienie udaje spójność, więc w pełnym przebiegu test
+nie miał szans zadziałać. Rozwiązanie: **mapa bloku nie potrzebuje tego samego zasięgu τ co mapa
+globalna**. `block_consistency_scan` bierze dla każdego podziału `lag_b = min(max_lag, L÷4)`, więc
+drobniejsze podziały automatycznie używają krótszych opóźnień. Zwracane są `block_scan_nb`,
+`block_scan_len`, `block_scan_lag`, `block_scan_cons` oraz **`block_scan_min`**.
+
+Wynik na syntetyku:
+
+| przypadek | 2 bl. | 4 bl. | 8 bl. | 16 bl. | 32 bl. |
+|---|---|---|---|---|---|
+| dudnienie 7.0/7.4 (129 P) | +0.95 | +0.97 | +0.97 | **−0.28** | **−0.35** |
+| prawdziwy dryf | +1.00 | +1.00 | +1.00 | +1.00 | +1.00 |
+| rank-1 (ścisłe H₀) | +0.22 | −0.03 | +0.15 | +0.11 | +0.04 |
+
+i na pulsarach:
+
+| pulsar | rola | T | **min(cons)** | przebieg |
+|---|---|---|---|---|
+| J0151-0635 | dryfer wzorcowy | >999σ | **0.85** | 0.91 → 0.85 |
+| J0034-0721 | dryfer wzorcowy | >999σ | **0.53** | 0.71 → 0.53 |
+| J0837+0610 | kand. promocji | 98σ | 0.46 | 0.86 → 0.46 |
+| J0304+1932 | kand. degradacji | >999σ | **0.22** | 0.43 → 0.22 |
+| J0629+2415 | P3-only, ρ = 1.36 | 123σ | **0.15** | 0.54 → 0.15 |
+| J0601-0527 | P3-only, ρ = 1.37 | 100σ | **0.07** | 0.20 → 0.07 |
+| J1907+0731 | P3-only, T_inc = 4.9σ | 2σ | **−0.01** | ≈0 wszędzie |
+
+J0601-0527 i J1907+0731 mają spójność bliską zeru **przy każdej długości bloku**, mimo detekcji 100σ
+w przypadku pierwszego — uporządkowanie w nich nie odtwarza się w ogóle, więc nie jest ani dryfem,
+ani dudnieniem o długim okresie. Obie miały przy tym wysokie ρ (1.37 i 1.36), czyli skan mówi tu coś,
+czego ρ nie mówiło.
+
+**Dwa zastrzeżenia.**
+
+*Spadek sam w sobie nie jest dowodem.* Prawdziwe dryfery też schodzą z długością bloku (J0034-0721:
+0.71 → 0.53), bo krótsze bloki mają szumniejsze mapy. Sygnaturą dudnienia jest **przejście przez
+zero** albo utrzymywanie się blisko zera, nie samo opadanie. Stąd reguła: **`min(cons)` wolno czytać
+tylko łącznie z siłą detekcji** — przy T > 999σ wartość 0.22 jest znacząca, przy detekcji 10σ ta
+sama liczba nie znaczy nic. (Warto odnotować, że syntetyczny dryf trzyma +1.00, a realne dryfery
+0.53–0.85: realna modulacja nigdy nie jest tak koherentna jak model.)
+
+*Krótkie dudnienia uciekają.* Dudnienie 7.0/9.0 (okres 32 P) **nie zostało złapane** — zostaje
++0.94, bo najkrótsze bloki mają 31 P, czyli tyle co samo dudnienie, a ich τ ≤ 7 już ledwie pokrywa
+P3. Jego T = 1.6σ, ale T_inc = 10.5σ, więc przeszłoby jako detekcja. To pozostaje luką.
 
 ---
 
@@ -450,10 +490,11 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 
 ## 11. Ograniczenia, w kolejności ważności
 
-1. **Dudnienie dwóch bliskich okresów udaje dryf** (§7.2) — priorytet, bo dotyczy produktu
-   głównego. Null jest poprawny i T jest poprawne; rozdzielenie musi nastąpić po detekcji, skanem
-   spójności po długości bloku (§7.4). Ten skan jest dziś **zablokowany** przez przycięcie `nblocks`
-   do `N ÷ (4·max_lag)`, więc w pełnym przebiegu żadne dudnienie nie mogło zostać wyłapane.
+1. **Dudnienie dwóch bliskich okresów udaje dryf** (§7.2). Null jest poprawny i T jest poprawne;
+   rozdzielenie następuje po detekcji, skanem spójności po długości bloku (§7.4) — **wdrożone**,
+   `block_scan_min`. Pozostałe luki: (a) dudnienia o krótkim okresie (≲ najkrótszy blok) uciekają,
+   (b) `min(cons)` spada też z powodu szumu, więc jest czytelne tylko przy silnej detekcji,
+   (c) **pełny przebieg w `travel_batch_full.csv` skanu nie zawiera** — policzony przed wdrożeniem.
 2. **ρ zakłada dostatecznie stabilne P₃, a stabilności nie mierzę** (§10.3). Tolerancja sięga
    ~±20% wędrówki, ale przy ±40% ρ rośnie do 1.385, a przy ±60% zapada się do 0.510 — czyli silnie
    wędrujący dryfer może zostać **fałszywie zdegradowany**. To warunek stosowalności ρ, nie tylko
@@ -534,8 +575,12 @@ Wyniki: `~/output/claude/travel_batch_full.csv`, `onpulse_check.csv`, `travel_st
 1. **Kontrola off-pulse** — |σ| > 3 dla T lub T_inc unieważnia wszystko poniżej.
 2. **Detekcja** — max(T, T_inc) ≥ 5σ. To jest odpowiedź na pytanie A: czy to nie jest czysta
    modulacja amplitudowa.
-3. **Spójność blokowa** — oba znaki to reverser; wartości ≈ 0 przy istotnym T_inc to niezależne
-   mody, nie dryf. Bez tego detekcja z punktu 2 nie jest jeszcze kandydatem na dryf.
+3. **`min(cons)` ze skanu po długości bloku** — to jest trzecia standardowa wielkość, obok T i ρ.
+   Blisko 1 przy każdym podziale: uporządkowanie trwałe, czyli dryf. Przejście przez zero: dudnienie
+   dwóch niezależnych zegarów. Blisko zera wszędzie: uporządkowanie nieodtwarzalne, czyli ani dryf,
+   ani dudnienie. Oba znaki w `block_proj` to reverser. **Czytać tylko przy silnej detekcji** —
+   przy słabej spadek pochodzi z szumu. Bez tego punktu detekcja z punktu 2 nie jest jeszcze
+   kandydatem na dryf.
 4. **ρ** — tylko gdy P₂fit mieści się w profilu. Blisko 1: ruch ma charakter sztywnej translacji;
    blisko 0: nie. Odniesienie dla szerokiego P₂ w §10.2. Znak to kierunek dryfu (dodatni = od
    wcześniejszych do późniejszych długości, Szary+2022).

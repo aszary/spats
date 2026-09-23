@@ -244,6 +244,67 @@ _inc_power(blocks) = isempty(blocks) ? 0.0 : sum(Ab -> sum(abs2, Ab), blocks)
 
 
 """
+    block_consistency_scan(X, max_lag, max_dphi; nbs) -> NamedTuple
+
+Spójność blokowa liczona przy kilku długościach bloku — dyskryminator dryfu od
+dudnienia.
+
+Dwie składowe pulsujące niezależnymi, bliskimi okresami dudnią, a dudnienie
+wytwarza **prawdziwe** uporządkowanie czasowe między długościami: przez część
+cyklu jedna wyprzedza drugą, przez resztę odwrotnie (§7.2 dokumentacji). T tego
+nie odróżni od dryfu i nie powinno — różnica nie tkwi w tym, *czy* uporządkowanie
+jest, tylko czy jest **trwałe**. Dryf ma je stałe przez całą obserwację;
+dudnienie odwraca znak co pół okresu dudnienia.
+
+Pojedyncza wartość `block_consistency` tego nie wychwyci: jeśli blok jest dłuższy
+od okresu dudnienia, uśrednia po całych cyklach i **udaje idealną zgodność**
+(zmierzone: 0.95 przy blokach 250 P i dudnieniu 129 P). Dopiero skrócenie bloków
+poniżej dudnienia ujawnia zmianę znaku.
+
+Dlatego skanuje się po `nbs`. Kluczowe jest rozklejenie zasięgu opóźnień od
+zasięgu globalnego: mapa bloku nie potrzebuje τ aż do `max_lag`, więc dla każdego
+podziału bierze się `lag_b = min(max_lag, L÷4)`, gdzie L to długość bloku. Bez
+tego liczba bloków musiałaby być przycięta do N/(4·max_lag), czyli najwyżej ~4
+przy realnych danych — dokładnie w reżimie, w którym dudnienie udaje zgodność.
+
+Zwraca, dla każdego wykonalnego podziału: `nb` (liczba bloków), `len` (długość),
+`lag` (użyty zasięg τ) i `cons` (średnia projekcja leave-one-out). Dryf trzyma
+`cons` ≈ 1 przy **każdym** podziale; dudnienie się sypie przy krótkich blokach.
+Ograniczenie: blok musi pomieścić kilka cykli P3, więc dla długiego P3 skan jest
+z natury płytki.
+"""
+function block_consistency_scan(X::AbstractMatrix, max_lag::Int, max_dphi::Int;
+                                nbs = (2, 4, 8, 16, 32))
+    N = size(X, 1)
+    out_nb, out_len, out_lag, out_cons = Int[], Int[], Int[], Float64[]
+    for nb in nbs
+        nb >= 2 || continue
+        L = N ÷ nb
+        lag_b = min(max_lag, L ÷ 4)
+        (lag_b >= 4 && L >= 16) || continue
+        edges = round.(Int, range(1, N + 1, length=nb + 1))
+        maps = Matrix{Float64}[]
+        for b in 1:nb
+            rows = edges[b]:edges[b+1]-1
+            length(rows) > lag_b || continue
+            push!(maps, antisym_map(corr_map(@view(X[rows, :]), lag_b, max_dphi)))
+        end
+        length(maps) >= 2 || continue
+        Asum = sum(maps)
+        pr = Float64[]
+        for Ab in maps
+            Arest = Asum .- Ab
+            nrm = sqrt(sum(abs2, Ab)) * sqrt(sum(abs2, Arest))
+            push!(pr, nrm > 0 ? dot(Ab, Arest) / nrm : 0.0)
+        end
+        push!(out_nb, length(maps)); push!(out_len, L)
+        push!(out_lag, lag_b);       push!(out_cons, mean(pr))
+    end
+    return (nb = out_nb, len = out_len, lag = out_lag, cons = out_cons)
+end
+
+
+"""
     drift_template(max_lag, max_dphi, p2, p3; npulses, non) -> Matrix{Float64}
 
 The map a rigidly drifting pattern makes,
@@ -789,6 +850,8 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     E2    = sum(abs2, E)
     T_inc = _inc_power(blocks)
 
+    bscan = block_consistency_scan(X, max_lag, md)
+
     r = ridge(A)
     # :auto takes the template geometry from the pulsar's own map. Convenient for
     # a blind batch, but the P2 is then chosen on the same data the projection is
@@ -998,6 +1061,11 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         direction    = r.direction,
         block_proj   = block_proj,
         block_consistency = isempty(block_proj) ? NaN : mean(block_proj),
+        block_scan_nb   = bscan.nb,
+        block_scan_len  = bscan.len,
+        block_scan_lag  = bscan.lag,
+        block_scan_cons = bscan.cons,
+        block_scan_min  = isempty(bscan.cons) ? NaN : minimum(bscan.cons),
         T_off        = T_off,
         significance_off = significance_off,
         p_value_off  = p_value_off,
