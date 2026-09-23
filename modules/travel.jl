@@ -492,8 +492,11 @@ products, and ‖template‖² separates exactly into a τ factor times a Δ fac
 """
 function fit_geometry(E::AbstractMatrix, K00::Real, max_lag::Int, max_dphi::Int,
                       npulses::Int, non::Int; n2::Int=48, n3::Int=48,
-                      p3_fixed::Union{Real,Nothing}=nothing)
-    p2g = exp.(range(log(4.0), log(8.0 * max_dphi), length=n2))
+                      p3_fixed::Union{Real,Nothing}=nothing,
+                      p2_cap::Union{Real,Nothing}=nothing)
+    p2top = isnothing(p2_cap) ? 8.0 * max_dphi : Float64(p2_cap)
+    p2top > 4.0 || error("p2_cap must exceed 4 bins (got $p2top)")
+    p2g = exp.(range(log(4.0), log(p2top), length=n2))
     p3g = isnothing(p3_fixed) ?
           exp.(range(log(2.0), log(max(4.0, 2.0 * max_lag)), length=n3)) :
           [Float64(p3_fixed)]
@@ -530,7 +533,8 @@ function fit_geometry(E::AbstractMatrix, K00::Real, max_lag::Int, max_dphi::Int,
     S = num_o ./ sqrt.(max.(den_o, eps()))                   # matched-filter amplitude
     S[.!isfinite.(S)] .= -Inf
     j, i = Tuple(argmax(S))
-    return (p2 = p2g[i], p3 = p3g[j], frac_even = num[j, i] / (K00 * den[j, i]))
+    return (p2 = p2g[i], p3 = p3g[j], frac_even = num[j, i] / (K00 * den[j, i]),
+            at_bound = i >= n2 - 1)
 end
 
 
@@ -674,6 +678,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
                      seed::Union{Int,Nothing}=7, nblocks::Int=4,
                      p2_template::Union{Real,Symbol,Nothing}=nothing,
                      p3_template::Union{Real,Nothing}=nothing,
+                     p2_cap_frac::Real=8.0, orth_even::Bool=false,
                      pulse_st::Union{Int,Nothing}=nothing,
                      pulse_end::Union{Int,Nothing}=nothing)
     nbins = size(data, 2)
@@ -709,8 +714,11 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     # measured from, which biases frac_odd up; the surrogates use the fixed
     # template and so do not carry that selection. Read R only where T or T_inc
     # actually detects something.
+    p2_at_bound = false
     p2t, p3t = if p2_template === :auto
-        g = fit_geometry(E, K00, max_lag, md, N, M; p3_fixed=p3_template)
+        g = fit_geometry(E, K00, max_lag, md, N, M; p3_fixed=p3_template,
+                         p2_cap=p2_cap_frac * md)
+        p2_at_bound = g.at_bound
         g.p2, g.p3          # |P2|; the sign is read off the odd projection below
     else
         p2_template, p3_template
@@ -720,6 +728,16 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
                                     npulses=N, non=M) : nothing
     tmple = have_t ? drift_template_even(max_lag, md, p2t, p3t;
                                          npulses=N, non=M) : nothing
+    if have_t && orth_even
+        # The even template stops oscillating once P2 exceeds the searched Δ
+        # range; it then matches the smooth body of E instead of the modulation,
+        # inflating the denominator and crushing R. Removing the component along
+        # the taper-only ("constant") model kills that channel. It leaves the
+        # equal-coefficient identity intact: for E ∝ te exactly,
+        # ⟨te, te⊥⟩ = ‖te⊥‖², so a pure drift still measures frac_even = 1.
+        t0 = [(1 - t / N) * (1 - d / M) for t in 1:max_lag, d in 1:md]
+        tmple = tmple .- (dot(tmple, t0) / sum(abs2, t0)) .* t0
+    end
     tnorm  = have_t ? sum(abs2, tmpl)  : 0.0
     tnorme = have_t ? sum(abs2, tmple) : 0.0
     fracof(Am)  = (!have_t || tnorm  <= 0 || K00 <= 0) ? NaN :
@@ -761,6 +779,21 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     R     = (have_t && frac_even > 3 * frac_even_err) ? frac / frac_even : NaN
     R_err = isnan(R) ? NaN :
             abs(R) * sqrt((frac_err / frac)^2 + (frac_even_err / frac_even)^2)
+
+    # rho — the same discrimination as R, read as an angle instead of a ratio.
+    # The drift model gives the two halves equal coefficients, i.e. a direction
+    # at 45 degrees in the (odd, even) plane, so
+    #     rho = sqrt(2)*odd / hypot(odd, even)
+    # is 1 for a rigid drift and 0 for amplitude modulation. Unlike R it is a
+    # sine rather than a tangent: bounded by sqrt(2), with no pole when the even
+    # projection is small, and always defined — which is what removes the need
+    # for a "denominator significant" guard and for any quality thresholds.
+    # R is kept alongside because the published relations are stated in it.
+    dnorm = have_t ? hypot(frac, frac_even) : 0.0
+    rho   = (have_t && dnorm > 0) ? sqrt(2) * frac / dnorm : NaN
+    rho_err = isnan(rho) ? NaN :
+              sqrt(2 * frac_even^2 * (frac_even^2 * frac_err^2 +
+                                      frac^2 * frac_even_err^2)) / dnorm^3
 
     # off-pulse control: the same two statistics where there is no signal at all
     idx0 = strips[length(strips) ÷ 2 + 1]
@@ -817,6 +850,8 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         frac_even_err = frac_even_err,
         R            = R,
         R_err        = R_err,
+        rho          = rho,
+        rho_err      = rho_err,
         rank1_frac   = r.rank1_frac,
         tau_mode     = r.tau_mode,
         dphi_mode    = r.dphi_mode,
@@ -833,6 +868,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         significance_inc_off = significance_inc_off,
         pulse_range  = (ps, pe),
         offpulse_wrapped = wrapped,
+        p2_at_bound  = p2_at_bound,
     )
 end
 
