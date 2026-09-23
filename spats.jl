@@ -280,6 +280,51 @@ module SpaTs
 
 
     """
+    Run `phase_modulation3` on a list of pulsars (passed as a Vector of names or a file path).
+    Automatically resolves output directory structure: `vpmout * name * "_16"`.
+    """
+    function phase_modulation3_list(vpmout::String, psrs::Union{Vector{String}, String};
+                                    window=32, stride=1, nreal=1000, sig_min=3.0, show_=false)
+        names = if psrs isa String
+            isfile(psrs) || error("Pulsar list file not found: $psrs")
+            [String(first(split(strip(line)))) for line in eachline(psrs)
+             if !isempty(strip(line)) && !startswith(strip(line), "#")]
+        else
+            psrs
+        end
+
+        results = Dict{String, Any}()
+
+        for (i, name) in enumerate(names)
+            outdir = vpmout * name * "_16"
+            if !isdir(outdir)
+                outdir = joinpath(vpmout, name * "_16")
+            end
+            if !isdir(outdir)
+                outdir = vpmout * name
+            end
+
+            if !isdir(outdir)
+                @warn "[$i/$(length(names))] Output dir not found for $name ($outdir), skipping."
+                continue
+            end
+
+            println("\n[$i/$(length(names))] Running phase_modulation3 for PSR $name ($outdir)...")
+            try
+                res = phase_modulation3(outdir; window=window, stride=stride,
+                                       nreal=nreal, sig_min=sig_min, show_=show_)
+                results[name] = res
+            catch e
+                @warn "Failed for $name: $e"
+            end
+        end
+
+        println("\nBatch phase_modulation3 complete: $(length(results)) / $(length(names)) processed.")
+        return results
+    end
+
+
+    """
     Globally-optimized P3-fold (per-pulse Viterbi phase assignment), as an
     alternative to the `pfold -p3fold` refine used elsewhere in this file
     (e.g. `Data.process_psrdata_16` / `Data.p3fold_psrdata`). See
@@ -731,7 +776,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
 
 """
 Run `phase_modulation3` on a list of pulsars (passed as a Vector of names or a file path).
-"""
+
 function phase_modulation3_list(vpmout::String, psrs::Union{Vector{String}, String};
                                 window=32, stride=1, nreal=1000, sig_min=3.0, show_=false)
     
@@ -765,7 +810,7 @@ function phase_modulation3_list(vpmout::String, psrs::Union{Vector{String}, Stri
     return results
 end
 
-
+"""
 
 
 
