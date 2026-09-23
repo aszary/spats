@@ -283,14 +283,26 @@ module SpaTs
     Run `phase_modulation3` on a list of pulsars (passed as a Vector of names or a file path).
     Automatically resolves output directory structure: `vpmout * name * "_16"`.
     """
-    function phase_modulation3_list(vpmout::String, psrs::Union{Vector{String}, String};
+    function phase_modulation3_list(vpmout, psr_input;
                                     window=32, stride=1, nreal=1000, sig_min=3.0, show_=false)
-        names = if psrs isa String
-            isfile(psrs) || error("Pulsar list file not found: $psrs")
-            [String(first(split(strip(line)))) for line in eachline(psrs)
-             if !isempty(strip(line)) && !startswith(strip(line), "#")]
+        names = String[]
+        if psr_input isa AbstractString
+            path = normpath(psr_input)
+            if !isfile(path) && isfile(joinpath(@__DIR__, psr_input))
+                path = normpath(joinpath(@__DIR__, psr_input))
+            end
+            isfile(path) || error("Pulsar list file not found: $psr_input")
+            for line in eachline(path)
+                s = strip(line)
+                (isempty(s) || startswith(s, "#")) && continue
+                push!(names, String(first(split(s))))
+            end
+        elseif psr_input isa AbstractVector
+            for item in psr_input
+                push!(names, String(item))
+            end
         else
-            psrs
+            error("Invalid psr_input: expected String file path or Vector of pulsar names")
         end
 
         results = Dict{String, Any}()
