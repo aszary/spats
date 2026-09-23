@@ -9,6 +9,7 @@ module SpaTs
     include("modules/phase_modulation.jl")
     include("modules/p3fold_viterbi.jl")
     include("modules/relations.jl")
+    include("modules/travel.jl")
 
 
     function test(outdir)
@@ -852,7 +853,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         
         phase_modulation3(vpmout*"J1750-3503"; show_=true)
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
-        travel.travel_test(vpmout*"J0820-1350"; max_lag=15, show_=false)
+        Travel.travel_test(vpmout*"J1750-3503"; max_lag=15, show_=true)
 
 
     end
