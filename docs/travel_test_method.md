@@ -67,7 +67,7 @@ Rozdzielenie ich jest kluczowe i długo je myliłem.
 | | pytanie | statystyka | założenia |
 |---|---|---|---|
 | **A** | czy jest **jakikolwiek** ruch? (czyli: czy to na pewno nie jest czysta modulacja amplitudowa) | `T`, `T_inc` | brak — tożsamość z §2 |
-| **B** | czy modulacja to **zasadniczo** ruch, o charakterze sztywnej translacji? | `ρ` | wymaga mierzalnej geometrii (P₂, P₃) |
+| **B** | czy modulacja to **zasadniczo** ruch, o charakterze sztywnej translacji? | `ρ` | wymaga mierzalnej geometrii (P₂ wewnątrz profilu) **oraz dostatecznie stabilnego P₃** (§10.3) |
 
 Klasyfikacja Song et al. jest jakościowa i binarna, więc odpowiada jej **pytanie A**. `ρ` to
 charakterystyka dodatkowa, cenna tam, gdzie da się ją policzyć, ale **nie jest produktem głównym** —
@@ -156,6 +156,9 @@ ze znaku projekcji nieparzystej.
 (J2053-7200: 63 zamiast 3.06).
 
 **`max_dphi` powinno pochodzić z zasięgu emisji (W₃σ), nie z zadeklarowanego okna** — patrz §8.3.
+
+Poza geometrią ρ zakłada też **dostatecznie stabilne P₃** — tolerancja ~±20%, powyżej tego wynik
+przestaje być interpretowalny jako miara sztywności (§10.3).
 
 ### 6.4 Wynik tam, gdzie geometria jest mierzalna
 
@@ -292,14 +295,50 @@ granicznego jako osobnej statystyki dla reżimu P₂ > W jest naturalnym uzupeł
 
 Materiał odniesienia, nie kryterium stosowane przez kod.
 
-### 10.3 ρ wobec wartości P₃
+### 10.3 ρ wobec P₃: wartość nie szkodzi, wędrówka szkodzi
 
-Sztywny dryf, P₂/M = 0.4, zmienne P₃: ρ = **0.988 / 0.988 / 0.989 / 0.989 / 0.989** dla
-P₃ = 2.05 / 2.5 / 3.5 / 5 / 9. **Wersja szablonowa jest zupełnie niewrażliwa na wartość P₃.**
+**Wartość P₃ jest bez znaczenia.** Sztywny dryf przy P₂/M = 0.4 i P₃ = 2.05 / 2.5 / 3.5 / 5 / 9 daje
+ρ = **0.988 / 0.988 / 0.989 / 0.989 / 0.989**. Wersja szablonowa jest na to zupełnie niewrażliwa.
 
-**Wędrujące P₃** (P₃(n) = 5 + 2·sin(2πn/300), czyli 3–7): T = 8530σ, ρ = **1.387**. Detekcja bez
-problemu, klasyfikacja poprawna, ale ρ **przeskakuje powyżej 1**. To pierwsza hipoteza tłumacząca
-ogon ρ > 1.1 u 25 realnych dryferów (§11 pkt 2) — wędrujące P₃ jest u pulsarów powszechne.
+**Wędrówka P₃ już nie**, i to niemonotonicznie. Sztywny dryf, P₃ średnie 5, wahające się
+sinusoidalnie o okresie 300 impulsów:
+
+| wędrówka P₃ | zakres | ρ | T |
+|---|---|---|---|
+| ±0 (stałe) | 5.0 | **0.989** | 8916σ |
+| ±10% | 4.5–5.5 | 1.012 | 16265σ |
+| ±20% | 4.0–6.0 | 1.075 | 9841σ |
+| ±40% | 3.0–7.0 | **1.385** | 7922σ |
+| ±60% | 2.0–8.0 | **0.510** | 6404σ |
+| monotonicznie 4→6 | — | 1.038 | 10670σ |
+
+Mechanizm widać z rozwinięcia: przy wędrującym okresie faza nagromadzona do opóźnienia τ ma rozkład,
+więc `K ∝ cos(2πΔ/P₂)·⟨cos Φ(τ)⟩ + sin(2πΔ/P₂)·⟨sin Φ(τ)⟩`. Równość współczynników, na której stoi
+ρ = 1, wymaga Φ(τ) = 2πτ/P₃ z **jednym** P₃; rozmycie fazy tłumi oba człony niejednakowo i miesza
+kanały.
+
+Trzy wnioski:
+
+1. **Detekcja jest odporna** — T trzyma 6400–16000σ w każdym przypadku, zgodnie z §2. Pytanie A nie
+   zakłada nic i nadal nie zakłada.
+2. **ρ toleruje umiarkowaną wędrówkę**: do ±20% błąd nie przekracza 8%, a powolna monotoniczna
+   zmiana P₃ jest praktycznie niewidoczna (1.038). To istotne, bo wolny dryf P₃ jest pospolity.
+3. **Przy silnej wędrówce ρ psuje się w obie strony**: ±40% → 1.385, ±60% → **0.510**. Ten drugi
+   przypadek jest groźny, bo silnie wędrujący dryfer zostałby odczytany jako „nie wędruje", czyli
+   fałszywie zdegradowany. Zapaść przy ±60% wiąże się z tym, że P₃ schodzi tam do 2.0, gdzie czynnik
+   τ szablonu nieparzystego degeneruje się (‖sin‖²/‖cos‖² = 0.160 przy P₃ = 2.05).
+
+**Konsekwencja interpretacyjna: ρ ≠ 1 nie znaczy „to nie jest sztywny dryf", dopóki nie wiadomo, jak
+stabilne jest P₃.** Obserwowany ogon 1.1–1.35 u 25 dryferów odpowiada ilościowo wędrówce rzędu
+±25–40%, co dla realnych pulsarów jest typowe — hipoteza z §11 pkt 2 jest więc zgodna co do rzędu
+wielkości, nie tylko co do kierunku.
+
+Brakuje **niezależnej miary stabilności P₃**. Naturalną jest szerokość cechy f₃ w LRFS (wędrujący
+okres ją poszerza; pliki `pulsar_*.debase.lrfs` są w katalogach). Wąska cecha → ρ interpretowalne
+jako miara sztywności; szeroka → ρ raportować, ale nie wyciągać z niego wniosków o rygidności.
+To zarazem test hipotezy o ogonie: jeśli te 25 obiektów ma systematycznie szersze cechy f₃, sprawa
+jest zamknięta. `p3_error` z `params.json` się nie nadaje — wartości rzędu 0.0013 przy P₃ ~2–5 to
+formalne błędy dopasowania piku, nie szerokości. **Niezmierzone.**
 
 ### 10.4 Test stabilności okna
 
@@ -341,19 +380,23 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 ## 11. Ograniczenia, w kolejności ważności
 
 1. **Null rank-1 wobec pola rank ≥ 2** (§7.2) — priorytet, bo dotyczy produktu głównego.
-2. **Niewyjaśnione ρ > 1 u 25 dobrych dryferów** (J1519-6106: 1.315 ± 0.008 przy rank1 = 0.97).
-   Model przewiduje ρ ≤ 1. Hipoteza: wędrujące P₃ (§10.3). Inne kandydatki: składowa stojąca
-   odejmująca od kanału parzystego (na syntetyku R = 1.32 dla dryfu z rampą), złe uwarunkowanie
-   przy P₃ ≈ 2, ruch nie-sztywny, bi-drifting.
-3. **`max_dphi` z emisji niewdrożone** w pełnym przebiegu (§8.3) — naprawa zweryfikowana, ale
+2. **ρ zakłada dostatecznie stabilne P₃, a stabilności nie mierzę** (§10.3). Tolerancja sięga
+   ~±20% wędrówki, ale przy ±40% ρ rośnie do 1.385, a przy ±60% zapada się do 0.510 — czyli silnie
+   wędrujący dryfer może zostać **fałszywie zdegradowany**. To warunek stosowalności ρ, nie tylko
+   źródło rozrzutu. Potrzebna niezależna miara: szerokość cechy f₃ w LRFS.
+3. **Niewyjaśnione ρ > 1 u 25 dobrych dryferów** (J1519-6106: 1.315 ± 0.008 przy rank1 = 0.97).
+   Model przewiduje ρ ≤ 1. Wiodąca hipoteza — wędrówka P₃ rzędu ±25–40% — jest ilościowo zgodna
+   (§10.3). Inne kandydatki: składowa stojąca odejmująca od kanału parzystego (na syntetyku
+   R = 1.32 dla dryfu z rampą), złe uwarunkowanie przy P₃ ≈ 2, ruch nie-sztywny, bi-drifting.
+4. **`max_dphi` z emisji niewdrożone** w pełnym przebiegu (§8.3) — naprawa zweryfikowana, ale
    wyniki w `travel_batch_full.csv` jej nie zawierają.
-4. **Listy kandydatów wymagają testu stabilności okna** (§10.4); dotąd żadna go nie ma.
-5. **Reżim P₂ > W**: detekcja działa, klasyfikacja przez ρ nie (§9).
-6. **Geometria dopasowywana na tych samych danych**, co zawyża `frac_even` i zaniża ρ.
-7. **Degeneracja nieusuwalna**: „dryf" i „kontinuum składowych opóźnionych w czasie" to ten sam
+5. **Listy kandydatów wymagają testu stabilności okna** (§10.4); dotąd żadna go nie ma.
+6. **Reżim P₂ > W**: detekcja działa, klasyfikacja przez ρ nie (§9).
+7. **Geometria dopasowywana na tych samych danych**, co zawyża `frac_even` i zaniża ρ.
+8. **Degeneracja nieusuwalna**: „dryf" i „kontinuum składowych opóźnionych w czasie" to ten sam
    obserwabl.
-8. **P₂ raportowane w binach**, w literaturze w stopniach (`360·P₂/nbin`).
-9. **Kolejność kanałów niezweryfikowana** (zakładam kanał 0 = dół pasma za nazewnictwem w kodzie).
+9. **P₂ raportowane w binach**, w literaturze w stopniach (`360·P₂/nbin`).
+10. **Kolejność kanałów niezweryfikowana** (zakładam kanał 0 = dół pasma za nazewnictwem w kodzie).
 
 ---
 
