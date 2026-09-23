@@ -851,7 +851,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         
         
         phase_modulation3(vpmout*"J1750-3503"; show_=true)
-        phase_modulation3_list("output", "input/pulsars.txt")
+        phase_modulation3_list(vpmout*, "input/pulsars.txt")
 
 
 
