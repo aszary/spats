@@ -97,9 +97,10 @@ podatność metody to szum niesymetryczny w czasie (dryf wzmocnienia, RFI, zła 
 W pełnym przebiegu odrzuciła 3 z 515.
 
 **Spójność blokowa** (leave-one-out; projekcja na mapę globalną zawierałaby człon własny i dawała
-~1/√n dla szumu). To filtr na dwie rzeczy naraz: prawdziwy dryf odtwarza się w kolejnych blokach,
-a **losowe uporządkowanie między niezależnymi modami — nie**. Bez niej `T_inc` bywa mylące
-(§7.2).
+~1/√n dla szumu). Prawdziwy dryf odtwarza się w kolejnych blokach. **Ale pojedyncza wartość nie
+wystarcza** — dudnienie dwóch bliskich okresów udaje spójność 0.95, jeśli bloki są dłuższe od okresu
+dudnienia. Potrzebny jest skan po długości bloku (§7.4), obecnie zablokowany przez przycięcie
+`nblocks`.
 
 ### 5.3 Wynik na pełnej próbce
 
@@ -189,17 +190,87 @@ wiodący mod SVD (czyli dokładnie separowalny) przeskalowany do odszumionej moc
 przesunięcie cykliczne w czasie; przy profilu szerszym niż najdłuższy ciągły fragment — cyklicznie
 po liście binów, flaga `offpulse_wrapped`).
 
-### 7.2 PRIORYTET: surogat jest rank-1, a pole może być rank ≥ 2
+Surogat jest rank-1 **celowo i poprawnie**: „separowalny" znaczy dokładnie „rank 1", a pole rank-1
+z definicji nie może wędrować. Reprezentuje więc ściśle tę hipotezę, którą ma reprezentować.
+Sprawdzone: dla pola rank-1 wychodzi T = −0.3σ, T_inc = −1.3σ.
 
-To jest **najważniejszy otwarty problem**, bo od niego zależy wiarygodność produktu głównego.
+### 7.2 Uporządkowanie to nie zawsze dryf: dudnienie
 
-Jeśli pole ma dwa lub więcej niezależnych modów czasowych, surogat rank-1 zaniża wariancję i zawyża
-istotność `T` oraz `T_inc`. Objaw wzorcowy — J1907+0731: `T_inc` = 4.8σ przy `T` = 1.7σ, kontrole
-off-pulse czyste (−0.3σ i 0.2σ), a projekcje blokowe ≈ 0.00. Mapy bloków **nie zgadzają się ze
-sobą** — sygnatura losowego uporządkowania między niezależnymi modami, nie dryfu.
+Rozważ pulsar z dwiema nakładającymi się składowymi, z których **każda pulsuje własnym okresem**.
+Nic się nie przemieszcza — to nadal modulacja amplitudowa. Ale
 
-Reguła robocza do czasu naprawy: **`T_inc` bez zgodności blokowej nie jest kandydatem na dryf.**
-Kierunek naprawy: surogat rank-r z niezależnie przesuwanymi w czasie modami.
+```
+K = Ĉ_{a1}(Δ)Ĉ_{w1}(τ) + Ĉ_{a2}(Δ)Ĉ_{w2}(τ)  +  [Σ_φ a₁a₂]·[Σ_n w₁(n)w₂(n+τ)] + (sym.)
+```
+
+Dwa pierwsze człony są parzyste w τ i znikają w A. Człon skrośny zawiera **korelację wzajemną**,
+która parzysta nie jest. Dwa bliskie okresy dudnią jak dwie rozstrojone struny: przez część cyklu
+dudnienia jedna składowa błyska wcześniej, przez resztę druga. Zmierzone na syntetyku, **przy
+całkowitym braku ruchu**:
+
+| P₃ składowych | okres dudnienia | T | T_inc | spójność blok. (4 bloki) |
+|---|---|---|---|---|
+| 7.0 i 7.4 | 129 P | **37.9σ** | **73.3σ** | **0.95** |
+| 7.0 i 8.0 | 56 P | 1.7σ | 3.1σ | −0.36 |
+| 7.0 i 9.0 | 32 P | −0.1σ | 9.7σ | 0.76 |
+| 7.0 i 13.0 | 15 P | 0.9σ | 1.0σ | 0.20 |
+
+Groźne są **bliskie** okresy: przy dudnieniu 129 P obserwacja mieści ich tylko ~8, więc efekt się nie
+uśrednia. Przy dudnieniu 15 P przechodzi 67 razy i znika.
+
+**To nie jest fałszywy alarm statystyki, tylko prawdziwy alarm na coś innego.** W tych danych
+uporządkowanie czasowe **naprawdę jest** — na odcinku krótszym niż dudnienie jedna długość dosłownie
+wyprzedza drugą. T = 74σ jest liczbą poprawną, a surogat nie skłamał: pulsar z jednym zegarem
+faktycznie nigdy by tyle nie wyprodukował. Błędny był krok rozumowania **„jest uporządkowanie ⇒ jest
+dryf"** — uporządkowanie jest dla dryfu konieczne, ale niewystarczające.
+
+Rozróżnienie ma konsekwencje praktyczne, bo wskazuje, gdzie naprawiać: **nie w modelu zerowym, tylko
+po detekcji**.
+
+### 7.3 Odrzucona naprawa: surogat rank-r z randomizacją faz
+
+Naturalny odruch to poszerzyć null: zachować r modów SVD stojących ponad progiem szumu
+(σ(√N+√M) dla czystego szumu) i każdemu zrandomizować fazy Fouriera, co zachowuje widmo mocy
+(a więc rytm i autokorelację), a niszczy wzajemne ustawienie modów. Zaimplementowane
+(`rank_r_modes`, `phase_randomize!`, przełącznik `surrogate_rank`). Wynik:
+
+| | surogat rank-1 | surogat rank-r |
+|---|---|---|
+| dudnienie 7.0/7.4 (brak ruchu) | T = 38σ, T_inc = 75σ | **T = −1.2σ** |
+| dudnienie 7.0/9.0 | T_inc = 8.9σ | −1.9σ |
+| **kontrola: prawdziwy dryf** | **T = 19112σ** | **T = 1.9σ** |
+
+Fałszywki znikają — ale razem z sygnałem. To nie jest niedoróbka implementacji, tylko rzecz
+nieusuwalna: **dryf *jest* określoną relacją fazową między dwoma modami** (dwa mody w kwadraturze
+przy tej samej częstości dają falę bieżącą, przy przesunięciu zerowym — stojącą). Randomizacja faz
+losuje dokładnie tę relację, więc produkuje null „wzór może biec albo stać z równym
+prawdopodobieństwem", a nie „wzór nie biegnie". Poszerzając null tak, by objął dudnienie, obejmuje
+się nim **również dryf**.
+
+**Wniosek: null zostaje rank-1.** `surrogate_rank` domyślnie 1; opcja zachowana w kodzie jako zapis
+sprawdzonego i odrzuconego wariantu.
+
+### 7.4 Właściwy dyskryminator: skan po długości bloku
+
+Różnica nie tkwi w tym, *czy* jest uporządkowanie, tylko czy jest **trwałe**: dryf ma A wyprzedzające
+B przez całą obserwację, dudnienie odwraca znak co pół okresu dudnienia. Stąd spójność blokowa
+liczona przy **kilku długościach bloku**:
+
+| przypadek | 4 bloki (250 P) | 10 bloków (100 P) |
+|---|---|---|
+| dudnienie 7.0/7.4 (129 P) | +0.98 +0.97 +0.97 +0.95 | **−0.12 −0.68 −0.99 −0.97 −0.05 +0.93 −0.99 −0.99 +0.90 +0.61** |
+| prawdziwy dryf | +1.00 ×4 | **+1.00 ×10** |
+
+Przy blokach dłuższych od dudnienia uśrednienie **udaje idealną spójność** — dlatego pojedyncza
+wartość `block_consistency` nie wystarcza, a reguła „T_inc bez zgodności blokowej nie jest
+kandydatem" jest **niewystarczająca**: najgorszy przypadek ma zgodność 0.95. Prawdziwy dryf jest
+niewzruszony przy każdej długości.
+
+**Blokada praktyczna:** liczba bloków jest w kodzie przycinana do `N ÷ (4·max_lag)`. Przy realnych
+danych (`max_lag` do 60, N ≈ 1000) daje to **maksymalnie 4 bloki**, czyli dokładnie reżim, w którym
+dudnienie udaje spójność. **W pełnym przebiegu ten test nie miał szans zadziałać.** Wdrożenie skanu
+wymaga poluzowania tego przycięcia, co z kolei wymaga krótszego `max_lag` dla krótkich bloków —
+do rozwiązania.
 
 ---
 
@@ -379,7 +450,10 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 
 ## 11. Ograniczenia, w kolejności ważności
 
-1. **Null rank-1 wobec pola rank ≥ 2** (§7.2) — priorytet, bo dotyczy produktu głównego.
+1. **Dudnienie dwóch bliskich okresów udaje dryf** (§7.2) — priorytet, bo dotyczy produktu
+   głównego. Null jest poprawny i T jest poprawne; rozdzielenie musi nastąpić po detekcji, skanem
+   spójności po długości bloku (§7.4). Ten skan jest dziś **zablokowany** przez przycięcie `nblocks`
+   do `N ÷ (4·max_lag)`, więc w pełnym przebiegu żadne dudnienie nie mogło zostać wyłapane.
 2. **ρ zakłada dostatecznie stabilne P₃, a stabilności nie mierzę** (§10.3). Tolerancja sięga
    ~±20% wędrówki, ale przy ±40% ρ rośnie do 1.385, a przy ±60% zapada się do 0.510 — czyli silnie
    wędrujący dryfer może zostać **fałszywie zdegradowany**. To warunek stosowalności ρ, nie tylko
@@ -426,6 +500,10 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
    żeby to rozstrzygnąć (§10.5). Dane realne rozstrzygnęły w drugą stronę.
 6. **Postawienie ρ jako produktu głównego** — właściwym produktem dla pytania Song et al. jest
    detekcja `T`/`T_inc`, a ρ jest charakterystyką dodatkową (§4).
+7. **Zdiagnozowanie dudnienia jako błędu kalibracji nullu** („PRIORYTET: surogat jest rank-1") —
+   to był problem **klasyfikacji**, nie kalibracji. Null jest poprawny, liczba 74σ prawdziwa,
+   a błędny był krok „jest uporządkowanie ⇒ jest dryf". Próba naprawy nullu (§7.3) zniszczyła
+   detekcję prawdziwego dryfu, co tę diagnozę rozstrzygnęło.
 
 Wspólny mianownik: **sam pomiar nie zmienił się ani razu**; zmieniała się ocena, kiedy wolno go
 interpretować. Każda korekta wyszła z testu, nie z rozumowania.

@@ -1153,3 +1153,45 @@ pierwsza hipoteza tłumacząca ogon ρ > 1.1 u 25 realnych dryferów.
 
 Dokumentacja `docs/travel_test_method.md` przepisana wokół nowej hierarchii; §11 to lista ograniczeń
 uporządkowana wg ważności, §12 zawiera sześć wycofanych wniosków.
+
+### 2026-09-23 (cd. 2) — dudnienie udaje dryf; to problem klasyfikacji, nie kalibracji
+
+**Demonstracja.** Dwie nakładające się składowe, każda z własnym P₃, **nic się nie przemieszcza**:
+
+| P₃ składowych | dudnienie | T | T_inc | spójność blok. |
+|---|---|---|---|---|
+| 7.0 / 7.4 | 129 P | **37.9σ** | **73.3σ** | **0.95** |
+| 7.0 / 9.0 | 32 P | −0.1σ | 9.7σ | 0.76 |
+| 7.0 / 13.0 | 15 P | 0.9σ | 1.0σ | 0.20 |
+| rank-1 (ścisłe H₀) | — | −0.3σ | −1.4σ | 0.19 |
+
+Groźne są bliskie okresy — długie dudnienie nie zdąży się uśrednić. **Reguła „T_inc bez zgodności
+blokowej nie jest kandydatem" jest niewystarczająca**: najgorszy przypadek ma zgodność 0.95, bo
+dudnienie dwóch ściśle okresowych sygnałów jest deterministyczne i powtarza się z bloku na blok.
+
+**Próba naprawy nullu (droga 1) — odrzucona.** Surogat rank-r z randomizacją faz Fouriera
+(`rank_r_modes`, `phase_randomize!`, `surrogate_rank`). Fałszywki znikły (74σ → −1.2σ), ale
+**prawdziwy dryf spadł z 19112σ na 1.9σ**. Powód jest nieusuwalny: dryf *jest* relacją fazową
+między dwoma modami w kwadraturze, więc randomizacja faz losuje dokładnie to, co stanowi sygnał.
+Poszerzając null tak, by objął dudnienie, obejmuje się nim również dryf. Domyślny `surrogate_rank`
+przywrócony na 1; opcja zostaje w kodzie jako zapis sprawdzonego wariantu.
+
+**Przeformułowanie.** To nie był błąd kalibracji. Null rank-1 jest poprawny (dla pola rank-1 daje
+−0.3σ), liczba 74σ jest prawdziwa — w danych naprawdę jest uporządkowanie czasowe. Błędny był mój
+krok **„jest uporządkowanie ⇒ jest dryf"**. Rozdzielenie musi nastąpić **po** detekcji.
+
+**Właściwy dyskryminator (droga 2) — działa.** Dryf ma wyprzedzenie trwałe, dudnienie odwraca znak
+co pół okresu dudnienia:
+
+| | 4 bloki (250 P) | 10 bloków (100 P) |
+|---|---|---|
+| dudnienie (129 P) | +0.98 +0.97 +0.97 +0.95 | −0.12 −0.68 −0.99 −0.97 −0.05 +0.93 −0.99 −0.99 +0.90 +0.61 |
+| prawdziwy dryf | +1.00 ×4 | **+1.00 ×10** |
+
+**Blokada:** `nblocks` jest przycinane do `N ÷ (4·max_lag)`, co przy realnych danych daje maksymalnie
+4 bloki — dokładnie reżim, w którym dudnienie udaje spójność. **W pełnym przebiegu ten test nie miał
+szans zadziałać.** Wdrożenie skanu wymaga poluzowania przycięcia, a to krótszego `max_lag` dla
+krótkich bloków. Do rozwiązania.
+
+Dokumentacja: §7 przepisany (7.1 konstrukcja, 7.2 dudnienie, 7.3 odrzucona naprawa, 7.4 skan po
+długości bloku), §11 pkt 1 przeformułowany, §12 dopisany siódmy wycofany wniosek.

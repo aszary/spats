@@ -336,6 +336,85 @@ end
 
 
 """
+    rank_r_modes(X, noise_var; max_rank) -> (U, SV, r)
+
+Modes for the rank-r surrogates: the SVD components of X that stand above the
+noise floor, split into temporal modes `U` (N × r) and the rest `SV` (r × M).
+
+Why more than one mode. The strict null — pure amplitude modulation,
+`δI = a(φ)w(n)` — is rank 1, and a rank-1 surrogate contributes *exactly* zero
+to A, so its whole null spread comes from noise. But a pulsar may carry two
+parts pulsing on independent clocks. That is still amplitude modulation, nothing
+translates, yet the cross term
+
+    [Σ_φ a₁(φ)a₂(φ+Δ)] · [Σ_n w₁(n)w₂(n+τ)]
+
+contains a *cross*-correlation in time, which is not even in τ and therefore
+does not vanish in A. Two nearby periods beat against each other — like two
+slightly detuned strings — so one longitude leads the other through part of the
+beat cycle and trails it through the rest. A asks exactly that question and
+lights up. Measured on synthetic data with nothing moving: P3 = 7.0 and 7.4 give
+T = 38σ and T_inc = 73σ, and the block-consistency guard reads 0.95 because a
+beat between two strictly periodic signals is deterministic and repeats from
+block to block. Well-separated periods (7 and 13) are harmless — the beat is
+short and averages away.
+
+The rank is taken from the data, not chosen: a pure-noise matrix has largest
+singular value ≈ σ(√N + √M), so modes above that threshold are signal. Total
+power is rescaled to the noise-debiased Σ X² − N·M·σ², as in `separable_signal`.
+"""
+function rank_r_modes(X::AbstractMatrix, noise_var::Real; max_rank::Int=20)
+    N, M = size(X)
+    F = svd(X)
+    thr = sqrt(max(noise_var, 0.0)) * (sqrt(N) + sqrt(M))
+    r = clamp(count(>(thr), F.S), 1, min(max_rank, length(F.S)))
+    p_tot = sum(abs2, X) - length(X) * noise_var
+    p_r   = sum(abs2, @view F.S[1:r])
+    scale = (p_r > 0 && p_tot > 0) ? sqrt(p_tot / p_r) : 0.0
+    U  = Matrix(@view F.U[:, 1:r])
+    SV = (scale .* @view(F.S[1:r])) .* @view(F.Vt[1:r, :])
+    return U, SV, r
+end
+
+
+"""
+    phase_randomize!(dest, U, rng)
+
+Fourier phase randomisation of each temporal mode, column by column.
+
+Every timeline is a sum of sine waves, each with an amplitude (how strong) and a
+phase (where it starts). The amplitudes carry the rhythm — a pulsar modulated at
+P3 = 7 has a large amplitude at that frequency — while the phases only say how
+the waves line up. Keeping all amplitudes and randomising only the phases
+therefore produces a mode with the **same power spectrum, hence the same
+autocorrelation and the same periodicity**, but no longer aligned with the other
+modes the way the data are. Doing it independently per mode gives a surrogate
+with the same number of independently pulsing parts and the same rhythms, and no
+systematic "which longitude goes first" — which is exactly H0.
+
+DC is left alone, and the Nyquist bin too when N is even, so the output stays
+real and keeps its mean.
+
+Caveat: these surrogates are faithful to the *spectrum*, not to every feature of
+the modulation. Phase randomisation smooths away sharp, irregular events such as
+abrupt nulling, so the null reproduces the rhythm but not the burstiness.
+"""
+function phase_randomize!(dest::AbstractMatrix, U::AbstractMatrix, rng)
+    N = size(U, 1)
+    nf = N ÷ 2 + 1
+    hi = iseven(N) ? nf - 1 : nf          # keep DC and (for even N) Nyquist real
+    for k in axes(U, 2)
+        f = rfft(@view U[:, k])
+        @inbounds for j in 2:hi
+            f[j] *= cis(2π * rand(rng))
+        end
+        dest[:, k] = irfft(f, N)
+    end
+    return dest
+end
+
+
+"""
     offpulse_starts(bin_st, bin_end, nbins, width) -> Vector{Int}
 
 First columns of every contiguous strip of `width` longitude bins that lies
@@ -679,6 +758,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
                      p2_template::Union{Real,Symbol,Nothing}=nothing,
                      p3_template::Union{Real,Nothing}=nothing,
                      p2_cap_frac::Real=8.0, orth_even::Bool=false,
+                     surrogate_rank::Union{Symbol,Integer}=1,
                      pulse_st::Union{Int,Nothing}=nothing,
                      pulse_end::Union{Int,Nothing}=nothing)
     nbins = size(data, 2)
@@ -748,10 +828,15 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     frac      = fracof(A)
     frac_even = fraceof(E)
 
-    Xsig = separable_signal(X, noise_var)
     rng  = isnothing(seed) ? Random.default_rng() : MersenneTwister(seed)
     buf  = Matrix{Float64}(undef, N, M)
     Xn   = Matrix{Float64}(undef, N, M)
+    Umod, SVmod, rank_used = rank_r_modes(X, noise_var;
+                                          max_rank = surrogate_rank === :auto ? 20 :
+                                                     Int(surrogate_rank))
+    surrogate_rank isa Integer && (rank_used = min(rank_used, Int(surrogate_rank)))
+    Umod  = Umod[:, 1:rank_used]; SVmod = SVmod[1:rank_used, :]
+    Urand = similar(Umod)
 
     T_null      = zeros(nreal)
     E2_null     = zeros(nreal)
@@ -759,8 +844,10 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     frac_null   = zeros(nreal)
     frace_null  = zeros(nreal)
     for i in 1:nreal
+        phase_randomize!(Urand, Umod, rng)
+        mul!(Xn, Urand, SVmod)
         noise_block!(buf, Xhp, strips, rng)
-        Xn .= Xsig .+ buf
+        Xn .+= buf
         _, As, Es, bs = _travel_maps(Xn, max_lag, md, edges)
         T_null[i]     = sum(abs2, As)
         E2_null[i]    = sum(abs2, Es)
@@ -918,6 +1005,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         significance_inc_off = significance_inc_off,
         pulse_range  = (ps, pe),
         offpulse_wrapped = wrapped,
+        surrogate_rank   = rank_used,
         p2_at_bound  = p2_at_bound,
     )
 end
