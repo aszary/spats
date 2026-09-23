@@ -308,16 +308,20 @@ module SpaTs
         results = Dict{String, Any}()
 
         for (i, name) in enumerate(names)
-            outdir = vpmout * name * "_16"
+            # Try joinpath(vpmout, name * "_16"), then vpmout * name * "_16", then fallback to name without _16
+            outdir = joinpath(vpmout, name * "_16")
             if !isdir(outdir)
-                outdir = joinpath(vpmout, name * "_16")
+                outdir = vpmout * name * "_16"
+            end
+            if !isdir(outdir)
+                outdir = joinpath(vpmout, name)
             end
             if !isdir(outdir)
                 outdir = vpmout * name
             end
 
             if !isdir(outdir)
-                @warn "[$i/$(length(names))] Output dir not found for $name ($outdir), skipping."
+                @warn "[$i/$(length(names))] Output dir not found for $name (checked: $(joinpath(vpmout, name * "_16"))), skipping."
                 continue
             end
 
