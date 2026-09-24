@@ -305,6 +305,104 @@ end
 
 
 """
+    crossblock_test(X, max_lag, max_dphi; nbs, nflip, rng) -> NamedTuple
+
+Detekcja **trwałego** uporządkowania czasowego bez modelu zmienności.
+
+Null rank-1 (surogat = wiodący mod SVD + szum z off-pulse'u) nie niesie
+nieseparowalnej zmienności on-pulse (jitter, podpulsy w losowych pozycjach). Jej
+wartość oczekiwana w A jest zero, ale T = ΣA² zbiera jej *wariancję*, więc T
+rośnie z siłą modulacji bez żadnego ruchu (syntetyk: losowe podpulsy dają
+σ ≈ 60·mod, do tysięcy σ). Tu diagonalę wycina się wprost:
+
+    T_cv = Σ_{b≠b'} ⟨A_b, A_b'⟩ = ‖Σ_b A_b‖² − Σ_b ‖A_b‖²
+
+Wartość oczekiwana zero dla każdego pola, którego fluktuacje A są niezależne
+między blokami — niezależnie od ich wariancji.
+
+Rozkład zerowy z randomizacji znaków: brak uporządkowania to symetria względem
+odwrócenia czasu, która zamienia A_b → −A_b, więc przy H0 znaki bloków są
+wymienialne. T(s) = Σ_{b≠b'} s_b s_b' G_bb' z G = macierzą Grama map blokowych.
+Wariancja analitycznie: Var = 2 Σ_{b≠b'} G_bb'², stąd z = T_cv / √Var; p z `nflip`
+losowań znaków (dokładnie gdy 2^(B−1) ≤ nflip).
+
+Cena braku modelu: przy B blokach istotność jest ograniczona — dla idealnie
+trwałego wzoru z = √(B(B−1)/2), a p ≥ 2^−(B−1). Dudnienie i reverser dają
+przeplatające się znaki bloków i się kasują (reverser jak w T).
+
+Długość opóźnień jak w `block_consistency_scan`: lag_b = min(max_lag, L÷4).
+
+**T_adj** — ta sama konstrukcja tylko dla sąsiednich bloków, T_adj = Σ_b ⟨A_b, A_{b+1}⟩.
+Też ma wartość oczekiwaną zero dla fluktuacji niezależnych między blokami, ale jest
+dodatni dla ruchu trwającego dłużej niż blok **niezależnie od kierunku** (iloczyn tego
+samego znaku) — łapie więc reversera o epizodach dłuższych od bloku, którego T_cv
+nie widzi. Null: przy niezależnych losowych s_b iloczyny t_b = s_b s_{b+1} są iid ±1,
+więc T_adj(t) = Σ t_b g_b, Var = Σ g_b².
+"""
+function crossblock_test(X::AbstractMatrix, max_lag::Int, max_dphi::Int;
+                         nbs = (8, 16, 32, 64), nflip::Int = 100_000,
+                         rng = MersenneTwister(11))
+    N = size(X, 1)
+    out = (nb = Int[], lag = Int[], T = Float64[], z = Float64[], p = Float64[],
+           zmax = Float64[], adj_z = Float64[], adj_p = Float64[])
+    for nb in nbs
+        L = N ÷ nb
+        lag_b = min(max_lag, L ÷ 4)
+        (lag_b >= 4 && L >= 16) || continue
+        edges = round.(Int, range(1, N + 1, length=nb + 1))
+        maps = [vec(antisym_map(corr_map(@view(X[edges[b]:edges[b+1]-1, :]), lag_b, max_dphi)))
+                for b in 1:nb]
+        B = length(maps)
+        G = [dot(maps[i], maps[j]) for i in 1:B, j in 1:B]
+        for i in 1:B; G[i, i] = 0.0; end
+        Tcv = sum(G)
+        v   = 2 * sum(abs2, G)
+        z   = v > 0 ? Tcv / sqrt(v) : NaN
+        # sign-flip null; s_1 fixed to +1 (T is invariant under s → −s)
+        cnt = 0
+        if B - 1 <= floor(Int, log2(nflip))   # 2^(B-1) overflows Int64 at B = 64
+            s = ones(B)
+            for k in 0:2^(B - 1) - 1
+                for i in 2:B; s[i] = (k >> (i - 2)) & 1 == 1 ? -1.0 : 1.0; end
+                cnt += dot(s, G * s) >= Tcv - 1e-12 * abs(Tcv)
+            end
+            p = cnt / 2^(B - 1)
+        else
+            s = ones(B)
+            for _ in 1:nflip
+                for i in 2:B; s[i] = rand(rng, Bool) ? 1.0 : -1.0; end
+                cnt += dot(s, G * s) >= Tcv - 1e-12 * abs(Tcv)
+            end
+            p = (cnt + 1) / (nflip + 1)
+        end
+        # adjacent blocks: T_adj = Σ t_b g_b with iid t_b = ±1 under H0
+        gadj = [G[b, b+1] for b in 1:B-1]
+        Tadj = sum(gadj)
+        va   = sum(abs2, gadj)
+        za   = va > 0 ? Tadj / sqrt(va) : NaN
+        ca   = 0
+        if B - 1 <= floor(Int, log2(nflip))   # 2^(B-1) overflows Int64 at B = 64
+            for k in 0:2^(B - 1) - 1
+                ca += sum(((k >> (i - 1)) & 1 == 1 ? -gadj[i] : gadj[i]) for i in 1:B-1) >=
+                      Tadj - 1e-12 * abs(Tadj)
+            end
+            pa = ca / 2^(B - 1)
+        else
+            for _ in 1:nflip
+                ca += sum((rand(rng, Bool) ? gadj[i] : -gadj[i]) for i in 1:B-1) >=
+                      Tadj - 1e-12 * abs(Tadj)
+            end
+            pa = (ca + 1) / (nflip + 1)
+        end
+        push!(out.adj_z, za); push!(out.adj_p, pa)
+        push!(out.nb, B); push!(out.lag, lag_b); push!(out.T, Tcv)
+        push!(out.z, z); push!(out.p, p); push!(out.zmax, sqrt(B * (B - 1) / 2))
+    end
+    return out
+end
+
+
+"""
     drift_template(max_lag, max_dphi, p2, p3; npulses, non) -> Matrix{Float64}
 
 The map a rigidly drifting pattern makes,
@@ -851,6 +949,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     T_inc = _inc_power(blocks)
 
     bscan = block_consistency_scan(X, max_lag, md)
+    cvt   = crossblock_test(X, max_lag, md)
 
     r = ridge(A)
     # :auto takes the template geometry from the pulsar's own map. Convenient for
@@ -1066,6 +1165,14 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         block_scan_lag  = bscan.lag,
         block_scan_cons = bscan.cons,
         block_scan_min  = isempty(bscan.cons) ? NaN : minimum(bscan.cons),
+        cv_nb   = cvt.nb,
+        cv_lag  = cvt.lag,
+        cv_T    = cvt.T,
+        cv_z    = cvt.z,
+        cv_p    = cvt.p,
+        cv_zmax = cvt.zmax,
+        cv_adj_z = cvt.adj_z,
+        cv_adj_p = cvt.adj_p,
         T_off        = T_off,
         significance_off = significance_off,
         p_value_off  = p_value_off,
