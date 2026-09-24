@@ -1290,3 +1290,57 @@ pola z fluktuacjami niezależnymi między blokami, więc nie wymaga modelu zmien
 jackknife po blokach. Traci reversera (jak T).
 (b) surogat z permutacją kolejności impulsów: A części separowalnej zostaje ≡ 0 przy każdej kolejności,
 a niezależna zmienność on-pulse jest zachowana. Ale niszczy też korelacje symetryczne w czasie.
+
+### 2026-09-24 (cd. 2) — naprawa (a): statystyki krzyżowe między blokami, przebieg v3
+
+**Konstrukcja** (`Travel.crossblock_test`, pola `cv_*` w wyniku `travel_test`).
+`T_cv = Σ_{b≠b'} ⟨A_b, A_b'⟩ = ‖ΣA_b‖² − Σ‖A_b‖²` — diagonala, w której siedzi obciążenie od wariancji,
+wycięta wprost. Null z **randomizacji znaków bloków**: brak uporządkowania = symetria względem odwrócenia
+czasu, która daje A_b → −A_b. Wariancja analitycznie `2Σ_{b≠b'}G²`, p z 10⁵ losowań (dokładnie dla
+2^(B−1) ≤ 10⁵). Bez surogatów i bez modelu zmienności. Cena: istotność ograniczona przez liczbę bloków,
+z_max = √(B(B−1)/2) (22.3 przy B = 32). Dodatkowo `T_adj = Σ_b ⟨A_b, A_{b+1}⟩` (sąsiednie bloki), dodatni
+dla ruchu dłuższego od bloku niezależnie od kierunku.
+Błąd po drodze: `2^(B−1)` przepełnia Int64 przy B = 64 → nieskończona enumeracja; naprawione
+(`B − 1 ≤ floor(log2(nflip))`).
+
+**Walidacja** (`~/claude/work/scripts/travel_cv_validate.jl` → `travel_cv_validate{,_adj}.csv`,
+9 typów × 9 amplitud × 4 ziarna):
+
+| przypadek | T (null rank-1) | T_cv, nb = 32 | T_adj, nb = 64 |
+|---|---|---|---|
+| rank-1, jitter, losowe podpulsy, podpulsy+AM | do 1574σ | skalibrowane: p<0.05 w 2.2%, max z = 3.15 (n = 432 z dudnieniami) | max z 1.98 |
+| dudnienie 7.0/7.4 | do 905σ | z ≈ −0.7 (przy nb = 8: z ≈ 5 — bloki = okres dudnienia) | **z ≈ 5.5** |
+| dudnienie 7.0/9.0 | do 152σ | z ≈ 0 | z ≈ −6 (nb = 32: +4.4) |
+| sztywny dryf | 8.9σ przy amp 0.2 | z = 4.7; od amp 0.3 z = 14–22 | 1.2–5.6 |
+| dryf, P₃ ±20% | 13σ przy amp 0.3 | z = 12 | — |
+| reverser (epizody 30 P / 100 P) | do 10⁵σ | **nie widzi** (z ≈ 0) | **z = 5–7** |
+
+T_adj nie odróżnia reversera od dudnienia — lokalnie to ta sama rzecz (§7.2). Nie wnosi nic ponad T_cv na
+danych (niżej), zostaje jako diagnostyka. Progi: z_cv(nb = 32) ≥ 5, z_adj(nb = 64) ≥ 5.
+
+**Przebieg v3** (`travel_batch_full.jl` → `~/output/claude/travel_batch_v3.csv`, 53 min; podsumowanie
+`travel_v3_summary.py` → `~/claude/work/logs/travel_v3_summary.log`). 18 błędów, 2 odrzucone off-pulse.
+
+| | n | T/T_inc ≥ 5 (v2) | **T_cv ≥ 5, nb = 32** | nb = 64 | max(32, 64) |
+|---|---|---|---|---|---|
+| drift | 406 | 368 (91%) | **271 (67%)** | 238 (59%) | 278 (68%) |
+| p3only | 107 | 79 (74%) | **12 (11%)** | 14 (13%) | 17 (16%) |
+
+(Kolumna nb = 32 z fallbackiem na największy nb ≥ 16 dla 30 pulsarów; w wariantach nb = 64 i max bez.)
+Tabela krzyżowa: p3only 67 detekcji tylko przez T, 0 tylko przez T_cv; drift 102 tylko T, 9 tylko T_cv.
+z_cv rośnie z siłą T u dryferów (46% → 86% detekcji), u p3only nie (10–21% w każdym przedziale T).
+T_adj: 57 detekcji drift, 0 p3only, wszystkie pokrywają się z T_cv.
+ρ dla detekcji T_cv (P₂fit ≤ M/2): drift n = 167, mediana **1.000** (kw. 0.845–1.080); p3only n = 3, 0.217.
+
+**Wniosek.** Po wyjęciu obciążenia od zmienności nieseparowalnej **trwałe uporządkowanie czasowe ma 2/3
+dryferów i ~11% P3-only** (7–16% zależnie od podziału). Wcześniejsze 74% było w większości artefaktem
+modelu zerowego. 12 P3-only z detekcją T_cv: J0837+0610, J1057-5226, J1048-5832, J1633-4453, J1701-3130,
+J1810-5338, J1632-4621, J1121-5444, J1555-0515, J1816-5643, J1722-3207, J1130-6807.
+
+**Otwarte.**
+1. Dryfery z silnym T, ale bez T_cv (40 z T ≥ 100) mają dłuższe P₃ (mediana 12 wobec 6): bloki 32 P
+   z lag ≤ 8 słabo pokrywają długi P₃. Kilka przechodzi przy nb = 64. Do sprawdzenia: lag_b niezależny od
+   L÷4 albo bloki dobierane do P₃. Część (J0738-4042: T = 1.2·10⁵σ, z_cv 1.6; J1430-6623: z_cv < 0) może
+   naprawdę nie mieć trwałego uporządkowania.
+2. Reverser o losowych epizodach: T_cv go nie widzi, T_adj myli go z dudnieniem. Nieusuwalne bez modelu.
+3. Test stabilności okna dla 12 P3-only z detekcją.

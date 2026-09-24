@@ -15,7 +15,13 @@ Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`, symlin
 > zmienności impuls-do-impulsu** (jitter, podpulsy w losowych pozycjach). Pola bez żadnego ruchu
 > dają T/T_inc do tysięcy σ przy sile modulacji spotykanej w danych, a kontrola off-pulse tego nie
 > łapie. Frakcje detekcji z §5.3 nie są więc dowodem uporządkowania czasowego. Skan spójności (§7.4)
-> jest na ten efekt odporny. Szczegóły i kandydaci naprawy: dziennik, wpis 2026-09-24 (cd.).
+> jest na ten efekt odporny. Szczegóły: dziennik, wpis 2026-09-24 (cd.).
+>
+> **Naprawa (2026-09-24, cd. 2): statystyka krzyżowa między blokami `T_cv` z nullem z randomizacji
+> znaków bloków** — bez modelu zmienności, skalibrowana na wszystkich syntetykach bez ruchu, czułość na
+> sztywny dryf porównywalna z T. Przebieg v3: trwałe uporządkowanie u **271/406 dryferów (67%)** i
+> **12/107 P3-only (11%)**. Szczegóły, walidacja i tabele: dziennik, wpis 2026-09-24 (cd. 2).
+> **To jest teraz główna statystyka detekcyjna; T i T_inc zostają jako diagnostyka.**
 
 ## 1. Problem
 
@@ -515,10 +521,10 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 
 ## 11. Ograniczenia, w kolejności ważności
 
-0. **Null nie niesie nieseparowalnej zmienności on-pulse** — T rośnie ~liniowo z siłą modulacji dla
-   pól bez ruchu (syntetyk: losowe podpulsy, σ ≈ 60·mod). Detekcja T/T_inc nie odpowiada na
-   pytanie A przy silnej modulacji. Niezaadresowane; kandydaci: statystyka krzyżowa między
-   blokami (`Σ_{b≠b'}⟨A_b, A_b'⟩`) albo surogat z permutacją impulsów.
+0. **Null rank-1 nie niesie nieseparowalnej zmienności on-pulse** — T rośnie ~liniowo z siłą modulacji
+   dla pól bez ruchu (σ ≈ 60·mod). **Zaadresowane przez `T_cv`** (`crossblock_test`). Jego własne
+   ograniczenia: istotność ograniczona liczbą bloków; długie P₃ słabo pokryte przy lag ≤ L÷4;
+   reverser o losowych epizodach niewidoczny (`T_adj` go łapie, ale myli z dudnieniem).
 1. **Dudnienie dwóch bliskich okresów udaje dryf** (§7.2). Null jest poprawny i T jest poprawne;
    rozdzielenie następuje po detekcji, skanem spójności po długości bloku (§7.4) — **wdrożone**,
    `block_scan_min`. Pozostałe luki: (a) dudnienia o krótkim okresie (≲ najkrótszy blok) uciekają,
@@ -598,7 +604,8 @@ Skrypty (`~/claude/work/scripts/`): `travel_batch_full.jl` (533 pulsary, wznawia
 (detekcja, `min(cons)` wg siły detekcji, ρ; porównanie v2 z pierwszym przebiegiem), `travel_rho_summary.jl`, `travel_rho_pilot.jl`, `travel_stability.jl`,
 `travel_variants.jl`, `check_onpulse.jl`, `travel_check.jl`, `travel_stress.jl`.
 
-Wyniki: `~/output/claude/travel_batch_v2.csv` (aktualny), `travel_batch_full.csv` (pierwszy
+Wyniki: `~/output/claude/travel_batch_v3.csv` (aktualny, z `cv_z`/`cv_p`/`adj_z`/`adj_p` jako
+listy po nb = 8;16;32;64), `travel_batch_v2.csv` (bez `T_cv`), `travel_batch_full.csv` (pierwszy
 przebieg, `max_dphi = M/2`, bez skanu), `onpulse_check.csv`, `travel_stability.csv`,
 `travel_rho_all.png`, `travel_rho_pilot.png`.
 
