@@ -1242,3 +1242,51 @@ przy n = 172; p3only n = 9, mediana 0.202.
 zależnego od S/N — dotąd tylko rozkład; kandydat: ten sam skan na surogatach rank-1 i na
 syntetycznym dryfie o danym S/N. (2) Frakcji 74% nie wolno podawać bez drugiego wiersza tabeli
 (spójność). (3) Reżim P₂/M ≤ 0.5 wciąż liczony względem zadeklarowanego M, nie W₃σ.
+
+### 2026-09-24 (cd.) — odniesienie dla min(cons) → null nie jest skalibrowany dla zmienności nieseparowalnej
+
+**Cel.** Wyznaczyć odniesienie dla `min(cons)` zależne od siły detekcji (§11 pkt 1b).
+
+**Polecenia** (`~/claude/work/scripts/`, wyniki w `~/output/claude/`):
+- `travel_cons_ref.jl` → `travel_cons_ref.csv`: 30 losowych dryferów z sig ≥ 100 + biały szum
+  (k·σ_off, k = 0…16) oraz syntetyk (sztywny dryf / kierunek losowy w epizodach 30 P / rank-1).
+  Analiza: `travel_cons_ref_summary.py` → `travel_cons_ref.png`, log `travel_cons_ref_summary.log`.
+- `travel_null_highsnr.jl` → `travel_null_highsnr.csv` (rank-1 przy amp 0.5–5, 10 ziaren) oraz
+  `travel_modstrength.csv`: `mod = var(on)/var(off) − 1` po highpass dla wszystkich pulsarów.
+- `travel_null_nonsep.jl` → `travel_null_nonsep.csv`: pola **bez uporządkowania czasowego** (impulsy
+  niezależne), nieseparowalne: jitter, losowe podpulsy, losowe podpulsy + AM z P₃.
+
+**1. `min(cons)` silnie zależy od S/N nawet dla idealnego dryfu.** Syntetyczny sztywny dryf:
+0.07 przy 16σ, 0.20 przy 59σ, 0.57 przy 452σ, ~0.93 przy >1000σ. Zdegradowane dryfery: p10 < 0
+aż do 100σ. Poniżej ~50σ `min(cons)` nie rozróżnia niczego.
+
+**2. GŁÓWNY WYNIK: null rank-1 nie jest skalibrowany dla nieseparowalnej zmienności impuls-do-impulsu.**
+Rank-1 jest w porządku do mod = 336 (0/40 realizacji ≥ 5σ). Ale pola bez żadnego ruchu:
+
+| pole | mod ≈ 1 | mod ≈ 5 | mod ≈ 20 | mod ≈ 60–90 |
+|---|---|---|---|---|
+| jitter | 8–17σ | 32–82σ | 173–337σ | — |
+| losowe podpulsy | 23–59σ | 146–254σ | 514–1071σ | 1900–4200σ |
+| losowe podpulsy + AM | 39–73σ | 189–397σ | 601–1174σ | 2600–5000σ |
+
+Kontrola off-pulse wszystko przepuszcza. `min(cons)` ≈ 0 lub ujemne w każdym przypadku.
+
+Mechanizm: tożsamość §2 mówi, że **wartość oczekiwana** A dla takiego pola jest zero, ale T = ΣA²
+zbiera też **wariancję** A. Surogat (wiodący mod SVD + szum z off-pulse) nie zawiera nieseparowalnej
+zmienności on-pulse, więc ta wariancja nie wchodzi do rozkładu zerowego, a T rośnie liniowo z mod.
+Obwiednia dla losowych podpulsów w tym syntetyku: sig ≈ 60·mod.
+
+**Konsekwencje.**
+- Detekcja T/T_inc ≥ 5σ **nie jest** dowodem uporządkowania czasowego przy silnej modulacji. Frakcje
+  91% / 74% z przebiegu v2 **nie mają interpretacji** „nie jest czystą modulacją amplitudową”.
+- Poniżej obwiedni (σ ≤ 60·mod): 59/78 detekcji p3only, 176/361 drift (orientacyjnie, bo obwiednia jest
+  z jednej geometrii syntetyku).
+- Skan spójności **jest** odporny na ten efekt (fluktuacje A z niezależnych impulsów nie odtwarzają się
+  między blokami), więc to on, a nie T, mierzy trwałe uporządkowanie.
+
+**Otwarte — wymaga decyzji.** Naprawa nullu, kandydaci:
+(a) statystyka krzyżowa między blokami `T_cv = Σ_{b≠b'} ⟨A_b, A_b'⟩`: wartość oczekiwana 0 dla każdego
+pola z fluktuacjami niezależnymi między blokami, więc nie wymaga modelu zmienności; wariancja z
+jackknife po blokach. Traci reversera (jak T).
+(b) surogat z permutacją kolejności impulsów: A części separowalnej zostaje ≡ 0 przy każdej kolejności,
+a niezależna zmienność on-pulse jest zachowana. Ale niszczy też korelacje symetryczne w czasie.

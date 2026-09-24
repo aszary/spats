@@ -11,6 +11,12 @@ Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`, symlin
 
 ---
 
+> **UWAGA (2026-09-24, późno): model zerowy (§7.1) nie jest skalibrowany dla nieseparowalnej
+> zmienności impuls-do-impulsu** (jitter, podpulsy w losowych pozycjach). Pola bez żadnego ruchu
+> dają T/T_inc do tysięcy σ przy sile modulacji spotykanej w danych, a kontrola off-pulse tego nie
+> łapie. Frakcje detekcji z §5.3 nie są więc dowodem uporządkowania czasowego. Skan spójności (§7.4)
+> jest na ten efekt odporny. Szczegóły i kandydaci naprawy: dziennik, wpis 2026-09-24 (cd.).
+
 ## 1. Problem
 
 Song et al. (2023) klasyfikują cechę w 2DFS jako dryf, jeśli jej **centroida mocy** jest istotnie
@@ -509,6 +515,10 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 
 ## 11. Ograniczenia, w kolejności ważności
 
+0. **Null nie niesie nieseparowalnej zmienności on-pulse** — T rośnie ~liniowo z siłą modulacji dla
+   pól bez ruchu (syntetyk: losowe podpulsy, σ ≈ 60·mod). Detekcja T/T_inc nie odpowiada na
+   pytanie A przy silnej modulacji. Niezaadresowane; kandydaci: statystyka krzyżowa między
+   blokami (`Σ_{b≠b'}⟨A_b, A_b'⟩`) albo surogat z permutacją impulsów.
 1. **Dudnienie dwóch bliskich okresów udaje dryf** (§7.2). Null jest poprawny i T jest poprawne;
    rozdzielenie następuje po detekcji, skanem spójności po długości bloku (§7.4) — **wdrożone**,
    `block_scan_min`. Pozostałe luki: (a) dudnienia o krótkim okresie (≲ najkrótszy blok) uciekają,
