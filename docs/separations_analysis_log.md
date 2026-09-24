@@ -1195,3 +1195,50 @@ krótkich bloków. Do rozwiązania.
 
 Dokumentacja: §7 przepisany (7.1 konstrukcja, 7.2 dudnienie, 7.3 odrzucona naprawa, 7.4 skan po
 długości bloku), §11 pkt 1 przeformułowany, §12 dopisany siódmy wycofany wniosek.
+
+### 2026-09-24 — pełny przebieg v2: `max_dphi` z W₃σ + skan spójności
+
+**Cel.** Wdrożyć w pełnym przebiegu obie zaległe zmiany (§8.3 i §7.4 opisu metody) i dopiero
+wtedy ocenić frakcję detekcji wśród P3-only.
+
+**Polecenia.** `~/claude/work/scripts/travel_batch_full.jl` z `max_dphi = clamp(W₃σ ÷ 2, 1, M ÷ 2)`
+(W₃σ z `onpulse_check.csv`, jest dla wszystkich 515) → `~/output/claude/travel_batch_v2.csv`
+(52 min, pilot 6 pulsarów: `travel_v2_pilot.csv`). Podsumowanie:
+`python3 ~/claude/work/scripts/travel_v2_summary.py` → `~/claude/work/logs/travel_v2_summary.log`.
+Stary `travel_batch_full.csv` zostaje do porównania.
+
+**Kontrole.** 18 błędów (te same co wcześniej), 2 odrzucone off-pulse. Model zerowy nadal
+skalibrowany: σ off-pulse T 1.03, T_inc 0.91 (było 0.91/0.85), mediany ≈ 0. `max_dphi` medianowo
+0.49 × M/2.
+
+**Pytanie A — detekcja ≥5σ:**
+
+| | stary (M/2) | nowy (W₃σ/2) | zmiana |
+|---|---|---|---|
+| drift | 330/405 (81.5%) | **368/406 (90.6%)** | +37, −0 |
+| p3only | 57/107 (53.3%) | **79/107 (73.8%)** | +22, −0 |
+
+Istotność rośnie medianowo 1.8×. Nowe detekcje pochodzą z pulsarów o oknie najmocniej
+przewymiarowanym (`max_dphi` 0.35 × M/2): stary zakres Δ dokładał same biny szumowe i rozcieńczał T.
+
+**Skan spójności — rozstrzyga, czym są te detekcje.** `min(cons)` wśród detekcji, wg siły detekcji:
+
+| siła | drift: n, mediana | p3only: n, mediana |
+|---|---|---|
+| 5–20σ | 54, 0.086 | 31, 0.018 |
+| 20–100σ | 101, 0.231 | 23, 0.035 |
+| >100σ | 213, **0.419** | 25, **0.088** |
+
+Przy porównywalnej sile detekcji P3-only mają spójność kilkakrotnie niższą, a ~⅓ z nich ma
+`min(cons) < 0`. Poniżej 0.2 jest 71/79 detekcji p3only wobec 129/368 dryferów. Czyli: **74% P3-only
+nie jest czystą modulacją amplitudową, ale ich uporządkowanie czasowe w zdecydowanej większości
+się nie odtwarza** — nie ma trwałego wyprzedzania jak u dryferów. Przejście przez zero (sygnatura
+dudnienia) przy detekcji ≥20σ: 0/314 drift, 1/48 p3only (J1001-5939: 0.34 → −0.05).
+
+**ρ (P₂fit ≤ M/2, z detekcją):** drift n = 200, mediana **0.990** (kw. 0.733–1.082), było 1.011
+przy n = 172; p3only n = 9, mediana 0.202.
+
+**Otwarte.** (1) Ciąg „detekcja → spójność” potrzebuje progu albo modelu odniesienia dla `min(cons)`
+zależnego od S/N — dotąd tylko rozkład; kandydat: ten sam skan na surogatach rank-1 i na
+syntetycznym dryfie o danym S/N. (2) Frakcji 74% nie wolno podawać bez drugiego wiersza tabeli
+(spójność). (3) Reżim P₂/M ≤ 0.5 wciąż liczony względem zadeklarowanego M, nie W₃σ.

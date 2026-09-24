@@ -1,6 +1,6 @@
 # Test „travel": dryf podpulsów czy modulacja amplitudowa
 
-**Stan na 2026-09-23.** Metoda rozstrzygania, czy wzór podpulsów **przemieszcza się** w długości
+**Stan na 2026-09-24.** Metoda rozstrzygania, czy wzór podpulsów **przemieszcza się** w długości
 (dryf), czy tylko **jaśnieje i gaśnie w miejscu** (P3-only) — niezależna od kryterium
 Song et al. (2023) i wolna od jego głównego obciążenia.
 
@@ -104,14 +104,32 @@ okresu dudnienia. Raportowaną wielkością jest **`min(cons)`** po całym skani
 
 ### 5.3 Wynik na pełnej próbce
 
+Przebieg v2 (`travel_batch_v2.csv`, 2026-09-24): `max_dphi = W₃σ ÷ 2` (§8.3) i skan spójności
+(§7.4). W nawiasie pierwszy przebieg z `max_dphi = M ÷ 2`.
+
 | etykieta Song+23 | w analizie | z detekcją ≥5σ |
 |---|---|---|
-| drift | 405 | **330 (82%)** |
-| p3only | 107 | **57 (53%)** |
+| drift | 406 | **368 (91%)** (330/405, 82%) |
+| p3only | 107 | **79 (74%)** (57/107, 53%) |
 
-Te 53% to potencjalnie mocny wynik — ponad połowa próbki P3-only pokazuje uporządkowanie w czasie,
-czyli nie jest czystą modulacją amplitudową. **Ale nie należy go wypowiadać przed naprawą nullu
-rank-1** (§7.2), bo część tych detekcji może być artefaktem modelu zerowego.
+Żaden pulsar nie stracił detekcji. Istotność wzrosła medianowo 1.8×, a nowe detekcje pochodzą
+z pulsarów o najbardziej przewymiarowanym oknie. Stary zakres Δ dokładał tam biny bez emisji.
+Model zerowy pozostał skalibrowany: σ kontroli off-pulse 1.03 (T) i 0.91 (T_inc).
+
+**Tej frakcji nie wolno podawać bez spójności.** `min(cons)` wśród detekcji:
+
+| siła detekcji | drift: n, mediana | p3only: n, mediana |
+|---|---|---|
+| 5–20σ | 54, 0.086 | 31, 0.018 |
+| 20–100σ | 101, 0.231 | 23, 0.035 |
+| >100σ | 213, **0.419** | 25, **0.088** |
+
+Przy tej samej sile detekcji P3-only mają spójność kilkakrotnie niższą, a około ⅓ ma ujemną.
+Poniżej 0.2 jest 71/79 detekcji p3only i 129/368 detekcji drift. Odczyt: 74% P3-only nie jest
+czystą modulacją amplitudową, ale u zdecydowanej większości uporządkowanie czasowe **nie jest
+trwałe**. Nie ma tu stałego wyprzedzania, jakie widać u dryferów. Przejście przez zero przy
+detekcji ≥20σ: 0/314 drift, 1/48 p3only (J1001-5939). Próg na `min(cons)` zależny od S/N nie
+jest jeszcze wyznaczony (§11).
 
 ---
 
@@ -351,7 +369,8 @@ M = 100…250, czyli bez trendu. Rozcieńczenie szumem kasuje się w ilorazie.
 
 **Naprawa: `max_dphi` z zasięgu emisji, nie z okna.** Zweryfikowane — P₂fit staje się idealnie
 stabilne (150.2 przy M = 100, 150, 200, 250), a zjazd ρ spada z 0.87→0.65 do 0.87→0.78. Bez nowych
-parametrów: W₃σ jest zmierzone dla wszystkich 515 pulsarów. **Niewdrożone w pełnym przebiegu.**
+parametrów: W₃σ jest zmierzone dla wszystkich 515 pulsarów. **Wdrożone w przebiegu v2** — mediana
+ρ drift (P₂fit ≤ M/2) 0.990 przy n = 200 (wcześniej 1.011 przy n = 172).
 
 Poszerzanie samego okna szkodzi niezależnie (rozcieńcza sygnał, zawyża P₂fit do 309 przy M = 250,
 zjada obszar off-pulse — przy M = 300 metoda przestaje działać). Zwiększanie samego zasięgu Δ też
@@ -493,8 +512,9 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 1. **Dudnienie dwóch bliskich okresów udaje dryf** (§7.2). Null jest poprawny i T jest poprawne;
    rozdzielenie następuje po detekcji, skanem spójności po długości bloku (§7.4) — **wdrożone**,
    `block_scan_min`. Pozostałe luki: (a) dudnienia o krótkim okresie (≲ najkrótszy blok) uciekają,
-   (b) `min(cons)` spada też z powodu szumu, więc jest czytelne tylko przy silnej detekcji,
-   (c) **pełny przebieg w `travel_batch_full.csv` skanu nie zawiera** — policzony przed wdrożeniem.
+   (b) `min(cons)` spada też z powodu szumu, więc jest czytelne tylko przy silnej detekcji;
+   **brak progu/odniesienia zależnego od S/N** (kandydat: skan na surogatach rank-1 i na
+   syntetycznym dryfie o zadanym S/N) — w v2 raportowany jest tylko rozkład (§5.3).
 2. **ρ zakłada dostatecznie stabilne P₃, a stabilności nie mierzę** (§10.3). Tolerancja sięga
    ~±20% wędrówki, ale przy ±40% ρ rośnie do 1.385, a przy ±60% zapada się do 0.510 — czyli silnie
    wędrujący dryfer może zostać **fałszywie zdegradowany**. To warunek stosowalności ρ, nie tylko
@@ -503,8 +523,8 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
    Model przewiduje ρ ≤ 1. Wiodąca hipoteza — wędrówka P₃ rzędu ±25–40% — jest ilościowo zgodna
    (§10.3). Inne kandydatki: składowa stojąca odejmująca od kanału parzystego (na syntetyku
    R = 1.32 dla dryfu z rampą), złe uwarunkowanie przy P₃ ≈ 2, ruch nie-sztywny, bi-drifting.
-4. **`max_dphi` z emisji niewdrożone** w pełnym przebiegu (§8.3) — naprawa zweryfikowana, ale
-   wyniki w `travel_batch_full.csv` jej nie zawierają.
+4. **Reżim P₂fit ≤ M/2 liczony względem zadeklarowanego M**, choć `max_dphi` pochodzi już z W₃σ
+   (§8.3, wdrożone w v2); spójniej byłoby P₂fit ≤ W₃σ/2.
 5. **Listy kandydatów wymagają testu stabilności okna** (§10.4); dotąd żadna go nie ma.
 6. **Reżim P₂ > W**: detekcja działa, klasyfikacja przez ρ nie (§9).
 7. **Geometria dopasowywana na tych samych danych**, co zawyża `frac_even` i zaniża ρ.
@@ -564,10 +584,12 @@ Argumenty: `max_lag` (2–3·P₃), `max_dphi` (**docelowo z W₃σ**), `hp_half
 `p2_template=:auto` z `p3_template` z LRFS, `p2_cap_frac`, `orth_even`.
 
 Skrypty (`~/claude/work/scripts/`): `travel_batch_full.jl` (533 pulsary, wznawialny, tryb
-`--limit N --out PLIK`), `travel_rho_summary.jl`, `travel_rho_pilot.jl`, `travel_stability.jl`,
+`--limit N --out PLIK`, `max_dphi = W₃σ ÷ 2` z `onpulse_check.csv`), `travel_v2_summary.py`
+(detekcja, `min(cons)` wg siły detekcji, ρ; porównanie v2 z pierwszym przebiegiem), `travel_rho_summary.jl`, `travel_rho_pilot.jl`, `travel_stability.jl`,
 `travel_variants.jl`, `check_onpulse.jl`, `travel_check.jl`, `travel_stress.jl`.
 
-Wyniki: `~/output/claude/travel_batch_full.csv`, `onpulse_check.csv`, `travel_stability.csv`,
+Wyniki: `~/output/claude/travel_batch_v2.csv` (aktualny), `travel_batch_full.csv` (pierwszy
+przebieg, `max_dphi = M/2`, bez skanu), `onpulse_check.csv`, `travel_stability.csv`,
 `travel_rho_all.png`, `travel_rho_pilot.png`.
 
 ### Kolejność czytania wyniku
