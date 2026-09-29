@@ -1377,3 +1377,29 @@ do sprawdzenia, czy te 23 to te same pulsary, które mają dziwne kontrole off-p
 kolor = f_trav (log 0.01–0.3) lub |ρ| (0–1.3; tylko P₂fit ≤ M/2), jasnoszare = trwałe uporządkowanie bez
 wartości, puste = brak detekcji T_cv. `_ppdot` dostał trzy opcjonalne kwargi (`overlay`,
 `population_color`, `legend_loc`); domyślne zachowanie bez zmian.
+
+### 2026-09-29 (cd.) — zależność od Ė, τ_c, B
+
+**Polecenia.** `~/claude/work/scripts/psrcat_dump.jl` → `~/claude/work/psrcat_ppdot.csv` (P, Ṗ z `input/psrcat.db`,
+ta sama funkcja co wykresy); `travel_vs_ppdot.py` → `logs/travel_vs_ppdot.log`; `travel_vs_edot_fig.py` →
+`logs/travel_vs_edot_fig.log`, `~/claude/work/figures/travel_vs_edot.png`. Ė = 4π²IṖ/P³ (I = 10⁴⁵), 513 pulsarów.
+
+**1. Częstość trwałego uporządkowania maleje z Ė** (etykieta drift): 71% / 78% / 63% / 48% / 44% w przedziałach
+Ė = 10²⁹⁻³¹ / 10³¹⁻³² / 10³²⁻³³ / 10³³⁻³⁴ / >10³⁴ erg/s; Mann-Whitney p = 9·10⁻⁵ (w drift), 3.5·10⁻⁸ (całość).
+P3-only płasko ~10% (mała statystyka). **Nie wynika z S/N:** trend jest w obu połowach k_snr i starego T,
+najsilniej w połowie o wyższym S/N (89% → 38%); logistyczna det ~ Ė + k_snr + T: Ė z = −4.6. Siła modulacji
+k_snr nie koreluje z Ė (ρ_S = +0.02).
+
+**2. f_trav maleje z Ė**: drift z detekcją n = 249, ρ_S = −0.30 [−0.41, −0.19]; po kontroli log P₃, log k_snr,
+log T (proxy S/N) −0.31. Mediany w przedziałach Ė spadają ~0.06 → ~0.03. τ_c: +0.28 (to samo, bo τ_c i Ė są
+silnie zależne w próbce). **B nie gra** (częściowa +0.03); po kontroli zostają P (+0.30) i Ė, Ṗ nie.
+P₃ nie koreluje z Ė w tej próbce (+0.08), więc to nie efekt tłumienia przy P₃ → 2.
+
+**3. |ρ| nie zależy od niczego** (|ρ_S| ≤ 0.02 dla Ė, τ_c, B, P, Ṗ; n = 167). Tam, gdzie dryf jest, ma charakter
+sztywnej translacji niezależnie od Ė; z Ė zmienia się to, *jak często* jest trwały i *jaką część* zmienności
+pulsów stanowi.
+
+**Zastrzeżenia.** Selekcja próbki Song+23 (etykieta drift sama zależy od Ė: 90% → 62% udziału); ρ i f_trav tylko
+dla detekcji; f_trav ma w mianowniku całą zmienność impuls-do-impulsu, więc „mniejsze f przy wysokim Ė” może
+znaczyć zarówno słabszy dryf, jak i silniejszą niezależną zmienność (k_snr kontrolowane, ale nie jest tym samym).
+Zgodne jakościowo z Basu et al. (2016) — dryf w pulsarach o Ė ≲ 10³² — ale tu jako trend ciągły, bez progu.
