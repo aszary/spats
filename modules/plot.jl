@@ -2612,6 +2612,12 @@ module Plot
     whatever falls outside saturates and the colorbar gets its arrowheads.
     With `offsets = nothing` nothing of that is drawn and the plain diagram
     comes out.
+
+    `overlay`, if given, is called as overlay(ax, names, P, Pdot) after the
+    population is drawn and returns a vector of legend handles, which go first
+    in the legend — a hook for layers with their own colour scale (see
+    ppdot_travel). It must place any colorbar inside the axes, for the same
+    reason as the offsets layer below.
     """
     function _ppdot(outdir; catalogue=normpath(joinpath(@__DIR__, "..", "input", "psrcat.db")),
                    name_mod="psrcat", show_=true,
@@ -2632,6 +2638,9 @@ module Plot
                    offset_cmap="RdBu_r",
                    offset_label="1523 \$-\$ 1023 MHz offset (\$^\\circ\$)",
                    offset_legend=("\$\\Delta\$ separation (\$\\geq\$2 comp.)", "shift (1 comp.)"),
+                   overlay=nothing,                # f(ax, names, P, Pdot) -> legend handles
+                   population_color="black",       # ATNF background points
+                   legend_loc="lower right",
                    plims=(1e-3, 2e2), pdotlims=(1e-22, 1e-8))
 
         names, periods, pdots = read_psrcat(catalogue)
@@ -2705,7 +2714,7 @@ module Plot
         end
         line!((death_bp2 / 3.2e19)^2, 3, nothing, 0.5, c_death, "-")
 
-        plot(p, pd, ".", ms=2.8, c="black", mec="none", zorder=3)
+        plot(p, pd, ".", ms=2.8, c=population_color, mec="none", zorder=3)
         c_sel = "magenta"
         any(marked) && plot(p[marked], pd[marked], ".", ms=4.0, c=c_sel, mec="none", zorder=4)
 
@@ -2817,12 +2826,14 @@ module Plot
             cb.set_label(offset_label, fontsize=7, labelpad=2)
         end
 
+        extra = isnothing(overlay) ? Any[] : overlay(ax, nam, p, pd)
+
         xlabel("\$P\$ (s)")
         ylabel("\$\\dot{P}\$ (s s\$^{-1}\$)")
         minorticks_on()
 
         L2D = PyPlot.matplotlib.lines.Line2D
-        handles = Any[]
+        handles = Any[extra...]
         any(marked) && push!(handles, L2D([], [], c=c_sel, ls="none", marker=".",
                                           ms=5.0, mec="none", label=highlight_label))
         if !isempty(idx)
@@ -2840,7 +2851,7 @@ module Plot
         push!(handles, L2D([], [], c=c_age, ls="-.", lw=0.9, label="\$\\tau_c\$ (yr)"))
         push!(handles, L2D([], [], c=c_edot, ls=":", lw=0.9, label="\$\\dot{E}\$ (erg s\$^{-1}\$)"))
         push!(handles, L2D([], [], c=c_death, ls="-", lw=0.9, label="death line"))
-        legend(handles=handles, fontsize=8, loc="lower right", framealpha=0.9,
+        legend(handles=handles, fontsize=8, loc=legend_loc, framealpha=0.9,
                borderpad=0.4, handlelength=2.5, labelspacing=0.35)
 
         savepath = joinpath(outdir, "ppdot_$(name_mod).pdf")
@@ -2908,6 +2919,148 @@ module Plot
                offset_label="fractional narrowing \$\\Delta W / W\$ (1523 vs 1023 MHz)",
                offset_legend=("\$\\Delta W / W\$", "shift (1 comp.)"),
                kwargs..., offsets=frac, name_mod=name_mod)
+    end
+
+
+    """
+    Read the travel-test batch table (travel_batch_full.jl in the work
+    directory, columns as written there) into Dict(name => NamedTuple). Rows
+    with an error or a failed off-pulse control (|sigma| > 3 for T or T_inc)
+    are dropped. `cv_*`, `adj_*`, `f_trav*` are ";"-lists over the block
+    counts in `cv_nb`; `nb_det` / `nb_f` pick one, falling back to the largest
+    available count >= 16 when that one was not feasible.
+    """
+    function _read_travel(filename; nb_det=32, nb_f=32)
+        out = Dict{String,Any}()
+        lines = collect(eachline(filename))
+        hdr = split(lines[1], ','); c = Dict(String(h) => i for (i, h) in enumerate(hdr))
+        num(s) = something(tryparse(Float64, s), NaN)
+        lst(s) = isempty(s) ? Float64[] : num.(split(s, ';'))
+        function at(t, col, want)
+            nb = round.(Int, lst(t[c["cv_nb"]])); v = lst(t[c[col]])
+            want in nb && return v[findfirst(==(want), nb)]
+            k = findlast(>=(16), nb)
+            return isnothing(k) ? NaN : v[k]
+        end
+        for l in lines[2:end]
+            t = split(l, ',')
+            isempty(t[c["error"]]) || continue
+            (abs(num(t[c["off_sig"]])) <= 3 && abs(num(t[c["off_inc_sig"]])) <= 3) || continue
+            name = String(t[1])
+            haskey(PSR_RENAMED, name) && (name = PSR_RENAMED[name])
+            out[name] = (label = String(t[c["label"]]),
+                         z = at(t, "cv_z", nb_det),
+                         f = at(t, "f_trav", nb_f), f_err = at(t, "f_trav_err", nb_f),
+                         k_snr = haskey(c, "k_snr") ? num(t[c["k_snr"]]) : NaN,
+                         rho = abs(num(t[c["rho"]])), rho_err = num(t[c["rho_err"]]),
+                         p2m = num(t[c["p2_fit"]]) / num(t[c["non"]]))
+        end
+        return out
+    end
+
+
+    """
+    P-Pdot diagram of the travel test (Travel.crossblock_test) on top of the
+    ATNF population. Symbol shape = Song et al. (2023) label (circle drift,
+    triangle P3-only); filled = persistent temporal ordering detected,
+    z_cv >= `zdet` at `nb_det` blocks (sign-flip null, no variance model);
+    open grey = not detected.
+
+    quantity = :ftrav — colour is f_trav, the fraction of the fluctuation power
+      in a persistent drift (1 rigid drift, 0 amplitude modulation), defined
+      for every pulsar; for the undetected ones it is shown only as the open
+      symbol, since there it measures noise. The denominator is the whole
+      pulse-to-pulse variability (energy fluctuations, shape changes,
+      nulling), so real drifters sit at ~0.02-0.3; the scale is logarithmic,
+      `fmin`...`vmax` (default 0.01...0.3). Pulsars with k_snr < `ksnr_min`
+      (fluctuation power over noise, where f is biased high) are drawn open.
+    quantity = :rho — colour is |rho|, how close the modulation is to a rigid
+      translation (1) versus amplitude modulation (0); only where it is
+      interpretable: detected, and the fitted P2 within half the on-pulse
+      window (P2fit / M <= `p2m_max`). The rest of the sample is drawn as small
+      open grey symbols.
+
+    The colour scale runs 0...`vmax` (sequential `cmap`), values above
+    saturate. Remaining keywords are those of _ppdot. Writes
+    ppdot_<name_mod>.pdf/png.
+    """
+    function ppdot_travel(outdir; results="/home/psr/output/travel_batch_v4.csv",
+                          quantity=:ftrav, zdet=5.0, nb_det=32, nb_f=32, p2m_max=0.5,
+                          fmin=0.01, ksnr_min=0.02,
+                          vmax=nothing, cmap="viridis", name_mod=nothing,
+                          plims=(2e-2, 2e1), pdotlims=(1e-18, 1e-11), kwargs...)
+        tr = _read_travel(results; nb_det=nb_det, nb_f=nb_f)
+        println("travel: $(length(tr)) pulsars from $(basename(results))")
+        isftrav = quantity === :ftrav
+        vm = isnothing(vmax) ? (isftrav ? 0.3 : 1.3) : Float64(vmax)
+        label = isftrav ? "\$f_{\\rm trav}\$ — fraction of fluctuation power in persistent drift" :
+                          "\$|\\rho|\$ — rigid translation (1) vs amplitude modulation (0)"
+
+        function overlay(ax, nam, P, Pd)
+            idx = Dict(n => i for (i, n) in enumerate(nam))
+            absent = sort([k for k in keys(tr) if !haskey(idx, k)])
+            isempty(absent) || println("travel: no P/Pdot for $(length(absent)): $(join(absent, ", "))")
+            cm = PyPlot.matplotlib.pyplot.get_cmap(cmap)
+            cn = isftrav ? PyPlot.matplotlib.colors.LogNorm(vmin=fmin, vmax=vm) :
+                           PyPlot.matplotlib.colors.Normalize(vmin=0.0, vmax=vm)
+            lo = isftrav ? fmin : 0.0
+            nsat = 0; nlow = 0
+            for (lab, mk, ms) in (("drift", "o", 30.0), ("p3only", "^", 38.0))
+                sel = [k for (k, v) in tr if v.label == lab && haskey(idx, k)]
+                det = [k for k in sel if v_ok(tr[k])]
+                nov = [k for k in sel if tr[k].z >= zdet && !v_ok(tr[k])]   # detected, no value
+                rest = setdiff(sel, det, nov)
+                vals = [isftrav ? tr[k].f : tr[k].rho for k in det]
+                nsat += count(>(vm), vals); nlow += count(<(lo), vals)
+                ax.scatter(P[[idx[k] for k in rest]], Pd[[idx[k] for k in rest]],
+                           s=0.55ms, marker=mk, facecolors="none",
+                           edgecolors="0.45", linewidths=0.6, zorder=5)
+                ax.scatter(P[[idx[k] for k in nov]], Pd[[idx[k] for k in nov]],
+                           s=0.8ms, marker=mk, facecolors="0.8",
+                           edgecolors="black", linewidths=0.6, zorder=5.5)
+                ax.scatter(P[[idx[k] for k in det]], Pd[[idx[k] for k in det]], s=ms,
+                           marker=mk, c=clamp.(vals, lo, vm), cmap=cm, norm=cn,
+                           edgecolors="black", linewidths=0.4, zorder=6)
+                println(@sprintf("travel: %-6s %3d in colour, %3d detected without a value, %3d not detected",
+                                 lab, length(det), length(nov), length(rest)))
+            end
+            cax = ax.inset_axes([0.04, 0.86, 0.38, 0.022])
+            sm = PyPlot.matplotlib.cm.ScalarMappable(norm=cn, cmap=cm); sm.set_array([])
+            ext = nsat > 0 && nlow > 0 ? "both" : nsat > 0 ? "max" : nlow > 0 ? "min" : "neither"
+            cb = colorbar(sm, cax=cax, orientation="horizontal", extend=ext)
+            nlow > 0 && println("travel: $nlow coloured values below $lo, shown at the bottom of the scale")
+            if isftrav
+                tk = [t for t in (0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0) if fmin <= t <= vm]
+                vm in tk || push!(tk, vm)
+                cb.set_ticks(tk); cb.set_ticklabels([@sprintf("%g", t) for t in tk])
+                cb.ax.minorticks_off()
+            end
+            cb.ax.tick_params(labelsize=6, length=2, pad=1)
+            cb.outline.set_linewidth(0.5)
+            cb.set_label(label, fontsize=7, labelpad=2)
+
+            L2D = PyPlot.matplotlib.lines.Line2D
+            open_lab = "no persistent ordering (\$z_{\\rm cv} < $(zdet)\$)"
+            nov_lab  = isftrav ? "persistent, \$f_{\\rm trav}\$ undefined (off-pulse noise)" :
+                                 "persistent, \$P_2\$ not measurable"
+            c_mid = cm(0.6)
+            return Any[L2D([], [], mfc=c_mid, ls="none", marker="o", ms=5.0, mec="black",
+                           mew=0.4, label="drift (Song+23)"),
+                       L2D([], [], mfc=c_mid, ls="none", marker="^", ms=5.5, mec="black",
+                           mew=0.4, label="P3-only (Song+23)"),
+                       L2D([], [], mfc="0.8", ls="none", marker="o", ms=4.5, mec="black",
+                           mew=0.6, label=nov_lab),
+                       L2D([], [], mfc="none", ls="none", marker="o", ms=3.7, mec="0.45",
+                           mew=0.6, label=open_lab)]
+        end
+        # coloured = detected (and, for rho, geometry measurable)
+        v_ok(v) = v.z >= zdet && (isftrav ? isfinite(v.f) && !(v.k_snr < ksnr_min) :
+                                   isfinite(v.rho) && v.p2m <= p2m_max)
+
+        nm = isnothing(name_mod) ? (isftrav ? "travel_ftrav" : "travel_rho") : name_mod
+        _ppdot(outdir; highlight=nothing, plims=plims, pdotlims=pdotlims,
+               population_color="0.75", legend_loc="lower left", kwargs...,
+               offsets=nothing, overlay=overlay, name_mod=nm)
     end
 
 

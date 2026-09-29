@@ -338,20 +338,43 @@ dodatni dla ruchu trwającego dłużej niż blok **niezależnie od kierunku** (i
 samego znaku) — łapie więc reversera o epizodach dłuższych od bloku, którego T_cv
 nie widzi. Null: przy niezależnych losowych s_b iloczyny t_b = s_b s_{b+1} są iid ±1,
 więc T_adj(t) = Σ t_b g_b, Var = Σ g_b².
+
+**f_trav** — siła trwałego dryfu jako ułamek mocy fluktuacji, bez modelu i geometrii.
+Mapy blokowe dzielone przez liczbę par, (L−τ)(M−Δ), i przez wariancję fluktuacji
+na parę z odjętym szumem, k = (ΣK_b(0,0) − `noise_var`·N·M)/(N·M). Dla fali bieżącej
+cos(2π(φ/P2 − n/P3)) komórka mapy to wtedy 2·sin(2πΔ/P2)·sin(2πτ/P3), której RMS po
+komórkach wynosi 1; modulacja amplitudowa daje 0, a mieszanina — mniej więcej udział
+mocy w dryfie. Moc **trwałej** części mapy estymowana nieobciążenie z samych iloczynów
+między blokami (jak T_cv), więc szum i zmienność nieseparowalna podnoszą tylko błąd,
+nie wartość:
+
+    f_trav = sgn(m)·√|m| / k,    m = Σ_{b≠b'} ⟨a_b, a_b'⟩ / (B(B−1)·n_cell)
+
+Błąd z jackknife po blokach (k trzymane stałe, więc nie obejmuje niepewności
+mianownika — `k_snr` = k/σ²_szumu poniżej ~0.02 oznacza f zawyżone; syntetyk:
+1.39 zamiast 0.91 przy k_snr ≈ 0.01).
+
+Skala na danych: mianownik zbiera **całą** zmienność impuls-do-impulsu (wahania
+energii, zmiany kształtu, nulling), więc prawdziwe silne dryfery mają f ≈ 0.02–0.3,
+a nie ~0.9 jak syntetyczny sztywny dryf. f_trav jest *obserwowalnym* ułamkiem
+wędrówki: tłumi go to, czego nie da się zobaczyć z próbkowania — P3 → 2 (Nyquist:
+wzór bieżący i stojący stają się nieodróżnialne), P2 ≫ zasięg Δ (widać najwyżej jeden
+podpuls) i zanik koherencji wzoru na skali opóźnień bloku.
 """
 function crossblock_test(X::AbstractMatrix, max_lag::Int, max_dphi::Int;
                          nbs = (8, 16, 32, 64), nflip::Int = 100_000,
-                         rng = MersenneTwister(11))
-    N = size(X, 1)
+                         noise_var::Real = 0.0, rng = MersenneTwister(11))
+    N, M = size(X)
     out = (nb = Int[], lag = Int[], T = Float64[], z = Float64[], p = Float64[],
-           zmax = Float64[], adj_z = Float64[], adj_p = Float64[])
+           zmax = Float64[], adj_z = Float64[], adj_p = Float64[],
+           f = Float64[], f_err = Float64[], k_snr = Float64[])
     for nb in nbs
         L = N ÷ nb
         lag_b = min(max_lag, L ÷ 4)
         (lag_b >= 4 && L >= 16) || continue
         edges = round.(Int, range(1, N + 1, length=nb + 1))
-        maps = [vec(antisym_map(corr_map(@view(X[edges[b]:edges[b+1]-1, :]), lag_b, max_dphi)))
-                for b in 1:nb]
+        Ks   = [corr_map(@view(X[edges[b]:edges[b+1]-1, :]), lag_b, max_dphi) for b in 1:nb]
+        maps = [vec(antisym_map(K)) for K in Ks]
         B = length(maps)
         G = [dot(maps[i], maps[j]) for i in 1:B, j in 1:B]
         for i in 1:B; G[i, i] = 0.0; end
@@ -395,6 +418,24 @@ function crossblock_test(X::AbstractMatrix, max_lag::Int, max_dphi::Int;
             pa = (ca + 1) / (nflip + 1)
         end
         push!(out.adj_z, za); push!(out.adj_p, pa)
+
+        # f_trav: pair-normalised maps, persistent power from cross-block products only
+        k = (sum(K[1, max_dphi+1] for K in Ks) - noise_var * N * M) / (N * M)
+        Ls = diff(edges)
+        an = [vec(antisym_map(Ks[b]) ./ [(Ls[b] - t) * (M - d) for t in 1:lag_b, d in 1:max_dphi])
+              for b in 1:B]
+        H = [dot(an[i], an[j]) for i in 1:B, j in 1:B]
+        for i in 1:B; H[i, i] = 0.0; end
+        nc = length(an[1])
+        fof(m) = k > 0 ? sign(m) * sqrt(abs(m)) / k : NaN
+        Stot = sum(H)
+        f = fof(Stot / (B * (B - 1) * nc))
+        fj = [fof((Stot - 2 * sum(@view H[:, j])) / ((B - 1) * (B - 2) * nc)) for j in 1:B]
+        fe = sqrt((B - 1) / B * sum(abs2, fj .- mean(fj)))
+        push!(out.f, f); push!(out.f_err, fe)
+        # fluctuation power over noise; f is unreliable below ~0.02 (denominator
+        # is then a small difference of two nearly equal variances)
+        push!(out.k_snr, noise_var > 0 ? k / noise_var : NaN)
         push!(out.nb, B); push!(out.lag, lag_b); push!(out.T, Tcv)
         push!(out.z, z); push!(out.p, p); push!(out.zmax, sqrt(B * (B - 1) / 2))
     end
@@ -949,7 +990,7 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
     T_inc = _inc_power(blocks)
 
     bscan = block_consistency_scan(X, max_lag, md)
-    cvt   = crossblock_test(X, max_lag, md)
+    cvt   = crossblock_test(X, max_lag, md; noise_var=noise_var)
 
     r = ridge(A)
     # :auto takes the template geometry from the pulsar's own map. Convenient for
@@ -1173,6 +1214,9 @@ function travel_test(data::AbstractMatrix, bin_st::Int, bin_end::Int;
         cv_zmax = cvt.zmax,
         cv_adj_z = cvt.adj_z,
         cv_adj_p = cvt.adj_p,
+        f_trav     = cvt.f,
+        f_trav_err = cvt.f_err,
+        f_trav_ksnr = cvt.k_snr,
         T_off        = T_off,
         significance_off = significance_off,
         p_value_off  = p_value_off,

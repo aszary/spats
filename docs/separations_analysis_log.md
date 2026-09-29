@@ -1344,3 +1344,36 @@ J1810-5338, J1632-4621, J1121-5444, J1555-0515, J1816-5643, J1722-3207, J1130-68
    naprawdę nie mieć trwałego uporządkowania.
 2. Reverser o losowych epizodach: T_cv go nie widzi, T_adj myli go z dudnieniem. Nieusuwalne bez modelu.
 3. Test stabilności okna dla 12 P3-only z detekcją.
+
+### 2026-09-29 — f_trav (siła trwałego dryfu) i wykresy P-Pdot
+
+**Cel.** Wykres P-Pdot z wielkością mówiącą, jak silny jest dryf, niezależną od S/N (z_cv, T i
+min(cons) od niego zależą, więc się nie nadają).
+
+**f_trav** (`Travel.crossblock_test`, pola `f_trav`, `f_trav_err`, `f_trav_ksnr` w `travel_test`): ułamek mocy
+fluktuacji w trwałym dryfie. Mapy blokowe dzielone przez liczbę par (L−τ)(M−Δ) i przez wariancję
+fluktuacji z odjętym szumem off-pulse (k); moc trwała tylko z iloczynów między blokami (jak T_cv),
+`f = sgn(m)√|m|/k`. Dla fali bieżącej komórka to 2 sin sin, RMS = 1. Błąd: jackknife po blokach.
+
+**Walidacja** (`travel_ftrav_validate.jl` → `travel_ftrav_validate.csv`):
+- mieszanina q·dryf + (1−q)·AM: f = 0.00 / 0.21 / 0.44 / 0.67 / 0.91 dla q = 0 … 1, stałe w zakresie
+  36σ–34 000σ i prawie niezależne od nb; jitter, losowe podpulsy: |f| < 0.03 (stary T do 1207σ);
+- 30 silnych dryferów + szum: f(k)/f(0) = 1.00 / 1.00 / 1.01 / 1.01 przy starej sile 2884σ → 42σ;
+- **ograniczenie:** przy k/σ²_szumu ≲ 0.02 mianownik jest różnicą prawie równych wariancji i f jest
+  zawyżone (syntetyk: 1.39 zamiast 0.91 przy k_snr ≈ 0.01).
+
+**Skala na danych.** Mianownik zbiera całą zmienność impuls-do-impulsu (wahania energii, zmiany kształtu,
+nulling — k_snr sięga setek), więc realne dryfery mają f ≈ 0.02–0.34, nie ~0.9. Przebieg v4 (`travel_batch_v4.csv`,
+detekcje identyczne z v3): drift z detekcją T_cv f mediana **0.049** (kw. 0.030–0.090, max 0.344, n = 249);
+p3only 0.018 (0.014–0.036, n = 11).
+
+**Podejrzane: k_snr < 0 u 23 z 283 detekcji** (do −0.97): wariancja on-pulse mniejsza niż szacunek szumu
+z off-pulse'u, czyli off-pulse zawyżony (emisja lub artefakty bazowe w paskach). T_cv tego nie dotyczy
+(bez modelu szumu); f dla nich niezdefiniowane. Tego samego szacunku szumu używał stary null T —
+do sprawdzenia, czy te 23 to te same pulsary, które mają dziwne kontrole off-pulse.
+
+**Wykresy** (`Plot.ppdot_travel`, skrypt `~/claude/work/scripts/travel_ppdot.jl`):
+`~/output/claude/ppdot_travel_ftrav.{pdf,png}` i `ppdot_travel_rho.{pdf,png}`. Kształt = etykieta Song+23,
+kolor = f_trav (log 0.01–0.3) lub |ρ| (0–1.3; tylko P₂fit ≤ M/2), jasnoszare = trwałe uporządkowanie bez
+wartości, puste = brak detekcji T_cv. `_ppdot` dostał trzy opcjonalne kwargi (`overlay`,
+`population_color`, `legend_loc`); domyślne zachowanie bez zmian.
