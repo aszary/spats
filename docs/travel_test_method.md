@@ -22,6 +22,11 @@ Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`, symlin
 > sztywny dryf porównywalna z T. Przebieg v3: trwałe uporządkowanie u **271/406 dryferów (67%)** i
 > **12/107 P3-only (11%)**. Szczegóły, walidacja i tabele: dziennik, wpis 2026-09-24 (cd. 2).
 > **To jest teraz główna statystyka detekcyjna; T i T_inc zostają jako diagnostyka.**
+>
+> **Siła dryfu (2026-09-29): `f_trav`** — ułamek mocy fluktuacji w trwałym dryfie, z tych samych
+> iloczynów między blokami; nie zależy od S/N (sprawdzone na syntetyku i zdegradowanych dryferach),
+> ≈ 0 bez ruchu. Na danych 0.02–0.34 u dryferów (mianownik to cała zmienność impuls-do-impulsu).
+> Niezdefiniowane przy k_snr < 0.02. Wykresy: `Plot.ppdot_travel` (`quantity = :ftrav` / `:rho`).
 
 ## 1. Problem
 
