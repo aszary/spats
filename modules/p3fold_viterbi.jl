@@ -353,7 +353,7 @@ Returns:
 """
 function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                         ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
-                        p3_window::Int=20, bin_search::Int=2)
+                        p3_window::Int=20, bin_search::Int=2, warn_weak::Bool=true)
     N = size(data, 1)
     on = bin_st:bin_end
     f3 = 1.0 / p3
@@ -375,6 +375,14 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     off = vcat(1:bin_st-1, bin_end+1:size(data, 2))
     sigma_off = isempty(off) ? 0.0 : std([real.(L[off]); imag.(L[off])])
     snr = sigma_off == 0 ? Inf : sqrt(sum(abs2, L_on)) / (sigma_off * sqrt(length(on)))
+    # noise floor: this is an RMS-of-magnitude statistic (unlike drift_test's
+    # mean-of-magnitude, floor ~1.25), so pure complex Gaussian noise gives
+    # E[RMS|z|]/sigma = sqrt(2) ≈ 1.41, not 1.25 — same idea as drift_test's
+    # own snr<3 warning, just referenced to this statistic's own noise floor
+    warn_weak && snr < 3 && @warn "Weak f3 feature in coherent_fold (snr = $(round(snr, digits=2)), " *
+                     "pure noise gives ~1.41): the fold below is tracking a marginal " *
+                     "signal — cross-check against PhaseDrift.drift_test's `significance` " *
+                     "(a different, Monte-Carlo-calibrated quantity) before trusting it"
 
     # 2. spatial matched-filter projection: one high-SNR complex number per pulse.
     # The static (non-modulated) average profile must be removed first — it lives at
@@ -455,7 +463,7 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
         st, en = edges[g], edges[g+1] - 1
         en < st && continue
         r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
-                           filter_order=filter_order, p3_window=p3_window)
+                           filter_order=filter_order, p3_window=p3_window, warn_weak=false)
         group_p3[g, :] = r.p3_per_pulse
         group_phase[g, :] = r.phase .- mean(r.phase)
     end
@@ -517,14 +525,14 @@ function scan_lowpass_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
     results = NamedTuple[]
     for co in cutoffs
         main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=co,
-                              filter_order=filter_order, p3_window=p3_window)
+                              filter_order=filter_order, p3_window=p3_window, warn_weak=false)
 
         group_p3 = fill(NaN, n_groups, N)
         for g in 1:n_groups
             st, en = edges[g], edges[g+1] - 1
             en < st && continue
             r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=co,
-                               filter_order=filter_order, p3_window=p3_window)
+                               filter_order=filter_order, p3_window=p3_window, warn_weak=false)
             group_p3[g, :] = r.p3_per_pulse
         end
 

@@ -377,6 +377,20 @@ module SpaTs
                     "consistency=$(round(r.consistency, digits=3))  " *
                     "p3_std=$(round(r.p3_std, digits=3))  snr=$(round(r.snr, digits=1))")
         end
+        # snr is identical across all rows by design (computed pre-filter, so
+        # lowpass_cutoff can't affect it) — it's a sanity reference, not part
+        # of the scan itself. Pure noise gives ~1.41 for this statistic
+        # (different from PhaseDrift.drift_test's own ~1.25 floor — the two
+        # use different magnitude statistics); snr < 3 means the f3 feature
+        # itself is marginal, independent of anything the cutoff scan found.
+        if !isempty(results)
+            snr0 = results[1].snr
+            floor_ratio = snr0 / sqrt(2)
+            println("snr=$(round(snr0, digits=1)) jest takie samo dla każdego cutoffu " *
+                    "(liczone przed filtrowaniem) — czysty szum daje tu ~1.41, więc to " *
+                    "$(round(floor_ratio, digits=1))× powyżej szumu" *
+                    (snr0 < 3 ? " — SŁABY sygnał, traktuj fold ostrożnie." : "."))
+        end
         # suggestion only — highest-consistency candidate; verify against the
         # plot before using, this is not a substitute for looking at the trend
         valid = filter(r -> isfinite(r.consistency), results)
