@@ -893,7 +893,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
             X = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
             if bin_end === nothing
                 bin_end = size(X, 2)
-        end
+            end
             
             # Run the LRFS analysis!
         result = LrfsDiagnostics.lrfs_phase_track(X, bin_st, bin_end)
@@ -902,7 +902,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         println("Dominant P3: ", round(result.p3_pulses, digits=2), " pulses")
         println("Phase Slope: ", round(result.phase_slope, digits=4), " rad/bin")
         println("Classification: ", result.classification)
-
+        end
     end
 
     
