@@ -407,7 +407,9 @@ module SpaTs
       # inspect the plot, then:
       p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=<chosen value>)
     """
-    function p3fold_cutoff_scan(outdir; cutoffs=[1/1000, 1/500, 1/300, 1/200, 1/150, 1/100, 1/60, 1/30],
+    function p3fold_cutoff_scan(outdir; cutoffs=[1/2000, 1/1000, 1/700, 1/500, 1/350, 1/250,
+                                                  1/200, 1/150, 1/120, 1/100, 1/80, 1/60,
+                                                  1/45, 1/30, 1/20],
                                 filter_order=6, n_groups=4, chosen=nothing, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
@@ -447,12 +449,6 @@ module SpaTs
         if !isempty(valid)
             best = valid[argmax([r.signal_std for r in valid])]
             suggested = best.cutoff
-            println("Sugerowany cutoff (najwyższy signal_std = p3_std·√consistency): " *
-                    "$(round(best.cutoff, sigdigits=3)) " *
-                    "(consistency=$(round(best.consistency, digits=3)), " *
-                    "p3_std=$(round(best.p3_std, digits=3)), " *
-                    "signal_std=$(round(best.signal_std, digits=3))) " *
-                    "— sprawdź na wykresach czy to nie przypadkowy lokalny pik.")
         end
         Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar",
                                  chosen=something(chosen, suggested), show_=show_)
