@@ -361,11 +361,18 @@ module SpaTs
     estimated from the baseband's own spectrum). See
     `P3FoldViterbi.whittaker_smooth_auto` for the derivation.
 
+    If the automatic smoothing feels too aggressive (or too loose), pass
+    `auto_strength` — `<1` allows more bend (less smoothing) than the
+    automatic noise estimate calls for, `>1` forces more.
+
     Typical call — no cutoff scan needed first:
       process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
       p3fold_coherent_auto(vpmout*"J1110-5637")
+      p3fold_coherent_auto(vpmout*"J1110-5637", auto_strength=0.5)  # less smoothing
     """
-    function p3fold_coherent_auto(outdir; ybins=nothing, n_groups=4, p3_window=60, darkness=1.0, show_=true)
+    function p3fold_coherent_auto(outdir; ybins=nothing, n_groups=4, p3_window=60,
+                                  auto_strength=1.0, darkness=1.0, show_=true,
+                                  name_mod="pulsar_coherent_auto")
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -373,13 +380,14 @@ module SpaTs
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
-            ybins=yb, n_groups=n_groups, p3_window=p3_window, auto=true)
+            ybins=yb, n_groups=n_groups, p3_window=p3_window, auto=true,
+            auto_strength=auto_strength)
         println("Matched-filter SNR: $(round(result.snr, digits=1))")
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
         Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
                             bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
-                            name_mod="pulsar_coherent_auto", show_=show_, repeat_num=4,
+                            name_mod=name_mod, show_=show_, repeat_num=4,
                             label="coherent fold (auto)", p3_per_pulse_err=result.p3_per_pulse_err,
                             intensity=intensity)
         return result
@@ -864,6 +872,11 @@ module SpaTs
         # λ dobierane automatycznie) zamiast Butterwortha ze skanowanym cutoffem
         # — porównaj wynikowy pulsar_coherent_auto_p3fold_compare z powyższym
         p3fold_coherent_auto(vpmout*"J1539-6322")
+
+        # TEST: to samo, ale z auto_strength=0.5 — mniej karze za skoki niż
+        # domyślna (1.0) estymacja szumu, więc P3(t) powinno wyglądać mniej
+        # "przyciśnięte" do linii środkowej (osobny plik: _half)
+        p3fold_coherent_auto(vpmout*"J1539-6322", auto_strength=0.5, name_mod="pulsar_coherent_auto_half")
 
         
         # PSR J1539-6322

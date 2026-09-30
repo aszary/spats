@@ -345,7 +345,7 @@ end
 
 
 """
-    whittaker_smooth_auto(x) -> Vector{ComplexF64}
+    whittaker_smooth_auto(x; strength=1.0) -> Vector{ComplexF64}
 
 Picks `λ` for `whittaker_smooth` automatically via the discrepancy
 principle, instead of scanning a hand-picked grid.
@@ -358,8 +358,8 @@ the part assumed to be noise-dominated (the same "real P3 wobble is slow"
 assumption every filter here makes). By Parseval (`sum|X_k|² = N·sum|x_n|²`
 for Julia's unnormalized `fft`), the median power in that band is itself
 already a direct estimate of the total residual energy `Σ|noise_n|²`
-one would expect if `x` were pure noise — no extra per-sample conversion
-needed, that's `target` below.
+one would expect if `x` were pure noise — this times `strength` is
+`target` below.
 
 `λ` is then increased until the smoother's residual `‖x - xs(λ)‖²`
 matches `target`: too little smoothing (small λ) leaves genuine noise
@@ -368,8 +368,17 @@ signal (residual too large) — the crossing point is where the smoothed
 track has absorbed the noise and, as much as possible, nothing else.
 Found by bisection in log(λ), since the residual grows monotonically
 with λ.
+
+`strength` scales that target directly: `strength=1` (default) accepts the
+noise-floor estimate as-is; `strength<1` demands a smaller residual, i.e.
+less smoothing than the discrepancy principle's own estimate calls for
+(lets more real structure — and more noise — through, so the track can
+still bend where the noise floor was overestimated); `strength>1` demands
+more, i.e. more smoothing than the estimate. Use this to correct for the
+estimate being systematically too aggressive or too loose for a given
+pulsar's actual noise, without abandoning the automatic λ search entirely.
 """
-function whittaker_smooth_auto(x::AbstractVector{<:Complex})
+function whittaker_smooth_auto(x::AbstractVector{<:Complex}; strength::Real=1.0)
     N = length(x)
     N < 9 && return whittaker_smooth(x, 1.0)
 
@@ -377,7 +386,7 @@ function whittaker_smooth_auto(x::AbstractVector{<:Complex})
     P = abs2.(X)
     lo_band = N ÷ 3
     hi_band = N - lo_band
-    target = median(@view P[lo_band+1:hi_band])
+    target = strength * median(@view P[lo_band+1:hi_band])
 
     residual(logλ) = sum(abs2, x .- whittaker_smooth(x, exp(logλ))) - target
 
@@ -480,7 +489,7 @@ Returns:
 function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                         ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
                         p3_window::Int=60, bin_search::Int=2, warn_weak::Bool=true,
-                        auto::Bool=false)
+                        auto::Bool=false, auto_strength::Real=1.0)
     N = size(data, 1)
     on = bin_st:bin_end
     f3 = 1.0 / p3
@@ -529,7 +538,7 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     carrier = exp.((-1im * 2π * f3) .* n)
     baseband = z .* carrier
     if auto
-        baseband_smooth = whittaker_smooth_auto(baseband)
+        baseband_smooth = whittaker_smooth_auto(baseband; strength=auto_strength)
     else
         respf = digitalfilter(Lowpass(lowpass_cutoff), Butterworth(filter_order); fs=1.0)
         baseband_smooth = filtfilt(respf, real.(baseband)) .+ im .* filtfilt(respf, imag.(baseband))
@@ -585,9 +594,11 @@ Returns: the full-bin `coherent_fold` result, plus
 """
 function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                                   ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
-                                  p3_window::Int=60, n_groups::Int=4, auto::Bool=false)
+                                  p3_window::Int=60, n_groups::Int=4, auto::Bool=false,
+                                  auto_strength::Real=1.0)
     main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
-                          filter_order=filter_order, p3_window=p3_window, auto=auto)
+                          filter_order=filter_order, p3_window=p3_window, auto=auto,
+                          auto_strength=auto_strength)
 
     N = size(data, 1)
     edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
@@ -597,7 +608,8 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
         st, en = edges[g], edges[g+1] - 1
         en < st && continue
         r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
-                           filter_order=filter_order, p3_window=p3_window, warn_weak=false, auto=auto)
+                           filter_order=filter_order, p3_window=p3_window, warn_weak=false,
+                           auto=auto, auto_strength=auto_strength)
         group_p3[g, :] = r.p3_per_pulse
         group_phase[g, :] = r.phase .- mean(r.phase)
     end
