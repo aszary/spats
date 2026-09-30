@@ -68,11 +68,12 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
         end
         
         if !isfile(params_file) || isempty(debase_file)
-            missing_str = []
-            if !isfile(params_file); push!(missing_str, "params.json"); end
-            if isempty(debase_file); push!(missing_str, "any *debase.txt"); end
+            missing_arr = []
+            if !isfile(params_file); push!(missing_arr, "params.json"); end
+            if isempty(debase_file); push!(missing_arr, "any *debase.txt"); end
             
-            @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $(join(missing_str, \", \"))"
+            missing_str = join(missing_arr, ", ")
+            @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $missing_str"
             continue
         end
         
