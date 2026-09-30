@@ -804,12 +804,11 @@ module SpaTs
         #phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/300)
 
-        # TEST: skan lowpass_cutoff na J1750-3503 (dane już przetworzone, wcześniej
-        # używany jako przykład drift reversal) — pokaże wykresy consistency/p3_std
-        p3fold_cutoff_scan(vpmout*"J1750-3503")
-
-        # wynik skanu: najlepszy cutoff ~0.002 (~1/500) — finalny coherent fold z tą wartością
-        p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=0.002)
+        # TEST: skan lowpass_cutoff na J1110-5637 (dane już przetworzone; to kanoniczny
+        # przykład z docstringów phase_modulation/p3fold_coherent, powinien mieć
+        # czystszy sygnał niż J1750-3503, który był granicznym przypadkiem odwracającego
+        # się dryfu) — pokaże wykresy consistency/p3_std
+        p3fold_cutoff_scan(vpmout*"J1110-5637")
 
         
         # PSR J1539-6322
