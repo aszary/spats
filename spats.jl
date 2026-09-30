@@ -407,9 +407,7 @@ module SpaTs
       # inspect the plot, then:
       p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=<chosen value>)
     """
-    function p3fold_cutoff_scan(outdir; cutoffs=[1/2000, 1/1000, 1/700, 1/500, 1/350, 1/250,
-                                                  1/200, 1/150, 1/120, 1/100, 1/80, 1/60,
-                                                  1/45, 1/30, 1/20],
+    function p3fold_cutoff_scan(outdir; cutoffs=10 .^ range(log10(1/5000), log10(1/10), length=20),
                                 filter_order=6, n_groups=4, chosen=nothing, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
