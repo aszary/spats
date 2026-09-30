@@ -862,21 +862,16 @@ module SpaTs
 
         # TEST: skan lowpass_cutoff na J1539-6322 (dane już przetworzone) — pokaże
         # wykresy consistency/p3_std, potem sam odpali finalny coherent fold z
-        # sugerowanym cutoffem (drugi wykres: pulsar_coherent_p3fold_compare)
+        # sugerowanym cutoffem (drugi wykres: pulsar_coherent_p3fold_compare).
+        # Sprawdzona metoda (Butterworth + skan) — na razie jedyna testowana
+        # automatycznie. p3fold_coherent_auto (wygładzanie Whittakera) zostaje
+        # w kodzie, ale nie jest tu wywoływane — wynik wyszedł gorszy od tej
+        # metody, więc zamiast dalej zgadywać auto_strength bez podglądu na
+        # żywo, zostajemy przy tym co działa.
         scan_result = p3fold_cutoff_scan(vpmout*"J1539-6322")
         if !isnothing(scan_result.suggested_cutoff)
             p3fold_coherent(vpmout*"J1539-6322", lowpass_cutoff=scan_result.suggested_cutoff)
         end
-
-        # TEST: to samo, ale wygładzaniem Whittakera (kara za krzywiznę P3(t),
-        # λ dobierane automatycznie) zamiast Butterwortha ze skanowanym cutoffem
-        # — porównaj wynikowy pulsar_coherent_auto_p3fold_compare z powyższym
-        p3fold_coherent_auto(vpmout*"J1539-6322")
-
-        # TEST: to samo, ale z auto_strength=0.5 — mniej karze za skoki niż
-        # domyślna (1.0) estymacja szumu, więc P3(t) powinno wyglądać mniej
-        # "przyciśnięte" do linii środkowej (osobny plik: _half)
-        p3fold_coherent_auto(vpmout*"J1539-6322", auto_strength=0.5, name_mod="pulsar_coherent_auto_half")
 
         
         # PSR J1539-6322
