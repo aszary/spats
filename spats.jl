@@ -875,7 +875,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         DriftBatch.batch_analyze_drift(vpmout, list_file, csv_output)
 
         # 3. Generate the chart!
-        DriftBatch.plot_drift_results("drift_classifications.csv", "drift_chart.png")
+        DriftBatch.plot_drift_results("drift_classifications.csv", "drift_chart.pdf")
 
 
 
