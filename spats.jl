@@ -824,7 +824,18 @@ module SpaTs
         #Tools.clean_all(vpmout)
         #analyse_all()
 
-        # --- pętla po reprocess_list.csv (tylko pierwsza połowa) ---
+        # pętla po reprocess_list.csv wyniesiona do reprocess_half_list() —
+        # wywołaj ją ręcznie z REPL-a kiedy będziesz chciał przerabiać listę
+    end
+
+    """
+    Pętla po `input/reprocess_list.csv` (tylko pierwsza połowa listy) —
+    interaktywnie pyta o n_comp per pulsar, woła `Data.analyse_p3folds_16_new`,
+    pomija pulsary już zapisane w `input/separations.csv` (poza `force_redo`).
+    Wywołaj ręcznie z REPL-a, np.:
+      reprocess_half_list()
+    """
+    function reprocess_half_list(; vpmout="/home/psr/output/")
         todo_file = joinpath(@__DIR__, "input", "reprocess_list.csv")
         sep_file  = joinpath(@__DIR__, "input", "separations.csv")
         summary_dir = joinpath(@__DIR__, "output", "offset_summaries")
