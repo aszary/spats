@@ -1,32 +1,71 @@
 # Test „travel": dryf podpulsów czy modulacja amplitudowa
 
-**Stan na 2026-09-24.** Metoda rozstrzygania, czy wzór podpulsów **przemieszcza się** w długości
+**Stan na 2026-09-30.** Metoda rozstrzygania, czy wzór podpulsów **przemieszcza się** w długości
 (dryf), czy tylko **jaśnieje i gaśnie w miejscu** (P3-only) — niezależna od kryterium
 Song et al. (2023) i wolna od jego głównego obciążenia.
 
 Repozytorium: `github.com/aszary/spats`, gałąź `claude`.
-Kod: `modules/travel.jl` (moduł `Travel`), `Plot.travel`, `SpaTs.travel_test`.
-Skrypty: `~/claude/work/scripts/travel_*.jl`, `check_onpulse.jl`.
+Kod: `modules/travel.jl` (moduł `Travel`), `Plot.travel`, `Plot.ppdot_travel`, `SpaTs.travel_test`.
+Skrypty: `~/claude/work/scripts/travel_*.{jl,py}`, `check_onpulse.jl`.
 Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`, symlink).
+Wykresy do tego dokumentu: `docs/figures/`.
 
 ---
 
-> **UWAGA (2026-09-24, późno): model zerowy (§7.1) nie jest skalibrowany dla nieseparowalnej
-> zmienności impuls-do-impulsu** (jitter, podpulsy w losowych pozycjach). Pola bez żadnego ruchu
-> dają T/T_inc do tysięcy σ przy sile modulacji spotykanej w danych, a kontrola off-pulse tego nie
-> łapie. Frakcje detekcji z §5.3 nie są więc dowodem uporządkowania czasowego. Skan spójności (§7.4)
-> jest na ten efekt odporny. Szczegóły: dziennik, wpis 2026-09-24 (cd.).
->
-> **Naprawa (2026-09-24, cd. 2): statystyka krzyżowa między blokami `T_cv` z nullem z randomizacji
-> znaków bloków** — bez modelu zmienności, skalibrowana na wszystkich syntetykach bez ruchu, czułość na
-> sztywny dryf porównywalna z T. Przebieg v3: trwałe uporządkowanie u **271/406 dryferów (67%)** i
-> **12/107 P3-only (11%)**. Szczegóły, walidacja i tabele: dziennik, wpis 2026-09-24 (cd. 2).
-> **To jest teraz główna statystyka detekcyjna; T i T_inc zostają jako diagnostyka.**
->
-> **Siła dryfu (2026-09-29): `f_trav`** — ułamek mocy fluktuacji w trwałym dryfie, z tych samych
-> iloczynów między blokami; nie zależy od S/N (sprawdzone na syntetyku i zdegradowanych dryferach),
-> ≈ 0 bez ruchu. Na danych 0.02–0.34 u dryferów (mianownik to cała zmienność impuls-do-impulsu).
-> Niezdefiniowane przy k_snr < 0.02. Wykresy: `Plot.ppdot_travel` (`quantity = :ftrav` / `:rho`).
+## 0. Podsumowanie
+
+**Co mierzymy.** Dla każdego pulsara pytamy, czy wzór podpulsów *przesuwa się w długości w trwały
+sposób*, czy tylko zmienia jasność w miejscu. Odpowiedź daje antysymetryczna część korelacji
+czasowo-długościowej A (§2): czysta modulacja amplitudowa daje A ≡ 0 tożsamościowo.
+
+**Główna zmiana (2026-09-24).** Pierwotny rozkład zerowy (surogat rank-1 + szum z off-pulse'u, §7.1)
+nie niesie **przypadkowej, niezależnej od impulsu do impulsu zmienności kształtu** (jitter, podpulsy
+w losowych pozycjach). Takie pola nie mają żadnego ruchu, a mimo to dają T do tysięcy σ, rosnąco z siłą
+modulacji — kontrola off-pulse tego nie łapie (rys. 1). Zastąpiono go statystyką krzyżową między blokami
+**`T_cv`** z rozkładem zerowym z losowania znaków bloków, który **nie wymaga żadnego modelu zmienności**
+(§5.2). Siłę dryfu mierzy **`f_trav`** — ułamek mocy fluktuacji w trwałym dryfie, niezależny od S/N (§5.4).
+
+**Wyniki (513 pulsarów, przebieg v4):**
+
+| | etykieta drift | etykieta P3-only |
+|---|---|---|
+| trwałe uporządkowanie, z_cv ≥ 5 | **271/406 (67%)** | **12/107 (11%)** |
+| stary T ≥ 5σ (zawyżone, §5.1) | 368/406 (91%) | 79/107 (74%) |
+| mediana `f_trav` wśród detekcji | 0.049 (kw. 0.030–0.090) | 0.018 |
+| mediana \|ρ\| (P₂ mierzalne) | 1.000 (n = 167) | 0.22 (n = 3) |
+
+1. **Stary test przesadzał.** Wcześniejsze „74% P3-only nie jest czystą modulacją amplitudową” było
+   w większości artefaktem modelu zerowego. Trwały ruch ma ok. 2/3 dryferów i ok. 1/9 P3-only.
+2. **Gdzie dryf jest, jest sztywny.** |ρ| ≈ 1 i nie zależy od niczego — ani od Ė, τ_c, B, P, ani Ṗ.
+3. **Dryf to mała część zmienności pulsów:** typowo 3–10%, najwyżej ~30% mocy fluktuacji. Resztę
+   stanowią wahania energii i przypadkowe zmiany kształtu.
+4. **Im wyższe Ė, tym rzadziej jest trwały dryf** (~75% → ~45% wśród etykiety drift) **i tym mniejszą
+   część zmienności stanowi** (ρ_S = −0.30 dla `f_trav`). Nie wynika to z S/N; B nie gra roli (§5.6).
+
+**Możliwa interpretacja fizyczna (hipotezy).** Sztywność tam, gdzie dryf jest, pasuje do karuzeli iskier
+obracającej się jako całość — mechanizm (E×B) wygląda na wspólny dla wszystkich. Z Ė zmienia się to, czy
+układ iskier utrzymuje porządek: w bardziej energetycznych pulsarach szczelina może być bardziej
+„burzliwa”, iskry powstają i gasną chaotyczniej, więc uporządkowany wzór rzadziej trwa dłużej niż
+kilkadziesiąt obrotów. Przejście jest ciągłe, bez ostrego progu przy Ė ~ 10³² erg/s (por. Basu et al.
+2016). P3-only w ~90% nie są „ukrytymi dryferami” — ich okresowa modulacja nie przesuwa się trwale.
+Kilkanaście wyjątków (np. J0837+0610, J1048-5832, J1057-5226) warto obejrzeć indywidualnie.
+
+**Zastrzeżenia.** Etykieta Song+23 sama zależy od Ė (selekcja); `f_trav` ma w mianowniku całą zmienność
+pulsów, więc „mniej dryfu” i „więcej przypadkowej zmienności” nie są w pełni rozdzielone; reverser
+o losowych epizodach jest dla `T_cv` niewidoczny (§11).
+
+![P-Pdot: f_trav](figures/ppdot_travel_ftrav.png)
+
+*Rys. 0a. Diagram P–Ṗ: kolor = `f_trav` (log 0.01–0.3), kształt = etykieta Song+23 (koło drift, trójkąt
+P3-only), jasnoszare = trwałe uporządkowanie bez wartości f (k_snr < 0.02, §5.4), małe puste = brak
+detekcji T_cv. `Plot.ppdot_travel(outdir; quantity=:ftrav)`.*
+
+![Zależność od Edot](figures/travel_vs_edot.png)
+
+*Rys. 0b. Od lewej: frakcja trwałego uporządkowania w przedziałach Ė (68% CI), `f_trav` wśród detekcji
+(czarne: mediany w przedziałach), |ρ| wśród detekcji z mierzalnym P₂.*
+
+---
 
 ## 1. Problem
 
@@ -83,70 +122,184 @@ Rozdzielenie ich jest kluczowe i długo je myliłem.
 
 | | pytanie | statystyka | założenia |
 |---|---|---|---|
-| **A** | czy jest **jakikolwiek** ruch? (czyli: czy to na pewno nie jest czysta modulacja amplitudowa) | `T`, `T_inc` | brak — tożsamość z §2 |
+| **A** | czy jest **trwały** ruch? (czyli: czy to na pewno nie jest czysta modulacja amplitudowa ani przypadkowa zmienność kształtu) | **`T_cv`** (§5.2); `T`, `T_inc` tylko jako diagnostyka | tożsamość z §2 + niezależność fluktuacji między blokami; bez modelu zmienności |
 | **B** | czy modulacja to **zasadniczo** ruch, o charakterze sztywnej translacji? | `ρ` | wymaga mierzalnej geometrii (P₂ wewnątrz profilu) **oraz dostatecznie stabilnego P₃** (§10.3) |
 
 Klasyfikacja Song et al. jest jakościowa i binarna, więc odpowiada jej **pytanie A**. `ρ` to
 charakterystyka dodatkowa, cenna tam, gdzie da się ją policzyć, ale **nie jest produktem głównym** —
 przez pewien czas błędnie ją za taki uważałem.
 
-Różnica ma znaczenie praktyczne: `T` jest statystyką detekcyjną, więc jej istotność rośnie z S/N.
-Jasny pulsar, w którym wędruje 1% modulacji, da ogromne `T`. „T = 300σ" znaczy „ruch jest
-wykrywalny", a nie „ten pulsar jest dryferem".
+Różnica ma znaczenie praktyczne: statystyka detekcyjna mówi, czy ruch jest *wykrywalny*, a nie jak
+jest *silny*. z_cv dodatkowo nasyca się przy √(B(B−1)/2). Do porównań między pulsarami służy
+**`f_trav`** (§5.4), a do charakteru ruchu — ρ.
 
 ---
 
-## 5. Produkt główny: T, T_inc i kontrole
+## 5. Produkt główny: T_cv, f_trav i kontrole
 
-### 5.1 Statystyki
+### 5.1 Dlaczego nie T: null rank-1 nie niesie zmienności nieseparowalnej
 
-**`T = Σ A(Δ,τ)²`** — omnibus, bez założeń o geometrii.
+Pierwotnie detekcją była **`T = Σ A(Δ,τ)²`** i jej wersja niekoherentna **`T_inc = Σ_b Σ A_b²`**
+(dla dryfera zmieniającego kierunek), z rozkładem zerowym z §7.1. Tożsamość z §2 zeruje **wartość
+oczekiwaną** A dla każdego pola bez uporządkowania, ale T = ΣA² zbiera też jej **wariancję**. Surogat
+(wiodący mod SVD + szum z off-pulse'u) nie zawiera nieseparowalnej zmienności on-pulse, więc ta wariancja
+nie wchodzi do rozkładu zerowego i T rośnie z siłą modulacji bez żadnego ruchu:
 
-**`T_inc = Σ_b Σ A_b²`** — suma niekoherentna po blokach impulsów. `T` liczy się na jednej globalnej
-mapie, więc dryfer spędzający tyle samo czasu w każdym kierunku kasuje się; kalibracja: zbalansowany
-reverser daje **T/T_inc = 3.4·10⁻⁶**. `T_inc` płaci wyższym progiem szumu, więc dla dryfu stałego
-jest mniej czuła. Raportować obie.
+| pole bez ruchu (syntetyk, impulsy niezależne) | mod ≈ 1 | mod ≈ 5 | mod ≈ 20 | mod ≈ 60–90 |
+|---|---|---|---|---|
+| rank-1 (czysta AM) | <2σ | <2σ | <2σ | <2σ |
+| jitter | 8–17σ | 32–82σ | 173–337σ | — |
+| losowe podpulsy | 23–59σ | 146–254σ | 514–1071σ | 1900–4200σ |
+| losowe podpulsy + AM z P₃ | 39–73σ | 189–397σ | 601–1174σ | 2600–5000σ |
 
-### 5.2 Kontrole, bez których wynik nie znaczy nic
+(mod = var(on)/var(off) − 1 po filtrze; silne detekcje P3-only w danych mają mod = 4–2600.)
+Kontrola off-pulse wszystko przepuszcza. Dla losowych podpulsów σ ≈ 60·mod. Wniosek: **T/T_inc nie
+odpowiada na pytanie A przy silnej modulacji.** Frakcje z przebiegu v2 (drift 91%, P3-only 74%) są
+w większości tym artefaktem.
 
-**Off-pulse.** Ta sama statystyka na pasku bez sygnału — musi wyjść zgodna z zerem. Jedyna realna
-podatność metody to szum niesymetryczny w czasie (dryf wzmocnienia, RFI, zła linia bazowa).
-W pełnym przebiegu odrzuciła 3 z 515.
+![Kalibracja nullu](figures/travel_null_calibration.png)
 
-**Spójność blokowa, skanowana po długości bloku** (`block_consistency_scan`, §7.4). Leave-one-out;
-projekcja na mapę globalną zawierałaby człon własny i dawała ~1/√n dla szumu. Pojedyncza wartość
-**nie wystarcza** — dudnienie dwóch bliskich okresów udaje spójność 0.95, jeśli bloki są dłuższe od
-okresu dudnienia. Raportowaną wielkością jest **`min(cons)`** po całym skanie, czytana **wyłącznie
-łącznie z siłą detekcji** (§7.4).
+*Rys. 1. Syntetyki w funkcji siły modulacji. Lewy: stara detekcja max(T, T_inc) — pola bez ruchu (jitter,
+losowe podpulsy, dudnienie) sięgają 10³σ. Prawy: z_cv z §5.2 — wszystkie pola bez ruchu poniżej 3.2,
+sztywny dryf i dryf z wędrującym P₃ wykryte; reverser (losowy kierunek) niewidoczny (§11).
+Dane: `~/output/claude/travel_cv_validate{,_adj}.csv`.*
 
-### 5.3 Wynik na pełnej próbce
+### 5.2 T_cv: statystyka krzyżowa między blokami
 
-Przebieg v2 (`travel_batch_v2.csv`, 2026-09-24): `max_dphi = W₃σ ÷ 2` (§8.3) i skan spójności
-(§7.4). W nawiasie pierwszy przebieg z `max_dphi = M ÷ 2`.
+Obserwacja dzielona na B ciągłych bloków impulsów, dla każdego mapa A_b (opóźnienia do
+`lag_b = min(max_lag, L÷4)`). Diagonala, w której siedzi obciążenie od wariancji, wycięta wprost:
 
-| etykieta Song+23 | w analizie | z detekcją ≥5σ |
-|---|---|---|
-| drift | 406 | **368 (91%)** (330/405, 82%) |
-| p3only | 107 | **79 (74%)** (57/107, 53%) |
+```
+T_cv = Σ_{b≠b'} ⟨A_b, A_b'⟩ = ‖Σ_b A_b‖² − Σ_b ‖A_b‖²
+```
 
-Żaden pulsar nie stracił detekcji. Istotność wzrosła medianowo 1.8×, a nowe detekcje pochodzą
-z pulsarów o najbardziej przewymiarowanym oknie. Stary zakres Δ dokładał tam biny bez emisji.
-Model zerowy pozostał skalibrowany: σ kontroli off-pulse 1.03 (T) i 0.91 (T_inc).
+Wartość oczekiwana zero dla **każdego** pola, którego fluktuacje A są niezależne między blokami —
+niezależnie od ich wariancji. **Rozkład zerowy z randomizacji znaków bloków:** brak uporządkowania to
+symetria względem odwrócenia czasu, która zamienia A_b → −A_b, więc przy H₀ znaki bloków są wymienialne:
+`T(s) = Σ_{b≠b'} s_b s_b' G_bb'` (G = macierz Grama map). Var = 2Σ_{b≠b'}G², z = T_cv/√Var;
+p z 10⁵ losowań (dokładnie, gdy 2^(B−1) ≤ 10⁵). Żadnych surogatów, żadnego szumu z off-pulse'u.
 
-**Tej frakcji nie wolno podawać bez spójności.** `min(cons)` wśród detekcji:
+**Cena braku modelu:** istotność ograniczona liczbą bloków — dla idealnie trwałego wzoru
+z = √(B(B−1)/2) (22.3 przy B = 32), p ≥ 2^−(B−1). Dudnienie i reverser dają przeplatające się znaki
+bloków i się kasują.
 
-| siła detekcji | drift: n, mediana | p3only: n, mediana |
-|---|---|---|
-| 5–20σ | 54, 0.086 | 31, 0.018 |
-| 20–100σ | 101, 0.231 | 23, 0.035 |
-| >100σ | 213, **0.419** | 25, **0.088** |
+**`T_adj = Σ_b ⟨A_b, A_{b+1}⟩`** (sąsiednie bloki) jest dodatni dla ruchu dłuższego od bloku niezależnie
+od kierunku, więc łapie reversera — ale **myli go z dudnieniem**, bo lokalnie to ta sama rzecz (§7.2).
+Na danych nie wnosi nic ponad T_cv (wszystkie 57 detekcji T_adj mają też T_cv); zostaje jako diagnostyka.
 
-Przy tej samej sile detekcji P3-only mają spójność kilkakrotnie niższą, a około ⅓ ma ujemną.
-Poniżej 0.2 jest 71/79 detekcji p3only i 129/368 detekcji drift. Odczyt: 74% P3-only nie jest
-czystą modulacją amplitudową, ale u zdecydowanej większości uporządkowanie czasowe **nie jest
-trwałe**. Nie ma tu stałego wyprzedzania, jakie widać u dryferów. Przejście przez zero przy
-detekcji ≥20σ: 0/314 drift, 1/48 p3only (J1001-5939). Próg na `min(cons)` zależny od S/N nie
-jest jeszcze wyznaczony (§11).
+**Główny podział: B = 32** (wybrany przed obejrzeniem danych); B = 8 odpada (bloki ~ okres dudnienia
+7.0/7.4 → z ≈ 5). Próg z_cv ≥ 5.
+
+### 5.3 Walidacja T_cv (`travel_cv_validate.jl`, 9 typów × 9 amplitud × 4 ziarna)
+
+| przypadek | stary T | z_cv (B = 32) | z_adj (B = 64) |
+|---|---|---|---|
+| rank-1, jitter, losowe podpulsy, podpulsy + AM (180 realizacji) | do 1574σ | p < 0.05 w 2.2%, p < 0.01 w 1.1%, **max z = 3.15** (n = 432 z dudnieniami) | max 1.98 |
+| dudnienie 7.0/7.4 | do 905σ | ≈ −0.7 | **≈ 5.5** |
+| dudnienie 7.0/9.0 | do 152σ | ≈ 0 | ≈ −6 (B = 32: +4.4) |
+| sztywny dryf | 8.9σ (amp 0.2) | 4.7; od amp 0.3: 14–22 | 1.2–5.6 |
+| dryf, P₃ ±20% | 13σ (amp 0.3) | 12 | — |
+| reverser, epizody 30 / 100 P | do 10⁵σ | **≈ 0 — niewidoczny** | 5–7 |
+
+Czułość na sztywny dryf jest porównywalna ze starym T (wykrycie przy T ≈ 9σ). Na czystym szumie
+średnie p = 0.50.
+
+### 5.4 f_trav: siła trwałego dryfu
+
+Z tych samych map blokowych, dzielonych przez liczbę par (L−τ)(M−Δ) i przez wariancję fluktuacji na parę
+z odjętym szumem, `k = (ΣK_b(0,0) − σ²_szumu·N·M)/(N·M)`:
+
+```
+f_trav = sgn(m)·√|m| / k,    m = Σ_{b≠b'} ⟨a_b, a_b'⟩ / (B(B−1)·n_cell)
+```
+
+Dla fali bieżącej cos(2π(φ/P₂ − n/P₃)) komórka mapy to 2·sin(2πΔ/P₂)·sin(2πτ/P₃), której RMS = 1:
+**sztywny dryf daje ~1, modulacja amplitudowa 0, mieszanina — udział mocy w dryfie.** Moc trwała
+liczona tylko z iloczynów między blokami, więc szum i przypadkowa zmienność podnoszą błąd, nie wartość.
+Błąd: jackknife po blokach.
+
+**Walidacja** (`travel_ftrav_validate.jl`, rys. 2):
+- mieszanina q·dryf + (1−q)·AM: f = 0.00 / 0.21 / 0.44 / 0.67 / 0.91 dla q = 0 … 1 (czynnik 0.91 od obwiedni
+  profilu), stałe od 36σ do 34 000σ, prawie niezależne od B; jitter i losowe podpulsy: |f| < 0.03;
+- 30 silnych dryferów + biały szum: f(k)/f(0) = 1.00 / 1.00 / 1.01 / 1.01 przy starej sile 2884σ → 42σ;
+- **ograniczenie:** przy k_snr = k/σ²_szumu ≲ 0.02 mianownik to różnica prawie równych wariancji i f jest
+  zawyżone (1.39 zamiast 0.91 przy k_snr ≈ 0.01) — takie przypadki nie dostają wartości.
+
+![Walidacja f_trav](figures/travel_ftrav_validation.png)
+
+*Rys. 2. Lewy: syntetyk — f_trav liniowe w udziale dryfu q i niezależne od S/N (poza najniższą
+amplitudą, k_snr ≈ 0.01). Prawy: 30 prawdziwych silnych dryferów z dokładanym szumem — f_trav stałe do
+~40σ starej siły.*
+
+**Skala na danych.** Mianownik zbiera **całą** zmienność impuls-do-impulsu (wahania energii, zmiany
+kształtu, nulling), więc realne dryfery mają f ≈ 0.02–0.34, a nie ~0.9 jak syntetyczny sztywny dryf.
+
+**Podejrzane: k_snr < 0 u 23 z 283 detekcji** (do −0.97): wariancja on-pulse mniejsza niż szacunek szumu
+z off-pulse'u, czyli off-pulse zawyżony (emisja albo artefakty linii bazowej w paskach). T_cv tego nie
+dotyczy; f dla nich niezdefiniowane.
+
+### 5.5 Wynik na pełnej próbce (v3/v4)
+
+`travel_batch_v4.csv` (v3 + f_trav; detekcje identyczne): 533 pulsary, 18 błędów, 2 odrzucone przez
+kontrolę off-pulse, 513 w analizie; `max_dphi = W₃σ ÷ 2` (§8.3).
+
+| | n | stary T/T_inc ≥ 5 | **z_cv ≥ 5, B = 32** | B = 64 | max(32, 64) |
+|---|---|---|---|---|---|
+| drift | 406 | 368 (91%) | **271 (67%)** | 238 (59%) | 278 (68%) |
+| P3-only | 107 | 79 (74%) | **12 (11%)** | 14 (13%) | 17 (16%) |
+
+(Kolumna B = 32 z fallbackiem na największe B ≥ 16 dla 30 pulsarów o małej liczbie impulsów.)
+Tabela krzyżowa: P3-only — 67 detekcji tylko przez stary T, 0 tylko przez T_cv; drift — 102 i 9.
+z_cv rośnie ze starą siłą T u dryferów (46% → 86% detekcji), u P3-only nie (10–21% w każdym przedziale).
+
+- ρ dla detekcji T_cv z mierzalnym P₂: drift n = 167, mediana **1.000** (kw. 0.845–1.080); P3-only n = 3.
+- `f_trav`: drift n = 249, mediana 0.049 (kw. 0.030–0.090, max 0.344); P3-only n = 11, mediana 0.018.
+- **12 P3-only z trwałym uporządkowaniem:** J0837+0610, J1057-5226, J1048-5832, J1633-4453, J1701-3130,
+  J1810-5338, J1632-4621, J1121-5444, J1555-0515, J1816-5643, J1722-3207, J1130-6807.
+- **40 dryferów z T ≥ 100σ bez T_cv** — mają dłuższe P₃ (mediana 12 wobec 6): bloki 32 P z lag ≤ 8 słabo
+  pokrywają długi P₃; część przechodzi przy B = 64. Niektóre (J0738-4042: T = 1.2·10⁵σ, z_cv = 1.6;
+  J1430-6623: z_cv < 0) mogą naprawdę nie mieć trwałego uporządkowania.
+
+![P-Pdot: rho](figures/ppdot_travel_rho.png)
+
+*Rys. 3. Diagram P–Ṗ: kolor = |ρ| (0–1.3), tylko detekcje T_cv z P₂fit ≤ M/2; jasnoszare = trwałe, ale P₂
+niemierzalne; małe puste = brak detekcji. `Plot.ppdot_travel(outdir; quantity=:rho)`.*
+
+### 5.6 Zależność od Ė, τ_c, B (`travel_vs_ppdot.py`, `travel_vs_edot_fig.py`)
+
+P, Ṗ z `input/psrcat.db`; Ė = 4π²IṖ/P³ (I = 10⁴⁵ g cm²).
+
+**Częstość trwałego uporządkowania maleje z Ė** (etykieta drift):
+
+| Ė (erg/s) | 10²⁹–10³¹ | 10³¹–10³² | 10³²–10³³ | 10³³–10³⁴ | > 10³⁴ |
+|---|---|---|---|---|---|
+| drift | 71% | 78% | 63% | 48% | 44% |
+| P3-only | 11% | 11% | 13% | 7% | 20% |
+
+Mann-Whitney p = 9·10⁻⁵ (drift). **Nie wynika z S/N:** trend jest w obu połowach S/N, najsilniejszy
+w połowie o wyższym (89% → 38%); siła modulacji nie koreluje z Ė (ρ_S = +0.02); w regresji logistycznej
+det ~ Ė + k_snr + T współczynnik Ė ma z = −4.6.
+
+**`f_trav` maleje z Ė:** ρ_S = −0.30 [−0.41, −0.19] (drift, n = 249), po kontroli P₃, k_snr i S/N −0.31.
+τ_c: +0.28 (w próbce w dużej mierze ta sama informacja). **B nie gra** (częściowa +0.03); po kontroli
+istotne zostają Ė i P. P₃ nie koreluje z Ė (+0.08), więc to nie tłumienie przy P₃ → 2.
+
+**|ρ| nie zależy od niczego:** |ρ_S| ≤ 0.02 dla Ė, τ_c, B, P, Ṗ (n = 167).
+
+### 5.7 Kontrole, bez których wynik nie znaczy nic
+
+**Off-pulse.** T i T_inc na pasku bez sygnału — muszą wyjść zgodne z zerem (|σ| ≤ 3). Wykrywa szum
+niesymetryczny w czasie (dryf wzmocnienia, RFI, zła linia bazowa). W v4 odrzuciła 2 z 515. T_cv sam z siebie
+nie używa off-pulse'u, ale kontrola dalej chroni przed asymetrią czasową w szumie.
+
+**Spójność blokowa, skanowana po długości bloku** (`block_consistency_scan`, §7.4) — diagnostyka
+dudnienia i reversera. `min(cons)` **silnie zależy od S/N** nawet dla idealnego dryfu (syntetyk: 0.07 przy
+16σ, 0.20 przy 59σ, 0.57 przy 452σ); poniżej ~50σ niczego nie rozróżnia. T_cv jest jej sformalizowaną,
+skalibrowaną wersją.
+
+**Wcześniejsze przebiegi**, dla porządku: v1 (`travel_batch_full.csv`, `max_dphi = M/2`): drift 330/405
+(82%), P3-only 57/107 (53%); v2 (`travel_batch_v2.csv`, `max_dphi = W₃σ/2` + skan): 91% / 74%. Oba liczone
+starym T, więc zawyżone przez §5.1.
 
 ---
 
@@ -228,6 +381,11 @@ po liście binów, flaga `offpulse_wrapped`).
 Surogat jest rank-1 **celowo i poprawnie**: „separowalny" znaczy dokładnie „rank 1", a pole rank-1
 z definicji nie może wędrować. Reprezentuje więc ściśle tę hipotezę, którą ma reprezentować.
 Sprawdzone: dla pola rank-1 wychodzi T = −0.3σ, T_inc = −1.3σ.
+
+**Ale (2026-09-24):** H₀ „brak uporządkowania” obejmuje więcej niż pola rank-1 — także niezależną od
+impulsu do impulsu, nieseparowalną zmienność kształtu. Tej surogat nie niesie i T rośnie z nią do tysięcy σ
+(§5.1). Dlatego detekcja przeszła na `T_cv` z nullem z randomizacji znaków bloków (§5.2), który nie
+potrzebuje żadnego modelu zmienności. Null rank-1 zostaje dla T/T_inc jako diagnostyki.
 
 ### 7.2 Uporządkowanie to nie zawsze dryf: dudnienie
 
@@ -346,6 +504,11 @@ sama liczba nie znaczy nic. (Warto odnotować, że syntetyczny dryf trzyma +1.00
 *Krótkie dudnienia uciekają.* Dudnienie 7.0/9.0 (okres 32 P) **nie zostało złapane** — zostaje
 +0.94, bo najkrótsze bloki mają 31 P, czyli tyle co samo dudnienie, a ich τ ≤ 7 już ledwie pokrywa
 P3. Jego T = 1.6σ, ale T_inc = 10.5σ, więc przeszłoby jako detekcja. To pozostaje luką.
+
+*Odniesienie S/N (2026-09-24).* Syntetyczny sztywny dryf daje `min(cons)` 0.07 / 0.20 / 0.57 / ~0.93 przy
+16 / 59 / 452 / >1000σ; zdegradowane prawdziwe dryfery mają 10. percentyl < 0 aż do ~100σ
+(`travel_cons_ref.jl`). Skan jest więc diagnostyką, nie kryterium; formalnym i skalibrowanym kryterium
+trwałości jest T_cv (§5.2), w którym dudnienie 7.0/9.0 też daje z ≈ 0.
 
 ---
 
@@ -526,33 +689,29 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 
 ## 11. Ograniczenia, w kolejności ważności
 
-0. **Null rank-1 nie niesie nieseparowalnej zmienności on-pulse** — T rośnie ~liniowo z siłą modulacji
-   dla pól bez ruchu (σ ≈ 60·mod). **Zaadresowane przez `T_cv`** (`crossblock_test`). Jego własne
-   ograniczenia: istotność ograniczona liczbą bloków; długie P₃ słabo pokryte przy lag ≤ L÷4;
-   reverser o losowych epizodach niewidoczny (`T_adj` go łapie, ale myli z dudnieniem).
-1. **Dudnienie dwóch bliskich okresów udaje dryf** (§7.2). Null jest poprawny i T jest poprawne;
-   rozdzielenie następuje po detekcji, skanem spójności po długości bloku (§7.4) — **wdrożone**,
-   `block_scan_min`. Pozostałe luki: (a) dudnienia o krótkim okresie (≲ najkrótszy blok) uciekają,
-   (b) `min(cons)` spada też z powodu szumu, więc jest czytelne tylko przy silnej detekcji;
-   **brak progu/odniesienia zależnego od S/N** (kandydat: skan na surogatach rank-1 i na
-   syntetycznym dryfie o zadanym S/N) — w v2 raportowany jest tylko rozkład (§5.3).
-2. **ρ zakłada dostatecznie stabilne P₃, a stabilności nie mierzę** (§10.3). Tolerancja sięga
-   ~±20% wędrówki, ale przy ±40% ρ rośnie do 1.385, a przy ±60% zapada się do 0.510 — czyli silnie
-   wędrujący dryfer może zostać **fałszywie zdegradowany**. To warunek stosowalności ρ, nie tylko
-   źródło rozrzutu. Potrzebna niezależna miara: szerokość cechy f₃ w LRFS.
-3. **Niewyjaśnione ρ > 1 u 25 dobrych dryferów** (J1519-6106: 1.315 ± 0.008 przy rank1 = 0.97).
-   Model przewiduje ρ ≤ 1. Wiodąca hipoteza — wędrówka P₃ rzędu ±25–40% — jest ilościowo zgodna
-   (§10.3). Inne kandydatki: składowa stojąca odejmująca od kanału parzystego (na syntetyku
-   R = 1.32 dla dryfu z rampą), złe uwarunkowanie przy P₃ ≈ 2, ruch nie-sztywny, bi-drifting.
-4. **Reżim P₂fit ≤ M/2 liczony względem zadeklarowanego M**, choć `max_dphi` pochodzi już z W₃σ
-   (§8.3, wdrożone w v2); spójniej byłoby P₂fit ≤ W₃σ/2.
-5. **Listy kandydatów wymagają testu stabilności okna** (§10.4); dotąd żadna go nie ma.
-6. **Reżim P₂ > W**: detekcja działa, klasyfikacja przez ρ nie (§9).
-7. **Geometria dopasowywana na tych samych danych**, co zawyża `frac_even` i zaniża ρ.
-8. **Degeneracja nieusuwalna**: „dryf" i „kontinuum składowych opóźnionych w czasie" to ten sam
-   obserwabl.
-9. **P₂ raportowane w binach**, w literaturze w stopniach (`360·P₂/nbin`).
-10. **Kolejność kanałów niezweryfikowana** (zakładam kanał 0 = dół pasma za nazewnictwem w kodzie).
+1. **Reverser o losowych epizodach jest dla T_cv niewidoczny** (§5.3) — przy losowych znakach epizodów
+   wygląda na poziomie bloków dokładnie jak brak uporządkowania. `T_adj` go łapie, ale myli z dudnieniem.
+   Bez modelu zmienności nieusuwalne; część prawdziwych dryferów może być zaniżona.
+2. **Długie P₃ słabo pokryte** przy B = 32 (lag ≤ L÷4 = 8): 40 dryferów z T ≥ 100σ bez detekcji ma
+   medianowo P₃ = 12. Do sprawdzenia: lag_b niezależny od L÷4 albo B dobierane do P₃.
+3. **Istotność T_cv ograniczona liczbą bloków** (z ≤ 22.3 przy B = 32, p ≥ 2^−31) — detekcja, nie miara siły.
+4. **f_trav ma w mianowniku całą zmienność pulsów**, więc „mniej dryfu” i „więcej przypadkowej zmienności”
+   nie są rozdzielone; niezdefiniowane przy k_snr < 0.02, w tym **23 detekcje z k_snr < 0** (szum z off-pulse'u
+   przeszacowany — do sprawdzenia, czy te same pulsary mają kłopoty z oknem lub linią bazową).
+5. **Selekcja w zależności od Ė:** etykieta Song+23 sama zależy od Ė (udział drift 90% → 62%).
+6. **ρ zakłada dostatecznie stabilne P₃, a stabilności nie mierzę** (§10.3). Tolerancja ~±20% wędrówki;
+   przy ±40% ρ rośnie do 1.385, przy ±60% zapada się do 0.510 — silnie wędrujący dryfer może zostać
+   **fałszywie zdegradowany**. Potrzebna niezależna miara: szerokość cechy f₃ w LRFS.
+7. **Niewyjaśnione ρ > 1 u 25 dobrych dryferów** (J1519-6106: 1.315 ± 0.008 przy rank1 = 0.97).
+   Wiodąca hipoteza — wędrówka P₃ rzędu ±25–40% — jest ilościowo zgodna (§10.3).
+8. **Reżim P₂fit ≤ M/2 liczony względem zadeklarowanego M**, choć `max_dphi` pochodzi już z W₃σ (§8.3);
+   spójniej byłoby P₂fit ≤ W₃σ/2.
+9. **Listy kandydatów wymagają testu stabilności okna** (§10.4), w tym 12 P3-only z detekcją T_cv.
+10. **Reżim P₂ > W**: detekcja działa, klasyfikacja przez ρ nie (§9).
+11. **Geometria dopasowywana na tych samych danych**, co zawyża `frac_even` i zaniża ρ.
+12. **Degeneracja nieusuwalna**: „dryf” i „kontinuum składowych opóźnionych w czasie” to ten sam obserwabl.
+13. **P₂ raportowane w binach**, w literaturze w stopniach (`360·P₂/nbin`).
+14. **Kolejność kanałów niezweryfikowana** (zakładam kanał 0 = dół pasma za nazewnictwem w kodzie).
 
 ---
 
@@ -568,6 +727,8 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 | batch mieszał dane | 85 pełnopasmowych, 430 na 3/16 | różnica czułości 2.25× |
 | zmiana sygnatury `_travel_maps` | test reversera czytał 2000 zamiast 3.4·10⁻⁶ | rozpakowanie 4-krotki do 2 zmiennych |
 | sprawdzenie okna po fakcie | 7 pulsarów z `ArgumentError` z `Cmd` | `nothing` interpolowane do polecenia |
+| enumeracja znaków w `crossblock_test` | zawieszenie przy B = 64 | `2^(B−1)` przepełnia Int64 → pętla ~2⁶³; warunek `B − 1 ≤ floor(log2(nflip))` |
+| null rank-1 jako jedyny model H₀ | pola bez ruchu do 5000σ | brak nieseparowalnej zmienności w surogacie (§5.1) |
 
 **Błędne wnioski, wycofane:**
 
@@ -587,6 +748,9 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
    a błędny był krok „jest uporządkowanie ⇒ jest dryf". Próba naprawy nullu (§7.3) zniszczyła
    detekcję prawdziwego dryfu, co tę diagnozę rozstrzygnęło.
 
+8. **„74% P3-only nie jest czystą modulacją amplitudową”** (przebieg v2) — detekcja starym T mierzyła
+   w dużej części przypadkową zmienność kształtu, nie uporządkowanie (§5.1). Po T_cv: 11%.
+
 Wspólny mianownik: **sam pomiar nie zmienił się ani razu**; zmieniała się ocena, kiedy wolno go
 interpretować. Każda korekta wyszła z testu, nie z rozumowania.
 
@@ -601,30 +765,51 @@ SpaTs.travel_test(vpmout*"J0601-0527_16"; datafile="pulsar_full_debase.txt", sho
 julia --project=. -e 'include("modules/travel.jl"); Travel.selftest()'
 ```
 
-Argumenty: `max_lag` (2–3·P₃), `max_dphi` (**docelowo z W₃σ**), `hp_halfwin` (50), `nblocks` (4),
+Argumenty: `max_lag` (2–3·P₃), `max_dphi` (z W₃σ ÷ 2), `hp_halfwin` (50), `nblocks` (4),
 `p2_template=:auto` z `p3_template` z LRFS, `p2_cap_frac`, `orth_even`.
 
-Skrypty (`~/claude/work/scripts/`): `travel_batch_full.jl` (533 pulsary, wznawialny, tryb
-`--limit N --out PLIK`, `max_dphi = W₃σ ÷ 2` z `onpulse_check.csv`), `travel_v2_summary.py`
-(detekcja, `min(cons)` wg siły detekcji, ρ; porównanie v2 z pierwszym przebiegiem), `travel_rho_summary.jl`, `travel_rho_pilot.jl`, `travel_stability.jl`,
-`travel_variants.jl`, `check_onpulse.jl`, `travel_check.jl`, `travel_stress.jl`.
+Pola wyniku `travel_test` dodane 2026-09-24/29 (listy po B = 8, 16, 32, 64): `cv_nb`, `cv_lag`, `cv_T`, `cv_z`,
+`cv_p`, `cv_zmax`, `cv_adj_z`, `cv_adj_p`, `f_trav`, `f_trav_err`, `f_trav_ksnr`.
 
-Wyniki: `~/output/claude/travel_batch_v3.csv` (aktualny, z `cv_z`/`cv_p`/`adj_z`/`adj_p` jako
-listy po nb = 8;16;32;64), `travel_batch_v2.csv` (bez `T_cv`), `travel_batch_full.csv` (pierwszy
-przebieg, `max_dphi = M/2`, bez skanu), `onpulse_check.csv`, `travel_stability.csv`,
-`travel_rho_all.png`, `travel_rho_pilot.png`.
+Wykresy P–Ṗ:
+
+```julia
+include("modules/plot.jl")
+Plot.ppdot_travel("/home/psr/output/"; results="/home/psr/output/travel_batch_v4.csv", quantity=:ftrav, show_=false)
+Plot.ppdot_travel("/home/psr/output/"; results="/home/psr/output/travel_batch_v4.csv", quantity=:rho, show_=false)
+```
+
+Skrypty (`~/claude/work/scripts/`):
+- przebieg: `travel_batch_full.jl` (533 pulsary, wznawialny, `--limit N --out PLIK`; obecnie zapisuje v4);
+- podsumowania: `travel_v3_summary.py` (detekcja T_cv vs stary T, ρ, listy), `travel_v2_summary.py`;
+- walidacja: `travel_cv_validate.jl` (T_cv/T_adj, env `ADJ=1`), `travel_ftrav_validate.jl`,
+  `travel_null_nonsep.jl`, `travel_null_highsnr.jl`, `travel_cons_ref.jl` + `travel_cons_ref_summary.py`;
+- zależności: `psrcat_dump.jl` → `~/claude/work/psrcat_ppdot.csv`, `travel_vs_ppdot.py`, `travel_vs_edot_fig.py`;
+- wykresy: `travel_ppdot.jl`, `travel_ppdot_figures.jl` (do `~/claude/work/figures/`, podgląd zdalny),
+  `travel_doc_figures.py` (rys. 1–2 tego dokumentu);
+- starsze: `travel_rho_summary.jl`, `travel_rho_pilot.jl`, `travel_stability.jl`, `travel_variants.jl`,
+  `check_onpulse.jl`, `travel_check.jl`, `travel_stress.jl`.
+
+Wyniki (`~/output/claude/`): **`travel_batch_v4.csv`** (aktualny: v3 + `f_trav`, `f_trav_err`, `k_snr`),
+`travel_batch_v3.csv`, `travel_batch_v2.csv` (bez T_cv), `travel_batch_full.csv` (v1), `onpulse_check.csv`,
+`travel_modstrength.csv`, `travel_cv_validate{,_adj}.csv`, `travel_ftrav_validate.csv`,
+`travel_null_{nonsep,highsnr}.csv`, `travel_cons_ref.csv`, `ppdot_travel_{ftrav,rho}.{pdf,png}`.
 
 ### Kolejność czytania wyniku
 
 1. **Kontrola off-pulse** — |σ| > 3 dla T lub T_inc unieważnia wszystko poniżej.
-2. **Detekcja** — max(T, T_inc) ≥ 5σ. To jest odpowiedź na pytanie A: czy to nie jest czysta
-   modulacja amplitudowa.
-3. **`min(cons)` ze skanu po długości bloku** — to jest trzecia standardowa wielkość, obok T i ρ.
+2. **Detekcja — z_cv(B = 32) ≥ 5.** To jest odpowiedź na pytanie A: trwałe uporządkowanie, czyli ani
+   czysta modulacja amplitudowa, ani przypadkowa zmienność kształtu. **Stare max(T, T_inc) ≥ 5σ nie jest
+   detekcją** (§5.1) — przy silnej modulacji mierzy głównie zmienność. `z_adj` > 5 bez z_cv: lokalne
+   uporządkowanie (reverser albo dudnienie).
+2a. **Siła — `f_trav`** (gdy k_snr ≥ 0.02): jaka część zmienności pulsów to trwały dryf. Porównywalna
+   między pulsarami, niezależna od S/N.
+3. **`min(cons)` ze skanu po długości bloku** — diagnostyka, obok T_cv i ρ.
    Blisko 1 przy każdym podziale: uporządkowanie trwałe, czyli dryf. Przejście przez zero: dudnienie
    dwóch niezależnych zegarów. Blisko zera wszędzie: uporządkowanie nieodtwarzalne, czyli ani dryf,
    ani dudnienie. Oba znaki w `block_proj` to reverser. **Czytać tylko przy silnej detekcji** —
-   przy słabej spadek pochodzi z szumu. Bez tego punktu detekcja z punktu 2 nie jest jeszcze
-   kandydatem na dryf.
+   przy słabej spadek pochodzi z szumu (§5.7). Trwałość sprawdza już T_cv; skan pomaga rozpoznać,
+   *co* stoi za detekcją T_adj bez T_cv (reverser albo dudnienie).
 4. **ρ** — tylko gdy P₂fit mieści się w profilu. Blisko 1: ruch ma charakter sztywnej translacji;
    blisko 0: nie. Odniesienie dla szerokiego P₂ w §10.2. Znak to kierunek dryfu (dodatni = od
    wcześniejszych do późniejszych długości, Szary+2022).

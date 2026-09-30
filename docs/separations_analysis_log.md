@@ -1403,3 +1403,11 @@ pulsów stanowi.
 dla detekcji; f_trav ma w mianowniku całą zmienność impuls-do-impulsu, więc „mniejsze f przy wysokim Ė” może
 znaczyć zarówno słabszy dryf, jak i silniejszą niezależną zmienność (k_snr kontrolowane, ale nie jest tym samym).
 Zgodne jakościowo z Basu et al. (2016) — dryf w pulsarach o Ė ≲ 10³² — ale tu jako trend ciągły, bez progu.
+
+### 2026-09-30 — opis metody przepisany wokół T_cv / f_trav
+
+`docs/travel_test_method.md`: nowy §0 (podsumowanie prostymi słowami + interpretacja fizyczna jako hipotezy),
+§5 przepisany (5.1 dlaczego nie T, 5.2 T_cv, 5.3 walidacja, 5.4 f_trav, 5.5 wyniki v3/v4, 5.6 zależność od Ė,
+5.7 kontrole), §4, §7.1, §7.4, §11, §12 (wycofany wniosek 8: „74% P3-only”), §13 zaktualizowane.
+Wykresy w `docs/figures/` (~620 kB): `travel_null_calibration.png`, `travel_ftrav_validation.png`
+(skrypt `~/claude/work/scripts/travel_doc_figures.py`), `ppdot_travel_{ftrav,rho}.png`, `travel_vs_edot.png`.
