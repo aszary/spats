@@ -351,6 +351,42 @@ module SpaTs
 
 
     """
+    `p3fold_coherent` with a curvature-penalized (Whittaker/Hodrick-Prescott
+    style) smoother instead of a fixed Butterworth lowpass — no
+    `lowpass_cutoff`/`filter_order` to pick or scan for at all, and it
+    penalises how much the P3(t) track is allowed to *bend* rather than
+    which Fourier frequencies survive, matching the physical prior that P3
+    changes gradually (no jumps). The smoothing strength is itself picked
+    automatically per pulsar (discrepancy principle against the noise level
+    estimated from the baseband's own spectrum). See
+    `P3FoldViterbi.whittaker_smooth_auto` for the derivation.
+
+    Typical call — no cutoff scan needed first:
+      process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
+      p3fold_coherent_auto(vpmout*"J1110-5637")
+    """
+    function p3fold_coherent_auto(outdir; ybins=nothing, n_groups=4, darkness=1.0, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        p3   = Float64(p["p3"])
+        result = P3FoldViterbi.coherent_fold_jackknife(
+            data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
+            ybins=yb, n_groups=n_groups, auto=true)
+        println("Matched-filter SNR: $(round(result.snr, digits=1))")
+        folded_const = Tools.p3fold(data, p3, yb)
+        intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
+        Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
+                            bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
+                            name_mod="pulsar_coherent_auto", show_=show_, repeat_num=4,
+                            label="coherent fold (auto)", p3_per_pulse_err=result.p3_per_pulse_err,
+                            intensity=intensity)
+        return result
+    end
+
+
+    """
     Diagnostic run before `p3fold_coherent` — scans several `lowpass_cutoff`
     values and plots how track "trustworthiness" (subband consistency) and
     noise level trade off, so the cutoff for `p3fold_coherent` is picked from
@@ -823,6 +859,11 @@ module SpaTs
         if !isnothing(scan_result.suggested_cutoff)
             p3fold_coherent(vpmout*"J1539-6322", lowpass_cutoff=scan_result.suggested_cutoff)
         end
+
+        # TEST: to samo, ale wygładzaniem Whittakera (kara za krzywiznę P3(t),
+        # λ dobierane automatycznie) zamiast Butterwortha ze skanowanym cutoffem
+        # — porównaj wynikowy pulsar_coherent_auto_p3fold_compare z powyższym
+        p3fold_coherent_auto(vpmout*"J1539-6322")
 
         
         # PSR J1539-6322

@@ -3,6 +3,8 @@ module P3FoldViterbi
 using Statistics
 using FFTW
 using DSP
+using SparseArrays
+using LinearAlgebra
 
 # Background / design rationale: p3fold-refine-notes.md §3.1-3.2.
 #
@@ -336,10 +338,17 @@ Arguments:
              tracked (higher = more responsive to fast change but noisier;
              lower = smoother but assumes more stable P3), default 1/200
   filter_order – Butterworth filter order for the low-pass, default 4
+             (ignored when `auto=true`)
   p3_window – smoothing window [pulses] for `p3_per_pulse`, default 20
   bin_search – half-width [FFT bins] of the neighbourhood around the
              nominal-p3 bin searched for the true on-pulse power peak
              before building `L_on` (see step 1 below), default 2
+  auto     – if true, replace the fixed Butterworth lowpass with the
+             curvature-penalized `whittaker_smooth_auto` (directly enforces
+             a smooth, non-jumpy P3(t) track, with its own smoothing
+             strength λ picked automatically) and ignore `lowpass_cutoff` /
+             `filter_order` entirely — no cutoff to pick or scan for,
+             default false
 
 Returns:
   folded       – ybins × N_bins matrix, the coherently-refolded p3-fold
@@ -351,9 +360,118 @@ Returns:
                  quantity `drift_test` reports) — a sanity check that there
                  is signal to track at all before trusting the fold
 """
+"""
+    second_difference_matrix(N) -> SparseMatrixCSC
+
+(N-2) × N second-difference operator: `(D*x)[i] = x[i+2] - 2x[i+1] + x[i]`,
+i.e. the discrete curvature of `x` at each interior point. Building block
+for `whittaker_smooth`.
+"""
+function second_difference_matrix(N::Int)
+    I_idx = Int[]; J_idx = Int[]; V = Float64[]
+    for i in 1:N-2
+        push!(I_idx, i); push!(J_idx, i);   push!(V, 1.0)
+        push!(I_idx, i); push!(J_idx, i+1); push!(V, -2.0)
+        push!(I_idx, i); push!(J_idx, i+2); push!(V, 1.0)
+    end
+    return sparse(I_idx, J_idx, V, N - 2, N)
+end
+
+
+"""
+    whittaker_smooth(x, λ) -> Vector{ComplexF64}
+
+Curvature-penalized smoother (Whittaker 1923 / Hodrick-Prescott filter),
+used as `coherent_fold`'s cutoff-free alternative to a fixed Butterworth
+lowpass. The smoothed series `xs` is the minimiser of
+
+    ‖x - xs‖² + λ·‖D·xs‖²
+
+where `D` is `second_difference_matrix(N)`. Directly penalising curvature
+means the penalty is on how much the smoothed track is allowed to *bend*
+from sample to sample — matching the physical prior that P3 changes
+gradually, no discontinuous jumps — rather than on which Fourier
+frequencies survive, which is what a lowpass cutoff controls instead and
+doesn't map onto "no jumps" as directly.
+
+`λ = 0` reproduces `x` exactly; `λ → ∞` collapses `xs` to a straight line
+(zero curvature). Solved as one sparse linear system
+`(I + λD'D) xs = x`, applied to the real and imaginary parts separately.
+"""
+function whittaker_smooth(x::AbstractVector{<:Complex}, λ::Real)
+    N = length(x)
+    D = second_difference_matrix(N)
+    A = sparse(I, N, N) + λ .* (D' * D)
+    xs_re = A \ real.(x)
+    xs_im = A \ imag.(x)
+    return xs_re .+ im .* xs_im
+end
+
+
+"""
+    whittaker_smooth_auto(x) -> Vector{ComplexF64}
+
+Picks `λ` for `whittaker_smooth` automatically via the discrepancy
+principle, instead of scanning a hand-picked grid.
+
+Estimates the noise level directly from `x`'s own spectrum: for a
+*complex* time series, low |frequency| content (DC and its near
+neighbours) sits at both ends of the DFT bin index range, so the middle
+third of the spectrum (farthest from DC, around the Nyquist frequency) is
+the part assumed to be noise-dominated (the same "real P3 wobble is slow"
+assumption every filter here makes). By Parseval (`sum|X_k|² = N·sum|x_n|²`
+for Julia's unnormalized `fft`), the median power in that band is itself
+already a direct estimate of the total residual energy `Σ|noise_n|²`
+one would expect if `x` were pure noise — no extra per-sample conversion
+needed, that's `target` below.
+
+`λ` is then increased until the smoother's residual `‖x - xs(λ)‖²`
+matches `target`: too little smoothing (small λ) leaves genuine noise
+unremoved (residual too small), too much (large λ) starts eating real
+signal (residual too large) — the crossing point is where the smoothed
+track has absorbed the noise and, as much as possible, nothing else.
+Found by bisection in log(λ), since the residual grows monotonically
+with λ.
+"""
+function whittaker_smooth_auto(x::AbstractVector{<:Complex})
+    N = length(x)
+    N < 9 && return whittaker_smooth(x, 1.0)
+
+    X = fft(x)
+    P = abs2.(X)
+    lo_band = N ÷ 3
+    hi_band = N - lo_band
+    target = median(@view P[lo_band+1:hi_band])
+
+    residual(logλ) = sum(abs2, x .- whittaker_smooth(x, exp(logλ))) - target
+
+    lo, hi = -4.0, 14.0
+    flo, fhi = residual(lo), residual(hi)
+    # widen the bracket if the crossing isn't inside [lo, hi] yet
+    while flo > 0 && lo > -20.0
+        lo -= 4.0; flo = residual(lo)
+    end
+    while fhi < 0 && hi < 30.0
+        hi += 4.0; fhi = residual(hi)
+    end
+
+    for _ in 1:25
+        mid = (lo + hi) / 2
+        fmid = residual(mid)
+        if fmid < 0
+            lo = mid
+        else
+            hi = mid
+        end
+    end
+    return whittaker_smooth(x, exp((lo + hi) / 2))
+end
+
+
 function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                         ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
-                        p3_window::Int=20, bin_search::Int=2, warn_weak::Bool=true)
+                        p3_window::Int=20, bin_search::Int=2, warn_weak::Bool=true,
+                        auto::Bool=false)
     N = size(data, 1)
     on = bin_st:bin_end
     f3 = 1.0 / p3
@@ -394,12 +512,19 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     w = conj.(L_on)
     z = on_data_demeaned * w
 
-    # 3. coherent demodulation at f3, then low-pass filter (sliding, no block edges)
+    # 3. coherent demodulation at f3, then smooth the baseband (sliding, no block
+    # edges). `auto=true` replaces the fixed Butterworth lowpass with the
+    # curvature-penalized `whittaker_smooth_auto` — no `lowpass_cutoff` or
+    # `filter_order` to choose at all.
     n = 1:N
     carrier = exp.((-1im * 2π * f3) .* n)
     baseband = z .* carrier
-    respf = digitalfilter(Lowpass(lowpass_cutoff), Butterworth(filter_order); fs=1.0)
-    baseband_smooth = filtfilt(respf, real.(baseband)) .+ im .* filtfilt(respf, imag.(baseband))
+    if auto
+        baseband_smooth = whittaker_smooth_auto(baseband)
+    else
+        respf = digitalfilter(Lowpass(lowpass_cutoff), Butterworth(filter_order); fs=1.0)
+        baseband_smooth = filtfilt(respf, real.(baseband)) .+ im .* filtfilt(respf, imag.(baseband))
+    end
 
     # 4. residual phase -> total phase -> fold-bin assignment
     resid = DSP.unwrap(angle.(baseband_smooth))
@@ -451,9 +576,9 @@ Returns: the full-bin `coherent_fold` result, plus
 """
 function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                                   ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
-                                  p3_window::Int=20, n_groups::Int=4)
+                                  p3_window::Int=20, n_groups::Int=4, auto::Bool=false)
     main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
-                          filter_order=filter_order, p3_window=p3_window)
+                          filter_order=filter_order, p3_window=p3_window, auto=auto)
 
     N = size(data, 1)
     edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
@@ -463,7 +588,7 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
         st, en = edges[g], edges[g+1] - 1
         en < st && continue
         r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
-                           filter_order=filter_order, p3_window=p3_window, warn_weak=false)
+                           filter_order=filter_order, p3_window=p3_window, warn_weak=false, auto=auto)
         group_p3[g, :] = r.p3_per_pulse
         group_phase[g, :] = r.phase .- mean(r.phase)
     end
