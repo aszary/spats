@@ -880,29 +880,9 @@ Phase-drift vs amplitude-modulation test on already-processed data.
 
 
 
-        # --- NEW: LRFS Phase Track Example ---
-     target_psr = "J0034-0721"
-     outdir = joinpath(vpmout, target_psr * "_16")
-        
-        if isdir(outdir)
-            params = JSON.parsefile(joinpath(outdir, "params.json"))
-            bin_st = get(params, "bin_st", 1)
-            bin_end = get(params, "bin_end", nothing)
-            
-            # Use your Data module to load the ascii dump
-            X = Data.load_ascii(joinpath(outdir, "pulsar_low_debase.txt"))
-            if bin_end === nothing
-                bin_end = size(X, 2)
-            end
-            
-            # Run the LRFS analysis!
-        result = LrfsDiagnostics.lrfs_phase_track(X, bin_st, bin_end)
-            
-        println("--- LRFS Analysis for $target_psr ---")
-        println("Dominant P3: ", round(result.p3_pulses, digits=2), " pulses")
-        println("Phase Slope: ", round(result.phase_slope, digits=4), " rad/bin")
-        println("Classification: ", result.classification)
-        end
+        # LRFS Phase-Track batch — mirrors DriftBatch above
+        LrfsBatch.batch_analyze_lrfs(vpmout, list_file, "lrfs_classifications.csv")
+        LrfsBatch.plot_lrfs_results("lrfs_classifications.csv", "lrfs_chart.pdf")
     end
 
     
