@@ -377,6 +377,15 @@ module SpaTs
                     "consistency=$(round(r.consistency, digits=3))  " *
                     "p3_std=$(round(r.p3_std, digits=3))  snr=$(round(r.snr, digits=1))")
         end
+        # suggestion only — highest-consistency candidate; verify against the
+        # plot before using, this is not a substitute for looking at the trend
+        valid = filter(r -> isfinite(r.consistency), results)
+        if !isempty(valid)
+            best = valid[argmax([r.consistency for r in valid])]
+            println("Sugerowany cutoff (najwyższa consistency): " *
+                    "$(round(best.cutoff, sigdigits=3)) (consistency=$(round(best.consistency, digits=3))) " *
+                    "— sprawdź na wykresie czy to nie przypadkowy lokalny pik.")
+        end
         Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar", chosen=chosen, show_=show_)
         return results
     end

@@ -337,6 +337,9 @@ Arguments:
              lower = smoother but assumes more stable P3), default 1/200
   filter_order – Butterworth filter order for the low-pass, default 4
   p3_window – smoothing window [pulses] for `p3_per_pulse`, default 20
+  bin_search – half-width [FFT bins] of the neighbourhood around the
+             nominal-p3 bin searched for the true on-pulse power peak
+             before building `L_on` (see step 1 below), default 2
 
 Returns:
   folded       – ybins × N_bins matrix, the coherently-refolded p3-fold
@@ -350,14 +353,22 @@ Returns:
 """
 function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                         ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
-                        p3_window::Int=20)
+                        p3_window::Int=20, bin_search::Int=2)
     N = size(data, 1)
     on = bin_st:bin_end
     f3 = 1.0 / p3
 
-    # 1. single, full-length (non-segmented) complex spatial template at f3
+    # 1. single, full-length (non-segmented) complex spatial template at f3.
+    # The nominal p3 rarely lands the true f3 exactly on the bin
+    # `round(N/p3)` predicts — a fraction-of-a-bin mismatch measurably
+    # weakens the matched filter (L_on) built from it. Refine by searching
+    # the `±bin_search` neighbourhood for the bin with the most on-pulse
+    # power, i.e. the one the real signal actually sits in.
     F = fft(data, 1)
-    k = clamp(round(Int, N / p3), 1, N ÷ 2)
+    k0 = clamp(round(Int, N / p3), 1, N ÷ 2)
+    k_lo = max(1, k0 - bin_search)
+    k_hi = min(N ÷ 2, k0 + bin_search)
+    k = k_lo + argmax([sum(abs2, @view F[kk+1, on]) for kk in k_lo:k_hi]) - 1
     L = F[k+1, :]
     L_on = L[on]
 
