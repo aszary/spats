@@ -622,57 +622,6 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
 end
 
 """
-    scan_lowpass_cutoff(data, p3, bin_st, bin_end; cutoffs, filter_order, ybins,
-                         p3_window, n_groups) -> Vector{NamedTuple}
-
-Diagnostic scan to help pick `lowpass_cutoff` for `coherent_fold` /
-`p3fold_coherent` per pulsar, instead of guessing a single fixed value
-(the cutoff trades off responsiveness to real P3 wobble against noise
-suppression, and the right balance is pulsar-specific).
-
-For each candidate cutoff, splits the on-pulse window into `n_groups`
-independent longitude sub-ranges (same construction as
-`coherent_fold_jackknife`) and runs `coherent_fold` on each separately.
-Reports, per cutoff:
-
-  consistency – mean pairwise Pearson correlation between the `n_groups`
-                independent `p3_per_pulse` tracks. Real P3 wobble is a
-                single underlying physical signal shared by every
-                longitude sub-range, so independent tracks should agree;
-                pure noise passed through the same filter does not.
-                High consistency ⇒ this cutoff is letting real signal
-                through, not just noise-shaped smoothness.
-  p3_std      – std of the full-bin `p3_per_pulse` track. Rises with
-                looser (higher) cutoffs as more noise leaks through;
-                falls with tighter (lower) cutoffs as everything gets
-                smoothed out (including real wobble at low cutoff).
-                Conflates real wobble and noise, so on its own it can't
-                distinguish "stable P3" from "over-smoothed noise".
-  signal_std  – p3_std * sqrt(max(consistency, 0)): an estimate of how much
-                of p3_std is reproducible *signal* rather than independent
-                per-subband noise (derivation in the source). This is what
-                `p3fold_cutoff_scan` maximises to pick a cutoff — neither
-                consistency alone (can be high while p3_std ≈ 0, i.e. a
-                cutoff so tight nothing survives to agree on) nor p3_std
-                alone (grows with noise) answers "how much real P3 wobble
-                does this cutoff actually resolve".
-  snr         – matched-filter detection SNR (from `coherent_fold`;
-                independent of the cutoff, included as a per-pulsar
-                sanity reference).
-  p3_per_pulse – the full-bin instantaneous-P3 track for this cutoff
-                (same quantity `coherent_fold` returns), so
-                `Plot.p3_tracks_vs_cutoff` can overlay how the tracked
-                P3 wobble itself changes shape as the cutoff loosens.
-
-No cutoff is chosen inside this function — `p3fold_cutoff_scan` picks
-argmax(signal_std) as a suggestion, but always inspect the plots
-(`Plot.lowpass_cutoff_scan`'s three panels) before trusting it.
-
-Arguments: same as `coherent_fold`, plus
-  cutoffs  – candidate lowpass_cutoff values [cycles/pulse] to try,
-             default a log-spaced sweep from 1/1000 to 1/30
-"""
-"""
     cutoff_metrics(data, p3, bin_st, bin_end, co; ybins, filter_order, p3_window,
                    n_groups) -> NamedTuple
 
