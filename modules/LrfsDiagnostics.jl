@@ -6,16 +6,23 @@ using LinearAlgebra
 
 export lrfs_phase_track
 
-# Include the existing tools module
-try
-    import ..Tools
-catch
-    try
-        include("tools.jl")
-        import .Tools
-    catch
-        @warn "Could not load tools.jl for Tools.lrfs"
-    end
+"""
+    _lrfs(X) -> (F::Matrix{ComplexF64}, intensity::Vector{Float64})
+
+Self-contained LRFS computation matching Tools.lrfs logic:
+- FFT along the pulse axis for each longitude bin
+- Returns the complex spectrum matrix and summed power per frequency row.
+"""
+function _lrfs(X::AbstractMatrix{<:Real})
+    da = collect(transpose(X))        # (bins × pulses)
+    bins, pulse_num = size(da)
+    half = floor(Int, pulse_num / 2)
+
+    raw = fft(da, 2)[:, 1:half]       # (bins × half_freqs)
+    F   = collect(transpose(raw))     # (half_freqs × bins)  — same layout as Tools.lrfs
+
+    intensity = vec(sum(abs.(F), dims=2))  # sum across bins per freq row
+    return F, intensity
 end
 
 """
@@ -38,28 +45,23 @@ end
 """
     lrfs_phase_track(X::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int)
 
-Determines if a pulsar is P3-only or drifting by finding the dominant P3 frequency 
+Determines if a pulsar is P3-only or drifting by finding the dominant P3 frequency
 in the LRFS and tracking its complex phase across longitude bins.
 """
 function lrfs_phase_track(X::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int)
     # 1. Preprocess: isolate on-pulse and remove static profile
-    X_on = view(X, :, bin_st:bin_end)
+    X_on   = view(X, :, bin_st:bin_end)
     X_prep = X_on .- mean(X_on, dims=1)
-    
+
     N, M = size(X_prep)
-    
-    # 2. Compute LRFS using the preexisting Tools.lrfs
-    # Returns: (lrfs_complex_matrix, intensity_per_freq, freq_vector, peaks)
-    F_mat, intensity, freq, _ = Tools.lrfs(X_prep)
-    
-    # Materialise the transpose so indexing works normally
-    F = collect(F_mat)  # F is now (n_freqs × M_bins) Matrix{ComplexF64}
-    
-    # 3. Find the dominant P3 frequency using the intensity already computed by Tools.lrfs
-    # intensity[1] is DC — skip it
+
+    # 2. Compute LRFS (self-contained, no external dependency)
+    F, intensity = _lrfs(X_prep)
+
+    # 3. Find the dominant P3 frequency — skip DC (index 1)
     peak_idx = argmax(view(intensity, 2:length(intensity))) + 1
-    
-    # Calculate actual P3 value in units of pulses (N/k where k is frequency index)
+
+    # P3 in pulses
     p3_value = N / (peak_idx - 1)
     
     # 4. Extract phase track for the dominant P3 frequency
