@@ -12,6 +12,19 @@ module SpaTs
     include("modules/travel.jl")
 
 
+
+
+    # 1. Load the new module
+include("modules/drift_batch.jl")
+using .DriftBatch
+
+
+
+
+
+
+
+
     function test(outdir)
         d = Data.load_ascii("input/1.txt")
         Plot.single(d, outdir; darkness=0.3, number=256, bin_st=400, bin_end=600, start=1, name_mod="1", show_=true)
@@ -851,9 +864,22 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         
         
         
-        phase_modulation3(vpmout*"J1750-3503"; show_=true)
+        #phase_modulation3(vpmout*"J1750-3503"; show_=true)
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
-        Travel.travel_test(vpmout*"J1750-3503")
+        #Travel.travel_test(vpmout*"J1750-3503")
+
+
+        list_file = "input/p3only_pulsars_P3.txt"
+        csv_output = "drift_classifications.csv"
+
+        batch_analyze_drift(vpmout, list_file, csv_output)
+
+        # 3. Generate the chart!
+        plot_drift_results("drift_classifications.csv", "drift_chart.png")
+
+
+
+
 
 
     end
