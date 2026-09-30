@@ -56,12 +56,23 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
         end
         
         params_file = joinpath(outdir, "params.json")
-        debase_file = joinpath(outdir, "pulsar.debase.txt")
         
-        missing_files = filter(!isfile, [params_file, debase_file])
-        if !isempty(missing_files)
-            missing_str = join(basename.(missing_files), ", ")
-            @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $missing_str"
+        # Check for different debase file naming conventions
+        debase_file = ""
+        for name_variant in ["pulsar.debase.txt", "pulsar_high_debase.txt", "pulsar_low_debase.txt"]
+            cand_debase = joinpath(outdir, name_variant)
+            if isfile(cand_debase)
+                debase_file = cand_debase
+                break
+            end
+        end
+        
+        if !isfile(params_file) || isempty(debase_file)
+            missing_str = []
+            if !isfile(params_file); push!(missing_str, "params.json"); end
+            if isempty(debase_file); push!(missing_str, "any *debase.txt"); end
+            
+            @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $(join(missing_str, \", \"))"
             continue
         end
         
