@@ -2,6 +2,7 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
+    using .DriftBatch
 
     include("modules/data.jl")
     include("modules/plot.jl")
@@ -10,13 +11,9 @@ module SpaTs
     include("modules/p3fold_viterbi.jl")
     include("modules/relations.jl")
     include("modules/travel.jl")
-
-
-
-
     # 1. Load the new module
-include("modules/drift_batch.jl")
-using .DriftBatch
+    include("modules/drift_batch.jl")
+
 
 
 

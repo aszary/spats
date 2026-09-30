@@ -60,7 +60,8 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
         
         missing_files = filter(!isfile, [params_file, debase_file])
         if !isempty(missing_files)
-            @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $(join(basename.(missing_files), \", \"))"
+            missing_str = join(basename.(missing_files), ", ")
+            @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $missing_str"
             continue
         end
         
