@@ -890,7 +890,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
             bin_end = get(params, "bin_end", nothing)
             
             # Use your Data module to load the ascii dump
-            X = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+            X = Data.load_ascii(joinpath(outdir, "pulsar_low_debase.txt"))
             if bin_end === nothing
                 bin_end = size(X, 2)
             end
