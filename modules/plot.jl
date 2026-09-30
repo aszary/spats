@@ -463,6 +463,10 @@ module Plot
         subplot(2, 1, 1)
         minorticks_on()
         semilogx(cutoffs, consistency, "o-", color="steelblue")
+        for (x, y) in zip(cutoffs, consistency)
+            annotate(@sprintf("%.3f", y), (x, y), textcoords="offset points",
+                     xytext=(0, 6), ha="center", fontsize=6.5)
+        end
         chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
         ylabel("subband consistency (r)")
         title("lowpass_cutoff scan" * (isempty(name_mod) ? "" : "  ($name_mod)"))
@@ -470,7 +474,11 @@ module Plot
 
         subplot(2, 1, 2)
         minorticks_on()
-        semilogx(cutoffs, p3_std, "o-", color="darkorange")
+        loglog(cutoffs, p3_std, "o-", color="darkorange")
+        for (x, y) in zip(cutoffs, p3_std)
+            annotate(@sprintf("%.2g", y), (x, y), textcoords="offset points",
+                     xytext=(0, 6), ha="center", fontsize=6.5)
+        end
         chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
         xlabel("lowpass_cutoff (cycles/pulse)")
         ylabel("std(P3 per pulse)")
