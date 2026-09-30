@@ -2,7 +2,7 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
-    using .DriftBatch
+
 
     include("modules/data.jl")
     include("modules/plot.jl")
