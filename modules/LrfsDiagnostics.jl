@@ -6,6 +6,18 @@ using LinearAlgebra
 
 export lrfs_phase_track
 
+# Include the existing tools module
+try
+    import ..Tools
+catch
+    try
+        include("tools.jl")
+        import .Tools
+    catch
+        @warn "Could not load tools.jl for Tools.lrfs"
+    end
+end
+
 """
     unwrap!(phase::AbstractVector{<:Real})
 
@@ -36,8 +48,8 @@ function lrfs_phase_track(X::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int)
     
     N, M = size(X_prep)
     
-    # 2. Compute LRFS (1D real FFT along the pulse axis for each bin independently)
-    F = rfft(X_prep, 1)
+    # 2. Compute LRFS using the preexisting Tools.lrfs
+    F = Tools.lrfs(X_prep)
     
     # 3. Find the dominant P3 frequency
     # Sum power across all longitudes for each frequency row
