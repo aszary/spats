@@ -67,10 +67,19 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
             end
         end
         
+        # If no debase file found but spCf16 exists, create pulsar.debase.txt on the fly
+        if isempty(debase_file) && isfile(joinpath(outdir, "pulsar.spCf16")) && isfile(params_file)
+            println("[$i/$(length(names))] Creating pulsar.debase.txt for $name ...")
+            result = Data.make_fullrange_debase(outdir)
+            if !isnothing(result) && isfile(result)
+                debase_file = result
+            end
+        end
+        
         if !isfile(params_file) || isempty(debase_file)
             missing_arr = []
             if !isfile(params_file); push!(missing_arr, "params.json"); end
-            if isempty(debase_file); push!(missing_arr, "any *debase.txt"); end
+            if isempty(debase_file); push!(missing_arr, "any *debase.txt (and no spCf16 to generate from)"); end
             
             missing_str = join(missing_arr, ", ")
             @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $missing_str"

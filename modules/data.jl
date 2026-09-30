@@ -640,6 +640,69 @@ module Data
 
 
     """
+        make_fullrange_debase(outdir; spCf16_file="pulsar.spCf16", params_file="params.json",
+                              debase_txt="pulsar.debase.txt", force=false)
+
+    Creates a full-frequency-range `pulsar.debase.txt` inside an already-processed `_16`
+    directory by running `pmod -debase` on the existing `pulsar.spCf16` file and
+    exporting the result to ASCII with `pdv -t -F`.
+
+    This mirrors what `process_psrdata` does for non-16 data, applied to the spCf16 file.
+    Skips silently if `pulsar.debase.txt` already exists unless `force=true`.
+    """
+    function make_fullrange_debase(outdir::String;
+                                   spCf16_file::String="pulsar.spCf16",
+                                   params_file::String="params.json",
+                                   debase_txt::String="pulsar.debase.txt",
+                                   force::Bool=false)
+
+        spCf16   = joinpath(outdir, spCf16_file)
+        pfile    = joinpath(outdir, params_file)
+        out_txt  = joinpath(outdir, debase_txt)
+        debase_gg = replace(spCf16, ".spCf16" => ".debase.gg")
+
+        # Safety checks
+        if !isfile(spCf16)
+            @warn "make_fullrange_debase: spCf16 not found at $spCf16, skipping."
+            return nothing
+        end
+        if !isfile(pfile)
+            @warn "make_fullrange_debase: params.json not found at $pfile, skipping."
+            return nothing
+        end
+        if isfile(out_txt) && !force
+            println("  make_fullrange_debase: $debase_txt already exists, skipping (use force=true to overwrite).")
+            return out_txt
+        end
+
+        p = Tools.read_params(pfile)
+
+        # Step 1: run pmod -debase → produces pulsar.spCf16.debase.gg (or pulsar.debase.gg)
+        println("  [debase] Running pmod on $spCf16 ...")
+        run(pipeline(`pmod -onpulse "$(p["bin_st"]) $(p["bin_end"])" -device "/NULL" -debase $spCf16`,
+                     stderr="errs.txt"))
+
+        # pmod outputs <infile>.debase.gg; rename to a stable name if necessary
+        pmod_out = spCf16 * ".debase.gg"
+        if isfile(pmod_out) && pmod_out != debase_gg
+            mv(pmod_out, debase_gg, force=true)
+        end
+
+        if !isfile(debase_gg)
+            @warn "make_fullrange_debase: pmod did not produce $debase_gg"
+            return nothing
+        end
+
+        # Step 2: export to ASCII with pdv -t -F → pulsar.debase.txt
+        println("  [debase] Exporting ASCII to $out_txt ...")
+        convert_psrfit_ascii(debase_gg, out_txt)
+
+        println("  [debase] Done → $out_txt")
+        return out_txt
+    end
+
+
+    """
     Process multifrequency data with PSRCHIVE and PSRSALSA
     """
     function process_psrdata_16(indir, outdir; files=nothing, outfile="pulsar.spCf16", params_file="params.json")
