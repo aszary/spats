@@ -82,11 +82,24 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
         bin_st = get(params, "bin_st", 1)
         bin_end = get(params, "bin_end", nothing)
         
-        # Load data matrix
+        # Load data matrix from PSRCHIVE ASCII dump
         try
-            X = readdlm(debase_file, Float64)
+            # Custom parsing identical to Data.load_ascii
+            lines = readlines(debase_file)
+            header = split(lines[1])
+            n_pulses = parse(Int, header[6])
+            n_bins = parse(Int, header[12])
+            
+            X = zeros(Float64, n_pulses, n_bins)
+            for j in 2:length(lines)
+                res = split(lines[j])
+                pulse = parse(Int, res[1]) + 1
+                bin = parse(Int, res[3]) + 1
+                X[pulse, bin] = parse(Float64, res[4])
+            end
+            
             if bin_end === nothing
-                bin_end = size(X, 2)
+                bin_end = n_bins
             end
             
             println("[$i/$(length(names))] Analyzing $name ...")
