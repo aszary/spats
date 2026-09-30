@@ -456,11 +456,12 @@ module Plot
         cutoffs     = [r.cutoff for r in results]
         consistency = [r.consistency for r in results]
         p3_std      = [r.p3_std for r in results]
+        signal_std  = [hasproperty(r, :signal_std) ? r.signal_std : NaN for r in results]
 
         rc("font", size=8.)
-        figure(figsize=(6.5, 5.5))
+        figure(figsize=(6.5, 7.5))
 
-        subplot(2, 1, 1)
+        subplot(3, 1, 1)
         minorticks_on()
         semilogx(cutoffs, consistency, "o-", color="steelblue")
         for (x, y) in zip(cutoffs, consistency)
@@ -472,7 +473,7 @@ module Plot
         title("lowpass_cutoff scan" * (isempty(name_mod) ? "" : "  ($name_mod)"))
         tick_params(labelbottom=false)
 
-        subplot(2, 1, 2)
+        subplot(3, 1, 2)
         minorticks_on()
         loglog(cutoffs, p3_std, "o-", color="darkorange")
         for (x, y) in zip(cutoffs, p3_std)
@@ -480,8 +481,19 @@ module Plot
                      xytext=(0, 6), ha="center", fontsize=6.5)
         end
         chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
-        xlabel("lowpass_cutoff (cycles/pulse)")
         ylabel("std(P3 per pulse)")
+        tick_params(labelbottom=false)
+
+        subplot(3, 1, 3)
+        minorticks_on()
+        semilogx(cutoffs, signal_std, "o-", color="seagreen")
+        for (x, y) in zip(cutoffs, signal_std)
+            annotate(@sprintf("%.2g", y), (x, y), textcoords="offset points",
+                     xytext=(0, 6), ha="center", fontsize=6.5)
+        end
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
+        xlabel("lowpass_cutoff (cycles/pulse)")
+        ylabel("signal_std\n(p3_std·√consistency)")
 
         tight_layout()
         savefig("$outdir/$(name_mod)_lowpass_cutoff_scan.pdf")

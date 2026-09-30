@@ -500,6 +500,16 @@ Reports, per cutoff:
                 looser (higher) cutoffs as more noise leaks through;
                 falls with tighter (lower) cutoffs as everything gets
                 smoothed out (including real wobble at low cutoff).
+                Conflates real wobble and noise, so on its own it can't
+                distinguish "stable P3" from "over-smoothed noise".
+  signal_std  – p3_std * sqrt(max(consistency, 0)): an estimate of how much
+                of p3_std is reproducible *signal* rather than independent
+                per-subband noise (derivation in the source). This is what
+                `p3fold_cutoff_scan` maximises to pick a cutoff — neither
+                consistency alone (can be high while p3_std ≈ 0, i.e. a
+                cutoff so tight nothing survives to agree on) nor p3_std
+                alone (grows with noise) answers "how much real P3 wobble
+                does this cutoff actually resolve".
   snr         – matched-filter detection SNR (from `coherent_fold`;
                 independent of the cutoff, included as a per-pulsar
                 sanity reference).
@@ -508,11 +518,9 @@ Reports, per cutoff:
                 `Plot.p3_tracks_vs_cutoff` can overlay how the tracked
                 P3 wobble itself changes shape as the cutoff loosens.
 
-There is no single "best" answer returned on purpose — inspect the trend
-via `Plot.lowpass_cutoff_scan`: consistency should rise then plateau (or
-fall again if the cutoff gets so loose it's dominated by shared systematic
-noise); pick a cutoff at or just past the plateau onset, not deep into
-where p3_std is still climbing.
+No cutoff is chosen inside this function — `p3fold_cutoff_scan` picks
+argmax(signal_std) as a suggestion, but always inspect the plots
+(`Plot.lowpass_cutoff_scan`'s three panels) before trusting it.
 
 Arguments: same as `coherent_fold`, plus
   cutoffs  – candidate lowpass_cutoff values [cycles/pulse] to try,
@@ -548,9 +556,21 @@ function scan_lowpass_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
             end
         end
         consistency = isempty(cors) ? NaN : mean(cors)
+        p3_std_val  = std(main.p3_per_pulse)
+        # effective *signal* variability: `consistency` estimates what
+        # fraction of the observed p3_std is reproducible (shared between
+        # independent subbands) rather than independent per-subband noise —
+        # for x = s + n1, y = s + n2 with s, n1, n2 independent, cor(x,y) ≈
+        # var(s)/var(x) when n1, n2 have variance comparable to x's noise, so
+        # std(s) ≈ p3_std * sqrt(consistency). This is what
+        # `Plot.lowpass_cutoff_scan`'s third panel maximises to pick a
+        # cutoff, instead of consistency alone (high but on ~0 p3_std) or
+        # p3_std alone (grows with noise, not with real signal).
+        signal_std = (isnan(consistency) || consistency <= 0) ? 0.0 :
+                     p3_std_val * sqrt(consistency)
 
         push!(results, (cutoff=co, consistency=consistency,
-                         p3_std=std(main.p3_per_pulse), snr=main.snr,
+                         p3_std=p3_std_val, signal_std=signal_std, snr=main.snr,
                          p3_per_pulse=main.p3_per_pulse))
     end
     return results

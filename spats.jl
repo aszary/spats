@@ -375,7 +375,9 @@ module SpaTs
         for r in results
             println("cutoff=$(round(r.cutoff, sigdigits=3))  " *
                     "consistency=$(round(r.consistency, digits=3))  " *
-                    "p3_std=$(round(r.p3_std, digits=3))  snr=$(round(r.snr, digits=1))")
+                    "p3_std=$(round(r.p3_std, digits=3))  " *
+                    "signal_std=$(round(r.signal_std, digits=3))  " *
+                    "snr=$(round(r.snr, digits=1))")
         end
         # snr is identical across all rows by design (computed pre-filter, so
         # lowpass_cutoff can't affect it) — it's a sanity reference, not part
@@ -391,16 +393,22 @@ module SpaTs
                     "$(round(floor_ratio, digits=1))× powyżej szumu" *
                     (snr0 < 3 ? " — SŁABY sygnał, traktuj fold ostrożnie." : "."))
         end
-        # suggestion only — highest-consistency candidate; verify against the
-        # plot before using, this is not a substitute for looking at the trend
-        valid = filter(r -> isfinite(r.consistency), results)
+        # suggestion only — highest signal_std candidate (p3_std * sqrt(consistency),
+        # an estimate of how much of the observed P3 variability is real,
+        # reproducible signal rather than noise — see scan_lowpass_cutoff's
+        # docstring). Verify against the plot before using; this is not a
+        # substitute for looking at the trend.
+        valid = filter(r -> isfinite(r.consistency) && isfinite(r.signal_std), results)
         suggested = nothing
         if !isempty(valid)
-            best = valid[argmax([r.consistency for r in valid])]
+            best = valid[argmax([r.signal_std for r in valid])]
             suggested = best.cutoff
-            println("Sugerowany cutoff (najwyższa consistency): " *
-                    "$(round(best.cutoff, sigdigits=3)) (consistency=$(round(best.consistency, digits=3))) " *
-                    "— sprawdź na wykresie czy to nie przypadkowy lokalny pik.")
+            println("Sugerowany cutoff (najwyższy signal_std = p3_std·√consistency): " *
+                    "$(round(best.cutoff, sigdigits=3)) " *
+                    "(consistency=$(round(best.consistency, digits=3)), " *
+                    "p3_std=$(round(best.p3_std, digits=3)), " *
+                    "signal_std=$(round(best.signal_std, digits=3))) " *
+                    "— sprawdź na wykresach czy to nie przypadkowy lokalny pik.")
         end
         Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar",
                                  chosen=something(chosen, suggested), show_=show_)
