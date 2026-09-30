@@ -297,70 +297,6 @@ end
 
 
 """
-    coherent_fold(data, p3, bin_st, bin_end; ybins, lowpass_cutoff, filter_order, p3_window) -> NamedTuple
-
-Coherent, matched-filter P3-fold — an alternative to `fold` (per-pulse
-Viterbi) for pulsars where the per-pulse modulation depth is far below the
-noise floor but the *aggregate* signal is highly significant (see
-p3fold-refine-notes.md §3.3, "niezależny estymator fazy: transformacja
-Hilberta", and the conversation that motivated this: `PhaseDrift.drift_test`
-can detect a coherent phase slope at tens of σ even when blind per-pulse
-template matching, i.e. `fold`, has essentially nothing to lock onto).
-
-No per-pulse blind matching is attempted here. Instead:
-  1. a single, full-length (non-segmented) FFT gives the complex spatial
-     template `L_on` at f3 = 1/p3 — the same un-chunked estimate
-     `PhaseDrift.drift_test` uses, and for the same reason: chunking (like
-     `pspec`'s segmented LRFS, see `Data.twodfs_lrfs`) requires phase
-     coherence *between* segments, which P3 wobble destroys; a single
-     global FFT only ever needs coherence *within* one frequency bin, which
-     survives mild wobble.
-  2. every pulse is projected onto `conj(L_on)` — a spatial matched filter
-     using *all* on-pulse bins, weighted optimally — giving one high-SNR
-     complex number per pulse instead of relying on raw per-pulse shape
-     correlation.
-  3. that per-pulse series is coherently demodulated at f3 and low-pass
-     filtered (`DSP.filtfilt`, zero-phase) — a *sliding*, unsegmented
-     analogue of pspec's blocked averaging, so there are no hard block
-     boundaries for P3 wobble to decohere across.
-  4. the slowly-varying phase left after filtering is added back onto the
-     f3 ramp to get each pulse's absolute P3-phase directly, which drives
-     the fold — replacing blind per-pulse correlation with a directly
-     measured, high-SNR phase.
-
-Arguments:
-  data     – single-pulse matrix (N_pulses × N_bins), real intensity
-  p3       – nominal P3 [pulse periods]; sets the demodulation frequency f3 = 1/p3
-  bin_st, bin_end – on-pulse window (1-indexed)
-  ybins    – number of P3-phase bins for the output fold, default 10
-  lowpass_cutoff – low-pass cutoff [cycles/pulse] applied after
-             demodulation; sets the fastest P3 wobble that can still be
-             tracked (higher = more responsive to fast change but noisier;
-             lower = smoother but assumes more stable P3), default 1/200
-  filter_order – Butterworth filter order for the low-pass, default 4
-             (ignored when `auto=true`)
-  p3_window – smoothing window [pulses] for `p3_per_pulse`, default 20
-  bin_search – half-width [FFT bins] of the neighbourhood around the
-             nominal-p3 bin searched for the true on-pulse power peak
-             before building `L_on` (see step 1 below), default 2
-  auto     – if true, replace the fixed Butterworth lowpass with the
-             curvature-penalized `whittaker_smooth_auto` (directly enforces
-             a smooth, non-jumpy P3(t) track, with its own smoothing
-             strength λ picked automatically) and ignore `lowpass_cutoff` /
-             `filter_order` entirely — no cutoff to pick or scan for,
-             default false
-
-Returns:
-  folded       – ybins × N_bins matrix, the coherently-refolded p3-fold
-  phase        – Vector{Float64}, total unwrapped P3-phase per pulse [rad]
-  bin          – Vector{Int}, assigned phase bin (1..ybins) per pulse
-  p3_per_pulse – Vector{Float64}, instantaneous P3 [pulse periods] from the
-                 local slope of `phase`
-  snr          – matched-filter detection significance (≈ the same
-                 quantity `drift_test` reports) — a sanity check that there
-                 is signal to track at all before trusting the fold
-"""
-"""
     second_difference_matrix(N) -> SparseMatrixCSC
 
 (N-2) × N second-difference operator: `(D*x)[i] = x[i+2] - 2x[i+1] + x[i]`,
@@ -467,6 +403,71 @@ function whittaker_smooth_auto(x::AbstractVector{<:Complex})
     return whittaker_smooth(x, exp((lo + hi) / 2))
 end
 
+
+"""
+    coherent_fold(data, p3, bin_st, bin_end; ybins, lowpass_cutoff, filter_order, p3_window) -> NamedTuple
+
+Coherent, matched-filter P3-fold — an alternative to `fold` (per-pulse
+Viterbi) for pulsars where the per-pulse modulation depth is far below the
+noise floor but the *aggregate* signal is highly significant (see
+p3fold-refine-notes.md §3.3, "niezależny estymator fazy: transformacja
+Hilberta", and the conversation that motivated this: `PhaseDrift.drift_test`
+can detect a coherent phase slope at tens of σ even when blind per-pulse
+template matching, i.e. `fold`, has essentially nothing to lock onto).
+
+No per-pulse blind matching is attempted here. Instead:
+  1. a single, full-length (non-segmented) FFT gives the complex spatial
+     template `L_on` at f3 = 1/p3 — the same un-chunked estimate
+     `PhaseDrift.drift_test` uses, and for the same reason: chunking (like
+     `pspec`'s segmented LRFS, see `Data.twodfs_lrfs`) requires phase
+     coherence *between* segments, which P3 wobble destroys; a single
+     global FFT only ever needs coherence *within* one frequency bin, which
+     survives mild wobble.
+  2. every pulse is projected onto `conj(L_on)` — a spatial matched filter
+     using *all* on-pulse bins, weighted optimally — giving one high-SNR
+     complex number per pulse instead of relying on raw per-pulse shape
+     correlation.
+  3. that per-pulse series is coherently demodulated at f3 and low-pass
+     filtered (`DSP.filtfilt`, zero-phase) — a *sliding*, unsegmented
+     analogue of pspec's blocked averaging, so there are no hard block
+     boundaries for P3 wobble to decohere across.
+  4. the slowly-varying phase left after filtering is added back onto the
+     f3 ramp to get each pulse's absolute P3-phase directly, which drives
+     the fold — replacing blind per-pulse correlation with a directly
+     measured, high-SNR phase.
+
+Arguments:
+  data     – single-pulse matrix (N_pulses × N_bins), real intensity
+  p3       – nominal P3 [pulse periods]; sets the demodulation frequency f3 = 1/p3
+  bin_st, bin_end – on-pulse window (1-indexed)
+  ybins    – number of P3-phase bins for the output fold, default 10
+  lowpass_cutoff – low-pass cutoff [cycles/pulse] applied after
+             demodulation; sets the fastest P3 wobble that can still be
+             tracked (higher = more responsive to fast change but noisier;
+             lower = smoother but assumes more stable P3), default 1/200
+  filter_order – Butterworth filter order for the low-pass, default 4
+             (ignored when `auto=true`)
+  p3_window – smoothing window [pulses] for `p3_per_pulse`, default 20
+  bin_search – half-width [FFT bins] of the neighbourhood around the
+             nominal-p3 bin searched for the true on-pulse power peak
+             before building `L_on` (see step 1 below), default 2
+  auto     – if true, replace the fixed Butterworth lowpass with the
+             curvature-penalized `whittaker_smooth_auto` (directly enforces
+             a smooth, non-jumpy P3(t) track, with its own smoothing
+             strength λ picked automatically) and ignore `lowpass_cutoff` /
+             `filter_order` entirely — no cutoff to pick or scan for,
+             default false
+
+Returns:
+  folded       – ybins × N_bins matrix, the coherently-refolded p3-fold
+  phase        – Vector{Float64}, total unwrapped P3-phase per pulse [rad]
+  bin          – Vector{Int}, assigned phase bin (1..ybins) per pulse
+  p3_per_pulse – Vector{Float64}, instantaneous P3 [pulse periods] from the
+                 local slope of `phase`
+  snr          – matched-filter detection significance (≈ the same
+                 quantity `drift_test` reports) — a sanity check that there
+                 is signal to track at all before trusting the fold
+"""
 
 function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                         ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
