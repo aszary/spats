@@ -49,16 +49,17 @@ function lrfs_phase_track(X::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int)
     N, M = size(X_prep)
     
     # 2. Compute LRFS using the preexisting Tools.lrfs
-    F = Tools.lrfs(X_prep)
+    # Returns: (lrfs_complex_matrix, intensity_per_freq, freq_vector, peaks)
+    F_mat, intensity, freq, _ = Tools.lrfs(X_prep)
     
-    # 3. Find the dominant P3 frequency
-    # Sum power across all longitudes for each frequency row
-    power_spectrum = vec(sum(abs2.(F), dims=2))
+    # Materialise the transpose so indexing works normally
+    F = collect(F_mat)  # F is now (n_freqs × M_bins) Matrix{ComplexF64}
     
-    # Ignore DC component (index 1) and find the peak
-    peak_idx = argmax(view(power_spectrum, 2:length(power_spectrum))) + 1
+    # 3. Find the dominant P3 frequency using the intensity already computed by Tools.lrfs
+    # intensity[1] is DC — skip it
+    peak_idx = argmax(view(intensity, 2:length(intensity))) + 1
     
-    # Calculate actual P3 value in units of pulses
+    # Calculate actual P3 value in units of pulses (N/k where k is frequency index)
     p3_value = N / (peak_idx - 1)
     
     # 4. Extract phase track for the dominant P3 frequency
