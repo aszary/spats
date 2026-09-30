@@ -866,16 +866,16 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
         #Travel.travel_test(vpmout*"J1750-3503")
 
-"""
-        list_file = "input/p3only_pulsars_P3.txt"
-        csv_output = "drift_classifications.csv"
 
-        DriftBatch.batch_analyze_drift(vpmout, list_file, csv_output)
+        #list_file = "input/p3only_pulsars_P3.txt"
+        #csv_output = "drift_classifications.csv"
+
+        #DriftBatch.batch_analyze_drift(vpmout, list_file, csv_output)
 
         # 3. Generate the chart!
-        DriftBatch.plot_drift_results("drift_classifications.csv", "drift_chart.pdf")
+        #DriftBatch.plot_drift_results("drift_classifications.csv", "drift_chart.pdf")
 
-"""
+
 
 
 
@@ -884,15 +884,15 @@ Phase-drift vs amplitude-modulation test on already-processed data.
      target_psr = "J0034-0721"
      outdir = joinpath(vpmout, target_psr * "_16")
         
-    if isdir(outdir)
-        params = JSON.parsefile(joinpath(outdir, "params.json"))
-        bin_st = get(params, "bin_st", 1)
-        bin_end = get(params, "bin_end", nothing)
+        if isdir(outdir)
+            params = JSON.parsefile(joinpath(outdir, "params.json"))
+            bin_st = get(params, "bin_st", 1)
+            bin_end = get(params, "bin_end", nothing)
             
             # Use your Data module to load the ascii dump
-        X = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        if bin_end === nothing
-            bin_end = size(X, 2)
+            X = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+            if bin_end === nothing
+                bin_end = size(X, 2)
         end
             
             # Run the LRFS analysis!
@@ -903,9 +903,9 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         println("Phase Slope: ", round(result.phase_slope, digits=4), " rad/bin")
         println("Classification: ", result.classification)
 
-
-
     end
+
+    
 
 end # module
 
