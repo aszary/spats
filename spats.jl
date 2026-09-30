@@ -807,12 +807,12 @@ module SpaTs
         #phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/300)
 
-        # TEST: skan lowpass_cutoff na J2139+2242 (dane już przetworzone) — pokaże
+        # TEST: skan lowpass_cutoff na J1539-6322 (dane już przetworzone) — pokaże
         # wykresy consistency/p3_std, potem sam odpali finalny coherent fold z
         # sugerowanym cutoffem (drugi wykres: pulsar_coherent_p3fold_compare)
-        scan_result = p3fold_cutoff_scan(vpmout*"J2139+2242")
+        scan_result = p3fold_cutoff_scan(vpmout*"J1539-6322")
         if !isnothing(scan_result.suggested_cutoff)
-            p3fold_coherent(vpmout*"J2139+2242", lowpass_cutoff=scan_result.suggested_cutoff)
+            p3fold_coherent(vpmout*"J1539-6322", lowpass_cutoff=scan_result.suggested_cutoff)
         end
 
         
