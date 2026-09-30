@@ -13,7 +13,8 @@ module SpaTs
     include("modules/travel.jl")
     # 1. Load the new module
     include("modules/drift_batch.jl")
-
+    include("modules/LrfsDiagnostics.jl")
+    include("modules/lrfs_batch.jl")
 
 
 
@@ -895,7 +896,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
             end
             
             # Run the LRFS analysis!
-            result = lrfs_phase_track(X, bin_st, bin_end)
+            result = LrfsDiagnostics.lrfs_phase_track(X, bin_st, bin_end)
             
             println("--- LRFS Analysis for $target_psr ---")
             println("Dominant P3: ", round(result.p3_pulses, digits=2), " pulses")
