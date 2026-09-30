@@ -404,6 +404,7 @@ module SpaTs
         end
         Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar",
                                  chosen=something(chosen, suggested), show_=show_)
+        Plot.p3_tracks_vs_cutoff(results, outdir; name_mod="pulsar", show_=show_)
         return (results=results, suggested_cutoff=suggested)
     end
 

@@ -503,6 +503,10 @@ Reports, per cutoff:
   snr         – matched-filter detection SNR (from `coherent_fold`;
                 independent of the cutoff, included as a per-pulsar
                 sanity reference).
+  p3_per_pulse – the full-bin instantaneous-P3 track for this cutoff
+                (same quantity `coherent_fold` returns), so
+                `Plot.p3_tracks_vs_cutoff` can overlay how the tracked
+                P3 wobble itself changes shape as the cutoff loosens.
 
 There is no single "best" answer returned on purpose — inspect the trend
 via `Plot.lowpass_cutoff_scan`: consistency should rise then plateau (or
@@ -546,7 +550,8 @@ function scan_lowpass_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
         consistency = isempty(cors) ? NaN : mean(cors)
 
         push!(results, (cutoff=co, consistency=consistency,
-                         p3_std=std(main.p3_per_pulse), snr=main.snr))
+                         p3_std=std(main.p3_per_pulse), snr=main.snr,
+                         p3_per_pulse=main.p3_per_pulse))
     end
     return results
 end

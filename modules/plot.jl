@@ -497,6 +497,47 @@ module Plot
     end
 
 
+    """
+    For each cutoff scanned by `P3FoldViterbi.scan_lowpass_cutoff`, overlays
+    the actual `p3_per_pulse(pulse)` track it produced — not just the
+    summary std shown in `lowpass_cutoff_scan`, but the shape of the
+    wobble itself, so you can see directly how much smoothing each cutoff
+    applies and whether looser cutoffs are adding real fine structure or
+    just noise wiggle.
+    """
+    function p3_tracks_vs_cutoff(results, outdir; name_mod="pulsar", show_=false)
+        palette = ["#08519c", "#3182bd", "#6baed6", "#74c476",
+                   "#fd8d3c", "#e6550d", "#a50f15", "#756bb1"]
+
+        rc("font", size=8.)
+        figure(figsize=(8, 5))
+        minorticks_on()
+        for (i, r) in enumerate(results)
+            haskey_ = hasproperty(r, :p3_per_pulse)
+            haskey_ || continue
+            tr = r.p3_per_pulse
+            col = palette[mod1(i, length(palette))]
+            plot(1:length(tr), tr, color=col, lw=1.0, alpha=0.85,
+                 label=@sprintf("%.3g", r.cutoff))
+        end
+        xlabel("pulse number")
+        ylabel("\$P_3\$ per pulse (P)")
+        title("P3 variability vs lowpass_cutoff" * (isempty(name_mod) ? "" : "  ($name_mod)"))
+        legend(title="cutoff", fontsize=6.5, ncol=2, loc="best")
+        tight_layout()
+        savefig("$outdir/$(name_mod)_p3_tracks_vs_cutoff.pdf")
+        println("$outdir/$(name_mod)_p3_tracks_vs_cutoff.pdf")
+        savefig("$outdir/$(name_mod)_p3_tracks_vs_cutoff.png")
+        println("$outdir/$(name_mod)_p3_tracks_vs_cutoff.png")
+        if show_ == true
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
    function twodfs(data, outdir, params; cmap="viridis", darkness=0.3, name_mod="PSR_NAME", show_=false, average=nothing)
 
         p = params
