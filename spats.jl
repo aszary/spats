@@ -329,7 +329,7 @@ module SpaTs
       phase_modulation(vpmout*"J1110-5637")
       p3fold_coherent(vpmout*"J1110-5637")
     """
-    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, darkness=1.0, show_=true)
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, p3_window=60, darkness=1.0, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -337,7 +337,7 @@ module SpaTs
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
-            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups)
+            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups, p3_window=p3_window)
         println("Matched-filter SNR: $(round(result.snr, digits=1))")
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
@@ -365,7 +365,7 @@ module SpaTs
       process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
       p3fold_coherent_auto(vpmout*"J1110-5637")
     """
-    function p3fold_coherent_auto(outdir; ybins=nothing, n_groups=4, darkness=1.0, show_=true)
+    function p3fold_coherent_auto(outdir; ybins=nothing, n_groups=4, p3_window=60, darkness=1.0, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -373,7 +373,7 @@ module SpaTs
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
-            ybins=yb, n_groups=n_groups, auto=true)
+            ybins=yb, n_groups=n_groups, p3_window=p3_window, auto=true)
         println("Matched-filter SNR: $(round(result.snr, digits=1))")
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])

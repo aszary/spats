@@ -447,7 +447,15 @@ Arguments:
              lower = smoother but assumes more stable P3), default 1/200
   filter_order – Butterworth filter order for the low-pass, default 4
              (ignored when `auto=true`)
-  p3_window – smoothing window [pulses] for `p3_per_pulse`, default 20
+  p3_window – local-linear-regression window [pulses] used to turn the
+             (possibly still slightly noisy) smoothed phase into a slope,
+             i.e. `p3_per_pulse` — this, not `lowpass_cutoff`/`auto`, is
+             what controls how jumpy the *displayed* P3(t) track looks:
+             differentiating over a short window amplifies whatever noise
+             is left, however clean the underlying folded image is. Larger
+             = smoother P3(t) display but slower to follow genuine fast
+             changes. Default 60 (was 20 — that visibly amplified noise
+             into jumps even when the fold image itself looked clean).
   bin_search – half-width [FFT bins] of the neighbourhood around the
              nominal-p3 bin searched for the true on-pulse power peak
              before building `L_on` (see step 1 below), default 2
@@ -471,7 +479,7 @@ Returns:
 
 function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                         ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
-                        p3_window::Int=20, bin_search::Int=2, warn_weak::Bool=true,
+                        p3_window::Int=60, bin_search::Int=2, warn_weak::Bool=true,
                         auto::Bool=false)
     N = size(data, 1)
     on = bin_st:bin_end
@@ -577,7 +585,7 @@ Returns: the full-bin `coherent_fold` result, plus
 """
 function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                                   ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
-                                  p3_window::Int=20, n_groups::Int=4, auto::Bool=false)
+                                  p3_window::Int=60, n_groups::Int=4, auto::Bool=false)
     main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
                           filter_order=filter_order, p3_window=p3_window, auto=auto)
 
@@ -655,7 +663,7 @@ Arguments: same as `coherent_fold`, plus
 function scan_lowpass_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                               cutoffs::AbstractVector{<:Real}=[1/1000, 1/500, 1/300, 1/200,
                                                                 1/150, 1/100, 1/60, 1/30],
-                              filter_order::Int=4, ybins::Int=10, p3_window::Int=20,
+                              filter_order::Int=4, ybins::Int=10, p3_window::Int=60,
                               n_groups::Int=4)
     N = size(data, 1)
     edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
