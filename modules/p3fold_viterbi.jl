@@ -672,54 +672,149 @@ Arguments: same as `coherent_fold`, plus
   cutoffs  – candidate lowpass_cutoff values [cycles/pulse] to try,
              default a log-spaced sweep from 1/1000 to 1/30
 """
+"""
+    cutoff_metrics(data, p3, bin_st, bin_end, co; ybins, filter_order, p3_window,
+                   n_groups) -> NamedTuple
+
+The per-cutoff computation `scan_lowpass_cutoff` runs in its loop, factored
+out so the same evaluation can be reused for a single candidate `co` — by
+the grid scan, and by `refine_cutoff`'s continuous local search. See
+`scan_lowpass_cutoff`'s docstring for what each field means.
+"""
+function cutoff_metrics(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int, co::Real;
+                         ybins::Int=10, filter_order::Int=4, p3_window::Int=60,
+                         n_groups::Int=4)
+    N = size(data, 1)
+    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+
+    main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=co,
+                          filter_order=filter_order, p3_window=p3_window, warn_weak=false)
+
+    group_p3 = fill(NaN, n_groups, N)
+    for g in 1:n_groups
+        st, en = edges[g], edges[g+1] - 1
+        en < st && continue
+        r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=co,
+                           filter_order=filter_order, p3_window=p3_window, warn_weak=false)
+        group_p3[g, :] = r.p3_per_pulse
+    end
+
+    cors = Float64[]
+    for a in 1:n_groups, b in a+1:n_groups
+        va, vb = @view(group_p3[a, :]), @view(group_p3[b, :])
+        if all(isfinite, va) && all(isfinite, vb) && std(va) > 0 && std(vb) > 0
+            push!(cors, cor(va, vb))
+        end
+    end
+    consistency = isempty(cors) ? NaN : mean(cors)
+    p3_std_val  = std(main.p3_per_pulse)
+    # effective *signal* variability: `consistency` estimates what
+    # fraction of the observed p3_std is reproducible (shared between
+    # independent subbands) rather than independent per-subband noise —
+    # for x = s + n1, y = s + n2 with s, n1, n2 independent, cor(x,y) ≈
+    # var(s)/var(x) when n1, n2 have variance comparable to x's noise, so
+    # std(s) ≈ p3_std * sqrt(consistency). This is what
+    # `Plot.lowpass_cutoff_scan`'s third panel maximises to pick a
+    # cutoff, instead of consistency alone (high but on ~0 p3_std) or
+    # p3_std alone (grows with noise, not with real signal).
+    signal_std = (isnan(consistency) || consistency <= 0) ? 0.0 :
+                 p3_std_val * sqrt(consistency)
+
+    return (cutoff=co, consistency=consistency,
+            p3_std=p3_std_val, signal_std=signal_std, snr=main.snr,
+            p3_per_pulse=main.p3_per_pulse)
+end
+
+
+"""
+    scan_lowpass_cutoff(data, p3, bin_st, bin_end; cutoffs, filter_order, ybins,
+                         p3_window, n_groups) -> Vector{NamedTuple}
+
+Diagnostic scan to help pick `lowpass_cutoff` for `coherent_fold` /
+`p3fold_coherent` per pulsar, instead of guessing a single fixed value
+(the cutoff trades off responsiveness to real P3 wobble against noise
+suppression, and the right balance is pulsar-specific). Runs
+`cutoff_metrics` over the whole `cutoffs` grid — see that function and its
+`signal_std` for what each field means.
+
+This is a coarse, global sweep intended to find *where roughly* the best
+cutoff lies and to feed `Plot.lowpass_cutoff_scan`'s diagnostic panels;
+follow it with `refine_cutoff` for a continuous, more precise value
+instead of settling for whichever grid point happened to be tested.
+
+Arguments: same as `coherent_fold`, plus
+  cutoffs  – candidate lowpass_cutoff values [cycles/pulse] to try
+"""
 function scan_lowpass_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                               cutoffs::AbstractVector{<:Real}=[1/1000, 1/500, 1/300, 1/200,
                                                                 1/150, 1/100, 1/60, 1/30],
                               filter_order::Int=4, ybins::Int=10, p3_window::Int=60,
                               n_groups::Int=4)
-    N = size(data, 1)
-    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+    return [cutoff_metrics(data, p3, bin_st, bin_end, co; ybins=ybins,
+                            filter_order=filter_order, p3_window=p3_window, n_groups=n_groups)
+            for co in cutoffs]
+end
 
-    results = NamedTuple[]
-    for co in cutoffs
-        main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=co,
-                              filter_order=filter_order, p3_window=p3_window, warn_weak=false)
 
-        group_p3 = fill(NaN, n_groups, N)
-        for g in 1:n_groups
-            st, en = edges[g], edges[g+1] - 1
-            en < st && continue
-            r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=co,
-                               filter_order=filter_order, p3_window=p3_window, warn_weak=false)
-            group_p3[g, :] = r.p3_per_pulse
+"""
+    refine_cutoff(data, p3, bin_st, bin_end, lo, hi; ...) -> NamedTuple
+
+Continuous local refinement of the cutoff chosen from `scan_lowpass_cutoff`'s
+grid: golden-section search maximising `signal_std` over `log(cutoff)`
+within the bracket `[lo, hi]` (log-space, since cutoff spans orders of
+magnitude and the grid is itself log-spaced), instead of settling for
+whichever one of the (necessarily finite) grid points happened to be
+tested.
+
+Golden-section search assumes the objective is unimodal (one peak) inside
+the bracket — true near a genuine optimum but not guaranteed globally, so
+this is meant to *polish* the best grid point from a coarse scan, not
+replace it: pass `lo`/`hi` as that point's immediate grid neighbours (a
+narrow bracket the coarse scan has already confirmed contains the peak),
+not the whole search range.
+
+Arguments: same as `cutoff_metrics`, plus
+  lo, hi   – bracket [cycles/pulse] to refine within (must have lo < hi)
+  tol      – stop when the bracket width (in log space) shrinks below
+             this fraction of its start, default 0.02 (~2%)
+  max_iter – hard cap on iterations regardless of `tol`, default 25
+
+Returns: `cutoff_metrics`'s result at the refined optimum.
+"""
+function refine_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int,
+                        lo::Real, hi::Real; ybins::Int=10, filter_order::Int=4,
+                        p3_window::Int=60, n_groups::Int=4, tol::Real=0.02, max_iter::Int=25)
+    lo <= 0 && error("refine_cutoff: lo must be > 0 (got $lo)")
+    lo >= hi && error("refine_cutoff: need lo < hi (got lo=$lo, hi=$hi)")
+
+    φ = (sqrt(5) - 1) / 2  # golden ratio conjugate, ≈0.618
+    score(logco) = cutoff_metrics(data, p3, bin_st, bin_end, exp(logco);
+                                   ybins=ybins, filter_order=filter_order,
+                                   p3_window=p3_window, n_groups=n_groups).signal_std
+
+    a, b = log(lo), log(hi)
+    span0 = b - a
+    c = b - φ * (b - a)
+    d = a + φ * (b - a)
+    fc, fd = score(c), score(d)
+
+    for _ in 1:max_iter
+        (b - a) < tol * span0 && break
+        if fc > fd
+            b, d, fd = d, c, fc
+            c = b - φ * (b - a)
+            fc = score(c)
+        else
+            a, c, fc = c, d, fd
+            d = a + φ * (b - a)
+            fd = score(d)
         end
-
-        cors = Float64[]
-        for a in 1:n_groups, b in a+1:n_groups
-            va, vb = @view(group_p3[a, :]), @view(group_p3[b, :])
-            if all(isfinite, va) && all(isfinite, vb) && std(va) > 0 && std(vb) > 0
-                push!(cors, cor(va, vb))
-            end
-        end
-        consistency = isempty(cors) ? NaN : mean(cors)
-        p3_std_val  = std(main.p3_per_pulse)
-        # effective *signal* variability: `consistency` estimates what
-        # fraction of the observed p3_std is reproducible (shared between
-        # independent subbands) rather than independent per-subband noise —
-        # for x = s + n1, y = s + n2 with s, n1, n2 independent, cor(x,y) ≈
-        # var(s)/var(x) when n1, n2 have variance comparable to x's noise, so
-        # std(s) ≈ p3_std * sqrt(consistency). This is what
-        # `Plot.lowpass_cutoff_scan`'s third panel maximises to pick a
-        # cutoff, instead of consistency alone (high but on ~0 p3_std) or
-        # p3_std alone (grows with noise, not with real signal).
-        signal_std = (isnan(consistency) || consistency <= 0) ? 0.0 :
-                     p3_std_val * sqrt(consistency)
-
-        push!(results, (cutoff=co, consistency=consistency,
-                         p3_std=p3_std_val, signal_std=signal_std, snr=main.snr,
-                         p3_per_pulse=main.p3_per_pulse))
     end
-    return results
+
+    best_logco = fc > fd ? c : d
+    return cutoff_metrics(data, p3, bin_st, bin_end, exp(best_logco);
+                           ybins=ybins, filter_order=filter_order,
+                           p3_window=p3_window, n_groups=n_groups)
 end
 
 end # module P3FoldViterbi

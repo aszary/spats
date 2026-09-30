@@ -437,16 +437,22 @@ module SpaTs
                     "$(round(floor_ratio, digits=1))× powyżej szumu" *
                     (snr0 < 3 ? " — SŁABY sygnał, traktuj fold ostrożnie." : "."))
         end
-        # suggestion only — highest signal_std candidate (p3_std * sqrt(consistency),
-        # an estimate of how much of the observed P3 variability is real,
-        # reproducible signal rather than noise — see scan_lowpass_cutoff's
-        # docstring). Verify against the plot before using; this is not a
-        # substitute for looking at the trend.
+        # best grid point only pins down a rough neighbourhood — the true
+        # optimum can sit between tested values, so refine it continuously
+        # (golden-section search on signal_std) within that point's immediate
+        # grid neighbours instead of settling for one of the fixed candidates.
         valid = filter(r -> isfinite(r.consistency) && isfinite(r.signal_std), results)
         suggested = nothing
         if !isempty(valid)
+            sorted_cutoffs = sort([r.cutoff for r in results])
             best = valid[argmax([r.signal_std for r in valid])]
-            suggested = best.cutoff
+            idx = findfirst(==(best.cutoff), sorted_cutoffs)
+            lo = idx > 1 ? sorted_cutoffs[idx-1] : best.cutoff * 0.7
+            hi = idx < length(sorted_cutoffs) ? sorted_cutoffs[idx+1] : best.cutoff * 1.4
+            refined = P3FoldViterbi.refine_cutoff(
+                data, p3, Int(p["bin_st"]), Int(p["bin_end"]), lo, hi;
+                filter_order=filter_order, n_groups=n_groups)
+            suggested = refined.cutoff
         end
         Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar",
                                  chosen=something(chosen, suggested), show_=show_)
