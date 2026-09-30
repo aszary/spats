@@ -394,14 +394,17 @@ module SpaTs
         # suggestion only — highest-consistency candidate; verify against the
         # plot before using, this is not a substitute for looking at the trend
         valid = filter(r -> isfinite(r.consistency), results)
+        suggested = nothing
         if !isempty(valid)
             best = valid[argmax([r.consistency for r in valid])]
+            suggested = best.cutoff
             println("Sugerowany cutoff (najwyższa consistency): " *
                     "$(round(best.cutoff, sigdigits=3)) (consistency=$(round(best.consistency, digits=3))) " *
                     "— sprawdź na wykresie czy to nie przypadkowy lokalny pik.")
         end
-        Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar", chosen=chosen, show_=show_)
-        return results
+        Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar",
+                                 chosen=something(chosen, suggested), show_=show_)
+        return (results=results, suggested_cutoff=suggested)
     end
 
 
@@ -807,8 +810,12 @@ module SpaTs
         # TEST: skan lowpass_cutoff na J1110-5637 (dane już przetworzone; to kanoniczny
         # przykład z docstringów phase_modulation/p3fold_coherent, powinien mieć
         # czystszy sygnał niż J1750-3503, który był granicznym przypadkiem odwracającego
-        # się dryfu) — pokaże wykresy consistency/p3_std
-        p3fold_cutoff_scan(vpmout*"J1110-5637")
+        # się dryfu) — pokaże wykresy consistency/p3_std, potem sam odpali finalny
+        # coherent fold z sugerowanym cutoffem (drugi wykres: pulsar_coherent_p3fold_compare)
+        scan_result = p3fold_cutoff_scan(vpmout*"J1110-5637")
+        if !isnothing(scan_result.suggested_cutoff)
+            p3fold_coherent(vpmout*"J1110-5637", lowpass_cutoff=scan_result.suggested_cutoff)
+        end
 
         
         # PSR J1539-6322
