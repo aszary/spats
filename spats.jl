@@ -351,6 +351,38 @@ module SpaTs
 
 
     """
+    Diagnostic run before `p3fold_coherent` — scans several `lowpass_cutoff`
+    values and plots how track "trustworthiness" (subband consistency) and
+    noise level trade off, so the cutoff for `p3fold_coherent` is picked from
+    numbers instead of by re-running the fold with different values by hand.
+    See `P3FoldViterbi.scan_lowpass_cutoff` for the metric definitions.
+
+    Typical call, before settling on a cutoff for a given pulsar:
+      process_psrdata("/home/psr/data/new/J1750-3503/.../", vpmout*"J1750-3503")
+      p3fold_cutoff_scan(vpmout*"J1750-3503")
+      # inspect the plot, then:
+      p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=<chosen value>)
+    """
+    function p3fold_cutoff_scan(outdir; cutoffs=[1/1000, 1/500, 1/300, 1/200, 1/150, 1/100, 1/60, 1/30],
+                                filter_order=6, n_groups=4, chosen=nothing, show_=true)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        p3 = Float64(p["p3"])
+        results = P3FoldViterbi.scan_lowpass_cutoff(
+            data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
+            cutoffs=cutoffs, filter_order=filter_order, n_groups=n_groups)
+        for r in results
+            println("cutoff=$(round(r.cutoff, sigdigits=3))  " *
+                    "consistency=$(round(r.consistency, digits=3))  " *
+                    "p3_std=$(round(r.p3_std, digits=3))  snr=$(round(r.snr, digits=1))")
+        end
+        Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar", chosen=chosen, show_=show_)
+        return results
+    end
+
+
+    """
     Controlled comparison of `Tools.p3fold` (the "constant P3" naive fold
     used inside `p3fold_coherent`/`p3fold_refine`) against PSRSALSA's own
     `pfold -p3fold_norefine`, run on the *same* archive (`pulsar.debase.gg`)

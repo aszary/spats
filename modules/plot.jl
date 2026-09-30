@@ -441,6 +441,54 @@ module Plot
     end
 
 
+    """
+    Plot for `P3FoldViterbi.scan_lowpass_cutoff` — helps pick `lowpass_cutoff`
+    for `coherent_fold`/`p3fold_coherent` per pulsar (see that function's
+    docstring for the reasoning).
+
+    Top panel: consistency (independent-subband agreement, higher = more
+    trustworthy) vs cutoff, log-x. Bottom panel: p3_std (track noise level)
+    vs cutoff, same x-axis, for context on the noise/responsiveness trade-off.
+    A vertical dashed line at `chosen` (if given) marks the cutoff you decide
+    to use in `p3fold_coherent`.
+    """
+    function lowpass_cutoff_scan(results, outdir; name_mod="pulsar", chosen=nothing, show_=false)
+        cutoffs     = [r.cutoff for r in results]
+        consistency = [r.consistency for r in results]
+        p3_std      = [r.p3_std for r in results]
+
+        rc("font", size=8.)
+        figure(figsize=(6.5, 5.5))
+
+        subplot(2, 1, 1)
+        minorticks_on()
+        semilogx(cutoffs, consistency, "o-", color="steelblue")
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
+        ylabel("subband consistency (r)")
+        title("lowpass_cutoff scan" * (isempty(name_mod) ? "" : "  ($name_mod)"))
+        tick_params(labelbottom=false)
+
+        subplot(2, 1, 2)
+        minorticks_on()
+        semilogx(cutoffs, p3_std, "o-", color="darkorange")
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
+        xlabel("lowpass_cutoff (cycles/pulse)")
+        ylabel("std(P3 per pulse)")
+
+        tight_layout()
+        savefig("$outdir/$(name_mod)_lowpass_cutoff_scan.pdf")
+        println("$outdir/$(name_mod)_lowpass_cutoff_scan.pdf")
+        savefig("$outdir/$(name_mod)_lowpass_cutoff_scan.png")
+        println("$outdir/$(name_mod)_lowpass_cutoff_scan.png")
+        if show_ == true
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
    function twodfs(data, outdir, params; cmap="viridis", darkness=0.3, name_mod="PSR_NAME", show_=false, average=nothing)
 
         p = params

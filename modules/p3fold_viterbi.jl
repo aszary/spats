@@ -456,4 +456,80 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
             snr=main.snr, p3_per_pulse_err=p3_per_pulse_err, phase_err=phase_err)
 end
 
+"""
+    scan_lowpass_cutoff(data, p3, bin_st, bin_end; cutoffs, filter_order, ybins,
+                         p3_window, n_groups) -> Vector{NamedTuple}
+
+Diagnostic scan to help pick `lowpass_cutoff` for `coherent_fold` /
+`p3fold_coherent` per pulsar, instead of guessing a single fixed value
+(the cutoff trades off responsiveness to real P3 wobble against noise
+suppression, and the right balance is pulsar-specific).
+
+For each candidate cutoff, splits the on-pulse window into `n_groups`
+independent longitude sub-ranges (same construction as
+`coherent_fold_jackknife`) and runs `coherent_fold` on each separately.
+Reports, per cutoff:
+
+  consistency – mean pairwise Pearson correlation between the `n_groups`
+                independent `p3_per_pulse` tracks. Real P3 wobble is a
+                single underlying physical signal shared by every
+                longitude sub-range, so independent tracks should agree;
+                pure noise passed through the same filter does not.
+                High consistency ⇒ this cutoff is letting real signal
+                through, not just noise-shaped smoothness.
+  p3_std      – std of the full-bin `p3_per_pulse` track. Rises with
+                looser (higher) cutoffs as more noise leaks through;
+                falls with tighter (lower) cutoffs as everything gets
+                smoothed out (including real wobble at low cutoff).
+  snr         – matched-filter detection SNR (from `coherent_fold`;
+                independent of the cutoff, included as a per-pulsar
+                sanity reference).
+
+There is no single "best" answer returned on purpose — inspect the trend
+via `Plot.lowpass_cutoff_scan`: consistency should rise then plateau (or
+fall again if the cutoff gets so loose it's dominated by shared systematic
+noise); pick a cutoff at or just past the plateau onset, not deep into
+where p3_std is still climbing.
+
+Arguments: same as `coherent_fold`, plus
+  cutoffs  – candidate lowpass_cutoff values [cycles/pulse] to try,
+             default a log-spaced sweep from 1/1000 to 1/30
+"""
+function scan_lowpass_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                              cutoffs::AbstractVector{<:Real}=[1/1000, 1/500, 1/300, 1/200,
+                                                                1/150, 1/100, 1/60, 1/30],
+                              filter_order::Int=4, ybins::Int=10, p3_window::Int=20,
+                              n_groups::Int=4)
+    N = size(data, 1)
+    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+
+    results = NamedTuple[]
+    for co in cutoffs
+        main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=co,
+                              filter_order=filter_order, p3_window=p3_window)
+
+        group_p3 = fill(NaN, n_groups, N)
+        for g in 1:n_groups
+            st, en = edges[g], edges[g+1] - 1
+            en < st && continue
+            r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=co,
+                               filter_order=filter_order, p3_window=p3_window)
+            group_p3[g, :] = r.p3_per_pulse
+        end
+
+        cors = Float64[]
+        for a in 1:n_groups, b in a+1:n_groups
+            va, vb = @view(group_p3[a, :]), @view(group_p3[b, :])
+            if all(isfinite, va) && all(isfinite, vb) && std(va) > 0 && std(vb) > 0
+                push!(cors, cor(va, vb))
+            end
+        end
+        consistency = isempty(cors) ? NaN : mean(cors)
+
+        push!(results, (cutoff=co, consistency=consistency,
+                         p3_std=std(main.p3_per_pulse), snr=main.snr))
+    end
+    return results
+end
+
 end # module P3FoldViterbi
