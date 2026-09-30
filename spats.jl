@@ -790,6 +790,10 @@ module SpaTs
         #phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/300)
 
+        # TEST: skan lowpass_cutoff na J1750-3503 (dane już przetworzone, wcześniej
+        # używany jako przykład drift reversal) — pokaże wykresy consistency/p3_std
+        p3fold_cutoff_scan(vpmout*"J1750-3503")
+
         
         # PSR J1539-6322
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
