@@ -867,7 +867,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         #Travel.travel_test(vpmout*"J1750-3503")
 
 
-        #list_file = "input/p3only_pulsars_P3.txt"
+        list_file = "input/p3only_pulsars_P3.txt"
         #csv_output = "drift_classifications.csv"
 
         #DriftBatch.batch_analyze_drift(vpmout, list_file, csv_output)
