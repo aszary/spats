@@ -35,20 +35,32 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
     results = []
     
     for (i, name) in enumerate(names)
-        # Directory resolution fallback
-        outdir = joinpath(vpmout, name * "_16")
-        if !isdir(outdir)
-            outdir = joinpath(vpmout, name)
+        # Directory resolution fallback (check all 4 possible variations)
+        candidates = [
+            joinpath(vpmout, name * "_16"),
+            vpmout * name * "_16",
+            joinpath(vpmout, name),
+            vpmout * name
+        ]
+        outdir = ""
+        for cand in candidates
+            if isdir(cand)
+                outdir = cand
+                break
+            end
         end
-        if !isdir(outdir)
-            outdir = vpmout * name * "_16"
+        
+        if isempty(outdir)
+            @warn "[$i/$(length(names))] Skipping $name — Output dir not found. Checked: $(candidates[1]) etc."
+            continue
         end
         
         params_file = joinpath(outdir, "params.json")
         debase_file = joinpath(outdir, "pulsar.debase.txt")
         
-        if !isfile(params_file) || !isfile(debase_file)
-            @warn "[$i/$(length(names))] Skipping $name — required files missing."
+        missing_files = filter(!isfile, [params_file, debase_file])
+        if !isempty(missing_files)
+            @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $(join(basename.(missing_files), \", \"))"
             continue
         end
         
