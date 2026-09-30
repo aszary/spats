@@ -794,6 +794,9 @@ module SpaTs
         # używany jako przykład drift reversal) — pokaże wykresy consistency/p3_std
         p3fold_cutoff_scan(vpmout*"J1750-3503")
 
+        # wynik skanu: najlepszy cutoff ~0.002 (~1/500) — finalny coherent fold z tą wartością
+        p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=0.002)
+
         
         # PSR J1539-6322
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
