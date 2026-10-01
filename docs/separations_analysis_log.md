@@ -1622,3 +1622,19 @@ Otwarte: skala szumu Δψ (kontrola tasowaniem lub z błędu ψ na bin) — pró
 `docs/p3track_method.md`: opis metody (kroki 1–5), wyniki na 5 dryferach + 5 P3-only, sprawy do rozstrzygnięcia
 (§8: kalibracja progu Δψ, kategoria „brak stabilnego P₃”, L przy wielu trybach, reverserzy, J1401, maska składowych,
 harmoniczne, Δψ a P₂, znak dryfu, batch), historia poprawek, użycie. Wykresy w `docs/figures/p3track_*.png`.
+
+### 2026-10-01 (cd. 9) — J1825+0004: drugi reżim P₃ po zmianie modu (uwaga użytkownika)
+
+Użytkownik widzi w sLRFS J1825+0004 dwie grupy P₃, w tym stabilne P₃ po zmianie modu (~715). Przy L = 57 (z P₃ = 14.2
+z params) cecha drugiego reżimu jest poza zasięgiem (mierzalne P₃ ≲ L/3 ≈ 19). Skrypt
+`~/claude/work/scripts/j1825_mode2.jl`, log `~/claude/work/logs/j1825_mode2.log`,
+wykresy `~/claude/work/figures/p3track/J1825+0004_sliding_lrfs_L{96,128,160}_groups.png`, `J1825+0004_L{96,128,160}_p3fold_groups.png`.
+
+- Średnie widmo (okna 128): 1–700 jedna cecha P₃ = 14.6 (kontrast 3.0); 716–1040 kilka: 21.8 (2.3), 10.1, 12.6, 6.7.
+- **L = 160: grupa 2, P₃ ≈ 38 (55 → 34 monotonicznie), impulsy 744–972 (229 P, ~6 cykli), Δψ = 0.06** — złożenie
+  pokazuje poziome pasy na całym profilu: modulacja amplitudowa, nie dryf. Grupa dryfu P₃ ≈ 14.3 ma Δψ = 0.22.
+- L = 128: ta sama grupa odrzucona (182 P < 5·38.7); L = 96: P₃ ≈ 25 (203 P), zmieszana z odcinkiem 220–286.
+- Dłuższe L zaostrza tolerancję grup (1/L) i dzieli reżim 1 (L = 160: 16.5 w 1–223 i 14.25 w 224–737).
+
+Wniosek: J1825+0004 = mod dryfu (P₃ ≈ 14.5, impulsy 1–700) + mod jasny z wolną AM (P₃ ≈ 35–55). Pojedyncze L dobrane
+do P₃ z params nie widzi drugiego reżimu — potwierdza odłożony problem długości okna przy wielu trybach.
