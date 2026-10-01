@@ -238,11 +238,16 @@ szablon T* = ⟨Z·e^{−iθ}⟩ z wylosowanych impulsów (θ z pełnego dopasow
 σ fragmentu = odchylenie bootstrapu. χ² = Σ (Δψ_frag/σ_frag)² ~ χ²(n_frag) → p → równoważne z.
 
 **Werdykt:** `drift` gdy z ≥ 5 **i** Δψ ≥ 0.1 cyklu (bardzo jasny AM może mieć malutki, formalnie istotny
-gradient); **`partial`** (dryf częściowy, decyzja 2026-10-01) gdy nie `drift`, ale w jakimś oknie 5 binów wewnątrz
+gradient) **i** składowe dryfujące samodzielnie (z_frag ≥ 5, |Δψ_frag| ≥ 0.1) niosą ≥ 50% mocy szablonu
+(definicja b — wzór przesuwa się przez dominującą część emisji; reguła po przeglądzie batcha v1: J1057-5226 z płaską
+składową dominującą i dryfem −0.19 ± 0.03 w słabszej, J1543+0929 bez żadnej składowej istotnej samodzielnie);
+**`partial`** (dryf częściowy, decyzja 2026-10-01) gdy gradient globalny jest istotny, ale nie spełnia reguły mocy,
+albo gdy w jakimś oknie 5 binów wewnątrz
 maski emisji lokalna zmiana fazy |Δψ_okna| ≥ 0.1 przy z_okna ≥ 5 (ten sam bootstrap), rozłożona na biny — żaden
 przyrost bin→bin nie niesie > 50% zmiany netto, w oknie nie ma głębokiego minimum |T| (bin < 0.5 × niższe
 z maksimów po obu stronach, `deep_dip`), a każdy bin ma błąd fazy ≤ 20° (kołowe σ z bootstrapu); **`am`** gdy
-brak istotnego gradientu (z < 3), brak okna `partial` i górna granica Σ|Δψ_frag| + 2·√(Σσ²_frag) < **0.25 cyklu**
+brak gradientu (**z < 2**; przy z < 3 J1511-5414 z widoczną rampą +0.09 ± 0.03, z = 2.7, dostawał `am`), brak
+okna `partial` i górna granica Σ|Δψ_frag| + 2·√(Σσ²_frag) < **0.25 cyklu**
 (połowa najmniejszego wyraźnego dryfu: grupy `drift` mają Δψ ≈ 0.5–2.1); `inconclusive` w pozostałych przypadkach
 oraz gdy grupa ma < 5 niezależnych bloków (npulse/(L/2)). Progi 0.1 (drift) i 0.25 (am) — wartości robocze.
 Pierwsza wersja `am` (Σ(|Δψ_frag| + 2σ_frag) < 0.1, błędy liniowo) nie dawała `am` ani razu w pilocie batcha
@@ -276,6 +281,10 @@ Z nowym `am` (`p3track_dpsi_calib_am.log`; dodany wolny dryf P₂ = 120 binów, 
 | AM wspólna faza | am 20/20 | am 13, inconclusive 7 |
 | AM przeciwfaza | am 19, inconclusive 1 | inconclusive 20 |
 | zbocze / dwie składowe / wolny dryf / dryf | drift 10+5+10+5, **am 0** | drift 1+4+7+5, reszta inconclusive/brak grup, **am 0** |
+
+Z regułą mocy i z < 2 dla `am` (`p3track_dpsi_calib_v2.log`): AM wspólna faza am 19/20 (0.6), 13/20 (1.5); przeciwfaza
+18/20 (0.6); dwie składowe (AM + dryf) przy szumie 1.5 → `partial` 4/5 (żadna składowa nie spełnia progów sama);
+dryf, wolny dryf, zbocze — bez zmian; fałszywe `drift`/`am`: 0.
 
 Bootstrap jest lekko liberalny (p < 0.01 w ~5% przypadków AM zamiast 1%), dlatego próg z ≥ 5. Przy szumie
 1.5 AM nie da się *potwierdzić* (upper > 0.1) — werdykt `inconclusive`, nie fałszywy dryf.
@@ -449,6 +458,9 @@ względem stałego P₃.*
 | `partial` bez warunku minimum i błędu fazy | 2/20 fałszywych w AM z przeciwfazą przy szumie | `deep_dip`, σψ ≤ 20° |
 | `am`: Σ(\|Δψ\|+2σ) < 0.1 | 0 × am w pilocie batcha (20 pulsarów) | z < 3 i Σ\|Δψ\| + 2√Σσ² < 0.25 |
 | okno z wyzerowanych impulsów | kontrast 0/0 = NaN, błąd kwantyla (J1524, J1843) | okno puste w `feature_peak` |
+| `drift` bez wag mocy składowych | dryf w słabej składowej → drift (J1057, J1543) | reguła mocy ≥ 50% → inaczej `partial` |
+| `am` przy z < 3 | rampa +0.09 ± 0.03 (J1511) → am | z < 2 |
+| werdykt pulsara z dowolnej grupy | `am` z wolnej modulacji w 2. przejściu (J1742: P₃ 7 → 48) | werdykt z grup o P₃ ±30% katalogowego |
 
 ---
 

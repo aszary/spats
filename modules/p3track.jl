@@ -763,6 +763,7 @@ only mod 1 cycle, and drift may have opposite senses in them (bi-drifting).
 
 Fields: psi (radians, unwrapped within mask runs, for plotting; NaN outside),
 amp (|T|/max), mask, runs (counted runs), run_slope, run_dpsi (signed),
+run_power (share of the counted runs' Σ|T|²),
 dpsi = Σ|run_dpsi|, span = Σ run_dpsi, rms (|T|²-weighted RMS of ψ about the
 run means [cycles]).
 """
@@ -779,6 +780,8 @@ function template_phase(T; frac::Real=0.15, minrun::Int=5, minpower::Real=0.05)
     end
     run_slope = [run_gradient(T, r) for r in runs]
     run_dpsi = run_slope .* length.(runs)
+    pr = [sum(abs2, T[r]) for r in runs]
+    run_power = isempty(pr) ? Float64[] : pr ./ sum(pr)     # share of the counted runs' power
     ss = 0.0; sw = 0.0
     for r in runs
         w = amp[r] .^ 2; y = psi[r] ./ (2π)
@@ -786,7 +789,8 @@ function template_phase(T; frac::Real=0.15, minrun::Int=5, minpower::Real=0.05)
         ss += sum(w .* (y .- ym) .^ 2); sw += sum(w)
     end
     return (psi=psi, amp=amp, mask=mask, runs=runs, run_slope=run_slope, run_dpsi=run_dpsi,
-            dpsi=sum(abs.(run_dpsi)), span=sum(run_dpsi), rms=sw > 0 ? sqrt(ss / sw) : NaN)
+            run_power=run_power, dpsi=sum(abs.(run_dpsi)), span=sum(run_dpsi),
+            rms=sw > 0 ? sqrt(ss / sw) : NaN)
 end
 
 """
@@ -926,7 +930,8 @@ end
 """
     template_significance(Z, θ, T, tp, L; nboot=300, block=nothing, seed=1,
                           dpsi_min=0.1, zdet=5.0, minblocks=5, lwin=5, maxfrac=0.5,
-                          dipdepth=0.5, psimax=deg2rad(20), dpsi_am=0.25, zam=3.0)
+                          dipdepth=0.5, psimax=deg2rad(20), dpsi_am=0.25, zam=2.0,
+                          minpow_drift=0.5)
         -> NamedTuple
 
 Uncertainty and significance of the template phase gradient (`template_phase`
@@ -952,8 +957,15 @@ giving p and its one-sided normal equivalent z. A very bright AM pulsar can
 show a tiny but formally significant gradient (profile asymmetry, slightly
 offset components), so the verdict also needs a size:
 
-  :drift        z ≥ `zdet` and Δψ ≥ `dpsi_min`
-  :partial      not :drift, but some `lwin`-bin window inside the emission
+  :drift        z ≥ `zdet` and Δψ ≥ `dpsi_min`, and the components that drift on
+                their own (z_run ≥ `zdet`, |Δψ_run| ≥ `dpsi_min`) carry ≥
+                `minpow_drift` = ½ of the template power — definition (b): the
+                pattern moves through the dominant part of the emission. A
+                significant gradient confined to weaker components is :partial
+                (J1057-5226: flat dominant component, −0.19 ± 0.03 in the weaker
+                one; J1543+0929: no component significant on its own)
+  :partial      a global gradient that fails the power rule above, or some
+                `lwin`-bin window inside the emission
                 mask has a local phase change |Δψ_w| ≥ `dpsi_min` with
                 z_w ≥ `zdet` (same bootstrap), spread over its bins — no
                 single bin-to-bin increment carries more than `maxfrac` of
@@ -968,7 +980,8 @@ offset components), so the verdict also needs a size:
                 flat phase over the bright peak, ~0.7 cycle change down the
                 trailing flank, the same in all four time quarters — "partial
                 drift", decision of 2026-10-01)
-  :am           no significant gradient (z < `zam` = 3), no partial window, and
+  :am           no gradient (z < `zam` = 2; at 3, J1511-5414 with a visible ramp
+                of +0.09 ± 0.03, z = 2.7, read as AM), no partial window, and
                 the upper limit Σ|Δψ_run| + 2·√(Σσ_run²) < `dpsi_am` = 0.25
                 cycle — half the smallest firm drift seen (groups with
                 verdict drift have Δψ ≈ 0.5–2.1). The first version required
@@ -981,12 +994,14 @@ offset components), so the verdict also needs a size:
 `dpsi_min` = 0.1 cycle is a working value, not calibrated physics.
 Fields: verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block,
 partial (found, z, dpsi, bins, maxfrac, nwin — the best local window),
-sigma_psi (per-bin phase error [rad]).
+sigma_psi (per-bin phase error [rad]), pow_drift (power share of the
+components drifting on their own).
 """
 function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothing, seed::Int=1,
                                dpsi_min::Real=0.1, zdet::Real=5.0, minblocks::Real=5,
                                lwin::Int=5, maxfrac::Real=0.5, dipdepth::Real=0.5,
-                               psimax::Real=deg2rad(20), dpsi_am::Real=0.25, zam::Real=3.0)
+                               psimax::Real=deg2rad(20), dpsi_am::Real=0.25, zam::Real=2.0,
+                               minpow_drift::Real=0.5)
     n = size(Z, 1)
     bl = block === nothing ? max(1, L ÷ 2) : block
     nblocks = n / bl
@@ -1061,12 +1076,17 @@ function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothi
         end
     end
 
+    # power share of components that drift on their own (z_run ≥ zdet, |Δψ_run| ≥ dpsi_min)
+    qual = nr > 0 ? (abs.(zr) .≥ zdet) .& (abs.(tp.run_dpsi) .≥ dpsi_min) : falses(0)
+    pow_drift = nr > 0 ? sum(tp.run_power[qual]) : 0.0
+    glob = nr > 0 && z ≥ zdet && tp.dpsi ≥ dpsi_min
     verdict = nblocks < minblocks ? :inconclusive :
-              (nr > 0 && z ≥ zdet && tp.dpsi ≥ dpsi_min) ? :drift :
-              partial.found ? :partial :
+              (glob && pow_drift ≥ minpow_drift) ? :drift :
+              (glob || partial.found) ? :partial :
               (nr > 0 && z < zam && upper < dpsi_am) ? :am : :inconclusive
     return (verdict=verdict, z=z, p=p, chi2=chi2, nruns=nr, sigma_run=σ, z_run=zr,
-            dpsi_upper=upper, nblocks=nblocks, block=bl, partial=partial, sigma_psi=σψ)
+            dpsi_upper=upper, nblocks=nblocks, block=bl, partial=partial, sigma_psi=σψ,
+            pow_drift=pow_drift)
 end
 
 
