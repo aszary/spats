@@ -1426,3 +1426,33 @@ J1703-1846 (6.9; 21), J0934-5249 (5.6; 33), J0034-0721 (3.6; 20).
 `name_mod`; `p3_ybins` zaokrąglane (J1720-0212 ma 5.8 w params.json). Domyślne zachowanie bez zmian.
 Skrypt `~/claude/work/scripts/p3fold_top10.jl`; wykresy `~/claude/work/figures/p3fold/<PSR>_coherent_p3fold_compare.{png,pdf}`,
 SNR w `~/claude/work/p3fold_top10_snr.csv`.
+
+### 2026-10-01 (cd.) — p3fold_coherent dla 10 P3-only z najbardziej prawdopodobnym dryfem
+
+**Kryterium:** ranking wg z_cv (B = 32) wśród P3-only — prawdopodobieństwo trwałego uporządkowania; geometrii
+(ρ, P₂) nie wymagano, bo dla P3-only jest przeważnie niemierzalna (`~/claude/work/logs/p3fold_p3only_selection.log`).
+Wszystkie z katalogów `_16` (`pulsar_full_debase.txt`).
+
+| PSR | z_cv | P₃ | f_trav | SNR złożenia |
+|---|---|---|---|---|
+| J0837+0610 | 12.3 | 2.17 | 0.044 | 8.6 |
+| J1057-5226 | 11.7 | 8.51 | 0.004 | 9.6 |
+| J1048-5832 | 9.9 | 17.4 | 0.011 | 14.5 |
+| J1633-4453 | 9.2 | 16.5 | 0.016 | 3.5 |
+| J1701-3130 | 9.1 | 28.0 | 0.038 | 2.8 |
+| J1810-5338 | 8.2 | 4.81 | 0.016 | 3.2 |
+| J1632-4621 | 7.6 | 15.1 | 0.012 | 3.9 |
+| J1121-5444 | 7.1 | 31.6 | 0.037 | 3.3 |
+| J1555-0515 | 6.4 | 2.33 | 0.035 | 5.0 |
+| J1816-5643 | 6.2 | 19.7 | — (k_snr < 0) | 1.7 |
+
+**Obserwacje (obejrzane 3 najsilniejsze).** Brak pochyłych pasów jak u dryferów. Widać modulację jasności
+**poszczególnych składowych** z P₃ (J1057-5226: tylko środkowa składowa ~bin 95; J1048-5832: dwie składowe
+~100 i ~125; J0837+0610: P₃ ≈ 2.17, blisko Nyquista). Trwałe uporządkowanie z T_cv pochodzi więc najpewniej ze
+**stałego przesunięcia fazy modulacji między składowymi** (jedna składowa systematycznie wyprzedza drugą),
+a nie z przesuwania się podpulsu — to degeneracja z §11 pkt 12 opisu metody. Do sprawdzenia: profil fazy
+modulacji (faza LRFS przy f₃) w funkcji długości — liniowy = dryf, schodkowy = opóźnienie między składowymi.
+Pozostałe 7 złożeń ma SNR 1.7–5, czyli są w dużej mierze szumowe.
+
+Skrypt `p3fold_top10.jl` przyjmuje teraz argumenty `[lista] [katalog wyjściowy] [plik SNR]`; wykresy
+`~/claude/work/figures/p3fold_p3only/`, SNR `~/claude/work/p3fold_p3only_snr.csv`.
