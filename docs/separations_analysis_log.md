@@ -1456,3 +1456,30 @@ Pozostałe 7 złożeń ma SNR 1.7–5, czyli są w dużej mierze szumowe.
 
 Skrypt `p3fold_top10.jl` przyjmuje teraz argumenty `[lista] [katalog wyjściowy] [plik SNR]`; wykresy
 `~/claude/work/figures/p3fold_p3only/`, SNR `~/claude/work/p3fold_p3only_snr.csv`.
+
+### 2026-10-01 (cd. 2) — p3fold_coherent dla 10 P3-only bez trwałego ruchu (kontrola)
+
+**Kryterium:** P3-only z wyraźną modulacją (k_snr ≥ 1, N/P₃ ≥ 30; 35 z 107), ranking wg **najniższego z_cv**
+(B = 32). Sam najniższy z_cv wybrałby najsłabsze, zaszumione pulsary — tu brak ruchu jest pomiarem, nie
+brakiem sygnału (`~/claude/work/logs/p3fold_p3only_worst_selection.log`).
+
+| PSR | z_cv | stary T | P₃ | k_snr | SNR złożenia |
+|---|---|---|---|---|---|
+| J1401-6357 | −1.29 | **4652σ** | 2.21 | 283 | 27.0 |
+| J1146-6030 | −1.25 | 616σ | 10.95 | 11.3 | 7.2 |
+| J1901+1306 | −0.97 | −1σ | 11.83 | 1.4 | 1.3 |
+| J1001-5939 | −0.33 | 103σ | 2.09 | 15.5 | 20.5 |
+| J0955-5304 | −0.04 | 26σ | 3.54 | 1.6 | 3.0 |
+| J1825+0004 | 0.03 | 150σ | 14.22 | 1.5 | 3.1 |
+| J1143-5158 | 0.25 | 11σ | 5.03 | 1.6 | 2.4 |
+| J1757-2421 | 0.30 | 0σ | 24.38 | 4.1 | 1.9 |
+| J1603-2531 | 0.43 | **1709σ** | 48.62 | 27.8 | 23.9 |
+| J2307+2225 | 0.63 | 18σ | 3.48 | 2.0 | 3.1 |
+
+**Obserwacje (obejrzane 3 z wysokim SNR: J1401-6357, J1603-2531, J1001-5939).** Czysta modulacja jasności całej
+składowej: poziome pasy, bez nachylenia i bez przesunięcia fazy między częściami profilu. To dokładnie
+przypadek, który stary T fałszywie wykrywał na tysiącach σ (J1401: 4652σ, J1603: 1709σ), a T_cv poprawnie
+zeruje. Kontrast z „najlepszymi” P3-only (wpis wyżej), gdzie modulowane są poszczególne składowe z możliwym
+opóźnieniem fazy, jest subtelny wizualnie — rozstrzygnie profil fazy modulacji w funkcji długości.
+
+Wykresy `~/claude/work/figures/p3fold_p3only_worst/`, SNR `~/claude/work/p3fold_p3only_worst_snr.csv`.
