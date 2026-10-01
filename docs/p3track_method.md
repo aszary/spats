@@ -134,9 +134,18 @@ wychodziły jako 17–40 P), przycięte w połowie odstępu do sąsiedniego odci
 (rozdzielczość okna). Przy 0.5/L szum estymatora tworzył fałszywe grupy (J1825: 33 P przy P₃ = 11.7 obok
 14.5, Δf = 0.95/L).
 
-**Harmoniczne** (`harmonic_groups`, `fundamental_track`): grupa z f₃ ≈ 2·f₃ większej grupy (±1/L) to ten
-sam reżim, w którym chwilowo dominuje 2. harmoniczna — dołączana, a jej ślad przeliczany na fundamentalną
-(J0151-0635: 40 P przy P₃ = 7.46 obok 14.3).
+**Harmoniczne** (`harmonic_groups`, `harmonic_test`, `fundamental_track`): grupa z f₃ ≈ 2·f₃ większej grupy
+(±1/L) może być tym samym reżimem z dominującą 2. harmoniczną **albo** osobnym modem o połowie P₃ — sam stosunek
+częstości tego nie rozstrzyga. Test: impulsy kandydata demodulowane i składane przy **f₃/2**; złożenie rozkładane
+wzdłuż fazy P₃ na składowe Fouriera. Harmoniczna niesie słabszą fundamentalną zgraną fazowo ze wzorem → składowa
+**h = 1** (raz na cykl folda) ponad maksimum z 20 tasowań; osobny mod przy f₃/2 nie ma nic. (Całkowita głębokość
+złożenia nie nadaje się: sygnał przy f złożony przy f/2 to po prostu dwa cykle na fold — pierwsza wersja testu
+uznała osobny mod za harmoniczną.) Werdykt: `harmonic` → dołączana, ślad przeliczany na fundamentalną;
+`separate` (h1 nieistotne przy ≥ 10 cyklach fundamentalnej) → osobna grupa; `inconclusive` (krótsza grupa, brak
+mocy testu) → odcinki usuwane (sąsiednie odcinki tej samej grupy mogą się na lukę rozszerzyć o L/2, jak przy
+każdej przerwie). Syntetyk (P₃ = 8 + 400 P drugiego reżimu): osobny mod P₃ = 4 → `separate` 2/2, wersja
+z dominującą harmoniczną → `harmonic` 2/2 (przy szumie 1.2 o włos: 0.084 vs 0.080), 42 P przy dużym szumie →
+`inconclusive`. **J0151-0635: 40 P przy P₃ = 7.46 obok 14.3 → `inconclusive` (2.7 cyklu).**
 
 **Scalanie** (`merge_sections`): stykające się odcinki tej samej grupy łączone (J0820 przy L = 19 rozpadał
 się na 13–20 odcinków o tym samym P₃).
@@ -232,7 +241,7 @@ Głębokość: zmienne P₃ / kontrola z tasowaniem / stałe P₃.
 | P3-only | J1146-6030 | 44 | 0% | — (10/1024) | — | — |
 | P3-only | J2307+2225 | 16 | 0% | — (12/1014; grupa 20 P < 5·P₃) | — | — |
 | drift | J0034-0721 | 26 | 48% | 6.64 (501, 10 serii) | 0.206 / 0.07–0.09 / 0.062 | **1.53** (−1.53) |
-| drift | J0151-0635 | 58 | 100% | 14.27 (1039, z harmon.) | 0.172 / 0.05 / 0.065 | **0.86** (−0.69, −0.17) |
+| drift | J0151-0635 | 58 | 100% | 14.27 (1039, z harmon.; po teście harmonicznej 1037) | 0.172 / 0.05 / 0.065 | **0.86** (−0.69, −0.17) |
 | drift | J0820-1350 | 19 | 98% | 4.77 (1034) | 0.142 / 0.02 / 0.071 | **1.94** (−1.94) |
 | drift | J1825+0004 | 57 | 65% | 14.67 (681) | 0.086 / 0.04 / 0.043 | **0.23** (+0.03, −0.20) |
 | drift | J1750-3503 | 196 | 87% | 44.9 (897) | 0.205 / 0.15 / 0.160 | **2.03** (+1.73 + 4 małe) |
@@ -308,8 +317,9 @@ względem stałego P₃.*
    rzeczywista niekoherencja, czy próg kontrastu przy f ≈ 0.45.
 6. **Maska składowych w Δψ** (|T| ≥ 0.2·max, ≥ 3 biny): słabe, zaszumione fragmenty profilu dzielą się na
    wiele krótkich składowych (J1750: 5). Sprawdzić czułość Δψ na `frac`, `minrun`.
-7. **Faza w odcinkach harmonicznych** (J0151, impulsy 400–450: najszybsza zmiana fazy względem P₃) — czy
-   demodulacja przy f₃/2 jest tam wiarygodna.
+7. **Harmoniczne: moc testu.** Test h = 1 przy f₃/2 rozstrzyga dopiero przy ≥ 10 cyklach fundamentalnej;
+   krótsze kandydatury (J0151: 2.7 cyklu) są `inconclusive`. Próg 10 cykli ustawiony z dwóch syntetyków —
+   do sprawdzenia na większej liczbie przypadków (także: harmoniczna przy szumie 1.2 przeszła o włos).
 8. **Δψ a P₂.** Dla dryfu Δψ ≈ W/P₂ — można wyprowadzić P₂ z szablonu i porównać z separacjami / ρ.
 9. **Znak dryfu** zgodny z J0034 i J1750; sprawdzić na kilku dryferach o znanym kierunku z literatury.
 10. **Pełna próbka.** Batch na 533 pulsarach nie był jeszcze puszczany. Koszt dominuje `contrast_null`
@@ -335,6 +345,9 @@ względem stałego P₃.*
 | sonda: najwyższe maksimum | garb czerwonego kontinuum (J1825: 57, J2307: 85) | największa wybitność |
 | kontrast względem mediany zakresu poszukiwań | długie P₃ chowa się w czerwonym kontinuum | mediana z f ≥ fmin |
 | jedno L₂ z sondy / drabinka potęg 2 | J1825: 0 lub 141 P | drabinka L₁·{2,3,4,6,8}: 259 P |
+| harmoniczna rozpoznawana tylko po stosunku 2:1 | osobny mod o połowie P₃ zostałby scalony | `harmonic_test` |
+| test harmonicznej na głębokości złożenia przy f/2 | osobny mod uznany za harmoniczną (0.127 vs 0.096) | składowa h = 1 wzdłuż fazy |
+| brak werdyktu „nierozstrzygnięty” | krótkie grupy (J0151, 40 P) uznawane za osobny mod | `inconclusive` przy < 10 cyklach |
 
 ---
 

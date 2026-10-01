@@ -35,7 +35,7 @@ using PyPlot
 export sliding_lrfs, p3_track, contrast_null, good_windows, window_length, p3_segments,
        p3_groups, merge_sections, harmonic_groups, fundamental_track, select_groups,
        phase_fold, constant_fold, analyse, long_p3_pass, plot_track, plot_folds,
-       plot_summary
+       plot_summary, harmonic_test, harmonic_power
 
 "periodic Hann taper without zero end points (no pulse fully discarded at L = 16)"
 hann_taper(L::Int) = sin.(π .* ((0:L-1) .+ 0.5) ./ L) .^ 2
@@ -495,7 +495,8 @@ end
 
 
 """
-    harmonic_groups(segs, groups, L; tol=1.0) -> (groups, harm::BitVector)
+    harmonic_groups(segs, groups, L; tol=1.0, check=nothing)
+        -> (groups, harm::BitVector, tests)
 
 Recognise groups that are the second harmonic of another, larger group
 (|f3_a − 2·f3_b| ≤ tol/L, medians weighted by pulses) and relabel them to
@@ -503,11 +504,20 @@ that group: when the fundamental weakens, the strongest interior peak can
 switch to 2·f3 (J0151-0635, L = 58: 40 pulses at P3 = 7.46 next to 14.3),
 but the regime is the same. `harm[i]` marks sections whose track must be
 halved in frequency (`fundamental_track`). Labels are re-ranked by size.
+
+A frequency ratio of 2 alone cannot tell a harmonic from a separate mode
+whose P3 happens to be half the other one. `check(sel)` — sel = section
+indices of candidate group a — decides; it returns a NamedTuple with
+`verdict` ∈ (:harmonic, :separate, :inconclusive) (see `harmonic_test`):
+harmonic → joined, separate → kept as its own group, inconclusive → label
+0 (sections to be discarded by the caller). Without `check` every 2:1
+candidate is joined. `tests` lists (a, b, f_a, f_b, result).
 """
-function harmonic_groups(segs, groups, L::Int; tol::Real=1.0)
+function harmonic_groups(segs, groups, L::Int; tol::Real=1.0, check=nothing)
     g = copy(groups)
     harm = falses(length(segs))
-    isempty(segs) && return g, harm
+    tests = NamedTuple[]
+    isempty(segs) && return g, harm, tests
     function stats(gs)
         ids = sort(unique(gs))
         npl = Dict(k => sum(segs[i].npulse for i in eachindex(segs) if gs[i] == k) for k in ids)
@@ -519,18 +529,87 @@ function harmonic_groups(segs, groups, L::Int; tol::Real=1.0)
     for a in ids, b in ids
         a == b && continue
         if npl[b] > npl[a] && abs(f[a] - 2 * f[b]) ≤ tol / L
-            for i in eachindex(segs)
-                if g[i] == a
+            sel = findall(==(a), g)
+            isempty(sel) && continue
+            res = check === nothing ? (verdict=:harmonic, is_harm=true) : check(sel)
+            push!(tests, (a=a, b=b, f_a=f[a], f_b=f[b], result=res))
+            if res.verdict == :harmonic
+                for i in sel
                     g[i] = b
                     harm[i] = true
                 end
+            elseif res.verdict == :inconclusive
+                g[sel] .= 0
             end
         end
     end
     ids, npl, _ = stats(g)
-    order = sort(ids, by=k -> -npl[k])
+    order = sort(filter(!=(0), ids), by=k -> -npl[k])
     rank = Dict(k => r for (r, k) in enumerate(order))
-    return [rank[k] for k in g], harm
+    rank[0] = 0
+    return [rank[k] for k in g], harm, tests
+end
+
+
+"""
+    harmonic_power(F, cnt; h=1) -> Float64
+
+Amplitude of the h-th Fourier component of a fold along P3 phase, RMS over
+longitude, relative to the peak of the mean profile: h = 1 is the part of
+the modulation that repeats once per fold cycle, h = 2 twice.
+"""
+function harmonic_power(F, cnt; h::Int=1)
+    nb = size(F, 1)
+    w = cnt ./ sum(cnt)
+    prof = vec(sum(F .* w, dims=1))
+    e = cis.(-2π * h .* ((1:nb) .- 0.5) ./ nb)
+    c = vec(sum((F .- prof') .* (w .* e), dims=1))
+    return sqrt(mean(abs2, c)) / maximum(prof)
+end
+
+
+"""
+    harmonic_test(data, sl, tr, segs, sel; nshuffle=20, seed=1, nbins=8) -> NamedTuple
+
+Is candidate group `sel` (sections whose feature sits at ≈ 2·f3 of another
+group) a second harmonic, or a separate mode with half the P3? Its pulses
+are demodulated and folded at *half* their tracked frequency (`phase_fold`
+on a track halved in those sections, `nbins` phase bins), and the fold is
+split along P3 phase into Fourier components (`harmonic_power`):
+
+  h = 1 (once per fold cycle) — the fundamental at f3/2. A harmonic regime
+        still carries its weaker fundamental, phase-locked to the pattern;
+        a separate mode has nothing there.
+  h = 2 — the tracked feature itself, folded twice per cycle; strong in
+        both cases, so the fold's overall depth cannot decide (first
+        version of this test: a synthetic separate mode at P3 = 4 next to
+        P3 = 8 read depth 0.127 against a 0.096 shuffle maximum).
+
+Verdict: :harmonic when h1 > max(h1 of `nshuffle` pulse-order shuffles)
+(p ≲ 1/(nshuffle+1)); otherwise :separate if the group spans at least
+`mincycles` cycles of the fundamental, else :inconclusive — a short group
+has no power to show its fundamental (J0151-0635: 40 pulses ≈ 2.8 cycles;
+synthetic harmonic with 42 pulses at high noise also failed), so absence of
+h1 is not evidence of a separate mode there.
+Synthetic check (`~/claude/work/scripts/p3track_harmonic_test.jl`, P3 = 8
+regime + 400 pulses of either its 2nd-harmonic-dominated version or a
+separate P3 = 4 mode): separate → :separate at noise 0.6 and 1.2;
+harmonic → :harmonic at 0.6 and 1.2 (the latter barely: 0.084 vs 0.080).
+Fields: verdict, is_harm, h1, h1_null_max, h1_null, h2, ncycles.
+"""
+function harmonic_test(data::AbstractMatrix, sl, tr, segs, sel; nshuffle::Int=20, seed::Int=1,
+                       nbins::Int=8, mincycles::Real=10)
+    mask = falses(length(segs)); mask[sel] .= true
+    trh = fundamental_track(tr, segs, mask)
+    tmp = zeros(Int, length(segs)); tmp[sel] .= 1
+    fo = phase_fold(data, sl, trh, segs, tmp, 1; nshuffle=nshuffle, seed=seed, nbins=nbins,
+                    stat=(F, c) -> harmonic_power(F, c; h=1))
+    sig = fo.depth > maximum(fo.depth_null)
+    ncyc = sum(segs[i].npulse * segs[i].f3_med / 2 for i in sel)
+    verdict = sig ? :harmonic : (ncyc ≥ mincycles ? :separate : :inconclusive)
+    return (verdict=verdict, is_harm=verdict == :harmonic, h1=fo.depth,
+            h1_null_max=maximum(fo.depth_null), h1_null=fo.depth_null,
+            h2=harmonic_power(fo.fold, fo.counts; h=2), ncycles=ncyc)
 end
 
 
@@ -757,7 +836,9 @@ Self-alignment check: phases are measured on the data that are then folded,
 so even noise aligned this way gives some fold structure. The whole chain
 (steps 2–3 and the fold) is repeated on `nshuffle` pulse-order shuffles of
 the group's pulses (same f(n), same pulses, order destroyed) and the
-modulation depth of the real fold is reported against them.
+modulation depth of the real fold is reported against them. `stat` (default
+`modulation_depth`) replaces the depth statistic for both, e.g.
+`harmonic_power` in `harmonic_test`.
 
 Fields: group, pulses, p3 (group P3), nb, fold, counts, phase (θ/2π mod 1),
 theta (radians, per pulse), template, f (per pulse), depth, depth_null
@@ -767,7 +848,7 @@ longitude dependence of the modulation phase — the drift vs amplitude
 modulation diagnostic), sections, on_bins.
 """
 function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=nothing,
-                    niter::Int=10, nshuffle::Int=5, seed::Int=1)
+                    niter::Int=10, nshuffle::Int=5, seed::Int=1, stat=modulation_depth)
     on = sl.on_bins
     L = tr.window
     sel = findall(==(g), groups)
@@ -789,7 +870,7 @@ function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=no
     θ, T = align_phases(Z; niter=niter)
     phase = mod.(θ ./ (2π), 1.0)
     F, cnt = _fold(data, on, pulses, phase, nb)
-    depth = modulation_depth(F, cnt)
+    depth = stat(F, cnt)
     num = abs.(Z * conj.(T))
     den = sqrt.(vec(sum(abs2, Z, dims=2))) .* sqrt(sum(abs2, T))
     coherence = mean(num ./ max.(den, eps()))
@@ -802,7 +883,7 @@ function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=no
         Zs = demodulate(d, on, pulses, f, L)
         θs, _ = align_phases(Zs; niter=niter)
         Fs, cs = _fold(d, on, pulses, mod.(θs ./ (2π), 1.0), nb)
-        depth_null[k] = modulation_depth(Fs, cs)
+        depth_null[k] = stat(Fs, cs)
     end
 
     return (group=g, pulses=pulses, p3=p3g, nb=nb, fold=F, counts=cnt, phase=phase, theta=θ,
@@ -842,7 +923,8 @@ invisible to it (J1825+0004 after the mode change at ~715: P3 ≈ 35–55 next
 to 14.5; J0034-0721 mode A, P3 ~ 12, at L = 26).
 
 Fields: L, sl, tr (fundamental track), threshold, good, segs, groups, harm
-(before merging), dropped, folds, cfolds — first pass; pass2 — the same
+(before merging), harm_tests (`harmonic_groups`), dropped, folds, cfolds —
+first pass; pass2 — the same
 fields for the second pass plus p3_probe, probe (see `long_p3_pass`), or
 nothing when there was no second pass.
 """
@@ -856,8 +938,11 @@ function analyse(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real; wind
     good = good_windows(tr, thr)
     segs = p3_segments(tr, good, N)
     groups = p3_groups(segs, L)
-    groups, harm = harmonic_groups(segs, groups, L)
+    groups, harm, htests = harmonic_groups(segs, groups, L;
+        check=sel -> harmonic_test(data, sl, tr, segs, sel; nshuffle=max(20, nshuffle)))
     trf = fundamental_track(tr, segs, harm)
+    keep0 = groups .!= 0               # inconclusive 2:1 candidates out
+    segs, groups = segs[keep0], groups[keep0]
     segs, groups = merge_sections(trf, segs, groups, N)
     segs, groups, dropped = select_groups(segs, groups; ncycles=ncycles)
     folds = [phase_fold(data, sl, trf, segs, groups, g; nshuffle=nshuffle)
@@ -866,7 +951,7 @@ function analyse(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real; wind
     pass2 = second_pass ? long_p3_pass(data, bin_st, bin_end, L, segs;
                                        ncycles=ncycles, nshuffle=nshuffle) : nothing
     return (L=L, sl=sl, tr=trf, threshold=thr, good=good, segs=segs, groups=groups,
-            harm=harm, dropped=dropped, folds=folds, cfolds=cfolds, pass2=pass2)
+            harm=harm, harm_tests=htests, dropped=dropped, folds=folds, cfolds=cfolds, pass2=pass2)
 end
 
 

@@ -1661,3 +1661,22 @@ w pierwszym przejściu (L = 57), a drugie z założenia szuka tylko w wolnych im
 `P3Track.plot_summary(data, res, outdir)`: stos impulsów z paskami grup obu przejść + ślady P₃ wszystkich grup
 z etykietą (przejście, L, P₃, impulsy, Δψ). `~/claude/work/figures/p3track/<PSR>_p3track_summary.png`,
 skrypt `~/claude/work/scripts/p3track_summary_one.jl <katalog> <plik>`; dodany też do `p3track_control.jl`.
+
+### 2026-10-01 (cd. 12) — test harmonicznej przed scaleniem (`harmonic_test`)
+
+Pytanie użytkownika o krótsze P₃: pierwsze przejście je obejmuje (zakres do f = 0.5; J1603 przy L = 194 dało grupę
+P₃ ≈ 13). Ryzyko: osobny mod o P₃ ≈ ½ scalany jako 2. harmoniczna. Zgoda na test przed scaleniem.
+
+Test: impulsy kandydata składane przy f₃/2, składowa Fouriera h = 1 wzdłuż fazy P₃ vs 20 tasowań. Pierwsza wersja
+(całkowita głębokość złożenia) błędna: sygnał przy f złożony przy f/2 daje dwa cykle na fold, więc „modulacja”
+jest zawsze. Werdykty: harmonic / separate (≥ 10 cykli fundamentalnej) / inconclusive (odcinki usuwane).
+Skrypt `~/claude/work/scripts/p3track_harmonic_test.jl`, log `~/claude/work/logs/p3track_harmonic_test.log`.
+
+| przypadek | werdykt | h1(f/2) | max tasowań |
+|---|---|---|---|
+| syntetyk osobny mod P₃ = 4, szum 0.6 / 1.2 | separate / separate | 0.036 / 0.067 | 0.042 / 0.079 |
+| syntetyk harmoniczna, szum 0.6 / 1.2 | harmonic / harmonic | 0.065 / 0.084 | 0.047 / 0.080 |
+| syntetyk harmoniczna, szum 2.0 (42 P) | inconclusive | 0.220 | 0.250 |
+| J0151-0635, 400–439 (40 P, 2.7 cyklu) | inconclusive | 0.046 | 0.065 |
+
+Próg 10 cykli z dwóch syntetyków — do weryfikacji. Dokument metody uzupełniony (§4, §8.7, §9).
