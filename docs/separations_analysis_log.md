@@ -1791,3 +1791,19 @@ Logi `~/claude/work/logs/p3track_batch_v1_part*.log`. Błędy: 12 × „brak dan
   T_cv− → drift 14, partial 6, am 21, inconclusive 62, brak 18. P3-only: T_cv+ (12) → drift 2, am 1, inconcl. 8, brak 1.
 - 49 grup `am` u pulsarów z etykietą drift ma Δψ ≤ 0.08 — do obejrzenia: mod AM, czy dryf z P₂ ≫ W (Δψ ≈ W/P₂ małe,
   kryterium am tego nie odróżnia).
+
+### 2026-10-01 (cd. 20) — przegląd wątpliwych werdyktów batcha v1
+
+Skrypt `/tmp/.../am_drift.py` (tabela grup am u dryferów z P₂ i W3s z travel v4); wykresy z `~/claude/work/figures/p3track_batch_v1/`.
+
+Trzy typy problemów:
+1. **Werdykt pulsara z „cudzej” grupy.** Wiele grup `am` u dryferów to drugie przejście z P₃ ≫ P₃ katalogowego
+   (J1742-4616: 7 → 48, cała obserwacja; J1913+0936: 4 → 56; J1055-6905: 2.4 → 27; J1848+0604: 2.1 → 33) — wolna
+   quasi-okresowa modulacja (burst/null), a cecha dryfu z katalogu nie dostała grupy. Pulsar dostaje `am` z tej grupy.
+2. **Dryf w słabej składowej przy płaskiej fazie dominującej** — wg definicji b to raczej `partial`, a dostaje `drift`,
+   bo Δψ sumuje składowe bez wag mocy: J1057-5226 (P3-only; 4924 P; składowa 101° płaska, słabsza 86–91°: −0.19 ± 0.03),
+   J1543+0929 (P3-only; dominująca −0.09 ± 0.02, słaba +0.16 ± 0.04).
+3. **`am` przy granicznym gradiencie.** J1511-5414 (drift wg Song): ψ rośnie wyraźnie przez składową,
+   +0.09 ± 0.03 (z = 2.7 < 3) → `am`. Wolny dryf / P₂ ≫ W wygląda tak samo.
+J1946-2913 (drift wg Song, T_cv z = 10.9): główna składowa płaska (±10°), słaba składowa ~185° poniżej maski —
+uporządkowanie widziane przez T_cv może pochodzić z przesunięcia fazy między składowymi (degeneracja, jak J1825).
