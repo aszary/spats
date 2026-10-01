@@ -1758,3 +1758,13 @@ się wywalał (J1524, J1843 w obu wariantach, J2139 z zapami) — poprawione w `
   grup P3-only ma formalnie duże z przy Δψ 0.3–0.45 (J0601, J0659, J0709) — reguła minblocks słusznie blokuje werdykt.
 - `am` nie wychodzi ani razu: górna granica Σ(|Δψ|+2σ) < 0.1 jest za ostra dla realnych danych (np. J0709 g1:
   Δψ = 0.04, granica 0.17; J0849: 0.04, 0.13).
+
+### 2026-10-01 (cd. 18) — nowe kryterium `am`, bez zapowania
+
+Decyzje użytkownika: zapowanie pominięte (usunięte z `p3track_batch.jl`); poprawić `am` przed pełnym batchem.
+`am` = z < 3, brak `partial`, Σ|Δψ_frag| + 2·√(Σσ²) < 0.25 cyklu (wcześniej Σ(|Δψ|+2σ) < 0.1 — ani razu w pilocie).
+Kalibracja (`p3track_dpsi_calib_am.log`, dodany syntetyk wolnego dryfu P₂ = 120 binów): AM wspólna faza am 20/20 (szum 0.6),
+13/20 (1.5); AM przeciwfaza 19/20 (0.6), 0/20 (1.5, inconclusive); **fałszywe am w klasach z dryfem: 0/50**.
+Pilot ponownie (`p3track_pilot_am_part1of1.csv`, 10.1 min): nowe `am` — J0659+1414 (grupa drugiego przejścia P₃ ≈ 48),
+J0709-5923 (P₃ 25.8), J0849-6322 (P₃ 8.0), J0304+1932 (drift wg Song, grupa drugiego przejścia P₃ ≈ 28 — mod AM obok
+nierozstrzygniętej grupy P₃ ≈ 6.3, jak J1825). Reszta bez zmian; dominująca przyczyna inconclusive: < 5 bloków.

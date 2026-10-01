@@ -926,7 +926,7 @@ end
 """
     template_significance(Z, θ, T, tp, L; nboot=300, block=nothing, seed=1,
                           dpsi_min=0.1, zdet=5.0, minblocks=5, lwin=5, maxfrac=0.5,
-                          dipdepth=0.5, psimax=deg2rad(20))
+                          dipdepth=0.5, psimax=deg2rad(20), dpsi_am=0.25, zam=3.0)
         -> NamedTuple
 
 Uncertainty and significance of the template phase gradient (`template_phase`
@@ -968,7 +968,13 @@ offset components), so the verdict also needs a size:
                 flat phase over the bright peak, ~0.7 cycle change down the
                 trailing flank, the same in all four time quarters — "partial
                 drift", decision of 2026-10-01)
-  :am           Σ (|Δψ_run| + 2σ_run) < `dpsi_min`  (upper limit below the size)
+  :am           no significant gradient (z < `zam` = 3), no partial window, and
+                the upper limit Σ|Δψ_run| + 2·√(Σσ_run²) < `dpsi_am` = 0.25
+                cycle — half the smallest firm drift seen (groups with
+                verdict drift have Δψ ≈ 0.5–2.1). The first version required
+                Σ(|Δψ_run| + 2σ_run) < 0.1, linear in the errors and far below
+                any drift: no group of the 20-pulsar pilot reached it (J0709-5923
+                Δψ = 0.04 with limit 0.17, J0849-6322 0.04 with 0.13).
   :inconclusive otherwise, or fewer than `minblocks` independent blocks
                 (npulse / block) — too little data for a bootstrap
 
@@ -980,7 +986,7 @@ sigma_psi (per-bin phase error [rad]).
 function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothing, seed::Int=1,
                                dpsi_min::Real=0.1, zdet::Real=5.0, minblocks::Real=5,
                                lwin::Int=5, maxfrac::Real=0.5, dipdepth::Real=0.5,
-                               psimax::Real=deg2rad(20))
+                               psimax::Real=deg2rad(20), dpsi_am::Real=0.25, zam::Real=3.0)
     n = size(Z, 1)
     bl = block === nothing ? max(1, L ÷ 2) : block
     nblocks = n / bl
@@ -1029,7 +1035,7 @@ function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothi
         chi2 = sum(abs2, zr)
         p = ccdf(Chisq(nr), chi2)
         z = cquantile(Normal(), max(p, 1e-300))   # ≤ ~37; 1 − p would round to 1 below 1e-16
-        upper = sum(abs.(tp.run_dpsi) .+ 2 .* σ)
+        upper = sum(abs.(tp.run_dpsi)) + 2 * sqrt(sum(abs2, σ))   # errors in quadrature
     else
         σ = Float64[]; zr = Float64[]; chi2 = NaN; p = NaN; z = NaN; upper = NaN
     end
@@ -1058,7 +1064,7 @@ function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothi
     verdict = nblocks < minblocks ? :inconclusive :
               (nr > 0 && z ≥ zdet && tp.dpsi ≥ dpsi_min) ? :drift :
               partial.found ? :partial :
-              (nr > 0 && upper < dpsi_min) ? :am : :inconclusive
+              (nr > 0 && z < zam && upper < dpsi_am) ? :am : :inconclusive
     return (verdict=verdict, z=z, p=p, chi2=chi2, nruns=nr, sigma_run=σ, z_run=zr,
             dpsi_upper=upper, nblocks=nblocks, block=bl, partial=partial, sigma_psi=σψ)
 end

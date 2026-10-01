@@ -241,9 +241,12 @@ szablon T* = ⟨Z·e^{−iθ}⟩ z wylosowanych impulsów (θ z pełnego dopasow
 gradient); **`partial`** (dryf częściowy, decyzja 2026-10-01) gdy nie `drift`, ale w jakimś oknie 5 binów wewnątrz
 maski emisji lokalna zmiana fazy |Δψ_okna| ≥ 0.1 przy z_okna ≥ 5 (ten sam bootstrap), rozłożona na biny — żaden
 przyrost bin→bin nie niesie > 50% zmiany netto, w oknie nie ma głębokiego minimum |T| (bin < 0.5 × niższe
-z maksimów po obu stronach, `deep_dip`), a każdy bin ma błąd fazy ≤ 20° (kołowe σ z bootstrapu); `am` gdy
-Σ(|Δψ_frag| + 2σ_frag) < 0.1 (górna granica poniżej progu wielkości); `inconclusive` w pozostałych przypadkach
-oraz gdy grupa ma < 5 niezależnych bloków (npulse/(L/2)). Próg 0.1 cyklu — wartość robocza.
+z maksimów po obu stronach, `deep_dip`), a każdy bin ma błąd fazy ≤ 20° (kołowe σ z bootstrapu); **`am`** gdy
+brak istotnego gradientu (z < 3), brak okna `partial` i górna granica Σ|Δψ_frag| + 2·√(Σσ²_frag) < **0.25 cyklu**
+(połowa najmniejszego wyraźnego dryfu: grupy `drift` mają Δψ ≈ 0.5–2.1); `inconclusive` w pozostałych przypadkach
+oraz gdy grupa ma < 5 niezależnych bloków (npulse/(L/2)). Progi 0.1 (drift) i 0.25 (am) — wartości robocze.
+Pierwsza wersja `am` (Σ(|Δψ_frag| + 2σ_frag) < 0.1, błędy liniowo) nie dawała `am` ani razu w pilocie batcha
+(J0709-5923: Δψ = 0.04, granica 0.17; J0849-6322: 0.04, 0.13).
 
 `partial` opisuje układ J1825+0004: faza płaska na jasnym szczycie składowej, zmienia się o ~0.7 cyklu w dół
 opadającego zbocza, tak samo w czterech ćwiartkach czasu. Dryf w sensie „wzór przesuwa się przez dominującą część
@@ -265,6 +268,14 @@ Z kategorią `partial` (`p3track_dpsi_calib_partial.log`): AM 0/80 `partial`; sy
 składową dryfującą → `drift` 9/10 (dryf jednej składowej to dryfer); syntetyk „zbocze” (jasna AM + słaby
 nakładający się ogon dryfujący) → `drift` 10/10 przy szumie 0.6 — jego gradient łapie już miara globalna, więc nie
 odtwarza J1825, gdzie globalnie Δψ = −0.10 ± 0.04.
+
+Z nowym `am` (`p3track_dpsi_calib_am.log`; dodany wolny dryf P₂ = 120 binów, Δψ ≈ 0.3 cyklu):
+
+| syntetyk | szum 0.6 | szum 1.5 |
+|---|---|---|
+| AM wspólna faza | am 20/20 | am 13, inconclusive 7 |
+| AM przeciwfaza | am 19, inconclusive 1 | inconclusive 20 |
+| zbocze / dwie składowe / wolny dryf / dryf | drift 10+5+10+5, **am 0** | drift 1+4+7+5, reszta inconclusive/brak grup, **am 0** |
 
 Bootstrap jest lekko liberalny (p < 0.01 w ~5% przypadków AM zamiast 1%), dlatego próg z ≥ 5. Przy szumie
 1.5 AM nie da się *potwierdzić* (upper > 0.1) — werdykt `inconclusive`, nie fałszywy dryf.
@@ -436,6 +447,8 @@ względem stałego P₃.*
 | maska 0.2, ≥ 10% mocy | J1825: pewne `am` z pominięciem ogona z gradientem | maska 0.15 |
 | gradient tylko globalny (ważony amplitudą) | zmiana fazy na zboczu rozcieńczona (J1825) | kategoria `partial` |
 | `partial` bez warunku minimum i błędu fazy | 2/20 fałszywych w AM z przeciwfazą przy szumie | `deep_dip`, σψ ≤ 20° |
+| `am`: Σ(\|Δψ\|+2σ) < 0.1 | 0 × am w pilocie batcha (20 pulsarów) | z < 3 i Σ\|Δψ\| + 2√Σσ² < 0.25 |
+| okno z wyzerowanych impulsów | kontrast 0/0 = NaN, błąd kwantyla (J1524, J1843) | okno puste w `feature_peak` |
 
 ---
 
