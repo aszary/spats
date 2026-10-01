@@ -1,13 +1,13 @@
 # P3Track: ślad P₃(t), fold z kompensacją zmiennego P₃ i faza szablonu
 
-**Stan na 2026-10-01 (z drugim przejściem).** Nowa metoda rozstrzygania, czy pulsar **dryfuje**, czy ma tylko modulację
-amplitudową z okresem P₃ (**P3-only**). Zastępuje test „travel” (`docs/travel_test_method.md`) i nie jest
-na nim wzorowana.
+**Stan na 2026-10-01 (pełna metoda: dwa przejścia, test harmonicznej, istotność Δψ, dryf częściowy).** Nowa
+metoda rozstrzygania, czy pulsar **dryfuje**, czy ma tylko modulację amplitudową z okresem P₃ (**P3-only**).
+Zastępuje test „travel” (`docs/travel_test_method.md`) i nie jest na nim wzorowana.
 
 Repozytorium: `github.com/aszary/spats`, gałąź `claude`.
 Kod: `modules/p3track.jl` (moduł `P3Track`, wszystko w jednym pliku, łącznie z wykresami).
-Skrypty: `~/claude/work/scripts/p3track_{test,segments,fold,control}.jl`.
-Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`), wpisy 2026-10-01 cd. 4–7.
+Skrypty: `~/claude/work/scripts/p3track_*.jl`, `j1825_*.jl` (§10).
+Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`), wpisy 2026-10-01 cd. 4–16.
 Wykresy: `~/claude/work/figures/p3track/`, wybrane w `docs/figures/p3track_*.png`.
 
 ---
@@ -17,34 +17,42 @@ Wykresy: `~/claude/work/figures/p3track/`, wybrane w `docs/figures/p3track_*.png
 **Idea.** Zamiast jednej statystyki dla całej obserwacji: (1) znaleźć odcinki, w których P₃ jest
 mierzalne i zmienia się w sposób ciągły, (2) złożyć je z **kompensacją zmiennego P₃** — faza modulacji jest
 mierzona w każdym impulsie, a nie wyliczana ze stałego P₃, (3) sprawdzić w złożeniu, czy faza modulacji
-**zmienia się z długością** (dryf), czy jest płaska (modulacja amplitudowa).
+**zmienia się z długością** (dryf), czy jest płaska (modulacja amplitudowa), i z jaką istotnością.
 
 **Kroki.**
 
 1. Sliding LRFS jak Fig. 4 w Szary et al. (2022): okno L = max(16, 4·P₃) impulsów, krok 1 impuls (§2).
 2. Ślad P₃(t) z dopasowania Gaussa, jakość okna z lokalnego tasowania impulsów (§3).
-3. Odcinki ciągłego P₃ → grupy o podobnym P₃ (z harmonicznymi), grupa ≥ 5·P₃ impulsów (§4).
-4. Fold grupy z kompensacją zmiennego P₃: demodulacja leave-one-out + wspólny szablon (§5).
-5. Dyskryminator: zmiana fazy szablonu w długości, Δψ, liczona osobno w każdej składowej (§6).
-6. Drugie przejście dla impulsów spoza grup: reżimy o P₃ dłuższym niż mierzalne przy L₁ (§4a).
+3. Odcinki ciągłego P₃ → grupy o podobnym P₃; kandydaci 2:1 sprawdzani testem harmonicznej
+   (harmonic / separate / inconclusive); grupa ≥ 5·P₃ impulsów (§4).
+4. Drugie przejście dla impulsów spoza grup: reżimy o P₃ dłuższym niż mierzalne przy L₁ (§4a).
+5. Fold grupy z kompensacją zmiennego P₃: demodulacja leave-one-out + wspólny szablon (§5).
+6. Dyskryminator: zmiana fazy szablonu w długości Δψ (gradient ważony amplitudą, osobno w każdej składowej)
+   z błędem z bootstrapu blokowego → werdykt **drift / partial / am / inconclusive** (§6, §6.1).
 
 **Wyniki (5 dryferów + 5 P3-only bez oczekiwanego dryfu, §7):**
 
-| | Δψ [cykle] | uwagi |
+| werdykt | grupy | Δψ [cykle], z |
 |---|---|---|
-| dryfery (J0034-0721, J0151-0635, J0820-1350, J1825+0004, J1750-3503) | **0.23–2.03** | wszystkie 5 z grupą |
-| P3-only (J1401-6357, J1603-2531) | **0.00–0.01** | płaska faza, mimo wędrującego P₃ |
-| P3-only (J1001-5939, J1146-6030, J2307+2225) | — | brak stabilnego P₃ w oknach 4·P₃ |
+| **drift** | J0034-0721, J0151-0635, J0820-1350, J1750-3503 | 0.97–1.76, z = 15–37 |
+| **partial** | J1825+0004, mod dryfu (impulsy 1–696) | globalnie 0.10 ± 0.04; zbocze składowej −0.29, z = 7.9 |
+| **am** | J1603-2531 (grupy P₃ 34 i 52), J1401-6357 | 0.00–0.01, górna granica < 0.1 |
+| inconclusive | J1825 mod AM po ~715 (P₃ ≈ 37), J1603 grupa P₃ 13, J1146-6030 (obie grupy) | za mało bloków / Δψ < 0.1 |
+| brak grup | J1001-5939, J2307+2225 | brak stabilnego P₃ w oknach 4·P₃ |
+
+Kalibracja na syntetykach (AM z jitterem i losowymi podpulsami, składowe w przeciwfazie, dryf): 0/80 fałszywych
+`drift` i `partial`, dryf wykryty 10/10.
 
 1. **Kompensacja zmiennego P₃ działa:** głębokość modulacji złożenia rośnie 2–3× względem stałego P₃
    (J0034: 0.206 vs 0.062), kontrola z tasowaniem pozostaje na poziomie stałego P₃ lub niżej.
 2. **Głębokość modulacji nie odróżnia dryfu od AM** — rośnie też dla P3-only (J1603: P₃ wędruje 13–52).
-   Odróżnia **faza szablonu**: dla P3-only płaska (±4–12° w składowej J1603), dla dryferów ramp 0.2–2 cykli.
-3. **Przypadki, które zgubił T_cv, wychodzą wprost:** J1825+0004 (dryf tylko w impulsach 1–696) i J0034-0721
-   (dryf w seriach między nullami) mają grupę i nachyloną fazę.
+   Odróżnia **faza szablonu**: dla P3-only płaska (J1603: −0.01 ± 0.03), dla dryferów 1–1.8 cyklu przy z ≥ 15.
+3. **Przypadki, które zgubił T_cv, są rozpoznane:** J0034-0721 (dryf w seriach między nullami) → drift;
+   J1825+0004 → dwa mody: dryf częściowy w impulsach 1–696 (faza płaska na szczycie składowej, zmienia się
+   o ~0.7 cyklu w dół zbocza, trwale) i modulacja amplitudowa P₃ ≈ 37 po zmianie modu (drugie przejście).
 4. **Część P3-only nie ma stabilnego P₃ na skali 4·P₃** — metoda zwraca wtedy „brak werdyktu”, nie „AM”.
 
-Próg Δψ nie jest jeszcze skalibrowany (przerwa 0.01 → 0.23 na 10 obiektach). Sprawy otwarte w §8.
+Sprawy otwarte w §8 (m.in. reverserzy, próg 0.1 cyklu, parametry w binach, batch na pełnej próbce).
 
 ---
 
@@ -276,8 +284,9 @@ w syntetykach nadal 0/80.
 
 ## 7. Wyniki
 
-`~/claude/work/scripts/p3track_control.jl`, log `~/claude/work/logs/p3track_control.log`.
-Głębokość: zmienne P₃ / kontrola z tasowaniem / stałe P₃.
+**Aktualne wyniki to tabela „Z istotnością Δψ” niżej.** Pierwsza tabela pochodzi z pierwszej wersji miary
+(bez błędów, faza rozwijana, maska 0.2, `~/claude/work/logs/p3track_control.log`) i zostaje dla historii —
+kolejność obiektów ta sama, liczby Δψ inne. Głębokość: zmienne P₃ / kontrola z tasowaniem / stałe P₃.
 
 | etykieta | PSR | L | w grupach | grupa: P₃ (impulsy) | głębokość | **Δψ [cykle]** (składowe) |
 |---|---|---|---|---|---|---|
@@ -296,9 +305,10 @@ Głębokość: zmienne P₃ / kontrola z tasowaniem / stałe P₃.
 
 Wybór kontroli P3-only: z wpisu 2026-10-01 cd. 2 w dzienniku (P3-only z wyraźną modulacją, najniższe z_cv);
 J1401, J1603, J1001 obejrzane wcześniej wzrokowo — czysta AM. J1825+0004 (Song+23: P3-only) jest tu
-w grupie „drift”, bo wzrokowo i w LRFS ma klasyczny dryf w impulsach 1–700 (dziennik, cd. 3).
+w grupie „drift”, bo wzrokowo i w LRFS ma dryf w impulsach 1–700 (dziennik, cd. 3); werdykt metody: `partial`.
 
-**Z istotnością Δψ (§6.1)** — `~/claude/work/logs/p3track_control_dpsi.log`, oba przejścia, test harmonicznej:
+**Z istotnością Δψ (§6.1) — aktualne** — `~/claude/work/logs/p3track_control_partial.log`, oba przejścia,
+test harmonicznej, kategoria `partial`:
 
 | etykieta | PSR | przejście (L) | grupa: P₃ (impulsy) | Δψ ± σ [cykle] (fragmenty) | z | **werdykt** |
 |---|---|---|---|---|---|---|
@@ -316,8 +326,8 @@ w grupie „drift”, bo wzrokowo i w LRFS ma klasyczny dryf w impulsach 1–700
 | | | | 16.2 (206) | 0.38 (−0.23 ± 0.08, −0.16 ± 0.04) | 4.4 | inconclusive (3.1 bloku) |
 | P3-only | J1001-5939, J2307+2225 | — | brak grup | — | — | brak stabilnego P₃ |
 
-Wartości Δψ w tabelach niżej pochodzą z wcześniejszej wersji miary (rozwinięta faza, maska 0.2) — kolejność
-i wnioski te same, liczby nieco inne.
+Wartości Δψ w tabeli pierwszej wersji (wyżej) i w tabeli drugiego przejścia (niżej) pochodzą z wcześniejszej
+wersji miary (rozwinięta faza, maska 0.2) — kolejność i wnioski te same, liczby nieco inne.
 
 **Drugie przejście** (`~/claude/work/logs/p3track_control_pass2.log`; pierwsze przejście bez zmian):
 
@@ -451,10 +461,19 @@ Pola `phase_fold`: `group, pulses, p3, nb, fold, counts, phase, theta, template,
 depth_null, coherence, sections, on_bins`. Pola `tphase`: `psi, amp, mask, runs, run_slope, run_dpsi, dpsi, span,
 rms`. Pola `tsig`: `verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block, partial, sigma_psi`.
 
-Skrypty (`~/claude/work/scripts/`): `p3track_test.jl` (L = 16…256, krok 1–2), `p3track_segments.jl` (odcinki,
-grupy), `p3track_fold.jl` (fold 5 dryferów), `p3track_control.jl` (dryfery + P3-only, tabela §7).
-Logi: `~/claude/work/logs/p3track_*.log`. Wykresy: `~/claude/work/figures/p3track/<PSR>_sliding_lrfs_L<L>[_seg|_groups].png`,
-`<PSR>_p3fold_groups.png`.
+Skrypty (`~/claude/work/scripts/`):
+- `p3track_control.jl` — **pełna metoda na 10 pulsarach** (oba przejścia, test harmonicznej, werdykty, wykresy zbiorcze; tabela §7);
+- `p3track_summary_one.jl <katalog> <plik>` — wykres zbiorczy dla jednego pulsara;
+- kalibracja: `p3track_dpsi_calib.jl [frac minrun minpower]` (+ `p3track_dpsi_calib_synth.jl`), `p3track_harmonic_test.jl`;
+- diagnostyka J1825+0004: `j1825_mode2.jl` (drugi mod), `j1825_inspect.jl` (faza szablonu), `j1825_partial_check.jl`;
+- etapy wcześniejsze: `p3track_test.jl` (L = 16…256), `p3track_segments.jl`, `p3track_fold.jl`.
+
+Logi: `~/claude/work/logs/p3track_*.log`, `j1825_*.log` (aktualne: `p3track_control_partial.log`,
+`p3track_dpsi_calib_partial.log`). Wykresy: `~/claude/work/figures/p3track/<PSR>_p3track_summary.png` (oba przejścia),
+`<PSR>_sliding_lrfs_L<L>_groups[_pass2].png`, `<PSR>[_pass2]_p3fold_groups.png`, `J1825+0004_inspect.png`.
+
+**Uwaga techniczna:** w skryptach `using PyPlot` dopiero **po** `include("modules/data.jl")` — w odwrotnej
+kolejności matplotlib wciąga systemową libmount i ładowanie Glib_jll się wywala (`MOUNT_2_40 not found`).
 
 ### Kolejność czytania wyniku
 
