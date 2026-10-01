@@ -1680,3 +1680,11 @@ Skrypt `~/claude/work/scripts/p3track_harmonic_test.jl`, log `~/claude/work/logs
 | J0151-0635, 400–439 (40 P, 2.7 cyklu) | inconclusive | 0.046 | 0.065 |
 
 Próg 10 cykli z dwóch syntetyków — do weryfikacji. Dokument metody uzupełniony (§4, §8.7, §9).
+
+### 2026-10-01 (cd. 13) — przeliczenie 10 pulsarów pełną metodą (oba przejścia + test harmonicznej)
+
+`~/claude/work/scripts/p3track_control.jl`, log `~/claude/work/logs/p3track_control_all.log`, wykresy zbiorcze
+`~/claude/work/figures/p3track/<PSR>_p3track_summary.png`. Wyniki identyczne z cd. 7/10/12 (jedyna zmiana: J0151
+kandydat 2:1 → inconclusive, grupa 1037 P). Dryfery Δψ 0.23–2.03 (+ mod AM J1825 po ~715: 0.08); P3-only Δψ
+0.00–0.02, wyjątek J1146-6030 802–1007: 0.44 przy słabej modulacji (niestabilne względem L); J1001, J2307 bez grup,
+J1401 tylko 6% impulsów.
