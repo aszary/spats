@@ -1653,3 +1653,11 @@ wykresy `*_pass2_p3fold_groups.png`, `*_groups_pass2.png`.
   0.04 przy L = 84; złożenie prawie poziome, modulacja słaba) — Δψ niestabilne przy słabej modulacji.
 - J0034-0721 tryb A nie odzyskany (impulsy zajęte w pierwszym przejściu); J1401, J1001, J2307 bez fałszywych grup.
 - Pierwsze przejście bez zmian. Dokument `docs/p3track_method.md` uzupełniony (§4a, §7, §8, §9).
+
+### 2026-10-01 (cd. 11) — wykres zbiorczy obu przejść (`plot_summary`)
+
+Użytkownik na wykresie drugiego przejścia J1825+0004 widział tylko mod końcowy — mod dryfu (P₃ ≈ 14.7, 1–696) jest
+w pierwszym przejściu (L = 57), a drugie z założenia szuka tylko w wolnych impulsach i tylko P₃ > L₁/3.
+`P3Track.plot_summary(data, res, outdir)`: stos impulsów z paskami grup obu przejść + ślady P₃ wszystkich grup
+z etykietą (przejście, L, P₃, impulsy, Δψ). `~/claude/work/figures/p3track/<PSR>_p3track_summary.png`,
+skrypt `~/claude/work/scripts/p3track_summary_one.jl <katalog> <plik>`; dodany też do `p3track_control.jl`.

@@ -352,7 +352,7 @@ res.folds[1].tphase.dpsi                           # Δψ grupy 1 [cykle]
 
 Kroki osobno: `sliding_lrfs` → `p3_track` → `contrast_null` → `good_windows` → `p3_segments` →
 `p3_groups` → `harmonic_groups` + `fundamental_track` → `merge_sections` → `select_groups` →
-`phase_fold` (+ `constant_fold`) → `template_phase`.
+`phase_fold` (+ `constant_fold`) → `template_phase`; drugie przejście `long_p3_pass`; wykres zbiorczy obu przejść `plot_summary`.
 
 Pola `analyse`: `L, sl, tr` (ślad fundamentalny), `threshold, good, segs, groups, harm, dropped, folds, cfolds`,
 `pass2` (te same pola drugiego przejścia + `p3_probe, probe, free, ladder`, albo `nothing`).

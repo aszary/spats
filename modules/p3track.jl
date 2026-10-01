@@ -34,7 +34,8 @@ using PyPlot
 
 export sliding_lrfs, p3_track, contrast_null, good_windows, window_length, p3_segments,
        p3_groups, merge_sections, harmonic_groups, fundamental_track, select_groups,
-       phase_fold, constant_fold, analyse, long_p3_pass, plot_track, plot_folds
+       phase_fold, constant_fold, analyse, long_p3_pass, plot_track, plot_folds,
+       plot_summary
 
 "periodic Hann taper without zero end points (no pulse fully discarded at L = 16)"
 hann_taper(L::Int) = sin.(π .* ((0:L-1) .+ 0.5) ./ L) .^ 2
@@ -1270,6 +1271,84 @@ function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, sh
     end
     close()
 end
+
+"""
+    plot_summary(data, res, outdir; nbin, name_mod, p3_ref, darkness, show_)
+
+All groups of both passes of `analyse` on one figure:
+  panel 1 — single pulses with the pulse ranges of every group as strips
+            (pass 1 along the bottom, pass 2 along the top);
+  panel 2 — P3 of the windows of every section vs window centre, coloured by
+            group (pass 1: dots, pass 2: crosses), each group labelled with
+            its pass, L, P3, number of pulses and Δψ.
+The per-pass figures (`plot_track`) show one window length each; this one
+answers "which regimes were found, where, and are they drift or AM".
+
+Writes `<name_mod>_p3track_summary.pdf/.png`.
+"""
+function plot_summary(data, res, outdir; nbin=size(data, 2), name_mod="pulsar", p3_ref=nothing,
+                      darkness=0.995, show_=false)
+    N = size(data, 1)
+    on = res.sl.on_bins
+    lon = (collect(on) .- 1) .* 360.0 ./ nbin
+    passes = res.pass2 === nothing ? (res,) : (res, res.pass2)
+
+    rc("font", size=7.)
+    rc("axes", linewidth=0.5)
+    rc("lines", linewidth=0.5)
+    fig = figure(figsize=(7.0, 5.0))
+    ax1 = fig.add_axes([0.10, 0.55, 0.87, 0.38])
+    st = permutedims(data[:, on])
+    imshow(st, origin="lower", aspect="auto", cmap="viridis", interpolation="none",
+           extent=(0.5, N + 0.5, lon[1], lon[end]),
+           vmin=quantile(vec(st), 0.01), vmax=quantile(vec(st), darkness))
+    ylabel("longitude (\$^\\circ\$)")
+    tick_params(labelbottom=false)
+    title(name_mod)
+    ax2 = fig.add_axes([0.10, 0.09, 0.87, 0.44], sharex=ax1)
+    ci = 0
+    labels = String[]
+    p3s = Float64[]
+    for (ip, r) in enumerate(passes)
+        for fo in r.folds
+            col = "C$(mod(ci, 10))"
+            ci += 1
+            for i in fo.sections
+                sg = r.segs[i]
+                y0, y1 = ip == 1 ? (0.0, 0.04) : (0.96, 1.0)
+                ax1.axvspan(sg.first - 0.5, sg.last + 0.5, ymin=y0, ymax=y1, color=col, lw=0)
+                w = sg.win
+                ax2.plot(r.tr.centers[w], r.tr.p3[w], ip == 1 ? "." : "x", ms=ip == 1 ? 1.5 : 2,
+                         c=col)
+                append!(p3s, r.tr.p3[w])
+            end
+            push!(labels, @sprintf("pass %d (L = %d): P\$_3\$ ≈ %.1f, %d P, Δψ = %.2f", ip, r.L,
+                                   fo.p3, length(fo.pulses), fo.tphase.dpsi))
+            ax2.text(0.99, 0.95 - 0.08 * (ci - 1), labels[end], transform=ax2.transAxes,
+                     ha="right", va="top", fontsize=6, color=col)
+        end
+    end
+    p3_ref === nothing || ax2.axhline(y=p3_ref, color="grey", ls="--", lw=0.6)
+    if !isempty(p3s)
+        lo, hi = extrema(p3s)
+        ax2.set_ylim(max(0, lo - 0.1 * (hi - lo) - 1), hi + 0.45 * (hi - lo) + 1)
+    end
+    ax2.set_xlim(0.5, N + 0.5)
+    ax2.set_xlabel("pulse number (window centre)")
+    ax2.set_ylabel("P\$_3\$ (P)")
+    ax2.minorticks_on()
+    savepath = joinpath(outdir, "$(name_mod)_p3track_summary.pdf")
+    savefig(savepath)
+    savefig(replace(savepath, ".pdf" => ".png"), dpi=150)
+    println(savepath)
+    if show_
+        PyPlot.show()
+        println("Press Enter to close the figure.")
+        readline(stdin; keep=false)
+    end
+    close()
+end
+
 
 "unwrap a phase sequence in cycles (jumps > 0.5 cycle folded back)"
 function unwrap_cycles(x)
