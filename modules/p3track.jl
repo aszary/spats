@@ -172,7 +172,9 @@ also when the search is restricted by `frange`: the median of a narrow
 low-frequency range sits on the red continuum and hides a long-P3 feature
 (J1825+0004 after ~715 at L = 228 in the second pass: no window passed). There is no guard at
 the upper end: a feature at P3 ≈ 2.1 (f ≈ 0.48, J1001-5939) is real and only
-has to be an interior maximum.
+has to be an interior maximum. A window of zapped pulses (P ≡ 0) returns
+edge = true and contrast 0 instead of 0/0 = NaN, which broke the shuffle
+quantile (J1524-5706, J1843-0211: pulses zeroed in the archive itself).
 """
 function feature_peak(P, freq, srange, lo, hi, guard; crange=srange)
     kmax = 0
@@ -183,7 +185,10 @@ function feature_peak(P, freq, srange, lo, hi, guard; crange=srange)
     end
     k = kmax == 0 ? srange[argmax(view(P, srange))] : kmax
     edge = kmax == 0 || freq[k] < lo + guard
-    return k, edge, P[k] / median(view(P, crange))
+    m = median(view(P, crange))
+    # a window of zapped (all-zero) pulses has P ≡ 0: no feature, not 0/0
+    m > 0 || return k, true, 0.0
+    return k, edge, P[k] / m
 end
 
 

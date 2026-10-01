@@ -1733,3 +1733,28 @@ szumie 1.5 (najpierw rozmyty skok przy minimum, potem biny szumu na krawędziach
 10 pulsarów (`p3track_control_partial.log`): **J1825+0004 mod dryfu → partial** (okno zbocza 175.8–177.2° bez skoku:
 Δψ = −0.29, z = 7.9; odporne na okno 4–5 i udział ≤ 0.4–0.5, `j1825_partial_check.jl`); reszta bez zmian — dryfery
 drift (lokalne okna też znalezione), P3-only am/inconclusive, żadnego `partial`.
+
+### 2026-10-01 (cd. 17) — batch P3Track: pilot 20 pulsarów i porównanie zap / bez zap
+
+Skrypt `~/claude/work/scripts/p3track_batch.jl` (wznawialny, `--part k/n`, `--limit N`, `--psrs`, `--tag`, `--nozap`),
+uruchomienie `p3track_pilot_run.sh`. Wyniki: `~/output/claude/p3track_batch/p3track_{pilot,zaps_on,zaps_off}_part1of1.csv`,
+wykresy `~/output/claude/p3track_batch/figures_<tag>/` i `~/claude/work/figures/p3track_batch_<tag>/`, logi
+`~/claude/work/logs/p3track_batch_*.log`.
+
+Uwaga: pierwsze, przerwane przez użytkownika uruchomienie pilota zdążyło zapisać 8 pulsarów (stary format kolumn) —
+usunięte razem z katalogami wykresów, wszystko przeliczone od nowa.
+
+**Zapy**: w całej próbce (521 z danymi) zapy w params.json ma tylko 4 pulsary, wszystkie drift; w pilocie (20) żaden.
+J1524-5706 i J1843-0211 mają te impulsy wyzerowane już w archiwum (264 i 46 wierszy zer) — `Data.zap!` nic nie zmienia;
+J1915+0752 też 0 nowych; J2139+2242: 91 impulsów. Wyniki z zapami i bez: **identyczne** (J2139: 906 vs 907 impulsów
+w grupie, Δψ 1.74, drift w obu). Błąd przy tym: okno z samych zer → kontrast 0/0 = NaN → `quantile` w `contrast_null`
+się wywalał (J1524, J1843 w obu wariantach, J2139 z zapami) — poprawione w `feature_peak` (okno puste: brak cechy).
+
+**Pilot** (10 drift + 10 P3-only, pierwsze z listy z danymi), 10.2 min (średnio 31 s, max 157 s J0659+1414):
+- drift: J0034, J0108, J0151, J0255, J0421 → drift; J0134 → partial; J0211, J0304, J0401 → inconclusive; J0152 → nogroup.
+- P3-only: 0 × drift, 0 × am; 6 × inconclusive (J0601, J0629, J0659, J0709, J0737, J0831, J0849), 4 × nogroup (J0836, J0837,
+  J0855 — P₃ ≈ 2.0–2.3, blisko Nyquista).
+- Najczęstsza przyczyna inconclusive: < 5 bloków (krótkie grupy, zwłaszcza drugie przejście z długim L). Kilka takich
+  grup P3-only ma formalnie duże z przy Δψ 0.3–0.45 (J0601, J0659, J0709) — reguła minblocks słusznie blokuje werdykt.
+- `am` nie wychodzi ani razu: górna granica Σ(|Δψ|+2σ) < 0.1 jest za ostra dla realnych danych (np. J0709 g1:
+  Δψ = 0.04, granica 0.17; J0849: 0.04, 0.13).
