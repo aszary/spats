@@ -1768,3 +1768,26 @@ Kalibracja (`p3track_dpsi_calib_am.log`, dodany syntetyk wolnego dryfu P₂ = 12
 Pilot ponownie (`p3track_pilot_am_part1of1.csv`, 10.1 min): nowe `am` — J0659+1414 (grupa drugiego przejścia P₃ ≈ 48),
 J0709-5923 (P₃ 25.8), J0849-6322 (P₃ 8.0), J0304+1932 (drift wg Song, grupa drugiego przejścia P₃ ≈ 28 — mod AM obok
 nierozstrzygniętej grupy P₃ ≈ 6.3, jak J1825). Reszta bez zmian; dominująca przyczyna inconclusive: < 5 bloków.
+
+### 2026-10-01 (cd. 19) — pełny batch P3Track v1 (533 pulsary)
+
+`~/claude/work/scripts/p3track_batch_run.sh` (8 procesów, `p3track_batch.jl --part k/8 --tag v1`, bez zapowania),
+32–50 min na część (CPU łącznie 5.2 h, mediana 26 s/pulsar, max 1177 s). Wyniki: `~/output/claude/p3track_batch/p3track_v1.csv`
+(907 grup), `p3track_v1_pulsars.csv` (werdykt pulsara = najsilniejszy z grup: drift > partial > am > inconclusive),
+wykresy `~/output/claude/p3track_batch/figures_v1/` i `~/claude/work/figures/p3track_batch_v1/` (2316 plików).
+Logi `~/claude/work/logs/p3track_batch_v1_part*.log`. Błędy: 12 × „brak danych” (6 drift, 6 P3-only).
+
+| etykieta Song+23 | n (analiza) | drift | partial | am | inconclusive | brak grup |
+|---|---|---|---|---|---|---|
+| drift | 412 | 144 (35%) | 18 (4%) | 39 (9%) | 173 (42%) | 38 (9%) |
+| P3-only | 109 | 3 (3%) | 2 (2%) | 28 (26%) | 55 (50%) | 21 (19%) |
+
+- P3-only z drift/partial: J1810-5338, J1543+0929, J1057-5226 (drift), J1016-5345, J1825+0004 (partial).
+- 8 pulsarów ma grupę drift/partial i grupę am (mody): J1651-5222, J0905-4536, J1750-3157, J1933+1304, J1735-0724,
+  J1705-3423, J1922+1733, J1648-6044.
+- **Inconclusive: 504 z 575 takich grup to < 5 bloków** (grupa krótka względem L/2) — główne ograniczenie czułości.
+- Pokrycie (ułamek impulsów w grupach): drift mediana 0.41 (kw. 0.14–0.68), P3-only 0.30 (0.05–0.70).
+- vs T_cv (z_cv(B=32) ≥ 5), etykieta drift: T_cv+ → drift 122, partial 12, am 18, inconclusive 98, brak 13;
+  T_cv− → drift 14, partial 6, am 21, inconclusive 62, brak 18. P3-only: T_cv+ (12) → drift 2, am 1, inconcl. 8, brak 1.
+- 49 grup `am` u pulsarów z etykietą drift ma Δψ ≤ 0.08 — do obejrzenia: mod AM, czy dryf z P₂ ≫ W (Δψ ≈ W/P₂ małe,
+  kryterium am tego nie odróżnia).
