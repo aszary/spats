@@ -1527,3 +1527,29 @@ wykresy `~/claude/work/figures/p3track/<PSR>_sliding_lrfs_L<L>.png` (L = 16…25
 
 Otwarte: kryterium „stabilnego P₃” (rozrzut estymatora przy krótkim L, np. J0820 L=16: P₃ 4.4–5.3 — szum
 estymatora czy realna zmienność?); wybór L względem P₃.
+
+### 2026-10-01 (cd. 5) — P3Track krok 2: odcinki ciągłego P₃ i grupy do foldowania
+
+Ustalenia z użytkownikiem: L = max(16, 4·P₃) (`window_length`); monotoniczna zmiana P₃ jest OK (kompensacja
+przy foldowaniu); impulsy grupować po P₃ i foldować grupy osobno.
+
+Kod: `p3_segments` (ciągłość śladu: sąsiednie dobre okna, przerwa ≤ L/2, |Δf₃| ≤ 0.25/L; zakres impulsów =
+środki okien ± L/2, przycięte w połowie odstępu do sąsiedniego odcinka), `p3_groups` (łączenie po medianie f₃
+z tolerancją 1/L ≈ rozdzielczość okna Hann), `merge_sections` (stykające się odcinki tej samej grupy).
+Skrypt `~/claude/work/scripts/p3track_segments.jl`, log `~/claude/work/logs/p3track_segments.log`,
+wykresy `~/claude/work/figures/p3track/*_seg.png`.
+
+| pulsar | L | impulsy w odcinkach | grupy (P₃, impulsy) |
+|---|---|---|---|
+| J0820-1350 | 19 | 98% | 1 odcinek, P₃ 4.77 |
+| J0151-0635 | 58 | 100% | 14.3 (999); 7.46 (40) = 2. harmoniczna |
+| J1825+0004 | 57 | 65% | 14.5 (1–696); część jasna po ~715 odrzucona |
+| J0034-0721 | 48 | 66% | 6.52 (7 serii między nullami, 599); 10.1 (940–1031, tryb A/przejście) |
+| J0034-0721 | 26 | 48% | 6.6 (10 serii); tryb A (P₃ ~ 12) poza zasięgiem L/3 |
+| J1750-3503 | 196 | 87% | 2 grupy, P₃ 38–68; przy N = 1031 i P₃ ~ 50 metoda na granicy |
+
+- tol = 0.5/L dzieliło szum estymatora (J1825: odcinek 33 P przy 11.7 obok 14.5, Δf = 0.95/L) → tol = 1/L.
+- Bez scalania J0820 przy L = 19 rozpadało się na 13–20 odcinków o tym samym P₃ (rozrzut estymatora > 0.25/L).
+
+Otwarte: rozpoznawanie harmonicznych (grupa z f₃ ≈ 2·f₃ grupy głównej to ten sam reżim); L wg P₃ z params
+odcina dłuższe P₃ innych trybów (J0034 tryb A przy L = 26); minimalna liczba impulsów grupy do foldowania.

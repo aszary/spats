@@ -3080,14 +3080,20 @@ module Plot
     `P3Track.good_windows`; default: fit converged and peak above `snr_min`
     off-pulse σ); light grey: the rest. Dashed: `p3_ref`.
 
+    With `segs` (`P3Track.p3_segments`) and `groups` (`P3Track.p3_groups`)
+    the windows of each section are coloured by group, the pulse ranges of the
+    sections are marked as a strip along the bottom of panel 1, and every group
+    is summarised (median P3, sections, pulses) in panel 3.
+
     The x-axis is the window *centre* (the paper uses the start pulse) so
     that features line up with the single-pulse panel.
 
-    Writes `<name_mod>_sliding_lrfs_L<window>.pdf/.png`.
+    Writes `<name_mod>_sliding_lrfs_L<window><suffix>.pdf/.png`.
     """
     function sliding_lrfs(data, sl, tr, outdir; nbin=size(data, 2), name_mod="pulsar",
                           good=nothing, threshold=nothing, snr_min=5.0, p3_ref=nothing,
-                          p3_lim=nothing, darkness=0.995, show_=false)
+                          p3_lim=nothing, darkness=0.995, segs=nothing, groups=nothing,
+                          suffix="", show_=false)
         N = size(data, 1)
         on = sl.on_bins
         lon = (collect(on) .- 1) .* 360.0 ./ nbin
@@ -3144,7 +3150,21 @@ module Plot
         end
         bad = .!good
         any(bad) && plot(tr.centers[bad], tr.p3[bad], ".", ms=1.5, c="lightgrey", zorder=2)
-        if any(good)
+        if segs !== nothing
+            # sections coloured by group; good windows outside any section stay black
+            insec = falses(length(good))
+            for (si, sg) in enumerate(segs)
+                col = "C$(mod(groups[si] - 1, 10))"
+                w = sg.win
+                insec[w] .= true
+                errorbar(tr.centers[w], tr.p3[w], yerr=tr.p3_err[w], fmt=".", ms=1.5,
+                         c=col, ecolor=col, elinewidth=0.3, capsize=0, zorder=3)
+                ax1.axvspan(sg.first - 0.5, sg.last + 0.5, ymin=0.0, ymax=0.04, color=col,
+                            lw=0)
+            end
+            rest = good .& .!insec
+            any(rest) && plot(tr.centers[rest], tr.p3[rest], ".", ms=1.5, c="black", zorder=3)
+        elseif any(good)
             errorbar(tr.centers[good], tr.p3[good], yerr=tr.p3_err[good], fmt=".", ms=1.5,
                      c="black", ecolor="grey", elinewidth=0.3, capsize=0, zorder=3)
         end
@@ -3163,7 +3183,20 @@ module Plot
         text(0.01, 0.95, @sprintf("%s: %d / %d", crit, count(good), length(good)),
              transform=ax3.transAxes, va="top", fontsize=6)
 
-        savepath = joinpath(outdir, "$(name_mod)_sliding_lrfs_L$(L).pdf")
+        if segs !== nothing
+            for g in sort(unique(groups))
+                sel = findall(==(g), groups)
+                npl = sum(segs[i].npulse for i in sel)
+                p3g = median(vcat([tr.p3[segs[i].win] for i in sel]...))
+                text(0.99, 0.95 - 0.08 * (g - 1),
+                     @sprintf("group %d: P\$_3\$ ≈ %.2f, %d sections, %d pulses", g, p3g,
+                              length(sel), npl),
+                     transform=ax3.transAxes, ha="right", va="top", fontsize=6,
+                     color="C$(mod(g - 1, 10))")
+            end
+        end
+
+        savepath = joinpath(outdir, "$(name_mod)_sliding_lrfs_L$(L)$(suffix).pdf")
         savefig(savepath)
         savefig(replace(savepath, ".pdf" => ".png"), dpi=150)
         println(savepath)

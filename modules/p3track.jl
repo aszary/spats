@@ -30,7 +30,8 @@ using Statistics
 using LsqFit
 using Random
 
-export sliding_lrfs, p3_track, contrast_null, good_windows
+export sliding_lrfs, p3_track, contrast_null, good_windows, window_length, p3_segments,
+       p3_groups, merge_sections
 
 "periodic Hann taper without zero end points (no pulse fully discarded at L = 16)"
 hann_taper(L::Int) = sin.(π .* ((0:L-1) .+ 0.5) ./ L) .^ 2
@@ -328,5 +329,156 @@ range, contrast above the shuffle threshold (scalar or per-window vector
 from `contrast_null`).
 """
 good_windows(tr, threshold) = tr.fit_ok .& .!tr.edge .& (tr.contrast .>= threshold)
+
+
+"""
+    window_length(p3; ncycles=4, lmin=16) -> Int
+
+LRFS length for a pulsar with drift periodicity `p3`: max(lmin, ncycles·P3).
+With fmin = 2/L and the edge guard of 1/L, P3 ≲ L/3 is measurable, so
+ncycles = 4 leaves a margin for P3 wandering upwards.
+"""
+window_length(p3::Real; ncycles::Real=4, lmin::Int=16) = max(lmin, round(Int, ncycles * p3))
+
+
+"""
+    p3_segments(tr, good, nps; jump=0.25, maxgap=nothing, minwin=nothing, extend=0.5)
+        -> Vector{NamedTuple}
+
+Split the P3 track into continuous sections. Consecutive good windows i < j
+(stride 1) belong to the same section when
+
+    j − i ≤ maxgap   (default L÷2: a few rejected windows do not split it)
+    |f3[j] − f3[i]| ≤ jump / L
+
+With stride 1 the windows overlap by L−1 pulses, so a genuine slow change of
+P3 — monotonic or not — moves f3 by ≪ 1/L between neighbours and stays in one
+section; a jump of the feature (mode change, peak switching to another
+feature or harmonic) is a discontinuity of order 1/L. The section therefore
+needs no model of how P3 is allowed to vary; that is left to the folding.
+Sections with fewer than `minwin` good windows (default max(3, L÷4)) are
+dropped.
+
+Pulse range: the window centres of the first and last window ("core"),
+widened by `extend`·L on both sides — a window centred at c already carries
+the modulation of pulses c ± L/2, so without widening every section would
+lose half a window at each end (J0034-0721: ~100-P bursts read as 17–40-P
+sections). Widening is clipped to the observation (1…`nps`) and, where two
+sections would overlap, to the midpoint between their cores.
+
+Fields per section: first, last (pulses), npulse, core_first, core_last,
+win (window indices), p3_med, p3_first, p3_last, p3_min, p3_max,
+dp3 (linear slope of P3 [P/P]), f3_med, contrast_med.
+"""
+function p3_segments(tr, good, nps::Int; jump::Real=0.25, maxgap=nothing, minwin=nothing,
+                     extend::Real=0.5)
+    runs = _runs(tr, good; jump=jump, maxgap=maxgap, minwin=minwin)
+    return _sections(tr, runs, nps; extend=extend)
+end
+
+function _runs(tr, good; jump=0.25, maxgap=nothing, minwin=nothing)
+    L = tr.window
+    mg = maxgap === nothing ? max(1, L ÷ 2) : maxgap
+    mw = minwin === nothing ? max(3, L ÷ 4) : minwin
+    runs = Vector{Vector{Int}}()
+    for j in findall(good)
+        if !isempty(runs)
+            i = runs[end][end]
+            if j - i ≤ mg && abs(tr.f3[j] - tr.f3[i]) ≤ jump / L
+                push!(runs[end], j)
+                continue
+            end
+        end
+        push!(runs, [j])
+    end
+    filter!(w -> length(w) ≥ mw, runs)
+    return sort!(runs, by=w -> tr.centers[w[1]])
+end
+
+function _sections(tr, runs, nps; extend=0.5)
+    L = tr.window
+    cf = [tr.centers[w[1]] for w in runs]
+    cl = [tr.centers[w[end]] for w in runs]
+    ext = extend * L
+    segs = NamedTuple[]
+    for (k, w) in enumerate(runs)
+        lo = cf[k] - ext
+        hi = cl[k] + ext
+        k > 1 && (lo = max(lo, (cl[k-1] + cf[k]) / 2))
+        k < length(runs) && (hi = min(hi, (cl[k] + cf[k+1]) / 2))
+        first = clamp(ceil(Int, lo), 1, nps)
+        last = clamp(floor(Int, hi), 1, nps)
+        # midpoint shared by two sections: give it to the earlier one
+        k > 1 && !isempty(segs) && first ≤ segs[end].last && (first = segs[end].last + 1)
+        p = tr.p3[w]
+        c = tr.centers[w]
+        dp3 = length(w) > 2 ? cov(c, p) / var(c) : 0.0
+        push!(segs, (first=first, last=last, npulse=last - first + 1,
+                     core_first=round(Int, cf[k]), core_last=round(Int, cl[k]), win=w,
+                     p3_med=median(p), p3_first=p[1], p3_last=p[end],
+                     p3_min=minimum(p), p3_max=maximum(p), dp3=dp3,
+                     f3_med=median(tr.f3[w]), contrast_med=median(tr.contrast[w])))
+    end
+    return segs
+end
+
+
+"""
+    p3_groups(segs, L; tol=1.0) -> Vector{Int}
+
+Group label for every section: sections sorted by median f3 are merged while
+neighbours differ by ≤ tol/L in frequency. tol = 1 is a resolution criterion:
+the Hann main lobe has FWHM ≈ 1.44/L, so sections closer than ~1/L cannot be
+told apart by this window and the difference is estimator scatter (J1825+0004,
+L = 57: a 33-pulse section at P3 = 11.7 next to 14.5, Δf = 0.95/L, split off
+with tol = 0.5). Sections of one regime separated by nulls or bad windows land in
+one group and can be folded together; distinct regimes (J0034-0721 modes A/B/C:
+f3 ≈ 0.08/0.15/0.25) stay apart. Labels are ordered by decreasing total
+number of pulses (group 1 = dominant regime).
+"""
+function p3_groups(segs, L::Int; tol::Real=1.0)
+    n = length(segs)
+    n == 0 && return Int[]
+    order = sortperm([s.f3_med for s in segs])
+    raw = zeros(Int, n)
+    g = 1
+    raw[order[1]] = g
+    for k in 2:n
+        a, b = segs[order[k-1]], segs[order[k]]
+        b.f3_med - a.f3_med > tol / L && (g += 1)
+        raw[order[k]] = g
+    end
+    tot = [sum(segs[i].npulse for i in 1:n if raw[i] == gg) for gg in 1:g]
+    rank = invperm(sortperm(tot, rev=true))
+    return [rank[r] for r in raw]
+end
+
+
+"""
+    merge_sections(tr, segs, groups, nps; extend=0.5) -> (segs, groups)
+
+Merge sections that touch (next.first == prev.last + 1, i.e. split only at a
+shared midpoint) and belong to the same group. With short windows the
+estimator scatter of f3 between neighbouring windows can exceed `jump`/L
+(J0820-1350, L = 19: 20 sections, all P3 ≈ 4.8); such splits are noise, not
+regime changes, once grouping has put both sides together.
+"""
+function merge_sections(tr, segs, groups, nps::Int; extend::Real=0.5)
+    isempty(segs) && return segs, groups
+    order = sortperm([s.first for s in segs])
+    runs = Vector{Vector{Int}}()
+    grp = Int[]
+    prev = 0
+    for i in order
+        if prev != 0 && groups[i] == groups[prev] && segs[i].first == segs[prev].last + 1
+            append!(runs[end], segs[i].win)
+        else
+            push!(runs, copy(segs[i].win))
+            push!(grp, groups[i])
+        end
+        prev = i
+    end
+    return _sections(tr, runs, nps; extend=extend), grp
+end
 
 end # module P3Track
