@@ -1584,3 +1584,35 @@ P₃ wędruje o 1–2 cykle w obrębie obserwacji (J0151, J1825, J1750).
 
 Ograniczenie: jeden szablon na grupę → u reversera (J1750-3503) epizody o przeciwnym kierunku dryfu wchodzą do
 jednego folda z kształtem dominującego kierunku. Głębokość modulacji to miara porównawcza, nie istotność.
+
+### 2026-10-01 (cd. 7) — P3Track: kontrola na 5 P3-only bez oczekiwanego dryfu; faza szablonu jako dyskryminator
+
+Kontrola: J1401-6357, J1603-2531, J1001-5939 (obejrzane wcześniej: czysta AM), J1146-6030, J2307+2225 (najniższe
+z_cv przy k_snr ≥ 1, wpis cd. 2). Skrypt `~/claude/work/scripts/p3track_control.jl`, log
+`~/claude/work/logs/p3track_control.log`, wykresy `~/claude/work/figures/p3track/<PSR>_{p3fold_groups,sliding_lrfs_L<L>_groups}.png`.
+
+Zmiany w kodzie: (1) usunięta górna osłona krawędzi w `feature_peak` (P₃ ≈ 2.1 → f ≈ 0.48 była odrzucana w całości;
+wystarcza wymóg lokalnego maksimum); (2) `template_phase`: ψ(φ) = −arg T szablonu grupy, nachylenie liczone
+**osobno w każdej składowej** (offset fazy między rozdzielonymi składowymi jest określony tylko mod 1 cykl —
+jedno dopasowanie przez przerwę dawało dla J0151 0.06 zamiast 0.86); Δψ = Σ|Δψ_składowej|; nowy wiersz w `plot_folds`.
+
+| etykieta | PSR | L | w grupach | grupa P₃ (impulsy) | depth zm. / tasow. / stałe | **Δψ [cyk]** (składowe) |
+|---|---|---|---|---|---|---|
+| P3-only | J1401-6357 | 16 | 6% | 2.28 (58) | 0.155 / 0.04–0.08 / 0.116 | **0.00** |
+| P3-only | J1603-2531 | 194 | 95% | 34.1 (1003), 51.7 (832), 13.0 (181) | 0.08–0.10 / ~0.04 / ~0.05 | **0.01, 0.01, 0.01** |
+| P3-only | J1001-5939 | 16 | 0% | – | – | – |
+| P3-only | J1146-6030 | 44 | 0% | – | – | – |
+| P3-only | J2307+2225 | 16 | 0% (grupa 20 P < 5·P₃) | – | – | – |
+| drift | J0034-0721 | 26 | 48% | 6.64 (501) | 0.206 / 0.07–0.09 / 0.062 | **1.53** |
+| drift | J0151-0635 | 58 | 100% | 14.27 (1039) | 0.172 / 0.05 / 0.065 | **0.86** (−0.69, −0.17) |
+| drift | J0820-1350 | 19 | 98% | 4.77 (1034) | 0.142 / 0.02 / 0.071 | **1.94** |
+| drift | J1825+0004 | 57 | 65% | 14.67 (681) | 0.086 / 0.04 / 0.043 | **0.23** (+0.03, −0.20) |
+| drift | J1750-3503 | 196 | 87% | 44.9 (897) | 0.205 / 0.15 / 0.160 | **2.03** |
+
+- Głębokość modulacji rośnie po kompensacji także dla P3-only (J1603: P₃ wędruje 13–52 w trzech grupach) — sama w sobie
+  nie odróżnia dryfu od AM. Odróżnia faza szablonu: P3-only ≤ 0.01 cyklu, dryfery 0.23–2.03.
+- J1001, J1146, J2307: brak okien ze stabilną cechą P₃ (good 3, 10, 12 z ~1000) — modulacja niekoherentna na skali 4·P₃,
+  w średnim LRFS cecha szeroka. Metoda zwraca „brak stabilnego P₃”, nie werdykt.
+
+Otwarte: skala szumu Δψ (kontrola tasowaniem lub z błędu ψ na bin) — próg dryf/AM jest na razie tylko empiryczny
+(przerwa 0.01 → 0.23); J1401 tylko 6% impulsów w grupach.

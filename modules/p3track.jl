@@ -162,8 +162,10 @@ gauss_model(f, p) = p[1] .* exp.(-(f .- p[2]) .^ 2 ./ (2 .* p[3] .^ 2)) .+ p[4]
     feature_peak(P, freq, srange, lo, hi, guard) -> (k, edge, contrast)
 
 Index of the highest local maximum of P strictly inside `srange`, whether it
-counts as an edge peak (no interior maximum, or within `guard` of `lo` /
-`guard`/2 of `hi`), and its contrast P[k] / median(P[srange]).
+counts as an edge peak (no interior maximum, or within `guard` of `lo` — the
+DC leakage), and its contrast P[k] / median(P[srange]). There is no guard at
+the upper end: a feature at P3 ≈ 2.1 (f ≈ 0.48, J1001-5939) is real and only
+has to be an interior maximum.
 """
 function feature_peak(P, freq, srange, lo, hi, guard)
     kmax = 0
@@ -173,7 +175,7 @@ function feature_peak(P, freq, srange, lo, hi, guard)
         end
     end
     k = kmax == 0 ? srange[argmax(view(P, srange))] : kmax
-    edge = kmax == 0 || freq[k] < lo + guard || freq[k] > hi - guard / 2
+    edge = kmax == 0 || freq[k] < lo + guard
     return k, edge, P[k] / median(view(P, srange))
 end
 
@@ -200,8 +202,8 @@ Fields:
                  feature stand out of the on-pulse fluctuation continuum
                  (jitter, energy variations); ~1–2 for a flat spectrum
   fit_ok       – Gaussian fit converged with the centre inside the range
-  edge         – peak within 1/L of fmin (or 1/2L of the upper limit):
-                 DC leakage or a feature outside the range, not a P3
+  edge         – no interior local maximum, or the peak within 1/L of fmin
+                 (DC leakage), not a P3
   centers, starts, window – copied from `sl`
 """
 function p3_track(sl; frange=nothing, halfwidth=nothing)
@@ -637,6 +639,63 @@ function align_phases(Z::AbstractMatrix; niter::Int=10)
 end
 
 
+"""
+    template_phase(T; frac=0.2, minrun=3) -> NamedTuple
+
+Longitude dependence of the modulation phase, ψ(φ) = −arg T(φ), from a group
+template (`align_phases`). This is what separates drift from amplitude
+modulation in a fold: a drifting pattern has ψ changing steadily across the
+emission (≈ W/P2 cycles), pure amplitude modulation has ψ flat within a
+component (jumps of 1/2 cycle between components modulated in antiphase).
+
+Bins with |T| ≥ frac·max|T| form contiguous runs (components); ψ is
+unwrapped within each run and a |T|²-weighted linear slope fitted per run
+(runs shorter than `minrun` bins ignored). Runs are treated separately
+because the phase offset between separated components is defined only
+modulo a cycle — one fit across the gap reads J0151-0635 (≈ −0.55 and
+−0.2 cycles across its two components) as 0.06.
+
+Fields: psi (radians, NaN outside the mask), amp (|T|/max), mask,
+runs (bin ranges), run_slope (cycles/bin), run_dpsi (slope × run length
+[cycles], signed), dpsi = Σ |run_dpsi| (total drift-like phase change across
+the emission, independent of the drift sense in each component — bi-drifting
+counts), span = Σ run_dpsi (signed), rms = |T|²-weighted RMS of ψ about the
+per-run means [cycles].
+"""
+function template_phase(T; frac::Real=0.2, minrun::Int=3)
+    amp = abs.(T) ./ maximum(abs.(T))
+    mask = amp .>= frac
+    psi = fill(NaN, length(T))
+    raw = -angle.(T)
+    runs = UnitRange{Int}[]
+    i = 1
+    while i ≤ length(T)
+        if mask[i]
+            j = i
+            while j < length(T) && mask[j+1]
+                j += 1
+            end
+            psi[i:j] .= 2π .* unwrap_cycles(raw[i:j] ./ (2π))
+            j - i + 1 ≥ minrun && push!(runs, i:j)
+            i = j + 1
+        else
+            i += 1
+        end
+    end
+    run_slope = Float64[]; run_dpsi = Float64[]
+    ss = 0.0; sw = 0.0
+    for r in runs
+        x = collect(r); w = amp[r] .^ 2; y = psi[r] ./ (2π)
+        xm = sum(w .* x) / sum(w); ym = sum(w .* y) / sum(w)
+        sl = sum(w .* (x .- xm) .* (y .- ym)) / sum(w .* (x .- xm) .^ 2)
+        push!(run_slope, sl); push!(run_dpsi, sl * length(r))
+        ss += sum(w .* (y .- ym) .^ 2); sw += sum(w)
+    end
+    return (psi=psi, amp=amp, mask=mask, runs=runs, run_slope=run_slope, run_dpsi=run_dpsi,
+            dpsi=sum(abs.(run_dpsi)), span=sum(run_dpsi), rms=sw > 0 ? sqrt(ss / sw) : NaN)
+end
+
+
 "number of P3-phase bins: as `Functions.find_ybins` (2·P3, ≥ min_ppb pulses per bin, ≥ 4)"
 fold_bins(p3, npulse; min_ppb=50) = max(4, min(floor(Int, 2 * p3), floor(Int, npulse / min_ppb)))
 
@@ -696,7 +755,9 @@ modulation depth of the real fold is reported against them.
 Fields: group, pulses, p3 (group P3), nb, fold, counts, phase (θ/2π mod 1),
 theta (radians, per pulse), template, f (per pulse), depth, depth_null
 (vector), coherence (mean over pulses of |Σ_φ Z conj T| / (‖Z‖·‖T‖):
-how well single pulses match the template shape), sections, on_bins.
+how well single pulses match the template shape), tphase (`template_phase`:
+longitude dependence of the modulation phase — the drift vs amplitude
+modulation diagnostic), sections, on_bins.
 """
 function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=nothing,
                     niter::Int=10, nshuffle::Int=5, seed::Int=1)
@@ -738,8 +799,8 @@ function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=no
     end
 
     return (group=g, pulses=pulses, p3=p3g, nb=nb, fold=F, counts=cnt, phase=phase, theta=θ,
-            template=T, f=f, depth=depth, depth_null=depth_null, coherence=coherence,
-            on_bins=on, sections=sel)
+            template=T, tphase=template_phase(T), f=f, depth=depth, depth_null=depth_null,
+            coherence=coherence, on_bins=on, sections=sel)
 end
 
 
@@ -935,7 +996,9 @@ end
 One column per group of `analyse` output `res`:
   row 1 — fold with variable-P3 compensation (`phase_fold`), two cycles;
   row 2 — constant-P3 fold of the same pulses (`constant_fold`), two cycles;
-  row 3 — phase of every pulse against the constant-P3 phase,
+  row 3 — template |T| (grey) and phase ψ = −arg T (colour) vs longitude:
+          a steady slope = drift, flat (or π steps) = amplitude modulation;
+  row 4 — phase of every pulse against the constant-P3 phase,
           θ(n)/2π − n/P3 (unwrapped within sections): flat = constant P3,
           a slope or curvature = P3 wandering, steps between sections = phase
           jumps across nulls/gaps that a constant fold cannot follow.
@@ -953,11 +1016,11 @@ function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, sh
     rc("font", size=7.)
     rc("axes", linewidth=0.5)
     rc("lines", linewidth=0.5)
-    fig = figure(figsize=(2.6 * ng + 0.6, 7.0))
+    fig = figure(figsize=(2.6 * ng + 0.6, 9.0))
     for (k, (fo, cf)) in enumerate(zip(res.folds, res.cfolds))
         col = "C$(mod(fo.group - 1, 10))"
         for (row, F, lab) in ((1, fo.fold, "variable P\$_3\$"), (2, cf.fold, "constant P\$_3\$"))
-            ax = subplot(3, ng, (row - 1) * ng + k)
+            ax = subplot(4, ng, (row - 1) * ng + k)
             FF = vcat(F, F)
             imshow(FF, origin="lower", aspect="auto", cmap="viridis", interpolation="none",
                    extent=(lon[1], lon[end], 0, 2), vmax=quantile(vec(FF), darkness))
@@ -971,7 +1034,18 @@ function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, sh
             k == 1 && ylabel("P\$_3\$ phase (cycles)")
             row == 2 && xlabel("longitude (\$^\\circ\$)")
         end
-        ax = subplot(3, ng, 2 * ng + k)
+        ax = subplot(4, ng, 2 * ng + k)
+        tp = fo.tphase
+        plot(lon, tp.amp, color="lightgrey", lw=0.8)
+        ylim(0, 1.05)
+        k == 1 && ylabel("|T| (norm.)")
+        xlabel("longitude (\$^\\circ\$)")
+        ax2 = ax.twinx()
+        ax2.plot(lon, rad2deg.(tp.psi), ".", ms=2, c=col)
+        ax2.set_ylabel("ψ = −arg T (\$^\\circ\$)")
+        title(@sprintf("template phase: Δψ %.2f cyc (%s)", tp.dpsi,
+                       join([@sprintf("%+.2f", d) for d in tp.run_dpsi], ", ")), fontsize=6)
+        ax = subplot(4, ng, 3 * ng + k)
         for i in fo.sections
             s = res.segs[i]
             idx = findall(n -> s.first ≤ n ≤ s.last, fo.pulses)
