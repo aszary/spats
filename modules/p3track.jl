@@ -34,7 +34,7 @@ using PyPlot
 
 export sliding_lrfs, p3_track, contrast_null, good_windows, window_length, p3_segments,
        p3_groups, merge_sections, harmonic_groups, fundamental_track, select_groups,
-       phase_fold, constant_fold, analyse, plot_track, plot_folds
+       phase_fold, constant_fold, analyse, long_p3_pass, plot_track, plot_folds
 
 "periodic Hann taper without zero end points (no pulse fully discarded at L = 16)"
 hann_taper(L::Int) = sin.(π .* ((0:L-1) .+ 0.5) ./ L) .^ 2
@@ -163,11 +163,15 @@ gauss_model(f, p) = p[1] .* exp.(-(f .- p[2]) .^ 2 ./ (2 .* p[3] .^ 2)) .+ p[4]
 
 Index of the highest local maximum of P strictly inside `srange`, whether it
 counts as an edge peak (no interior maximum, or within `guard` of `lo` — the
-DC leakage), and its contrast P[k] / median(P[srange]). There is no guard at
+DC leakage), and its contrast P[k] / median(P[crange]). `crange` (default
+`srange`) is the whole usable range f ≥ fmin in `p3_track`/`contrast_null`,
+also when the search is restricted by `frange`: the median of a narrow
+low-frequency range sits on the red continuum and hides a long-P3 feature
+(J1825+0004 after ~715 at L = 228 in the second pass: no window passed). There is no guard at
 the upper end: a feature at P3 ≈ 2.1 (f ≈ 0.48, J1001-5939) is real and only
 has to be an interior maximum.
 """
-function feature_peak(P, freq, srange, lo, hi, guard)
+function feature_peak(P, freq, srange, lo, hi, guard; crange=srange)
     kmax = 0
     for k in srange[2:end-1]
         if P[k] > P[k-1] && P[k] ≥ P[k+1] && (kmax == 0 || P[k] > P[kmax])
@@ -176,7 +180,7 @@ function feature_peak(P, freq, srange, lo, hi, guard)
     end
     k = kmax == 0 ? srange[argmax(view(P, srange))] : kmax
     edge = kmax == 0 || freq[k] < lo + guard
-    return k, edge, P[k] / median(view(P, srange))
+    return k, edge, P[k] / median(view(P, crange))
 end
 
 
@@ -198,7 +202,7 @@ Fields:
   peak         – P at the peak sample
   snr_off      – (peak − noise)/noise_std, against the off-pulse spectrum:
                  is the modulation above radiometer noise at all
-  contrast     – peak / median on-pulse P over the search range: does the
+  contrast     – peak / median on-pulse P over f ≥ fmin: does the
                  feature stand out of the on-pulse fluctuation continuum
                  (jitter, energy variations); ~1–2 for a flat spectrum
   fit_ok       – Gaussian fit converged with the centre inside the range
@@ -214,6 +218,7 @@ function p3_track(sl; frange=nothing, halfwidth=nothing)
     hw = halfwidth === nothing ? 1 / L : halfwidth
     srange = findall(f -> lo ≤ f ≤ hi, freq)
     isempty(srange) && error("empty search range ($lo, $hi) for window $L")
+    crange = findall(f -> f ≥ sl.fmin, freq)
 
     nwin = size(sl.power, 1)
     f3 = fill(NaN, nwin); f3_err = fill(NaN, nwin); fwhm = fill(NaN, nwin)
@@ -225,7 +230,7 @@ function p3_track(sl; frange=nothing, halfwidth=nothing)
 
     for i in 1:nwin
         P = @view sl.power[i, :]
-        k, edge[i], contrast[i] = feature_peak(P, freq, srange, lo, hi, guard)
+        k, edge[i], contrast[i] = feature_peak(P, freq, srange, lo, hi, guard; crange=crange)
         fpk = freq[k]
         peak[i] = P[k]
         if sl.power_off !== nothing
@@ -294,6 +299,7 @@ function contrast_null(data::AbstractMatrix, sl; nshuffle::Int=40, step=nothing,
     lo, hi = frange === nothing ? (sl.fmin, 0.5) : frange
     lo = max(lo, sl.fmin)
     srange = findall(f -> lo ≤ f ≤ hi, freq)
+    crange = findall(f -> f ≥ sl.fmin, freq)
     guard = 1 / L
 
     tap = hann_taper(L)
@@ -313,7 +319,7 @@ function contrast_null(data::AbstractMatrix, sl; nshuffle::Int=40, step=nothing,
             buf[1:L, :] .= tap .* X[Random.randperm(rng, L), :]
             F = plan * buf
             P .= vec(sum(abs2, F, dims=2)) ./ norm
-            null[ia, j] = feature_peak(P, freq, srange, lo, hi, guard)[3]
+            null[ia, j] = feature_peak(P, freq, srange, lo, hi, guard; crange=crange)[3]
         end
     end
 
@@ -818,8 +824,8 @@ end
 
 
 """
-    analyse(data, bin_st, bin_end, p3; window=nothing, ncycles=5, nshuffle=5)
-        -> NamedTuple
+    analyse(data, bin_st, bin_end, p3; window=nothing, ncycles=5, nshuffle=5,
+            second_pass=true) -> NamedTuple
 
 Whole chain for one pulsar: window L = `window_length(p3)` (p3 from
 params.json), sliding LRFS, P3 track, local shuffle threshold, sections,
@@ -828,11 +834,19 @@ groups (`p3_groups`), second harmonics joined to their fundamental
 shorter than `ncycles`·P3 dropped, and a variable-P3 fold (`phase_fold`) plus
 a constant-P3 reference fold (`constant_fold`) for every remaining group.
 
+With `second_pass` the pulses left outside every group get a second look
+with a longer window (`long_p3_pass`): a window chosen for P3 from
+params.json only measures P3 ≲ L/3, so a second regime with a longer P3 is
+invisible to it (J1825+0004 after the mode change at ~715: P3 ≈ 35–55 next
+to 14.5; J0034-0721 mode A, P3 ~ 12, at L = 26).
+
 Fields: L, sl, tr (fundamental track), threshold, good, segs, groups, harm
-(before merging), dropped, folds, cfolds.
+(before merging), dropped, folds, cfolds — first pass; pass2 — the same
+fields for the second pass plus p3_probe, probe (see `long_p3_pass`), or
+nothing when there was no second pass.
 """
 function analyse(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real; window=nothing,
-                 ncycles::Real=5, nshuffle::Int=5)
+                 ncycles::Real=5, nshuffle::Int=5, second_pass::Bool=true)
     N = size(data, 1)
     L = window === nothing ? window_length(p3) : window
     sl = sliding_lrfs(data, bin_st, bin_end; window=L)
@@ -848,8 +862,193 @@ function analyse(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real; wind
     folds = [phase_fold(data, sl, trf, segs, groups, g; nshuffle=nshuffle)
              for g in sort(unique(groups))]
     cfolds = [constant_fold(data, sl.on_bins, fo.pulses, fo.p3, fo.nb) for fo in folds]
+    pass2 = second_pass ? long_p3_pass(data, bin_st, bin_end, L, segs;
+                                       ncycles=ncycles, nshuffle=nshuffle) : nothing
     return (L=L, sl=sl, tr=trf, threshold=thr, good=good, segs=segs, groups=groups,
-            harm=harm, dropped=dropped, folds=folds, cfolds=cfolds)
+            harm=harm, dropped=dropped, folds=folds, cfolds=cfolds, pass2=pass2)
+end
+
+
+"""
+    prominence(y, k) -> Float64
+
+Height of the local maximum y[k] above the higher of the two minima met
+walking left and right from k until y exceeds y[k] (or the array ends).
+"""
+function prominence(y, k)
+    lm = y[k]; i = k - 1
+    while i ≥ 1 && y[i] ≤ y[k]
+        lm = min(lm, y[i]); i -= 1
+    end
+    rm = y[k]; i = k + 1
+    while i ≤ length(y) && y[i] ≤ y[k]
+        rm = min(rm, y[i]); i += 1
+    end
+    return y[k] - max(lm, rm)
+end
+
+
+"""
+    free_pulses(segs, N) -> BitVector
+
+Pulses not covered by any section of `segs`.
+"""
+function free_pulses(segs, N::Int)
+    free = trues(N)
+    for s in segs
+        free[s.first:s.last] .= false
+    end
+    return free
+end
+
+"contiguous runs of `true` in a BitVector, as UnitRanges"
+function true_runs(m)
+    runs = UnitRange{Int}[]
+    i = 1
+    while i ≤ length(m)
+        if m[i]
+            j = i
+            while j < length(m) && m[j+1]
+                j += 1
+            end
+            push!(runs, i:j)
+            i = j + 1
+        else
+            i += 1
+        end
+    end
+    return runs
+end
+
+
+"""
+    long_p3_pass(data, bin_st, bin_end, L1, segs1; ncycles=5, nshuffle=5,
+                 lprobe_max=256, min_free=nothing) -> NamedTuple or nothing
+
+Second pass for regimes with a P3 longer than the first window L1 can
+measure (P3 > L1/3), restricted to pulses outside the first-pass sections.
+
+1. Probe: contrast spectra (each window divided by its median) of windows
+   of Lp = min(`lprobe_max`, longest free stretch) pulses lying entirely in
+   free stretches (step Lp/8), averaged; P3' = local maximum with
+   3/Lp ≤ f < 3/L1 of the largest *prominence* (`prominence`) — the highest
+   one is usually a bump on the red continuum next to 3/Lp (J1825+0004:
+   P3' = 57, J2307+2225: 85). No P3' (or free stretches shorter than
+   `min_free`, default 2·L1) → nothing.
+2. Windows tried: min(window_length(P3'), longest free stretch) and the
+   ladder L1·{2, 3, 4, 6, 8} up to the longest free stretch (powers of two
+   alone skipped the working window for J1825+0004: 114, 228 but not ~160) — a wandering long
+   P3 smears the probe spectrum, so the probe alone picks a window too short
+   (J1825+0004: P3' = 21, L2 = 84, while the regime has P3 55 → 23). The
+   window giving the most pulses in kept groups wins (`ladder` lists
+   (L2, pulses) for all tried).
+3. For each window: sliding LRFS at L2 on the whole observation, track searched only in
+   f < 3/L1, local shuffle threshold over the same range; good windows must
+   also have their centre on a free pulse and ≥ half of the window free.
+4. Sections, groups, merging as in the first pass; every section is then
+   cut to the longest free stretch inside it (no pulse is in two passes);
+   groups shorter than `ncycles`·P3 dropped; folds as in the first pass.
+
+Fields: as the first pass in `analyse` (L, sl, tr, threshold, good, segs,
+groups, dropped, folds, cfolds) plus p3_probe, probe (Lp, freq, spectrum,
+nwin, prominence), free (BitVector after the first pass), ladder.
+"""
+function long_p3_pass(data::AbstractMatrix, bin_st::Int, bin_end::Int, L1::Int, segs1;
+                      ncycles::Real=5, nshuffle::Int=5, lprobe_max::Int=256, min_free=nothing)
+    N = size(data, 1)
+    free = free_pulses(segs1, N)
+    runs = true_runs(free)
+    isempty(runs) && return nothing
+    longest = maximum(length.(runs))
+    mf = min_free === nothing ? 2 * L1 : min_free
+    longest < mf && return nothing
+
+    # 1. probe spectrum over free stretches
+    Lp = min(lprobe_max, longest)
+    fhi = 3 / L1
+    acc = nothing; nw = 0; freq = Float64[]
+    for r in runs
+        length(r) < Lp && continue
+        sl = sliding_lrfs(data[r, :], bin_st, bin_end; window=Lp, stride=max(1, Lp ÷ 8),
+                          off_bins=nothing)
+        use = sl.freq .>= sl.fmin
+        S = sl.power ./ [median(sl.power[i, use]) for i in 1:size(sl.power, 1)]
+        acc = acc === nothing ? vec(sum(S, dims=1)) : acc .+ vec(sum(S, dims=1))
+        nw += size(S, 1)
+        freq = sl.freq
+    end
+    nw == 0 && return nothing
+    spec = acc ./ nw
+    cand = [k for k in 2:length(freq)-1 if 3 / Lp ≤ freq[k] < fhi &&
+            spec[k] > spec[k-1] && spec[k] ≥ spec[k+1]]
+    isempty(cand) && return nothing
+    prom = [prominence(spec, k) for k in cand]
+    kbest = cand[argmax(prom)]
+    p3p = 1 / freq[kbest]
+    probe = (Lp=Lp, freq=freq, spectrum=spec, nwin=nw, prominence=maximum(prom))
+
+    # 2. windows to try: the probe's, and a ladder L1·{2,3,4,6,8} — a wandering
+    #    long P3 smears the probe spectrum (J1825+0004 after ~715: P3 55 → 23,
+    #    probe P3' = 21 → L2 = 84 sees only P3 ≤ 28), so no single P3' is reliable
+    ladder = Int[]
+    Lw = min(window_length(p3p), longest)
+    Lw > L1 && push!(ladder, Lw)
+    for k in (2, 3, 4, 6, 8)
+        k * L1 ≤ longest && push!(ladder, k * L1)
+    end
+    ladder = sort(unique(filter(l -> L1 < l ≤ N ÷ 2, ladder)))
+    isempty(ladder) && return nothing
+
+    # 3–4. one pass per window, keep the one with most pulses in groups
+    best = nothing
+    tried = Tuple{Int,Int}[]
+    for L2 in ladder
+        r = _long_pass_at(data, bin_st, bin_end, L2, L1, free, N; ncycles=ncycles,
+                          nshuffle=nshuffle)
+        npl = isempty(r.segs) ? 0 : sum(s.npulse for s in r.segs)
+        push!(tried, (L2, npl))
+        if best === nothing || npl > best[2]
+            best = (r, npl)
+        end
+    end
+    r = best[1]
+    return merge(r, (p3_probe=p3p, probe=probe, free=free, ladder=tried))
+end
+
+function _long_pass_at(data, bin_st, bin_end, L2, L1, free, N; ncycles=5, nshuffle=5)
+    fhi = 3 / L1
+    fr = (2 / L2, fhi)
+    sl = sliding_lrfs(data, bin_st, bin_end; window=L2)
+    tr = p3_track(sl; frange=fr)
+    thr = contrast_null(data, sl; frange=fr).threshold
+    good = good_windows(tr, thr)
+    for (i, s) in enumerate(sl.starts)
+        c = round(Int, sl.centers[i])
+        good[i] &= free[c] && count(free[s:s+L2-1]) ≥ L2 / 2
+    end
+    segs = p3_segments(tr, good, N)
+    groups = p3_groups(segs, L2)
+    segs, groups = merge_sections(tr, segs, groups, N)
+    keep = Int[]
+    cut = NamedTuple[]
+    for (i, s) in enumerate(segs)
+        fr_runs = true_runs(free[s.first:s.last])
+        isempty(fr_runs) && continue
+        r = fr_runs[argmax(length.(fr_runs))] .+ (s.first - 1)
+        push!(cut, merge(s, (first=r.start, last=r.stop, npulse=length(r))))
+        push!(keep, i)
+    end
+    segs = cut; groups = groups[keep]
+    dropped = Tuple{Int,Int,Float64}[]
+    folds = NamedTuple[]; cfolds = NamedTuple[]
+    if !isempty(segs)
+        segs, groups, dropped = select_groups(segs, groups; ncycles=ncycles)
+        folds = [phase_fold(data, sl, tr, segs, groups, g; nshuffle=nshuffle)
+                 for g in sort(unique(groups))]
+        cfolds = [constant_fold(data, sl.on_bins, fo.pulses, fo.p3, fo.nb) for fo in folds]
+    end
+    return (L=L2, sl=sl, tr=tr, threshold=thr, good=good, segs=segs, groups=groups,
+            harm=falses(length(segs)), dropped=dropped, folds=folds, cfolds=cfolds)
 end
 
 

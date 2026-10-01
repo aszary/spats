@@ -1,6 +1,6 @@
 # P3Track: ślad P₃(t), fold z kompensacją zmiennego P₃ i faza szablonu
 
-**Stan na 2026-10-01.** Nowa metoda rozstrzygania, czy pulsar **dryfuje**, czy ma tylko modulację
+**Stan na 2026-10-01 (z drugim przejściem).** Nowa metoda rozstrzygania, czy pulsar **dryfuje**, czy ma tylko modulację
 amplitudową z okresem P₃ (**P3-only**). Zastępuje test „travel” (`docs/travel_test_method.md`) i nie jest
 na nim wzorowana.
 
@@ -26,6 +26,7 @@ mierzona w każdym impulsie, a nie wyliczana ze stałego P₃, (3) sprawdzić w 
 3. Odcinki ciągłego P₃ → grupy o podobnym P₃ (z harmonicznymi), grupa ≥ 5·P₃ impulsów (§4).
 4. Fold grupy z kompensacją zmiennego P₃: demodulacja leave-one-out + wspólny szablon (§5).
 5. Dyskryminator: zmiana fazy szablonu w długości, Δψ, liczona osobno w każdej składowej (§6).
+6. Drugie przejście dla impulsów spoza grup: reżimy o P₃ dłuższym niż mierzalne przy L₁ (§4a).
 
 **Wyniki (5 dryferów + 5 P3-only bez oczekiwanego dryfu, §7):**
 
@@ -147,6 +148,28 @@ się na 13–20 odcinków o tym samym P₃).
 *Rys. 2. J1825+0004, L = 57: jedna grupa P₃ ≈ 14.7 w impulsach 1–696 (pasek pod stosem impulsów); jasna
 część po ~715 odrzucona przez próg kontrastu.*
 
+### 4a. Drugie przejście: reżimy o długim P₃ (`long_p3_pass`)
+
+Okno L₁ = 4·P₃ z `params.json` mierzy tylko P₃ ≲ L₁/3, więc reżim o dłuższym P₃ jest dla niego niewidoczny.
+Zauważone przez użytkownika na J1825+0004: po zmianie modu (~715) stabilna cecha przy P₃ ≈ 35–55, której
+L₁ = 57 nie widzi (podobnie tryb A J0034-0721 przy L₁ = 26). `analyse(...; second_pass=true)` (domyślnie):
+
+1. **Wolne impulsy**: poza wszystkimi odcinkami pierwszego przejścia; wymagany wolny fragment ≥ 2·L₁.
+2. **Sonda**: średnie widmo kontrastu z okien Lp = min(256, najdłuższy wolny fragment) leżących w całości
+   w wolnych fragmentach; P₃′ = maksimum lokalne w 3/Lp ≤ f < 3/L₁ o największej **wybitności**
+   (`prominence`) — najwyższe bywa garbem czerwonego kontinuum przy 3/Lp (J1825: 57, J2307: 85).
+3. **Drabinka okien**: min(4·P₃′, najdłuższy wolny fragment) oraz L₁·{2, 3, 4, 6, 8} (≤ najdłuższy wolny
+   fragment). Wędrujące długie P₃ rozmywa widmo sondy (J1825: P₃ 55 → 23, sonda daje 21 → L = 84, które widzi
+   tylko P₃ ≤ 28), więc jedno okno z sondy nie wystarcza; same potęgi dwójki (114, 228) omijały działające ~160.
+4. Dla każdego okna: ślad z poszukiwaniem tylko w f < 3/L₁, próg z lokalnego tasowania w tym samym zakresie,
+   dobre okno musi mieć środek na wolnym impulsie i ≥ połowę impulsów wolnych; odcinki, grupy, scalanie jak
+   w pierwszym przejściu, potem **przycięcie odcinka do najdłuższego wolnego fragmentu** (żaden impuls nie jest
+   w dwóch przejściach), grupy ≥ 5·P₃. Wygrywa okno z największą liczbą impulsów w grupach (`ladder`).
+
+**Kontrast zawsze względem mediany z pełnego zakresu f ≥ fmin**, także gdy poszukiwanie jest ograniczone
+(`frange`): mediana wąskiego zakresu niskich częstości siedzi na czerwonym kontinuum i chowa cechę
+(J1825 przy L = 228: żadne okno nie przechodziło).
+
 ---
 
 ## 5. Krok 4: fold z kompensacją zmiennego P₃
@@ -218,6 +241,27 @@ Wybór kontroli P3-only: z wpisu 2026-10-01 cd. 2 w dzienniku (P3-only z wyraźn
 J1401, J1603, J1001 obejrzane wcześniej wzrokowo — czysta AM. J1825+0004 (Song+23: P3-only) jest tu
 w grupie „drift”, bo wzrokowo i w LRFS ma klasyczny dryf w impulsach 1–700 (dziennik, cd. 3).
 
+**Drugie przejście** (`~/claude/work/logs/p3track_control_pass2.log`; pierwsze przejście bez zmian):
+
+| etykieta | PSR | sonda P₃′ | drabinka (L: impulsy w grupach) | grupa: P₃ (impulsy) | Δψ [cykle] |
+|---|---|---|---|---|---|
+| drift | J1825+0004 | 21.1 | 84:0, 114:141, **171:259**, 228:0, 342:0 | **36.7 (729–987, 259)** | **0.08** |
+| P3-only | J1146-6030 | 21.1 | 84:422, 88:376, **132:473**, 176:240 | 20.8 (159–425, 267) | 0.02 |
+| | | | | 16.2 (802–1007, 206) | **0.44** (−0.30, −0.13) |
+| drift | J0034-0721 | 18.2 | 52:0, 73:0, 78:0 | — (33 P przy 10.4 < 5·P₃) | — |
+| P3-only | J1401, J1001, J2307 | 60, 5.6, 85 | wszystkie 0 | — | — |
+| | J1603, J0151, J0820, J1750 | — | brak drugiego przejścia (brak cechy / za krótkie wolne fragmenty) | | |
+
+- **J1825+0004**: drugi reżim po zmianie modu odzyskany (P₃ ≈ 37, poziome pasy, Δψ = 0.08) — modulacja
+  amplitudowa obok dryfu w impulsach 1–696. To może tłumaczyć etykietę P3-only u Song+23.
+- **J1146-6030** (P3-only, pierwsze przejście: brak grup): dwie grupy. 159–425: płaska faza (0.02). 802–1007:
+  Δψ = 0.44, ale złożenie ma prawie poziome pasy, modulacja słaba (głębokość 0.068 przy tasowaniu 0.04–0.05),
+  a przy L = 84 te same impulsy (w grupie 773–974) dawały 0.04 — **Δψ niestabilne przy słabej modulacji**,
+  co wzmacnia potrzebę kalibracji (§8.1).
+- **J0034-0721 tryb A** nie odzyskany: impulsy 940–1031 są w większości zajęte przez odcinki pierwszego
+  przejścia (P₃ ≈ 7, przejście między trybami), zostaje 33 P.
+- Brak fałszywych grup w J1401, J1001, J2307.
+
 **Obserwacje.**
 
 - **J0034-0721**: dryf trybu B w 10 seriach między nullami zgrany w jedno złożenie; faza względem stałego P₃
@@ -248,14 +292,16 @@ względem stałego P₃.*
 
 ## 8. Sprawy do rozstrzygnięcia
 
-1. **Kalibracja progu Δψ.** Przerwa 0.01 → 0.23 na 10 obiektach to za mało na próg. Potrzebna skala szumu Δψ:
+1. **Kalibracja progu Δψ.** Przerwa 0.01 → 0.23 na 10 obiektach to za mało na próg, a przy słabej modulacji
+   Δψ zależy od L (J1146-6030 802–1007: 0.44 przy L = 132, 0.04 przy L = 84). Potrzebna skala szumu Δψ:
    tasowanie impulsów grupy przez cały łańcuch (już liczone dla głębokości — dodać Δψ) albo błąd ψ na bin
    z rozrzutu Z. Potem: próg na Δψ/σ_Δψ, nie na Δψ.
 2. **Kategoria „brak stabilnego P₃”** (J1001, J1146, J2307). Czy to osobna klasa wyniku, czy próbować
    dłuższego okna / niższego progu? Ile takich obiektów jest wśród P3-only i wśród dryferów Song+23?
-3. **Długość okna przy wielu trybach.** L = 4·P₃ z `params.json` odcina dłuższe P₃ innych trybów (J0034 tryb A
-   przy L = 26). Odłożony test: L z najdłuższego P₃ widocznego w średnim LRFS (zapamiętane, decyzja użytkownika:
-   na razie params.json).
+3. **Długość okna przy wielu trybach** — częściowo rozwiązane drugim przejściem (§4a): J1825 odzyskany,
+   J0034 tryb A nie (jego impulsy zajmuje pierwsze przejście). Do decyzji: czy pierwsze przejście powinno
+   oddawać impulsy, gdy drugie znajduje tam lepszą (dłuższą, silniejszą) cechę; koszt drabinki (do 6 pełnych
+   przebiegów na pulsar).
 4. **Reverserzy** (J1750-3503). Jeden szablon na grupę miesza kierunki. Możliwa naprawa: podział grupy według
    znaku nachylenia fazy w długości liczonego w oknach ~16–32 P (krótszych od epizodu). Odłożone.
 5. **J1401-6357: tylko 6% impulsów w grupach** przy P₃ ≈ 2.2 (blisko Nyquista, L = 16). Sprawdzić, czy to
@@ -285,6 +331,10 @@ względem stałego P₃.*
 | górna osłona krawędzi | P₃ ≈ 2.1 (f ≈ 0.48) odrzucane w całości | tylko wymóg maksimum wewnętrznego |
 | jedno dopasowanie ψ przez przerwę | J0151: Δψ = 0.06 zamiast 0.86 | nachylenie osobno w każdej składowej |
 | mianownik koherencji Σ\|Z\|·Σ\|T\| | koherencja ≈ 0 | ‖Z‖·‖T‖ |
+| L z params.json dla wszystkich reżimów | drugi reżim J1825 (P₃ ≈ 37) niewidoczny | drugie przejście (§4a) |
+| sonda: najwyższe maksimum | garb czerwonego kontinuum (J1825: 57, J2307: 85) | największa wybitność |
+| kontrast względem mediany zakresu poszukiwań | długie P₃ chowa się w czerwonym kontinuum | mediana z f ≥ fmin |
+| jedno L₂ z sondy / drabinka potęg 2 | J1825: 0 lub 141 P | drabinka L₁·{2,3,4,6,8}: 259 P |
 
 ---
 
@@ -304,7 +354,8 @@ Kroki osobno: `sliding_lrfs` → `p3_track` → `contrast_null` → `good_window
 `p3_groups` → `harmonic_groups` + `fundamental_track` → `merge_sections` → `select_groups` →
 `phase_fold` (+ `constant_fold`) → `template_phase`.
 
-Pola `analyse`: `L, sl, tr` (ślad fundamentalny), `threshold, good, segs, groups, harm, dropped, folds, cfolds`.
+Pola `analyse`: `L, sl, tr` (ślad fundamentalny), `threshold, good, segs, groups, harm, dropped, folds, cfolds`,
+`pass2` (te same pola drugiego przejścia + `p3_probe, probe, free, ladder`, albo `nothing`).
 Pola `phase_fold`: `group, pulses, p3, nb, fold, counts, phase, theta, template, tphase, f, depth, depth_null,
 coherence, sections, on_bins`. Pola `tphase`: `psi, amp, mask, runs, run_slope, run_dpsi, dpsi, span, rms`.
 

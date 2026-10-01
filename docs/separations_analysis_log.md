@@ -1638,3 +1638,18 @@ wykresy `~/claude/work/figures/p3track/J1825+0004_sliding_lrfs_L{96,128,160}_gro
 
 Wniosek: J1825+0004 = mod dryfu (P₃ ≈ 14.5, impulsy 1–700) + mod jasny z wolną AM (P₃ ≈ 35–55). Pojedyncze L dobrane
 do P₃ z params nie widzi drugiego reżimu — potwierdza odłożony problem długości okna przy wielu trybach.
+
+### 2026-10-01 (cd. 10) — P3Track: drugie przejście dla reżimów o długim P₃
+
+Zgoda użytkownika na drugie przejście po impulsach spoza grup (`long_p3_pass`, domyślnie w `analyse`): sonda
+(średnie widmo wolnych fragmentów, maksimum o największej wybitności w 3/Lp ≤ f < 3/L₁), drabinka okien
+min(4·P₃′, wolne) + L₁·{2,3,4,6,8}, poszukiwanie tylko f < 3/L₁, odcinki przycięte do wolnych impulsów; wybór
+okna z największą liczbą impulsów w grupach. Kontrast zawsze względem mediany z f ≥ fmin (w wąskim zakresie
+niskich f mediana siedziała na czerwonym kontinuum i nic nie przechodziło). Log `~/claude/work/logs/p3track_control_pass2.log`,
+wykresy `*_pass2_p3fold_groups.png`, `*_groups_pass2.png`.
+
+- J1825+0004: **P₃ ≈ 36.7, impulsy 729–987, Δψ = 0.08** (L = 171) — drugi reżim (AM) odzyskany.
+- J1146-6030 (P3-only, wcześniej brak grup): 20.8 (159–425, Δψ 0.02) i 16.2 (802–1007, Δψ 0.44 przy L = 132, ale
+  0.04 przy L = 84; złożenie prawie poziome, modulacja słaba) — Δψ niestabilne przy słabej modulacji.
+- J0034-0721 tryb A nie odzyskany (impulsy zajęte w pierwszym przejściu); J1401, J1001, J2307 bez fałszywych grup.
+- Pierwsze przejście bez zmian. Dokument `docs/p3track_method.md` uzupełniony (§4a, §7, §8, §9).
