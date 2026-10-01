@@ -1483,3 +1483,23 @@ zeruje. Kontrast z „najlepszymi” P3-only (wpis wyżej), gdzie modulowane są
 opóźnieniem fazy, jest subtelny wizualnie — rozstrzygnie profil fazy modulacji w funkcji długości.
 
 Wykresy `~/claude/work/figures/p3fold_p3only_worst/`, SNR `~/claude/work/p3fold_p3only_worst_snr.csv`.
+
+### 2026-10-01 (cd. 3) — J1825+0004: dryf widoczny, ale nietrwały (przypadek graniczny)
+
+Użytkownik widzi dryf w złożeniu J1825+0004, który trafił do kontroli „bez ruchu” (z_cv = 0.03).
+**Etykieta Song+23: P3-only** (`p3only_pulsars_P3.txt`: 14.1(9)). Skrypty `~/claude/work/scripts/j1825_{blocks,lrfs}.jl`.
+
+- v4: T = 93σ, **T_inc = 150σ > T**, spójność blokowa −0.21 (4 bloki), z_cv ≈ 0 przy każdym B — sygnatura
+  zmiany kierunku, na którą T_cv jest ślepy.
+- **Jasność skacze ~2× ok. impulsu 715.** Moc map A w blokach po 715 jest ~10× większa, a znak wiodącego wzoru
+  zmienia się co ~65 P (+0.93, −0.99, +0.47, −0.84, −0.17); przed 715 znak słaby, ale stały (+0.05…+0.13).
+- **LRFS impulsy 1–700:** P₃ ≈ 14.9 w wiodącej składowej, faza przy f₃ monotoniczna wzdłuż składowej
+  (−1.2 → +1.9 rad na binach 18–30, P₂ ≈ 24 biny) — **klasyczny dryf**. T_cv na 1–700: z = 3.5–4.0 (B = 8–32),
+  poniżej progu (słaby sygnał, pulsar ciemny).
+- **Impulsy 716–1040:** zmienność zdominowana przez wolne fluktuacje (65–325 P), P₃ ≈ 14 nie dominuje; T_cv ≈ 0.
+- Normalizacja map per blok (równe wagi) nie zmienia wyniku (całość −0.8…+0.4; 1–700: +3.5…+4.0), więc to nie
+  efekt ważenia, tylko rzeczywista niestacjonarność.
+
+**Wniosek.** Dryf jest, ale tylko w części obserwacji i słaby; na całej obserwacji nie jest trwały. Oko ma rację,
+T_cv też (w swoim sensie). Ograniczenie metody: **dryf obecny tylko w odcinku obserwacji jest rozmywany**.
+Kandydat do batcha: T_cv osobno w połowach/odcinkach obserwacji jako diagnostyka niestacjonarności.

@@ -692,6 +692,10 @@ jest struktury poza modelem dryfu), nie jako klasyfikator.
 1. **Reverser o losowych epizodach jest dla T_cv niewidoczny** (§5.3) — przy losowych znakach epizodów
    wygląda na poziomie bloków dokładnie jak brak uporządkowania. `T_adj` go łapie, ale myli z dudnieniem.
    Bez modelu zmienności nieusuwalne; część prawdziwych dryferów może być zaniżona.
+1a. **Dryf obecny tylko w części obserwacji jest rozmywany.** J1825+0004 (Song: P3-only): klasyczny dryf
+   przez pierwsze ~700 impulsów (P₃ ≈ 14.9, gradient fazy wzdłuż składowej), potem skok jasności ~2× i silne
+   wolne fluktuacje ze zmieniającym się znakiem — T_cv dla całości ≈ 0, dla 1–700 z ≈ 4. Normalizacja map
+   per blok nie pomaga. Kandydat: T_cv w odcinkach obserwacji jako diagnostyka niestacjonarności.
 2. **Długie P₃ słabo pokryte** przy B = 32 (lag ≤ L÷4 = 8): 40 dryferów z T ≥ 100σ bez detekcji ma
    medianowo P₃ = 12. Do sprawdzenia: lag_b niezależny od L÷4 albo B dobierane do P₃.
 3. **Istotność T_cv ograniczona liczbą bloków** (z ≤ 22.3 przy B = 32, p ≥ 2^−31) — detekcja, nie miara siły.
