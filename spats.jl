@@ -471,12 +471,18 @@ module SpaTs
       process_psrdata("/home/psr/data/new/J1110-5637/.../", vpmout*"J1110-5637")
       phase_modulation(vpmout*"J1110-5637")
       p3fold_coherent(vpmout*"J1110-5637")
+
+    `datafile` picks the single-pulse file in `outdir` (full-band `_16`
+    directories have "pulsar_full_debase.txt"), `plotdir` / `name_mod` where
+    and under which prefix the figure goes (default: next to the data).
+    A non-integer p3_ybins in params.json is rounded.
     """
-    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, darkness=1.0, show_=true)
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, darkness=1.0, show_=true,
+                             datafile="pulsar.debase.txt", plotdir=outdir, name_mod="pulsar_coherent")
         p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        data = Data.load_ascii(joinpath(outdir, datafile))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
-        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        yb   = isnothing(ybins) ? round(Int, p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
@@ -484,9 +490,9 @@ module SpaTs
         println("Matched-filter SNR: $(round(result.snr, digits=1))")
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
-        Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, outdir;
+        Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, plotdir;
                             bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
-                            name_mod="pulsar_coherent", show_=show_, repeat_num=4,
+                            name_mod=name_mod, show_=show_, repeat_num=4,
                             label="coherent fold", p3_per_pulse_err=result.p3_per_pulse_err,
                             intensity=intensity) # , p3_ylim=(-150, 150))
         return result

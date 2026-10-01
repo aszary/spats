@@ -1411,3 +1411,18 @@ Zgodne jakościowo z Basu et al. (2016) — dryf w pulsarach o Ė ≲ 10³² —
 5.7 kontrole), §4, §7.1, §7.4, §11, §12 (wycofany wniosek 8: „74% P3-only”), §13 zaktualizowane.
 Wykresy w `docs/figures/` (~620 kB): `travel_null_calibration.png`, `travel_ftrav_validation.png`
 (skrypt `~/claude/work/scripts/travel_doc_figures.py`), `ppdot_travel_{ftrav,rho}.png`, `travel_vs_edot.png`.
+
+### 2026-10-01 — p3fold_coherent dla 10 pulsarów z najbardziej widocznym dryfem
+
+**Kryteria wyboru** (ustalone przed wyborem; `~/claude/work/logs/p3fold_selection.log`): z_cv ≥ 5,
+0.8 ≤ |ρ| ≤ 1.2, P₂fit/M ≤ 0.5, P₃ ≥ 2.5, N/P₃ ≥ 30; ranking wg **V = f_trav × k_snr** (moc trwałego dryfu
+w pojedynczym impulsie względem szumu). Kryteria spełnia 88 pulsarów.
+
+**Top 10** (V; matched-filter SNR z `p3fold_coherent`): J2139+2242 (37.9; 107), J0820-1350 (23.0; 90),
+J1428-5530 (15.3; 35), J1932+1059 (14.7; 23), J1059-5742 (12.5; 23), J1041-1942 (8.6; 11), J0255-5304 (8.4; 33),
+J1703-1846 (6.9; 21), J0934-5249 (5.6; 33), J0034-0721 (3.6; 20).
+
+**Kod.** `SpaTs.p3fold_coherent` dostał kwargi `datafile` (dla `_16`: `pulsar_full_debase.txt`), `plotdir`,
+`name_mod`; `p3_ybins` zaokrąglane (J1720-0212 ma 5.8 w params.json). Domyślne zachowanie bez zmian.
+Skrypt `~/claude/work/scripts/p3fold_top10.jl`; wykresy `~/claude/work/figures/p3fold/<PSR>_coherent_p3fold_compare.{png,pdf}`,
+SNR w `~/claude/work/p3fold_top10_snr.csv`.
