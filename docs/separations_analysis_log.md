@@ -1701,3 +1701,23 @@ fragmenty ≥ 5 binów i ≥ 5% mocy, maska 0.15 (0.2 odcinało ogon J1825). Wyn
 **J1825+0004 mod dryfu → inconclusive** (−0.10 ± 0.04, z = 2.5: faza płaska w głównej części składowej, zmienia się
 tylko w słabym ogonie); J1825 mod 2, J1603 g3, J1146 obie → inconclusive (za mało bloków / za mały Δψ).
 Dokument metody: §6.1, §7, §8.1, §9, §10.
+
+### 2026-10-01 (cd. 15) — J1825+0004: dlaczego mod dryfu wychodzi „inconclusive”
+
+Skrypt `~/claude/work/scripts/j1825_inspect.jl`, log `~/claude/work/logs/j1825_inspect.log`,
+wykres `~/claude/work/figures/p3track/J1825+0004_inspect.png`. (Uwaga techniczna: `using PyPlot` przed
+`include("modules/data.jl")` wywala ładowanie Glib_jll — systemowa libmount bez MOUNT_2_40; PyPlot ładować po include.)
+
+Szablon grupy (681 P, P₃ = 14.67), faza ψ = −arg T z σ z bootstrapu:
+- **172.3–175.1° (szczyt składowej, |T| 0.23–1.0): ψ płaskie, −108° … −85° … −121°, σ 1–4°** — modulacja w fazie (AM).
+- **175.1–177.5° (opadające zbocze, |T| 0.46 → 0.11): ψ spada o ~250° (≈ 0.7 cyklu)**: −121 → −173 (bin 25, |T| = 0.18,
+  lokalne minimum) → +93 (= −267) → 72 → 46 → 18 → 17 → 7 (= −353); σ 6–13°.
+- Kształt **ten sam we wszystkich czterech ćwiartkach czasu** (1–170, 171–355, 356–526, 527–696) — trwały, nie szum.
+- Fold − profil: główna łata 172–176° pozioma, łata na zboczu 176–178° opóźniona o ~0.3–0.4 cyklu → wrażenie
+  nachylonego pasma w złożeniu.
+- Klasyczny LRFS (jeden bin FFT, 1–700): faza zaszumiona, P₃ wędruje, mało informatywny.
+
+Dlaczego Δψ = −0.10 ± 0.04: gradient z Σ T*_j T_{j+1} jest ważony amplitudą w całym fragmencie 17:30, a płaska,
+jasna część dominuje wagę; stromy spadek fazy na słabszym zboczu się rozcieńcza. Miara zakłada gradient jednorodny
+w składowej. Pytanie definicyjne do użytkownika: czy opóźnienie fazy na zboczu (skok przy minimum |T| + łagodny spadek
+w ogonie) to dryf, czy AM z opóźnioną częścią zbocza (degeneracja „dryf” vs „kontinuum składowych opóźnionych w czasie”).
