@@ -190,7 +190,7 @@ zachowane są też Δψ poszczególnych składowych ze znakiem.
 
 **Znak.** Emisja w φ ma maksimum, gdy θ(n) = ψ(φ); θ rośnie w czasie, więc dψ/dφ > 0 ⇔ późniejsze długości
 świecą później ⇔ **dryf dodatni** (konwencja Szary+2022). Zgodne z J0034-0721 (B0031−07, dryf ujemny:
-Δψ = −1.53) i J1750-3503 (dominuje dryf dodatni: +1.73 w największym fragmencie profilu). Do potwierdzenia na większej próbce.
+Δψ = −1.53) i J1750-3503 (dominuje dryf dodatni: +1.73 w jednym fragmencie profilu, pozostałe ≈ 0). Do potwierdzenia na większej próbce.
 
 ---
 
