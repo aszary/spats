@@ -474,11 +474,13 @@ module SpaTs
 
     `datafile` picks the single-pulse file in `outdir` (full-band `_16`
     directories have "pulsar_full_debase.txt"), `plotdir` / `name_mod` where
-    and under which prefix the figure goes (default: next to the data).
+    and under which prefix the figure goes (default: next to the data),
+    `figtitle` an optional title above the panels (e.g. the pulsar name).
     A non-integer p3_ybins in params.json is rounded.
     """
     function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, darkness=1.0, show_=true,
-                             datafile="pulsar.debase.txt", plotdir=outdir, name_mod="pulsar_coherent")
+                             datafile="pulsar.debase.txt", plotdir=outdir, name_mod="pulsar_coherent",
+                             figtitle=nothing)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, datafile))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -494,7 +496,7 @@ module SpaTs
                             bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
                             name_mod=name_mod, show_=show_, repeat_num=4,
                             label="coherent fold", p3_per_pulse_err=result.p3_per_pulse_err,
-                            intensity=intensity) # , p3_ylim=(-150, 150))
+                            intensity=intensity, figtitle=figtitle) # , p3_ylim=(-150, 150))
         return result
     end
 

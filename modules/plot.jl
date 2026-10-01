@@ -356,7 +356,8 @@ module Plot
     function p3fold_compare(folded_viterbi, folded_const, p3_per_pulse, p3_nominal, outdir;
                              bin_st=nothing, bin_end=nothing, cmap="viridis", darkness=1.0,
                              repeat_num=4, name_mod="0", show_=false, label="Viterbi refine",
-                             p3_per_pulse_err=nothing, intensity=nothing, p3_ylim=nothing)
+                             p3_per_pulse_err=nothing, intensity=nothing, p3_ylim=nothing,
+                             figtitle=nothing)
 
         _, bins = size(folded_viterbi)
         if bin_st == nothing bin_st = 1 end
@@ -390,7 +391,10 @@ module Plot
         fig_height = intensity === nothing ? 6.29921 : 7.3
         figure(figsize=(6.29921, fig_height))
 
-        subplots_adjust(left=0.1, bottom=0.07, right=0.99, top=0.96, wspace=0.15, hspace=0.35)
+        # optional figure title (e.g. the pulsar name) above both fold panels
+        subplots_adjust(left=0.1, bottom=0.07, right=0.99, top=(figtitle === nothing ? 0.96 : 0.93),
+                        wspace=0.15, hspace=0.35)
+        figtitle === nothing || suptitle(figtitle, fontsize=11, y=0.985)
 
         subplot2grid((nrows, 2), (0, 0), rowspan=img_rowspan)
         imshow(dv, origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(dv))
