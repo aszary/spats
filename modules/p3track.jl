@@ -31,11 +31,13 @@ using LsqFit
 using Random
 using Printf
 using PyPlot
+using Distributions
 
 export sliding_lrfs, p3_track, contrast_null, good_windows, window_length, p3_segments,
        p3_groups, merge_sections, harmonic_groups, fundamental_track, select_groups,
        phase_fold, constant_fold, analyse, long_p3_pass, plot_track, plot_folds,
-       plot_summary, harmonic_test, harmonic_power
+       plot_summary, harmonic_test, harmonic_power,
+       template_significance
 
 "periodic Hann taper without zero end points (no pulse fully discarded at L = 16)"
 hann_taper(L::Int) = sin.(π .* ((0:L-1) .+ 0.5) ./ L) .^ 2
@@ -726,7 +728,7 @@ end
 
 
 """
-    template_phase(T; frac=0.2, minrun=3) -> NamedTuple
+    template_phase(T; frac=0.15, minrun=5, minpower=0.05) -> NamedTuple
 
 Longitude dependence of the modulation phase, ψ(φ) = −arg T(φ), from a group
 template (`align_phases`). This is what separates drift from amplitude
@@ -734,52 +736,56 @@ modulation in a fold: a drifting pattern has ψ changing steadily across the
 emission (≈ W/P2 cycles), pure amplitude modulation has ψ flat within a
 component (jumps of 1/2 cycle between components modulated in antiphase).
 
-Bins with |T| ≥ frac·max|T| form contiguous runs (components); ψ is
-unwrapped within each run and a |T|²-weighted linear slope fitted per run
-(runs shorter than `minrun` bins ignored). Runs are treated separately
-because the phase offset between separated components is defined only
-modulo a cycle — one fit across the gap reads J0151-0635 (≈ −0.55 and
-−0.2 cycles across its two components) as 0.06.
+Bins with |T| ≥ frac·max|T| form contiguous runs (components). A run counts
+only with ≥ `minrun` bins and ≥ `minpower` of the template power Σ|T|²
+(frac = 0.2 with minpower = 0.1 cut off the weak trailing part of
+J1825+0004's component — ~5% of the power, where ψ changes by ~¼ cycle — and
+returned a confident "AM" from the flat main part alone; at 0.15/0.05 the
+synthetic false-drift rate stays 0/80):
+short low-amplitude runs are the overlap of components in antiphase (ψ steps
+by ½ cycle where |T| cancels — a step, not a drift) or noise at the profile
+edges, and with noise they read as strong gradients (synthetic antiphase AM
+at high noise: a 4-bin run at |T| ≈ 0.3 gave Δψ = 0.62 ± 0.14).
 
-Fields: psi (radians, NaN outside the mask), amp (|T|/max), mask,
-runs (bin ranges), run_slope (cycles/bin), run_dpsi (slope × run length
-[cycles], signed), dpsi = Σ |run_dpsi| (total drift-like phase change across
-the emission, independent of the drift sense in each component — bi-drifting
-counts), span = Σ run_dpsi (signed), rms = |T|²-weighted RMS of ψ about the
-per-run means [cycles].
+Gradient per run from the amplitude-weighted phase increments,
+
+    G_run = Σ_{j, j+1 ∈ run} conj(T_j)·T_{j+1},   slope = −arg(G_run)/2π  [cycles/bin],
+
+no unwrapping (an unwrapped ψ random-walks through noisy bins), and a
+½-cycle step where |T| is small weighs little. Δψ_run = slope × run length.
+Runs are separate because the phase between separated components is defined
+only mod 1 cycle, and drift may have opposite senses in them (bi-drifting).
+
+Fields: psi (radians, unwrapped within mask runs, for plotting; NaN outside),
+amp (|T|/max), mask, runs (counted runs), run_slope, run_dpsi (signed),
+dpsi = Σ|run_dpsi|, span = Σ run_dpsi, rms (|T|²-weighted RMS of ψ about the
+run means [cycles]).
 """
-function template_phase(T; frac::Real=0.2, minrun::Int=3)
+function template_phase(T; frac::Real=0.15, minrun::Int=5, minpower::Real=0.05)
     amp = abs.(T) ./ maximum(abs.(T))
     mask = amp .>= frac
     psi = fill(NaN, length(T))
     raw = -angle.(T)
+    ptot = sum(abs2, T)
     runs = UnitRange{Int}[]
-    i = 1
-    while i ≤ length(T)
-        if mask[i]
-            j = i
-            while j < length(T) && mask[j+1]
-                j += 1
-            end
-            psi[i:j] .= 2π .* unwrap_cycles(raw[i:j] ./ (2π))
-            j - i + 1 ≥ minrun && push!(runs, i:j)
-            i = j + 1
-        else
-            i += 1
-        end
+    for r in true_runs(mask)
+        psi[r] .= 2π .* unwrap_cycles(raw[r] ./ (2π))
+        length(r) ≥ minrun && sum(abs2, T[r]) ≥ minpower * ptot && push!(runs, r)
     end
-    run_slope = Float64[]; run_dpsi = Float64[]
+    run_slope = [run_gradient(T, r) for r in runs]
+    run_dpsi = run_slope .* length.(runs)
     ss = 0.0; sw = 0.0
     for r in runs
-        x = collect(r); w = amp[r] .^ 2; y = psi[r] ./ (2π)
-        xm = sum(w .* x) / sum(w); ym = sum(w .* y) / sum(w)
-        sl = sum(w .* (x .- xm) .* (y .- ym)) / sum(w .* (x .- xm) .^ 2)
-        push!(run_slope, sl); push!(run_dpsi, sl * length(r))
+        w = amp[r] .^ 2; y = psi[r] ./ (2π)
+        ym = sum(w .* y) / sum(w)
         ss += sum(w .* (y .- ym) .^ 2); sw += sum(w)
     end
     return (psi=psi, amp=amp, mask=mask, runs=runs, run_slope=run_slope, run_dpsi=run_dpsi,
             dpsi=sum(abs.(run_dpsi)), span=sum(run_dpsi), rms=sw > 0 ? sqrt(ss / sw) : NaN)
 end
+
+"amplitude-weighted phase gradient of ψ = −arg T over `r` [cycles/bin]"
+run_gradient(T, r) = -angle(sum(conj(T[j]) * T[j+1] for j in r.start:r.stop-1)) / (2π)
 
 
 "number of P3-phase bins: as `Functions.find_ybins` (2·P3, ≥ min_ppb pulses per bin, ≥ 4)"
@@ -848,7 +854,8 @@ longitude dependence of the modulation phase — the drift vs amplitude
 modulation diagnostic), sections, on_bins.
 """
 function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=nothing,
-                    niter::Int=10, nshuffle::Int=5, seed::Int=1, stat=modulation_depth)
+                    niter::Int=10, nshuffle::Int=5, seed::Int=1, stat=modulation_depth,
+                    tp_kw=NamedTuple())
     on = sl.on_bins
     L = tr.window
     sel = findall(==(g), groups)
@@ -886,9 +893,88 @@ function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=no
         depth_null[k] = stat(Fs, cs)
     end
 
+    tp = template_phase(T; tp_kw...)
     return (group=g, pulses=pulses, p3=p3g, nb=nb, fold=F, counts=cnt, phase=phase, theta=θ,
-            template=T, tphase=template_phase(T), f=f, depth=depth, depth_null=depth_null,
-            coherence=coherence, on_bins=on, sections=sel)
+            template=T, tphase=tp, tsig=template_significance(Z, θ, T, tp, L; seed=seed),
+            f=f, depth=depth, depth_null=depth_null, coherence=coherence, on_bins=on,
+            sections=sel)
+end
+
+
+"""
+    template_significance(Z, θ, T, tp, L; nboot=300, block=nothing, seed=1,
+                          dpsi_min=0.1, zdet=5.0, minblocks=5) -> NamedTuple
+
+Uncertainty and significance of the template phase gradient (`template_phase`
+output `tp`) from a moving-block bootstrap over the group's pulses.
+
+Why not the pulse-order shuffle used for the fold depth: it destroys the
+modulation, the shuffled template is noise with random phase, and its Δψ
+answers "is there modulation", not "is the modulation phase flat".
+
+Bootstrap: blocks of `block` consecutive pulses of the group (default L÷2 —
+the demodulation windows of pulses closer than ~L/2 share most of their
+pulses, so single pulses are not independent) are drawn with replacement up
+to the group size; T* = mean Z·e^{−iθ} over the drawn pulses (θ kept from
+the full alignment) and the run gradients (`run_gradient`) are recomputed in
+the *same* runs (components) as `tp`. σ of every run's Δψ is the bootstrap
+standard deviation.
+
+Under amplitude modulation every run's Δψ has expectation 0, so
+
+    χ² = Σ_runs (Δψ_run / σ_run)²  ~  χ²(n_runs),
+
+giving p and its one-sided normal equivalent z. A very bright AM pulsar can
+show a tiny but formally significant gradient (profile asymmetry, slightly
+offset components), so the verdict also needs a size:
+
+  :drift        z ≥ `zdet` and Δψ ≥ `dpsi_min`
+  :am           Σ (|Δψ_run| + 2σ_run) < `dpsi_min`  (upper limit below the size)
+  :inconclusive otherwise, or fewer than `minblocks` independent blocks
+                (npulse / block) — too little data for a bootstrap
+
+`dpsi_min` = 0.1 cycle is a working value, not calibrated physics.
+Fields: verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block.
+"""
+function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothing, seed::Int=1,
+                               dpsi_min::Real=0.1, zdet::Real=5.0, minblocks::Real=5)
+    n = size(Z, 1)
+    bl = block === nothing ? max(1, L ÷ 2) : block
+    nblocks = n / bl
+    runs = tp.runs
+    nr = length(runs)
+    if nr == 0
+        return (verdict=:inconclusive, z=NaN, p=NaN, chi2=NaN, nruns=0, sigma_run=Float64[],
+                z_run=Float64[], dpsi_upper=NaN, nblocks=nblocks, block=bl)
+    end
+    Zr = Z .* cis.(-θ)
+    rng = Random.MersenneTwister(seed)
+    starts = 1:max(1, n - bl + 1)
+    boot = zeros(nboot, nr)
+    idx = Int[]
+    for b in 1:nboot
+        empty!(idx)
+        while length(idx) < n
+            s0 = rand(rng, starts)
+            append!(idx, s0:min(n, s0 + bl - 1))
+        end
+        resize!(idx, n)
+        Tb = vec(mean(Zr[idx, :], dims=1))
+        for (j, r) in enumerate(runs)
+            boot[b, j] = run_gradient(Tb, r) * length(r)
+        end
+    end
+    σ = vec(std(boot, dims=1))
+    zr = tp.run_dpsi ./ σ
+    chi2 = sum(abs2, zr)
+    p = ccdf(Chisq(nr), chi2)
+    z = cquantile(Normal(), max(p, 1e-300))   # ≤ ~37; 1 − p would round to 1 below 1e-16
+    upper = sum(abs.(tp.run_dpsi) .+ 2 .* σ)
+    verdict = nblocks < minblocks ? :inconclusive :
+              (z ≥ zdet && tp.dpsi ≥ dpsi_min) ? :drift :
+              upper < dpsi_min ? :am : :inconclusive
+    return (verdict=verdict, z=z, p=p, chi2=chi2, nruns=nr, sigma_run=σ, z_run=zr,
+            dpsi_upper=upper, nblocks=nblocks, block=bl)
 end
 
 
@@ -929,7 +1015,7 @@ fields for the second pass plus p3_probe, probe (see `long_p3_pass`), or
 nothing when there was no second pass.
 """
 function analyse(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real; window=nothing,
-                 ncycles::Real=5, nshuffle::Int=5, second_pass::Bool=true)
+                 ncycles::Real=5, nshuffle::Int=5, second_pass::Bool=true, tp_kw=NamedTuple())
     N = size(data, 1)
     L = window === nothing ? window_length(p3) : window
     sl = sliding_lrfs(data, bin_st, bin_end; window=L)
@@ -945,11 +1031,11 @@ function analyse(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real; wind
     segs, groups = segs[keep0], groups[keep0]
     segs, groups = merge_sections(trf, segs, groups, N)
     segs, groups, dropped = select_groups(segs, groups; ncycles=ncycles)
-    folds = [phase_fold(data, sl, trf, segs, groups, g; nshuffle=nshuffle)
+    folds = [phase_fold(data, sl, trf, segs, groups, g; nshuffle=nshuffle, tp_kw=tp_kw)
              for g in sort(unique(groups))]
     cfolds = [constant_fold(data, sl.on_bins, fo.pulses, fo.p3, fo.nb) for fo in folds]
     pass2 = second_pass ? long_p3_pass(data, bin_st, bin_end, L, segs;
-                                       ncycles=ncycles, nshuffle=nshuffle) : nothing
+                                       ncycles=ncycles, nshuffle=nshuffle, tp_kw=tp_kw) : nothing
     return (L=L, sl=sl, tr=trf, threshold=thr, good=good, segs=segs, groups=groups,
             harm=harm, harm_tests=htests, dropped=dropped, folds=folds, cfolds=cfolds, pass2=pass2)
 end
@@ -1040,7 +1126,8 @@ groups, dropped, folds, cfolds) plus p3_probe, probe (Lp, freq, spectrum,
 nwin, prominence), free (BitVector after the first pass), ladder.
 """
 function long_p3_pass(data::AbstractMatrix, bin_st::Int, bin_end::Int, L1::Int, segs1;
-                      ncycles::Real=5, nshuffle::Int=5, lprobe_max::Int=256, min_free=nothing)
+                      ncycles::Real=5, nshuffle::Int=5, lprobe_max::Int=256, min_free=nothing,
+                      tp_kw=NamedTuple())
     N = size(data, 1)
     free = free_pulses(segs1, N)
     runs = true_runs(free)
@@ -1090,7 +1177,7 @@ function long_p3_pass(data::AbstractMatrix, bin_st::Int, bin_end::Int, L1::Int, 
     tried = Tuple{Int,Int}[]
     for L2 in ladder
         r = _long_pass_at(data, bin_st, bin_end, L2, L1, free, N; ncycles=ncycles,
-                          nshuffle=nshuffle)
+                          nshuffle=nshuffle, tp_kw=tp_kw)
         npl = isempty(r.segs) ? 0 : sum(s.npulse for s in r.segs)
         push!(tried, (L2, npl))
         if best === nothing || npl > best[2]
@@ -1101,7 +1188,8 @@ function long_p3_pass(data::AbstractMatrix, bin_st::Int, bin_end::Int, L1::Int, 
     return merge(r, (p3_probe=p3p, probe=probe, free=free, ladder=tried))
 end
 
-function _long_pass_at(data, bin_st, bin_end, L2, L1, free, N; ncycles=5, nshuffle=5)
+function _long_pass_at(data, bin_st, bin_end, L2, L1, free, N; ncycles=5, nshuffle=5,
+                       tp_kw=NamedTuple())
     fhi = 3 / L1
     fr = (2 / L2, fhi)
     sl = sliding_lrfs(data, bin_st, bin_end; window=L2)
@@ -1129,7 +1217,7 @@ function _long_pass_at(data, bin_st, bin_end, L2, L1, free, N; ncycles=5, nshuff
     folds = NamedTuple[]; cfolds = NamedTuple[]
     if !isempty(segs)
         segs, groups, dropped = select_groups(segs, groups; ncycles=ncycles)
-        folds = [phase_fold(data, sl, tr, segs, groups, g; nshuffle=nshuffle)
+        folds = [phase_fold(data, sl, tr, segs, groups, g; nshuffle=nshuffle, tp_kw=tp_kw)
                  for g in sort(unique(groups))]
         cfolds = [constant_fold(data, sl.on_bins, fo.pulses, fo.p3, fo.nb) for fo in folds]
     end
@@ -1328,8 +1416,10 @@ function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, sh
         ax2 = ax.twinx()
         ax2.plot(lon, rad2deg.(tp.psi), ".", ms=2, c=col)
         ax2.set_ylabel("ψ = −arg T (\$^\\circ\$)")
-        title(@sprintf("template phase: Δψ %.2f cyc (%s)", tp.dpsi,
-                       join([@sprintf("%+.2f", d) for d in tp.run_dpsi], ", ")), fontsize=6)
+        ts = fo.tsig
+        title(@sprintf("Δψ %.2f cyc (%s)\nz = %.1f, upper %.2f → %s", tp.dpsi,
+                       join([@sprintf("%+.2f±%.2f", d, e) for (d, e) in zip(tp.run_dpsi, ts.sigma_run)], ", "),
+                       ts.z, ts.dpsi_upper, ts.verdict), fontsize=6)
         ax = subplot(4, ng, 3 * ng + k)
         for i in fo.sections
             s = res.segs[i]
@@ -1407,8 +1497,9 @@ function plot_summary(data, res, outdir; nbin=size(data, 2), name_mod="pulsar", 
                          c=col)
                 append!(p3s, r.tr.p3[w])
             end
-            push!(labels, @sprintf("pass %d (L = %d): P\$_3\$ ≈ %.1f, %d P, Δψ = %.2f", ip, r.L,
-                                   fo.p3, length(fo.pulses), fo.tphase.dpsi))
+            push!(labels, @sprintf("pass %d (L = %d): P\$_3\$ ≈ %.1f, %d P, Δψ = %.2f, z = %.1f → %s",
+                                   ip, r.L, fo.p3, length(fo.pulses), fo.tphase.dpsi, fo.tsig.z,
+                                   fo.tsig.verdict))
             ax2.text(0.99, 0.95 - 0.08 * (ci - 1), labels[end], transform=ax2.transAxes,
                      ha="right", va="top", fontsize=6, color=col)
         end

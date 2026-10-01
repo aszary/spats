@@ -1688,3 +1688,16 @@ Próg 10 cykli z dwóch syntetyków — do weryfikacji. Dokument metody uzupełn
 kandydat 2:1 → inconclusive, grupa 1037 P). Dryfery Δψ 0.23–2.03 (+ mod AM J1825 po ~715: 0.08); P3-only Δψ
 0.00–0.02, wyjątek J1146-6030 802–1007: 0.44 przy słabej modulacji (niestabilne względem L); J1001, J2307 bez grup,
 J1401 tylko 6% impulsów.
+
+### 2026-10-01 (cd. 14) — kalibracja Δψ (`template_significance`)
+
+Bootstrap blokowy (bloki L/2) po impulsach grupy → σ Δψ każdego fragmentu, χ² → z; werdykt drift (z ≥ 5 i Δψ ≥ 0.1),
+am (Σ(|Δψ|+2σ) < 0.1), inconclusive (reszta lub < 5 bloków). Kalibracja na syntetykach (`p3track_dpsi_calib.jl`,
+logi `p3track_dpsi_calib*.log`) wymusiła zmianę miary: pierwsza wersja dawała 13/20 fałszywych dryfów w AM
+z przeciwfazą (krótkie fragmenty w strefie znoszenia, szum na krawędziach) → gradient z Σ T*_j T_{j+1} bez rozwijania,
+fragmenty ≥ 5 binów i ≥ 5% mocy, maska 0.15 (0.2 odcinało ogon J1825). Wynik: 0/80 fałszywych dryfów, dryf 10/10.
+
+10 pulsarów (`p3track_control_dpsi.log`): J0034, J0151, J0820 (z = 37), J1750 (15.4) → drift; J1603 g1/g2, J1401 → am;
+**J1825+0004 mod dryfu → inconclusive** (−0.10 ± 0.04, z = 2.5: faza płaska w głównej części składowej, zmienia się
+tylko w słabym ogonie); J1825 mod 2, J1603 g3, J1146 obie → inconclusive (za mało bloków / za mały Δψ).
+Dokument metody: §6.1, §7, §8.1, §9, §10.
