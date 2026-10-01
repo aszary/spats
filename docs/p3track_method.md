@@ -230,9 +230,19 @@ szablon T* = ⟨Z·e^{−iθ}⟩ z wylosowanych impulsów (θ z pełnego dopasow
 σ fragmentu = odchylenie bootstrapu. χ² = Σ (Δψ_frag/σ_frag)² ~ χ²(n_frag) → p → równoważne z.
 
 **Werdykt:** `drift` gdy z ≥ 5 **i** Δψ ≥ 0.1 cyklu (bardzo jasny AM może mieć malutki, formalnie istotny
-gradient); `am` gdy Σ(|Δψ_frag| + 2σ_frag) < 0.1 (górna granica poniżej progu wielkości); `inconclusive`
-w pozostałych przypadkach oraz gdy grupa ma < 5 niezależnych bloków (npulse/(L/2)). Próg 0.1 cyklu — wartość
-robocza.
+gradient); **`partial`** (dryf częściowy, decyzja 2026-10-01) gdy nie `drift`, ale w jakimś oknie 5 binów wewnątrz
+maski emisji lokalna zmiana fazy |Δψ_okna| ≥ 0.1 przy z_okna ≥ 5 (ten sam bootstrap), rozłożona na biny — żaden
+przyrost bin→bin nie niesie > 50% zmiany netto, w oknie nie ma głębokiego minimum |T| (bin < 0.5 × niższe
+z maksimów po obu stronach, `deep_dip`), a każdy bin ma błąd fazy ≤ 20° (kołowe σ z bootstrapu); `am` gdy
+Σ(|Δψ_frag| + 2σ_frag) < 0.1 (górna granica poniżej progu wielkości); `inconclusive` w pozostałych przypadkach
+oraz gdy grupa ma < 5 niezależnych bloków (npulse/(L/2)). Próg 0.1 cyklu — wartość robocza.
+
+`partial` opisuje układ J1825+0004: faza płaska na jasnym szczycie składowej, zmienia się o ~0.7 cyklu w dół
+opadającego zbocza, tak samo w czterech ćwiartkach czasu. Dryf w sensie „wzór przesuwa się przez dominującą część
+emisji” to nie jest (definicja b), czysta AM też nie. Trzy warunki przeciw fałszywym detekcjom wyszły z kalibracji:
+udział przyrostu (skok o ½ cyklu między składowymi w przeciwfazie), głębokie minimum (szum rozmywa ten skok na
+kilka binów: 2/20 fałszywych `partial`), błąd fazy na bin (biny szumu na krawędziach skaczą o 60–100°/bin:
+nadal 2/20). Po wszystkich trzech: 0/80 fałszywych `partial` w AM.
 
 **Kalibracja na syntetykach** (`~/claude/work/scripts/p3track_dpsi_calib.jl`; 600 P, P₃ = 8, dwie nakładające
 się składowe, wahania energii, losowe podpulsy; 20 ziaren × szum 0.6 / 1.5 dla AM, 5 dla dryfu):
@@ -242,6 +252,11 @@ się składowe, wahania energii, losowe podpulsy; 20 ziaren × szum 0.6 / 1.5 dl
 | AM wspólna faza, szum 0.6 / 1.5 | 0 / 0 | 20 / 0 (reszta inconclusive) | 2.5 / 2.5 | 2 / 1 i 1 / 1 z 20 |
 | AM składowe w przeciwfazie, 0.6 / 1.5 | 0 / 0 | 12 / 0 | 3.6 / 2.6 | 2 / 2 i 2 / 2 z 20 |
 | dryf, 0.6 / 1.5 | — | — | z ≈ 36–37 | `drift` 10/10 |
+
+Z kategorią `partial` (`p3track_dpsi_calib_partial.log`): AM 0/80 `partial`; syntetyk z drugą, równie jasną
+składową dryfującą → `drift` 9/10 (dryf jednej składowej to dryfer); syntetyk „zbocze” (jasna AM + słaby
+nakładający się ogon dryfujący) → `drift` 10/10 przy szumie 0.6 — jego gradient łapie już miara globalna, więc nie
+odtwarza J1825, gdzie globalnie Δψ = −0.10 ± 0.04.
 
 Bootstrap jest lekko liberalny (p < 0.01 w ~5% przypadków AM zamiast 1%), dlatego próg z ≥ 5. Przy szumie
 1.5 AM nie da się *potwierdzić* (upper > 0.1) — werdykt `inconclusive`, nie fałszywy dryf.
@@ -291,7 +306,7 @@ w grupie „drift”, bo wzrokowo i w LRFS ma klasyczny dryf w impulsach 1–700
 | drift | J0151-0635 | 1 (58) | 14.27 (1037) | 0.97 (−0.77 ± 0.01, −0.20 ± 0.01) | 37 | **drift** |
 | drift | J0820-1350 | 1 (19) | 4.77 (1034) | 1.53 (−1.53 ± 0.02) | 37 | **drift** |
 | drift | J1750-3503 | 1 (196) | 44.9 (897) | 1.76 (+1.76 ± 0.11) | 15.4 | **drift** |
-| drift | J1825+0004 | 1 (57) | 14.67 (681) | 0.10 (−0.10 ± 0.04) | 2.5 | inconclusive |
+| drift | J1825+0004 | 1 (57) | 14.67 (681) | 0.10 (−0.10 ± 0.04); lokalnie zbocze 175.8–177.2°: −0.29, z = 7.9 | 2.5 | **partial** |
 | | | 2 (171) | 36.7 (259) | 0.11 (+0.11 ± 0.05) | 1.9 | inconclusive (3 bloki) |
 | P3-only | J1603-2531 | 1 (194) | 34.1 (1003) | 0.01 (−0.01 ± 0.03) | −0.8 | **am** |
 | | | | 51.7 (832) | 0.01 (−0.01 ± 0.02) | 0.0 | **am** |
@@ -358,7 +373,9 @@ względem stałego P₃.*
 1. **Kalibracja Δψ — zrobiona (§6.1)**, zostaje: próg wielkości 0.1 cyklu jest roboczy; bootstrap lekko
    liberalny; grupy z < 5 blokami (krótkie względem L) zawsze `inconclusive` — dotyczy m.in. drugiego przejścia
    (długie L). **J1825+0004 mod dryfu wychodzi `inconclusive`**: główna część składowej ma płaską fazę, zmiana
-   fazy jest tylko w słabym ogonie (−0.10 ± 0.04) — sprzeczne z oceną wzrokową, do obejrzenia. Potrzebna skala szumu Δψ:
+   fazy jest tylko na zboczu → kategoria `partial` (decyzja: definicja b z dryfem częściowym). Werdykt odporny na
+   okno 4–5 binów i udział ≤ 0.4–0.5, znika przy udziale 0.3. Parametry `partial` (5 binów, 0.5, 0.5, 20°) zależą
+   od nbin = 1024 — do przeliczenia na stopnie przed batchem. Potrzebna skala szumu Δψ:
    tasowanie impulsów grupy przez cały łańcuch (już liczone dla głębokości — dodać Δψ) albo błąd ψ na bin
    z rozrzutu Z. Potem: próg na Δψ/σ_Δψ, nie na Δψ.
 2. **Kategoria „brak stabilnego P₃”** (J1001, J1146, J2307). Czy to osobna klasa wyniku, czy próbować
@@ -407,6 +424,8 @@ względem stałego P₃.*
 | Δψ bez błędu | próg tylko empiryczny, J1146 0.44 vs 0.04 zależnie od L | bootstrap blokowy, χ², werdykt (§6.1) |
 | nachylenie z rozwiniętej fazy, fragmenty ≥ 3 biny | 13/20 fałszywych dryfów w AM z przeciwfazą | gradient z Σ T*_j T_{j+1}, ≥ 5 binów, ≥ 5% mocy |
 | maska 0.2, ≥ 10% mocy | J1825: pewne `am` z pominięciem ogona z gradientem | maska 0.15 |
+| gradient tylko globalny (ważony amplitudą) | zmiana fazy na zboczu rozcieńczona (J1825) | kategoria `partial` |
+| `partial` bez warunku minimum i błędu fazy | 2/20 fałszywych w AM z przeciwfazą przy szumie | `deep_dip`, σψ ≤ 20° |
 
 ---
 
@@ -430,7 +449,7 @@ Pola `analyse`: `L, sl, tr` (ślad fundamentalny), `threshold, good, segs, group
 `pass2` (te same pola drugiego przejścia + `p3_probe, probe, free, ladder`, albo `nothing`).
 Pola `phase_fold`: `group, pulses, p3, nb, fold, counts, phase, theta, template, tphase, tsig, f, depth,
 depth_null, coherence, sections, on_bins`. Pola `tphase`: `psi, amp, mask, runs, run_slope, run_dpsi, dpsi, span,
-rms`. Pola `tsig`: `verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block`.
+rms`. Pola `tsig`: `verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block, partial, sigma_psi`.
 
 Skrypty (`~/claude/work/scripts/`): `p3track_test.jl` (L = 16…256, krok 1–2), `p3track_segments.jl` (odcinki,
 grupy), `p3track_fold.jl` (fold 5 dryferów), `p3track_control.jl` (dryfery + P3-only, tabela §7).
@@ -443,6 +462,6 @@ Logi: `~/claude/work/logs/p3track_*.log`. Wykresy: `~/claude/work/figures/p3trac
    na skali 4·P₃ — **brak werdyktu**, nie „AM”.
 2. **Fold** (`plot_folds`, wiersz 1 vs 2): kompensacja powinna dać głębokość wyraźnie ponad kontrolą
    z tasowaniem; jeśli nie, złożenie nie niesie informacji.
-3. **Faza szablonu i werdykt** (wiersz 3, `tphase`, `tsig`): `drift` / `am` / `inconclusive` (§6.1); znak Δψ:
+3. **Faza szablonu i werdykt** (wiersz 3, `tphase`, `tsig`): `drift` / `partial` / `am` / `inconclusive` (§6.1); znak Δψ:
    dodatni = od wcześniejszych do późniejszych długości.
 4. **Faza impulsów vs stałe P₃** (wiersz 4): ile wędruje P₃ i czy odcinki są zgrane.

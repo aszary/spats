@@ -1721,3 +1721,15 @@ Dlaczego Δψ = −0.10 ± 0.04: gradient z Σ T*_j T_{j+1} jest ważony amplitu
 jasna część dominuje wagę; stromy spadek fazy na słabszym zboczu się rozcieńcza. Miara zakłada gradient jednorodny
 w składowej. Pytanie definicyjne do użytkownika: czy opóźnienie fazy na zboczu (skok przy minimum |T| + łagodny spadek
 w ogonie) to dryf, czy AM z opóźnioną częścią zbocza (degeneracja „dryf” vs „kontinuum składowych opóźnionych w czasie”).
+
+### 2026-10-01 (cd. 16) — kategoria „dryf częściowy” (`partial`)
+
+Decyzja użytkownika: definicja b (dryf = wzór przesuwa się przez dominującą część emisji) + kategoria dryfu częściowego.
+`template_significance`: gdy nie `drift`, szukane okno 5 binów w masce z |Δψ| ≥ 0.1, z ≥ 5 (bootstrap), zmianą rozłożoną
+(maks. przyrost ≤ 50%), bez głębokiego minimum |T| (`deep_dip`) i z σψ ≤ 20° na bin. Kalibracja (`p3track_dpsi_calib.jl`,
+log `p3track_dpsi_calib_partial.log`): bez dwóch ostatnich warunków 2/20 fałszywych `partial` w AM z przeciwfazą przy
+szumie 1.5 (najpierw rozmyty skok przy minimum, potem biny szumu na krawędziach); po nich 0/80.
+
+10 pulsarów (`p3track_control_partial.log`): **J1825+0004 mod dryfu → partial** (okno zbocza 175.8–177.2° bez skoku:
+Δψ = −0.29, z = 7.9; odporne na okno 4–5 i udział ≤ 0.4–0.5, `j1825_partial_check.jl`); reszta bez zmian — dryfery
+drift (lokalne okna też znalezione), P3-only am/inconclusive, żadnego `partial`.

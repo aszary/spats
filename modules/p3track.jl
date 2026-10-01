@@ -784,6 +784,23 @@ function template_phase(T; frac::Real=0.15, minrun::Int=5, minpower::Real=0.05)
             dpsi=sum(abs.(run_dpsi)), span=sum(run_dpsi), rms=sw > 0 ? sqrt(ss / sw) : NaN)
 end
 
+"""
+    deep_dip(amp, w; depth=0.5) -> Bool
+
+True when an interior bin of window `w` has amp < depth × the lower of the
+maxima on its two sides — the cancellation point of two components
+modulated in antiphase, where noise smears the ½-cycle phase step over
+several bins (synthetic antiphase AM at high noise: 2/20 false partial
+drifts without this check).
+"""
+function deep_dip(amp, w; depth::Real=0.5)
+    for k in w.start+1:w.stop-1
+        side = min(maximum(amp[w.start:k-1]), maximum(amp[k+1:w.stop]))
+        amp[k] < depth * side && return true
+    end
+    return false
+end
+
 "amplitude-weighted phase gradient of ψ = −arg T over `r` [cycles/bin]"
 run_gradient(T, r) = -angle(sum(conj(T[j]) * T[j+1] for j in r.start:r.stop-1)) / (2π)
 
@@ -903,7 +920,9 @@ end
 
 """
     template_significance(Z, θ, T, tp, L; nboot=300, block=nothing, seed=1,
-                          dpsi_min=0.1, zdet=5.0, minblocks=5) -> NamedTuple
+                          dpsi_min=0.1, zdet=5.0, minblocks=5, lwin=5, maxfrac=0.5,
+                          dipdepth=0.5, psimax=deg2rad(20))
+        -> NamedTuple
 
 Uncertainty and significance of the template phase gradient (`template_phase`
 output `tp`) from a moving-block bootstrap over the group's pulses.
@@ -929,28 +948,57 @@ show a tiny but formally significant gradient (profile asymmetry, slightly
 offset components), so the verdict also needs a size:
 
   :drift        z ≥ `zdet` and Δψ ≥ `dpsi_min`
+  :partial      not :drift, but some `lwin`-bin window inside the emission
+                mask has a local phase change |Δψ_w| ≥ `dpsi_min` with
+                z_w ≥ `zdet` (same bootstrap), spread over its bins — no
+                single bin-to-bin increment carries more than `maxfrac` of
+                the window's net change, no deep amplitude minimum inside
+                the window (`deep_dip`), and every bin's phase known to
+                ≤ `psimax` (bootstrap circular σ; noise-dominated bins at the
+                profile edges jump by 60–100°/bin and, at high noise, gave
+                2/20 false partial drifts in synthetic antiphase AM). A ½-cycle step where two components
+                in antiphase cancel is one increment (or, with noise, a few
+                around a deep |T| minimum) and fails that; a
+                gradient confined to part of the emission passes (J1825+0004:
+                flat phase over the bright peak, ~0.7 cycle change down the
+                trailing flank, the same in all four time quarters — "partial
+                drift", decision of 2026-10-01)
   :am           Σ (|Δψ_run| + 2σ_run) < `dpsi_min`  (upper limit below the size)
   :inconclusive otherwise, or fewer than `minblocks` independent blocks
                 (npulse / block) — too little data for a bootstrap
 
 `dpsi_min` = 0.1 cycle is a working value, not calibrated physics.
-Fields: verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block.
+Fields: verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block,
+partial (found, z, dpsi, bins, maxfrac, nwin — the best local window),
+sigma_psi (per-bin phase error [rad]).
 """
 function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothing, seed::Int=1,
-                               dpsi_min::Real=0.1, zdet::Real=5.0, minblocks::Real=5)
+                               dpsi_min::Real=0.1, zdet::Real=5.0, minblocks::Real=5,
+                               lwin::Int=5, maxfrac::Real=0.5, dipdepth::Real=0.5,
+                               psimax::Real=deg2rad(20))
     n = size(Z, 1)
     bl = block === nothing ? max(1, L ÷ 2) : block
     nblocks = n / bl
     runs = tp.runs
     nr = length(runs)
-    if nr == 0
+    # candidate windows for a local (partial) gradient: lwin bins inside any mask run
+    wins = UnitRange{Int}[]
+    for r in true_runs(tp.mask)
+        for s0 in r.start:(r.stop - lwin + 1)
+            push!(wins, s0:s0+lwin-1)
+        end
+    end
+    nolocal = (found=false, z=NaN, dpsi=NaN, bins=0:-1, maxfrac=NaN, nwin=length(wins))
+    if nr == 0 && isempty(wins)
         return (verdict=:inconclusive, z=NaN, p=NaN, chi2=NaN, nruns=0, sigma_run=Float64[],
-                z_run=Float64[], dpsi_upper=NaN, nblocks=nblocks, block=bl)
+                z_run=Float64[], dpsi_upper=NaN, nblocks=nblocks, block=bl, partial=nolocal)
     end
     Zr = Z .* cis.(-θ)
     rng = Random.MersenneTwister(seed)
     starts = 1:max(1, n - bl + 1)
     boot = zeros(nboot, nr)
+    bootw = zeros(nboot, length(wins))
+    cphase = zeros(ComplexF64, length(T))      # Σ e^{iδ}: per-bin phase scatter of T*
     idx = Int[]
     for b in 1:nboot
         empty!(idx)
@@ -960,21 +1008,54 @@ function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothi
         end
         resize!(idx, n)
         Tb = vec(mean(Zr[idx, :], dims=1))
+        cphase .+= cis.(angle.(Tb .* conj.(T)))
         for (j, r) in enumerate(runs)
             boot[b, j] = run_gradient(Tb, r) * length(r)
         end
+        for (j, w) in enumerate(wins)
+            bootw[b, j] = run_gradient(Tb, w) * length(w)
+        end
     end
-    σ = vec(std(boot, dims=1))
-    zr = tp.run_dpsi ./ σ
-    chi2 = sum(abs2, zr)
-    p = ccdf(Chisq(nr), chi2)
-    z = cquantile(Normal(), max(p, 1e-300))   # ≤ ~37; 1 − p would round to 1 below 1e-16
-    upper = sum(abs.(tp.run_dpsi) .+ 2 .* σ)
+
+    # global (whole components)
+    if nr > 0
+        σ = vec(std(boot, dims=1))
+        zr = tp.run_dpsi ./ σ
+        chi2 = sum(abs2, zr)
+        p = ccdf(Chisq(nr), chi2)
+        z = cquantile(Normal(), max(p, 1e-300))   # ≤ ~37; 1 − p would round to 1 below 1e-16
+        upper = sum(abs.(tp.run_dpsi) .+ 2 .* σ)
+    else
+        σ = Float64[]; zr = Float64[]; chi2 = NaN; p = NaN; z = NaN; upper = NaN
+    end
+
+    # per-bin phase error (circular σ of the bootstrap)
+    σψ = sqrt.(-2 .* log.(clamp.(abs.(cphase ./ nboot), 1e-12, 1.0)))
+
+    # local: strongest lwin-bin window with a significant, spread-out phase change
+    partial = nolocal
+    best = -Inf
+    for (j, w) in enumerate(wins)
+        d = run_gradient(T, w) * length(w)
+        sw = std(view(bootw, :, j))
+        zw = abs(d) / sw
+        inc = [-angle(conj(T[k]) * T[k+1]) for k in w.start:w.stop-1]
+        tot = abs(sum(inc))
+        mf = tot > 0 ? maximum(abs.(inc)) / tot : Inf
+        ok = zw ≥ zdet && abs(d) ≥ dpsi_min && mf ≤ maxfrac && !deep_dip(tp.amp, w; depth=dipdepth) &&
+             maximum(σψ[w]) ≤ psimax
+        if ok && zw > best
+            best = zw
+            partial = (found=true, z=zw, dpsi=d, bins=w, maxfrac=mf, nwin=length(wins))
+        end
+    end
+
     verdict = nblocks < minblocks ? :inconclusive :
-              (z ≥ zdet && tp.dpsi ≥ dpsi_min) ? :drift :
-              upper < dpsi_min ? :am : :inconclusive
+              (nr > 0 && z ≥ zdet && tp.dpsi ≥ dpsi_min) ? :drift :
+              partial.found ? :partial :
+              (nr > 0 && upper < dpsi_min) ? :am : :inconclusive
     return (verdict=verdict, z=z, p=p, chi2=chi2, nruns=nr, sigma_run=σ, z_run=zr,
-            dpsi_upper=upper, nblocks=nblocks, block=bl)
+            dpsi_upper=upper, nblocks=nblocks, block=bl, partial=partial, sigma_psi=σψ)
 end
 
 
