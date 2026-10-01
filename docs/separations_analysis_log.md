@@ -1616,3 +1616,9 @@ jedno dopasowanie przez przerwę dawało dla J0151 0.06 zamiast 0.86); Δψ = Σ
 
 Otwarte: skala szumu Δψ (kontrola tasowaniem lub z błędu ψ na bin) — próg dryf/AM jest na razie tylko empiryczny
 (przerwa 0.01 → 0.23); J1401 tylko 6% impulsów w grupach.
+
+### 2026-10-01 (cd. 8) — dokument metody P3Track
+
+`docs/p3track_method.md`: opis metody (kroki 1–5), wyniki na 5 dryferach + 5 P3-only, sprawy do rozstrzygnięcia
+(§8: kalibracja progu Δψ, kategoria „brak stabilnego P₃”, L przy wielu trybach, reverserzy, J1401, maska składowych,
+harmoniczne, Δψ a P₂, znak dryfu, batch), historia poprawek, użycie. Wykresy w `docs/figures/p3track_*.png`.
