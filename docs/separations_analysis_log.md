@@ -1553,3 +1553,34 @@ wykresy `~/claude/work/figures/p3track/*_seg.png`.
 
 Otwarte: rozpoznawanie harmonicznych (grupa z f₃ ≈ 2·f₃ grupy głównej to ten sam reżim); L wg P₃ z params
 odcina dłuższe P₃ innych trybów (J0034 tryb A przy L = 26); minimalna liczba impulsów grupy do foldowania.
+
+### 2026-10-01 (cd. 6) — P3Track krok 3: harmoniczne, min. 5 cykli, fold z kompensacją zmiennego P₃
+
+Decyzje użytkownika: harmoniczne dołączać do grupy głównej; grupa ≥ 5·P₃ impulsów; L z params.json (test L
+z najdłuższego P₃ w średnim LRFS odłożony); kompensacja zmiennego P₃ jako nowa funkcja, wszystko w jednym
+pliku → `Plot.sliding_lrfs` przeniesione do `P3Track.plot_track`, usunięte z `plot.jl`.
+
+Nowe w `modules/p3track.jl`: `harmonic_groups`, `fundamental_track`, `select_groups`, `demodulate`,
+`align_phases`, `phase_fold`, `constant_fold`, `analyse` (cały łańcuch), `plot_folds`.
+Skrypt `~/claude/work/scripts/p3track_fold.jl`, log `~/claude/work/logs/p3track_fold.log`,
+wykresy `~/claude/work/figures/p3track/<PSR>_p3fold_groups.png`, `<PSR>_sliding_lrfs_L<L>_groups.png`.
+
+**Fold:** faza modulacji mierzona w każdym impulsie, nie całkowana z P₃: demodulacja zespolona przy lokalnym
+f₃(n) (interpolacja śladu), jądro odniesione do impulsu n → arg Z(n,φ) = θ(n) − ψ(φ); θ(n) względem wspólnego
+szablonu grupy T(φ) (iteracja). Szablon niesie kształt pasma dryfu, więc odcinki rozdzielone nullami zgrywają
+się automatycznie. **Leave-one-out** (impuls n z wagą 0 we własnym oknie) jest konieczny: bez niego kontrola
+z tasowaniem dawała głębokość 0.15–0.18 (J0034) przy 0.06 dla stałego P₃ — szum impulsu ustawiał jego fazę.
+
+| pulsar | L | impulsy | depth zmienne P₃ | kontrola (tasowanie) | depth stałe P₃ | koherencja |
+|---|---|---|---|---|---|---|
+| J0034-0721 | 26 | 501 (10 serii) | **0.206** | 0.069–0.090 | 0.062 | 0.76 |
+| J0151-0635 | 58 | 1039 (z harmon. 400–439) | **0.172** | 0.044–0.052 | 0.065 | 0.90 |
+| J0820-1350 | 19 | 1034 | **0.142** | 0.018–0.021 | 0.071 | 0.93 |
+| J1825+0004 | 57 | 681 | **0.086** | 0.037–0.039 | 0.043 | 0.79 |
+| J1750-3503 | 196 | 897 | **0.205** | 0.150–0.154 | 0.160 | 0.67 |
+
+Foldy pokazują pasma dryfu tam, gdzie stały P₃ daje rozmazany profil (J0034, J0151, J1825). Faza względem stałego
+P₃ wędruje o 1–2 cykle w obrębie obserwacji (J0151, J1825, J1750).
+
+Ograniczenie: jeden szablon na grupę → u reversera (J1750-3503) epizody o przeciwnym kierunku dryfu wchodzą do
+jednego folda z kształtem dominującego kierunku. Głębokość modulacji to miara porównawcza, nie istotność.
