@@ -1503,3 +1503,27 @@ Użytkownik widzi dryf w złożeniu J1825+0004, który trafił do kontroli „be
 **Wniosek.** Dryf jest, ale tylko w części obserwacji i słaby; na całej obserwacji nie jest trwały. Oko ma rację,
 T_cv też (w swoim sensie). Ograniczenie metody: **dryf obecny tylko w odcinku obserwacji jest rozmywany**.
 Kandydat do batcha: T_cv osobno w połowach/odcinkach obserwacji jako diagnostyka niestacjonarności.
+
+### 2026-10-01 (cd. 4) — nowa metoda, krok 1: sliding LRFS i ślad P₃(t) (`P3Track`)
+
+Cel: zastąpić test travel. Krok 1 (polecenie użytkownika): sliding LRFS jak Fig. 4 w Szary+2022 (J1750-3503),
+z jak najkrótszym oknem, do wykrywania odcinków ze stabilnym P₃.
+
+Kod: `modules/p3track.jl` (`sliding_lrfs`, `p3_track`, `contrast_null`, `good_windows`), `Plot.sliding_lrfs`.
+Skrypt `~/claude/work/scripts/p3track_test.jl`, log `~/claude/work/logs/p3track_test.log`,
+wykresy `~/claude/work/figures/p3track/<PSR>_sliding_lrfs_L<L>.png` (L = 16…256, stride 1).
+
+- Okno z taperem Hann (periodyczny) + zero-padding ×8; P₃ z dopasowania Gaussa do najwyższego **lokalnego**
+  maksimum wewnątrz (2/L, 0.5) — argmax globalny łapał czerwony szum od nulli (J0034-0721) i wolnych zmian.
+- Pik bliżej niż 1/L od fmin = 2/L → `edge` (wyciek DC). Mierzalne praktycznie **P₃ ≲ L/3**.
+- Jakość okna: S/N względem off-pulse'u bezużyteczne (J0820: mediana 3000–12000). Zamiast tego **kontrast**
+  (pik / mediana widma) wobec progu 99% z **lokalnego tasowania impulsów w obrębie okna**. Tasowanie globalne
+  zawyżało próg w ciemnych odcinkach (J1825+0004, L = 64: 3.79 globalnie vs 2.38 z impulsów 1–700).
+- Wyniki (udział dobrych okien, mediana P₃): J0820-1350 L=16 76% (4.79), L=32 95%; J0151-0635 L=64 94% (14.25);
+  J1825+0004 L=64 53% (14.5) — dobre okna dokładnie w 1–680, część jasna po ~715 odrzucona;
+  J0034-0721 L=32 25% (6.64), tylko w seriach bez nulli; J1750-3503 L=128 36%, L=256 65% (48.7).
+- J1750-3503 L=128 jakościowo zgodne z Fig. 4b (minimum P₃ ≈ 45 ok. impulsu 230, ~37–42 w 500–600),
+  ale P₃ ≈ 40–60 przy L=128 to tylko 2–3 cykle — na granicy.
+
+Otwarte: kryterium „stabilnego P₃” (rozrzut estymatora przy krótkim L, np. J0820 L=16: P₃ 4.4–5.3 — szum
+estymatora czy realna zmienność?); wybór L względem P₃.

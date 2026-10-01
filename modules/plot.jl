@@ -3068,4 +3068,112 @@ module Plot
     end
 
 
+    """
+    Sliding LRFS in the layout of Fig. 4 of Szary et al. (2022), from
+    `P3Track.sliding_lrfs` and `P3Track.p3_track`.
+
+    Panel 1: single pulses (on-pulse window), longitude vs pulse number.
+    Panel 2 (left): time-averaged fluctuation spectrum. Panel 2 (main):
+    spectra vs window centre, each divided by its own median over f ≥ fmin
+    (contrast); the dotted line marks fmin = 2/L, below which the DC leakage
+    sits. Panel 3: P3 per window. Black: windows in `good` (e.g. from
+    `P3Track.good_windows`; default: fit converged and peak above `snr_min`
+    off-pulse σ); light grey: the rest. Dashed: `p3_ref`.
+
+    The x-axis is the window *centre* (the paper uses the start pulse) so
+    that features line up with the single-pulse panel.
+
+    Writes `<name_mod>_sliding_lrfs_L<window>.pdf/.png`.
+    """
+    function sliding_lrfs(data, sl, tr, outdir; nbin=size(data, 2), name_mod="pulsar",
+                          good=nothing, threshold=nothing, snr_min=5.0, p3_ref=nothing,
+                          p3_lim=nothing, darkness=0.995, show_=false)
+        N = size(data, 1)
+        on = sl.on_bins
+        lon = (collect(on) .- 1) .* 360.0 ./ nbin
+        L = sl.window
+
+        rc("font", size=7.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+        fig = figure(figsize=(7.0, 6.0))
+
+        # Panel 1: single pulses
+        ax1 = fig.add_axes([0.20, 0.68, 0.77, 0.28])
+        st = permutedims(data[:, on])
+        imshow(st, origin="lower", aspect="auto", cmap="viridis", interpolation="none",
+               extent=(0.5, N + 0.5, lon[1], lon[end]),
+               vmin=quantile(vec(st), 0.01), vmax=quantile(vec(st), darkness))
+        ylabel("longitude (\$^\\circ\$)")
+        tick_params(labelbottom=false)
+        title(@sprintf("%s   L = %d   stride = %d", name_mod, L, sl.stride))
+
+        # Panel 2: sliding spectra, each divided by its median over f ≥ fmin
+        # (contrast against the window's own fluctuation continuum, so bright
+        # single pulses and null edges do not saturate the map)
+        use = sl.freq .>= sl.fmin
+        nrm = [median(sl.power[i, use]) for i in 1:size(sl.power, 1)]
+        S = permutedims(sl.power ./ nrm)
+        vmax = quantile(vec(S[use, :]), darkness)
+        ax2 = fig.add_axes([0.20, 0.36, 0.77, 0.30], sharex=ax1)
+        imshow(S, origin="lower", aspect="auto", cmap="viridis", interpolation="none",
+               extent=(sl.centers[1] - sl.stride / 2, sl.centers[end] + sl.stride / 2,
+                       sl.freq[1], sl.freq[end]),
+               vmin=0, vmax=vmax)
+        axhline(y=sl.fmin, color="white", ls=":", lw=0.6)
+        tick_params(labelleft=false, labelbottom=false)
+        xlim(0.5, N + 0.5)
+
+        ax2l = fig.add_axes([0.08, 0.36, 0.11, 0.30], sharey=ax2)
+        plot(vec(mean(sl.power ./ nrm, dims=1)), sl.freq, color="grey")
+        axhline(y=sl.fmin, color="black", ls=":", lw=0.6)
+        ylim(sl.freq[1], sl.freq[end])
+        xticks([])
+        ylabel("frequency (1/P)")
+
+        # Panel 3: P3 track
+        ax3 = fig.add_axes([0.20, 0.07, 0.77, 0.27], sharex=ax1)
+        if good === nothing
+            good = tr.fit_ok .& (tr.snr_off .>= snr_min)
+            crit = @sprintf("fit ok, S/N\$_{off}\$ ≥ %.0f", snr_min)
+        else
+            crit = threshold === nothing ? "good" :
+                   threshold isa Real ? @sprintf("fit ok, not at edge, contrast ≥ %.1f", threshold) :
+                   @sprintf("fit ok, not at edge, contrast ≥ local shuffle threshold (median %.1f)",
+                            median(threshold))
+        end
+        bad = .!good
+        any(bad) && plot(tr.centers[bad], tr.p3[bad], ".", ms=1.5, c="lightgrey", zorder=2)
+        if any(good)
+            errorbar(tr.centers[good], tr.p3[good], yerr=tr.p3_err[good], fmt=".", ms=1.5,
+                     c="black", ecolor="grey", elinewidth=0.3, capsize=0, zorder=3)
+        end
+        p3_ref === nothing || axhline(y=p3_ref, color="C3", ls="--", lw=0.6)
+        if p3_lim !== nothing
+            ylim(p3_lim...)
+        elseif any(good)
+            lo, hi = quantile(tr.p3[good], [0.02, 0.98])
+            pad = 0.3 * (hi - lo) + 0.05 * hi
+            ylim(max(0, lo - pad), hi + pad)
+        end
+        xlim(0.5, N + 0.5)
+        xlabel("pulse number (window centre)")
+        ylabel("P\$_3\$ (P)")
+        minorticks_on()
+        text(0.01, 0.95, @sprintf("%s: %d / %d", crit, count(good), length(good)),
+             transform=ax3.transAxes, va="top", fontsize=6)
+
+        savepath = joinpath(outdir, "$(name_mod)_sliding_lrfs_L$(L).pdf")
+        savefig(savepath)
+        savefig(replace(savepath, ".pdf" => ".png"), dpi=150)
+        println(savepath)
+
+        if show_
+            PyPlot.show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
 end  # module Plot
