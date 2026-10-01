@@ -1807,3 +1807,22 @@ Trzy typy problemów:
    +0.09 ± 0.03 (z = 2.7 < 3) → `am`. Wolny dryf / P₂ ≫ W wygląda tak samo.
 J1946-2913 (drift wg Song, T_cv z = 10.9): główna składowa płaska (±10°), słaba składowa ~185° poniżej maski —
 uporządkowanie widziane przez T_cv może pochodzić z przesunięcia fazy między składowymi (degeneracja, jak J1825).
+
+### 2026-10-01 (cd. 21) — batch v2: reguła mocy (B), am przy z < 2 (C), werdykt z P₃ katalogowego (A)
+
+Batch v2 (8 procesów, 31–49 min, 12 × brak danych): `~/output/claude/p3track_batch/p3track_v2.csv`, werdykty pulsarów
+`p3track_v2_pulsars.csv` (`batch_summary_v2.py`: werdykt z grup o P₃ ±30% katalogowego; „nocat” = grupy tylko przy innym
+P₃; inne mody osobno). Kalibracja przed batchem: `p3track_dpsi_calib_v2.log` (fałszywe drift/am 0).
+
+| etykieta | n | drift | partial | am | inconclusive | nocat | brak grup |
+|---|---|---|---|---|---|---|---|
+| drift | 412 | 127 (31%) | 26 (6%) | 16 (4%) | 111 (27%) | 94 (23%) | 38 (9%) |
+| P3-only | 109 | 1 (1%) | 4 (4%) | 24 (22%) | 34 (31%) | 25 (23%) | 21 (19%) |
+
+(v1 z tą samą regułą A: drift 135/18/21/106/94/38, P3-only 3/2/26/32/25/21.)
+- Przypadki z przeglądu: J1057-5226, J1543+0929 → partial; J1511-5414 → inconclusive; J1742-4616, J1055-6905 → nocat
+  (am tylko jako inny mod); J1946-2913 → am (płaska główna składowa). P3-only z drift: tylko J1810-5338 (73 P, z = 5.4).
+- **nocat = 23% w obu etykietach**: grupy istnieją, ale przy P₃ innym niż katalogowe. W pierwszym przejściu mediana
+  P₃grp/P₃kat = 0.50 → zwykle dominuje 2. harmoniczna, a fundamentalna nie ma własnej grupy, więc test harmonicznej
+  (wymaga obu grup) nie ma czego łączyć. W drugim przejściu: wolna modulacja (×1.4 … ×16).
+- Inconclusive (grupy): 504 × < 5 bloków, 46 × 2 ≤ z < 5, 31 × granica ≥ 0.25, 3 × z ≥ 5 przy za małym Δψ.
