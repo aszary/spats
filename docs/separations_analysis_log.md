@@ -2178,3 +2178,36 @@ Losowanie (Python `random.Random(20261002)`, bez 18 pulsarów już oglądanych; 
 - Wniosek: subtrack działa dla „podręcznikowych” jasnych dryferów z szerokim profilem i wieloma podpulsami (zestaw kontrolny:
   J0034, J0151, J0820, J1750), a nie dla typowego pulsara z listy Song+23. Jako metoda klasyfikacji całej próbki — nie;
   jako narzędzie do szczegółowego opisu (D(t), reverserzy, P₂) jasnych dryferów — tak.
+
+### 2026-10-02 (cd.) — pairshift: przesunięcia podpulsów między kolejnymi impulsami (bez ścieżek)
+
+Użytkownik: w J1910+0714 dryf dobrze widoczny, a subtrack go nie widzi (pasma żyją 3–5 P, ścieżki ≥ 8 P niemożliwe).
+Nowa statystyka: detekcja jak w subtrack; w każdej parze (n, n+1) dopasowanie najbliższego podpulsu w obu kierunkach (n → n+1
+i n+1 → n, przesunięcia zawsze w kierunku czasu), promień R; s_n = Σ sign(Δφ). Odwrócenie czasu pary zmienia znak s_n
+dokładnie, więc null = losowanie znaków par, z = Σs/√Σs² (bez modelu zmienności, ~1000 par, bez nasycenia).
+Skrypty `~/claude/work/scripts/pairshift.jl` (kontrola + losowe 20), `pairshift_grid.jl` (wagi), `pairshift_synth.jl`;
+logi `~/claude/work/logs/pairshift*.log`, wykresy `~/claude/work/figures/pairshift/<PSR>_pairs.png`.
+- Pierwsza wersja (tylko n → n+1, waga Δ/R): fałszywe dryfy w P3-only (J0629+2415 −11.0, J1825 −7.2, J1401 5.3) — dopasowanie
+  jednokierunkowe nie jest antysymetryczne przy różnej liczbie podpulsów w impulsach. Po dopasowaniu dwukierunkowym null czysty,
+  ale waga liniowa daje J1910 tylko −2.2 (dalekie dopasowania szumu); siatka wag (`pairshift_grid.log`): **znak, R = 1.5·FWHM**.
+- Syntetyki (jak subtrack): AM stałe / przeciwfaza / losowe → max |z| 2.4 w 120, 0 × |z| ≥ 3; dryf 25.8 / **10.6** (szum 1 / 2;
+  subtrack przy szumie 2: 1.5), reverser 8.0 / 2.2, wolny dryf 8.6 / 1.7, alias P₃ 2.1: 5.5 / 2.0. Wersja blokowa (bez znaku, dla
+  reverserów) nasyca się przy √31 ≈ 5.6 i niewiele daje.
+
+| zestaw | etykieta | PSR | mediana Δφ [°/P] | z | P3Track v4b |
+|---|---|---|---|---|---|
+| kontrola | P3-only (6, w tym J1825) | | | −1.1 … 0.9 | |
+| kontrola | drift | J0034-0721 | −1.96 | **−13.6** | drift |
+| kontrola | drift | J0151-0635 | −0.32 | **−9.7** | drift |
+| kontrola | drift | J0820-1350 | −0.71 | **−27.9** | drift |
+| kontrola | drift | J1750-3503 (reverser) | +0.25 | 1.7 | drift |
+| losowe | drift | J1910+0714 | −0.41 | **−10.9** | drift |
+| losowe | drift | J0932-3217 | +0.22 | **3.3** | drift |
+| losowe | drift | J1614+0737 / J1903+2225 / J1645-0317 | | −2.6 / −2.2 / −1.9 | inconcl. / nocat / drift |
+| losowe | drift | pozostałe 4 (+ J1916 bez detekcji) | | −1.4 … 0.3 | |
+| losowe | P3-only (10) | | | −2.4 … 1.1 | |
+
+- Przy |z| ≥ 3: dryfery kontrolne 3/4, losowe dryfery 2/9 (P3Track: 3/10 — J1910, J1645, J0932); P3-only 0/16.
+- J1910+0714 rozwiązany (−10.9, D ≈ −0.41 °/P), J0820 D zgodne z subtrack (−0.71 vs −0.73).
+- Wniosek: pairshift wykrywa krótkie pasma, których subtrack nie widzi, i ma czysty null; na losowej próbce mniej więcej tyle co
+  P3Track. Ograniczenie zostaje to samo: S/N pojedynczych podpulsów.
