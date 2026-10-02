@@ -882,7 +882,9 @@ the demodulations), tphase_fold / tsig_fold (the same from the fold's own
 first harmonic, C(n,φ) = (I(n,φ) − ⟨I⟩)·e^{−iθ(n)}, bootstrapped pulse by
 pulse — for short groups), verdict (tsig's, or tsig_fold's when the group
 has < 5 bootstrap blocks), verdict_src (:block / :fold), bidrift,
-sections, on_bins.
+p3_wander (std/median of the tracked P3 in the group's windows), phase_wander
+(median rate at which the modulation phase leaves a constant-P3 clock
+[cycles per 1000 pulses]), sections, on_bins.
 """
 function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=nothing,
                     niter::Int=10, nshuffle::Int=5, seed::Int=1, stat=modulation_depth,
@@ -934,6 +936,30 @@ function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=no
     tpf = template_phase(Tf; tp_kw...)
     tsf = template_significance(C, zeros(length(pulses)), Tf, tpf, L; seed=seed, block=1)
     tsb = template_significance(Z, θ, T, tp, L; seed=seed)
+
+    # stability of the regime:
+    # p3_wander — relative spread of the tracked P3 over the group's good windows (estimator
+    #   scatter included; it is ≈ the resolution-limited jitter for a perfectly stable P3)
+    # phase_wander — how fast the measured modulation phase leaves a constant-P3 clock:
+    #   r(n) = θ(n)/2π − n/P3 within each section, median |r(n+Δ) − r(n)| over Δ = min(200,
+    #   section/2) pulses, scaled to cycles per 1000 pulses (≈ 0.5 means a constant-P3 fold
+    #   over 1000 pulses would be smeared by half a cycle)
+    p3w = Float64[]
+    for i in sel
+        append!(p3w, tr.p3[segs[i].win])
+    end
+    p3_wander = length(p3w) > 1 ? std(p3w) / median(p3w) : NaN
+    rates = Float64[]
+    for i in sel
+        sg = segs[i]
+        idx = findall(n -> sg.first ≤ n ≤ sg.last, pulses)
+        length(idx) < 20 && continue
+        r = unwrap_cycles(θ[idx] ./ (2π) .- pulses[idx] ./ p3g)
+        Δ = min(200, length(idx) ÷ 2)
+        d = abs.(r[1+Δ:end] .- r[1:end-Δ])
+        push!(rates, median(d) * 1000 / Δ)
+    end
+    phase_wander = isempty(rates) ? NaN : median(rates)
     # final verdict: the block bootstrap when the group has enough blocks, otherwise the
     # pulse-by-pulse fold estimate (synthetic short groups: no false drift, N = 40 drift 8/8 vs
     # 6/8; J1528-4109, 34 P: drift; short P3-only groups with z ≈ 11–13 from 2–3 blocks: z ≤ 1.9)
@@ -941,7 +967,8 @@ function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=no
     return (group=g, pulses=pulses, p3=p3g, nb=nb, fold=F, counts=cnt, phase=phase, theta=θ,
             template=T, tphase=tp, tsig=tsb, tphase_fold=tpf, tsig_fold=tsf,
             verdict=fromfold ? tsf.verdict : tsb.verdict, verdict_src=fromfold ? :fold : :block,
-            bidrift=fromfold ? tsf.bidrift : tsb.bidrift,
+            bidrift=fromfold ? tsf.bidrift : tsb.bidrift, p3_wander=p3_wander,
+            phase_wander=phase_wander,
             f=f, depth=depth, depth_null=depth_null, coherence=coherence, on_bins=on,
             sections=sel)
 end
