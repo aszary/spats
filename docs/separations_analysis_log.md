@@ -12,7 +12,21 @@ prowadzenia dziennika z `CLAUDE.md`.
 
 ---
 
-# START TUTAJ — stan na 2026-09-17
+# START TUTAJ (dryf vs P3-only) — stan na 2026-10-02
+
+Prace nad metodą rozstrzygania, czy pulsar dryfuje, czy jest tylko P3-only (etykiety Song+23), 533 pulsary:
+
+| metoda | opis | wpisy w tym dzienniku | wynik |
+|---|---|---|---|
+| travel (T_cv, f_trav, ρ) | [`travel_test_method.md`](travel_test_method.md) | 2026-09-22 … 2026-09-30 | niezadowalająca (czułość, f_trav, zgodność z oceną wzrokową) |
+| P3Track (sliding LRFS → fold z kompensacją P₃ → faza szablonu) | [`p3track_method.md`](p3track_method.md) — §0, §8 sprawy otwarte, §9 co nie zadziałało | 2026-10-01 (cd. 4) … 2026-10-02 | wobec Song+23 zmienia bardzo niewiele |
+
+Następny krok (2026-10-02): nowa sesja szuka lepszej metody — najpierw przeczytać §0, §8, §9 obu dokumentów.
+Wyniki P3Track: `~/output/claude/p3track_batch/` (CSV v1–v4b, wykresy v4); skrypty `~/claude/work/scripts/`.
+
+---
+
+# START TUTAJ (separations) — stan na 2026-09-17
 
 ## Gdzie co jest
 
