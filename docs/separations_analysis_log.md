@@ -2148,3 +2148,33 @@ Decyzja użytkownika: przy długich danych brać tylko część. `subtrack.jl`: 
 - Zestaw kontrolny bez zmian jakościowych: dryfery z = 14.3 (J0034), 13.0 (J0151), 11.1 (J0820), 11.7 (J1750); J1825 0.5;
   P3-only −0.3…0.7.
 Batch na pełnej próbce jeszcze nie puszczony (decyzja użytkownika).
+
+### 2026-10-02 (cd.) — subtrack na losowej próbce 10 drift + 10 P3-only: dryferów nie wykrywa
+
+Losowanie (Python `random.Random(20261002)`, bez 18 pulsarów już oglądanych; pula 408 drift / 95 P3-only z danymi), lista
+`~/claude/work/subtrack_random20.txt`, log `~/claude/work/logs/subtrack_random20.log`, test krótkich ścieżek `subtrack_short.jl` /
+`subtrack_short.log`. Każdy pulsar: pierwsze 1000 P. `subtrack.jl` przyjmuje teraz listę `.txt` (etykieta katalog plik) i łapie błędy.
+
+| etykieta | PSR | σ_sub [°] | imp. z podp. | P₂ [°] | z(f_ls) | z(f_sig, ścieżki ≥ 4) | P3Track v4b |
+|---|---|---|---|---|---|---|---|
+| drift | J1119-7936 | 0.60 | 875 | 4.5 | 0.1 | 0.0 | inconclusive |
+| drift | J1910+0714 | 0.54 | 789 | 2.4 | −2.9 | 1.4 | **drift** |
+| drift | J1055-6905 | 1.88 | 447 | 9.7 | 0.0 | −1.5 | nocat (am) |
+| drift | J1823-0154 | 0.76 | 879 | 2.9 | −0.7 | −0.2 | brak grup |
+| drift | J1614+0737 | 0.93 | 815 | 3.7 | −0.5 | −0.5 | inconclusive |
+| drift | J1645-0317 | 0.85 | 1000 | 7.2 | 0.0 | 0.1 | **drift** |
+| drift | J1916+1030 | — | — | — | ACF płaska (szum) | — | brak grup |
+| drift | J1549+2113 | 2.36 | 497 | — | −0.2 | 0.2 | inconclusive |
+| drift | J0932-3217 | 0.47 | 155/156 | — | 0.0 | 0.4 | **drift** |
+| drift | J1903+2225 | 1.57 | 376 | 6.9 | 1.3 | 2.5 | nocat |
+| P3-only (10) | J1801-0357 … J1717-3425 | | | | −0.9…2.6 | −0.4…2.5 | |
+
+- **0/10 dryferów wykrytych** (P3Track: 3/10 drift); P3-only bez fałszywych (max 2.6, J1801-0357 f_ls 0.14 vs 0.06).
+  Krótkie ścieżki (≥ 4 punkty) nie pomagają.
+- Przyczyna (wykresy J1910+0714, J1645-0317): typowy dryfer próbki ma wąską składową (σ_sub 0.5–0.9°, P₂ 2–7°), 1–2 podpulsy
+  na impuls i krótkie P₃ — pasmo żyje ~W/|D| ≈ 3–5 impulsów (J1910: nachylone kreski widoczne gołym okiem, ale ścieżki ≤ 4 P),
+  a przesunięcie podpulsu w jego czasie życia jest porównywalne z jego szerokością. Do tego słabe S/N (J1916: ACF fluktuacji
+  płaska). Dryf jest tam mierzalny tylko statystycznie (gradient fazy / 2DFS), nie jako ruch pojedynczych podpulsów.
+- Wniosek: subtrack działa dla „podręcznikowych” jasnych dryferów z szerokim profilem i wieloma podpulsami (zestaw kontrolny:
+  J0034, J0151, J0820, J1750), a nie dla typowego pulsara z listy Song+23. Jako metoda klasyfikacji całej próbki — nie;
+  jako narzędzie do szczegółowego opisu (D(t), reverserzy, P₂) jasnych dryferów — tak.
