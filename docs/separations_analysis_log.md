@@ -1962,3 +1962,9 @@ Przegląd P3-only z drift/partial: J1810-5338 (jedyny drift) wątpliwy — 73 P 
 J1825+0004 przekonujący (dryf na zboczu, mod 1–696); J1057-5226 i J1543+0929 umiarkowane; J1016-5345 wątpliwy. Żaden P3-only
 nie przechodzi pewnie do dryfu; 26% P3-only potwierdzone jako am; wśród dryferów 33% drift, 7% partial, ~55% bez
 rozstrzygnięcia. Dopisane do §0 i §7b `docs/p3track_method.md` (wartość metody: gdzie/kiedy/jak stabilny dryf, Ė, P₃ ≈ 2).
+
+### 2026-10-02 (cd.) — usunięte wykresy batcha v3
+
+Usunięte `~/output/claude/p3track_batch/figures_v3` i `~/claude/work/figures/p3track_batch_v3` (po 340 MB; zastąpione przez v4).
+Zostaje: QNAP `p3track_batch/` 587 MB (figures_v4 + wszystkie CSV + P–Ṗ), `~/claude/work/figures/` 667 MB (p3track_batch_v4,
+p3track/ testy, P–Ṗ). Razem ~1.25 GB.
