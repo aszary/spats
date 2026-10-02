@@ -1899,3 +1899,10 @@ Decyzja użytkownika: wdrożyć wg rekomendacji claude-ac. Dla P₃ z params ≤
 Walidacja (`p3track_nyq_check.jl`): J0846-3533 drift (P₃ 2.025, |Δψ| 0.61, z 7.9), J0943+2253 nyquist, kontrola J0924-5302
 0 bloków, syntetyki P₃ 2.05: AM 12/12 am, dryf 6/6 drift. Batch: wiersze pass = 3; test na 2 pulsarach OK (usunięty).
 Dokument metody §4b. Do zrobienia: batch v4.
+
+### 2026-10-02 (cd.) — porządki na dysku, batch tylko PNG
+
+Usunięte wykresy batchy v1, v2, pilotaży i porównania zapów (QNAP `p3track_batch/figures_*` i `~/claude/work/figures/p3track_batch_*`,
+po ~0.7 GB w każdym miejscu); zostały wykresy v3 i wszystkie CSV (QNAP `p3track_batch/` = 343 MB). Wolne: /home 499 GB,
+QNAP 1.9 TB (97% zajęte). Funkcje wykresów P3Track mają `pdf=true|false`; batch zapisuje tylko PNG (~½ miejsca),
+PDF dowolnego pulsara z `p3track_summary_one.jl`. Skrypt `p3track_batch_run.sh` ustawiony na tag v4.

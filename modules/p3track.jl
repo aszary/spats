@@ -1333,10 +1333,10 @@ end
 Nyquist path (`nyquist_pass`) for one pulsar: single pulses with the
 sections of significant blocks, block z of test B, fold at f3 (direction of
 drift unknown — the alias fold is its mirror image) and the template phase.
-Writes `<name_mod>_nyquist.pdf/.png`.
+Writes `<name_mod>_nyquist.png` (+ .pdf with `pdf=true`).
 """
 function plot_nyquist(data, nyq, outdir; nbin=size(data, 2), on=nothing, name_mod="pulsar",
-                      show_=false)
+                      pdf=true, show_=false)
     N = size(data, 1)
     on === nothing && error("on (on-pulse bins) required")
     lon = (collect(on) .- 1) .* 360.0 ./ nbin
@@ -1382,9 +1382,9 @@ function plot_nyquist(data, nyq, outdir; nbin=size(data, 2), on=nothing, name_mo
                        ts.z, ts.verdict, ts.bidrift ? ", bi-drift" : ""), fontsize=6)
     end
     savepath = joinpath(outdir, "$(name_mod)_nyquist.pdf")
-    savefig(savepath)
+    pdf && savefig(savepath)
     savefig(replace(savepath, ".pdf" => ".png"), dpi=150)
-    println(savepath)
+    println(pdf ? savepath : replace(savepath, ".pdf" => ".png"))
     if show_
         PyPlot.show()
         println("Press Enter to close the figure.")
@@ -1605,7 +1605,7 @@ Writes `<name_mod>_sliding_lrfs_L<window><suffix>.pdf/.png`.
 function plot_track(data, sl, tr, outdir; nbin=size(data, 2), name_mod="pulsar",
                     good=nothing, threshold=nothing, snr_min=5.0, p3_ref=nothing,
                     p3_lim=nothing, darkness=0.995, segs=nothing, groups=nothing,
-                    suffix="", show_=false)
+                    suffix="", pdf=true, show_=false)
     N = size(data, 1)
     on = sl.on_bins
     lon = (collect(on) .- 1) .* 360.0 ./ nbin
@@ -1704,9 +1704,9 @@ function plot_track(data, sl, tr, outdir; nbin=size(data, 2), name_mod="pulsar",
     end
 
     savepath = joinpath(outdir, "$(name_mod)_sliding_lrfs_L$(L)$(suffix).pdf")
-    savefig(savepath)
+    pdf && savefig(savepath)
     savefig(replace(savepath, ".pdf" => ".png"), dpi=150)
-    println(savepath)
+    println(pdf ? savepath : replace(savepath, ".pdf" => ".png"))
     if show_
         PyPlot.show()
         println("Press Enter to close the figure.")
@@ -1733,7 +1733,8 @@ range from the shuffle control for the compensated one.
 
 Writes `<name_mod>_p3fold_groups.pdf/.png`.
 """
-function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, show_=false)
+function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, pdf=true,
+                    show_=false)
     ng = length(res.folds)
     ng == 0 && (println("no groups for $name_mod"); return)
     on = res.sl.on_bins
@@ -1792,9 +1793,9 @@ function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, sh
     suptitle(@sprintf("%s   L = %d", name_mod, res.L), fontsize=8)
     tight_layout(rect=(0, 0, 1, 0.96))
     savepath = joinpath(outdir, "$(name_mod)_p3fold_groups.pdf")
-    savefig(savepath)
+    pdf && savefig(savepath)
     savefig(replace(savepath, ".pdf" => ".png"), dpi=150)
-    println(savepath)
+    println(pdf ? savepath : replace(savepath, ".pdf" => ".png"))
     if show_
         PyPlot.show()
         println("Press Enter to close the figure.")
@@ -1818,7 +1819,7 @@ answers "which regimes were found, where, and are they drift or AM".
 Writes `<name_mod>_p3track_summary.pdf/.png`.
 """
 function plot_summary(data, res, outdir; nbin=size(data, 2), name_mod="pulsar", p3_ref=nothing,
-                      darkness=0.995, show_=false)
+                      darkness=0.995, pdf=true, show_=false)
     N = size(data, 1)
     on = res.sl.on_bins
     lon = (collect(on) .- 1) .* 360.0 ./ nbin
@@ -1886,9 +1887,9 @@ function plot_summary(data, res, outdir; nbin=size(data, 2), name_mod="pulsar", 
     ax2.set_ylabel("P\$_3\$ (P)")
     ax2.minorticks_on()
     savepath = joinpath(outdir, "$(name_mod)_p3track_summary.pdf")
-    savefig(savepath)
+    pdf && savefig(savepath)
     savefig(replace(savepath, ".pdf" => ".png"), dpi=150)
-    println(savepath)
+    println(pdf ? savepath : replace(savepath, ".pdf" => ".png"))
     if show_
         PyPlot.show()
         println("Press Enter to close the figure.")
