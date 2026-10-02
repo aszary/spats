@@ -438,6 +438,11 @@ względem stałego P₃.*
    do sprawdzenia na większej liczbie przypadków (także: harmoniczna przy szumie 1.2 przeszła o włos).
 8. **Δψ a P₂.** Dla dryfu Δψ ≈ W/P₂ — można wyprowadzić P₂ z szablonu i porównać z separacjami / ρ.
 9. **Znak dryfu** zgodny z J0034 i J1750; sprawdzić na kilku dryferach o znanym kierunku z literatury.
+11. **Do rozważenia (2026-10-02): werdykt pulsara z grup pierwszego przejścia zamiast reguły ±30% P₃ katalogowego.**
+    Reguła A daje 23% „nocat”: 64 pulsary mają tylko wolną modulację z drugiego przejścia, ale reszta to cecha w danych
+    inna niż w katalogu (J1807+0756: grupa P₃ ≈ 6 z werdyktem drift, katalog 19, brak piku przy 1/19), wędrujące P₃
+    (J1915+0738: 17 → 35, katalog 37) lub harmoniczne (≈ ½ P₃, 20 pulsarów). Propozycja: werdykt z pierwszego przejścia,
+    drugie jako „inne mody”, w CSV stosunek P₃ grupy do katalogowego do wyłapania obcych cech (RFI).
 10. **Pełna próbka.** Batch na 533 pulsarach nie był jeszcze puszczany. Koszt dominuje `contrast_null`
     (40 tasowań × N/(L/8) kotwic) i tasowania w `phase_fold`.
 

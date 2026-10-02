@@ -2964,6 +2964,82 @@ module Plot
 
 
     """
+    P–Ṗ diagram coloured by the fraction of the observation with tracked drift,
+    from a P3Track batch table (`~/claude/work/scripts/p3track_batch.jl`).
+
+    Per pulsar: f_drift = Σ pulses of the groups whose verdict is `drift` or
+    `partial` ÷ number of pulses — the part of the observation in which the
+    modulation has a continuous P3 (a section of the P3 track), is folded with
+    the variable-P3 compensation and shows a significant longitude dependence
+    of the modulation phase. Coloured: f_drift > 0 (circles: drift, triangles:
+    P3-only in Song et al. 2023); open grey: no drift group (AM, inconclusive,
+    or no group with a stable P3).
+
+    `verdicts` selects which group verdicts count (default drift and partial).
+    Writes `<name_mod>.pdf/.png` (default `p3track_fdrift`).
+    """
+    function ppdot_p3track(outdir; results="/home/psr/output/p3track_batch/p3track_v2.csv",
+                           verdicts=("drift", "partial"), cmap="viridis", name_mod="p3track_fdrift",
+                           plims=(2e-2, 2e1), pdotlims=(1e-18, 1e-11), kwargs...)
+        lines = collect(eachline(results))
+        hdr = split(lines[1], ','); c = Dict(String(h) => i for (i, h) in enumerate(hdr))
+        lab = Dict{String,String}(); npl = Dict{String,Float64}(); fdr = Dict{String,Float64}()
+        for ln in lines[2:end]
+            t = split(ln, ',')
+            psr = String(t[c["psr"]])
+            v = String(t[c["verdict"]])
+            v == "error" && continue
+            lab[psr] = String(t[c["label"]])
+            n = tryparse(Float64, t[c["npulses"]]); isnothing(n) && continue
+            npl[psr] = n
+            fdr[psr] = get(fdr, psr, 0.0)
+            if v in verdicts
+                fdr[psr] += something(tryparse(Float64, t[c["npulse_group"]]), 0.0)
+            end
+        end
+        f = Dict(k => min(1.0, fdr[k] / npl[k]) for k in keys(npl))
+        println("p3track: $(length(f)) pulsars from $(basename(results)), $(count(>(0), values(f))) with drift groups")
+
+        function overlay(ax, nam, P, Pd)
+            idx = Dict(n => i for (i, n) in enumerate(nam))
+            absent = sort([k for k in keys(f) if !haskey(idx, k)])
+            isempty(absent) || println("p3track: no P/Pdot for $(length(absent)): $(join(absent, ", "))")
+            cm = PyPlot.matplotlib.pyplot.get_cmap(cmap)
+            cn = PyPlot.matplotlib.colors.Normalize(vmin=0.0, vmax=1.0)
+            for (L, mk, ms) in (("drift", "o", 30.0), ("p3only", "^", 38.0))
+                sel = [k for k in keys(f) if lab[k] == L && haskey(idx, k)]
+                col = [k for k in sel if f[k] > 0]
+                rest = setdiff(sel, col)
+                ax.scatter(P[[idx[k] for k in rest]], Pd[[idx[k] for k in rest]], s=0.55ms, marker=mk,
+                           facecolors="none", edgecolors="0.45", linewidths=0.6, zorder=5)
+                ax.scatter(P[[idx[k] for k in col]], Pd[[idx[k] for k in col]], s=ms, marker=mk,
+                           c=[f[k] for k in col], cmap=cm, norm=cn, edgecolors="black",
+                           linewidths=0.4, zorder=6)
+                println(@sprintf("p3track: %-6s %3d with drift (median f = %.2f), %3d without", L,
+                                 length(col), isempty(col) ? NaN : median([f[k] for k in col]), length(rest)))
+            end
+            cax = ax.inset_axes([0.04, 0.86, 0.38, 0.022])
+            sm = PyPlot.matplotlib.cm.ScalarMappable(norm=cn, cmap=cm); sm.set_array([])
+            cb = colorbar(sm, cax=cax, orientation="horizontal")
+            cb.ax.tick_params(labelsize=6, length=2, pad=1)
+            cb.outline.set_linewidth(0.5)
+            cb.set_label("fraction of the observation with tracked drift", fontsize=7, labelpad=2)
+            L2D = PyPlot.matplotlib.lines.Line2D
+            c_mid = cm(0.6)
+            return Any[L2D([], [], mfc=c_mid, ls="none", marker="o", ms=5.0, mec="black", mew=0.4,
+                           label="drift (Song+23)"),
+                       L2D([], [], mfc=c_mid, ls="none", marker="^", ms=5.5, mec="black", mew=0.4,
+                           label="P3-only (Song+23)"),
+                       L2D([], [], mfc="none", ls="none", marker="o", ms=3.7, mec="0.45", mew=0.6,
+                           label="no drift group (AM / inconclusive / no stable P\$_3\$)")]
+        end
+        _ppdot(outdir; highlight=nothing, plims=plims, pdotlims=pdotlims, population_color="0.75",
+               legend_loc="lower left", kwargs..., offsets=nothing, overlay=overlay, name_mod=name_mod)
+        return f
+    end
+
+
+    """
     P-Pdot diagram of the travel test (Travel.crossblock_test) on top of the
     ATNF population. Symbol shape = Song et al. (2023) label (circle drift,
     triangle P3-only); filled = persistent temporal ordering detected,

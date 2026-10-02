@@ -1850,3 +1850,15 @@ Przykłady (`~/claude/work/scripts/p3track_example_one.jl`, wykresy `~/claude/wo
 - **J1159-6409** (P₃ 13.5): grupy 5.9 i 9.3.
 Wniosek: reguła A (zgodność z P₃ katalogowym) myli „inną cechę niż w katalogu” i „wędrujące P₃” z „brakiem grupy”.
 Harmoniczna bez fundamentalnej to tylko część (≤ 20 z 119). Poprawka `plot_folds` dla nshuffle = 0.
+
+### 2026-10-02 (cd.) — P–Ṗ: ułamek obserwacji z dryfem (P3Track v2)
+
+Zapisane do rozważenia: werdykt pulsara z pierwszego przejścia (`docs/p3track_method.md` §8.11).
+Nowa funkcja `Plot.ppdot_p3track(outdir; results, verdicts=("drift","partial"))`: kolor = f_drift = Σ impulsów w grupach
+drift/partial ÷ N (część obserwacji z ciągłym P₃, foldem z kompensacją i istotnym gradientem fazy), puste szare = brak grupy
+dryfu. Skrypt `~/claude/work/scripts/p3track_ppdot.jl`, wykres `~/claude/work/figures/ppdot_p3track_fdrift.png`
+(+ QNAP `p3track_batch/`). Wyniki v2 (bez werdyktu krótkich grup z folda — v3 niepoliczone).
+- drift (Song): 162/412 z grupą dryfu, mediana f = 0.42; P3-only: 5/109, mediana 0.18.
+- Wg Ė (drift): 1e29–31: 59% z dryfem (med. f 0.45); 1e31–32: 47% (0.40); 1e32–33: 32% (0.34); 1e33–34: 15% (0.64);
+  > 1e34: 22% (0.56, n = 18). Spearman log Ė vs f: −0.29 (wszyscy), −0.05 (tylko z dryfem) — maleje udział pulsarów
+  z wykrytym dryfem, nie ułamek czasu dryfu u tych, które go mają.
