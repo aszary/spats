@@ -1535,8 +1535,9 @@ function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, sh
             imshow(FF, origin="lower", aspect="auto", cmap="viridis", interpolation="none",
                    extent=(lon[1], lon[end], 0, 2), vmax=quantile(vec(FF), darkness))
             dep = row == 1 ?
-                @sprintf("%s  depth %.3f (shuffle %.3f–%.3f)", lab, fo.depth,
-                         minimum(fo.depth_null), maximum(fo.depth_null)) :
+                (isempty(fo.depth_null) ? @sprintf("%s  depth %.3f", lab, fo.depth) :
+                 @sprintf("%s  depth %.3f (shuffle %.3f–%.3f)", lab, fo.depth,
+                          minimum(fo.depth_null), maximum(fo.depth_null))) :
                 @sprintf("%s  depth %.3f", lab, cf.depth)
             title(row == 1 ? @sprintf("group %d: P\$_3\$ ≈ %.2f, %d P, %d bins\n%s", fo.group,
                                       fo.p3, length(fo.pulses), fo.nb, dep) : dep,

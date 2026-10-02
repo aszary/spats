@@ -1837,3 +1837,16 @@ Użytkownik: J1537-4912 dryf (bi-drift — sprawdzić), J1907+0740 AM, J1528-410
   (`p3track_short_real.jl`, log `p3track_short_real.log`): J1528 → drift; krótkie grupy P3-only (J0601, J0659, J0709, J0849),
   które miały z ≈ 5–13 z bootstrapu blokowego, → inconclusive (z_fold ≤ 1.9) — tamte z były artefaktem 2–3 bloków.
 - Batch: kolumny verdict_block, verdict_fold, z_fold, dpsi_fold, verdict_src, bidrift.
+
+### 2026-10-02 (cd.) — co kryje się pod „nocat” (23% pulsarów, reguła A: P₃ grupy ±30% P₃ z params)
+
+Rozkład 119 pulsarów nocat (v2): 64 × tylko grupy z drugiego przejścia (cecha z params bez grupy, jest wolna
+modulacja); 20 × grupa przy ≈ ½ P₃ (kandydat na harmoniczną); 19 × przy ≈ 2× P₃; 16 × inne stosunki.
+Przykłady (`~/claude/work/scripts/p3track_example_one.jl`, wykresy `~/claude/work/figures/p3track/`):
+- **J1807+0756** (P₃ params/Song 19.0): dominująca cecha w danych przy P₃ ≈ 6 (f ≈ 0.17), grupa 567 P z werdyktem
+  drift; w średnim widmie brak piku przy f = 1/19. Nie harmoniczna — P₃ z katalogu nie zgadza się z cechą w danych.
+- **J1915+0738** (P₃ 37): P₃ wędruje ciągle 17 → 27 → 35 w obserwacji; grupy 16.8 i 24.6 to odcinki jednej wędrówki,
+  nie harmoniczna.
+- **J1159-6409** (P₃ 13.5): grupy 5.9 i 9.3.
+Wniosek: reguła A (zgodność z P₃ katalogowym) myli „inną cechę niż w katalogu” i „wędrujące P₃” z „brakiem grupy”.
+Harmoniczna bez fundamentalnej to tylko część (≤ 20 z 119). Poprawka `plot_folds` dla nshuffle = 0.
