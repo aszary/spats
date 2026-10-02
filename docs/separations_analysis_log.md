@@ -1947,3 +1947,11 @@ Skrypt `/tmp/.../scratchpad/v4b_edot.py` (S/N: k_snr z travel v4; Ė = 4π²IṖ
   koherencja −0.21 [−0.28, −0.13]. Przy wyższym Ė dryf — tam, gdzie jest — mniej stabilny i mniej koherentny (słabo).
 - P3-only: drift/partial 0–10% w każdym przedziale (5 pulsarów); werdykt am rośnie z Ė: 1/9, 4/20, 10/39, 9/31, 4/10.
 Zastrzeżenie: etykieta Song+23 sama zależy od Ė (selekcja).
+
+### 2026-10-02 (cd.) — aktualizacja `docs/p3track_method.md`
+
+Nagłówek i §0 na stan batcha v4b (tabela werdyktów pełnej próbki, zależność od Ė, Nyquist, bi-drift, przegląd Ė > 10³⁴);
+nowe §5.1 (miary stabilności) i §7b (pełna próbka: przebieg, pliki, werdykty, Nyquist, Ė, P–Ṗ, dryfery przy wysokim Ė);
+§8 przepisane (12 spraw, w tym reguła werdyktu pulsara, wąskie składowe, werdykty tuż nad progiem, 40 am z folda);
+§10 uzupełnione (batch, Nyquist, pola, P–Ṗ). Nowe wykresy w `docs/figures/p3track_{ppdot_fdrift,ppdot_p3_wander,
+J0846-3533_nyquist,J1453-6413_fold,J1537-4912_fold}.png`.

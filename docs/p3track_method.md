@@ -1,14 +1,17 @@
 # P3Track: ślad P₃(t), fold z kompensacją zmiennego P₃ i faza szablonu
 
-**Stan na 2026-10-01 (pełna metoda: dwa przejścia, test harmonicznej, istotność Δψ, dryf częściowy).** Nowa
-metoda rozstrzygania, czy pulsar **dryfuje**, czy ma tylko modulację amplitudową z okresem P₃ (**P3-only**).
-Zastępuje test „travel” (`docs/travel_test_method.md`) i nie jest na nim wzorowana.
+**Stan na 2026-10-02.** Pełna metoda: dwa przejścia, ścieżka Nyquista (P₃ ≈ 2), test harmonicznej, istotność Δψ
+z dryfem częściowym i bi-driftem, werdykt krótkich grup z folda, miary stabilności; **batch na pełnej próbce (v4b,
+533 pulsary)**. Nowa metoda rozstrzygania, czy pulsar **dryfuje**, czy ma tylko modulację amplitudową z okresem P₃
+(**P3-only**). Zastępuje test „travel” (`docs/travel_test_method.md`) i nie jest na nim wzorowana.
 
 Repozytorium: `github.com/aszary/spats`, gałąź `claude`.
-Kod: `modules/p3track.jl` (moduł `P3Track`, wszystko w jednym pliku, łącznie z wykresami).
-Skrypty: `~/claude/work/scripts/p3track_*.jl`, `j1825_*.jl` (§10).
-Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`), wpisy 2026-10-01 cd. 4–16.
-Wykresy: `~/claude/work/figures/p3track/`, wybrane w `docs/figures/p3track_*.png`.
+Kod: `modules/p3track.jl` (moduł `P3Track`, cała metoda łącznie z wykresami); wykres P–Ṗ: `Plot.ppdot_p3track` w `modules/plot.jl`
+(korzysta z `_ppdot`).
+Skrypty: `~/claude/work/scripts/p3track_*.jl`, `j1825_*.jl`, `j1537_bidrift.jl` (§10).
+Wyniki batcha: `~/output/claude/p3track_batch/` (QNAP), wykresy do podglądu `~/claude/work/figures/p3track_batch_v4/`.
+Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`), wpisy 2026-10-01 cd. 4–21 i 2026-10-02.
+Wykresy dokumentu: `docs/figures/p3track_*.png`.
 
 ---
 
@@ -27,10 +30,29 @@ mierzona w każdym impulsie, a nie wyliczana ze stałego P₃, (3) sprawdzić w 
    (harmonic / separate / inconclusive); grupa ≥ 5·P₃ impulsów (§4).
 4. Drugie przejście dla impulsów spoza grup: reżimy o P₃ dłuższym niż mierzalne przy L₁ (§4a).
 5. Fold grupy z kompensacją zmiennego P₃: demodulacja leave-one-out + wspólny szablon (§5).
-6. Dyskryminator: zmiana fazy szablonu w długości Δψ (gradient ważony amplitudą, osobno w każdej składowej)
-   z błędem z bootstrapu blokowego → werdykt **drift / partial / am / inconclusive** (§6, §6.1).
+6. Ścieżka Nyquista dla P₃ ≈ 2 (test B w blokach, fold w aliasie; kierunek dryfu nieokreślony) (§4b).
+7. Dyskryminator: zmiana fazy szablonu w długości Δψ (gradient ważony amplitudą, osobno w każdej składowej)
+   z błędem z bootstrapu blokowego (krótkie grupy: z folda, impuls po impulsie) → werdykt
+   **drift / partial / am / inconclusive / nyquist** (§6, §6.1); flaga bi-drift.
+8. Miary stabilności grupy: wędrówka P₃, wędrówka fazy względem stałego P₃, koherencja (§5.1).
 
-**Wyniki (5 dryferów + 5 P3-only bez oczekiwanego dryfu, §7):**
+**Pełna próbka — batch v4b (§7b), werdykt pulsara z grup o P₃ ±30% katalogowego:**
+
+| etykieta Song+23 | n | drift | partial | am | inconclusive | nyquist | inne P₃ | brak grup |
+|---|---|---|---|---|---|---|---|---|
+| drift | 412 | **134 (33%)** | 27 (7%) | 21 (5%) | 103 (25%) | 0 | 92 (22%) | 35 (8%) |
+| P3-only | 109 | **1 (1%)** | 4 (4%) | **28 (26%)** | 30 (28%) | 3 (3%) | 23 (21%) | 20 (18%) |
+
+- **Zależność od Ė** (dryfery Song+23): pulsary z wykrytym dryfem 61% (Ė 10²⁹–10³¹) → 51% → 33% → **17%** (10³³–10³⁴);
+  korelacja cząstkowa przy kontroli P₃ i S/N −0.33, logit: log Ė z = −5.9 (S/N z = +2.9, P₃ nieistotne). Tam, gdzie dryf
+  jest, przy wyższym Ė jest mniej stabilny: wędrówka P₃ +0.25, wędrówka fazy na cykl P₃ +0.28, koherencja −0.21
+  (cząstkowe, §7b). Ułamek czasu z dryfem bez trendu.
+- **P₃ ≈ 2**: ścieżka Nyquista odzyskała 4 dryfery, których wcześniej nie było (J0846-3533, J1425-5723, J1502-6128,
+  J1848+0604). **Bi-drift**: J1537-4912 (stabilny w czasie) i 4 inne.
+- Przy Ė > 10³⁴ (18 dryferów): 4 × drift, z czego przekonujący J1453-6413, J1922+1733 umiarkowany, J1733-3716
+  graniczny, J1611-5209 podejrzany (bardzo wąska składowa).
+
+**Zestaw kontrolny (5 dryferów + 5 P3-only bez oczekiwanego dryfu, §7):**
 
 | werdykt | grupy | Δψ [cykle], z |
 |---|---|---|
@@ -52,7 +74,8 @@ Kalibracja na syntetykach (AM z jitterem i losowymi podpulsami, składowe w prze
    o ~0.7 cyklu w dół zbocza, trwale) i modulacja amplitudowa P₃ ≈ 37 po zmianie modu (drugie przejście).
 4. **Część P3-only nie ma stabilnego P₃ na skali 4·P₃** — metoda zwraca wtedy „brak werdyktu”, nie „AM”.
 
-Sprawy otwarte w §8 (m.in. reverserzy, próg 0.1 cyklu, parametry w binach, batch na pełnej próbce).
+Sprawy otwarte w §8 (m.in. reguła werdyktu pulsara a P₃ katalogowe, wąskie składowe, werdykty tuż nad progiem,
+reverserzy, kierunek dryfu przy Nyquiście).
 
 ---
 
@@ -235,6 +258,20 @@ w każdym impulsie**:
 **Kontrole w każdym złożeniu:** fold ze stałym P₃ tych samych impulsów (`constant_fold`, jak `Tools.p3fold`)
 i 5 tasowań kolejności impulsów grupy przez cały łańcuch (kroki 2–5). Miarą porównawczą jest
 `modulation_depth` = √⟨var_faza F(·,φ)⟩_φ / max profilu — **miara porównawcza, nie istotność**.
+
+### 5.1 Miary stabilności grupy (`phase_fold`: `p3_wander`, `phase_wander`, `coherence`)
+
+- **Wędrówka P₃** `p3_wander` = odchylenie standardowe / mediana śledzonego P₃ w oknach grupy. Zawiera rozrzut
+  estymatora (rozdzielczość okna), więc nawet idealnie stabilne P₃ daje wartość > 0.
+- **Wędrówka fazy** `phase_wander`: r(n) = θ(n)/2π − n/P₃ grupy w każdym odcinku, mediana |r(n+Δ) − r(n)| dla
+  Δ = min(200, ½ odcinka), przeliczona na cykle / 1000 impulsów (0.5 = fold ze stałym P₃ rozmyłby się o pół cyklu
+  na 1000 P). Silnie zależy od samego P₃ (Spearman −0.55: przy krótkim P₃ więcej cykli na 1000 P); do porównań między
+  pulsarami lepsza wersja na cykl P₃: `phase_wander`·P₃/10 = cykle fazy na 100 cykli P₃.
+- **Koherencja** = średnia po impulsach |Σ_φ Z·T*| / (‖Z‖·‖T‖) — jak dobrze pojedyncze impulsy pasują do szablonu;
+  zależy też od S/N.
+
+Na pełnej próbce (grupy, mediana [kwartyle]): drift — 0.089 [0.05–0.12], 6.3 [2.9–11.7] cykli/1000 P, 0.76 [0.67–0.84];
+am — 0.094, 2.9, 0.85. Przykład: J0820-1350 — 4%, 0.93 cyklu/1000 P, 0.93; J1537-4912 — 13%, 1.10, 0.77.
 
 ---
 
@@ -434,40 +471,106 @@ względem stałego P₃.*
 
 ---
 
+## 7b. Pełna próbka: batch v4b
+
+**Przebieg.** `~/claude/work/scripts/p3track_batch.jl` (wznawialny, `--part k/n`, `--psrs`, `--tag`), uruchamiany przez
+`p3track_batch_run.sh` w 8 procesach (~35–55 min). Lista i pliki jak w batchu travel: 418 drift + 115 P3-only
+(Song+23), pełne pasmo, bez zapowania (zapy w params.json ma 4 z 521 pulsarów, wyniki z zapami i bez identyczne).
+12 pulsarów bez danych → 521 w analizie. Kolejne wersje: v1 (pierwsza), v2 (reguła mocy dla drift, am przy z < 2),
+v3 (werdykt krótkich grup z folda, bi-drift, miary stabilności), v4 (ścieżka Nyquista, wykresy sLRFS, tylko PNG),
+**v4b** (warunek łącznej istotności ścieżki Nyquista; przeliczone 29 pulsarów z P₃ ≤ 2.2).
+
+**Pliki** (`~/output/claude/p3track_batch/`): `p3track_v4b.csv` — wiersz na grupę (przejście 1/2/3 = pierwsze, drugie,
+Nyquist; P₃, impulsy, odcinki, głębokość zmienna/stała/tasowanie, koherencja, p3_wander, phase_wander, Δψ i Δψ/σ/z/moc
+składowych, z, granica, bloki, werdykt blokowy / z folda / końcowy i jego źródło, bi-drift, partial, testy harmonicznej,
+drugie przejście: sonda i drabinka, Nyquist: rozdzielone aliasy, P₃ aliasu, bloki, p); `p3track_v4b_pulsars.csv` —
+werdykt pulsara (`batch_summary_v2.py`: najsilniejszy z grup o P₃ ±30% katalogowego, drift > partial > am > inconclusive >
+nyquist; „inne P₃” = grupy tylko przy innym P₃), inne mody, z_cv z travel; `p3track_v3_drift_metrics.csv`. Wykresy PNG na
+pulsar: zbiorczy, sLRFS (oba przejścia), foldy, Nyquist — `figures_v4/` (~585 MB) i `~/claude/work/figures/p3track_batch_v4/`.
+
+**Werdykty** — tabela w §0. Względem T_cv (z_cv(B=32) ≥ 5, etykieta drift): T_cv+ → drift 113, partial 18, am 8; T_cv− →
+drift 11, partial 9 (dryf, którego T_cv nie widział). P3-only z drift/partial: J1810-5338 (drift, 73 P, z = 5.4),
+J1543+0929, J1016-5345, J1057-5226, J1825+0004 (partial). **Bi-drift** (składowe dryfujące samodzielnie z przeciwnymi
+znakami): J1537-4912 (−0.19 ± 0.02 / +0.17 ± 0.03, stabilne w ćwiartkach czasu), J1418-3921, J1239+2453, J1921+1948,
+J1843-0211.
+
+![J1537-4912 fold](figures/p3track_J1537-4912_fold.png)
+
+*Rys. 6. J1537-4912 (P₃ ≈ 55): bi-drift — faza szablonu spada w głównej składowej i rośnie w słabej.*
+
+**Ścieżka Nyquista** (11 pulsarów z istotnym wynikiem): drift — J0846-3533 (30/32 bloków, |Δψ| 0.61, z 7.9), J1425-5723
+(1.17, 12.9), J1502-6128 (1.23, 12.2), J1848+0604 (1.75, 9.4); partial J1517-4356; am J0624-0424; nyquist (aliasy
+nierozdzielone) — J1539-4828, J1716-4111, J0855-3331, J0943+2253, J1826-1131.
+
+![J0846-3533 Nyquist](figures/p3track_J0846-3533_nyquist.png)
+
+*Rys. 7. J0846-3533: ścieżka Nyquista — odcinki istotnych bloków testu B, fold przy f₃ = 0.4938 (P₃ = 2.025, alias 1.976),
+faza szablonu. W v2 bez grup.*
+
+**Zależność od Ė** (`v4b_edot.py`; S/N = k_snr z travel v4; Ė = 4π²IṖ/P³, I = 10⁴⁵ g cm²):
+
+| Ė (erg/s) | dryfery Song+23 z grupą drift/partial (68% CI) | mediana ułamka czasu z dryfem | P3-only z am |
+|---|---|---|---|
+| 10²⁹–10³¹ | 61% [56–67] (49/80) | 0.45 | 1/9 |
+| 10³¹–10³² | 51% [46–55] (71/140) | 0.40 | 4/20 |
+| 10³²–10³³ | 33% [28–37] (35/107) | 0.30 | 10/39 |
+| 10³³–10³⁴ | 17% [13–22] (11/66) | 0.54 | 9/31 |
+| > 10³⁴ | 22% [14–33] (4/18) | 0.56 | 4/10 |
+
+- Wykrycie dryfu: Spearman z log Ė −0.33, cząstkowa (kontrola P₃ kat., k_snr) −0.33; logit det ~ log Ė + log k_snr + log P₃:
+  log Ė −0.65 (z −5.9), log k_snr +0.24 (z +2.9), log P₃ −0.40 (z −1.4). k_snr i P₃ prawie nie korelują z Ė (+0.11, +0.17).
+- Stabilność dominującej grupy dryfu (n ≈ 170), korelacja cząstkowa z log Ė przy kontroli P₃ i k_snr [68% bootstrap]:
+  wędrówka P₃ +0.25 [+0.18, +0.32]; wędrówka fazy +0.21 [+0.13, +0.28]; **na cykl P₃ +0.28 [+0.19, +0.36]**;
+  koherencja −0.21 [−0.28, −0.13].
+- Interpretacja: przy wyższym Ė uporządkowany dryf rzadziej się pojawia, a tam, gdzie jest, jest mniej regularny.
+  Zastrzeżenia: etykieta Song+23 sama zależy od Ė (selekcja); powyżej 10³⁴ tylko 18 dryferów.
+
+![P–Ṗ ułamek czasu z dryfem](figures/p3track_ppdot_fdrift.png)
+
+*Rys. 8. P–Ṗ (`Plot.ppdot_p3track`, quantity = :fdrift): kolor = ułamek obserwacji w grupach drift/partial; puste szare =
+brak grupy dryfu. Pozostałe warianty: `:p3_wander` (poniżej), `:phase_wander`, `:coherence`.*
+
+![P–Ṗ wędrówka P3](figures/p3track_ppdot_p3_wander.png)
+
+*Rys. 9. P–Ṗ: wędrówka P₃ dominującej grupy dryfu.*
+
+**Dryfery przy Ė > 10³⁴ (18)**: drift 4, am 2 (J1709-4429, Ė = 3.4·10³⁶; J1224-6407 — werdykt z folda przy 4.5 bloku,
+do sprawdzenia), reszta inconclusive / inne P₃ / brak grup (krótkie okresy, niskie pokrycie). Przegląd czterech `drift`:
+- **J1453-6413** (P₃ 11.6): przekonujący — faza spada równo o −0.44 ± 0.04 przez składową, z = 12.1;
+- **J1922+1733** (P₃ 9.3): umiarkowany — +0.19 ± 0.03 na zboczu wznoszącym, z = 5.7;
+- **J1733-3716** (P₃ 73): graniczny — +0.10 ± 0.02 i +0.07 ± 0.02 w dwóch składowych, fold prawie poziomy;
+- **J1611-5209** (P₃ 17.9 i 12.9): podejrzany — składowa ~3° (5–6 binów), gradient głównie na zboczu.
+
+![J1453-6413 fold](figures/p3track_J1453-6413_fold.png)
+
+*Rys. 10. J1453-6413 (Ė = 1.9·10³⁴): przekonujący dryf przy wysokim Ė.*
+
+---
+
 ## 8. Sprawy do rozstrzygnięcia
 
-1. **Kalibracja Δψ — zrobiona (§6.1)**, zostaje: próg wielkości 0.1 cyklu jest roboczy; bootstrap lekko
-   liberalny; grupy z < 5 blokami (krótkie względem L) zawsze `inconclusive` — dotyczy m.in. drugiego przejścia
-   (długie L). **J1825+0004 mod dryfu wychodzi `inconclusive`**: główna część składowej ma płaską fazę, zmiana
-   fazy jest tylko na zboczu → kategoria `partial` (decyzja: definicja b z dryfem częściowym). Werdykt odporny na
-   okno 4–5 binów i udział ≤ 0.4–0.5, znika przy udziale 0.3. Parametry `partial` (5 binów, 0.5, 0.5, 20°) zależą
-   od nbin = 1024 — do przeliczenia na stopnie przed batchem. Potrzebna skala szumu Δψ:
-   tasowanie impulsów grupy przez cały łańcuch (już liczone dla głębokości — dodać Δψ) albo błąd ψ na bin
-   z rozrzutu Z. Potem: próg na Δψ/σ_Δψ, nie na Δψ.
-2. **Kategoria „brak stabilnego P₃”** (J1001, J1146, J2307). Czy to osobna klasa wyniku, czy próbować
-   dłuższego okna / niższego progu? Ile takich obiektów jest wśród P3-only i wśród dryferów Song+23?
-3. **Długość okna przy wielu trybach** — częściowo rozwiązane drugim przejściem (§4a): J1825 odzyskany,
-   J0034 tryb A nie (jego impulsy zajmuje pierwsze przejście). Do decyzji: czy pierwsze przejście powinno
-   oddawać impulsy, gdy drugie znajduje tam lepszą (dłuższą, silniejszą) cechę; koszt drabinki (do 6 pełnych
-   przebiegów na pulsar).
-4. **Reverserzy** (J1750-3503). Jeden szablon na grupę miesza kierunki. Możliwa naprawa: podział grupy według
-   znaku nachylenia fazy w długości liczonego w oknach ~16–32 P (krótszych od epizodu). Odłożone.
-5. **J1401-6357: tylko 6% impulsów w grupach** przy P₃ ≈ 2.2 (blisko Nyquista, L = 16). Sprawdzić, czy to
-   rzeczywista niekoherencja, czy próg kontrastu przy f ≈ 0.45.
-6. **Maska składowych w Δψ** (|T| ≥ 0.2·max, ≥ 3 biny): słabe, zaszumione fragmenty profilu dzielą się na
-   wiele krótkich składowych (J1750: 5). Sprawdzić czułość Δψ na `frac`, `minrun`.
-7. **Harmoniczne: moc testu.** Test h = 1 przy f₃/2 rozstrzyga dopiero przy ≥ 10 cyklach fundamentalnej;
-   krótsze kandydatury (J0151: 2.7 cyklu) są `inconclusive`. Próg 10 cykli ustawiony z dwóch syntetyków —
-   do sprawdzenia na większej liczbie przypadków (także: harmoniczna przy szumie 1.2 przeszła o włos).
-8. **Δψ a P₂.** Dla dryfu Δψ ≈ W/P₂ — można wyprowadzić P₂ z szablonu i porównać z separacjami / ρ.
-9. **Znak dryfu** zgodny z J0034 i J1750; sprawdzić na kilku dryferach o znanym kierunku z literatury.
-11. **Do rozważenia (2026-10-02): werdykt pulsara z grup pierwszego przejścia zamiast reguły ±30% P₃ katalogowego.**
-    Reguła A daje 23% „nocat”: 64 pulsary mają tylko wolną modulację z drugiego przejścia, ale reszta to cecha w danych
-    inna niż w katalogu (J1807+0756: grupa P₃ ≈ 6 z werdyktem drift, katalog 19, brak piku przy 1/19), wędrujące P₃
-    (J1915+0738: 17 → 35, katalog 37) lub harmoniczne (≈ ½ P₃, 20 pulsarów). Propozycja: werdykt z pierwszego przejścia,
-    drugie jako „inne mody”, w CSV stosunek P₃ grupy do katalogowego do wyłapania obcych cech (RFI).
-10. **Pełna próbka.** Batch na 533 pulsarach nie był jeszcze puszczany. Koszt dominuje `contrast_null`
-    (40 tasowań × N/(L/8) kotwic) i tasowania w `phase_fold`.
+1. **Reguła werdyktu pulsara (do rozważenia, 2026-10-02).** Reguła ±30% P₃ katalogowego daje ~22% „inne P₃”: 64 pulsary
+   mają tylko wolną modulację z drugiego przejścia, reszta to cecha w danych inna niż w katalogu (J1807+0756: grupa P₃ ≈ 6
+   z werdyktem drift, katalog 19, brak piku przy 1/19), wędrujące P₃ (J1915+0738: 17 → 35, katalog 37) lub harmoniczne
+   (≈ ½ P₃, ~20). Propozycja: werdykt z grup pierwszego przejścia (i Nyquista), drugie jako „inne mody”, w CSV stosunek
+   P₃ grupy do katalogowego (wyłapanie obcych cech, RFI).
+2. **Wąskie składowe.** Minimum 5 binów (nbin = 1024) przepuszcza składowe ~2–3° z gradientem na zboczu (J1611-5209).
+   Do rozważenia minimum szerokości w stopniach lub flaga; parametry `partial` (5 binów, 20°) też w binach.
+3. **Werdykty tuż nad progiem** (|Δψ| ≈ 0.1, z ≈ 5; J1733-3716, J1922+1733): oznaczyć jako `drift?`.
+4. **40 grup `am` z werdyktu z folda** (krótkie grupy, v3+) — w kalibracji fold rzadko potwierdzał AM; do przejrzenia,
+   w tym J1224-6407 (P₃ 120, L = 480, 4.5 bloku).
+5. **Krótkie grupy (< 5 bloków)** nadal dominują wśród `inconclusive` (~450 grup). Estymator z folda pomógł (J1528-4109),
+   ale jest słabszy dla wolnego dryfu i potwierdzania AM.
+6. **Reverserzy** (J1750-3503): jeden szablon na grupę miesza kierunki. Możliwa naprawa: podział grupy według znaku
+   nachylenia fazy w oknach ~16–32 P. Odłożone.
+7. **Ścieżka Nyquista**: kierunek dryfu nieokreślony (alias); werdykt `nyquist` (5 pulsarów) bez pomiaru fazy — możliwy
+   pomiar |Δψ| z A(φ) w blokach (zmiana znaku przez profil).
+8. **Długość okna przy wielu trybach** — częściowo rozwiązane drugim przejściem (§4a); J0034 tryb A nadal nie (jego
+   impulsy zajmuje pierwsze przejście).
+9. **Harmoniczne: moc testu** — próg 10 cykli fundamentalnej z dwóch syntetyków; do sprawdzenia.
+10. **Wędrówka fazy** — raportować na cykl P₃ (cykle / 100 cykli P₃) zamiast na 1000 impulsów; dodać do CSV i P–Ṗ.
+11. **Δψ a P₂** (Δψ ≈ W/P₂) — porównać z separacjami / ρ. **Znak dryfu** — sprawdzić na dryferach o znanym kierunku.
+12. **Próg 0.1 (drift) i 0.25 (am)** — wartości robocze; bootstrap lekko liberalny (p < 0.01 w ~5% AM).
 
 ---
 
@@ -521,18 +624,28 @@ res.folds[1].tphase.dpsi                           # Δψ grupy 1 [cykle]
 ```
 
 Kroki osobno: `sliding_lrfs` → `p3_track` → `contrast_null` → `good_windows` → `p3_segments` →
-`p3_groups` → `harmonic_groups` + `fundamental_track` → `merge_sections` → `select_groups` →
-`phase_fold` (+ `constant_fold`) → `template_phase`; drugie przejście `long_p3_pass`; wykres zbiorczy obu przejść `plot_summary`.
+`p3_groups` → `harmonic_groups` (+ `harmonic_test`) + `fundamental_track` → `merge_sections` → `select_groups` →
+`phase_fold` (+ `constant_fold`) → `template_phase` → `template_significance`; ścieżka Nyquista `nyquist_pass`
+(P₃ ≤ 2.2); drugie przejście `long_p3_pass`. Wykresy: `plot_track` (sLRFS), `plot_folds`, `plot_summary` (wszystkie
+przejścia), `plot_nyquist`; wszystkie z `pdf=true|false`. P–Ṗ: `Plot.ppdot_p3track(outdir; results, quantity=:fdrift |
+:p3_wander | :phase_wander | :coherence)`.
 
-Pola `analyse`: `L, sl, tr` (ślad fundamentalny), `threshold, good, segs, groups, harm, dropped, folds, cfolds`,
-`pass2` (te same pola drugiego przejścia + `p3_probe, probe, free, ladder`, albo `nothing`).
+Pola `analyse`: `L, sl, tr` (ślad fundamentalny), `threshold, good, segs, groups, harm, harm_tests, dropped, folds,
+cfolds`, `pass2` (te same pola drugiego przejścia + `p3_probe, probe, free, ladder`, albo `nothing`), `nyq` (`nyquist_pass`:
+`found, sections, block_z, block_sig, n_ind, k_ind, p_global, f3, p3, p3_alias, M, resolved, verdict, tphase, tsig, fold,
+depth, bidrift`, albo `nothing`). W `phase_fold` także `p3_wander`, `phase_wander`.
 Pola `phase_fold`: `group, pulses, p3, nb, fold, counts, phase, theta, template, tphase, tsig, f, depth,
 depth_null, coherence, sections, on_bins`. Pola `tphase`: `psi, amp, mask, runs, run_slope, run_dpsi, dpsi, span,
 rms`. Pola `tsig`/`tsig_fold`: `verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block, partial,
 sigma_psi, pow_drift, bidrift`; w `phase_fold` także `verdict`, `verdict_src`, `bidrift`, `tphase_fold`.
 
 Skrypty (`~/claude/work/scripts/`):
-- `p3track_control.jl` — **pełna metoda na 10 pulsarach** (oba przejścia, test harmonicznej, werdykty, wykresy zbiorcze; tabela §7);
+- `p3track_batch.jl` + `p3track_batch_run.sh` — **batch na pełnej próbce** (8 procesów, tag wersji; §7b); podsumowanie
+  `/tmp/.../scratchpad/batch_summary_v2.py <tag>` (zapisuje `~/claude/work/p3track_<tag>_pulsars.csv`); zależności od Ė
+  `v4b_edot.py`; P–Ṗ `p3track_ppdot.jl`;
+- `p3track_control.jl` — pełna metoda na 10 pulsarach kontrolnych (tabela §7);
+- `p3track_nyq_check.jl` — walidacja ścieżki Nyquista; `p3track_short_calib.jl`, `p3track_short_real.jl` — estymator z folda;
+  `j1537_bidrift.jl` — bi-drift w ćwiartkach czasu; `p3track_example_one.jl <katalog> <plik>` — sLRFS + zbiorczy + foldy;
 - `p3track_summary_one.jl <katalog> <plik>` — wykres zbiorczy dla jednego pulsara;
 - kalibracja: `p3track_dpsi_calib.jl [frac minrun minpower]` (+ `p3track_dpsi_calib_synth.jl`), `p3track_harmonic_test.jl`;
 - diagnostyka J1825+0004: `j1825_mode2.jl` (drugi mod), `j1825_inspect.jl` (faza szablonu), `j1825_partial_check.jl`;
@@ -552,5 +665,7 @@ kolejności matplotlib wciąga systemową libmount i ładowanie Glib_jll się wy
 2. **Fold** (`plot_folds`, wiersz 1 vs 2): kompensacja powinna dać głębokość wyraźnie ponad kontrolą
    z tasowaniem; jeśli nie, złożenie nie niesie informacji.
 3. **Faza szablonu i werdykt** (wiersz 3, `tphase`, `tsig`): `drift` / `partial` / `am` / `inconclusive` (§6.1); znak Δψ:
-   dodatni = od wcześniejszych do późniejszych długości.
+   dodatni = od wcześniejszych do późniejszych długości (przy ścieżce Nyquista znak nieokreślony). Przy wąskich składowych
+   i wartościach tuż nad progiem sprawdzić fold wzrokowo (§8.2–3).
 4. **Faza impulsów vs stałe P₃** (wiersz 4): ile wędruje P₃ i czy odcinki są zgrane.
+5. **P₃ ≈ 2**: wykres `<PSR>_nyquist.png` — czy bloki testu B są istotne łącznie, czy aliasy rozdzielone.
