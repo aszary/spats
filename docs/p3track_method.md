@@ -52,6 +52,19 @@ mierzona w każdym impulsie, a nie wyliczana ze stałego P₃, (3) sprawdzić w 
 - Przy Ė > 10³⁴ (18 dryferów): 4 × drift, z czego przekonujący J1453-6413, J1922+1733 umiarkowany, J1733-3716
   graniczny, J1611-5209 podejrzany (bardzo wąska składowa).
 
+**Wniosek wobec klasyfikacji Song+23: metoda zmienia bardzo niewiele.**
+- **P3-only (109):** żaden pulsar nie przechodzi pewnie do dryfu. Jedyny `drift`, J1810-5338, to 73 impulsy (3% obserwacji)
+  w trzech rozrzuconych odcinkach o różnym P₃, Δψ = 0.19 przy z = 5.4 — wynik tuż nad progami, najpewniej fluktuacja.
+  Z czterech `partial` realne oznaki dryfu ma J1825+0004 (dryf na zboczu składowej i tylko w modzie 1–696), częściowo
+  J1057-5226 (gradient tylko w słabszej składowej) i J1543+0929 (gradient całości, żadna składowa osobno); J1016-5345
+  (101 P, jedno lokalne okno) jest tak samo graniczny jak J1810-5338. 26% P3-only dostaje potwierdzenie `am`.
+- **Dryfery (412):** 33% potwierdzonych jako `drift`, 7% jako `partial`, 5% `am`; ponad połowa (~55%) pozostaje bez
+  rozstrzygnięcia (inconclusive, grupy tylko przy innym P₃, brak grup) — tu metoda klasyfikacji nie podważa, ale jej też
+  nie potwierdza.
+- Wartość metody leży więc mniej w przekwalifikowaniu, a bardziej w tym, co dodaje do etykiety: **gdzie i kiedy** dryf jest
+  (mody, część profilu, część obserwacji, bi-drift), **jak stabilny** jest (wędrówka P₃ i fazy, koherencja — zależne od Ė),
+  oraz w odzyskaniu dryfu przy P₃ ≈ 2 (ścieżka Nyquista).
+
 **Zestaw kontrolny (5 dryferów + 5 P3-only bez oczekiwanego dryfu, §7):**
 
 | werdykt | grupy | Δψ [cykle], z |
@@ -494,6 +507,16 @@ J1543+0929, J1016-5345, J1057-5226, J1825+0004 (partial). **Bi-drift** (składow
 znakami): J1537-4912 (−0.19 ± 0.02 / +0.17 ± 0.03, stabilne w ćwiartkach czasu), J1418-3921, J1239+2453, J1921+1948,
 J1843-0211.
 
+**Porównanie z Song+23 — P3-only z oznakami dryfu (przegląd wykresów, 2026-10-02):**
+
+| PSR | werdykt | grupa | ocena |
+|---|---|---|---|
+| J1810-5338 | drift | 73 z 2300 P w 3 odcinkach (P₃ 4.5–6.0), Δψ 0.19, z 5.4 | tuż nad progami; P₃ niestabilne przez prawie całą obserwację (26/2282 dobrych okien) — wątpliwy |
+| J1825+0004 | partial | 681 P (1–696), lokalnie −0.44, z 11 | przekonujący: faza płaska na szczycie, spada ~0.7 cyklu na zboczu, stabilnie w czasie |
+| J1057-5226 | partial | 4924 z 27401 P, słabsza składowa −0.19 ± 0.03 | dryf w jednej składowej albo AM dwóch składowych z opóźnieniem fazy (nierozróżnialne) |
+| J1543+0929 | partial | 427 P, −0.09 ± 0.02 i +0.16 ± 0.04, całość z 5.3 | umiarkowany, lekko nachylone pasma w obu składowych |
+| J1016-5345 | partial | 101 P w 2 odcinkach, globalnie z 0.6, jedno okno −0.18 / z 5.8 | wątpliwy, fold prawie poziomy |
+
 ![J1537-4912 fold](figures/p3track_J1537-4912_fold.png)
 
 *Rys. 6. J1537-4912 (P₃ ≈ 55): bi-drift — faza szablonu spada w głównej składowej i rośnie w słabej.*
@@ -556,7 +579,8 @@ do sprawdzenia), reszta inconclusive / inne P₃ / brak grup (krótkie okresy, n
    P₃ grupy do katalogowego (wyłapanie obcych cech, RFI).
 2. **Wąskie składowe.** Minimum 5 binów (nbin = 1024) przepuszcza składowe ~2–3° z gradientem na zboczu (J1611-5209).
    Do rozważenia minimum szerokości w stopniach lub flaga; parametry `partial` (5 binów, 20°) też w binach.
-3. **Werdykty tuż nad progiem** (|Δψ| ≈ 0.1, z ≈ 5; J1733-3716, J1922+1733): oznaczyć jako `drift?`.
+3. **Werdykty tuż nad progiem** (|Δψ| ≈ 0.1, z ≈ 5; J1733-3716, J1922+1733, J1810-5338, J1016-5345 jako `partial`):
+   oznaczyć jako `drift?` / `partial?`; też grupy z małym pokryciem (kilka krótkich odcinków o różnym P₃).
 4. **40 grup `am` z werdyktu z folda** (krótkie grupy, v3+) — w kalibracji fold rzadko potwierdzał AM; do przejrzenia,
    w tym J1224-6407 (P₃ 120, L = 480, 4.5 bloku).
 5. **Krótkie grupy (< 5 bloków)** nadal dominują wśród `inconclusive` (~450 grup). Estymator z folda pomógł (J1528-4109),

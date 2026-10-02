@@ -1955,3 +1955,10 @@ nowe §5.1 (miary stabilności) i §7b (pełna próbka: przebieg, pliki, werdykt
 §8 przepisane (12 spraw, w tym reguła werdyktu pulsara, wąskie składowe, werdykty tuż nad progiem, 40 am z folda);
 §10 uzupełnione (batch, Nyquist, pola, P–Ṗ). Nowe wykresy w `docs/figures/p3track_{ppdot_fdrift,ppdot_p3_wander,
 J0846-3533_nyquist,J1453-6413_fold,J1537-4912_fold}.png`.
+
+### 2026-10-02 (cd.) — wniosek: wobec Song+23 metoda zmienia bardzo niewiele
+
+Przegląd P3-only z drift/partial: J1810-5338 (jedyny drift) wątpliwy — 73 P w 3 odcinkach o różnym P₃, z 5.4 tuż nad progiem;
+J1825+0004 przekonujący (dryf na zboczu, mod 1–696); J1057-5226 i J1543+0929 umiarkowane; J1016-5345 wątpliwy. Żaden P3-only
+nie przechodzi pewnie do dryfu; 26% P3-only potwierdzone jako am; wśród dryferów 33% drift, 7% partial, ~55% bez
+rozstrzygnięcia. Dopisane do §0 i §7b `docs/p3track_method.md` (wartość metody: gdzie/kiedy/jak stabilny dryf, Ė, P₃ ≈ 2).
