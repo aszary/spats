@@ -2059,3 +2059,45 @@ Dane (zestaw kontrolny):
   w połowie okna (8 P).
 - Wniosek: Δψ(t) daje czytelny obraz „gdzie w czasie” dla jasnych pulsarów, ale nie zwiększa czułości tam, gdzie P3Track i
   Song+23 się rozjeżdżają (słabe, epizodyczne, długie P₃).
+
+### 2026-10-02 (cd.) — śledzenie podpulsów impuls po impulsie (`subtrack`), automatyczna wersja Szary+2022 §3.2
+
+Metoda z pracy o J1750-3503 (ApJ 934, 23): splot impulsu z Gaussem o szerokości podpulsu, maksima z S/N ≥ 5, łączenie w pasma
+(tam wzrokowo), tempo dryfu z dopasowania ścieżek. Tu łączenie automatyczne. Skrypt `~/claude/work/scripts/subtrack.jl`
+(`[katalog plik]...`, domyślnie zestaw kontrolny), siatka parametrów `grid_subtrack.jl`, syntetyki `subtrack_synth.jl`;
+logi `~/claude/work/logs/subtrack_*.log`, wykresy `~/claude/work/figures/subtrack/<PSR>_subtrack[_zoom].png` (+ `synth/`).
+- Detekcja: σ podpulsu z autokorelacji fluktuacji (HWHM/(√2·√(2 ln 2))), S/N względem off-pulse'u po tym samym splocie,
+  maksima bliższe niż FWHM tłumione, pozycja z paraboli.
+- Łączenie: zachłanne jeden-do-jednego do pozycji przewidywanej (ostatnia + nachylenie z ostatnich ≤ 5 punktów), skok ≤ FWHM
+  podpulsu, luka ≤ 2 impulsy; dopasowanie Theil–Sen. Null: tasowanie kolejności impulsów (te same podpulsy; AM daje te same
+  pionowe ścieżki, dryf się rozpada).
+- **Kalibracja na J1750-3503** (siatka S/N 4/5 × skok P₂/2, 1.5, 1.0, 0.6 FWHM × luka 1/2 × LS/TS): D₊ = +0.395, D₋ = −0.338 °/P
+  (praca: 0.388, −0.314), D > 0 przez 74% czasu ze ścieżkami (praca ~78%), P₂ = 18.1° (18.6°). Zawyżone D (0.55–0.60) z pierwszej
+  wersji brało się z selekcji ścieżek po |D|/σ ≥ 3 (krótkie strome ścieżki); D raportowane jako średnia ważona długością ścieżek
+  ≥ 8 punktów bez selekcji.
+- **Statystyka dryfu**: f_ls = udział podpulsów w ścieżkach ≥ 8 punktów z |D|/σ ≥ 3; z(f_ls) względem 20 tasowań.
+  (z(f_long) — same długie ścieżki — myli pionowe ścieżki AM, J1825: 7.2; z(Q) = ⟨|D|/σ⟩ słabe dla J1750: 1.7.)
+
+| etykieta | PSR | P₂ [°] | f_ls (tas.) | z(f_ls) | D₊ / D₋ [°/P] (ścieżki) |
+|---|---|---|---|---|---|
+| P3-only | J1401-6357 | 4.7 | 0.24 (0.24) | −0.1 | +0.13 (26) / −0.11 (35) |
+| P3-only | J1603-2531 | 11.4 | 0.22 (0.18) | 1.2 | +0.14 (65) / −0.12 (32) |
+| P3-only | J1001-5939 | 4.2 | 0.00 (0.00) | −0.2 | ≈ 0 |
+| P3-only | J1146-6030 | 5.5 | 0.30 (0.28) | 1.0 | +0.11 (60) / −0.14 (55) |
+| P3-only | J2307+2225 | 11.9 | 0.00 (0.02) | −0.3 | ≈ 0 |
+| drift | J0034-0721 | 18.1 | 0.67 (0.13) | 14.8 | −2.36 (66) |
+| drift | J0151-0635 | 14.1 | 0.56 (0.19) | 17.0 | −0.40 (109) |
+| drift | J0820-1350 | 3.6 | 0.85 (0.35) | 8.9 | −0.73 (184) |
+| drift | J1825+0004 | 9.0 | 0.03 (0.03) | 0.2 | ≈ 0 (wykrywa jasny szczyt AM, dryf słaby na zboczu) |
+| drift | J1750-3503 | 18.1 | 0.43 (0.09) | 13.5 | +0.40 (27) / −0.34 (13) — reverser |
+
+Syntetyki (1000 P, podpulsy σ = 3 biny, P₂ = 24, 20 ziaren AM / 5 dryf; szum 1.0 / 2.0 ≈ S/N podpulsu 9 / 4.6): AM stałe pozycje,
+AM przeciwfaza, losowe podpulsy → max z(f_ls) = 2.2 w 120 przypadkach, 0 × z ≥ 5. Dryf z = 30 / 1.5 (D = 2.96 przy 3.0), reverser
+33 / 1.6 (D ±2.9), wolny dryf (P₃ = 40) 28 / 33 (D 0.59–0.60 przy 0.6), alias P₃ = 2.1: z = 22, ale D błędne (0.27 / −0.57 zamiast
+11.4 lub −12.6) — przy P₃ ≈ 2 łączenie łapie alias. Przy S/N podpulsu < 5 metoda nic nie widzi (to ograniczenie z założenia).
+
+P3-only z oznakami dryfu w travel/P3Track (`subtrack_p3only_cand.log`): J1810-5338 z 0.9, J1543+0929 0.9, J1016-5345 −1.5,
+J0837+0610 −0.1, J1633-4453 0.3, J1701-3130 1.9; J1057-5226 z = 6.8 i J1048-5832 4.3, ale efekt znikomy (f_ls 0.07 vs 0.05,
+0.29 vs 0.25) przy 27 401 i 7 270 impulsach (mały rozrzut tasowań), D > 0 w 49% / 54% czasu — bez spójnego kierunku.
+Potrzebny warunek na wielkość efektu (np. f_ls − f_ls,tas ≥ 0.1; dryfery kontrolne 0.34–0.54, P3-only ≤ 0.04).
+Wniosek wstępny: żaden z tych P3-only nie ma pasm podpulsów — zgodnie z Song+23.
