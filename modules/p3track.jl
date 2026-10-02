@@ -37,7 +37,7 @@ export sliding_lrfs, p3_track, contrast_null, good_windows, window_length, p3_se
        p3_groups, merge_sections, harmonic_groups, fundamental_track, select_groups,
        phase_fold, constant_fold, analyse, long_p3_pass, plot_track, plot_folds,
        plot_summary, harmonic_test, harmonic_power,
-       template_significance
+       template_significance, nyquist_pass, plot_nyquist
 
 "periodic Hann taper without zero end points (no pulse fully discarded at L = 16)"
 hann_taper(L::Int) = sin.(π .* ((0:L-1) .+ 0.5) ./ L) .^ 2
@@ -1176,10 +1176,14 @@ Fields: L, sl, tr (fundamental track), threshold, good, segs, groups, harm
 (before merging), harm_tests (`harmonic_groups`), dropped, folds, cfolds —
 first pass; pass2 — the same
 fields for the second pass plus p3_probe, probe (see `long_p3_pass`), or
-nothing when there was no second pass.
+nothing when there was no second pass; nyq — `nyquist_pass` result when
+p3 ≤ `nyq_p3max` (2.2), run on the pulses outside the first-pass groups
+before the second pass (which then also skips the Nyquist sections),
+otherwise nothing.
 """
 function analyse(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real; window=nothing,
-                 ncycles::Real=5, nshuffle::Int=5, second_pass::Bool=true, tp_kw=NamedTuple())
+                 ncycles::Real=5, nshuffle::Int=5, second_pass::Bool=true, tp_kw=NamedTuple(),
+                 nyq_p3max::Real=2.2)
     N = size(data, 1)
     L = window === nothing ? window_length(p3) : window
     sl = sliding_lrfs(data, bin_st, bin_end; window=L)
@@ -1198,10 +1202,195 @@ function analyse(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real; wind
     folds = [phase_fold(data, sl, trf, segs, groups, g; nshuffle=nshuffle, tp_kw=tp_kw)
              for g in sort(unique(groups))]
     cfolds = [constant_fold(data, sl.on_bins, fo.pulses, fo.p3, fo.nb) for fo in folds]
-    pass2 = second_pass ? long_p3_pass(data, bin_st, bin_end, L, segs;
+    nyq = p3 ≤ nyq_p3max ? nyquist_pass(data, bin_st, bin_end, p3, segs; tp_kw=tp_kw) : nothing
+    taken = nyq === nothing || !nyq.found ? segs :
+            vcat(segs, [(first=first(r), last=last(r)) for r in nyq.sections])
+    pass2 = second_pass ? long_p3_pass(data, bin_st, bin_end, L, taken;
                                        ncycles=ncycles, nshuffle=nshuffle, tp_kw=tp_kw) : nothing
     return (L=L, sl=sl, tr=trf, threshold=thr, good=good, segs=segs, groups=groups,
-            harm=harm, harm_tests=htests, dropped=dropped, folds=folds, cfolds=cfolds, pass2=pass2)
+            harm=harm, harm_tests=htests, dropped=dropped, folds=folds, cfolds=cfolds, pass2=pass2,
+            nyq=nyq)
+end
+
+
+"""
+    nyquist_pass(data, bin_st, bin_end, p3, segs1; B=32, step=16, nperm=300, q=0.99,
+                 seed=1, mincycles=2, nbins=8, tp_kw) -> NamedTuple
+
+Drift detection at P3 ≈ 2 (f3 near the Nyquist frequency 0.5), where the
+sliding LRFS fails: the feature at f3 and its mirror at 1 − f3 merge within
+the Hann main lobe (±2/L) into one maximum exactly at f = 0.5, the edge of
+the search range, and the window is rejected (`feature_peak` needs an
+interior maximum). In batch v2/v3 no pulsar with P3 ≤ 2.13 (17) had a group
+at its catalogue P3, the smallest group P3 was 2.15. Found and tested by the
+session claude-ac (`~/claude/work/scripts/play/nyquist_*.jl`).
+
+On pulses outside the first-pass sections (`segs1`):
+
+1. Test B: blocks of `B` pulses (step `step`), folded at P3 = 2,
+   A(φ) = Σ (−1)ⁿ xₙ(φ), S = Σ_φ |A|² against `nperm` shuffles of the
+   block's pulses; blocks above the `q` quantile are significant and are
+   merged into sections. (A sign change of A across the profile is what a
+   drift looks like here; a uniform sign is alternating brightness.)
+2. f3 from the incoherently summed periodogram of the sections
+   (rectangular window, lobe ±1/M instead of Hann's ±2/M) on [0.40, 0.5];
+   δ = 0.5 − f3.
+3. f3 and its alias 0.5 + δ are separable only if the longest section M has
+   M·2δ ≥ `mincycles`. If so: demodulation at f3 in each section, section
+   phases aligned to the strongest one, template and its significance
+   pulse by pulse (as `verdict_fold`) → drift / partial / am / inconclusive.
+   The fold at the alias is the mirror image (Δψ with the opposite sign), so
+   only |Δψ| and the relative signs of components (bi-drift) are meaningful;
+   **the drift direction is unknown**. If not separable: verdict :nyquist —
+   modulation at Nyquist without a phase measurement (at f = 0.5 exactly the
+   demodulation is real and the template phase is 0 or π only).
+
+J0846-3533 (claude-ac): sections 976 P, f3 = 0.4938 (P3 = 2.025, params
+2.02), drift, |Δψ| = 0.61, z = 7.9 — no group in v2. J0943+2253: sections
+≤ 96 P, f3 not separable from 0.5 → :nyquist.
+
+Fields: found, sections, block_starts, block_z, block_sig, f3, delta, p3,
+p3_alias, M, resolved, pulses, theta, verdict, tphase, tsig, fold, counts,
+nb, depth, bidrift.
+"""
+function nyquist_pass(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real, segs1;
+                      B::Int=32, step::Int=16, nperm::Int=300, q::Real=0.99, seed::Int=1,
+                      mincycles::Real=2, nbins::Int=8, tp_kw=NamedTuple())
+    N = size(data, 1)
+    on = bin_st:bin_end
+    free = free_pulses(segs1, N)
+    sgn = [(-1.0)^n for n in 0:B-1]
+    rng = Random.MersenneTwister(seed)
+    starts = collect(1:step:max(1, N - B + 1))
+    z = fill(NaN, length(starts)); sig = falses(length(starts))
+    for (k, a) in enumerate(starts)
+        a + B - 1 ≤ N || continue
+        all(free[a:a+B-1]) || continue
+        X = data[a:a+B-1, on]; X .-= mean(X, dims=1)
+        all(iszero, X) && continue
+        S = sum(abs2, sgn' * X)
+        nul = [sum(abs2, sgn' * X[Random.randperm(rng, B), :]) for _ in 1:nperm]
+        z[k] = (S - mean(nul)) / std(nul)
+        sig[k] = S > quantile(nul, q)
+    end
+    secs = UnitRange{Int}[]
+    for k in findall(sig)
+        r = starts[k]:starts[k]+B-1
+        if !isempty(secs) && first(r) ≤ last(secs[end]) + 1
+            secs[end] = first(secs[end]):last(r)
+        else
+            push!(secs, r)
+        end
+    end
+    empty = (found=false, sections=secs, block_starts=starts, block_z=z, block_sig=sig, f3=NaN,
+             delta=NaN, p3=NaN, p3_alias=NaN, M=0, resolved=false, pulses=Int[], theta=Float64[],
+             verdict=:none, tphase=nothing, tsig=nothing, fold=zeros(0, 0), counts=Int[], nb=0,
+             depth=NaN, bidrift=false)
+    isempty(secs) && return empty
+
+    # 2. f3 from the sections' periodogram
+    fgrid = collect(0.40:2e-5:0.5)
+    Ptot = zeros(length(fgrid))
+    for r in secs
+        X = data[r, on]; X .-= mean(X, dims=1)
+        n = collect(0:length(r)-1)
+        for (i, f) in enumerate(fgrid)
+            Ptot[i] += sum(abs2, transpose(cis.(-2π * f .* n)) * X)
+        end
+    end
+    f3 = fgrid[argmax(Ptot)]
+    δ = 0.5 - f3
+    M = maximum(length.(secs))
+    resolved = M * 2δ ≥ mincycles
+    pulses = reduce(vcat, collect.(secs))
+    if !resolved
+        return merge(empty, (found=true, f3=f3, delta=δ, p3=1 / f3, p3_alias=1 / (0.5 + δ), M=M,
+                             pulses=pulses, verdict=:nyquist))
+    end
+
+    # 3. demodulation at f3, section phases aligned to the strongest section
+    Ts = [vec(mean((data[r, on] .- mean(data[r, on], dims=1)) .* cis.(-2π * f3 .* r), dims=1)) for r in secs]
+    w = [length(r) * sum(abs2, t) for (r, t) in zip(secs, Ts)]
+    ref = Ts[argmax(w)]
+    rot = [angle(sum(t .* conj(ref))) for t in Ts]
+    θ = reduce(vcat, [2π * f3 .* r .- rot[i] for (i, r) in enumerate(secs)])
+    X = data[pulses, on]
+    C = (X .- mean(X, dims=1)) .* cis.(-θ)
+    Tf = vec(mean(C, dims=1))
+    tp = template_phase(Tf; tp_kw...)
+    ts = template_significance(C, zeros(length(pulses)), Tf, tp, B; seed=seed, block=1)
+    F, cnt = _fold(data, on, pulses, mod.(θ ./ (2π), 1.0), nbins)
+    return merge(empty, (found=true, f3=f3, delta=δ, p3=1 / f3, p3_alias=1 / (0.5 + δ), M=M,
+                         resolved=true, pulses=pulses, theta=θ, verdict=ts.verdict, tphase=tp,
+                         tsig=ts, fold=F, counts=cnt, nb=nbins, depth=modulation_depth(F, cnt),
+                         bidrift=ts.bidrift))
+end
+
+
+"""
+    plot_nyquist(data, nyq, outdir; nbin, name_mod, show_)
+
+Nyquist path (`nyquist_pass`) for one pulsar: single pulses with the
+sections of significant blocks, block z of test B, fold at f3 (direction of
+drift unknown — the alias fold is its mirror image) and the template phase.
+Writes `<name_mod>_nyquist.pdf/.png`.
+"""
+function plot_nyquist(data, nyq, outdir; nbin=size(data, 2), on=nothing, name_mod="pulsar",
+                      show_=false)
+    N = size(data, 1)
+    on === nothing && error("on (on-pulse bins) required")
+    lon = (collect(on) .- 1) .* 360.0 ./ nbin
+    rc("font", size=7.)
+    rc("axes", linewidth=0.5)
+    rc("lines", linewidth=0.5)
+    fig = figure(figsize=(7.0, 8.0))
+    ax1 = fig.add_axes([0.10, 0.72, 0.86, 0.23])
+    st = permutedims(data[:, on])
+    imshow(st, origin="lower", aspect="auto", cmap="viridis", interpolation="none",
+           extent=(0.5, N + 0.5, lon[1], lon[end]), vmin=quantile(vec(st), 0.01),
+           vmax=quantile(vec(st), 0.995))
+    for r in nyq.sections
+        ax1.axvspan(first(r) - 0.5, last(r) + 0.5, ymin=0.0, ymax=0.05, color="C3", lw=0)
+    end
+    ylabel("longitude (\$^\\circ\$)")
+    tick_params(labelbottom=false)
+    title(@sprintf("%s  Nyquist path: f\$_3\$ = %.5f (P\$_3\$ = %.4f or alias %.4f), M = %d, %s → %s",
+                   name_mod, nyq.f3, nyq.p3, nyq.p3_alias, nyq.M,
+                   nyq.resolved ? "resolved" : "aliases not resolved", nyq.verdict), fontsize=7)
+    ax2 = fig.add_axes([0.10, 0.58, 0.86, 0.12], sharex=ax1)
+    c = nyq.block_starts .+ 15.5
+    plot(c, nyq.block_z, c="0.4", marker=".", ms=2)
+    scatter(c[nyq.block_sig], nyq.block_z[nyq.block_sig], s=5, c="C3", zorder=3)
+    xlim(0.5, N + 0.5); xlabel("pulse number"); ylabel("z (test B)")
+    if nyq.resolved
+        ax3 = fig.add_axes([0.10, 0.07, 0.40, 0.42])
+        FF = vcat(nyq.fold, nyq.fold)
+        imshow(FF, origin="lower", aspect="auto", cmap="viridis", interpolation="none",
+               extent=(lon[1], lon[end], 0, 2), vmax=quantile(vec(FF), 0.99))
+        xlabel("longitude (\$^\\circ\$)"); ylabel("P\$_3\$ phase (cycles)")
+        title(@sprintf("fold at f\$_3\$, %d P, %d bins, depth %.3f\n(alias fold = mirror image)",
+                       length(nyq.pulses), nyq.nb, nyq.depth), fontsize=6)
+        ax4 = fig.add_axes([0.58, 0.07, 0.34, 0.42])
+        tp, ts = nyq.tphase, nyq.tsig
+        plot(lon, tp.amp, c="lightgrey", lw=0.8); ylim(0, 1.05)
+        xlabel("longitude (\$^\\circ\$)"); ylabel("|T| (norm.)")
+        ax5 = ax4.twinx()
+        ax5.plot(lon, rad2deg.(tp.psi), ".", ms=2, c="C3")
+        ax5.set_ylabel("ψ (\$^\\circ\$), sign arbitrary")
+        title(@sprintf("|Δψ| %.2f cyc (%s)\nz = %.1f → %s%s", tp.dpsi,
+                       join([@sprintf("%+.2f±%.2f", a, b) for (a, b) in zip(tp.run_dpsi, ts.sigma_run)], ", "),
+                       ts.z, ts.verdict, ts.bidrift ? ", bi-drift" : ""), fontsize=6)
+    end
+    savepath = joinpath(outdir, "$(name_mod)_nyquist.pdf")
+    savefig(savepath)
+    savefig(replace(savepath, ".pdf" => ".png"), dpi=150)
+    println(savepath)
+    if show_
+        PyPlot.show()
+        println("Press Enter to close the figure.")
+        readline(stdin; keep=false)
+    end
+    close()
 end
 
 
@@ -1671,6 +1860,21 @@ function plot_summary(data, res, outdir; nbin=size(data, 2), name_mod="pulsar", 
             ax2.text(0.99, 0.95 - 0.08 * (ci - 1), labels[end], transform=ax2.transAxes,
                      ha="right", va="top", fontsize=6, color=col)
         end
+    end
+    nq = hasproperty(res, :nyq) ? res.nyq : nothing
+    if nq !== nothing && nq.found
+        col = "C$(mod(ci, 10))"
+        for r in nq.sections
+            ax1.axvspan(first(r) - 0.5, last(r) + 0.5, ymin=0.48, ymax=0.52, color=col, lw=0)
+            ax2.plot([first(r), last(r)], [nq.p3, nq.p3], "-", lw=2, c=col)
+        end
+        push!(p3s, nq.p3)
+        lab = nq.resolved ? @sprintf("Nyquist path: P\$_3\$ ≈ %.3f (alias %.3f), %d P, |Δψ| = %.2f, z = %.1f → %s%s",
+                                     nq.p3, nq.p3_alias, length(nq.pulses), nq.tphase.dpsi, nq.tsig.z,
+                                     nq.verdict, nq.bidrift ? ", bi-drift" : "") :
+              @sprintf("Nyquist path: %d P, aliases not resolved (M = %d) → %s", length(nq.pulses), nq.M, nq.verdict)
+        ax2.text(0.99, 0.95 - 0.08 * ci, lab, transform=ax2.transAxes, ha="right", va="top", fontsize=6, color=col)
+        ci += 1
     end
     p3_ref === nothing || ax2.axhline(y=p3_ref, color="grey", ls="--", lw=0.6)
     if !isempty(p3s)

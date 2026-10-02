@@ -187,6 +187,27 @@ L₁ = 57 nie widzi (podobnie tryb A J0034-0721 przy L₁ = 26). `analyse(...; s
 (`frange`): mediana wąskiego zakresu niskich częstości siedzi na czerwonym kontinuum i chowa cechę
 (J1825 przy L = 228: żadne okno nie przechodziło).
 
+### 4b. Ścieżka Nyquista: P₃ ≈ 2 (`nyquist_pass`)
+
+**Problem** (zgłoszony i przetestowany przez sesję claude-ac, `~/claude/work/scripts/play/nyquist_*.jl`): przy f₃ blisko 0.5
+cecha i jej lustro 1 − f₃ zlewają się w listku Hanna (±2/L) w jedno maksimum dokładnie w f = 0.5, na krawędzi zakresu;
+`feature_peak` wymaga maksimum wewnętrznego, więc okno jest odrzucane. W v2/v3 żaden z 17 pulsarów z P₃ ≤ 2.13 nie miał
+grupy przy swoim P₃ (najmniejsze P₃ grupy 2.15) — ostre odcięcie, artefakt.
+
+**Ścieżka** (dla P₃ z params ≤ 2.2, na impulsach spoza grup pierwszego przejścia, przed drugim przejściem):
+1. Test B: bloki 32 P (krok 16) składane przy P₃ = 2, A(φ) = Σ(−1)ⁿxₙ(φ), S = Σ|A|² vs 300 tasowań bloku; bloki > 99% →
+   sklejone odcinki.
+2. f₃ z periodogramu odcinków (okno prostokątne, siatka 0.40–0.5), δ = 0.5 − f₃.
+3. f₃ i alias 0.5 + δ rozdzielne, gdy najdłuższy odcinek M·2δ ≥ 2: demodulacja przy f₃ w odcinkach (fazy odcinków
+   wyrównane do najsilniejszego), szablon i istotność impuls po impulsie → drift / partial / am / inconclusive.
+   Fold przy aliasie to lustro → mierzalne tylko |Δψ| i względne znaki składowych (bi-drift); **kierunek dryfu nieznany**.
+   W przeciwnym razie werdykt **`nyquist`** (modulacja przy Nyquiście, bez pomiaru fazy — przy f = 0.5 szablon jest rzeczywisty).
+
+**Walidacja** (`p3track_nyq_check.jl`, log `p3track_nyq_check.log`): J0846-3533 → drift (P₃ = 2.025 bez podpowiedzi,
+|Δψ| = 0.61, z = 7.9; w v2 brak grup); J0943+2253 → nyquist (odcinki ≤ 96 P); kontrola J0924-5302 (P₃ 10.3, ścieżka
+wymuszona) → 0 istotnych bloków; syntetyki P₃ = 2.05: AM → am 12/12, dryf → drift 6/6. W batchu wiersze `pass = 3`,
+`verdict_src = nyquist`, kolumny `nyq_resolved`, `p3_alias`; wykres `<PSR>_nyquist.png`.
+
 ---
 
 ## 5. Krok 4: fold z kompensacją zmiennego P₃
@@ -480,6 +501,7 @@ względem stałego P₃.*
 | `am` przy z < 3 | rampa +0.09 ± 0.03 (J1511) → am | z < 2 |
 | werdykt pulsara z dowolnej grupy | `am` z wolnej modulacji w 2. przejściu (J1742: P₃ 7 → 48) | werdykt z grup o P₃ ±30% katalogowego |
 | krótka grupa → zawsze inconclusive (< 5 bloków) | J1528-4109 z wyraźnym dryfem (34 P) | werdykt z folda, bootstrap impuls po impulsie |
+| maksimum widma tylko wewnętrzne | P₃ ≤ 2.13: zero grup (cecha + lustro → maksimum w f = 0.5) | ścieżka Nyquista (§4b, zgłoszenie claude-ac) |
 
 ---
 

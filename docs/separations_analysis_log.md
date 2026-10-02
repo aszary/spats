@@ -1891,3 +1891,11 @@ dryfu” przy P₃ ≈ 2 to artefakt. (Moja wcześniejsza poprawka — usunięci
 musiało być wewnętrzne.) Testy claude-ac: (A) dopuszczenie maksimum w f = 0.5 z progiem z tasowania; (B) fold przy P₃ = 2
 w blokach 32 P (A(φ) = Σ(−1)ⁿxₙ/B vs tasowanie) — czulszy; B + fold w obu aliasach 0.5 ∓ δ: J0846-3533 → drift
 (P₃ 2.025, Δψ 0.61, z 7.9; w v2 nogroup). Kierunek dryfu przy Nyquiście nieokreślony (alias). Decyzja o wdrożeniu: użytkownik.
+
+### 2026-10-02 (cd.) — ścieżka Nyquista wdrożona (`nyquist_pass`, `plot_nyquist`)
+
+Decyzja użytkownika: wdrożyć wg rekomendacji claude-ac. Dla P₃ z params ≤ 2.2: test B (bloki 32 P przy P₃ = 2 vs tasowanie)
+→ odcinki → f₃ z periodogramu → pełny werdykt z folda tylko gdy M·2δ ≥ 2, inaczej `nyquist`; kierunek dryfu nieokreślony.
+Walidacja (`p3track_nyq_check.jl`): J0846-3533 drift (P₃ 2.025, |Δψ| 0.61, z 7.9), J0943+2253 nyquist, kontrola J0924-5302
+0 bloków, syntetyki P₃ 2.05: AM 12/12 am, dryf 6/6 drift. Batch: wiersze pass = 3; test na 2 pulsarach OK (usunięty).
+Dokument metody §4b. Do zrobienia: batch v4.
