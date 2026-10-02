@@ -2101,3 +2101,41 @@ J0837+0610 −0.1, J1633-4453 0.3, J1701-3130 1.9; J1057-5226 z = 6.8 i J1048-58
 0.29 vs 0.25) przy 27 401 i 7 270 impulsach (mały rozrzut tasowań), D > 0 w 49% / 54% czasu — bez spójnego kierunku.
 Potrzebny warunek na wielkość efektu (np. f_ls − f_ls,tas ≥ 0.1; dryfery kontrolne 0.34–0.54, P3-only ≤ 0.04).
 Wniosek wstępny: żaden z tych P3-only nie ma pasm podpulsów — zgodnie z Song+23.
+
+### 2026-10-02 (cd.) — pilot: modulacja P₃ w polaryzacji (I, Q′, U′, V) na zestawie kontrolnym
+
+Pomysł: metody fazowe (travel, P3Track, Δψ(t)) mierzą ψ(φ), czyli to samo co 2DFS Song+23. Polaryzacja to nowa informacja
+(Song+23 jej nie używają). Archiwa `_16/pulsar.spCf16` mają pełne Stokesy, `rmc=1`, `polc=1`, `scale=FluxDensity`.
+Skrypt `~/claude/work/scripts/pol_pilot.jl`, log `~/claude/work/logs/pol_pilot.log`, wykresy `~/claude/work/figures/pol/<PSR>_pol.png`,
+cache Stokesów (pdv -t -F) `~/claude/work/pol/cache/*.jld2` (~17 MB/pulsar).
+
+Konstrukcja: wielkości liniowe I, V, Q′, U′ (Q, U obrócone do χ_ref(φ) z ⟨L e^{4iχ}⟩ — niewrażliwe na OPM; Q′ > 0 mod główny,
+Q′ < 0 ortogonalny). Reszty X_res = X − (X̄/Ī)(φ)·I oraz X_res2 = reszta z regresji X ~ c + aI + bI² w każdym binie (kontrola
+zależności ułamka polaryzacji od jasności). Cecha P₃ w resztach = modulowany jest **ułamek** polaryzacji w danej długości, nie
+tylko jasność. Statystyka **nie używa zależności fazy od długości** (każdy bin osobno) — ortogonalna do Δψ / 2DFS.
+z: nadwyżka mocy LRFS w paśmie f₃ (FWHM piku I) względem 100 tasowań kolejności impulsów; też w paśmie 2f₃.
+
+| etykieta | PSR | P₃ | z_I | z Q′res2 | z U′res2 | z Vres2 | E_Q′res2/E_I | 2f₃: z_I | 2f₃: max z res2 |
+|---|---|---|---|---|---|---|---|---|---|
+| P3-only | J1401-6357 | 2.21 | 4.6 | 2.3 | −1.4 | 0.4 | 0.054 | −0.5 | 1.1 |
+| P3-only | J1603-2531 | 48.6 | 18.2 | 1.2 | 3.2 | −1.1 | 0.013 | 9.2 | 1.3 |
+| P3-only | J1001-5939 | 2.09 | 9.7 | **8.2** | 1.3 | 1.5 | 0.087 | 0.9 | 1.7 |
+| P3-only | J1146-6030 | 10.9 | 3.8 | 2.2 | 2.4 | 4.6 | 0.151 | −0.1 | 0.5 |
+| P3-only | J2307+2225 | 3.48 | 4.7 | 1.4 | 0.1 | −0.3 | 0.122 | −0.5 | 1.1 |
+| drift | J0034-0721 | 6.57 | 9.7 | **22.3** | 5.0 | 2.9 | 0.179 | −1.9 | 4.6 (U′) |
+| drift | J0151-0635 | 14.3 | 72.2 | **65.5** | 5.0 | 8.3 | 0.104 | 5.2 | 10.3 (Q′) |
+| drift | J0820-1350 | 4.77 | 89.0 | **105.5** | 36.6 | 75.1 | 0.162 | 1.3 | **23.7 (V)** |
+| drift | J1825+0004 | 14.2 | 7.1 | 2.1 | 3.1 | 4.2 | 0.069 | 0.6 | 1.1 |
+| drift | J1750-3503 | 49.0 | 32.7 | **12.6** | 3.6 | 2.6 | 0.265 | 21.7 | 6.1 (Q′) |
+
+- **Najczystszy kontrast: J1603 (pewne AM) vs dryfery.** J1603: silna modulacja I (z 18), a ułamek polaryzacji prawie niemodulowany
+  (Q′res2 z 1.2, E/E_I 0.013). Dryfery: Q′res2 z 13–105, E/E_I 0.10–0.27. Interpretacja: przy AM podpuls jaśnieje w miejscu i
+  ułamek polaryzacji w danej długości się nie zmienia; przy dryfie podpuls ze swoją strukturą polaryzacji (OPM na brzegach,
+  zmiana znaku V) przechodzi przez daną długość.
+- **2f₃ w polaryzacji bez 2f₃ w I**: J0820 (V z 24, U′ 23 przy I 1.3), J0034 (U′ 4.6, V 3.6 przy I −1.9) — struktura polaryzacji
+  w obrębie cyklu podpulsu (np. OPM dwa razy na cykl). Wśród P3-only brak (max 1.7).
+- J0034: modulacja Q′ skupiona w długości mieszania OPM (spadek L przy bin ~490) — ułamek modów zmienia się z P₃.
+- **J1001-5939 (P3-only, P₃ 2.09)**: Q′res2 z 8.2 — kandydat (alias dryfu przy Nyquiście albo okresowe OPM); P3Track: brak grup.
+- **Zastrzeżenia**: z skaluje się z S/N (dryfery w zestawie jaśniejsze); E/E_I zależy od średniego L/I; J1825 (słaby, epizodyczny)
+  i słabe P3-only (J1146, J2307) poniżej czułości. Statystyka nie odróżni dryfu od okresowego przełączania OPM bez dryfu —
+  to raczej pytanie fizyczne niż wada. Wynik na 10 obiektach, progi niewyznaczone.
