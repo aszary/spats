@@ -1906,3 +1906,18 @@ Usunięte wykresy batchy v1, v2, pilotaży i porównania zapów (QNAP `p3track_b
 po ~0.7 GB w każdym miejscu); zostały wykresy v3 i wszystkie CSV (QNAP `p3track_batch/` = 343 MB). Wolne: /home 499 GB,
 QNAP 1.9 TB (97% zajęte). Funkcje wykresów P3Track mają `pdf=true|false`; batch zapisuje tylko PNG (~½ miejsca),
 PDF dowolnego pulsara z `p3track_summary_one.jl`. Skrypt `p3track_batch_run.sh` ustawiony na tag v4.
+
+### 2026-10-02 (cd.) — batch v4: ścieżka Nyquista, sLRFS w wykresach, tylko PNG
+
+Batch v4 (8 procesów, 34–54 min): `~/output/claude/p3track_batch/p3track_v4.csv` (915 grup), `p3track_v4_pulsars.csv`,
+wykresy PNG (zbiorczy, sLRFS pierwszego i drugiego przejścia, foldy, Nyquist) w `figures_v4/` (585 MB) i
+`~/claude/work/figures/p3track_batch_v4/` (584 MB). Dwa błędy (J1524-5706, J1843-0211: wyzerowane impulsy → 0/0 w normalizacji
+panelu widm `plot_track`) poprawione i przeliczone osobno (`p3track_v4_fix_J1524_J1843.csv`, wiersze podmienione w v4.csv).
+- Werdykt pulsara (reguła A), drift (412): drift 134 (v3 130), partial 27, am 21, inconcl. 104, nyquist 5, nocat 89, brak 32;
+  P3-only (109): drift 1, partial 4, am 28, inconcl. 30, nyquist 6, nocat 22, brak 18.
+- Ścieżka Nyquista: wynik u 23 pulsarów, aliasy rozdzielone u 7 → drift 4 (J1502-6128 |Δψ| 1.23 z 12.2, J0846-3533 0.61 / 7.9,
+  J1425-5723 1.17 / 12.9, J1848+0604 1.75 / 9.4 — trzy z nich w v3 bez grup), partial 1 (J1517-4356), am 1 (J0624-0424),
+  inconclusive 1; `nyquist` 16.
+- **Słabość**: 5 werdyktów `nyquist` opiera się na jednym bloku (32 P), 3 na dwóch — przy progu 99% i ~63 blokach na pulsar
+  oczekiwane ~0.6 fałszywie istotnego bloku; potrzebny warunek łącznej istotności (np. ≥ 2–3 bloków albo test liczby bloków).
+- P–Ṗ odświeżone z v4 (`ppdot_p3track` domyślnie v4; grupa do miar stabilności = największa z miarą, wiersze Nyquista bez miar).

@@ -2982,7 +2982,7 @@ module Plot
     drift template). `verdicts` selects which group verdicts count (default
     drift and partial). Writes `<name_mod>.pdf/.png` (default `p3track_<quantity>`).
     """
-    function ppdot_p3track(outdir; results="/home/psr/output/p3track_batch/p3track_v3.csv",
+    function ppdot_p3track(outdir; results="/home/psr/output/p3track_batch/p3track_v4.csv",
                            quantity=:fdrift, verdicts=("drift", "partial"), cmap="viridis",
                            name_mod=nothing, plims=(2e-2, 2e1), pdotlims=(1e-18, 1e-11), kwargs...)
         name_mod = isnothing(name_mod) ? "p3track_$(quantity)" : name_mod
@@ -3003,8 +3003,10 @@ module Plot
             if v in verdicts
                 ng = something(tryparse(Float64, t[c["npulse_group"]]), 0.0)
                 fdr[psr] += ng
-                if !isnothing(qcol) && (!haskey(dom, psr) || ng > dom[psr][1])
-                    dom[psr] = (ng, something(tryparse(Float64, t[c[qcol]]), NaN))
+                val = isnothing(qcol) ? NaN : something(tryparse(Float64, t[c[qcol]]), NaN)
+                # largest drift group that has the quantity (Nyquist-path rows carry no stability measures)
+                if !isnothing(qcol) && isfinite(val) && (!haskey(dom, psr) || ng > dom[psr][1])
+                    dom[psr] = (ng, val)
                 end
             end
         end

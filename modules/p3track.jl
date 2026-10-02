@@ -1629,6 +1629,7 @@ function plot_track(data, sl, tr, outdir; nbin=size(data, 2), name_mod="pulsar",
     # Panel 2: sliding spectra, each divided by its median over f ≥ fmin
     use = sl.freq .>= sl.fmin
     nrm = [median(sl.power[i, use]) for i in 1:size(sl.power, 1)]
+    nrm[nrm .<= 0] .= Inf          # windows of zapped (all-zero) pulses: shown as 0, not 0/0
     S = permutedims(sl.power ./ nrm)
     vmax = quantile(vec(S[use, :]), darkness)
     ax2 = fig.add_axes([0.20, 0.36, 0.77, 0.30], sharex=ax1)
