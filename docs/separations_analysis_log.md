@@ -1826,3 +1826,14 @@ P₃; inne mody osobno). Kalibracja przed batchem: `p3track_dpsi_calib_v2.log` (
   P₃grp/P₃kat = 0.50 → zwykle dominuje 2. harmoniczna, a fundamentalna nie ma własnej grupy, więc test harmonicznej
   (wymaga obu grup) nie ma czego łączyć. W drugim przejściu: wolna modulacja (×1.4 … ×16).
 - Inconclusive (grupy): 504 × < 5 bloków, 46 × 2 ≤ z < 5, 31 × granica ≥ 0.25, 3 × z ≥ 5 przy za małym Δψ.
+
+### 2026-10-02 — przegląd losowych przykładów v2; bi-drift; werdykt krótkich grup z folda
+
+Użytkownik: J1537-4912 dryf (bi-drift — sprawdzić), J1907+0740 AM, J1528-4109 wygląda na dryf (inconclusive przez < 5 bloków).
+- **J1537-4912 bi-drift potwierdzony** (`j1537_bidrift.jl`): składowa 163–177° (89% mocy) −0.19 ± 0.02, 183–193° (11%)
+  +0.17 ± 0.03; w ćwiartkach czasu −0.24/+0.22, −0.14/+0.14, −0.24/+0.33, −0.10/+0.11. Flaga `bidrift` w kodzie.
+- **Krótkie grupy**: nowy estymator z folda (bootstrap impuls po impulsie), używany gdy < 5 bloków. Kalibracja
+  `p3track_short_calib.jl` (log `p3track_short_calib.log`): AM bez fałszywego dryfu, krótki dryf czulej. Dane
+  (`p3track_short_real.jl`, log `p3track_short_real.log`): J1528 → drift; krótkie grupy P3-only (J0601, J0659, J0709, J0849),
+  które miały z ≈ 5–13 z bootstrapu blokowego, → inconclusive (z_fold ≤ 1.9) — tamte z były artefaktem 2–3 bloków.
+- Batch: kolumny verdict_block, verdict_fold, z_fold, dpsi_fold, verdict_src, bidrift.

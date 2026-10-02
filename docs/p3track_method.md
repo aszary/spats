@@ -286,6 +286,19 @@ Z regułą mocy i z < 2 dla `am` (`p3track_dpsi_calib_v2.log`): AM wspólna faza
 18/20 (0.6); dwie składowe (AM + dryf) przy szumie 1.5 → `partial` 4/5 (żadna składowa nie spełnia progów sama);
 dryf, wolny dryf, zbocze — bez zmian; fałszywe `drift`/`am`: 0.
 
+**Krótkie grupy (< 5 bloków) — werdykt z folda.** Bootstrap blokowy po demodulacjach ma przy krótkiej grupie za mało
+niezależnych prób: J1528-4109 (34 P, L = 16, 4.25 bloku) z wyraźnie nachylonym pasmem dostawał `inconclusive`, a krótkie
+grupy P3-only miały formalnie z ≈ 11–13 (J0601, J0659) z niedoszacowanego σ. Drugi estymator liczy szablon z samego
+folda, C(n,φ) = (I(n,φ) − ⟨I⟩)·e^{−iθ(n)}: każdy impuls raz, jego faza z sąsiadów (leave-one-out), więc wkłady są
+niezależne i bootstrap idzie impuls po impulsie (`tsig_fold`). Werdykt końcowy (`verdict`) = blokowy, gdy ≥ 5 bloków,
+inaczej z folda (`verdict_src`). Kalibracja (`p3track_short_calib.jl`, N = 40/80/150, P₃ = 4): AM bez fałszywego dryfu
+(max z_fold = 1.3), dryf N = 40: 8/8 (blokowy 6/8); słabszy dla wolnego dryfu i potwierdzania AM, stąd tylko dla
+krótkich grup. Dane (`p3track_short_real.jl`): J1528 → drift (−1.09 ± 0.19, z = 5.5); J0601, J0659, J0709, J0849
+(krótkie P3-only) → inconclusive (z_fold ≤ 1.9); długie grupy — oba estymatory zgodne.
+
+**Bi-drift** (`bidrift`): ≥ 2 składowe dryfujące samodzielnie z przeciwnymi znakami Δψ. J1537-4912: −0.19 ± 0.02 (89%
+mocy) i +0.17 ± 0.03 (11%), znaki stabilne w czterech ćwiartkach czasu (`j1537_bidrift.jl`).
+
 Bootstrap jest lekko liberalny (p < 0.01 w ~5% przypadków AM zamiast 1%), dlatego próg z ≥ 5. Przy szumie
 1.5 AM nie da się *potwierdzić* (upper > 0.1) — werdykt `inconclusive`, nie fałszywy dryf.
 
@@ -461,6 +474,7 @@ względem stałego P₃.*
 | `drift` bez wag mocy składowych | dryf w słabej składowej → drift (J1057, J1543) | reguła mocy ≥ 50% → inaczej `partial` |
 | `am` przy z < 3 | rampa +0.09 ± 0.03 (J1511) → am | z < 2 |
 | werdykt pulsara z dowolnej grupy | `am` z wolnej modulacji w 2. przejściu (J1742: P₃ 7 → 48) | werdykt z grup o P₃ ±30% katalogowego |
+| krótka grupa → zawsze inconclusive (< 5 bloków) | J1528-4109 z wyraźnym dryfem (34 P) | werdykt z folda, bootstrap impuls po impulsie |
 
 ---
 
@@ -484,7 +498,8 @@ Pola `analyse`: `L, sl, tr` (ślad fundamentalny), `threshold, good, segs, group
 `pass2` (te same pola drugiego przejścia + `p3_probe, probe, free, ladder`, albo `nothing`).
 Pola `phase_fold`: `group, pulses, p3, nb, fold, counts, phase, theta, template, tphase, tsig, f, depth,
 depth_null, coherence, sections, on_bins`. Pola `tphase`: `psi, amp, mask, runs, run_slope, run_dpsi, dpsi, span,
-rms`. Pola `tsig`: `verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block, partial, sigma_psi`.
+rms`. Pola `tsig`/`tsig_fold`: `verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block, partial,
+sigma_psi, pow_drift, bidrift`; w `phase_fold` także `verdict`, `verdict_src`, `bidrift`, `tphase_fold`.
 
 Skrypty (`~/claude/work/scripts/`):
 - `p3track_control.jl` — **pełna metoda na 10 pulsarach** (oba przejścia, test harmonicznej, werdykty, wykresy zbiorcze; tabela §7);

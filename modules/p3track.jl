@@ -877,7 +877,12 @@ theta (radians, per pulse), template, f (per pulse), depth, depth_null
 (vector), coherence (mean over pulses of |Σ_φ Z conj T| / (‖Z‖·‖T‖):
 how well single pulses match the template shape), tphase (`template_phase`:
 longitude dependence of the modulation phase — the drift vs amplitude
-modulation diagnostic), sections, on_bins.
+modulation diagnostic), tsig (`template_significance`, block bootstrap over
+the demodulations), tphase_fold / tsig_fold (the same from the fold's own
+first harmonic, C(n,φ) = (I(n,φ) − ⟨I⟩)·e^{−iθ(n)}, bootstrapped pulse by
+pulse — for short groups), verdict (tsig's, or tsig_fold's when the group
+has < 5 bootstrap blocks), verdict_src (:block / :fold), bidrift,
+sections, on_bins.
 """
 function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=nothing,
                     niter::Int=10, nshuffle::Int=5, seed::Int=1, stat=modulation_depth,
@@ -920,8 +925,23 @@ function phase_fold(data::AbstractMatrix, sl, tr, segs, groups, g::Int; nbins=no
     end
 
     tp = template_phase(T; tp_kw...)
+    # fold-based template: each pulse once, its own phase from the neighbours (leave-one-out),
+    # so the pulses' contributions are independent and can be bootstrapped one by one —
+    # a short group (few blocks of L/2 for the demodulation bootstrap) keeps its statistics
+    X = data[pulses, on]
+    C = (X .- mean(X, dims=1)) .* cis.(-θ)
+    Tf = vec(mean(C, dims=1))
+    tpf = template_phase(Tf; tp_kw...)
+    tsf = template_significance(C, zeros(length(pulses)), Tf, tpf, L; seed=seed, block=1)
+    tsb = template_significance(Z, θ, T, tp, L; seed=seed)
+    # final verdict: the block bootstrap when the group has enough blocks, otherwise the
+    # pulse-by-pulse fold estimate (synthetic short groups: no false drift, N = 40 drift 8/8 vs
+    # 6/8; J1528-4109, 34 P: drift; short P3-only groups with z ≈ 11–13 from 2–3 blocks: z ≤ 1.9)
+    fromfold = tsb.nblocks < 5
     return (group=g, pulses=pulses, p3=p3g, nb=nb, fold=F, counts=cnt, phase=phase, theta=θ,
-            template=T, tphase=tp, tsig=template_significance(Z, θ, T, tp, L; seed=seed),
+            template=T, tphase=tp, tsig=tsb, tphase_fold=tpf, tsig_fold=tsf,
+            verdict=fromfold ? tsf.verdict : tsb.verdict, verdict_src=fromfold ? :fold : :block,
+            bidrift=fromfold ? tsf.bidrift : tsb.bidrift,
             f=f, depth=depth, depth_null=depth_null, coherence=coherence, on_bins=on,
             sections=sel)
 end
@@ -995,7 +1015,8 @@ offset components), so the verdict also needs a size:
 Fields: verdict, z, p, chi2, nruns, sigma_run, z_run, dpsi_upper, nblocks, block,
 partial (found, z, dpsi, bins, maxfrac, nwin — the best local window),
 sigma_psi (per-bin phase error [rad]), pow_drift (power share of the
-components drifting on their own).
+components drifting on their own), bidrift (two such components with
+opposite drift senses).
 """
 function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothing, seed::Int=1,
                                dpsi_min::Real=0.1, zdet::Real=5.0, minblocks::Real=5,
@@ -1017,7 +1038,8 @@ function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothi
     nolocal = (found=false, z=NaN, dpsi=NaN, bins=0:-1, maxfrac=NaN, nwin=length(wins))
     if nr == 0 && isempty(wins)
         return (verdict=:inconclusive, z=NaN, p=NaN, chi2=NaN, nruns=0, sigma_run=Float64[],
-                z_run=Float64[], dpsi_upper=NaN, nblocks=nblocks, block=bl, partial=nolocal)
+                z_run=Float64[], dpsi_upper=NaN, nblocks=nblocks, block=bl, partial=nolocal,
+                sigma_psi=fill(NaN, length(T)), pow_drift=0.0, bidrift=false)
     end
     Zr = Z .* cis.(-θ)
     rng = Random.MersenneTwister(seed)
@@ -1079,6 +1101,9 @@ function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothi
     # power share of components that drift on their own (z_run ≥ zdet, |Δψ_run| ≥ dpsi_min)
     qual = nr > 0 ? (abs.(zr) .≥ zdet) .& (abs.(tp.run_dpsi) .≥ dpsi_min) : falses(0)
     pow_drift = nr > 0 ? sum(tp.run_power[qual]) : 0.0
+    # bi-drifting: components drifting on their own with opposite senses (J1537-4912:
+    # −0.19 ± 0.02 and +0.17 ± 0.03, the signs stable in all four time quarters)
+    bidrift = nr > 0 && any(qual .& (tp.run_dpsi .> 0)) && any(qual .& (tp.run_dpsi .< 0))
     glob = nr > 0 && z ≥ zdet && tp.dpsi ≥ dpsi_min
     verdict = nblocks < minblocks ? :inconclusive :
               (glob && pow_drift ≥ minpow_drift) ? :drift :
@@ -1086,7 +1111,7 @@ function template_significance(Z, θ, T, tp, L::Int; nboot::Int=300, block=nothi
               (nr > 0 && z < zam && upper < dpsi_am) ? :am : :inconclusive
     return (verdict=verdict, z=z, p=p, chi2=chi2, nruns=nr, sigma_run=σ, z_run=zr,
             dpsi_upper=upper, nblocks=nblocks, block=bl, partial=partial, sigma_psi=σψ,
-            pow_drift=pow_drift)
+            pow_drift=pow_drift, bidrift=bidrift)
 end
 
 
@@ -1529,9 +1554,11 @@ function plot_folds(res, outdir; nbin=1024, name_mod="pulsar", darkness=0.99, sh
         ax2.plot(lon, rad2deg.(tp.psi), ".", ms=2, c=col)
         ax2.set_ylabel("ψ = −arg T (\$^\\circ\$)")
         ts = fo.tsig
-        title(@sprintf("Δψ %.2f cyc (%s)\nz = %.1f, upper %.2f → %s", tp.dpsi,
+        title(@sprintf("Δψ %.2f cyc (%s)\nz = %.1f, upper %.2f → %s%s%s", tp.dpsi,
                        join([@sprintf("%+.2f±%.2f", d, e) for (d, e) in zip(tp.run_dpsi, ts.sigma_run)], ", "),
-                       ts.z, ts.dpsi_upper, ts.verdict), fontsize=6)
+                       ts.z, ts.dpsi_upper, fo.verdict, fo.verdict_src == :fold ?
+                       @sprintf(" (fold, z %.1f)", fo.tsig_fold.z) : "", fo.bidrift ? ", bi-drift" : ""),
+              fontsize=6)
         ax = subplot(4, ng, 3 * ng + k)
         for i in fo.sections
             s = res.segs[i]
@@ -1609,9 +1636,10 @@ function plot_summary(data, res, outdir; nbin=size(data, 2), name_mod="pulsar", 
                          c=col)
                 append!(p3s, r.tr.p3[w])
             end
-            push!(labels, @sprintf("pass %d (L = %d): P\$_3\$ ≈ %.1f, %d P, Δψ = %.2f, z = %.1f → %s",
+            push!(labels, @sprintf("pass %d (L = %d): P\$_3\$ ≈ %.1f, %d P, Δψ = %.2f, z = %.1f → %s%s%s",
                                    ip, r.L, fo.p3, length(fo.pulses), fo.tphase.dpsi, fo.tsig.z,
-                                   fo.tsig.verdict))
+                                   fo.verdict, fo.verdict_src == :fold ? " (fold)" : "",
+                                   fo.bidrift ? ", bi-drift" : ""))
             ax2.text(0.99, 0.95 - 0.08 * (ci - 1), labels[end], transform=ax2.transAxes,
                      ha="right", va="top", fontsize=6, color=col)
         end
