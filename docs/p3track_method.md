@@ -665,8 +665,10 @@ sigma_psi, pow_drift, bidrift`; w `phase_fold` także `verdict`, `verdict_src`, 
 
 Skrypty (`~/claude/work/scripts/`):
 - `p3track_batch.jl` + `p3track_batch_run.sh` — **batch na pełnej próbce** (8 procesów, tag wersji; §7b); podsumowanie
-  `/tmp/.../scratchpad/batch_summary_v2.py <tag>` (zapisuje `~/claude/work/p3track_<tag>_pulsars.csv`); zależności od Ė
-  `v4b_edot.py`; P–Ṗ `p3track_ppdot.jl`;
+  `~/claude/work/scripts/p3track_analysis/batch_summary_v2.py <tag>` (zapisuje `~/claude/work/p3track_<tag>_pulsars.csv`);
+  w tym samym katalogu (Python, analiza CSV): `v4b_edot.py` (zależności od Ė), `v3_metrics.py` (miary stabilności),
+  `am_drift.py`, `nocat.py`, `pick.py` (losowanie przykładów), `batch_view.py` (tabela grup), `pilot_zaps.py`;
+  P–Ṗ `p3track_ppdot.jl`;
 - `p3track_control.jl` — pełna metoda na 10 pulsarach kontrolnych (tabela §7);
 - `p3track_nyq_check.jl` — walidacja ścieżki Nyquista; `p3track_short_calib.jl`, `p3track_short_real.jl` — estymator z folda;
   `j1537_bidrift.jl` — bi-drift w ćwiartkach czasu; `p3track_example_one.jl <katalog> <plik>` — sLRFS + zbiorczy + foldy;

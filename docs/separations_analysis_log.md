@@ -1794,7 +1794,7 @@ Logi `~/claude/work/logs/p3track_batch_v1_part*.log`. Błędy: 12 × „brak dan
 
 ### 2026-10-01 (cd. 20) — przegląd wątpliwych werdyktów batcha v1
 
-Skrypt `/tmp/.../am_drift.py` (tabela grup am u dryferów z P₂ i W3s z travel v4); wykresy z `~/claude/work/figures/p3track_batch_v1/`.
+Skrypt `~/claude/work/scripts/p3track_analysis/am_drift.py` (tabela grup am u dryferów z P₂ i W3s z travel v4); wykresy z `~/claude/work/figures/p3track_batch_v1/`.
 
 Trzy typy problemów:
 1. **Werdykt pulsara z „cudzej” grupy.** Wiele grup `am` u dryferów to drugie przejście z P₃ ≫ P₃ katalogowego
@@ -1866,7 +1866,7 @@ dryfu. Skrypt `~/claude/work/scripts/p3track_ppdot.jl`, wykres `~/claude/work/fi
 ### 2026-10-02 (cd.) — batch v3: miary stabilności, werdykt krótkich grup z folda, bi-drift
 
 Batch v3 (8 procesów, 32–51 min, 12 × brak danych): `~/output/claude/p3track_batch/p3track_v3.csv`, `p3track_v3_pulsars.csv`,
-`p3track_v3_drift_metrics.csv` (dominująca grupa drift/partial na pulsar). Analiza `/tmp/.../v3_metrics.py`.
+`p3track_v3_drift_metrics.csv` (dominująca grupa drift/partial na pulsar). Analiza `~/claude/work/scripts/p3track_analysis/v3_metrics.py`.
 - Werdykt pulsara (reguła A): drift 130 (v2: 127), partial 27 (26), am 20 (16), inconcl. 103 (111) wśród 412 dryferów;
   P3-only: drift 1, partial 4, am 28 (24), inconcl. 30 (34).
 - Krótkie grupy (werdykt z folda): 454 inconclusive, 40 am, 8 drift, 2 partial; zmiany względem blokowego: 40 × inconcl.→am,
@@ -1936,7 +1936,7 @@ kolumny CSV `nyq_blocks`, `nyq_p`). Przeliczone tylko pulsary z P₃ ≤ 2.2 (29
 
 ### 2026-10-02 (cd.) — zależności od Ė w v4b
 
-Skrypt `/tmp/.../scratchpad/v4b_edot.py` (S/N: k_snr z travel v4; Ė = 4π²IṖ/P³, I = 10⁴⁵).
+Skrypt `~/claude/work/scripts/p3track_analysis/v4b_edot.py` (S/N: k_snr z travel v4; Ė = 4π²IṖ/P³, I = 10⁴⁵).
 - **Wykrycie dryfu (etykieta drift Song+23)**, odsetek z grupą drift/partial: Ė 1e29–31: 61% [56–67]; 1e31–32: 51% [46–55];
   1e32–33: 33% [28–37]; 1e33–34: 17% [13–22]; > 1e34: 22% [14–33] (n = 18). Spearman −0.33; cząstkowa (P₃ kat., k_snr) −0.33;
   logit det ~ log Ė + log k_snr + log P₃: log Ė −0.65 (z −5.9), log k_snr +0.24 (z +2.9), log P₃ −0.40 (z −1.4).
@@ -1968,3 +1968,9 @@ rozstrzygnięcia. Dopisane do §0 i §7b `docs/p3track_method.md` (wartość met
 Usunięte `~/output/claude/p3track_batch/figures_v3` i `~/claude/work/figures/p3track_batch_v3` (po 340 MB; zastąpione przez v4).
 Zostaje: QNAP `p3track_batch/` 587 MB (figures_v4 + wszystkie CSV + P–Ṗ), `~/claude/work/figures/` 667 MB (p3track_batch_v4,
 p3track/ testy, P–Ṗ). Razem ~1.25 GB.
+
+### 2026-10-02 (cd.) — zamknięcie sesji P3Track
+
+Skrypty analizy CSV przeniesione z katalogu tymczasowego sesji do `~/claude/work/scripts/p3track_analysis/` (odnośniki
+w dokumentach poprawione). Stan prac i wskazówki dla nowej sesji (szukanie lepszej metody): `docs/p3track_method.md` §0, §8, §9;
+`docs/travel_test_method.md`; ten dziennik.
