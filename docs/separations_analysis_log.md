@@ -1879,3 +1879,15 @@ Batch v3 (8 procesów, 32–51 min, 12 × brak danych): `~/output/claude/p3track
   na cykl P₃ (np. cykle fazy na 100 cykli P₃).
 - `Plot.ppdot_p3track(...; quantity=:fdrift|:p3_wander|:phase_wander|:coherence)`, wykresy
   `~/claude/work/figures/ppdot_p3track_{fdrift,p3_wander,phase_wander,coherence}.png` (+ QNAP).
+
+### 2026-10-02 (cd.) — zgłoszenie z sesji claude-ac: P3Track gubi dryf przy P₃ ≈ 2 (Nyquist) — zweryfikowane
+
+Druga sesja (tylko odczyt; skrypty `~/claude/work/scripts/play/`, logi `~/claude/work/logs/play/`) wskazała przyczynę:
+`feature_peak` szuka maksimum tylko w `srange[2:end-1]`, więc bin f = 0.5 nigdy nim nie jest; cecha przy f₃ i jej lustro
+1 − f₃ zlewają się w listku Hanna (±2/L) z maksimum dokładnie w 0.5 → brak maksimum wewnętrznego → `edge` → okno odrzucone.
+Sprawdzone tu na v3: P₃ z params 1.8–2.13 (17 pulsarów): 0 × drift (nogroup 7, nocat 8, partial 1, inconclusive 1); 2.13–2.25:
+drift 4/16; 2.25–2.5: drift 8/19; najmniejsze P₃ grupy w v3 = 2.15 (J1534-4428). Odcięcie ostre → część „P3-only / brak
+dryfu” przy P₃ ≈ 2 to artefakt. (Moja wcześniejsza poprawka — usunięcie górnej osłony — tego nie naprawiła: maksimum nadal
+musiało być wewnętrzne.) Testy claude-ac: (A) dopuszczenie maksimum w f = 0.5 z progiem z tasowania; (B) fold przy P₃ = 2
+w blokach 32 P (A(φ) = Σ(−1)ⁿxₙ/B vs tasowanie) — czulszy; B + fold w obu aliasach 0.5 ∓ δ: J0846-3533 → drift
+(P₃ 2.025, Δψ 0.61, z 7.9; w v2 nogroup). Kierunek dryfu przy Nyquiście nieokreślony (alias). Decyzja o wdrożeniu: użytkownik.
