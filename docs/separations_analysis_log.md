@@ -1988,3 +1988,33 @@ p3track/ testy, P–Ṗ). Razem ~1.25 GB.
 Skrypty analizy CSV przeniesione z katalogu tymczasowego sesji do `~/claude/work/scripts/p3track_analysis/` (odnośniki
 w dokumentach poprawione). Stan prac i wskazówki dla nowej sesji (szukanie lepszej metody): `docs/p3track_method.md` §0, §8, §9;
 `docs/travel_test_method.md`; ten dziennik.
+
+### 2026-10-02 (cd.) — nowa sesja: czy ciągłe P₃(n) z `p3fold_coherent` odróżnia dryf od P3-only?
+
+Pomysł użytkownika: `coherent_fold` daje ciągłe P₃(n), może to ułatwi wykrycie dryferów. Test na zestawie kontrolnym P3Track
+(5 dryferów + 5 P3-only), te same parametry co `SpaTs.p3fold_coherent` (low-pass 1/300, rząd 6, jackknife 4 grupy).
+Dodatkowo Δψ z jednego złożenia koherentnego na pulsar (C = (I − ⟨I⟩)·e^{−iθ(n)}, `template_phase` + `template_significance`
+z P3Track, bootstrap blokami L/2 i impuls po impulsie). Skrypt `~/claude/work/scripts/coh_control.jl`, log
+`~/claude/work/logs/coh_control.log`, wykresy `~/claude/work/figures/coh_control/<PSR>_coh.png`.
+
+| etykieta | PSR | SNR | wędr. P₃ std/med | wędr. fazy / 100 cykli P₃ | Δψ (składowe) | z | werdykt | P3Track |
+|---|---|---|---|---|---|---|---|---|
+| P3-only | J1401-6357 | 27.0 | 0.009 | 0.27 | 0.17 (−0.17 ± 0.18) | 0.4 | inconclusive | am |
+| P3-only | J1603-2531 | 23.9 | 0.113 | 3.61 | 0.08 (+0.08 ± 0.05) | 1.0 | am | am, am, inconcl. |
+| P3-only | J1001-5939 | 20.5 | 0.010 | 0.26 | — (składowa 5 binów, brak fragmentu) | — | inconclusive | brak grup |
+| P3-only | J1146-6030 | 7.2 | 0.027 | 1.44 | 0.17 (3 skł., σ 0.14–0.20) | −1.5 | inconclusive | inconclusive |
+| P3-only | J2307+2225 | 3.1 | 0.010 | 0.41 | 0.17 (−0.17 ± 0.12) | 1.1 | inconclusive | brak grup |
+| drift | J0034-0721 | 20.4 | 0.019 | 0.57 | 1.67 (−1.67 ± 0.12) | 14.1 | drift | drift |
+| drift | J0151-0635 | 5.0 | 0.038 | 1.81 | 1.12 (−0.87, −0.24) | 31.1 | drift | drift |
+| drift | J0820-1350 | 89.5 | 0.007 | 0.33 | 1.55 (−1.55 ± 0.03) | 37.0 | drift | drift |
+| drift | J1825+0004 | 3.1 | 0.063 | 0.63 | 0.37 (−0.34 ± 0.15, −0.04) | 1.4 | inconclusive | partial |
+| drift | J1750-3503 | 2.1 | 0.061 | 2.44 | 1.57 (+1.57 ± 0.21) | 7.5 | drift | drift |
+
+- **Ciągłe P₃(n) nie rozdziela klas**: wędrówka P₃ 0.007–0.063 (drift) vs 0.009–0.113 (P3-only), wędrówka fazy 0.33–2.44 vs
+  0.26–3.61 — zakresy się pokrywają (jak p3_wander w P3Track v4b: 0.089 vs 0.094). Powód z konstrukcji: filtr dopasowany
+  Σ_φ x·conj(L) zjada ψ(φ), więc θ(n) i P₃(n) są takie same dla dryfu i AM; dryf siedzi tylko w arg L(φ) / w złożeniu.
+- P₃(n) przy dużej wędrówce jest zawodne: J1603 (P3Track: P₃ 13–52) daje 45–53 z ostrymi pikami w miejscach poślizgu fazy
+  (spadek amplitudy po low-passie → skok rozwiniętej fazy). Low-pass 1/300 nie nadąża za szybkimi zmianami.
+- **Δψ z jednego złożenia na pulsar** daje te same werdykty co P3Track dla 4 dryferów i J1603 (am), 0 fałszywych dryfów;
+  gorzej tam, gdzie dryf jest tylko w części obserwacji (J1825: rozmyty przez impulsy po 715) i przy P₃ ≈ 2 (J1401: am → inconcl.).
+- Wniosek: P₃(n) samo nie jest dyskryminatorem; złożenie koherentne + faza szablonu ≈ uproszczony P3Track bez grup.
