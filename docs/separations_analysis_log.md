@@ -2211,3 +2211,30 @@ logi `~/claude/work/logs/pairshift*.log`, wykresy `~/claude/work/figures/pairshi
 - J1910+0714 rozwiązany (−10.9, D ≈ −0.41 °/P), J0820 D zgodne z subtrack (−0.71 vs −0.73).
 - Wniosek: pairshift wykrywa krótkie pasma, których subtrack nie widzi, i ma czysty null; na losowej próbce mniej więcej tyle co
   P3Track. Ograniczenie zostaje to samo: S/N pojedynczych podpulsów.
+
+### 2026-10-02 (cd.) — batch pairshift v1 na pełnej próbce (533) + subtrack
+
+`~/claude/work/scripts/pairshift_batch.jl` + `pairshift_batch_run.sh` (8 procesów, wznawialny, pierwsze 1000 P), podsumowanie
+`pairshift_summary.py`. Wyniki `~/output/claude/pairshift_batch/pairshift_v1.csv` (wiersz na pulsar; części `_partKof8`;
+`pairshift_test_part1of1.csv` = test na 3 pulsarach, do usunięcia), wykresy (tylko |z| ≥ 3) `~/claude/work/figures/pairshift_batch_v1/`.
+Błędy: 12 × brak danych, 29 × ACF płaska (za słabe na detekcję podpulsów).
+
+| Song+23 | policzone | pairshift \|z\| ≥ 3 | subtrack z(f_ls) ≥ 5 |
+|---|---|---|---|
+| drift | 388 | **165 (43%)** | 58 |
+| P3-only | 103 | **0** | 6 |
+
+- **Null na P3-only**: z od −2.6 do 2.5, mediana −0.1, |z| ≥ 2 u 6/103 (oczekiwane ~5 dla N(0,1)).
+- Dryfery krzyżowo z P3Track v4b: pairshift+ i P3Track drift/partial 100, tylko pairshift 65 (P3Track inconclusive 33, nocat 26,
+  am 4, nogroup 2), tylko P3Track 56; **suma 221/388 (57%)** wobec 156 (40%) z samego P3Track. Nowe detekcje: mediana |z| 4.1
+  (30 z nich w 3–4), najsilniejsze J0533+0402 −16.2 (P3Track inconclusive; krótkie opadające kreski widoczne na stosie),
+  J0924-5814 +11.0, J1627-5936 −10.0, J1807+0756 −9.8 (nocat), J1850+0026 −9.1.
+- **Kierunek dryfu**: znak z pairshift vs znak Δψ (ważony mocą) dominującej grupy drift/partial P3Track — zgodny 97, przeciwny 2
+  (J1741-0840, J1819+1305). Niezależne potwierdzenie konwencji znaku P3Track (sprawa otwarta §8.11 w p3track_method.md).
+- P₃ ≤ 2.2: pairshift 2/20 dryferów — przy Nyquiście dopasowanie najbliższego łapie alias.
+- Sprzeczne: pairshift+ przy P3Track `am`: J1740+1311, J1946-2913, J1839-1238, J1709-4429 (|z| 3.4–3.7, Δφ ~0.1 °/P) — do obejrzenia.
+- **subtrack: fałszywe z(f_ls) w P3-only** (6, np. J1531-5610 z = 64, f_ls 0.06 vs 0.00): długie pionowe ścieżki mają tak małe σ_D,
+  że |D|/σ ≥ 3 przy D ≈ 0. Poprawka do zrobienia: wymagać przesunięcia |D|·długość ≥ FWHM podpulsu.
+  **J1651-1709** (P3-only, P3Track `am`): wykres `~/claude/work/figures/subtrack/J1651-1709_subtrack_zoom.png` — wiodąca składowa
+  (177°) stała, ale w końcowej (183–186°) widać rosnące pasma co ~20–25 P (D ≈ +0.1 °/P); pairshift z = 0.35 (pary w jasnej
+  składowej bez przesunięcia rozcieńczają statystykę). Kandydat na dryf w jednej składowej — do oceny wzrokowej.
