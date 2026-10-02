@@ -2018,3 +2018,44 @@ z P3Track, bootstrap blokami L/2 i impuls po impulsie). Skrypt `~/claude/work/sc
 - **Δψ z jednego złożenia na pulsar** daje te same werdykty co P3Track dla 4 dryferów i J1603 (am), 0 fałszywych dryfów;
   gorzej tam, gdzie dryf jest tylko w części obserwacji (J1825: rozmyty przez impulsy po 715) i przy P₃ ≈ 2 (J1401: am → inconcl.).
 - Wniosek: P₃(n) samo nie jest dyskryminatorem; złożenie koherentne + faza szablonu ≈ uproszczony P3Track bez grup.
+
+### 2026-10-02 (cd.) — Δψ(t): gradient fazy w poprzek składowej rozdzielczy w czasie (test)
+
+Pomysł: zamiast jednego szablonu na obserwację — lokalne szablony w niezachodzących oknach W = max(16, 4·P₃),
+T_w(φ) = ⟨(I − ⟨I⟩)·e^{−iθ(n)}⟩, θ(n) z `coherent_fold` (jak `p3fold_coherent`); gradient Δψ_w w każdej składowej
+(Σ T*_j T_{j+1}, maska z mocy niekoherentnej minus podłoga szumu z off-pulse'u). Trwałość bez znaku: okno dzielone na połowy,
+Z_w = Δψ_a·Δψ_b/(σ_a σ_b) (σ z bootstrapu impulsów w połowie), z = ΣZ_w/√(n_okien·n_skł) — dryf daje Z > 0 także przy zmianie
+kierunku między oknami. Ze znakiem: średnia ważona 1/σ², χ² po składowych. Skrypt `~/claude/work/scripts/dpsi_time.jl synth|real`,
+logi `~/claude/work/logs/dpsi_time_{synth,real}.log`, wykresy `~/claude/work/figures/dpsi_time/` (+ `synth/`).
+(Pierwsza wersja z nullem z losowania znaków okien nasycała się: z ≤ 3.9 przy ~31 oknach.)
+
+Syntetyki (1000 P, P₃ = 8): AM wspólna faza / przeciwfaza / dudnienie 8.0 + 8.5 → trwałość z ≤ 1.1 (100 przypadków; statystyka
+konserwatywna, rozrzut pod AM ≈ 0.2 zamiast 1); dryf z = 95 (szum 0.6) / 3.4 (1.5, ze znakiem 9.4); reverser (epizody ~100 P)
+75 / 2.8, ze znakiem 10.8 / 1.9; epizodyczny (dryf w 1/3 obserwacji) 30 / 1.3; wolny dryf 4.9 / 0.2.
+
+Dane (zestaw kontrolny):
+
+| etykieta | PSR | W | okna | Δψ glob. | trwałość z | znak z |
+|---|---|---|---|---|---|---|
+| P3-only | J1401-6357 | 16 | 64 | −0.04 | −2.4 | 1.3 |
+| P3-only | J1603-2531 | 194 | 10 | +0.01 | −0.9 | −0.8 |
+| P3-only | J1001-5939 | 16 | 32 | — (składowa < 5 binów) | — | — |
+| P3-only | J1146-6030 | 44 | 24 | +0.12 | −0.1 | 0.9 |
+| P3-only | J2307+2225 | 16 | 64 | −0.04 | −1.0 | 0.8 |
+| drift | J0034-0721 | 26 | 40 | −0.73 | 10.0 | 10.3 |
+| drift | J0151-0635 | 58 | 17 | −0.76, −0.18 | 53.1 | 27.2 |
+| drift | J0820-1350 | 18 | 58 | −0.70 | 64.9 | 23.2 |
+| drift | J1825+0004 | 56 | 18 | −0.19, +0.06 | 0.0 | 1.4 |
+| | J1825 1–696 / 716–1040 | 56 | 12 / 5 | −0.12 / +0.27 | 0.6 / −0.1 | 1.9 / 1.0 |
+| drift | J1750-3503 | 196 | 5 | −0.09, +0.69 | 0.7 | 3.0 |
+
+- Silne dryfery wykryte, P3-only bez fałszywych detekcji — ale to samo daje P3Track i złożenie koherentne.
+- **Przypadki, dla których metoda była pomyślana, nie wychodzą**: J1825 (dryf epizodyczny, słaby, tylko na zboczu składowej —
+  gradient całej składowej go rozcieńcza; na wykresie okna 100–300 mają Δψ ≈ −1, ale pojedyncze okna za szumne);
+  J1750 (reverser): P₃ ≈ 49 → W = 196, 5 okien, a epizody 28 ± 4 P ≪ P₃ — fazy modulacji nie da się zmierzyć w czasie krótszym
+  niż cykl P₃, więc żadna metoda fazowa tego nie rozdzieli.
+- Δψ glob. zaniżone wobec P3Track (J0034: −0.73 vs −1.61) — okna z nullami i słabą modulacją wchodzą z wagą 1/σ², ale ich Δψ
+  jest bliskie przypadkowemu. J1401 (P₃ 2.2): z = −2.4 — przy P₃ ≈ 2 człon 2f po demodulacji aliasuje blisko 0 i nie uśrednia się
+  w połowie okna (8 P).
+- Wniosek: Δψ(t) daje czytelny obraz „gdzie w czasie” dla jasnych pulsarów, ale nie zwiększa czułości tam, gdzie P3Track i
+  Song+23 się rozjeżdżają (słabe, epizodyczne, długie P₃).
