@@ -1230,7 +1230,10 @@ On pulses outside the first-pass sections (`segs1`):
 1. Test B: blocks of `B` pulses (step `step`), folded at P3 = 2,
    A(φ) = Σ (−1)ⁿ xₙ(φ), S = Σ_φ |A|² against `nperm` shuffles of the
    block's pulses; blocks above the `q` quantile are significant and are
-   merged into sections. (A sign change of A across the profile is what a
+   merged into sections. The pulsar passes only if the number of
+   significant non-overlapping blocks is unlikely by chance:
+   P(X ≥ k | Binomial(n, 1 − q)) < `alpha` = 10⁻³ (≥ 4 of ~32); otherwise
+   nothing is reported and the pulses stay free for the second pass. (A sign change of A across the profile is what a
    drift looks like here; a uniform sign is alternating brightness.)
 2. f3 from the incoherently summed periodogram of the sections
    (rectangular window, lobe ±1/M instead of Hann's ±2/M) on [0.40, 0.5];
@@ -1249,13 +1252,14 @@ J0846-3533 (claude-ac): sections 976 P, f3 = 0.4938 (P3 = 2.025, params
 2.02), drift, |Δψ| = 0.61, z = 7.9 — no group in v2. J0943+2253: sections
 ≤ 96 P, f3 not separable from 0.5 → :nyquist.
 
-Fields: found, sections, block_starts, block_z, block_sig, f3, delta, p3,
+Fields: found, sections, block_starts, block_z, block_sig, n_ind, k_ind
+(non-overlapping blocks tested / significant), p_global, f3, delta, p3,
 p3_alias, M, resolved, pulses, theta, verdict, tphase, tsig, fold, counts,
 nb, depth, bidrift.
 """
 function nyquist_pass(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real, segs1;
                       B::Int=32, step::Int=16, nperm::Int=300, q::Real=0.99, seed::Int=1,
-                      mincycles::Real=2, nbins::Int=8, tp_kw=NamedTuple())
+                      mincycles::Real=2, nbins::Int=8, alpha::Real=1e-3, tp_kw=NamedTuple())
     N = size(data, 1)
     on = bin_st:bin_end
     free = free_pulses(segs1, N)
@@ -1273,6 +1277,15 @@ function nyquist_pass(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real,
         z[k] = (S - mean(nul)) / std(nul)
         sig[k] = S > quantile(nul, q)
     end
+    # global significance: significant blocks among the non-overlapping ones (every B/step-th)
+    # against Binomial(n, 1 − q); a lone significant block is what chance gives (~0.6 per pulsar
+    # at q = 0.99 with ~63 blocks — v4 had 5 :nyquist verdicts from one block, 3 from two)
+    stride_ind = max(1, B ÷ step)
+    tested = findall(!isnan, z)
+    ind = tested[1:stride_ind:end]
+    n_ind = length(ind)
+    k_ind = count(sig[ind])
+    p_global = n_ind == 0 ? 1.0 : ccdf(Binomial(n_ind, 1 - q), k_ind - 1)
     secs = UnitRange{Int}[]
     for k in findall(sig)
         r = starts[k]:starts[k]+B-1
@@ -1282,11 +1295,13 @@ function nyquist_pass(data::AbstractMatrix, bin_st::Int, bin_end::Int, p3::Real,
             push!(secs, r)
         end
     end
-    empty = (found=false, sections=secs, block_starts=starts, block_z=z, block_sig=sig, f3=NaN,
+    empty = (found=false, sections=UnitRange{Int}[], block_starts=starts, block_z=z, block_sig=sig,
+             n_ind=n_ind, k_ind=k_ind, p_global=p_global, f3=NaN,
              delta=NaN, p3=NaN, p3_alias=NaN, M=0, resolved=false, pulses=Int[], theta=Float64[],
              verdict=:none, tphase=nothing, tsig=nothing, fold=zeros(0, 0), counts=Int[], nb=0,
              depth=NaN, bidrift=false)
-    isempty(secs) && return empty
+    (isempty(secs) || p_global ≥ alpha) && return empty
+    empty = merge(empty, (sections=secs,))
 
     # 2. f3 from the sections' periodogram
     fgrid = collect(0.40:2e-5:0.5)

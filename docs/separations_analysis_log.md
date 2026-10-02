@@ -1921,3 +1921,15 @@ panelu widm `plot_track`) poprawione i przeliczone osobno (`p3track_v4_fix_J1524
 - **Słabość**: 5 werdyktów `nyquist` opiera się na jednym bloku (32 P), 3 na dwóch — przy progu 99% i ~63 blokach na pulsar
   oczekiwane ~0.6 fałszywie istotnego bloku; potrzebny warunek łącznej istotności (np. ≥ 2–3 bloków albo test liczby bloków).
 - P–Ṗ odświeżone z v4 (`ppdot_p3track` domyślnie v4; grupa do miar stabilności = największa z miarą, wiersze Nyquista bez miar).
+
+### 2026-10-02 (cd.) — warunek łącznej istotności ścieżki Nyquista; v4b
+
+`nyquist_pass`: liczba istotnych bloków niezachodzących vs Binomial(n, 0.01), p < 10⁻³ (pola `n_ind`, `k_ind`, `p_global`;
+kolumny CSV `nyq_blocks`, `nyq_p`). Przeliczone tylko pulsary z P₃ ≤ 2.2 (29, tag v4nyq, ~3 min w 4 procesach) i wstawione:
+`~/output/claude/p3track_batch/p3track_v4b.csv`, `p3track_v4b_pulsars.csv`; wykresy tych 29 podmienione w `figures_v4/`
+(stare usunięte, w tym nieaktualne `_nyquist.png`).
+- Ścieżka zgłasza wynik u 11 pulsarów (było 23), wszystkie p ≤ 7e-7 (≥ 4 bloki): drift 4 (J0846-3533 30/32 bloków,
+  J1425-5723 6/32, J1502-6128 4/7, J1848+0604 8/29), partial 1 (J1517-4356), am 1 (J0624-0424), nyquist 5 (J1539-4828,
+  J1716-4111, J0855-3331, J0943+2253, J1826-1131). Odpadły werdykty z 1–2 bloków.
+- Werdykt pulsara (reguła A), drift: 134/27/21/103 + nyquist 0, nocat 92, brak 35; P3-only: 1/4/28/30 + nyquist 3, nocat 23,
+  brak 20. P–Ṗ odświeżone z v4b.

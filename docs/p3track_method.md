@@ -196,7 +196,9 @@ grupy przy swoim P₃ (najmniejsze P₃ grupy 2.15) — ostre odcięcie, artefak
 
 **Ścieżka** (dla P₃ z params ≤ 2.2, na impulsach spoza grup pierwszego przejścia, przed drugim przejściem):
 1. Test B: bloki 32 P (krok 16) składane przy P₃ = 2, A(φ) = Σ(−1)ⁿxₙ(φ), S = Σ|A|² vs 300 tasowań bloku; bloki > 99% →
-   sklejone odcinki.
+   sklejone odcinki. **Warunek łączny**: liczba istotnych bloków niezachodzących (co drugi) vs Binomial(n, 0.01),
+   p < 10⁻³ (≥ 4 z ~32); inaczej nic nie jest zgłaszane. (Bez niego v4 dało 16 × `nyquist`, w tym 5 z jednego bloku
+   i 3 z dwóch, przy ~0.6 fałszywie istotnego bloku na pulsar.)
 2. f₃ z periodogramu odcinków (okno prostokątne, siatka 0.40–0.5), δ = 0.5 − f₃.
 3. f₃ i alias 0.5 + δ rozdzielne, gdy najdłuższy odcinek M·2δ ≥ 2: demodulacja przy f₃ w odcinkach (fazy odcinków
    wyrównane do najsilniejszego), szablon i istotność impuls po impulsie → drift / partial / am / inconclusive.
@@ -502,6 +504,7 @@ względem stałego P₃.*
 | werdykt pulsara z dowolnej grupy | `am` z wolnej modulacji w 2. przejściu (J1742: P₃ 7 → 48) | werdykt z grup o P₃ ±30% katalogowego |
 | krótka grupa → zawsze inconclusive (< 5 bloków) | J1528-4109 z wyraźnym dryfem (34 P) | werdykt z folda, bootstrap impuls po impulsie |
 | maksimum widma tylko wewnętrzne | P₃ ≤ 2.13: zero grup (cecha + lustro → maksimum w f = 0.5) | ścieżka Nyquista (§4b, zgłoszenie claude-ac) |
+| `nyquist` z pojedynczych bloków | 8 z 16 werdyktów z 1–2 bloków (≈ szansa) | warunek łączny Binomial, p < 10⁻³ |
 
 ---
 

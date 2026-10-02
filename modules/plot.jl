@@ -2982,7 +2982,7 @@ module Plot
     drift template). `verdicts` selects which group verdicts count (default
     drift and partial). Writes `<name_mod>.pdf/.png` (default `p3track_<quantity>`).
     """
-    function ppdot_p3track(outdir; results="/home/psr/output/p3track_batch/p3track_v4.csv",
+    function ppdot_p3track(outdir; results="/home/psr/output/p3track_batch/p3track_v4b.csv",
                            quantity=:fdrift, verdicts=("drift", "partial"), cmap="viridis",
                            name_mod=nothing, plims=(2e-2, 2e1), pdotlims=(1e-18, 1e-11), kwargs...)
         name_mod = isnothing(name_mod) ? "p3track_$(quantity)" : name_mod
