@@ -2975,15 +2975,22 @@ module Plot
     P3-only in Song et al. 2023); open grey: no drift group (AM, inconclusive,
     or no group with a stable P3).
 
-    `verdicts` selects which group verdicts count (default drift and partial).
-    Writes `<name_mod>.pdf/.png` (default `p3track_fdrift`).
+    `quantity`: :fdrift (above), or a stability measure of the pulsar's largest
+    drift/partial group — :p3_wander (std/median of the tracked P3),
+    :phase_wander (cycles per 1000 pulses the modulation phase leaves a
+    constant-P3 clock, log scale), :coherence (match of single pulses with the
+    drift template). `verdicts` selects which group verdicts count (default
+    drift and partial). Writes `<name_mod>.pdf/.png` (default `p3track_<quantity>`).
     """
-    function ppdot_p3track(outdir; results="/home/psr/output/p3track_batch/p3track_v2.csv",
-                           verdicts=("drift", "partial"), cmap="viridis", name_mod="p3track_fdrift",
-                           plims=(2e-2, 2e1), pdotlims=(1e-18, 1e-11), kwargs...)
+    function ppdot_p3track(outdir; results="/home/psr/output/p3track_batch/p3track_v3.csv",
+                           quantity=:fdrift, verdicts=("drift", "partial"), cmap="viridis",
+                           name_mod=nothing, plims=(2e-2, 2e1), pdotlims=(1e-18, 1e-11), kwargs...)
+        name_mod = isnothing(name_mod) ? "p3track_$(quantity)" : name_mod
         lines = collect(eachline(results))
         hdr = split(lines[1], ','); c = Dict(String(h) => i for (i, h) in enumerate(hdr))
         lab = Dict{String,String}(); npl = Dict{String,Float64}(); fdr = Dict{String,Float64}()
+        dom = Dict{String,Tuple{Float64,Float64}}()     # psr => (npulse of dominant drift group, value)
+        qcol = quantity === :fdrift ? nothing : String(quantity)
         for ln in lines[2:end]
             t = split(ln, ',')
             psr = String(t[c["psr"]])
@@ -2994,10 +3001,21 @@ module Plot
             npl[psr] = n
             fdr[psr] = get(fdr, psr, 0.0)
             if v in verdicts
-                fdr[psr] += something(tryparse(Float64, t[c["npulse_group"]]), 0.0)
+                ng = something(tryparse(Float64, t[c["npulse_group"]]), 0.0)
+                fdr[psr] += ng
+                if !isnothing(qcol) && (!haskey(dom, psr) || ng > dom[psr][1])
+                    dom[psr] = (ng, something(tryparse(Float64, t[c[qcol]]), NaN))
+                end
             end
         end
-        f = Dict(k => min(1.0, fdr[k] / npl[k]) for k in keys(npl))
+        f = isnothing(qcol) ? Dict(k => min(1.0, fdr[k] / npl[k]) for k in keys(npl)) :
+            Dict(k => (haskey(dom, k) && isfinite(dom[k][2]) ? dom[k][2] : 0.0) for k in keys(npl))
+        # colour scale and label per quantity
+        qs = Dict(:fdrift => (0.0, 1.0, false, "fraction of the observation with tracked drift"),
+                  :p3_wander => (0.0, 0.2, false, "P\$_3\$ wander: std/median of the tracked P\$_3\$ (dominant drift group)"),
+                  :phase_wander => (0.5, 30.0, true, "phase wander vs constant P\$_3\$ (cycles / 1000 P, dominant drift group)"),
+                  :coherence => (0.5, 1.0, false, "coherence of single pulses with the drift template"))
+        vmin, vmax, islog, qlabel = qs[quantity]
         println("p3track: $(length(f)) pulsars from $(basename(results)), $(count(>(0), values(f))) with drift groups")
 
         function overlay(ax, nam, P, Pd)
@@ -3005,7 +3023,8 @@ module Plot
             absent = sort([k for k in keys(f) if !haskey(idx, k)])
             isempty(absent) || println("p3track: no P/Pdot for $(length(absent)): $(join(absent, ", "))")
             cm = PyPlot.matplotlib.pyplot.get_cmap(cmap)
-            cn = PyPlot.matplotlib.colors.Normalize(vmin=0.0, vmax=1.0)
+            cn = islog ? PyPlot.matplotlib.colors.LogNorm(vmin=vmin, vmax=vmax) :
+                         PyPlot.matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
             for (L, mk, ms) in (("drift", "o", 30.0), ("p3only", "^", 38.0))
                 sel = [k for k in keys(f) if lab[k] == L && haskey(idx, k)]
                 col = [k for k in sel if f[k] > 0]
@@ -3013,8 +3032,8 @@ module Plot
                 ax.scatter(P[[idx[k] for k in rest]], Pd[[idx[k] for k in rest]], s=0.55ms, marker=mk,
                            facecolors="none", edgecolors="0.45", linewidths=0.6, zorder=5)
                 ax.scatter(P[[idx[k] for k in col]], Pd[[idx[k] for k in col]], s=ms, marker=mk,
-                           c=[f[k] for k in col], cmap=cm, norm=cn, edgecolors="black",
-                           linewidths=0.4, zorder=6)
+                           c=clamp.([f[k] for k in col], vmin, vmax), cmap=cm, norm=cn,
+                           edgecolors="black", linewidths=0.4, zorder=6)
                 println(@sprintf("p3track: %-6s %3d with drift (median f = %.2f), %3d without", L,
                                  length(col), isempty(col) ? NaN : median([f[k] for k in col]), length(rest)))
             end
@@ -3023,7 +3042,7 @@ module Plot
             cb = colorbar(sm, cax=cax, orientation="horizontal")
             cb.ax.tick_params(labelsize=6, length=2, pad=1)
             cb.outline.set_linewidth(0.5)
-            cb.set_label("fraction of the observation with tracked drift", fontsize=7, labelpad=2)
+            cb.set_label(qlabel, fontsize=7, labelpad=2)
             L2D = PyPlot.matplotlib.lines.Line2D
             c_mid = cm(0.6)
             return Any[L2D([], [], mfc=c_mid, ls="none", marker="o", ms=5.0, mec="black", mew=0.4,

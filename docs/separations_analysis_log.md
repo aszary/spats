@@ -1862,3 +1862,20 @@ dryfu. Skrypt `~/claude/work/scripts/p3track_ppdot.jl`, wykres `~/claude/work/fi
 - Wg Ė (drift): 1e29–31: 59% z dryfem (med. f 0.45); 1e31–32: 47% (0.40); 1e32–33: 32% (0.34); 1e33–34: 15% (0.64);
   > 1e34: 22% (0.56, n = 18). Spearman log Ė vs f: −0.29 (wszyscy), −0.05 (tylko z dryfem) — maleje udział pulsarów
   z wykrytym dryfem, nie ułamek czasu dryfu u tych, które go mają.
+
+### 2026-10-02 (cd.) — batch v3: miary stabilności, werdykt krótkich grup z folda, bi-drift
+
+Batch v3 (8 procesów, 32–51 min, 12 × brak danych): `~/output/claude/p3track_batch/p3track_v3.csv`, `p3track_v3_pulsars.csv`,
+`p3track_v3_drift_metrics.csv` (dominująca grupa drift/partial na pulsar). Analiza `/tmp/.../v3_metrics.py`.
+- Werdykt pulsara (reguła A): drift 130 (v2: 127), partial 27 (26), am 20 (16), inconcl. 103 (111) wśród 412 dryferów;
+  P3-only: drift 1, partial 4, am 28 (24), inconcl. 30 (34).
+- Krótkie grupy (werdykt z folda): 454 inconclusive, 40 am, 8 drift, 2 partial; zmiany względem blokowego: 40 × inconcl.→am,
+  8 × →drift, 2 × →partial. (40 nowych am — do przejrzenia: w kalibracji fold rzadko potwierdzał AM.)
+- Bi-drift: J1418-3921, J1537-4912, J1239+2453, J1921+1948, J1843-0211.
+- Miary (mediana [kwartyle]): drift — p3_wander 0.089 [0.05–0.12], phase_wander 6.3 [2.9–11.7] cykli/1000 P, koherencja
+  0.76 [0.67–0.84]; am — 0.094, 2.9, 0.85; inconclusive — 0.023, 1.8, 0.79.
+- Pulsary z dryfem (n = 173), Spearman z log Ė: p3_wander +0.20, phase_wander +0.21, koherencja −0.11; z P₃: +0.39, **−0.55**,
+  +0.09 — phase_wander w cyklach/1000 P silnie zależy od P₃ (więcej cykli przy krótkim P₃); do rozważenia normalizacja
+  na cykl P₃ (np. cykle fazy na 100 cykli P₃).
+- `Plot.ppdot_p3track(...; quantity=:fdrift|:p3_wander|:phase_wander|:coherence)`, wykresy
+  `~/claude/work/figures/ppdot_p3track_{fdrift,p3_wander,phase_wander,coherence}.png` (+ QNAP).
