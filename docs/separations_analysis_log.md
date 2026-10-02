@@ -1933,3 +1933,17 @@ kolumny CSV `nyq_blocks`, `nyq_p`). Przeliczone tylko pulsary z P₃ ≤ 2.2 (29
   J1716-4111, J0855-3331, J0943+2253, J1826-1131). Odpadły werdykty z 1–2 bloków.
 - Werdykt pulsara (reguła A), drift: 134/27/21/103 + nyquist 0, nocat 92, brak 35; P3-only: 1/4/28/30 + nyquist 3, nocat 23,
   brak 20. P–Ṗ odświeżone z v4b.
+
+### 2026-10-02 (cd.) — zależności od Ė w v4b
+
+Skrypt `/tmp/.../scratchpad/v4b_edot.py` (S/N: k_snr z travel v4; Ė = 4π²IṖ/P³, I = 10⁴⁵).
+- **Wykrycie dryfu (etykieta drift Song+23)**, odsetek z grupą drift/partial: Ė 1e29–31: 61% [56–67]; 1e31–32: 51% [46–55];
+  1e32–33: 33% [28–37]; 1e33–34: 17% [13–22]; > 1e34: 22% [14–33] (n = 18). Spearman −0.33; cząstkowa (P₃ kat., k_snr) −0.33;
+  logit det ~ log Ė + log k_snr + log P₃: log Ė −0.65 (z −5.9), log k_snr +0.24 (z +2.9), log P₃ −0.40 (z −1.4).
+  k_snr i P₃ prawie nie korelują z Ė (+0.11, +0.17) → spadek nie wynika z S/N ani P₃.
+- Ułamek czasu z dryfem u tych z dryfem: 0.45 / 0.40 / 0.30 / 0.54 / 0.56 — bez trendu.
+- **Stabilność** (dominująca grupa, n ≈ 170), cząstkowa z log Ė przy kontroli P₃ grupy i k_snr [68% bootstrap]:
+  p3_wander +0.25 [+0.18, +0.32]; phase_wander +0.21 [+0.13, +0.28]; wędrówka fazy na 100 cykli P₃ +0.28 [+0.19, +0.36];
+  koherencja −0.21 [−0.28, −0.13]. Przy wyższym Ė dryf — tam, gdzie jest — mniej stabilny i mniej koherentny (słabo).
+- P3-only: drift/partial 0–10% w każdym przedziale (5 pulsarów); werdykt am rośnie z Ė: 1/9, 4/20, 10/39, 9/31, 4/10.
+Zastrzeżenie: etykieta Song+23 sama zależy od Ė (selekcja).
