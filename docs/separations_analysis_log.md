@@ -2139,3 +2139,12 @@ z: nadwyżka mocy LRFS w paśmie f₃ (FWHM piku I) względem 100 tasowań kolej
 - **Zastrzeżenia**: z skaluje się z S/N (dryfery w zestawie jaśniejsze); E/E_I zależy od średniego L/I; J1825 (słaby, epizodyczny)
   i słabe P3-only (J1146, J2307) poniżej czułości. Statystyka nie odróżni dryfu od okresowego przełączania OPM bez dryfu —
   to raczej pytanie fizyczne niż wada. Wynik na 10 obiektach, progi niewyznaczone.
+
+### 2026-10-02 (cd.) — subtrack: długie obserwacje przycięte do 1000 impulsów
+
+Decyzja użytkownika: przy długich danych brać tylko część. `subtrack.jl`: `MAXPULSES = 1000`, analizowany ciągły fragment
+1–1000 (z porównywalne między pulsarami; zestaw kontrolny ma ~1000–2100 P). Log `~/claude/work/logs/subtrack_maxp.log`.
+- J1057-5226 (27 401 P): z(f_ls) 6.8 → **−0.1**; J1048-5832 (7270 P): 4.3 → **1.3**; J1603-2531 0.7, J1810-5338 0.8, J1701-3130 1.0.
+- Zestaw kontrolny bez zmian jakościowych: dryfery z = 14.3 (J0034), 13.0 (J0151), 11.1 (J0820), 11.7 (J1750); J1825 0.5;
+  P3-only −0.3…0.7.
+Batch na pełnej próbce jeszcze nie puszczony (decyzja użytkownika).
