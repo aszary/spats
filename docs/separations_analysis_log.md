@@ -20,7 +20,7 @@ Prace nad metodą rozstrzygania, czy pulsar dryfuje, czy jest tylko P3-only (ety
 |---|---|---|---|
 | travel (T_cv, f_trav, ρ) | [`travel_test_method.md`](travel_test_method.md) | 2026-09-22 … 2026-09-30 | niezadowalająca (czułość, f_trav, zgodność z oceną wzrokową) |
 | P3Track (sliding LRFS → fold z kompensacją P₃ → faza szablonu) | [`p3track_method.md`](p3track_method.md) — §0, §8 sprawy otwarte, §9 co nie zadziałało | 2026-10-01 (cd. 4) … 2026-10-02 | wobec Song+23 zmienia bardzo niewiele |
-| subtrack / pairshift (pozycje podpulsów w pojedynczych impulsach; też odrzucone warianty fazowe P₃(n), Δψ(t)) | [`subpulse_methods.md`](subpulse_methods.md) — §0, §7 sprawy otwarte | 2026-10-02 (cd., od „nowa sesja”) | pairshift: 43% dryferów, 0 P3-only; z P3Track 57% |
+| subtrack / pairshift (pozycje podpulsów w pojedynczych impulsach; też odrzucone warianty fazowe P₃(n), Δψ(t)) | [`subpulse_methods.md`](subpulse_methods.md) — §0, §7 sprawy otwarte | 2026-10-02 (cd., od „nowa sesja”) | pairshift (z_blk, v2): 39% dryferów, 0 P3-only; z P3Track 55% |
 
 Następny krok (2026-10-02): nowa sesja szuka lepszej metody — najpierw przeczytać §0, §8, §9 obu dokumentów.
 Wyniki P3Track: `~/output/claude/p3track_batch/` (CSV v1–v4b, wykresy v4); skrypty `~/claude/work/scripts/`.
@@ -2239,3 +2239,17 @@ Błędy: 12 × brak danych, 29 × ACF płaska (za słabe na detekcję podpulsów
   **J1651-1709** (P3-only, P3Track `am`): wykres `~/claude/work/figures/subtrack/J1651-1709_subtrack_zoom.png` — wiodąca składowa
   (177°) stała, ale w końcowej (183–186°) widać rosnące pasma co ~20–25 P (D ≈ +0.1 °/P); pairshift z = 0.35 (pary w jasnej
   składowej bez przesunięcia rozcieńczają statystykę). Kandydat na dryf w jednej składowej — do oceny wzrokowej.
+
+### 2026-10-02 (cd.) — pairshift: null z losowania znaków bloków, batch v2
+
+Sesja „flow” zgłosiła, że losowanie znaków pojedynczych par było u niej za liberalne. Sprawdzenie w pairshift
+(`pairshift_blk.jl`, 30 pulsarów): s_n sąsiednich par są skorelowane — u P3-only ρ(1) ≈ −0.2…−0.46 (wspólny impuls n+1,
+null par konserwatywny), u części dryferów ρ(1) > 0 (J0034 +0.28: z par −13.6 zawyżone, blokowo −5.9).
+Nowa statystyka z_blk: losowanie znaków bloków L_b = clamp(2·P₃, 10, 100) par. Batch v2 (`pairshift_v2.csv`, kolumny
+z, zblk, Lb, rho1, p3; wykresy `~/claude/work/figures/pairshift_batch_v2/`):
+- drift 152/388 (39%; v1 165), P3-only 0/103; suma z P3Track 214 (55%; v1 221); tylko pairshift 58, tylko P3Track 62;
+  v1 → v2: 18 spada pod próg, 5 dochodzi.
+- Null P3-only: z_blk −2.6…2.8, σ = 1.25 (z par 1.06), |z_blk| ≥ 2 u 12/103 — szerszy niż N(0,1) (ciężkie ogony przy 10–30 blokach
+  i/lub strzałka czasu przy k = 1 widziana przez sesję flow). Próg: 2.5 → 6 P3-only, 3 → 0.
+- Kierunek z P3Track: 92 zgodne, 2 przeciwne (J1741-0840, J1614+0737).
+`docs/subpulse_methods.md` przepisany na v2 (§0, §4.1–4.3, §5, §7 pkt 9).

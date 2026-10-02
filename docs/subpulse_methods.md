@@ -7,7 +7,7 @@ dwa warianty fazowe (§1).
 
 Repozytorium: `github.com/aszary/spats`, gałąź `claude`. Kod jest poza repo, w skryptach (§8):
 `~/claude/work/scripts/subtrack.jl`, `pairshift.jl` i `pairshift_batch.jl`.
-Wyniki batcha: `~/output/claude/pairshift_batch/pairshift_v1.csv` (QNAP).
+Wyniki batcha: `~/output/claude/pairshift_batch/pairshift_v2.csv` (QNAP; v1 dla porównania).
 Dziennik: `docs/separations_analysis_log.md` (= `~/claude/work/NOTES.md`), wpisy 2026-10-02 (cd.), od „nowa sesja”.
 Wykresy dokumentu: `docs/figures/subtrack_*.png`, `docs/figures/pairshift_*.png`.
 
@@ -17,21 +17,25 @@ Wykresy dokumentu: `docs/figures/subtrack_*.png`, `docs/figures/pairshift_*.png`
 
 **pairshift** (§4) w każdej parze kolejnych impulsów łączy każdy podpuls z najbliższym podpulsem impulsu sąsiedniego,
 w obu kierunkach, i liczy **znak** przesunięcia Δφ. Przy AM przesunięcia w obie strony są równie częste, przy dryfie
-przeważa jeden znak. Rozkładem zerowym jest **odwrócenie czasu par** (losowanie znaków), bez żadnego modelu zmienności.
+przeważa jeden znak. Rozkładem zerowym jest **odwrócenie czasu** — losowanie znaków bloków L_b = clamp(2·P₃, 10, 100)
+kolejnych par (z_blk, od batcha v2) — bez żadnego modelu zmienności.
 
-**Pełna próbka (batch v1, pierwsze 1000 impulsów na pulsar, próg |z| ≥ 3):**
+**Pełna próbka (batch v2, pierwsze 1000 impulsów na pulsar, próg |z_blk| ≥ 3):**
 
 | etykieta Song+23 | policzone | pairshift | P3Track v4b drift/partial | obie metody | suma |
 |---|---|---|---|---|---|
-| drift | 388 | **165 (43%)** | 156 (40%) | 100 | **221 (57%)** |
+| drift | 388 | **152 (39%)** | 156 (40%) | 94 | **214 (55%)** |
 | P3-only | 103 | **0** | 5 | 0 | — |
 
-- **Brak fałszywych detekcji:** z dla P3-only leży w przedziale od −2.6 do 2.5 (mediana −0.1). |z| ≥ 2 ma 6 ze 103, przy
-  oczekiwanych ~5 dla N(0,1). Na syntetykach AM i losowych podpulsów 0 przypadków ze 120.
-- **Nowe detekcje:** 65 dryferów wykrywa tylko pairshift. W P3Track miały werdykt inconclusive (33), inne P₃ (26), am (4)
-  lub brak grup (2). Najsilniejsza to J0533+0402 (z = −16.2).
-- **Kierunek dryfu** zgadza się z P3Track w 97 na 99 pulsarach wykrytych przez obie metody. To niezależnie potwierdza
+- **Brak fałszywych detekcji:** z_blk dla P3-only leży w przedziale od −2.6 do 2.8 (mediana −0.2, odchylenie 1.25). |z_blk| ≥ 2
+  ma 12 ze 103, przy oczekiwanych ~5 dla N(0,1). Rozkład jest więc nieco szerszy niż normalny: przy 10–30 blokach statystyka
+  S/√ΣS² ma cięższe ogony. Na syntetykach AM i losowych podpulsów 0 przypadków ze 120.
+- **Nowe detekcje:** 58 dryferów wykrywa tylko pairshift. W P3Track miały werdykt inconclusive (30), inne P₃ (23), am (3)
+  lub brak grup (2). Najsilniejsza to J0533+0402 (z_blk = −9.2). 33 z nich ma |z_blk| między 3 a 4, czyli tuż nad progiem.
+- **Kierunek dryfu** zgadza się z P3Track w 92 na 94 pulsarach wykrytych przez obie metody. To niezależnie potwierdza
   konwencję znaku P3Track (sprawa otwarta `p3track_method.md` §8.11).
+- **Batch v1** używał losowania znaków pojedynczych par (z): 165/388 (43%), suma z P3Track 221 (57%). Dla dryferów z dodatnią
+  autokorelacją s_n ta wersja zawyża z (J0034-0721: −13.6 wobec −5.9 blokowo), więc obowiązuje v2 (§4.2, §5).
 - **Ograniczenia:** metoda wymaga podpulsów z S/N ≥ 5 (29 pulsarów jest za słabych). Przy P₃ ≈ 2 łapie alias (2/20 dryferów
   z P₃ ≤ 2.2). Reverserów (J1750-3503) wersja globalna nie widzi.
 
@@ -42,7 +46,7 @@ jednak pasm żyjących ≥ 8 impulsów, więc działa tylko dla jasnych dryferó
 
 **Wniosek wobec Song+23:**
 - Żaden P3-only nie ma dryfu widocznego w pojedynczych impulsach w sensie pairshift.
-- Wśród dryferów pairshift i P3Track razem potwierdzają 57%.
+- Wśród dryferów pairshift i P3Track razem potwierdzają 55%.
 - Reszta to głównie pulsary za słabe na detekcję podpulsów albo z dryfem widocznym tylko statystycznie, jako gradient fazy.
 - Kandydat do oceny wzrokowej: **J1651-1709** (P3-only u Song+23, am w P3Track) — rosnące pasma w końcowej składowej (§6).
 
@@ -178,7 +182,9 @@ niemożliwe. Krótkie ścieżki (≥ 4 punkty) nie pomagają.
 3. s_n = Σ sign(Δ) w parze. Odwrócenie czasu pary zamienia oba zbiory dopasowań i zmienia znak, więc s(Y, X) = −s(X, Y)
    **dokładnie**, także przy różnej liczbie podpulsów w impulsach.
 4. Pod AM (proces odwracalny w czasie, kolejne impulsy wymienne) E s_n = 0, a rozkład jest symetryczny.
-   Rozkład zerowy to losowanie znaków par: z = Σ s / √Σ s². Nie wymaga modelu zmienności i nie nasyca się (~1000 par).
+   Rozkład zerowy to losowanie znaków **bloków** L_b = clamp(2·P₃, 10, 100) kolejnych par (P₃ z params.json, bez P₃: 32):
+   z_blk = Σ S_b / √Σ S_b², S_b = suma s_n w bloku. Nie wymaga modelu zmienności. Wersja z losowaniem pojedynczych par
+   (z = Σ s / √Σ s², batch v1) zakłada niezależność s_n, a sąsiednie pary są skorelowane (§4.2).
 5. Tempo dryfu: mediana Δ (°/P).
 6. Dodatkowo wersja blokowa (bloki 32 P, iloczyn sum z połówek bloku, trwałość bez globalnego znaku) dla reverserów.
    Nasyca się przy √31 ≈ 5.6 i niewiele daje.
@@ -189,6 +195,7 @@ niemożliwe. Krótkie ścieżki (≥ 4 punkty) nie pomagają.
 |---|---|---|
 | dopasowanie tylko n → n+1, waga Δ/R | fałszywe dryfy w P3-only: J0629+2415 z = −11.0, J1825+0004 −7.2, J1401-6357 +5.3 | dopasowanie dwukierunkowe (antysymetria dokładna) |
 | dwukierunkowe, waga Δ/R, R = 3·FWHM | null czysty, ale J1910+0714 tylko −2.2 przy medianie Δφ −0.41 °/P (dalekie dopasowania szumu dominują średnią) | waga sign(Δ), R = 1.5·FWHM: J1910 −10.9 |
+| losowanie znaków pojedynczych par (v1) | s_n są skorelowane: u P3-only ρ(1) ≈ −0.2…−0.46 (para (n, n+1) i (n+1, n+2) dzielą impuls n+1; jitter daje + w jednej i − w drugiej → null konserwatywny), u części dryferów ρ(1) > 0 (J0034-0721 +0.28 → z zawyżone: −13.6) | losowanie znaków bloków L_b = clamp(2·P₃, 10, 100) par (sugestia sesji „flow”, u której pary były za liberalne): J0034 −5.9, J0820 −27.9 → −9.8; P3-only nadal ≤ 2.8 |
 
 Siatka wag {liniowa, znak, przycięta do FWHM} × R {1.5, 3}·FWHM na 30 pulsarach: znak przy R = 1.5·FWHM daje najsilniejsze
 dryfery przy czystym nullu.
@@ -207,16 +214,19 @@ Syntetyki (`pairshift_synth.jl`, te same co dla subtrack):
 
 Zestaw kontrolny i losowe 20 (`pairshift.jl`):
 
-| etykieta | PSR | mediana Δφ [°/P] | z | P3Track v4b |
-|---|---|---|---|---|
-| drift | J0034-0721 | −1.96 | −13.6 | drift |
-| drift | J0151-0635 | −0.32 | −9.7 | drift |
-| drift | J0820-1350 | −0.71 | −27.9 | drift |
-| drift | J1750-3503 (reverser) | +0.25 | 1.7 | drift |
-| drift | J1910+0714 | −0.41 | **−10.9** | drift |
-| drift | J0932-3217 | +0.22 | 3.3 | drift |
-| drift | pozostałe 7 losowych | | −2.6 … 0.3 | |
-| P3-only | 16 (6 kontrolnych + 10 losowych) | | −2.4 … 1.1 | |
+| etykieta | PSR | mediana Δφ [°/P] | z (pary) | z_blk | P3Track v4b |
+|---|---|---|---|---|---|
+| drift | J0034-0721 | −1.96 | −13.6 | −5.9 | drift |
+| drift | J0151-0635 | −0.32 | −9.7 | −5.2 | drift |
+| drift | J0820-1350 | −0.71 | −27.9 | −9.8 | drift |
+| drift | J1750-3503 (reverser) | +0.25 | 1.7 | 1.7 | drift |
+| drift | J1910+0714 | −0.41 | −10.9 | **−7.7** | drift |
+| drift | J0932-3217 | +0.22 | 3.3 | 3.0 | drift |
+| drift | J1614+0737 | | −2.6 | −3.2 | inconclusive |
+| drift | pozostałe 6 losowych | | −2.2 … 0.3 | −2.6 … 0.4 | |
+| P3-only | 16 (6 kontrolnych + 10 losowych) | | −2.4 … 1.1 | −2.4 … 1.4 | |
+
+(`pairshift_blk.jl`, log `pairshift_blk.log`.)
 
 ![J1910+0714 pairshift](figures/pairshift_J1910+0714.png)
 
@@ -225,43 +235,58 @@ Prawy panel: suma znaków w blokach 32 P.*
 
 ---
 
-## 5. Pełna próbka: batch pairshift v1
+## 5. Pełna próbka: batch pairshift v2 (v1 dla porównania)
 
 **Przebieg.** `pairshift_batch.jl` + `pairshift_batch_run.sh`: 8 procesów, wznawialny, lista i pliki jak w batchu P3Track
 (418 drift + 115 P3-only), pierwsze 1000 P. W tym samym przebiegu liczony jest subtrack.
-Podsumowanie: `pairshift_summary.py v1`.
+Podsumowanie: `pairshift_summary.py v2 zblk` (v1: `pairshift_summary.py v1`).
 
 **Pliki** (`~/output/claude/pairshift_batch/`):
-- `pairshift_v1.csv` — wiersz na pulsar: liczba podpulsów i par, R, z, z blokowe, średnia i mediana Δφ, a z subtrack ścieżki,
-  P₂, f_ls, z(f_ls), D₊, D₋;
-- części `pairshift_v1_partKof8.csv`;
-- `pairshift_test_part1of1.csv` — test na 3 pulsarach, do usunięcia.
+- `pairshift_v2.csv` — wiersz na pulsar: liczba podpulsów i par, R, P₃, z (pary), **z_blk**, L_b, ρ(1) dla s_n, z blokowe bez
+  znaku (zrev), średnia i mediana Δφ, a z subtrack ścieżki, P₂, f_ls, z(f_ls), D₊, D₋;
+- `pairshift_v1.csv` — to samo bez z_blk (losowanie znaków pojedynczych par);
+- części `pairshift_v{1,2}_partKof8.csv`;
+- `pairshift_test_part1of1.csv`, `pairshift_test2_part1of1.csv` — testy, do usunięcia.
 
-Wykresy dla |z| ≥ 3 (para + subtrack) są w `~/claude/work/figures/pairshift_batch_v1/` (330 plików).
+Wykresy dla |z_blk| ≥ 3 (para + subtrack) są w `~/claude/work/figures/pairshift_batch_v2/` (304 pliki; v1: `_v1/`, 330).
 
 **Błędy:** 12 × brak danych, 29 × płaska ACF (pulsary za słabe na detekcję podpulsów).
 
-**Krzyżowo z P3Track v4b, dryfery Song+23 (388 policzonych):**
+**Próg** (dryfery Song+23 z detekcją / P3-only z detekcją / suma dryferów z P3Track drift/partial):
+
+| \|z_blk\| ≥ | 2.5 | 3 | 3.5 | 4 | 5 |
+|---|---|---|---|---|---|
+| drift (388) | 189 | **152** | 126 | 106 | 82 |
+| P3-only (103) | 6 | **0** | 0 | 0 | 0 |
+| suma z P3Track | 239 | **214** | 194 | 181 | 174 |
+
+**Krzyżowo z P3Track v4b, dryfery Song+23 (388 policzonych, |z_blk| ≥ 3; w nawiasach v1):**
 
 | P3Track | pairshift+ | pairshift− |
 |---|---|---|
-| drift | 90 | 41 |
-| partial | 10 | 15 |
-| inconclusive | 33 | 66 |
-| inne P₃ (nocat) | 26 | 62 |
-| am | 4 | 15 |
-| brak grup | 2 | 24 |
+| drift | 85 (90) | 46 (41) |
+| partial | 9 (10) | 16 (15) |
+| inconclusive | 30 (33) | 69 (66) |
+| inne P₃ (nocat) | 23 (26) | 65 (62) |
+| am | 3 (4) | 16 (15) |
+| brak grup | 2 (2) | 24 (24) |
 
-- Nowe detekcje (65): mediana |z| 4.1, 30 z nich ma |z| między 3 a 4. Najsilniejsze: J0533+0402 −16.2 (P3Track inconclusive),
-  J0924-5814 +11.0, J1627-5936 −10.0, J1807+0756 −9.8 (u P3Track cecha P₃ ≈ 6 zamiast katalogowego 19), J1850+0026 −9.1.
-- **Kierunek:** znak z pairshift wobec znaku Δψ (ważonego mocą) dominującej grupy drift/partial P3Track jest zgodny
-  w 97 przypadkach i przeciwny w 2 (J1741-0840, J1819+1305; pary z |z| ≥ 3 i |Δψ| ≥ 0.1).
-- **P₃ ≤ 2.2:** pairshift wykrywa 2 z 20 dryferów.
-- **Sprzeczne:** pairshift+ przy P3Track `am` — J1740+1311, J1946-2913, J1839-1238, J1709-4429 (|z| 3.4–3.7, Δφ ~0.1 °/P).
+- v1 → v2: 18 dryferów spada pod próg, 5 dochodzi.
+- Nowe detekcje (58): mediana |z_blk| 3.9, 33 z nich ma |z_blk| między 3 a 4. Najsilniejsze: J0533+0402 −9.2 (P3Track
+  inconclusive), J0924-5814 +6.7, J1246+2253 +6.4, J1847-0438 −6.3, J1850+0026 −6.2, J1428-5530 −6.2, J1819-0925 +6.1,
+  J1627-5936 −5.9.
+- **Kierunek:** znak z_blk wobec znaku Δψ (ważonego mocą) dominującej grupy drift/partial P3Track jest zgodny w 92 przypadkach
+  i przeciwny w 2 (J1741-0840, J1614+0737; |z_blk| ≥ 3 i |Δψ| ≥ 0.1). W v1: 97 / 2 (J1741-0840, J1819+1305).
+  Sesja „flow” (przepływ optyczny) ma kierunek zgodny z pairshift 142/142.
+- **P₃ ≤ 2.2:** pairshift wykrywa 1 z 20 dryferów (v1: 2).
+- **Sprzeczne:** pairshift+ przy P3Track `am` — J1740+1311 (3.5), J1424-5556 (3.3), J1839-1238 (−3.1).
+- **Rozkład nulla** (P3-only): z_blk od −2.6 do 2.8, odchylenie 1.25 (z par: 1.06); |z_blk| ≥ 2.5 ma 6 ze 103. Część poszerzenia
+  to ciężkie ogony statystyki przy małej liczbie bloków (L_b do 100 par → 10 bloków); sesja „flow” widzi też w P3-only słabą,
+  powtarzalną strzałkę czasu tylko przy parach (n, n+1) (§7).
 
 ![J0533+0402](figures/pairshift_J0533+0402_subtrack_zoom.png)
 
-*Rys. 5. J0533+0402 (drift, P3Track inconclusive): najsilniejsza nowa detekcja pairshift, z = −16.2.
+*Rys. 5. J0533+0402 (drift, P3Track inconclusive): najsilniejsza nowa detekcja pairshift, z_blk = −9.2 (z par −16.2).
 Krótkie opadające kreski na stosie; subtrack ich nie składa w ścieżki ≥ 8 P.*
 
 ---
@@ -273,7 +298,7 @@ mają tak mały błąd σ_D, że D ≈ 0 wychodzi jako istotne (J1531-5610: z = 
 wymagać przesunięcia na całej ścieżce |D|·długość ≥ FWHM podpulsu.
 
 Wyjątek wart oceny wzrokowej to **J1651-1709** (P3-only u Song+23, P₃ 28.4; P3Track `am`, grupa P₃ 25.6). Wiodąca składowa
-(177°) stoi w miejscu, a w końcowej (183–186°) widać rosnące pasma co ~20–25 P (D ≈ +0.1 °/P). pairshift daje z = 0.35, bo
+(177°) stoi w miejscu, a w końcowej (183–186°) widać rosnące pasma co ~20–25 P (D ≈ +0.1 °/P). pairshift daje z = 0.35 (z_blk = 0.6), bo
 pary w jasnej, nieruchomej składowej rozcieńczają statystykę. Możliwy dryf tylko w jednej składowej — wersja pairshift
 osobno dla składowych by to rozstrzygnęła.
 
@@ -292,7 +317,10 @@ osobno dla składowych by to rozstrzygnęła.
 5. **Wybór fragmentu 1000 P:** zawsze impulsy 1–1000. Alternatywa: fragment z największą liczbą podpulsów.
 6. **Pulsary bez detekcji** (płaska ACF, 29) — dla nich zostają metody fazowe albo przepływ optyczny bez detekcji podpulsów
    (planowany w sesji „Agent 2”).
-7. **Przejrzeć** 4 sprzeczne przypadki (pairshift+ / P3Track am) i 2 z przeciwnym kierunkiem.
+7. **Przejrzeć** 3 sprzeczne przypadki (pairshift+ / P3Track am) i 2 z przeciwnym kierunkiem.
+9. **Rozkład nulla z_blk szerszy niż N(0,1)** (σ = 1.25 u P3-only): kalibracja progu na P3-only (np. kwantyl) zamiast stałego 3;
+   sprawdzić, czy to ogony przy małej liczbie bloków, czy realna strzałka czasu przy k = 1 (wynik sesji „flow”,
+   `docs/flow_test_method.md`).
 8. **Tempo dryfu** z mediany Δφ wobec P₂/P₃ z katalogu oraz zależność udziału detekcji od Ė (jak dla P3Track).
 
 ---
@@ -307,20 +335,20 @@ psrx julia --project=/home/psr/software/spats /home/psr/work/scripts/pairshift.j
 psrx julia --project=/home/psr/software/spats /home/psr/work/scripts/subtrack.jl [lista.txt | katalog plik ...]
 # pełna próbka (8 procesów, wznawialne) i podsumowanie
 bash ~/claude/work/scripts/pairshift_batch_run.sh
-python3 ~/claude/work/scripts/pairshift_summary.py v1
+python3 ~/claude/work/scripts/pairshift_summary.py v2 zblk
 ```
 
 W Julii:
 
 ```julia
 include("/home/psr/work/scripts/pairshift.jl")          # wciąga subtrack.jl (detekcja, wykresy)
-r  = analyse_pairs(data, bin_st, bin_end)               # z, zrev, mean/median Δφ [biny], det, R, σ
+r  = analyse_pairs(data, bin_st, bin_end; p3=p3)        # zblk, z, rho, zrev, mean/median Δφ [biny], det, R, σ
 st = analyse_subtrack(data, bin_st, bin_end)            # st.fits, f_ls, z_ls, Dpos, Dneg, Dn, p2
 plot_pairs(r, "out.png"; nbin=1024); plot_subtrack(st, data, "out2.png"; nbin=1024, prange=1:300)
 ```
 
 Pozostałe skrypty: `subtrack_synth.jl` i `pairshift_synth.jl` (syntetyki), `grid_subtrack.jl` i `pairshift_grid.jl` (siatki
 parametrów), `j1750_dcheck.jl` (D wobec długości ścieżek), `subtrack_short.jl` (krótkie ścieżki), `coh_control.jl` (§1.1),
-`dpsi_time.jl synth|real` (§1.2), `j1651_check.jl`.
+`dpsi_time.jl synth|real` (§1.2), `j1651_check.jl`, `pairshift_blk.jl` (z par vs z_blk).
 Logi: `~/claude/work/logs/{coh_control,dpsi_time_*,subtrack_*,pairshift*}.log`.
 Losowa próbka: `~/claude/work/subtrack_random20.txt` (`random.Random(20261002)`, bez 18 pulsarów już oglądanych).
