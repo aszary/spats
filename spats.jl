@@ -868,7 +868,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
 
 
         list_file = "input/p3only_pulsars_P3.txt"
-        #csv_output = "drift_classifications.csv"
+        csv_output = "drift_classifications.csv"
 
         DriftBatch.batch_analyze_drift(vpmout, list_file, csv_output)
 
