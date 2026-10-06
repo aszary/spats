@@ -49,6 +49,13 @@ Determines if a pulsar is P3-only or drifting by finding the dominant P3 frequen
 in the LRFS and tracking its complex phase across longitude bins.
 """
 function lrfs_phase_track(X::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int)
+    # Clamp bounds and check valid dimensions
+    bin_st = max(1, bin_st)
+    bin_end = min(size(X, 2), bin_end)
+    if bin_st >= bin_end || size(X, 1) < 4
+        return (p3_pulses = 0.0, phase_slope = 0.0, classification = :undetermined, phase_track = Float64[])
+    end
+
     # 1. Preprocess: isolate on-pulse and remove static profile
     X_on   = view(X, :, bin_st:bin_end)
     X_prep = X_on .- mean(X_on, dims=1)
@@ -57,6 +64,10 @@ function lrfs_phase_track(X::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int)
 
     # 2. Compute LRFS (self-contained, no external dependency)
     F, intensity = _lrfs(X_prep)
+
+    if length(intensity) < 2
+        return (p3_pulses = 0.0, phase_slope = 0.0, classification = :undetermined, phase_track = Float64[])
+    end
 
     # 3. Find the dominant P3 frequency — skip DC (index 1)
     peak_idx = argmax(view(intensity, 2:length(intensity))) + 1

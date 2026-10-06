@@ -5,6 +5,26 @@ using JSON
 using PyPlot
 using Printf
 
+# Try to safely resolve the Data module (either from parent SpaTs or standalone)
+try
+    import ..Data
+catch
+    try
+        import .Data
+    catch
+        try
+            import Main.Data
+        catch
+            try
+                include("data.jl")
+                import .Data
+            catch
+                # Data module not available
+            end
+        end
+    end
+end
+
 # Include DriftDiagnostics
 include("DriftDiagnostics.jl")
 using .DriftDiagnostics
@@ -35,66 +55,77 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
     results = []
     
     for (i, name) in enumerate(names)
-        # Directory resolution fallback (check all 4 possible variations)
-        candidates = [
-            joinpath(vpmout, name * "_16"),
-            vpmout * name * "_16",
-            joinpath(vpmout, name),
-            vpmout * name
-        ]
-        outdir = ""
-        for cand in candidates
-            if isdir(cand)
-                outdir = cand
-                break
-            end
-        end
-        
-        if isempty(outdir)
-            @warn "[$i/$(length(names))] Skipping $name — Output dir not found. Checked: $(candidates[1]) etc."
-            continue
-        end
-        
-        params_file = joinpath(outdir, "params.json")
-        
-        # Check for different debase file naming conventions
-        debase_file = ""
-        for name_variant in ["pulsar.debase.txt", "pulsar_high_debase.txt", "pulsar_low_debase.txt"]
-            cand_debase = joinpath(outdir, name_variant)
-            if isfile(cand_debase)
-                debase_file = cand_debase
-                break
-            end
-        end
-        
-        # If no debase file found but spCf16 exists, create pulsar.debase.txt on the fly
-        if isempty(debase_file) && isfile(joinpath(outdir, "pulsar.spCf16")) && isfile(params_file)
-            println("[$i/$(length(names))] Creating pulsar.debase.txt for $name ...")
-            result = Data.make_fullrange_debase(outdir)
-            if !isnothing(result) && isfile(result)
-                debase_file = result
-            end
-        end
-        
-        if !isfile(params_file) || isempty(debase_file)
-            missing_arr = []
-            if !isfile(params_file); push!(missing_arr, "params.json"); end
-            if isempty(debase_file); push!(missing_arr, "any *debase.txt (and no spCf16 to generate from)"); end
-            
-            missing_str = join(missing_arr, ", ")
-            @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $missing_str"
-            continue
-        end
-        
-        # Load params to get bin_st and bin_end
-        params = JSON.parsefile(params_file)
-        bin_st = get(params, "bin_st", 1)
-        bin_end = get(params, "bin_end", nothing)
-        
-        # Load data matrix from PSRCHIVE ASCII dump
         try
-            # Custom parsing identical to Data.load_ascii
+            # Directory resolution fallback (check all 4 possible variations)
+            candidates = [
+                joinpath(vpmout, name * "_16"),
+                vpmout * name * "_16",
+                joinpath(vpmout, name),
+                vpmout * name
+            ]
+            outdir = ""
+            for cand in candidates
+                if isdir(cand)
+                    outdir = cand
+                    break
+                end
+            end
+            
+            if isempty(outdir)
+                @warn "[$i/$(length(names))] Skipping $name — Output dir not found. Checked: $(candidates[1]) etc."
+                continue
+            end
+            
+            params_file = joinpath(outdir, "params.json")
+            
+            # Check for different debase file naming conventions
+            debase_file = ""
+            for name_variant in ["pulsar.debase.txt", "pulsar_high_debase.txt", "pulsar_low_debase.txt"]
+                cand_debase = joinpath(outdir, name_variant)
+                if isfile(cand_debase)
+                    debase_file = cand_debase
+                    break
+                end
+            end
+            
+            # If no debase file found but spCf16 exists, create pulsar.debase.txt on the fly
+            if isempty(debase_file) && isfile(joinpath(outdir, "pulsar.spCf16")) && isfile(params_file)
+                if isdefined(@__MODULE__, :Data) && isdefined(Data, :make_fullrange_debase)
+                    println("[$i/$(length(names))] Creating pulsar.debase.txt for $name ...")
+                    try
+                        result = Data.make_fullrange_debase(outdir)
+                        if !isnothing(result) && isfile(result)
+                            debase_file = result
+                        end
+                    catch debase_err
+                        @warn "[$i/$(length(names))] Failed to create debase file for $name: $debase_err"
+                    end
+                else
+                    @warn "[$i/$(length(names))] Cannot create debase file for $name: Data.make_fullrange_debase not available"
+                end
+            end
+            
+            if !isfile(params_file) || isempty(debase_file)
+                missing_arr = []
+                if !isfile(params_file); push!(missing_arr, "params.json"); end
+                if isempty(debase_file); push!(missing_arr, "any *debase.txt (and no spCf16 to generate from)"); end
+                
+                missing_str = join(missing_arr, ", ")
+                @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $missing_str"
+                continue
+            end
+            
+            # Load params to get bin_st and bin_end
+            params = JSON.parsefile(params_file)
+            bin_st = get(params, "bin_st", 1)
+            bin_end = get(params, "bin_end", nothing)
+            
+            # Load data matrix from PSRCHIVE ASCII dump
             lines = readlines(debase_file)
+            if isempty(lines)
+                @warn "[$i/$(length(names))] Skipping $name — debase file $debase_file is empty."
+                continue
+            end
             header = split(lines[1])
             n_pulses = parse(Int, header[6])
             n_bins = parse(Int, header[12])
@@ -117,7 +148,8 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
             push!(results, (name, res.travel_sig, res.asymmetry_ratio, res.phase_gradient, res.mean_peak_lag, res.score, res.classification))
             
         catch e
-            @warn "[$i/$(length(names))] Failed to analyze $name: $e"
+            @warn "[$i/$(length(names))] Failed to analyze $name: $e — skipping."
+            continue
         end
     end
     
@@ -139,7 +171,15 @@ Reads the CSV generated by `batch_analyze_drift` and creates a scatter plot
 to visually separate amplitude-modulated pulsars from drifting pulsars.
 """
 function plot_drift_results(csv_file::String, out_plot::String="drift_plot.png")
+    if !isfile(csv_file)
+        @warn "CSV file not found: $csv_file"
+        return
+    end
     data, header = readdlm(csv_file, ',', header=true)
+    if isempty(data)
+        @warn "No successful results in $csv_file to plot."
+        return
+    end
     
     names = data[:, 1]
     asym = convert(Vector{Float64}, data[:, 3])

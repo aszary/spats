@@ -42,6 +42,19 @@ Main entry point integrating all four diagnostic methods on the on-pulse region.
 Evaluates consistency across methods and calculates a final Drift Score and classification flag.
 """
 function analyze_drift(data::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int; max_lag::Int=10)
+    bin_st = max(1, bin_st)
+    bin_end = min(size(data, 2), bin_end)
+    if bin_st >= bin_end || size(data, 1) < 4
+        return DriftAnalysisResult(
+            travel_sig = 0.0,
+            asymmetry_ratio = 0.0,
+            phase_gradient = 0.0,
+            mean_peak_lag = 0.0,
+            classification = :undetermined,
+            score = 0.0
+        )
+    end
+
     # 1. Preprocess: High-pass filtering / static profile removal
     X = view(data, :, bin_st:bin_end)
     X_prep = X .- mean(X, dims=1)
