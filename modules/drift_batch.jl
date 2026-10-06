@@ -32,13 +32,14 @@ using .DriftDiagnostics
 export batch_analyze_drift, plot_drift_results
 
 """
-    batch_analyze_drift(vpmout::String, list_file::String, out_csv::String)
+    batch_analyze_drift(vpmout::String, list_file::String, out_csv::String="drift_classifications.csv"; force_debase::Bool=false)
 
 Reads a list of pulsars from `list_file`, finds their output directories in `vpmout`,
-loads the single-pulse data and parameters, and runs `analyze_drift`.
-Saves the results to `out_csv`.
+loads full-range single-pulse data (generating `pulsar.debase.txt` directly from `pulsar.spCf16`
+if necessary, ignoring high/low frequency splits), runs `analyze_drift`,
+and saves the results to `out_csv`.
 """
-function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String="drift_classifications.csv")
+function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String="drift_classifications.csv"; force_debase::Bool=false)
     if !isfile(list_file)
         error("Pulsar list file not found: $list_file")
     end
@@ -78,40 +79,52 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
             
             params_file = joinpath(outdir, "params.json")
             
-            # Check for different debase file naming conventions
+            # Check for full-range debase file, or create it directly from pulsar.spCf16
+            # Note: We deliberately exclude pulsar_high_debase.txt and pulsar_low_debase.txt
+            # to ensure analysis covers the full frequency range rather than split sub-bands.
+            debase_target = joinpath(outdir, "pulsar.debase.txt")
             debase_file = ""
-            for name_variant in ["pulsar.debase.txt", "pulsar_high_debase.txt", "pulsar_low_debase.txt"]
-                cand_debase = joinpath(outdir, name_variant)
-                if isfile(cand_debase)
-                    debase_file = cand_debase
+
+            # Check if pulsar.spCf16 exists
+            spcf16_file = ""
+            for cand in ["pulsar.spCf16", "pulsar.spCF16", "pulsar.spcf16"]
+                cand_path = joinpath(outdir, cand)
+                if isfile(cand_path)
+                    spcf16_file = cand_path
                     break
                 end
             end
-            
-            # If no debase file found but spCf16 exists, create pulsar.debase.txt on the fly
-            if isempty(debase_file) && isfile(joinpath(outdir, "pulsar.spCf16")) && isfile(params_file)
-                if isdefined(@__MODULE__, :Data) && isdefined(Data, :make_fullrange_debase)
-                    println("[$i/$(length(names))] Creating pulsar.debase.txt for $name ...")
-                    try
-                        result = Data.make_fullrange_debase(outdir)
-                        if !isnothing(result) && isfile(result)
-                            debase_file = result
+
+            if !isempty(spcf16_file) && isfile(params_file)
+                # If pulsar.debase.txt does not exist or force_debase is requested, create it directly from spCf16
+                if !isfile(debase_target) || force_debase
+                    if isdefined(@__MODULE__, :Data) && isdefined(Data, :make_fullrange_debase)
+                        println("[$i/$(length(names))] Creating full-range pulsar.debase.txt from $(basename(spcf16_file)) for $name ...")
+                        try
+                            result = Data.make_fullrange_debase(outdir; spCf16_file=basename(spcf16_file), force=force_debase)
+                            if !isnothing(result) && isfile(result)
+                                debase_file = result
+                            end
+                        catch debase_err
+                            @warn "[$i/$(length(names))] Failed to create debase file from spCf16 for $name: $debase_err"
                         end
-                    catch debase_err
-                        @warn "[$i/$(length(names))] Failed to create debase file for $name: $debase_err"
+                    else
+                        @warn "[$i/$(length(names))] Cannot create debase file for $name: Data.make_fullrange_debase not available"
                     end
                 else
-                    @warn "[$i/$(length(names))] Cannot create debase file for $name: Data.make_fullrange_debase not available"
+                    debase_file = debase_target
                 end
+            elseif isfile(debase_target)
+                debase_file = debase_target
             end
-            
+
             if !isfile(params_file) || isempty(debase_file)
                 missing_arr = []
                 if !isfile(params_file); push!(missing_arr, "params.json"); end
-                if isempty(debase_file); push!(missing_arr, "any *debase.txt (and no spCf16 to generate from)"); end
+                if isempty(debase_file); push!(missing_arr, "full-range pulsar.debase.txt (no spCf16 found to generate from; high/low files ignored)"); end
                 
                 missing_str = join(missing_arr, ", ")
-                @warn "[$i/$(length(names))] Skipping $name — required files missing in $outdir: $missing_str"
+                @warn "[$i/$(length(names))] Skipping $name — required full-range files missing in $outdir: $missing_str"
                 continue
             end
             
