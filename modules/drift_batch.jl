@@ -25,11 +25,51 @@ catch
     end
 end
 
-# Include DriftDiagnostics
-include("DriftDiagnostics.jl")
+# Only include DriftDiagnostics if not already defined in parent or Main
+if !isdefined(@__MODULE__, :DriftDiagnostics) && !isdefined(parentmodule(@__MODULE__), :DriftDiagnostics) && !isdefined(Main, :DriftDiagnostics)
+    include("DriftDiagnostics.jl")
+end
 using .DriftDiagnostics
 
 export batch_analyze_drift, plot_drift_results
+
+"""
+    _read_debase_ascii(debase_file::String) -> Matrix{Float64}
+
+Fast, non-allocating streaming reader for PSRCHIVE ASCII debase files.
+Avoids allocating millions of temporary SubString vectors.
+"""
+function _read_debase_ascii(debase_file::String)
+    open(debase_file, "r") do io
+        line1 = readline(io)
+        isempty(line1) && return zeros(Float64, 0, 0)
+        h = split(line1)
+        length(h) < 12 && return zeros(Float64, 0, 0)
+        n_pulses = parse(Int, h[6])
+        n_bins   = parse(Int, h[12])
+        
+        X = zeros(Float64, n_pulses, n_bins)
+        for line in eachline(io)
+            itr = eachsplit(line)
+            item1 = iterate(itr)
+            isnothing(item1) && continue
+            item2 = iterate(itr, item1[2])
+            isnothing(item2) && continue
+            item3 = iterate(itr, item2[2])
+            isnothing(item3) && continue
+            item4 = iterate(itr, item3[2])
+            isnothing(item4) && continue
+            
+            p = parse(Int, item1[1]) + 1
+            b = parse(Int, item3[1]) + 1
+            v = parse(Float64, item4[1])
+            if 1 <= p <= n_pulses && 1 <= b <= n_bins
+                @inbounds X[p, b] = v
+            end
+        end
+        return X
+    end
+end
 
 """
     batch_analyze_drift(vpmout::String, list_file::String, out_csv::String="drift_classifications.csv"; force_debase::Bool=false)
@@ -148,26 +188,15 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
             bin_st = get(params, "bin_st", 1)
             bin_end = get(params, "bin_end", nothing)
             
-            # Load data matrix from PSRCHIVE ASCII dump
-            lines = readlines(debase_file)
-            if isempty(lines)
-                @warn "[$i/$(length(names))] Skipping $name — debase file $debase_file is empty."
+            # Fast streaming load of data matrix from PSRCHIVE ASCII dump
+            X = _read_debase_ascii(debase_file)
+            if size(X, 1) == 0 || size(X, 2) == 0
+                @warn "[$i/$(length(names))] Skipping $name — failed to parse debase file $debase_file."
                 continue
-            end
-            header = split(lines[1])
-            n_pulses = parse(Int, header[6])
-            n_bins = parse(Int, header[12])
-            
-            X = zeros(Float64, n_pulses, n_bins)
-            for j in 2:length(lines)
-                res = split(lines[j])
-                pulse = parse(Int, res[1]) + 1
-                bin = parse(Int, res[3]) + 1
-                X[pulse, bin] = parse(Float64, res[4])
             end
             
             if bin_end === nothing
-                bin_end = n_bins
+                bin_end = size(X, 2)
             end
             
             println("[$i/$(length(names))] Analyzing $name ...")
