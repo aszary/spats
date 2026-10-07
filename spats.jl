@@ -935,7 +935,7 @@ module SpaTs
         # TEST jednorazowy: J1750-3503 z recznie wymuszonym ybins=49
         # (zamiast automatycznego find_ybins) i dwiema wartosciami cutoffu
         # do porownania
-        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/100, name_mod="pulsar_coherent_ybins49_cut100")
+        #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/100, name_mod="pulsar_coherent_ybins49_cut100")
         p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_ybins49_cut300")
         
 
