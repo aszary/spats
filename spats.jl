@@ -437,22 +437,36 @@ module SpaTs
                     "$(round(floor_ratio, digits=1))× powyżej szumu" *
                     (snr0 < 3 ? " — SŁABY sygnał, traktuj fold ostrożnie." : "."))
         end
-        # best grid point only pins down a rough neighbourhood — the true
-        # optimum can sit between tested values, so refine it continuously
-        # (golden-section search on signal_std) within that point's immediate
-        # grid neighbours instead of settling for one of the fixed candidates.
+        # The grid can have several comparable local peaks in signal_std (seen
+        # in practice: two nearly-tied peaks a decade apart), so refining only
+        # the single global argmax risks locking onto whichever one happened
+        # to be a hair higher due to grid noise. Instead: find every local
+        # maximum on the grid, refine *each* one continuously (golden-section,
+        # within its own immediate neighbours), then take whichever refined
+        # result actually scores best — a real comparison after polishing,
+        # not a bet on the raw grid alone.
         valid = filter(r -> isfinite(r.consistency) && isfinite(r.signal_std), results)
         suggested = nothing
         refined = nothing
         if !isempty(valid)
-            sorted_cutoffs = sort([r.cutoff for r in results])
-            best = valid[argmax([r.signal_std for r in valid])]
-            idx = findfirst(==(best.cutoff), sorted_cutoffs)
-            lo = idx > 1 ? sorted_cutoffs[idx-1] : best.cutoff * 0.7
-            hi = idx < length(sorted_cutoffs) ? sorted_cutoffs[idx+1] : best.cutoff * 1.4
-            refined = P3FoldViterbi.refine_cutoff(
-                data, p3, Int(p["bin_st"]), Int(p["bin_end"]), lo, hi;
-                filter_order=filter_order, n_groups=n_groups)
+            sorted = sort(valid, by = r -> r.cutoff)
+            sorted_cutoffs = [r.cutoff for r in sorted]
+            n = length(sorted)
+            is_local_max(i) = (i == 1 || sorted[i].signal_std >= sorted[i-1].signal_std) &&
+                               (i == n || sorted[i].signal_std >= sorted[i+1].signal_std)
+            candidate_idxs = [i for i in 1:n if is_local_max(i)]
+            isempty(candidate_idxs) && (candidate_idxs = [argmax([r.signal_std for r in sorted])])
+
+            for idx in candidate_idxs
+                lo = idx > 1 ? sorted_cutoffs[idx-1] : sorted_cutoffs[idx] * 0.7
+                hi = idx < n ? sorted_cutoffs[idx+1] : sorted_cutoffs[idx] * 1.4
+                r = P3FoldViterbi.refine_cutoff(
+                    data, p3, Int(p["bin_st"]), Int(p["bin_end"]), lo, hi;
+                    filter_order=filter_order, n_groups=n_groups)
+                if isnothing(refined) || r.signal_std > refined.signal_std
+                    refined = r
+                end
+            end
             suggested = refined.cutoff
         end
         Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar",
