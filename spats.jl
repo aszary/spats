@@ -408,14 +408,15 @@ module SpaTs
       p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=<chosen value>)
     """
     function p3fold_cutoff_scan(outdir; cutoffs=10 .^ range(log10(1/5000), log10(1/10), length=20),
-                                filter_order=6, n_groups=8, chosen=nothing, show_=true)
+                                filter_order=6, n_groups=8, ybins=nothing, chosen=nothing, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         p3 = Float64(p["p3"])
+        yb = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         results = P3FoldViterbi.scan_lowpass_cutoff(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
-            cutoffs=cutoffs, filter_order=filter_order, n_groups=n_groups)
+            cutoffs=cutoffs, filter_order=filter_order, n_groups=n_groups, ybins=yb)
         for r in results
             if hasproperty(r, :valid) && !r.valid
                 println("cutoff=$(round(r.cutoff, sigdigits=3))  ODRZUCONY " *
@@ -469,7 +470,7 @@ module SpaTs
                 hi = idx < n ? sorted_cutoffs[idx+1] : sorted_cutoffs[idx] * 1.4
                 r = P3FoldViterbi.refine_cutoff(
                     data, p3, Int(p["bin_st"]), Int(p["bin_end"]), lo, hi;
-                    filter_order=filter_order, n_groups=n_groups)
+                    filter_order=filter_order, n_groups=n_groups, ybins=yb)
                 append!(refine_trace, r.trace)
                 if isnothing(refined) || r.signal_std > refined.signal_std
                     refined = r
@@ -897,13 +898,16 @@ module SpaTs
         # krótkich oknach widzi modulację na 80σ) — spodziewaj się niższego
         # SNR niż dla J1539-6322, to oczekiwane, nie błąd. J1133-6250 ma
         # wcześniejszą notatkę "single not stable" — może też wypaść słabo.
-        for psr_test in ["J1110-5637", "J1133-6250", "J1750-3503", "J2053-7200"]
-            println("\n===== $psr_test =====")
+        # J2053-7200: P3≈3.06 jest tak krótkie, że domyślne ybins=10 daje
+        # artefakt aliasingu (sztuczny "szachownicowy" wzór w foldzie) —
+        # wymuszamy ybins=6 (zgodne z regułą Functions.find_ybins: max(4, 2*P3))
+        for psr_test in ["J2053-7200"]
+            println("\n===== $psr_test (ybins=6) =====")
             try
-                scan_result = p3fold_cutoff_scan(vpmout*psr_test)
+                scan_result = p3fold_cutoff_scan(vpmout*psr_test; ybins=6)
                 if !isnothing(scan_result.suggested_cutoff)
                     println(">>> OSTATECZNIE WYBRANY cutoff dla $psr_test: $(scan_result.suggested_cutoff)")
-                    p3fold_coherent(vpmout*psr_test, lowpass_cutoff=scan_result.suggested_cutoff)
+                    p3fold_coherent(vpmout*psr_test, ybins=6, lowpass_cutoff=scan_result.suggested_cutoff)
                 end
             catch e
                 println("ERROR dla $psr_test: $e")
