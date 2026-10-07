@@ -876,17 +876,25 @@ module SpaTs
         #phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/300)
 
-        # TEST: skan lowpass_cutoff na J2053-7200 (dane już przetworzone).
-        # Uwaga: ten pulsar ma krótkie P3≈3.06 i mocno "wobbluje" — opisany
-        # wcześniej w kodzie jako trudny przypadek dla metod opartych na
-        # pojedynczym globalnym binie FFT (drift_test na nim daje tylko 0.5σ,
-        # mimo że phase_modulation3 w krótkich oknach widzi modulację na
-        # 80σ). coherent_fold używa tej samej globalnej-bin logiki co
-        # drift_test, więc spodziewaj się niższego SNR niż dla J1539-6322 —
-        # to oczekiwane, nie błąd.
-        scan_result = p3fold_cutoff_scan(vpmout*"J2053-7200")
-        if !isnothing(scan_result.suggested_cutoff)
-            p3fold_coherent(vpmout*"J2053-7200", lowpass_cutoff=scan_result.suggested_cutoff)
+        # TEST: skan lowpass_cutoff + finalny coherent fold dla kilku pulsarów
+        # po kolei. Dane już przetworzone (process_psrdata było wcześniej
+        # odpalone) dla wszystkich czterech. Uwaga na J2053-7200: krótkie
+        # P3≈3.06, mocno "wobbluje" — opisany wcześniej w kodzie jako trudny
+        # przypadek dla metod opartych na pojedynczym globalnym binie FFT
+        # (drift_test daje tu tylko 0.5σ, mimo że phase_modulation3 w
+        # krótkich oknach widzi modulację na 80σ) — spodziewaj się niższego
+        # SNR niż dla J1539-6322, to oczekiwane, nie błąd. J1133-6250 ma
+        # wcześniejszą notatkę "single not stable" — może też wypaść słabo.
+        for psr_test in ["J1110-5637", "J1133-6250", "J1750-3503", "J2053-7200"]
+            println("\n===== $psr_test =====")
+            try
+                scan_result = p3fold_cutoff_scan(vpmout*psr_test)
+                if !isnothing(scan_result.suggested_cutoff)
+                    p3fold_coherent(vpmout*psr_test, lowpass_cutoff=scan_result.suggested_cutoff)
+                end
+            catch e
+                println("ERROR dla $psr_test: $e")
+            end
         end
 
         
