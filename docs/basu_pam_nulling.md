@@ -1,6 +1,6 @@
 # P3-only jako okresowa modulacja amplitudy (PAM) i okresowe nulle — test hipotezy Basu et al.
 
-**Stan na 2026-10-07.** Pierwsza wersja (v1) na pełnej próbce. Pytanie zmienione z „czy jest ruch” (travel, P3Track, pairshift,
+**Stan na 2026-10-07.** Pierwsza wersja (v1) na pełnej próbce + klasyfikacja trzykategoriowa (§5). Pytanie zmienione z „czy jest ruch” (travel, P3Track, pairshift,
 flow) na „czy P3-only mają podpis innego zjawiska”.
 
 Repozytorium: `github.com/aszary/spats`, gałąź `claude`. Kod poza repo: `~/claude/work/scripts/basu.jl`, `basu_run.sh`,
@@ -149,7 +149,76 @@ nulle — to modulacja amplitudy, nie nulle. Okresowe nulle w ścisłym sensie: 
 | 33.0–34.0 | 60 | 37% | 37% | 37% | 23% |
 | 34.0–38.0 | 19 | 47% | 42% | 26% | 16% |
 
-## 5. Ograniczenia i sprawy otwarte
+## 5. Klasyfikacja trzykategoriowa i diagram P–Ṗ (2026-10-07)
+
+Skrypt `~/claude/work/scripts/classify3.py [R_thr]` → `~/output/claude/basu/classify3_R0.5.csv`, `classify3_ppdot_R0.5.png`;
+logi `~/claude/work/logs/classify3_R0.5.log`, `classify3_sens.log`.
+
+**Reguły** (pierwsza spełniona wygrywa):
+
+1. **okresowe nulle** — z_I ≥ 5, ⟨E⟩/σ_E ≥ 10, z_null ≥ 5, nf ≥ 0.15 i zIn ≤ 0.6·z_I (nulle tłumaczą modulację);
+2. **dryf** — wykryty ruch: flow |z| ≥ 3 (blokowe) lub pairshift v2 |z_blk| ≥ 3 (drugi agent) lub P3Track `drift`/`partial`;
+3. **PAM** — z_I ≥ 5, R > 0.5, brak ruchu;
+4. **modulacja, niskie R** — z_I ≥ 5 (pozostałe);
+5. **brak wyraźnej modulacji** — z_I < 5 i brak ruchu.
+
+| kategoria | Song+23: drift (412) | Song+23: P3-only (109) |
+|---|---|---|
+| dryf | **249 (60%)** | 10 (9%) |
+| PAM | 25 (6%) | **29 (27%)** |
+| okresowe nulle | 5 (1%) | 2 (2%) |
+| modulacja, niskie R | 56 (14%) | 31 (28%) |
+| brak wyraźnej modulacji | 77 (19%) | 37 (34%) |
+
+- **Dryf ≈ etykieta drift.** Detekcja ruchu w 1 / 2 / 3 metodach: 102 / 69 / 88. Przy wymogu ≥ 2 metod: 156 drift i 1 P3-only
+  (J1810-5338: flow z = 3.0 i P3Track `drift`; pairshift 1.9). Pozostałe P3-only w kategorii dryf to pojedyncze słabe detekcje.
+- **PAM to głównie P3-only, ale 25 „dryferów” Song+23 trafia do PAM** (modulacja globalna, żadna z trzech metod nie widzi ruchu) —
+  kandydaci do przeglądu etykiety.
+- **Okresowe nulle:** J1946-2913, J1819+1305, J1536-3602, J2253+1516, J1839-1238 (Song: drift; J1819, J2253, J1839 także
+  z wykrytym ruchem — mieszanka), J1633-4453, J0855-3331 (Song: P3-only). Wszystkie przy log Ė < 33.
+- **P3-only Song+23 to mieszanka:** PAM (27%), słaba modulacja z niskim R (28%) i brak wyraźnej cechy P₃ w tych danych (34%).
+
+**P₃–Ė w kategoriach** (Spearman log Ė vs log P₃):
+
+| kategoria | n | cały zakres Ė | Ė < 2·10³² | mediana log Ė | mediana P₃ |
+|---|---|---|---|---|---|
+| dryf | 258 | +0.06 (p 0.34) | **−0.34 (p 3·10⁻⁶, n 178)** | 31.7 | 5.8 |
+| PAM | 54 | +0.05 (p 0.74) | −0.18 (p 0.38, n 25) | 32.5 | 17.8 |
+| modulacja, niskie R | 87 | +0.41 (p 10⁻⁴) | −0.05 (p 0.79, n 33) | 32.6 | 16.3 |
+| okresowe nulle | 7 | −0.96 | −1.00 (n 6) | 31.5 | 34.0 |
+
+Relację P₃–Ė Basu (2016) ma tylko kategoria dryf. Dla okresowych nulli n = 6–7 — bez znaczenia statystycznego.
+
+**Udział kategorii w przedziałach Ė (%):**
+
+| log Ė | n | dryf | PAM | okresowe nulle | modulacja, niskie R | brak modulacji | Song P3-only |
+|---|---|---|---|---|---|---|---|
+| 28–31 | 90 | 67 | 8 | 1 | 8 | 17 | 10 |
+| 31–32 | 160 | 61 | 9 | 2 | 12 | 14 | 12 |
+| 32–32.3 | 43 | 49 | 7 | 2 | 14 | 28 | 26 |
+| 32.3–33 | 103 | 40 | 12 | 0 | 20 | 28 | 27 |
+| 33–34 | 97 | 31 | 14 | 1 | 25 | 29 | 32 |
+| 34–38 | 28 | 32 | 11 | 0 | 32 | 25 | 36 |
+
+Dryf maleje z Ė (67% → ~31%), PAM rośnie słabo (8% → 11–14%), najsilniej rośnie „modulacja, niskie R” (8% → 25–32%) —
+przy wysokim Ė dominuje modulacja ani dryfująca, ani globalna (np. niezależne składowe, nieregularna).
+
+**Wrażliwość na progi** (drift / P3-only):
+
+| wariant | dryf | PAM | okresowe nulle | modulacja, niskie R | brak |
+|---|---|---|---|---|---|
+| ≥ 1 metoda, R > 0.4 | 249 / 10 | 35 / 37 | 5 / 2 | 46 / 23 | 77 / 37 |
+| ≥ 1 metoda, R > 0.5 | 249 / 10 | 25 / 29 | 5 / 2 | 56 / 31 | 77 / 37 |
+| ≥ 1 metoda, R > 0.6 | 249 / 10 | 12 / 21 | 5 / 2 | 69 / 39 | 77 / 37 |
+| ≥ 2 metody, R > 0.5 | 156 / 1 | 39 / 30 | 5 / 2 | 103 / 37 | 109 / 39 |
+
+![Klasyfikacja na P–Ṗ](figures/basu_classify3_ppdot.png)
+
+*Rys. 4. Diagram P–Ṗ. Lewy panel: klasyfikacja trzykategoriowa (koła — dryf, trójkąty — PAM, kwadraty — okresowe nulle,
+romby — modulacja z niskim R, krzyżyki — brak wyraźnej modulacji). Prawy: etykiety Song+23. Tło: pulsary ATNF; linie przerywane:
+stałe log Ė (30–35), ciągła: Ė = 2·10³² erg/s.*
+
+## 6. Ograniczenia i sprawy otwarte
 
 1. **A częściowo tautologiczne** (§0, pkt 4); R nie odróżnia PAM od dryfu z P₂ ≫ szerokość profilu.
 2. **Definicja nulli przybliżona**: bez pełnego okna off-pulse, próg 3σ_E, nf = 2·P(E < 0); przy niskim S/N impulsu
@@ -159,9 +228,9 @@ nulle — to modulacja amplitudy, nie nulle. Okresowe nulle w ścisłym sensie: 
 4. **Okresowe nullery z etykietą drift** wymagają obejrzenia stosów impulsów (dryf w seriach między nullami czy sama modulacja
    nulli) — następny krok.
 5. Ujemne wartości Eₙ/σ_E do −50 (J1946-2913) — RFI/linia bazowa, do sprawdzenia przed dalszym użyciem nf.
-6. Możliwa klasyfikacja trzykategoriowa (dryf / PAM / okresowe nulle) i porównanie z Song+23 na P–Ṗ.
+6. Klasyfikacja trzykategoriowa (§5): progi R i liczba metod wybrane arbitralnie; 25 „dryferów” w PAM i okresowe nullery do przejrzenia.
 
-## 6. Użycie
+## 7. Użycie
 
 ```bash
 # zestaw kontrolny (wykresy ~/claude/work/figures/basu/)
@@ -170,4 +239,6 @@ psrx julia --project=/home/psr/software/spats /home/psr/work/scripts/basu.jl [PS
 ~/claude/work/scripts/basu_run.sh
 # podsumowanie → basu_v1.csv, basu_v1_summary.png (łączy flow_v1b.csv, pairshift_v1.csv, P3Track v4b, Ė)
 psrx python3 /home/psr/work/scripts/basu_summary.py
+# klasyfikacja trzykategoriowa i P–Ṗ (próg R jako argument)
+psrx python3 /home/psr/work/scripts/classify3.py 0.5
 ```
