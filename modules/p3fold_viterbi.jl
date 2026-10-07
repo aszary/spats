@@ -552,7 +552,18 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     template = build_template(data, bin, ybins)
 
     slope = windowed_slope(phase_total, p3_window)
-    p3_per_pulse = (2π) ./ slope
+    # P3 = 2π/slope blows up whenever the local phase slope passes near zero
+    # (noise, or — for genuine drift-reversal pulsars — a real sign change);
+    # either way a near-zero slope makes 2π/slope numerically explode to
+    # absurd values (seen in practice: thousands of pulse periods), which
+    # then dominates any std()-based statistic computed on this track
+    # (scan_lowpass_cutoff's p3_std/signal_std, the plotted error bands —
+    # all poisoned by a handful of such spikes). Physically P3 wobbling by
+    # more than a factor of a few from its nominal value in one pulse is not
+    # credible, so clamp magnitude to 3× nominal (sign preserved, so a
+    # genuine reversal still shows as a sign flip, just not an infinite
+    # spike at the crossing).
+    p3_per_pulse = clamp.((2π) ./ slope, -3 * abs(p3), 3 * abs(p3))
 
     return (folded=template, phase=phase_total, bin=bin, p3_per_pulse=p3_per_pulse, snr=snr)
 end
