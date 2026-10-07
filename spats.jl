@@ -903,6 +903,7 @@ module SpaTs
             try
                 scan_result = p3fold_cutoff_scan(vpmout*psr_test)
                 if !isnothing(scan_result.suggested_cutoff)
+                    println(">>> OSTATECZNIE WYBRANY cutoff dla $psr_test: $(scan_result.suggested_cutoff)")
                     p3fold_coherent(vpmout*psr_test, lowpass_cutoff=scan_result.suggested_cutoff)
                 end
             catch e
