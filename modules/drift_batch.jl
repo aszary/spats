@@ -25,10 +25,7 @@ catch
     end
 end
 
-# Only include DriftDiagnostics if not already defined in parent or Main
-if !isdefined(@__MODULE__, :DriftDiagnostics) && !isdefined(parentmodule(@__MODULE__), :DriftDiagnostics) && !isdefined(Main, :DriftDiagnostics)
-    include("DriftDiagnostics.jl")
-end
+include("DriftDiagnostics.jl")
 using .DriftDiagnostics
 
 export batch_analyze_drift, plot_drift_results

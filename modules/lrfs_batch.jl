@@ -25,10 +25,7 @@ catch
     end
 end
 
-# Only include LrfsDiagnostics if not already defined in parent or Main
-if !isdefined(@__MODULE__, :LrfsDiagnostics) && !isdefined(parentmodule(@__MODULE__), :LrfsDiagnostics) && !isdefined(Main, :LrfsDiagnostics)
-    include("LrfsDiagnostics.jl")
-end
+include("LrfsDiagnostics.jl")
 using .LrfsDiagnostics
 
 export batch_analyze_lrfs, plot_lrfs_results

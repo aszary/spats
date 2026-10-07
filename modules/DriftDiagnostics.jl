@@ -3,11 +3,36 @@ module DriftDiagnostics
 using Statistics
 using Base: @kwdef
 
-# Sub-modules are loaded at the SpaTs top level before this file.
-import ..FluctuationSpectrum: tdfs
-import ..CrossSpectrum: phase_gradient
-import ..CrossCorrelation: peak_lags
-import ..Travel
+if !isdefined(@__MODULE__, :FluctuationSpectrum)
+    include("FluctuationSpectrum.jl")
+end
+using .FluctuationSpectrum
+
+if !isdefined(@__MODULE__, :CrossSpectrum)
+    include("CrossSpectrum.jl")
+end
+using .CrossSpectrum
+
+if !isdefined(@__MODULE__, :CrossCorrelation)
+    include("CrossCorrelation.jl")
+end
+using .CrossCorrelation
+
+# Try to safely resolve the Travel module
+try
+    import ..Travel
+catch
+    try
+        import Main.SpaTs.Travel
+    catch
+        try
+            include("travel.jl")
+            import .Travel
+        catch
+            # Travel not available
+        end
+    end
+end
 
 export DriftAnalysisResult, analyze_drift, selftest
 
