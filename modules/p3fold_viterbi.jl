@@ -555,15 +555,17 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     # P3 = 2π/slope blows up whenever the local phase slope passes near zero
     # (noise, or — for genuine drift-reversal pulsars — a real sign change);
     # either way a near-zero slope makes 2π/slope numerically explode to
-    # absurd values (seen in practice: thousands of pulse periods), which
-    # then dominates any std()-based statistic computed on this track
-    # (scan_lowpass_cutoff's p3_std/signal_std, the plotted error bands —
-    # all poisoned by a handful of such spikes). Physically P3 wobbling by
-    # more than a factor of a few from its nominal value in one pulse is not
-    # credible, so clamp magnitude to 3× nominal (sign preserved, so a
-    # genuine reversal still shows as a sign flip, just not an infinite
-    # spike at the crossing).
-    p3_per_pulse = clamp.((2π) ./ slope, -3 * abs(p3), 3 * abs(p3))
+    # absurd values (seen in practice: thousands of pulse periods). Clamping
+    # that to a bound (tried first) just turns the spike into a flat
+    # plateau at the bound — still a fabricated number, still pollutes any
+    # downstream std()/correlation, and still looks wrong on the P3(t)
+    # plot. Marking it NaN instead says plainly "not measurable here" and
+    # removes it from every downstream statistic and from the plotted line
+    # (matplotlib breaks the line at NaN rather than drawing a fake point).
+    # Threshold: more than 3× nominal P3 in one pulse is not physically
+    # credible, so that's treated as a blow-up, not a real measurement.
+    raw_p3 = (2π) ./ slope
+    p3_per_pulse = [abs(x) > 3 * abs(p3) ? NaN : x for x in raw_p3]
 
     return (folded=template, phase=phase_total, bin=bin, p3_per_pulse=p3_per_pulse, snr=snr)
 end
@@ -625,8 +627,15 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
         group_phase[g, :] = r.phase .- mean(r.phase)
     end
 
-    p3_per_pulse_err = [std(@view group_p3[:, i]) / sqrt(n_groups) for i in 1:N]
-    phase_err = [std(@view group_phase[:, i]) / sqrt(n_groups) for i in 1:N]
+    # p3_per_pulse can have NaN at individual pulses (blown-up slope, see
+    # coherent_fold) — compute the per-pulse error from whichever groups
+    # are finite at that pulse, not all n_groups blindly.
+    function finite_se(col)
+        f = filter(isfinite, col)
+        length(f) > 1 ? std(f) / sqrt(length(f)) : NaN
+    end
+    p3_per_pulse_err = [finite_se(@view group_p3[:, i]) for i in 1:N]
+    phase_err = [finite_se(@view group_phase[:, i]) for i in 1:N]
 
     return (folded=main.folded, phase=main.phase, bin=main.bin, p3_per_pulse=main.p3_per_pulse,
             snr=main.snr, p3_per_pulse_err=p3_per_pulse_err, phase_err=phase_err)
@@ -659,15 +668,27 @@ function cutoff_metrics(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::In
         group_p3[g, :] = r.p3_per_pulse
     end
 
+    # If this cutoff lets the P3=2π/slope blow-up happen *anywhere* (main
+    # fit or any subgroup — see coherent_fold), the whole candidate is
+    # rejected outright, not patched point-by-point: a cutoff that produces
+    # even one nonsense spike isn't a trustworthy choice, so there's no
+    # point computing a "partial" consistency/p3_std from whatever finite
+    # points are left over. `valid=false` zeroes signal_std (never selected
+    # by argmax/refine_cutoff) and tells the plots to skip this cutoff
+    # entirely instead of drawing a gappy or partial line for it.
+    valid = all(isfinite, main.p3_per_pulse) && all(isfinite, group_p3)
+
     cors = Float64[]
-    for a in 1:n_groups, b in a+1:n_groups
-        va, vb = @view(group_p3[a, :]), @view(group_p3[b, :])
-        if all(isfinite, va) && all(isfinite, vb) && std(va) > 0 && std(vb) > 0
-            push!(cors, cor(va, vb))
+    if valid
+        for a in 1:n_groups, b in a+1:n_groups
+            va, vb = @view(group_p3[a, :]), @view(group_p3[b, :])
+            if std(va) > 0 && std(vb) > 0
+                push!(cors, cor(va, vb))
+            end
         end
     end
-    consistency = isempty(cors) ? NaN : mean(cors)
-    p3_std_val  = std(main.p3_per_pulse)
+    consistency = (!valid || isempty(cors)) ? NaN : mean(cors)
+    p3_std_val  = valid ? std(main.p3_per_pulse) : NaN
     # effective *signal* variability: `consistency` estimates what
     # fraction of the observed p3_std is reproducible (shared between
     # independent subbands) rather than independent per-subband noise —
@@ -677,12 +698,12 @@ function cutoff_metrics(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::In
     # `Plot.lowpass_cutoff_scan`'s third panel maximises to pick a
     # cutoff, instead of consistency alone (high but on ~0 p3_std) or
     # p3_std alone (grows with noise, not with real signal).
-    signal_std = (isnan(consistency) || consistency <= 0) ? 0.0 :
+    signal_std = (isnan(consistency) || consistency <= 0 || isnan(p3_std_val)) ? 0.0 :
                  p3_std_val * sqrt(consistency)
 
     return (cutoff=co, consistency=consistency,
             p3_std=p3_std_val, signal_std=signal_std, snr=main.snr,
-            p3_per_pulse=main.p3_per_pulse)
+            p3_per_pulse=main.p3_per_pulse, valid=valid)
 end
 
 

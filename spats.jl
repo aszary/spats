@@ -417,11 +417,17 @@ module SpaTs
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             cutoffs=cutoffs, filter_order=filter_order, n_groups=n_groups)
         for r in results
-            println("cutoff=$(round(r.cutoff, sigdigits=3))  " *
-                    "consistency=$(round(r.consistency, digits=3))  " *
-                    "p3_std=$(round(r.p3_std, digits=3))  " *
-                    "signal_std=$(round(r.signal_std, digits=3))  " *
-                    "snr=$(round(r.snr, digits=1))")
+            if hasproperty(r, :valid) && !r.valid
+                println("cutoff=$(round(r.cutoff, sigdigits=3))  ODRZUCONY " *
+                        "(P3=2π/nachylenie eksplodowało gdzieś na tym cutoffie — " *
+                        "cały punkt pominięty, nie tylko wygładzony)")
+            else
+                println("cutoff=$(round(r.cutoff, sigdigits=3))  " *
+                        "consistency=$(round(r.consistency, digits=3))  " *
+                        "p3_std=$(round(r.p3_std, digits=3))  " *
+                        "signal_std=$(round(r.signal_std, digits=3))  " *
+                        "snr=$(round(r.snr, digits=1))")
+            end
         end
         # snr is identical across all rows by design (computed pre-filter, so
         # lowpass_cutoff can't affect it) — it's a sanity reference, not part
@@ -469,10 +475,13 @@ module SpaTs
             end
             suggested = refined.cutoff
         end
-        Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar",
+        # only valid (non-blown-up) cutoffs get drawn at all — a rejected
+        # cutoff doesn't even get a point on the scan plots, per the whole
+        # candidate being thrown out rather than patched
+        Plot.lowpass_cutoff_scan(valid, outdir; name_mod="pulsar",
                                  chosen=something(chosen, suggested), chosen_metrics=refined,
                                  show_=show_)
-        Plot.p3_tracks_vs_cutoff(results, outdir; name_mod="pulsar", show_=show_)
+        Plot.p3_tracks_vs_cutoff(valid, outdir; name_mod="pulsar", show_=show_)
         return (results=results, suggested_cutoff=suggested)
     end
 
