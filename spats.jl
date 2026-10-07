@@ -937,14 +937,14 @@ module SpaTs
         # (zamiast automatycznego find_ybins) i dwiema wartosciami cutoffu
         # do porownania
         #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/100, name_mod="pulsar_coherent_ybins49_cut100")
-        #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_ybins49_cut300")
+        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_ybins49_cut300")
 
         # TEST: odtworzenie STAREGO zachowania (sprzed poprawek z tej sesji) —
         # bin_search=0 wylacza przeszukiwanie sasiednich binow FFT (wraca do
         # starego k=round(N/p3)), p3_window=20 to stara (krotsza) wartosc
         # okna przy liczeniu pochodnej fazy. Ten sam cutoff=1/300 co powyzej,
         # zeby bylo widac dokladnie co zmienily poprawki, nie co zmienil cutoff.
-        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300,
+        #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300,
                         bin_search=0, p3_window=60, name_mod="pulsar_coherent_OLD_repro")
         
 
