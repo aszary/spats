@@ -453,69 +453,94 @@ module Plot
     to use in `p3fold_coherent`.
     """
     function lowpass_cutoff_scan(results, outdir; name_mod="pulsar", chosen=nothing,
-                                 chosen_metrics=nothing, show_=false)
+                                 chosen_metrics=nothing, refine_trace=nothing, show_=false)
         cutoffs     = [r.cutoff for r in results]
         consistency = [r.consistency for r in results]
         p3_std      = [r.p3_std for r in results]
         signal_std  = [hasproperty(r, :signal_std) ? r.signal_std : NaN for r in results]
 
-        rc("font", size=8.)
-        figure(figsize=(6.5, 7.5))
+        rc("font", size=8.5, family="sans-serif")
+        rc("axes", linewidth=0.7, edgecolor="#444444")
+        fig = figure(figsize=(7, 8))
+        fig.patch.set_facecolor("white")
 
         subplot(3, 1, 1)
+        grid(true, which="both", alpha=0.2, lw=0.4)
         minorticks_on()
-        semilogx(cutoffs, consistency, "o-", color="steelblue")
+        semilogx(cutoffs, consistency, "o-", color="steelblue", lw=1.3, ms=5,
+                 mec="white", mew=0.4, zorder=3, label="siatka (zgrubny skan)")
         for (x, y) in zip(cutoffs, consistency)
             annotate(@sprintf("%.3f", y), (x, y), textcoords="offset points",
-                     xytext=(0, 6), ha="center", fontsize=6.5)
+                     xytext=(0, 6), ha="center", fontsize=6.5, color="#333333")
         end
-        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.5)
+        chosen !== nothing && axvspan(chosen*0.92, chosen*1.08, color="red", alpha=0.07, zorder=1)
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.6, zorder=2)
         if chosen_metrics !== nothing
             scatter([chosen_metrics.cutoff], [chosen_metrics.consistency],
-                    marker="*", s=180, color="red", zorder=5, label="wybrany (dopracowany)")
+                    marker="*", s=220, color="red", edgecolor="darkred", linewidth=0.6,
+                    zorder=5, label="wybrany (dopracowany)")
             annotate(@sprintf("%.3f", chosen_metrics.consistency),
                      (chosen_metrics.cutoff, chosen_metrics.consistency),
-                     textcoords="offset points", xytext=(0, -12), ha="center",
-                     fontsize=6.5, color="red", fontweight="bold")
-            legend(fontsize=6.5, loc="best")
+                     textcoords="offset points", xytext=(0, -13), ha="center",
+                     fontsize=7, color="red", fontweight="bold")
+            legend(fontsize=6.5, loc="best", framealpha=0.9)
         end
-        ylabel("subband consistency (r)")
-        title("lowpass_cutoff scan" * (isempty(name_mod) ? "" : "  ($name_mod)"))
+        ylabel("subband consistency (r)", fontsize=8.5)
+        title("lowpass_cutoff scan" * (isempty(name_mod) ? "" : "  ($name_mod)"),
+              fontsize=10, fontweight="bold")
         tick_params(labelbottom=false)
 
         subplot(3, 1, 2)
+        grid(true, which="both", alpha=0.2, lw=0.4)
         minorticks_on()
-        loglog(cutoffs, p3_std, "o-", color="darkorange")
+        loglog(cutoffs, p3_std, "o-", color="darkorange", lw=1.3, ms=5,
+               mec="white", mew=0.4, zorder=3)
         for (x, y) in zip(cutoffs, p3_std)
             annotate(@sprintf("%.2g", y), (x, y), textcoords="offset points",
-                     xytext=(0, 6), ha="center", fontsize=6.5)
+                     xytext=(0, 6), ha="center", fontsize=6.5, color="#333333")
         end
-        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.5)
+        chosen !== nothing && axvspan(chosen*0.92, chosen*1.08, color="red", alpha=0.07, zorder=1)
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.6, zorder=2)
         if chosen_metrics !== nothing
             scatter([chosen_metrics.cutoff], [chosen_metrics.p3_std],
-                    marker="*", s=180, color="red", zorder=5)
+                    marker="*", s=220, color="red", edgecolor="darkred", linewidth=0.6, zorder=5)
         end
-        ylabel("std(P3 per pulse)")
+        ylabel("std(P3 per pulse)", fontsize=8.5)
         tick_params(labelbottom=false)
 
         subplot(3, 1, 3)
+        grid(true, which="both", alpha=0.2, lw=0.4)
         minorticks_on()
-        semilogx(cutoffs, signal_std, "o-", color="seagreen")
+        semilogx(cutoffs, signal_std, "o-", color="seagreen", lw=1.3, ms=5,
+                 mec="white", mew=0.4, zorder=3)
         for (x, y) in zip(cutoffs, signal_std)
             annotate(@sprintf("%.2g", y), (x, y), textcoords="offset points",
-                     xytext=(0, 6), ha="center", fontsize=6.5)
+                     xytext=(0, 6), ha="center", fontsize=6.5, color="#333333")
         end
-        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.5)
+        # golden-section refinement points: show how the objective actually
+        # behaves in the fine neighbourhood the chosen star came from,
+        # instead of the star appearing disconnected from the coarse grid
+        if refine_trace !== nothing && !isempty(refine_trace)
+            tx = [t[1] for t in refine_trace]
+            ty = [t[2] for t in refine_trace]
+            scatter(tx, ty, marker="o", s=18, color="orange", edgecolor="#7a4a00",
+                    linewidth=0.4, alpha=0.85, zorder=4, label="punkty dopracowania")
+        end
+        chosen !== nothing && axvspan(chosen*0.92, chosen*1.08, color="red", alpha=0.07, zorder=1)
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.6, zorder=2)
         if chosen_metrics !== nothing
             scatter([chosen_metrics.cutoff], [chosen_metrics.signal_std],
-                    marker="*", s=180, color="red", zorder=5)
+                    marker="*", s=220, color="red", edgecolor="darkred", linewidth=0.6, zorder=5)
             annotate(@sprintf("%.2g", chosen_metrics.signal_std),
                      (chosen_metrics.cutoff, chosen_metrics.signal_std),
-                     textcoords="offset points", xytext=(0, -12), ha="center",
-                     fontsize=6.5, color="red", fontweight="bold")
+                     textcoords="offset points", xytext=(0, -13), ha="center",
+                     fontsize=7, color="red", fontweight="bold")
         end
-        xlabel("lowpass_cutoff (cycles/pulse)")
-        ylabel("signal_std\n(p3_std·√consistency)")
+        if refine_trace !== nothing && !isempty(refine_trace)
+            legend(fontsize=6.5, loc="best", framealpha=0.9)
+        end
+        xlabel("lowpass_cutoff (cycles/pulse)", fontsize=8.5)
+        ylabel("signal_std\n(p3_std·√consistency)", fontsize=8.5)
 
         tight_layout()
         savefig("$outdir/$(name_mod)_lowpass_cutoff_scan.pdf")
@@ -539,25 +564,42 @@ module Plot
     applies and whether looser cutoffs are adding real fine structure or
     just noise wiggle.
     """
-    function p3_tracks_vs_cutoff(results, outdir; name_mod="pulsar", show_=false)
+    function p3_tracks_vs_cutoff(results, outdir; name_mod="pulsar", highlight_cutoff=nothing,
+                                 show_=false)
         palette = ["#08519c", "#3182bd", "#6baed6", "#74c476",
                    "#fd8d3c", "#e6550d", "#a50f15", "#756bb1"]
 
-        rc("font", size=8.)
-        figure(figsize=(8, 5))
+        rc("font", size=8.5, family="sans-serif")
+        rc("axes", linewidth=0.7, edgecolor="#444444")
+        fig = figure(figsize=(8.5, 5.5))
+        fig.patch.set_facecolor("white")
+        grid(true, alpha=0.2, lw=0.4)
         minorticks_on()
+
+        # draw the non-highlighted tracks first, muted, so the highlighted
+        # one (if any) reads clearly on top instead of fighting for attention
+        highlight_r = nothing
         for (i, r) in enumerate(results)
-            haskey_ = hasproperty(r, :p3_per_pulse)
-            haskey_ || continue
-            tr = r.p3_per_pulse
+            hasproperty(r, :p3_per_pulse) || continue
+            is_hl = highlight_cutoff !== nothing && isapprox(r.cutoff, highlight_cutoff; rtol=1e-6)
+            if is_hl
+                highlight_r = r
+                continue
+            end
             col = palette[mod1(i, length(palette))]
-            plot(1:length(tr), tr, color=col, lw=1.0, alpha=0.85,
-                 label=@sprintf("%.3g", r.cutoff))
+            plot(1:length(r.p3_per_pulse), r.p3_per_pulse, color=col, lw=1.0, alpha=0.5,
+                 zorder=2, label=@sprintf("%.3g", r.cutoff))
         end
-        xlabel("pulse number")
-        ylabel("\$P_3\$ per pulse (P)")
-        title("P3 variability vs lowpass_cutoff" * (isempty(name_mod) ? "" : "  ($name_mod)"))
-        legend(title="cutoff", fontsize=6.5, ncol=2, loc="best")
+        if highlight_r !== nothing
+            plot(1:length(highlight_r.p3_per_pulse), highlight_r.p3_per_pulse,
+                 color="red", lw=2.2, alpha=0.95, zorder=5,
+                 label=@sprintf("%.3g (wybrany)", highlight_r.cutoff))
+        end
+        xlabel("pulse number", fontsize=8.5)
+        ylabel("\$P_3\$ per pulse (P)", fontsize=8.5)
+        title("P3 variability vs lowpass_cutoff" * (isempty(name_mod) ? "" : "  ($name_mod)"),
+              fontsize=10, fontweight="bold")
+        legend(title="cutoff", fontsize=6.5, ncol=2, loc="best", framealpha=0.9)
         tight_layout()
         savefig("$outdir/$(name_mod)_p3_tracks_vs_cutoff.pdf")
         println("$outdir/$(name_mod)_p3_tracks_vs_cutoff.pdf")

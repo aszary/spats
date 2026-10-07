@@ -770,7 +770,11 @@ Arguments: same as `cutoff_metrics`, plus
              this fraction of its start, default 0.02 (~2%)
   max_iter – hard cap on iterations regardless of `tol`, default 25
 
-Returns: `cutoff_metrics`'s result at the refined optimum.
+Returns: `cutoff_metrics`'s result at the refined optimum, plus `trace` —
+every (cutoff, signal_std) pair actually evaluated during the search, in
+evaluation order. Useful for plotting: shows how `signal_std` behaves in
+the fine neighbourhood around the chosen point instead of jumping
+straight from the coarse grid to one isolated final value.
 """
 function refine_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int,
                         lo::Real, hi::Real; ybins::Int=10, filter_order::Int=4,
@@ -779,9 +783,14 @@ function refine_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     lo >= hi && error("refine_cutoff: need lo < hi (got lo=$lo, hi=$hi)")
 
     φ = (sqrt(5) - 1) / 2  # golden ratio conjugate, ≈0.618
-    score(logco) = cutoff_metrics(data, p3, bin_st, bin_end, exp(logco);
-                                   ybins=ybins, filter_order=filter_order,
-                                   p3_window=p3_window, n_groups=n_groups).signal_std
+    trace = Tuple{Float64,Float64}[]
+    function score(logco)
+        s = cutoff_metrics(data, p3, bin_st, bin_end, exp(logco);
+                            ybins=ybins, filter_order=filter_order,
+                            p3_window=p3_window, n_groups=n_groups).signal_std
+        push!(trace, (exp(logco), s))
+        return s
+    end
 
     a, b = log(lo), log(hi)
     span0 = b - a
@@ -803,9 +812,10 @@ function refine_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     end
 
     best_logco = fc > fd ? c : d
-    return cutoff_metrics(data, p3, bin_st, bin_end, exp(best_logco);
+    best = cutoff_metrics(data, p3, bin_st, bin_end, exp(best_logco);
                            ybins=ybins, filter_order=filter_order,
                            p3_window=p3_window, n_groups=n_groups)
+    return merge(best, (trace=trace,))
 end
 
 end # module P3FoldViterbi

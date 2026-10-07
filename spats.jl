@@ -454,6 +454,7 @@ module SpaTs
         valid = filter(r -> isfinite(r.consistency) && isfinite(r.signal_std), results)
         suggested = nothing
         refined = nothing
+        refine_trace = Tuple{Float64,Float64}[]
         if !isempty(valid)
             sorted = sort(valid, by = r -> r.cutoff)
             sorted_cutoffs = [r.cutoff for r in sorted]
@@ -469,6 +470,7 @@ module SpaTs
                 r = P3FoldViterbi.refine_cutoff(
                     data, p3, Int(p["bin_st"]), Int(p["bin_end"]), lo, hi;
                     filter_order=filter_order, n_groups=n_groups)
+                append!(refine_trace, r.trace)
                 if isnothing(refined) || r.signal_std > refined.signal_std
                     refined = r
                 end
@@ -480,8 +482,9 @@ module SpaTs
         # candidate being thrown out rather than patched
         Plot.lowpass_cutoff_scan(valid, outdir; name_mod="pulsar",
                                  chosen=something(chosen, suggested), chosen_metrics=refined,
-                                 show_=show_)
-        Plot.p3_tracks_vs_cutoff(valid, outdir; name_mod="pulsar", show_=show_)
+                                 refine_trace=refine_trace, show_=show_)
+        Plot.p3_tracks_vs_cutoff(valid, outdir; name_mod="pulsar",
+                                 highlight_cutoff=suggested, show_=show_)
         return (results=results, suggested_cutoff=suggested)
     end
 
