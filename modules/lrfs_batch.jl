@@ -244,16 +244,21 @@ function plot_lrfs_results(csv_file::String, out_plot::String="lrfs_chart.png")
     
     _parse_float_col(col) = [v isa Number ? Float64(v) : (val = tryparse(Float64, strip(string(v))); isnothing(val) ? NaN : val) for v in col]
     
-    names    = string.(data[:, 1])
-    p3_known = _parse_float_col(data[:, 2])
-    p3_used  = _parse_float_col(data[:, 3])
-    slopes   = _parse_float_col(data[:, 4])
-    # col 5 = P3_Source, col 6 = Classification
-    classes  = string.(data[:, 6])
+    ncols = size(data, 2)
+    names = string.(data[:, 1])
 
-    # Use known P3 for x-axis where available, fall back to LRFS-detected P3
-    p3_plot = [(!isnan(p3_known[i]) && p3_known[i] > 0) ? p3_known[i] : p3_used[i]
-               for i in 1:length(names)]
+    if ncols >= 6
+        p3_known = _parse_float_col(data[:, 2])
+        p3_used  = _parse_float_col(data[:, 3])
+        slopes   = _parse_float_col(data[:, 4])
+        classes  = string.(data[:, 6])
+        p3_plot  = [(!isnan(p3_known[i]) && p3_known[i] > 0) ? p3_known[i] : p3_used[i] for i in 1:length(names)]
+    else
+        # Legacy 4-column CSV: Name, P3_Pulses, Phase_Slope, Classification
+        p3_plot = _parse_float_col(data[:, 2])
+        slopes  = _parse_float_col(data[:, 3])
+        classes = string.(data[:, 4])
+    end
     
     # Setup plot
     PyPlot.figure(figsize=(10, 8))

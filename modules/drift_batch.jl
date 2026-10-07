@@ -241,12 +241,21 @@ function plot_drift_results(csv_file::String, out_plot::String="drift_plot.png")
     
     _parse_float_col(col) = [v isa Number ? Float64(v) : (val = tryparse(Float64, strip(string(v))); isnothing(val) ? NaN : val) for v in col]
     
-    names   = string.(data[:, 1])
-    # col 2 = P3_Known, col 3 = Travel_Sig
-    asym    = _parse_float_col(data[:, 4])
-    grad    = _parse_float_col(data[:, 5])
-    lags    = _parse_float_col(data[:, 6])
-    classes = string.(data[:, 8])
+    ncols = size(data, 2)
+    names = string.(data[:, 1])
+
+    if ncols >= 8
+        asym    = _parse_float_col(data[:, 4])
+        grad    = _parse_float_col(data[:, 5])
+        lags    = _parse_float_col(data[:, 6])
+        classes = string.(data[:, 8])
+    else
+        # Legacy 7-column CSV: Name, Travel_Sig, Asymmetry_Ratio, Phase_Gradient, Mean_Peak_Lag, Score, Classification
+        asym    = _parse_float_col(data[:, 3])
+        grad    = _parse_float_col(data[:, 4])
+        lags    = _parse_float_col(data[:, 5])
+        classes = string.(data[:, 7])
+    end
     
     # Setup plot
     PyPlot.figure(figsize=(10, 8))
