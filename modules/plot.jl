@@ -592,13 +592,25 @@ module Plot
         end
         if highlight_r !== nothing
             plot(1:length(highlight_r.p3_per_pulse), highlight_r.p3_per_pulse,
-                 color="red", lw=2.2, alpha=0.95, zorder=5,
-                 label=@sprintf("%.3g (wybrany)", highlight_r.cutoff))
+                 color="red", lw=2.6, alpha=0.95, zorder=5,
+                 label=@sprintf("%.3g  ★ WYBRANY", highlight_r.cutoff))
         end
         xlabel("pulse number", fontsize=8.5)
         ylabel("\$P_3\$ per pulse (P)", fontsize=8.5)
-        title("P3 variability vs lowpass_cutoff" * (isempty(name_mod) ? "" : "  ($name_mod)"),
+        subtitle = highlight_r !== nothing ?
+            @sprintf("wybrany cutoff = %.4g (cykle/impuls) — czerwona linia", highlight_r.cutoff) :
+            ""
+        title("P3 variability vs lowpass_cutoff" * (isempty(name_mod) ? "" : "  ($name_mod)") *
+              (isempty(subtitle) ? "" : "\n$subtitle"),
               fontsize=10, fontweight="bold")
+        if highlight_r !== nothing
+            ax = gca()
+            ax.text(0.015, 0.97, @sprintf("cutoff = %.4g", highlight_r.cutoff),
+                    transform=ax.transAxes, fontsize=9, fontweight="bold", color="red",
+                    va="top", ha="left",
+                    bbox=Dict("boxstyle"=>"round,pad=0.35", "facecolor"=>"white",
+                              "edgecolor"=>"red", "alpha"=>0.9))
+        end
         legend(title="cutoff", fontsize=6.5, ncol=2, loc="best", framealpha=0.9)
         tight_layout()
         savefig("$outdir/$(name_mod)_p3_tracks_vs_cutoff.pdf")
