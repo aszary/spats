@@ -876,17 +876,17 @@ module SpaTs
         #phase_modulation3(vpmout*"J1750-3503")
         #p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/300)
 
-        # TEST: skan lowpass_cutoff na J1539-6322 (dane już przetworzone) — pokaże
-        # wykresy consistency/p3_std, potem sam odpali finalny coherent fold z
-        # sugerowanym cutoffem (drugi wykres: pulsar_coherent_p3fold_compare).
-        # Sprawdzona metoda (Butterworth + skan) — na razie jedyna testowana
-        # automatycznie. p3fold_coherent_auto (wygładzanie Whittakera) zostaje
-        # w kodzie, ale nie jest tu wywoływane — wynik wyszedł gorszy od tej
-        # metody, więc zamiast dalej zgadywać auto_strength bez podglądu na
-        # żywo, zostajemy przy tym co działa.
-        scan_result = p3fold_cutoff_scan(vpmout*"J1539-6322")
+        # TEST: skan lowpass_cutoff na J2053-7200 (dane już przetworzone).
+        # Uwaga: ten pulsar ma krótkie P3≈3.06 i mocno "wobbluje" — opisany
+        # wcześniej w kodzie jako trudny przypadek dla metod opartych na
+        # pojedynczym globalnym binie FFT (drift_test na nim daje tylko 0.5σ,
+        # mimo że phase_modulation3 w krótkich oknach widzi modulację na
+        # 80σ). coherent_fold używa tej samej globalnej-bin logiki co
+        # drift_test, więc spodziewaj się niższego SNR niż dla J1539-6322 —
+        # to oczekiwane, nie błąd.
+        scan_result = p3fold_cutoff_scan(vpmout*"J2053-7200")
         if !isnothing(scan_result.suggested_cutoff)
-            p3fold_coherent(vpmout*"J1539-6322", lowpass_cutoff=scan_result.suggested_cutoff)
+            p3fold_coherent(vpmout*"J2053-7200", lowpass_cutoff=scan_result.suggested_cutoff)
         end
 
         
