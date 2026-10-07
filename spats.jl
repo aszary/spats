@@ -906,7 +906,7 @@ module SpaTs
         # wzór w foldzie) — p3fold_cutoff_scan/p3fold_coherent liczą teraz
         # wlasciwa wartosc automatycznie przez Functions.find_ybins, zamiast
         # slepo ufac plikowi, wiec nie trzeba juz nic wymuszac recznie.
-        for psr_test in ["J2053-7200"]
+        for psr_test in ["J1750-3503"]
             println("\n===== $psr_test =====")
             try
                 scan_result = p3fold_cutoff_scan(vpmout*psr_test)
