@@ -945,7 +945,7 @@ module SpaTs
         # okna przy liczeniu pochodnej fazy. Ten sam cutoff=1/300 co powyzej,
         # zeby bylo widac dokladnie co zmienily poprawki, nie co zmienil cutoff.
         p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300,
-                        bin_search=0, p3_window=20, name_mod="pulsar_coherent_OLD_repro")
+                        bin_search=0, p3_window=60, name_mod="pulsar_coherent_OLD_repro")
         
 
         #test(vpmout)
