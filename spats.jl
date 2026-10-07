@@ -897,7 +897,8 @@ module SpaTs
         # krótkich oknach widzi modulację na 80σ) — spodziewaj się niższego
         # SNR niż dla J1539-6322, to oczekiwane, nie błąd. J1133-6250 ma
         # wcześniejszą notatkę "single not stable" — może też wypaść słabo.
-        for psr_test in ["J1110-5637", "J1133-6250", "J1750-3503", "J2053-7200"]
+        #or psr_test in ["J1110-5637", "J1133-6250", "J1750-3503", "J2053-7200"]
+        for psr_test in ["J1133-6250"]
             println("\n===== $psr_test =====")
             try
                 scan_result = p3fold_cutoff_scan(vpmout*psr_test)
