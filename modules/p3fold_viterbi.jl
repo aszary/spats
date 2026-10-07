@@ -698,7 +698,7 @@ function scan_lowpass_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
                               cutoffs::AbstractVector{<:Real}=[1/1000, 1/500, 1/300, 1/200,
                                                                 1/150, 1/100, 1/60, 1/30],
                               filter_order::Int=4, ybins::Int=10, p3_window::Int=60,
-                              n_groups::Int=4)
+                              n_groups::Int=8)
     return [cutoff_metrics(data, p3, bin_st, bin_end, co; ybins=ybins,
                             filter_order=filter_order, p3_window=p3_window, n_groups=n_groups)
             for co in cutoffs]
@@ -722,6 +722,16 @@ replace it: pass `lo`/`hi` as that point's immediate grid neighbours (a
 narrow bracket the coarse scan has already confirmed contains the peak),
 not the whole search range.
 
+`consistency` (and so `signal_std`) is a mean of `n_groups`-choose-2
+pairwise correlations — with few groups that average is itself noisy and
+the objective can be jagged (non-unimodal) even locally, which breaks
+golden-section's assumption and risks converging to a sampling fluke
+rather than the true optimum. `n_groups` defaults to 8 here (28 pairs,
+vs. 6 at the old default of 4) specifically to damp that noise down
+before trusting a continuous search on top of it — if the scan plot still
+looks jagged, that's this function telling you it isn't safe to trust the
+refined value yet, not a cosmetic issue to ignore.
+
 Arguments: same as `cutoff_metrics`, plus
   lo, hi   – bracket [cycles/pulse] to refine within (must have lo < hi)
   tol      – stop when the bracket width (in log space) shrinks below
@@ -732,7 +742,7 @@ Returns: `cutoff_metrics`'s result at the refined optimum.
 """
 function refine_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int,
                         lo::Real, hi::Real; ybins::Int=10, filter_order::Int=4,
-                        p3_window::Int=60, n_groups::Int=4, tol::Real=0.02, max_iter::Int=25)
+                        p3_window::Int=60, n_groups::Int=8, tol::Real=0.02, max_iter::Int=25)
     lo <= 0 && error("refine_cutoff: lo must be > 0 (got $lo)")
     lo >= hi && error("refine_cutoff: need lo < hi (got lo=$lo, hi=$hi)")
 

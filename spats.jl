@@ -408,7 +408,7 @@ module SpaTs
       p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=<chosen value>)
     """
     function p3fold_cutoff_scan(outdir; cutoffs=10 .^ range(log10(1/5000), log10(1/10), length=20),
-                                filter_order=6, n_groups=4, chosen=nothing, show_=true)
+                                filter_order=6, n_groups=8, chosen=nothing, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -443,6 +443,7 @@ module SpaTs
         # grid neighbours instead of settling for one of the fixed candidates.
         valid = filter(r -> isfinite(r.consistency) && isfinite(r.signal_std), results)
         suggested = nothing
+        refined = nothing
         if !isempty(valid)
             sorted_cutoffs = sort([r.cutoff for r in results])
             best = valid[argmax([r.signal_std for r in valid])]
@@ -455,7 +456,8 @@ module SpaTs
             suggested = refined.cutoff
         end
         Plot.lowpass_cutoff_scan(results, outdir; name_mod="pulsar",
-                                 chosen=something(chosen, suggested), show_=show_)
+                                 chosen=something(chosen, suggested), chosen_metrics=refined,
+                                 show_=show_)
         Plot.p3_tracks_vs_cutoff(results, outdir; name_mod="pulsar", show_=show_)
         return (results=results, suggested_cutoff=suggested)
     end

@@ -452,7 +452,8 @@ module Plot
     A vertical dashed line at `chosen` (if given) marks the cutoff you decide
     to use in `p3fold_coherent`.
     """
-    function lowpass_cutoff_scan(results, outdir; name_mod="pulsar", chosen=nothing, show_=false)
+    function lowpass_cutoff_scan(results, outdir; name_mod="pulsar", chosen=nothing,
+                                 chosen_metrics=nothing, show_=false)
         cutoffs     = [r.cutoff for r in results]
         consistency = [r.consistency for r in results]
         p3_std      = [r.p3_std for r in results]
@@ -468,7 +469,16 @@ module Plot
             annotate(@sprintf("%.3f", y), (x, y), textcoords="offset points",
                      xytext=(0, 6), ha="center", fontsize=6.5)
         end
-        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.5)
+        if chosen_metrics !== nothing
+            scatter([chosen_metrics.cutoff], [chosen_metrics.consistency],
+                    marker="*", s=180, color="red", zorder=5, label="wybrany (dopracowany)")
+            annotate(@sprintf("%.3f", chosen_metrics.consistency),
+                     (chosen_metrics.cutoff, chosen_metrics.consistency),
+                     textcoords="offset points", xytext=(0, -12), ha="center",
+                     fontsize=6.5, color="red", fontweight="bold")
+            legend(fontsize=6.5, loc="best")
+        end
         ylabel("subband consistency (r)")
         title("lowpass_cutoff scan" * (isempty(name_mod) ? "" : "  ($name_mod)"))
         tick_params(labelbottom=false)
@@ -480,7 +490,11 @@ module Plot
             annotate(@sprintf("%.2g", y), (x, y), textcoords="offset points",
                      xytext=(0, 6), ha="center", fontsize=6.5)
         end
-        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.5)
+        if chosen_metrics !== nothing
+            scatter([chosen_metrics.cutoff], [chosen_metrics.p3_std],
+                    marker="*", s=180, color="red", zorder=5)
+        end
         ylabel("std(P3 per pulse)")
         tick_params(labelbottom=false)
 
@@ -491,7 +505,15 @@ module Plot
             annotate(@sprintf("%.2g", y), (x, y), textcoords="offset points",
                      xytext=(0, 6), ha="center", fontsize=6.5)
         end
-        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0)
+        chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.5)
+        if chosen_metrics !== nothing
+            scatter([chosen_metrics.cutoff], [chosen_metrics.signal_std],
+                    marker="*", s=180, color="red", zorder=5)
+            annotate(@sprintf("%.2g", chosen_metrics.signal_std),
+                     (chosen_metrics.cutoff, chosen_metrics.signal_std),
+                     textcoords="offset points", xytext=(0, -12), ha="center",
+                     fontsize=6.5, color="red", fontweight="bold")
+        end
         xlabel("lowpass_cutoff (cycles/pulse)")
         ylabel("signal_std\n(p3_std·√consistency)")
 
