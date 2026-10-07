@@ -937,7 +937,7 @@ module SpaTs
         # (zamiast automatycznego find_ybins) i dwiema wartosciami cutoffu
         # do porownania
         #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/100, name_mod="pulsar_coherent_ybins49_cut100")
-        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_ybins49_cut300")
+        #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_ybins49_cut300")
 
         # TEST: odtworzenie STAREGO zachowania (sprzed poprawek z tej sesji) —
         # bin_search=0 wylacza przeszukiwanie sasiednich binow FFT (wraca do
@@ -946,7 +946,16 @@ module SpaTs
         # zeby bylo widac dokladnie co zmienily poprawki, nie co zmienil cutoff.
         #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300,
          #               bin_search=0, p3_window=60, name_mod="pulsar_coherent_OLD_repro")
-        
+
+        # TEST: J2053-7200 ze STARYMI ustawieniami (bin_search=0, p3_window=20,
+        # ybins=10 — ta sama wartosc co dawala artefakt aliasingu wczesniej)
+        # i cutoffem ktory wczesniej wyszedl jako najlepszy z p3fold_cutoff_scan
+        # (consistency=0.125, signal_std=0.03 przy cutoff=0.027) — zeby
+        # sprawdzic czy szachownica byla tez na starym kodzie, czy to cos
+        # co pojawilo sie dopiero z poprawkami z tej sesji
+        p3fold_coherent(vpmout*"J2053-7200", ybins=10, lowpass_cutoff=0.027,
+                        bin_search=0, p3_window=20, name_mod="pulsar_coherent_2053_OLD_repro")
+
 
         #test(vpmout)
         #test2(vpmout)
