@@ -44,18 +44,33 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
         error("Pulsar list file not found: $list_file")
     end
 
-    names = String[]
+    # Parse both pulsar names and known P3 values from the list file.
+    # Expected format per line: "JNAME P3value(error)"  e.g. "J0601-0527 2.041(7)"
+    # The error suffix (e.g. "(7)") is stripped before parsing.
+    names   = String[]
+    p3_dict = Dict{String, Float64}()
+
     for line in eachline(list_file)
         s = strip(line)
         (isempty(s) || startswith(s, "#")) && continue
-        push!(names, String(first(split(s))))
+        parts = split(s)
+        psr_name = String(parts[1])
+        push!(names, psr_name)
+        if length(parts) >= 2
+            raw_p3 = replace(String(parts[2]), r"\(.*\)" => "")
+            p3_parsed = tryparse(Float64, raw_p3)
+            if !isnothing(p3_parsed) && p3_parsed > 1.0
+                p3_dict[psr_name] = p3_parsed
+            end
+        end
     end
-    
-    println("Found $(length(names)) pulsars in list.")
-    
+
+    println("Found $(length(names)) pulsars in list ($(length(p3_dict)) with known P3).")
+
     results = []
-    
+
     for (i, name) in enumerate(names)
+        known_p3 = get(p3_dict, name, nothing)   # stored in CSV; not passed to analyze_drift
         try
             # Directory resolution fallback (check all 4 possible variations)
             candidates = [
@@ -157,20 +172,24 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
             
             println("[$i/$(length(names))] Analyzing $name ...")
             res = analyze_drift(X, bin_st, bin_end)
-            
-            push!(results, (name, res.travel_sig, res.asymmetry_ratio, res.phase_gradient, res.mean_peak_lag, res.score, res.classification))
-            
+
+            push!(results, (name,
+                            isnothing(known_p3) ? NaN : known_p3,  # P3 from list
+                            res.travel_sig, res.asymmetry_ratio,
+                            res.phase_gradient, res.mean_peak_lag,
+                            res.score, res.classification))
+
         catch e
             @warn "[$i/$(length(names))] Failed to analyze $name: $e — skipping."
             continue
         end
     end
-    
+
     # Save to CSV
     open(out_csv, "w") do io
-        write(io, "Name,Travel_Sig,Asymmetry_Ratio,Phase_Gradient,Mean_Peak_Lag,Score,Classification\n")
+        write(io, "Name,P3_Known,Travel_Sig,Asymmetry_Ratio,Phase_Gradient,Mean_Peak_Lag,Score,Classification\n")
         for r in results
-            write(io, "$(r[1]),$(r[2]),$(r[3]),$(r[4]),$(r[5]),$(r[6]),$(r[7])\n")
+            write(io, "$(r[1]),$(r[2]),$(r[3]),$(r[4]),$(r[5]),$(r[6]),$(r[7]),$(r[8])\n")
         end
     end
     println("\nSaved results to $out_csv")

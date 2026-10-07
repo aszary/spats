@@ -44,18 +44,34 @@ function batch_analyze_lrfs(vpmout::String, list_file::String, out_csv::String="
         error("Pulsar list file not found: $list_file")
     end
 
-    names = String[]
+    # Parse both pulsar names and known P3 values from the list file.
+    # Expected format per line: "JNAME P3value(error)"  e.g. "J0601-0527 2.041(7)"
+    # The error suffix (e.g. "(7)") is stripped before parsing.
+    names   = String[]
+    p3_dict = Dict{String, Float64}()   # name => P3 in pulses (nothing if missing/unparseable)
+
     for line in eachline(list_file)
         s = strip(line)
         (isempty(s) || startswith(s, "#")) && continue
-        push!(names, String(first(split(s))))
+        parts = split(s)
+        psr_name = String(parts[1])
+        push!(names, psr_name)
+        if length(parts) >= 2
+            # Strip parenthesised error: "2.041(7)" → "2.041"
+            raw_p3 = replace(String(parts[2]), r"\(.*\)" => "")
+            p3_parsed = tryparse(Float64, raw_p3)
+            if !isnothing(p3_parsed) && p3_parsed > 1.0
+                p3_dict[psr_name] = p3_parsed
+            end
+        end
     end
-    
-    println("Found $(length(names)) pulsars in list.")
-    
+
+    println("Found $(length(names)) pulsars in list ($(length(p3_dict)) with known P3).")
+
     results = []
-    
+
     for (i, name) in enumerate(names)
+        known_p3 = get(p3_dict, name, nothing)   # Float64 or nothing
         try
             # Directory resolution fallback (check all 4 possible variations)
             candidates = [
@@ -155,22 +171,27 @@ function batch_analyze_lrfs(vpmout::String, list_file::String, out_csv::String="
                 bin_end = n_bins
             end
             
-            println("[$i/$(length(names))] Analyzing $name ...")
-            res = lrfs_phase_track(X, bin_st, bin_end)
-            
-            push!(results, (name, res.p3_pulses, res.phase_slope, res.classification))
-            
+            println("[$i/$(length(names))] Analyzing $name (P3 source: $(isnothing(known_p3) ? "auto-detect" : "known=$(known_p3)")) ...")
+            res = lrfs_phase_track(X, bin_st, bin_end; known_p3=known_p3)
+
+            push!(results, (name,
+                            isnothing(known_p3) ? NaN : known_p3,  # P3 from list
+                            res.p3_pulses,                          # P3 actually used (quantised)
+                            res.phase_slope,
+                            string(res.p3_source),
+                            string(res.classification)))
+
         catch e
             @warn "[$i/$(length(names))] Failed to analyze $name: $e — skipping."
             continue
         end
     end
-    
+
     # Save to CSV
     open(out_csv, "w") do io
-        write(io, "Name,P3_Pulses,Phase_Slope,Classification\n")
+        write(io, "Name,P3_Known,P3_Used,Phase_Slope,P3_Source,Classification\n")
         for r in results
-            write(io, "$(r[1]),$(r[2]),$(r[3]),$(r[4])\n")
+            write(io, "$(r[1]),$(r[2]),$(r[3]),$(r[4]),$(r[5]),$(r[6])\n")
         end
     end
     println("\nSaved results to $out_csv")
@@ -195,10 +216,16 @@ function plot_lrfs_results(csv_file::String, out_plot::String="lrfs_chart.png")
         return
     end
     
-    names = data[:, 1]
-    p3_vals = convert(Vector{Float64}, data[:, 2])
-    slopes = convert(Vector{Float64}, data[:, 3])
-    classes = data[:, 4]
+    names   = data[:, 1]
+    p3_known = [tryparse(Float64, string(v)) for v in data[:, 2]]
+    p3_used  = convert(Vector{Float64}, data[:, 3])
+    slopes   = convert(Vector{Float64}, data[:, 4])
+    # col 5 = P3_Source, col 6 = Classification
+    classes  = data[:, 6]
+
+    # Use known P3 for x-axis where available, fall back to LRFS-detected P3
+    p3_plot = [(!isnothing(p3_known[i]) && !isnan(p3_known[i])) ? p3_known[i] : p3_used[i]
+               for i in 1:length(names)]
     
     # Setup plot
     PyPlot.figure(figsize=(10, 8))
@@ -209,17 +236,17 @@ function plot_lrfs_results(csv_file::String, out_plot::String="lrfs_chart.png")
     idx_undef = classes .== "undetermined"
     
     # Scatter: X = P3 (Pulses), Y = Phase Slope (rad/bin)
-    PyPlot.scatter(p3_vals[idx_am], abs.(slopes[idx_am]), color="red", label="Amplitude Modulation (Flat phase)", alpha=0.7, s=60)
-    PyPlot.scatter(p3_vals[idx_drift], abs.(slopes[idx_drift]), color="blue", label="Subpulse Drift (Slanted phase)", alpha=0.7, s=60)
+    PyPlot.scatter(p3_plot[idx_am], abs.(slopes[idx_am]), color="red", label="Amplitude Modulation (Flat phase)", alpha=0.7, s=60)
+    PyPlot.scatter(p3_plot[idx_drift], abs.(slopes[idx_drift]), color="blue", label="Subpulse Drift (Slanted phase)", alpha=0.7, s=60)
     
     if any(idx_undef)
-        PyPlot.scatter(p3_vals[idx_undef], abs.(slopes[idx_undef]), color="gray", label="Undetermined (Noise)", alpha=0.7, s=40, marker="x")
+        PyPlot.scatter(p3_plot[idx_undef], abs.(slopes[idx_undef]), color="gray", label="Undetermined (Noise)", alpha=0.7, s=40, marker="x")
     end
     
     # Add labels for strong drifters (slope > 0.15) to identify them easily
     for i in 1:length(names)
         if classes[i] == "pure_drift" && abs(slopes[i]) > 0.15
-            PyPlot.annotate(names[i], (p3_vals[i], abs(slopes[i])), fontsize=8, alpha=0.6)
+            PyPlot.annotate(names[i], (p3_plot[i], abs(slopes[i])), fontsize=8, alpha=0.6)
         end
     end
     
