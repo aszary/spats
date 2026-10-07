@@ -932,7 +932,7 @@ module SpaTs
         #phase_modulation(vpmout*"J1539-6322")
         #phase_modulation2(vpmout*"J1539-6322")
         #phase_modulation3(vpmout*"J1539-6322")
-        p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/20)
+        p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=1/100)
         
 
         #test(vpmout)
