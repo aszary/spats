@@ -329,7 +329,7 @@ module SpaTs
       phase_modulation(vpmout*"J1110-5637")
       p3fold_coherent(vpmout*"J1110-5637")
     """
-    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, p3_window=20, darkness=1.0, show_=true, name_mod="pulsar_coherent")
+    function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, p3_window=20, bin_search=2, darkness=1.0, show_=true, name_mod="pulsar_coherent")
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
@@ -340,7 +340,8 @@ module SpaTs
         yb   = isnothing(ybins) ? Data.Functions.find_ybins(p3, size(data, 1)) : ybins
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
-            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups, p3_window=p3_window)
+            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups,
+            p3_window=p3_window, bin_search=bin_search)
         println("Matched-filter SNR: $(round(result.snr, digits=1))")
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
@@ -937,6 +938,14 @@ module SpaTs
         # do porownania
         #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/100, name_mod="pulsar_coherent_ybins49_cut100")
         p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_ybins49_cut300")
+
+        # TEST: odtworzenie STAREGO zachowania (sprzed poprawek z tej sesji) —
+        # bin_search=0 wylacza przeszukiwanie sasiednich binow FFT (wraca do
+        # starego k=round(N/p3)), p3_window=20 to stara (krotsza) wartosc
+        # okna przy liczeniu pochodnej fazy. Ten sam cutoff=1/300 co powyzej,
+        # zeby bylo widac dokladnie co zmienily poprawki, nie co zmienil cutoff.
+        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300,
+                        bin_search=0, p3_window=20, name_mod="pulsar_coherent_OLD_repro")
         
 
         #test(vpmout)

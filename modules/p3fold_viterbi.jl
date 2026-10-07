@@ -607,11 +607,11 @@ Returns: the full-bin `coherent_fold` result, plus
 """
 function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                                   ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
-                                  p3_window::Int=60, n_groups::Int=4, auto::Bool=false,
-                                  auto_strength::Real=1.0)
+                                  p3_window::Int=60, bin_search::Int=2, n_groups::Int=4,
+                                  auto::Bool=false, auto_strength::Real=1.0)
     main = coherent_fold(data, p3, bin_st, bin_end; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
-                          filter_order=filter_order, p3_window=p3_window, auto=auto,
-                          auto_strength=auto_strength)
+                          filter_order=filter_order, p3_window=p3_window, bin_search=bin_search,
+                          auto=auto, auto_strength=auto_strength)
 
     N = size(data, 1)
     edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
@@ -621,8 +621,8 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
         st, en = edges[g], edges[g+1] - 1
         en < st && continue
         r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
-                           filter_order=filter_order, p3_window=p3_window, warn_weak=false,
-                           auto=auto, auto_strength=auto_strength)
+                           filter_order=filter_order, p3_window=p3_window, bin_search=bin_search,
+                           warn_weak=false, auto=auto, auto_strength=auto_strength)
         group_p3[g, :] = r.p3_per_pulse
         group_phase[g, :] = r.phase .- mean(r.phase)
     end
