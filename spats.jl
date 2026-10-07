@@ -333,8 +333,11 @@ module SpaTs
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
-        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
+        # p["p3_ybins"] bywa nieaktualne/za duze wzgledem faktycznej liczby
+        # impulsow na cykl P3 (np. P3≈3 z ybins=10 daje aliasing) — licz
+        # wlasciwa wartosc z find_ybins zamiast ufac bezkrytycznie plikowi
+        yb   = isnothing(ybins) ? Data.Functions.find_ybins(p3, size(data, 1)) : ybins
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups, p3_window=p3_window)
@@ -376,8 +379,8 @@ module SpaTs
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
-        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
+        yb   = isnothing(ybins) ? Data.Functions.find_ybins(p3, size(data, 1)) : ybins
         result = P3FoldViterbi.coherent_fold_jackknife(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             ybins=yb, n_groups=n_groups, p3_window=p3_window, auto=true,
@@ -413,7 +416,7 @@ module SpaTs
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         p3 = Float64(p["p3"])
-        yb = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        yb = isnothing(ybins) ? Data.Functions.find_ybins(p3, size(data, 1)) : ybins
         results = P3FoldViterbi.scan_lowpass_cutoff(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             cutoffs=cutoffs, filter_order=filter_order, n_groups=n_groups, ybins=yb)
@@ -898,16 +901,18 @@ module SpaTs
         # krótkich oknach widzi modulację na 80σ) — spodziewaj się niższego
         # SNR niż dla J1539-6322, to oczekiwane, nie błąd. J1133-6250 ma
         # wcześniejszą notatkę "single not stable" — może też wypaść słabo.
-        # J2053-7200: P3≈3.06 jest tak krótkie, że domyślne ybins=10 daje
-        # artefakt aliasingu (sztuczny "szachownicowy" wzór w foldzie) —
-        # wymuszamy ybins=6 (zgodne z regułą Functions.find_ybins: max(4, 2*P3))
+        # J2053-7200: P3≈3.06 jest tak krótkie, że p["p3_ybins"] z pliku
+        # (często=10) dawało artefakt aliasingu (sztuczny "szachownicowy"
+        # wzór w foldzie) — p3fold_cutoff_scan/p3fold_coherent liczą teraz
+        # wlasciwa wartosc automatycznie przez Functions.find_ybins, zamiast
+        # slepo ufac plikowi, wiec nie trzeba juz nic wymuszac recznie.
         for psr_test in ["J2053-7200"]
-            println("\n===== $psr_test (ybins=6) =====")
+            println("\n===== $psr_test =====")
             try
-                scan_result = p3fold_cutoff_scan(vpmout*psr_test; ybins=6)
+                scan_result = p3fold_cutoff_scan(vpmout*psr_test)
                 if !isnothing(scan_result.suggested_cutoff)
                     println(">>> OSTATECZNIE WYBRANY cutoff dla $psr_test: $(scan_result.suggested_cutoff)")
-                    p3fold_coherent(vpmout*psr_test, ybins=6, lowpass_cutoff=scan_result.suggested_cutoff)
+                    p3fold_coherent(vpmout*psr_test, lowpass_cutoff=scan_result.suggested_cutoff)
                 end
             catch e
                 println("ERROR dla $psr_test: $e")
