@@ -881,8 +881,8 @@ Phase-drift vs amplitude-modulation test on already-processed data.
 
 
         # LRFS Phase-Track batch — mirrors DriftBatch above
-        LrfsBatch.batch_analyze_lrfs(vpmout, list_file, "lrfs_classifications_olddrift.csv")
-        LrfsBatch.plot_lrfs_results("lrfs_classifications_olddrift.csv", "lrfs_chart_olddrift.pdf")
+        LrfsBatch.batch_analyze_lrfs(vpmout, list_file, "lrfs_classifications_olddriftfix.csv")
+        LrfsBatch.plot_lrfs_results("lrfs_classifications_olddrift.csv", "lrfs_chart_olddriftfix.pdf")
     end
 
     
