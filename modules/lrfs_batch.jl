@@ -242,15 +242,17 @@ function plot_lrfs_results(csv_file::String, out_plot::String="lrfs_chart.png")
         return
     end
     
-    names   = data[:, 1]
-    p3_known = [tryparse(Float64, string(v)) for v in data[:, 2]]
-    p3_used  = convert(Vector{Float64}, data[:, 3])
-    slopes   = convert(Vector{Float64}, data[:, 4])
+    _parse_float_col(col) = [v isa Number ? Float64(v) : (val = tryparse(Float64, strip(string(v))); isnothing(val) ? NaN : val) for v in col]
+    
+    names    = string.(data[:, 1])
+    p3_known = _parse_float_col(data[:, 2])
+    p3_used  = _parse_float_col(data[:, 3])
+    slopes   = _parse_float_col(data[:, 4])
     # col 5 = P3_Source, col 6 = Classification
-    classes  = data[:, 6]
+    classes  = string.(data[:, 6])
 
     # Use known P3 for x-axis where available, fall back to LRFS-detected P3
-    p3_plot = [(!isnothing(p3_known[i]) && !isnan(p3_known[i])) ? p3_known[i] : p3_used[i]
+    p3_plot = [(!isnan(p3_known[i]) && p3_known[i] > 0) ? p3_known[i] : p3_used[i]
                for i in 1:length(names)]
     
     # Setup plot
