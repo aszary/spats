@@ -2343,3 +2343,26 @@ f_c = 1/300 | optimum (≤ f3/3); wiersz „fold − profil” i P3(n). Przy 1/3
   J1001: 185° vs 175°; J1825: 174° vs ~177°), bez wyraźnego pochylenia — wygląda na AM, nie dryf.
 - J1946 (1/57): poziome pasy w całym profilu = modulacja natężenia (zgodne z flagą NAT dla piku 18.6 w teście L);
   P3(n) 14–45 ze skokami — „poprawa” ΔR² to śledzenie nulli/burstów, nie dryfu.
+
+## 2026-10-08 — coherent_fold: maskowanie pulsów o małej amplitudzie po filtrze
+
+Skrypt `~/claude/work/scripts/coherent_mask.jl`, log `logs/coherent_mask.log`, wykresy `figures/cohfc/<PSR>_mask.png`.
+Maska: |s(n)| ≥ q95 |s| z 10 shuffle (ten sam szablon i filtr). P3(n) z maską: regresja fazy z wagami |s|² w oknie
+1/(2 f_c), tylko pulsy z maską. Odniesienie: ślad sLRFS przy L = window_length(P3).
+
+| PSR | f_c | zamaskowane | RMS(P3 − sLRFS) bez/z | poza zakresem sLRFS bez/z | ΔR² fold bez/z |
+|---|---|---|---|---|---|
+| J0818-3232 | 1/35 | 52% | 0.75 / 0.44 | 0 / 0 | 0.066 / 0.049 |
+| J1001-5559 | 1/34 | 74% | 0.81 / 0.55 | 0 / 0 | 0.075 / 0.180 |
+| J0034-0721 | 1/100 | 26% | 0.48 / 0.37 | 0 / 0 | 0.023 / 0.516 |
+| J1825+0004 | 1/100 | 45% | 0.88 / 0.84 | 0 / 0 | 0.008 / 0.040 |
+| J1946+1805 | 1/57 | 69% | 3.72 / 2.52 | 11.2% / 0 | 0.032 / 0.117 |
+| J1750-3503 | 1/147 | 28% | 10.98 / 6.47 | 1.4% / 0 | 0.010 / 0.018 |
+
+- Diagnoza potwierdzona: zjazd P3(n) do ~20 w J1750 przy pulsie ~100 to przejście |s| przez zero (skok fazy ~3 rad),
+  nie brzeg filtfilt. W J0034 każdy pik P3(n) (do ~8) leży w minimum |s| = null; maska usuwa wszystkie.
+- Brzeg filtfilt istnieje osobno: J1001 |s| ≈ 50 w pierwszych pulsach (vs ~10 dalej).
+- ΔR² z maską nieporównywalne wprost (inny zbiór pulsów — zostają pulsy z silną modulacją); nie traktować jako poprawy folda.
+- Ograniczenie: |s| spada też, gdy lokalne P3 odchodzi od f3 w stronę f_c (tłumienie filtra) — J1750 ~800–890
+  (sLRFS P3 ≈ 60–65) jest zamaskowane, więc maska wycina właśnie zmiany P3. Próg q95 bardzo ostry przy słabej modulacji
+  (J1001 74%, J1946 69%).

@@ -50,11 +50,18 @@ Porównanie foldów (`coherent_fc_compare.jl`): przy 1/300 fold ≈ stałe P3. P
 dryfu; J0818, J1001, J1825 — modulacja amplitudy składowych w przeciwfazie (AM); J1946 — modulacja natężenia całego
 profilu (nulle), więc wzrost ΔR² nie zawsze oznacza lepszy fold dryfu.
 
+## 4. Maskowanie pulsów o małej amplitudzie (`coherent_mask.jl`)
+
+Maska |s(n)| ≥ q95 z nulla shuffle; P3(n) z regresji fazy ważonej |s|². Skoki P3(n) (J1750 ~100, J0034 przy nullach)
+to przejścia |s| przez zero — maska je usuwa: RMS względem sLRFS spada w 6/6 pulsarach (J1750 11.0 → 6.5),
+wartości poza zakresem sLRFS znikają (J1946 11% → 0). Wady: maskuje 26–74% pulsów i wycina też odcinki, gdzie lokalne
+P3 odchodzi od f3 (tłumienie filtra, J1750 ~800–890). Brzeg `filtfilt` daje osobny artefakt amplitudy (J1001, pierwsze pulsy).
+
 ## Wnioski i otwarte sprawy
 
 - Domyślne `lowpass_cutoff = 1/300` w `p3fold_coherent` jest za niskie dla P3 ≲ 15. f_c skalować z f3:
   zakres **0.1–0.33·f3**; stała wartość awaryjna f3/5; najlepiej automatycznie: max ΔR² w [f3/16, f3/3].
 - Reguła z rozrzutu śladu sLRFS (f_c = 1.3·q90|Δf|) daje 80–100% optimum w 6/8 pulsarach (J0034 tylko ~50%).
-- Do zrobienia: maskowanie pulsów o małej amplitudzie po filtrze (artefakty P3(n), np. J1750 ~100); odróżnienie
+- Do zrobienia: maskowanie tylko dla P3(n), łagodniejszy próg i normalizacja |s| przez tłumienie filtra; odróżnienie
   natężenia od dryfu (κ / widmo energii z progiem kalibrowanym per pulsar); osobne P3 dla trybów (J1825, J0034).
 - Kod w `spats.jl` / `modules/` bez zmian — tylko skrypty testowe.
