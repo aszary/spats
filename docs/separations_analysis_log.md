@@ -2466,3 +2466,12 @@ wykresy `figures/bench/agent_case*_p3.png`. Te same 36 przypadków co `synth_ben
 - Wszystkie 11 przypadków z RMS > 15% mają nulle; najgorsze przy S/N 5 (do 68%, P3 = 15 skok): pokrycie ~100%, czyli
   nulle (średnio 15 P) nie są maskowane — |s| po filtrze (okno ~3·P3) nie spada w nich poniżej progu, a losowy skok
   fazy po nullu rozmywa się w P3(n). Propozycja: dzielić odcinki P3(n) na nullach wykrytych z energii pulsów.
+Korekta (uwaga użytkownika: skok P3 w przypadkach 17/35 nieodtworzony). `synth_step_check.jl`, `synth_nullsplit.jl`,
+wykresy `figures/bench/agent_step_check.png`, `nullsplit_case*.png`. Bez nulli skok odtworzony (błąd 1.8–2.9%).
+Z nullami dwa efekty: (1) losowy skok fazy po każdym nullu (generator; nulle co ~35 P) — rozmyty filtrem i oknem
+regresji (~74 P) na całą obserwację; (2) krótkie nulle bez skoku fazy — |s| prawie do zera w środku odcinka, pojedyncze
+piki P3 → ∞ (RMS do 570% przy dobrym śladzie poza nimi). Podział odcinków na nullach z energii (mediana 3 P, ułamek
+2·frac(E<0), epizody ≥ 2 P; wykrywa 94–95% nulli, 3.5–5% fałszywych), mediana po przypadkach:
+- faza zachowana: RMS 0.067 → 0.041 (mediana |błędu| 0.019 → 0.016), pokrycie 0.84 → 0.54 — piki usunięte;
+- skok fazy: RMS 0.155 → 0.111 (0.056 → 0.041), pokrycie 0.83 → 0.56 — wahania zostają, bo demodulacja/filtr i
+  adaptacyjna nośna przechodzą przez null; odcinki między nullami (~2 cykle) za krótkie na pewne P3.
