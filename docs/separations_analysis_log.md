@@ -2542,3 +2542,16 @@ nadal 1/(2 f_c)); P3(n) poza [2, 3·P3] → NaN. Ponownie 10 pulsarów (`real10_
 J1919 — punkt −700 usunięty, wykres czytelny (zostaje pik ~19 przy pulsie ~120, w granicach); J1041 q05–q95
 3.59–5.54 → 3.69–5.38, J1056 3.04–6.25 → 3.11–5.88 — nadal poszarpane, bo odcinki są krótkie (dużo pulsów poniżej
 progu |s|), a 3·P3 ≈ 12 P to wciąż mało; pozostałe bez zmian.
+
+## 2026-10-08 — małe P3: dłuższe okno P3(n) i niższy threshold_q
+
+Skrypty `smallp3_window.jl` (okno k·P3, k = 3/5/8 × q = 0.5/0.3; syntetyki P3 < 8 i 5 pulsarów), `window_minpulses.jl`
+(okno ≥ 30 P na całych 200 syntetykach); wyniki `~/claude/work/smallp3_synth.csv`, `logs/window_minpulses.log`,
+wykres `figures/agent_real10_v2/smallp3_window.png`.
+- Syntetyki P3 < 8 (61): mediana |błędu| k=3 1.62%, k=5 1.12%, k=8 0.77%; pokrycie i skoki (20/23) bez zmian;
+  q = 0.3: pokrycie +4%, błąd ≈ ten sam.
+- Dane (rozbieżność P3(n) z połówek binów): J1041 3.9% (k=3, q=0.5) → 2.4% (k=8, q=0.3), pokrycie 59 → 81%;
+  J1056 3.9% → 2.9–3.2%, pokrycie 70 → 87% (nadal wyraźne wahania 3–6 — prawdopodobnie część rzeczywista);
+  J1311, J0421, J0932 — praktycznie bez zmian.
+- Reguła „okno ≥ 30 P” (≈ 8·P3 dla P3 ≈ 4, bez wpływu przy P3 ≳ 10) na 200 syntetykach: błąd 1.15% → 0.99%
+  (P3 < 8: 1.62 → 0.85%, skok: 1.36 → 0.89%), pokrycie, katastrofy i skoki bez zmian; P3 ≥ 8 identycznie.
