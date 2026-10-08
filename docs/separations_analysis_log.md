@@ -2265,3 +2265,6 @@ Dalej L = 128 / 150 / 196 (`j1750_sliding_L.jl 128 150 196`): przyjęte 323/904,
 piki na krawędzi 266 / 254 / 66. Przy L = 128 i 150 ślad w części okien ucieka na krawędź (P3 > L/3), przy L = 196 prawie nie.
 Ślad przy L = 196: ~45–50 (pulsy 150–320), ~36–48 (550–640), ~38 (690–820), ~60–70 (840–910), ~27–29 (pojedyncze odcinki).
 Wybór: L = 196 (= window_length(49)).
+Dłuższe L = 256 / 384 / 512: przyjęte 502/776, 532/648, 428/520; mediana P3 48.7 / 45.6 / 44.8; krawędź 55 / 0 / 0.
+L = 256: ślad 50–65 (130–350), ~42–48 (500–820), ~58 (850–900) — zmiany z L = 196 wygładzone, ale obecne.
+L = 384/512: tylko dwa poziomy, ~52–55 (pierwsza połowa) i ~44 (druga), przejście ~ puls 480–500; skok ~38 → ~65 przy ~830 znika.
