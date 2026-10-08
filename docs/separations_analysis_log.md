@@ -2366,3 +2366,25 @@ Maska: |s(n)| ≥ q95 |s| z 10 shuffle (ten sam szablon i filtr). P3(n) z maską
 - Ograniczenie: |s| spada też, gdy lokalne P3 odchodzi od f3 w stronę f_c (tłumienie filtra) — J1750 ~800–890
   (sLRFS P3 ≈ 60–65) jest zamaskowane, więc maska wycina właśnie zmiany P3. Próg q95 bardzo ostry przy słabej modulacji
   (J1001 74%, J1946 69%).
+
+## 2026-10-08 — coherent_fold: poprawiona maska (adaptacyjna nośna, próg q50, brzegi)
+
+Skrypt `~/claude/work/scripts/coherent_mask2.jl` (+ `_common.jl` dla RMS na wspólnych oknach), wykresy
+`figures/cohfc/<PSR>_mask2.png`. C = demodulacja przy fazie z poprzedniego przebiegu (2 iteracje, faza interpolowana
+liniowo przez zamaskowane odcinki), próg = mediana |s| z nulla (tą samą procedurą), pominięte 1/(2 f_c) pulsów na brzegach.
+Normalizacja |s| przez tłumienie filtra odrzucona: szum nie jest tłumiony, więc S/N fazy by się nie poprawiło.
+
+| PSR | maska B/C | pokrycie sLRFS B/C | RMS A/B/C (wspólne okna) | poza zakr. A/B/C | ΔR² fold stała/adapt. |
+|---|---|---|---|---|---|
+| J0818-3232 | 52/10% | 76/100% | 0.39/0.44/0.46 (35) | 0/0/0 | 0.066/0.066 |
+| J1001-5559 | 74/27% | 38/98% | 0.50/0.53/0.52 (14) | 0/0/0 | 0.075/0.076 |
+| J0034-0721 | 26/25% | 95/93% | 0.37/0.37/0.38 (203) | 0/0/0 | 0.023/0.019 |
+| J1825+0004 | 45/16% | 91/97% | 0.91/0.84/0.84 (453) | 0/0/0 | 0.008/0.007 |
+| J1946+1805 | 69/36% | 60/100% | 2.20/2.52/1.58 (129) | 11.2/0/9.3% | 0.032/0.049 |
+| J1750-3503 | 28/16% | 84/100% | 6.64/6.47/5.84 (381) | 1.4/0/0 | 0.010/0.012 |
+
+- Na wspólnych oknach A ≈ B ≈ C: maska nie poprawia dokładności, tylko usuwa punkty o złej dokładności.
+  C: to samo przy pokryciu 93–100% i bez zer |s| (J1750 min |s| 0.0 → 0.3 przy ~100), lepiej dla J1750 i J1946.
+- Fold: adaptacyjna nośna ≈ stała (ΔR² w szumie), poza J1946 (natężenie).
+- J1750 ~830–900: coherent P3 ≈ 35, sLRFS ≈ 65, |s| ma minimum. Hipoteza: odwrócenie dryfu (Szary+2022) — przy
+  odwróconym nachyleniu ψ(φ) rzut na szablon wybiera drugą wstęgę; sLRFS widzi tylko |f|. Do sprawdzenia.
