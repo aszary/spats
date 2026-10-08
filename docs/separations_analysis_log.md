@@ -2253,3 +2253,11 @@ z, zblk, Lb, rho1, p3; wykresy `~/claude/work/figures/pairshift_batch_v2/`):
   i/lub strzałka czasu przy k = 1 widziana przez sesję flow). Próg: 2.5 → 6 P3-only, 3 → 0.
 - Kierunek z P3Track: 92 zgodne, 2 przeciwne (J1741-0840, J1614+0737).
 `docs/subpulse_methods.md` przepisany na v2 (§0, §4.1–4.3, §5, §7 pkt 9).
+
+## 2026-10-08 — J1750-3503: sliding LRFS przy L = 4, 8, 16, 32, 64
+
+Skrypt `~/claude/work/scripts/j1750_sliding_L.jl` (P3Track: `sliding_lrfs`, `p3_track`, `contrast_null`, `good_windows`),
+wykresy `~/claude/work/figures/sliding_L/J1750-3503_sLRFS_L??.png` (góra: P3 każdego okna, środek: pulsy, dół: sLRFS).
+P3 z params.json = 49 P > L/2 dla wszystkich L, więc główny dryf jest niewidoczny (moc przy f < fmin).
+Przyjęte okna: L4 0/1028, L8 0/1024, L16 3/1016 (P3 ≈ 3.9), L32 6/1000 (≈ 6.4), L64 39/968 (≈ 14, 17–22 przy pulsach ~200–370).
+Długie P3 da się zmierzyć dopiero przy L ≳ 150 (window_length(49) = 196).
