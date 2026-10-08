@@ -100,7 +100,8 @@ nie — generator jest uboższy niż dane (do kalibracji).
 4. Dwa kolejne przebiegi z nośną podążającą za fazą z poprzedniego — zmiany P3 nie są tłumione przez filtr.
 5. Z P3(n) wypadają: impulsy o |s| poniżej mediany z danych przetasowanych (`threshold_q`), nulle wykryte z energii
    (`split_nulls`) i brzegi 1/(2 f_c). Fold używa wszystkich impulsów.
-6. P3(n) z nachylenia fazy (regresja ważona |s|²) w oknie 1/(2 f_c), osobno w każdym ciągłym odcinku; błędy z
+6. P3(n) z nachylenia fazy (regresja ważona |s|²) w oknie max(1/(2 f_c), 3·P3), osobno w każdym ciągłym odcinku;
+   wartości poza [2, 3·P3] odrzucane (pojedynczy punkt −700 w J1919+0134); błędy z
    `n_groups` niezależnych zakresów długości.
 
 ## Implementacja (funkcje `_agent`)
@@ -159,7 +160,8 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
    Do sprawdzenia: nośna startowa z lokalnego P3 (ślad sLRFS) zamiast stałego f3; test zgodności P3(n) ze sLRFS.
 1. **Okno P3(n) niezależne od f_c** — ograniczyć okno regresji i brzegi do ~2–3·P3. Teraz przy auto f_c = f3/16
    (stałe P3) okno i brzegi to 8·P3; przy częstych nullach pokrycie spada do zera (syntetyk #161). Odwrotnie przy
-   małym P3 i f_c = f3/3: okno 1.5·P3 ≈ 5 P i P3(n) szarpie się z puls na puls (#78, #92, #199).
+   małym P3 i f_c = f3/3: okno 1.5·P3 ≈ 5 P i P3(n) szarpie się z puls na puls (#78, #92, #199) — częściowo
+   naprawione (okno ≥ 3·P3); J1041/J1056 (P3 ≈ 4) nadal poszarpane w krótkich odcinkach.
 2. **Osobne f_c dla P3(n)** — auto f_c optymalizuje fold; przy wędrówce P3 ≳ 20% potrzeba f_c ≈ f3/3, a dobór
    wybierał mniej w 6/56 przypadków (faza gubiona, #58). Np. f_c dla P3(n) ≥ rozrzut P3 z pierwszego przebiegu lub ze
    śladu sLRFS.

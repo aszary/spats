@@ -596,9 +596,11 @@ pulses. Computed within each continuous run of `keep` pulses only: the phase
 is unwrapped and the slope fitted without crossing a gap, because the number
 of P3 cycles inside a gap is unknown (a gap of ~P3 pulses makes it
 ambiguous, J1750-3503) — across a gap P3(n) may jump, it is not interpolated.
-NaN outside `keep` and where a run has too few pulses in the window.
+NaN outside `keep`, where a run has too few pulses in the window, and where
+the result falls outside `bounds` (a slope ≈ 0 or < 0 in a short stretch gave
+P3 ≈ −700, J1919+0134).
 """
-function _weighted_p3(s, carrier, keep, window)
+function _weighted_p3(s, carrier, keep, window; bounds=(2.0, Inf))
     N = length(s)
     out = fill(NaN, N)
     wt = abs2.(s)
@@ -620,7 +622,8 @@ function _weighted_p3(s, carrier, keep, window)
             hi - lo + 1 < max(5, h ÷ 2) && continue
             x = Float64.(run[lo:hi]); y = ph[lo:hi]; w = wt[run[lo:hi]]
             xm = sum(w .* x) / sum(w); ym = sum(w .* y) / sum(w)
-            out[t] = 2π / (sum(w .* (x .- xm) .* (y .- ym)) / sum(w .* (x .- xm) .^ 2))
+            v = 2π / (sum(w .* (x .- xm) .* (y .- ym)) / sum(w .* (x .- xm) .^ 2))
+            out[t] = bounds[1] ≤ v ≤ bounds[2] ? v : NaN
         end
         i = j + 1
     end
@@ -673,14 +676,17 @@ function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshol
     s, carrier = _carrier_track(X, p3, cutoff; filter_order=filter_order, niter=niter, threshold=thr0)
     thr = niter == 0 ? thr0 : _shuffle_level(X, p3, cutoff; filter_order=filter_order, niter=niter,
                                              threshold=thr0, nshuffle=nshuffle, q=threshold_q)
-    window = max(4, round(Int, 1 / (2cutoff)))
+    # filtfilt edges: 1/(2 f_c); regression window at least 3·P3 — at f_c ≈ f3/3 the
+    # 1/(2 f_c) ≈ 1.5·P3 window (5–10 P for P3 ≈ 4) made P3(n) jitter pulse to pulse
+    nedge = max(4, round(Int, 1 / (2cutoff)))
+    window = max(nedge, round(Int, 3p3))
     edge = falses(N)
-    edge[1:min(N, window)] .= true
-    edge[max(1, N - window + 1):N] .= true
+    edge[1:min(N, nedge)] .= true
+    edge[max(1, N - nedge + 1):N] .= true
     keep = (abs.(s) .>= thr) .& .!edge
     exclude === nothing || (keep .&= .!exclude)
     return (s=s, carrier=carrier, keep=keep, threshold=thr, window=window,
-            p3=_weighted_p3(s, carrier, keep, window))
+            p3=_weighted_p3(s, carrier, keep, window; bounds=(2.0, 3p3)))
 end
 
 
@@ -706,7 +712,7 @@ end
      then never reach the |s| threshold, while |s| dips inside them flip the
      phase (single P3(n) spikes → ∞ on synthetic data);
   4. P3(n) from the slope of the total phase, weighted by |s|², over
-     1/(2 f_c) pulses, within each continuous run of used pulses (no
+     max(1/(2 f_c), 3·P3) pulses (values outside [2, 3·p3] → NaN), within each continuous run of used pulses (no
      unwrapping or fitting across a gap: the number of cycles in a gap is
      unknown, so P3(n) may jump there).
 

@@ -2537,3 +2537,8 @@ Wybór: Song+23 drift i pairshift v2 |z_blk| ≥ 5 albo (≥ 3 i werdykt P3Track
   odcinka), psuje skalę wykresu. Potrzebne odrzucanie P3 ≤ 0 i wartości spoza rozsądnego zakresu.
 - Małe P3 (J1041 4.3, J1056 4.0; f_c ≈ f3/3, okno ~6 P): P3(n) szarpie się 2–8 w krótkich kawałkach — jak w
   syntetykach; okno ≥ 3·P3 (wariant C) by to wygładziło.
+Poprawki w `coherent_fold_agent` (`_variant_c`, `_weighted_p3`): okno regresji P3(n) = max(1/(2 f_c), 3·P3) (brzegi
+nadal 1/(2 f_c)); P3(n) poza [2, 3·P3] → NaN. Ponownie 10 pulsarów (`real10_agent_v2.jl`, `figures/agent_real10_v2/`):
+J1919 — punkt −700 usunięty, wykres czytelny (zostaje pik ~19 przy pulsie ~120, w granicach); J1041 q05–q95
+3.59–5.54 → 3.69–5.38, J1056 3.04–6.25 → 3.11–5.88 — nadal poszarpane, bo odcinki są krótkie (dużo pulsów poniżej
+progu |s|), a 3·P3 ≈ 12 P to wciąż mało; pozostałe bez zmian.
