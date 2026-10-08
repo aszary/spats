@@ -175,5 +175,7 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
    odróżnić okresowe nulle od przypadkowych.
 6. **Generator syntetyków** — dopasować do danych (LRFS, S/N, rozrzut fazy J0034/J1750), bo Kalman działa na
    syntetykach, a na danych nie.
+6b. **Piki P3(n) na początku odcinków** (J1137 ~23, J1655 ~19, J1056 ~9). Odrzucanie punktów z jednostronnym oknem
+   sprawdzone i odrzucone — zbyt duża utrata pokrycia (J1056 69 → 25%), piki tylko częściowo znikają.
 7. **Inne** — odróżnienie natężenia od dryfu (κ / widmo energii z progiem per pulsar); osobne P3 dla trybów
    (J1825, J0034); reguła f_c z rozrzutu śladu sLRFS (80–100% optimum w 6/8 pulsarach) jako alternatywa dla CV.

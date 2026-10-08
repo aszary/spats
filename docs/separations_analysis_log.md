@@ -2573,3 +2573,6 @@ Lista `~/claude/work/random10_drift_b.txt`, skrypt `real10b_agent.jl`, wykresy `
 - Nowy wzorzec artefaktu: piki na POCZĄTKU odcinka — J1137 (~23 przy pulsie ~505), J1655 (~19 przy ~420); też
   J1056 (~9 przy ~545). Okno regresji na brzegu odcinka jest jednostronne. Możliwa poprawka: odrzucać P3(n) w
   pierwszych/ostatnich ~h pulsach każdego odcinka (lub wymagać ≥ h/2 pulsów po obu stronach).
+Test: odrzucanie P3(n) na brzegach odcinków (`edge_check.jl`, `figures/agent_edge/`) — ODRZUCONE, kod cofnięty.
+≥ h/2 pulsów z każdej strony: piki J1137 23 → 14, J1655 19 → 15, ale pokrycie J1655 67 → 41%, J1056 69 → 25%.
+≥ h/4: piki zostają (J1137 20, J1655 17), pokrycie J1655 55%, J1056 47%. Piki nie są wyłącznie efektem brzegu.
