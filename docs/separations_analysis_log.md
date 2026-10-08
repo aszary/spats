@@ -2559,3 +2559,6 @@ Wprowadzone: okno regresji P3(n) = max(1/(2 f_c), 3·P3, 30 P) (`_variant_c`). 1
 `figures/agent_real10_v3/`): J1041 q05–q95 3.69–5.38 → 3.72–4.95, J1056 3.11–5.88 → 3.11–5.59, J1919 5.70–8.19 →
 5.99–7.98 (pik przy ~120: 19 → 13), pozostałe bez zmian. J1041/J1056: krótkie odcinki (poniżej progu |s|) dają teraz
 płaskie kreski zamiast szarpania; więcej ciągłości daje threshold_q = 0.3.
+threshold_q = 0.3 dla J1041/J1056 (`q03_two.jl`, `figures/agent_real10_v3/sheet_q03.png`): J1041 pokrycie 55 → 82%,
+odcinków 36 → 30, σ 0.15 → 0.11, zakres bez zmian (3.8–4.9); J1056 69 → 88%, odcinków 39 → 23, ciągłe fragmenty
+100–200 P z wolnymi wahaniami 3–5.5; pojedynczy pik ~9 przy pulsie ~545 (krawędź odcinka). Fold identyczny.
