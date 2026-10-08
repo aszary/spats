@@ -2562,3 +2562,14 @@ płaskie kreski zamiast szarpania; więcej ciągłości daje threshold_q = 0.3.
 threshold_q = 0.3 dla J1041/J1056 (`q03_two.jl`, `figures/agent_real10_v3/sheet_q03.png`): J1041 pokrycie 55 → 82%,
 odcinków 36 → 30, σ 0.15 → 0.11, zakres bez zmian (3.8–4.9); J1056 69 → 88%, odcinków 39 → 23, ciągłe fragmenty
 100–200 P z wolnymi wahaniami 3–5.5; pojedynczy pik ~9 przy pulsie ~545 (krawędź odcinka). Fold identyczny.
+
+## 2026-10-08 — kolejne 10 losowych pewnych dryferów (seed 20261009)
+
+Lista `~/claude/work/random10_drift_b.txt`, skrypt `real10b_agent.jl`, wykresy `figures/agent_real10b/` (domyślne).
+- Fold: wyraźna poprawa (ukośne pasma zamiast rozmytych/poziomych) J0820-1350, J0934-5249, J1137-6700, J1655-3048,
+  J1811-0154, J1049-5833; J1921+2153, J1042-5521 umiarkowanie; J1435-5954 (S/N 2.7) i J1927+1852 (S/N 1.5) — słabo.
+- P3(n) gładkie: J0820 4.4–5.0, J0934 3.4–4.5, J1921 3.7–5.2, J1435 8.3–10.5; J1049 (37% nulli) w kawałkach 2.3–2.55;
+  J1042 (P3 2.5) i J1811 (S/N 1.4) — krótkie kawałki; J1927 — 21% pokrycia.
+- Nowy wzorzec artefaktu: piki na POCZĄTKU odcinka — J1137 (~23 przy pulsie ~505), J1655 (~19 przy ~420); też
+  J1056 (~9 przy ~545). Okno regresji na brzegu odcinka jest jednostronne. Możliwa poprawka: odrzucać P3(n) w
+  pierwszych/ostatnich ~h pulsach każdego odcinka (lub wymagać ≥ h/2 pulsów po obu stronach).
