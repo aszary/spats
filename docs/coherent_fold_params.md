@@ -61,13 +61,15 @@ Poprawka (`coherent_mask2.jl`): adaptacyjna nośna (demodulacja przy fazie z pop
 próg = mediana nulla, brzegi 1/(2 f_c) pominięte. Maskuje 10–36% pulsów, pokrycie śladu sLRFS 93–100%, brak zer |s|.
 Na wspólnych oknach dokładność A ≈ B ≈ C (maska nie poprawia pomiaru, tylko usuwa złe punkty); C lepsze dla J1750
 (RMS 6.6 → 5.8) i J1946. Fold bez zmian. J1750 ~830–900: coherent P3 ≈ 35 vs sLRFS ≈ 65 przy minimum |s| —
-hipoteza: odwrócenie dryfu (rzut na szablon wybiera drugą wstęgę).
+hipoteza: odwrócenie dryfu (rzut na szablon wybiera drugą wstęgę). Sprawdzone z subtrack (`j1750_reversal_check.jl`):
+pasuje dla 40–110 (D ≈ −0.5 °/P, moc w lustrzanej wstędze), nie pasuje dla 800–900 (D ≈ +0.2); statystycznie
+nieistotne (AUC 0.67, null 0.49 ± 0.16). Minimum |s| nie jest wiarygodnym wskaźnikiem odwrócenia.
 
 ## Wnioski i otwarte sprawy
 
 - Domyślne `lowpass_cutoff = 1/300` w `p3fold_coherent` jest za niskie dla P3 ≲ 15. f_c skalować z f3:
   zakres **0.1–0.33·f3**; stała wartość awaryjna f3/5; najlepiej automatycznie: max ΔR² w [f3/16, f3/3].
 - Reguła z rozrzutu śladu sLRFS (f_c = 1.3·q90|Δf|) daje 80–100% optimum w 6/8 pulsarach (J0034 tylko ~50%).
-- Do zrobienia: sprawdzić hipotezę odwróceń dryfu w minimach |s| (J1750); odróżnienie
+- Do zrobienia: odróżnienie
   natężenia od dryfu (κ / widmo energii z progiem kalibrowanym per pulsar); osobne P3 dla trybów (J1825, J0034).
 - Kod w `spats.jl` / `modules/` bez zmian — tylko skrypty testowe.

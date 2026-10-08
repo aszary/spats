@@ -2388,3 +2388,17 @@ Normalizacja |s| przez tłumienie filtra odrzucona: szum nie jest tłumiony, wi�
 - Fold: adaptacyjna nośna ≈ stała (ΔR² w szumie), poza J1946 (natężenie).
 - J1750 ~830–900: coherent P3 ≈ 35, sLRFS ≈ 65, |s| ma minimum. Hipoteza: odwrócenie dryfu (Szary+2022) — przy
   odwróconym nachyleniu ψ(φ) rzut na szablon wybiera drugą wstęgę; sLRFS widzi tylko |f|. Do sprawdzenia.
+
+## 2026-10-08 — J1750-3503: minima |s| coherent_fold vs odwrócenia dryfu (subtrack)
+
+Skrypt `~/claude/work/scripts/j1750_reversal_check.jl`, wykres `figures/cohfc/J1750-3503_reversal_check.png`.
+D(n) z subtrack (domyślne; D₊ 0.395, D₋ −0.338 °/P, D > 0 w 74% pokrytego czasu — zgodne z Szary+2022), mediana ±10 P.
+Dwie wstęgi przy f_c = 1/147: s₊ (demodulacja przy +f3, szablon), s₋ (przy −f3, lustro); R = |s₋|²/(|s₊|²+|s₋|²).
+
+- Całość: D < 0 (254 P) vs D > 0 (694 P): R 0.38 vs 0.28, AUC 0.67; |s₊| 0.60 vs 0.76, AUC 0.63. Null (przesunięcia
+  cykliczne D): AUC 0.49 ± 0.16 → różnica nieistotna (z ≈ 1); tylko ~7 epizodów D < 0.
+- Pulsy 40–110 (zjazd P3(n) przy ~100): D ≈ −0.5 °/P, R → 1, |s₊| → 0 — zgodne z hipotezą (moc w lustrzanej wstędze).
+- Pulsy 800–900 (coherent P3 ≈ 35 vs sLRFS ≈ 65): D przeważnie > 0 (mediana +0.19 °/P, D < 0 tylko ~865–880), R ≈ 0.3–0.5.
+  Hipoteza „odwrócenie dryfu” tu NIE pasuje; raczej wolny dryf (D ≈ 0.2) / przejście, gdzie obie wstęgi porównywalne.
+- Epizody D < 0 przy wysokim |s₊| (680–720, 980–1030) — przeciw hipotezie.
+Wniosek: minimum |s₊| bywa odwróceniem (40–110), ale nie jest jego wiarygodnym wskaźnikiem.
