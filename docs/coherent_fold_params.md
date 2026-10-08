@@ -92,52 +92,77 @@ Pasma dryfu ze znaną fazą: P3 ∈ {6, 15, 45}, P3(n) stałe / wędrówka ±20%
 Auto f_c to główny zysk; Kalman lepiej śledzi fazę, ale fold zyskuje mało. Na syntetykach Kalman działa, na danych
 nie — generator jest uboższy niż dane (do kalibracji).
 
-## Wariant C w skrócie
+## Wariant C w skrócie (stan obecny `coherent_fold_agent`)
 
 1. Szablon cyklu dryfu z całej obserwacji (bin FFT przy f3).
 2. Każdy impuls rzutowany na szablon → liczba zespolona: kąt = faza w cyklu, długość = wyrazistość.
-3. Demodulacja i wygładzenie sąsiednich impulsów (f_c ≈ 0.1–0.33·f3, auto).
-4. Drugi przebieg z nośną podążającą za fazą z pierwszego — zmiany P3 nie są tłumione przez filtr.
-5. Impulsy o amplitudzie poniżej mediany z danych przetasowanych i brzegi 1/(2 f_c) nie wchodzą do P3(n).
-6. P3(n) z nachylenia fazy (regresja ważona |s|²) w oknie 1/(2 f_c).
+3. Demodulacja i wygładzenie sąsiednich impulsów, f_c automatyczne (f3/16 … f3/3).
+4. Dwa kolejne przebiegi z nośną podążającą za fazą z poprzedniego — zmiany P3 nie są tłumione przez filtr.
+5. Z P3(n) wypadają: impulsy o |s| poniżej mediany z danych przetasowanych (`threshold_q`), nulle wykryte z energii
+   (`split_nulls`) i brzegi 1/(2 f_c). Fold używa wszystkich impulsów.
+6. P3(n) z nachylenia fazy (regresja ważona |s|²) w oknie 1/(2 f_c), osobno w każdym ciągłym odcinku; błędy z
+   `n_groups` niezależnych zakresów długości.
 
 ## Implementacja (funkcje `_agent`)
 
 - `P3FoldViterbi.auto_cutoff_agent(data, p3, bin_st, bin_end; ybins, grid, nshuffle)` — f_c = max ΔR² (CV po
   długości − null z tasowania) w f3·{1/16, 1/10, 1/8, 1/6, 1/4, 1/3}.
 - `P3FoldViterbi.coherent_fold_agent(data, p3, bin_st, bin_end; ybins, lowpass_cutoff=:auto, niter=2, n_groups=4,
-  threshold_q=0.5, split_nulls=true)` —
-  fold i P3(n) wariantu C; P3(n) = NaN poza pulsami z fazą, błędy z `n_groups` zakresów długości.
-- `SpaTs.p3fold_coherent_agent(outdir; datafile, plotdir, name_mod, figtitle, lowpass_cutoff=:auto)` — odpowiednik
-  `p3fold_coherent` bez okien, wykres `<name_mod>_p3fold_compare.pdf/.png`.
+  threshold_q=0.5, split_nulls=true)` — fold i P3(n) wariantu C; zwraca też `used`, `nulls`, `amplitude`,
+  `lowpass_cutoff`, `cutoff_score`.
+- `SpaTs.p3fold_coherent_agent(outdir; datafile, plotdir, name_mod, figtitle, lowpass_cutoff=:auto, threshold_q=0.5,
+  split_nulls=true)` — odpowiednik `p3fold_coherent` bez okien, wykres `<name_mod>_p3fold_compare.pdf/.png`.
+- `coherent_fold` i `p3fold_coherent` bez zmian.
 
-P3(n) liczone tylko w obrębie ciągłych odcinków użytych pulsów (bez rozwijania fazy i dopasowania przez przerwę —
-liczba cykli w przerwie ~P3 jest nieznana; wcześniej wszystkie skoki > 3 P w J1750 leżały przy przerwach, a wartości
-obok przerw różniły się do 17.5 P zależnie od tego założenia). `threshold_q` (0.5) = kwantyl |s| z tasowania jako próg;
-J1750: 0.5 → pokrycie 72%, 4 przerwy; 0.3 → 81%, 1 przerwa (468–525), szersze błędy w słabych odcinkach; 0.2 ≈ 0.3.
-Próg wpływa też lekko na fold (adaptacyjna nośna interpoluje fazę przez pulsy poniżej progu).
+Decyzje projektowe i ich uzasadnienie:
+- **Odcinki** — P3(n) bez rozwijania fazy i dopasowania przez przerwę: liczba cykli w przerwie ~P3 jest nieznana
+  (J1750: wszystkie skoki > 3 P leżały przy przerwach, wartości obok przerw zależały od założenia do 17.5 P).
+- **`threshold_q`** — J1750: 0.5 → pokrycie 72%, 4 przerwy; 0.3 → 81%, 1 przerwa, szersze błędy w słabych odcinkach.
+  Na syntetykach 0.3 bez przewagi. Próg wpływa lekko na fold (adaptacyjna nośna interpoluje przez pulsy poniżej progu).
+- **`split_nulls`** — energia uśredniona po 5 P, ułamek nulli 2·frac(Ē < 0), epizody ≥ 2 P. Uśrednianie konieczne:
+  z pojedynczych pulsów J1750 (S/N energii 1.6, bez nulli) wychodziło fałszywie 18% nulli. Wykrywa: J0034 31%,
+  J1750/J0818/J1825 0%. Usuwa piki P3(n) w krótkich nullach (syntetyki: RMS 6.7% → 3.8%); przy skoku fazy po każdym
+  nullu pomaga częściowo (15.5% → 12.3%), bo filtr nadal przechodzi przez null.
 
-Test (`~/claude/work/scripts/test_p3fold_coherent_agent.jl`): f_c J1750 1/147, J0034 1/66, J0818 1/35, J1825 1/142
-(zgodne z testami wyżej); P3(n) w 72–82% pulsów; czas 2–10 s na pulsar.
+Testy na danych: f_c J1750 1/147, J0034 1/66, J0818 1/35, J1825 1/142; P3(n) w 60–92% pulsów; 2–10 s na pulsar
+(`test_p3fold_coherent_agent*.jl`, `synth_agent_split.jl`).
 
-Benchmark syntetyczny (`synth_agent.jl`): P3(n) błąd 5.6% / pokrycie 94% (q = 0.5), bez nulli 2.1%, z nullami 15.5%.
-Błędy σ niedoszacowane (w ±2σ 75% zamiast 95%; bez nulli 90%). Słaby punkt: nulle krótsze niż okno filtra nie są
-maskowane przez próg |s|, a skok fazy po nullu przenosi się na P3(n).
+## Benchmark syntetyczny v2 (`synth2_bench.jl`, 200 losowych przypadków)
 
-Podział na nullach z energii (`split_nulls=true`, domyślnie): energia pulsu uśredniona po 5 pulsach, ułamek nulli
-2·frac(Ē < 0), epizody ≥ 2 P; pulsy z nulli wypadają z P3(n), odcinki dzielą się na nich. Uśrednianie jest konieczne:
-z pojedynczych pulsów J1750 (S/N energii 1.6, bez nulli) wychodziło fałszywie 18% nulli. Teraz: J1750, J0818, J1825 0%,
-J0034 31%, syntetyki z 30% nulli 23–25%, bez nulli 0%. Syntetyki (mediana RMS / pokrycie): nulle z zachowaną fazą
-0.067 → 0.038 / 0.84 → 0.64 (piki usunięte), nulle ze skokiem fazy 0.155 → 0.123 / 0.83 → 0.67 (wahania zostają —
-filtr przechodzi przez null), bez nulli bez zmian. J0034: P3(n) w burstach, q05–q95 6.2–7.6 → 6.3–7.1.
+P3 3–50, stałe / wędrówka 5–25% / skok ×0.7–1.4, nulle brak / krótkie / długie (skok fazy po nullu z p 0–1),
+S/N 0.8–8, różna geometria podpulsów, 15% AM.
 
-## Wnioski i otwarte sprawy
+| grupa | mediana błędu P3(n) | pokrycie | faza R |
+|---|---|---|---|
+| wszystkie | 1.5% | 70% | 0.87 |
+| stałe / wędrówka / skok | 0.5% / 2.4% / 1.7% | 69 / 64 / 76% | 0.96 / 0.74 / 0.88 |
+| bez nulli / krótkie nulle | 1.1% / 3.1% | 85 / 63% | 0.92 / 0.81 |
+| S/N < 1.5 | 2.1% | 61% | 0.75 |
+| AM | 3.4% | 53% | 0.76 |
 
-- Rekomendacja na teraz: fold — auto f_c (pewny, duży zysk), opcjonalnie Kalman i wyłączanie nulli (dla dryferów
-  z nullami; nie przy modulacji natężenia); P3(n) — wariant C, a tam, gdzie mierzy, ślad sLRFS (dokładniejszy).
-- Domyślne `lowpass_cutoff = 1/300` w `p3fold_coherent` jest za niskie dla P3 ≲ 15. f_c skalować z f3:
-  zakres **0.1–0.33·f3**; stała wartość awaryjna f3/5; najlepiej automatycznie: max ΔR² w [f3/16, f3/3].
-- Reguła z rozrzutu śladu sLRFS (f_c = 1.3·q90|Δf|) daje 80–100% optimum w 6/8 pulsarach (J0034 tylko ~50%).
-- Do zrobienia: kalibracja generatora syntetyków na danych; odróżnienie
-  natężenia od dryfu (κ / widmo energii z progiem kalibrowanym per pulsar); osobne P3 dla trybów (J1825, J0034).
-- Kod: nowe funkcje `_agent` (wyżej); `coherent_fold` i `p3fold_coherent` bez zmian.
+Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy σ: w ±2σ 77% (powinno 95%).
+
+## Wnioski
+
+- Fold: auto f_c zamiast 1/300 — pewny, duży zysk (syntetyki 0.68 → 0.85). Kalman lepiej śledzi fazę, ale fold zyskuje
+  mało (+0.01–0.03); na danych rzeczywistych P3(n) z Kalmana bezużyteczne.
+- P3(n): wariant C (`coherent_fold_agent`) — mediana błędu ~1.5% na syntetykach, gorzej przy krótkich nullach,
+  dużej wędrówce P3 i S/N < 1.5. Ślad sLRFS dokładniejszy tam, gdzie mierzy (~40% pulsów).
+- Miary ΔR² / Δr nie nadają się do porównywania metod o różnej sile śledzenia — rozstrzyga benchmark syntetyczny.
+
+## Ewentualne kroki do rozważenia
+
+1. **Okno P3(n) niezależne od f_c** — ograniczyć okno regresji i brzegi do ~2–3·P3. Teraz przy auto f_c = f3/16
+   (stałe P3) okno i brzegi to 8·P3; przy częstych nullach pokrycie spada do zera (syntetyk #161).
+2. **Osobne f_c dla P3(n)** — auto f_c optymalizuje fold; przy wędrówce P3 ≳ 20% potrzeba f_c ≈ f3/3, a dobór
+   wybierał mniej w 6/56 przypadków (faza gubiona, #58). Np. f_c dla P3(n) ≥ rozrzut P3 z pierwszego przebiegu lub ze
+   śladu sLRFS.
+3. **Kalibracja błędów σ** — niedoszacowane ~1.5× (w ±2σ 77%); empiryczny współczynnik lub inna metoda.
+4. **Osobna demodulacja w odcinkach między nullami** — żeby skok fazy po nullu nie przechodził przez filtr; sens
+   tylko dla odcinków ≳ 4·P3.
+5. **AM z głęboką modulacją** — fazy niskiej jasności wykrywane jako nulle (syntetyk #20: 40%); opisać lub
+   odróżnić okresowe nulle od przypadkowych.
+6. **Generator syntetyków** — dopasować do danych (LRFS, S/N, rozrzut fazy J0034/J1750), bo Kalman działa na
+   syntetykach, a na danych nie.
+7. **Inne** — odróżnienie natężenia od dryfu (κ / widmo energii z progiem per pulsar); osobne P3 dla trybów
+   (J1825, J0034); reguła f_c z rozrzutu śladu sLRFS (80–100% optimum w 6/8 pulsarach) jako alternatywa dla CV.
