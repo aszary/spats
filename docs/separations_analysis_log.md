@@ -2268,3 +2268,22 @@ Wybór: L = 196 (= window_length(49)).
 Dłuższe L = 256 / 384 / 512: przyjęte 502/776, 532/648, 428/520; mediana P3 48.7 / 45.6 / 44.8; krawędź 55 / 0 / 0.
 L = 256: ślad 50–65 (130–350), ~42–48 (500–820), ~58 (850–900) — zmiany z L = 196 wygładzone, ale obecne.
 L = 384/512: tylko dwa poziomy, ~52–55 (pierwsza połowa) i ~44 (druga), przejście ~ puls 480–500; skok ~38 → ~65 przy ~830 znika.
+
+## 2026-10-08 — test L z najdłuższego P3 w średnim LRFS (5 pulsarów)
+
+Skrypt `~/claude/work/scripts/p3track_Ltest.jl`: średnie LRFS (Welch, L0 = 256, krok 64), istotne piki = maksima lokalne
+f ≥ 3/L0 powyżej 99% maksimum kontrastu z globalnego shuffle (100×); L_new = window_length(P3_max), ≤ N/2.
+Wykresy `~/claude/work/figures/Ltest/`.
+
+| PSR | P3 params | piki śr. LRFS | L_par: przyjęte | L_new: przyjęte |
+|---|---|---|---|---|
+| J0034-0721 | 6.6 | 33.0, 7.3, 6.4, 6.1 | 26: 221/1017 | 132: 593/911 (305 z P3 > L_par/3) |
+| J1825+0004 | 14.2 | 36.6, 13.7 | 57: 517/984 | 146: 651/895 (83) |
+| J1750-3503 | 49 | 48.8 + słabe 13–26 | 196: 454/836 | 195: 482/837 |
+| J1001-5559 | 4.2 | 58.5, 42.7, 4.4, 4.2, 4.0 | 17: 40/1015 | 234: 364/798 (102) |
+| J0818-3232 | 5.8 | 5.5 | 23: 46/1007 | 22: 50/1008 |
+
+Wnioski: J1825 — reguła działa (reżim 32–60 po ~800 widoczny tylko przy L_new). J0034 i J1001 — najdłuższy pik to
+kwaziokresowość nulli/burstów (J0034 ~33, J1001 ~43–58), nie drugi tryb dryfu; L_new rośnie 5–14×. Przy długim L
+główne P3 jest śledzone stabilniej (J1001: 4.2 przez ~300 P zamiast pojedynczych okien), ale ślad miesza P3 dryfu z
+okresem nulli. Reguła „najdłuższy pik” wymaga odróżnienia modulacji natężenia (nulle) od dryfu przed użyciem.
