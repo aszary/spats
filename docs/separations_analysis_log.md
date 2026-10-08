@@ -2523,3 +2523,17 @@ P3 < 6: szarpanie (‰/puls) A 3.1, B 13.3, C 5.7 — B bezużyteczne; okno 3·P
 #156 (Δf skoku = 0.36 f3): przegapiony w A, B, C; D łapie kawałkami (P3 18.5–21), ale oscyluje między starym i nowym.
 Wniosek: samo wyższe f_c nie rozwiązuje przegapionych skoków — przy Δf ≳ f3/3 sygnał wychodzi z pasma, a f_c > f3/3
 wpuszcza przeciek −f3 / natężenia. Skuteczniejsze: nośna startowa z lokalnego P3 (np. ślad sLRFS) zamiast stałego f3.
+
+## 2026-10-08 — p3fold_coherent_agent na 10 losowych pewnych dryferach
+
+Wybór: Song+23 drift i pairshift v2 |z_blk| ≥ 5 albo (≥ 3 i werdykt P3Track drift); 104 kandydatów, losowo 10
+(seed 20261008, lista `~/claude/work/random10_drift.txt`). Skrypt `real10_agent.jl`, wykresy `figures/agent_real10/`.
+- Fold: wyraźna poprawa względem stałego P3 w J1232-4742, J1252-6314, J1539-6322, J1919+0134, J1041-1942
+  (rozmyte pasma → ostre ukośne pasma); J0421, J0932, J1311 (P3 ≈ 3) i J1056 (P3 4) — niewielka różnica;
+  J0818-3049 (P3 2.9, S/N 1.6) — brak widocznej struktury w obu.
+- P3(n): gładkie i wiarygodne dla J1232 (17–22), J1539 (10.8–13.5, spadek ~520–580), J1311, J0421, J0932
+  (te dwa mają tylko ~150 P); fragmentaryczne przy nullach (J1252, 19%).
+- Błąd: J1919 — pojedynczy punkt P3(n) ≈ −700 przy pulsie ~120 (nachylenie fazy ≈ 0 / ujemne w krótkim kawałku
+  odcinka), psuje skalę wykresu. Potrzebne odrzucanie P3 ≤ 0 i wartości spoza rozsądnego zakresu.
+- Małe P3 (J1041 4.3, J1056 4.0; f_c ≈ f3/3, okno ~6 P): P3(n) szarpie się 2–8 w krótkich kawałkach — jak w
+  syntetykach; okno ≥ 3·P3 (wariant C) by to wygładziło.
