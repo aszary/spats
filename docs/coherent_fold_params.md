@@ -77,11 +77,26 @@ Kalman (stan faza + częstotliwość, pomiar z(n) bez filtra, parametry z wiaryg
 Nulle wg energii (ułamek 2·frac(E<0)): lepszy fold dla dryferów z nullami (J0034, J0818), gorszy przy modulacji
 natężenia (J1946).
 
+## 6. Benchmark syntetyczny (`synth_benchmark.jl`, 36 przypadków)
+
+Pasma dryfu ze znaną fazą: P3 ∈ {6, 15, 45}, P3(n) stałe / wędrówka ±20% / skok ×1.3, nulle 0 / 30%, S/N 1.5 / 5.
+
+| metoda | fold (korelacja z prawdą) | faza R | P3(n) RMS / pokrycie |
+|---|---|---|---|
+| A f_c = 1/300 | 0.68 | 0.55 | — |
+| A f_c auto | 0.85 | 0.93 | — |
+| C auto | 0.85 | 0.93 | 0.056 / 94% |
+| Kalman (−nulle) | 0.86 (0.88) | 0.96 | q_θ = 0: 0.063 / 100%, nieskalibrowany |
+| sLRFS | — | — | 0.032 / 39% |
+
+Auto f_c to główny zysk; Kalman lepiej śledzi fazę, ale fold zyskuje mało. Na syntetykach Kalman działa, na danych
+nie — generator jest uboższy niż dane (do kalibracji).
+
 ## Wnioski i otwarte sprawy
 
 - Domyślne `lowpass_cutoff = 1/300` w `p3fold_coherent` jest za niskie dla P3 ≲ 15. f_c skalować z f3:
   zakres **0.1–0.33·f3**; stała wartość awaryjna f3/5; najlepiej automatycznie: max ΔR² w [f3/16, f3/3].
 - Reguła z rozrzutu śladu sLRFS (f_c = 1.3·q90|Δf|) daje 80–100% optimum w 6/8 pulsarach (J0034 tylko ~50%).
-- Do zrobienia: benchmark syntetyczny (zmienne P3, nulle) do oceny folda i P3(n); odróżnienie
+- Do zrobienia: kalibracja generatora syntetyków na danych; odróżnienie
   natężenia od dryfu (κ / widmo energii z progiem kalibrowanym per pulsar); osobne P3 dla trybów (J1825, J0034).
 - Kod w `spats.jl` / `modules/` bez zmian — tylko skrypty testowe.

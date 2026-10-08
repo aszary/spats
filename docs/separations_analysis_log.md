@@ -2426,3 +2426,21 @@ Miary folda: ΔR² i Δr = r_split − null (korelacja reszt folda pulsów parzy
 - Nulle wg energii: pomaga dryferom z nullami (J0034, J0818: Δr +0.09), szkodzi modulacji natężenia (J1946 0.29 → 0.17),
   bez wpływu J1001/J1750/J1825.
 Wniosek: miary ΔR²/Δr nie nadają się do porównywania metod o różnej „sile” śledzenia — potrzebny benchmark syntetyczny.
+
+## 2026-10-08 — benchmark syntetyczny: fold i P3(n) (36 przypadków)
+
+Skrypt `~/claude/work/scripts/synth_benchmark.jl`, wyniki `~/claude/work/bench_synth.csv`, wykresy `figures/bench/`.
+Generator: pasma dryfu (Gaussowskie podpulsy pod obwiednią, amplituda lognormal σ 0.5, jitter 1.5 bina, P2 = 30 binów),
+P3 ∈ {6, 15, 45} × {stałe, wędrówka ±20%, skok ×1.3} × nulle {0, 30% ze skokiem fazy} × S/N podpulsu {1.5, 5}; bez
+odwróceń. Prawda: θ(n), P3(n), fold z danych bez szumu.
+
+Fold (korelacja z prawdą, średnio): A 1/300 0.68 | A auto 0.85 | A auto −nulle 0.86 | C auto 0.85 | Kalman 0.86 |
+Kalman −nulle 0.88. Dokładność fazy R: 0.55 | 0.93 | – | 0.93 | 0.96 | – (Kalman: P3 = 45 0.97 vs 0.89, nulle 0.94 vs 0.89).
+P3(n) (mediana względnego RMS / pokrycie): C 0.056 / 94% | Kalman q_θ=0 0.063 / 100% (P3 = 45: 5.0, nulle: 0.36) |
+sLRFS 0.032 / 39%. Z nullami 30%: C 0.16, sLRFS 0.10. Kalibracja σ Kalmana std(z): mediana 1.74 (0.4–10).
+
+Wnioski: auto f_c to główny zysk (0.68 → 0.85); Kalman lepiej śledzi fazę (szczególnie długie P3 i nulle), ale fold
+zyskuje mało (+0.01–0.03); wyłączenie nulli +0.01. P3(n): sLRFS najdokładniejsze tam, gdzie mierzy (39% pulsów),
+C — najlepszy kompromis; Kalman nieskalibrowany. Na syntetykach Kalman zachowuje się rozsądnie, na danych
+rzeczywistych nie (q_ω na brzegu siatki) → generatorowi brakuje cech prawdziwych danych (AM, zmienność podpulsów
+między impulsami, harmoniczne); kolejny krok: kalibracja generatora na danych (statystyki LRFS, S/N).
