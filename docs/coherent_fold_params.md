@@ -119,6 +119,10 @@ Próg wpływa też lekko na fold (adaptacyjna nośna interpoluje fazę przez pul
 Test (`~/claude/work/scripts/test_p3fold_coherent_agent.jl`): f_c J1750 1/147, J0034 1/66, J0818 1/35, J1825 1/142
 (zgodne z testami wyżej); P3(n) w 72–82% pulsów; czas 2–10 s na pulsar.
 
+Benchmark syntetyczny (`synth_agent.jl`): P3(n) błąd 5.6% / pokrycie 94% (q = 0.5), bez nulli 2.1%, z nullami 15.5%.
+Błędy σ niedoszacowane (w ±2σ 75% zamiast 95%; bez nulli 90%). Słaby punkt: nulle krótsze niż okno filtra nie są
+maskowane przez próg |s|, a skok fazy po nullu przenosi się na P3(n) → do zrobienia: podział odcinków na nullach z energii.
+
 ## Wnioski i otwarte sprawy
 
 - Rekomendacja na teraz: fold — auto f_c (pewny, duży zysk), opcjonalnie Kalman i wyłączanie nulli (dla dryferów

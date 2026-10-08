@@ -2454,3 +2454,15 @@ J0034 1/66, J0818 1/35, J1825 1/142 — jak w coherent_fc_cv.jl; P3(n) mediana 4
 Poprawka (`test_p3fold_coherent_agent2.jl`, `j1750_p3n_gaps.jl`): P3(n) tylko w obrębie ciągłych odcinków; nowy
 parametr `threshold_q`. J1750 przed: 4 skoki > 3 P, wszystkie przy przerwach (96–111, 351–386, 468–525, 838–865).
 Po: q = 0.5 pokrycie 72%, 5 odcinków; q = 0.3 81%, 2 odcinki; J0034 82% / 13 odcinków, J0818 92% / 5, J1825 82% / 1.
+
+## 2026-10-08 — coherent_fold_agent na benchmarku syntetycznym
+
+Skrypt `~/claude/work/scripts/synth_agent.jl` (+ `synth_lib.jl`), wyniki `~/claude/work/bench_synth_agent.csv`,
+wykresy `figures/bench/agent_case*_p3.png`. Te same 36 przypadków co `synth_benchmark.jl`.
+- P3(n) (mediana względnego RMS / pokrycie): agent q=0.5 0.056 / 94% (jak stary C), q=0.3 0.059 / 96%, sLRFS 0.032 / 39%.
+  Bez nulli 0.021, z nullami 0.155. Fold i faza bez zmian (0.852 / 0.933).
+- Kalibracja σ: ułamek |P3 − prawda| ≤ 1σ / ≤ 2σ = 0.58 / 0.75 (idealnie 0.68 / 0.95); bez nulli 0.76 / 0.90,
+  z nullami 0.40 / 0.60 — błędy niedoszacowane głównie przy nullach.
+- Wszystkie 11 przypadków z RMS > 15% mają nulle; najgorsze przy S/N 5 (do 68%, P3 = 15 skok): pokrycie ~100%, czyli
+  nulle (średnio 15 P) nie są maskowane — |s| po filtrze (okno ~3·P3) nie spada w nich poniżej progu, a losowy skok
+  fazy po nullu rozmywa się w P3(n). Propozycja: dzielić odcinki P3(n) na nullach wykrytych z energii pulsów.
