@@ -2312,3 +2312,24 @@ jest zły — tło κ zależy od pulsara (szum: J1750 ~0.1, J0818 ~0.4). Strefa 
 J0959 (widoczne naprzemienne jasne/słabe odcinki ~50 P), J1626, J1001 oraz J1825 36.6 (wcześniej AM, Δψ 0.06).
 Kryterium „tylko E” oznaczyłoby J1825 36.6, J1626 62.1 i długie piki J0959. J1614 i J1905: długie piki bez energii,
 niskie κ — przy L_par prawie nic nie przechodzi (6 i 16 okien), natura długich P3 niejasna.
+
+## 2026-10-08 — coherent_fold: dobór lowpass_cutoff (f_c), kroswalidacja (10 pulsarów)
+
+Skrypt `~/claude/work/scripts/coherent_fc_cv.jl`, log `~/claude/work/logs/coherent_fc_cv.log`, wykres
+`~/claude/work/figures/cohfc/coherent_fc_cv.png`. Faza jak w `P3FoldViterbi.coherent_fold`, estymowana z binów A
+(naprzemienne bloki 4 binów on-pulse), fold na binach B i odwrotnie; R²_cv = wariancja międzygrupowa / całkowita −
+(ybins−1)/(N−1). Sam R²_cv rośnie monotonicznie do f_c → f3 (faza śledzi podpuls każdego pulsu = sortowanie pulsów,
+wspólne dla A i B), więc miara właściwa ΔR² = R²_cv − średnia z 10 shuffle kolejności pulsów. P3, ybins z params.json.
+Reguła: f_c = clamp(1.3·q90|f3_track − f3|, 2/N, f3/3) z przyjętych okien sLRFS przy L = window_length(P3).
+
+Wyniki (ΔR²; optimum w zakresie f_c ≤ f3/3):
+- J0034 opt. 0.07 f3 (1/100) 0.031; reguła 0.12 f3 → 0.015; powyżej 0.17 f3 ΔR² < 0 (gorzej niż null).
+- J1825 opt. 0.14 f3 (1/100) 0.009; reguła 0.20 f3 → 0.007; > 0.3 f3 spada do 0 i poniżej.
+- J0818 opt. 0.17 f3 0.069; reguła 0.31 → 0.064. J1001 plateau 0.08–0.5 f3 ~0.07; reguła 0.30 → 0.071.
+- J0959 rośnie do ~0.33–0.5 f3 (0.026); reguła 0.33 → 0.026. J1750 rośnie monotonicznie do f3 (0.33 f3: 0.010;
+  1/300 = 0.16 f3: 0.004; f3: 0.020), null ≈ 0. J1626 i J1946 rosną, skok powyżej 0.5 f3 (J1946 0.33 przy 0.9 f3).
+- J1905 ≈ 0 dla f_c ≤ f3/3, dodatnie tylko > 0.5 f3; J1614 ≤ 0 wszędzie (brak koherentnego sygnału).
+- Domyślne 1/300 = 0.02–0.05 f3 dla P3 ≈ 4–14: ΔR² 3–7× niższe niż przy optimum (J0818 0.011 vs 0.069).
+Wnioski: f_c skalować z f3, nie absolutnie; sensowny zakres 0.1–0.33 f3. Powyżej ~f3/2 do fazy przecieka modulacja
+natężenia (składowa przy −f3 po demodulacji; J1946/J1626 z nullami), a wzrost ΔR² nie musi oznaczać lepszego folda.
+Reguła sLRFS daje 80–100% optimum w 6/8 pulsarach z sygnałem; J0034 tylko połowę (Δf zawyżone przez tryb A i nulle).
