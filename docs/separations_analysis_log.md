@@ -2333,3 +2333,13 @@ Wyniki (ΔR²; optimum w zakresie f_c ≤ f3/3):
 Wnioski: f_c skalować z f3, nie absolutnie; sensowny zakres 0.1–0.33 f3. Powyżej ~f3/2 do fazy przecieka modulacja
 natężenia (składowa przy −f3 po demodulacji; J1946/J1626 z nullami), a wzrost ΔR² nie musi oznaczać lepszego folda.
 Reguła sLRFS daje 80–100% optimum w 6/8 pulsarach z sygnałem; J0034 tylko połowę (Δf zawyżone przez tryb A i nulle).
+Porównanie foldów (`~/claude/work/scripts/coherent_fc_compare.jl`, `figures/cohfc/<PSR>_fold_compare.png`): stałe P3 |
+f_c = 1/300 | optimum (≤ f3/3); wiersz „fold − profil” i P3(n). Przy 1/300 fold ≈ stały fold we wszystkich 6 pulsarach
+(P3(n) płaskie poza pojedynczymi skokami). Przy optimum:
+- J0034 (1/100): wyraźne ukośne pasma dryfu; P3(n) ma skoki do ~8 na granicach nulli (przeskok fazy między burstami).
+- J1750 (1/147): pasmo dryfu ostrzejsze niż przy 1/300 (stały fold rozmywa je w „V”); P3(n) 30–65; artefakt
+  (skok do ~20) przy pulsie ~100 — brzeg filtfilt / rozwijanie fazy.
+- J0818 (1/35), J1001 (1/34), J1825 (1/100): modulacja amplitudy składowych w przeciwfazie (J0818: 177° vs 183°;
+  J1001: 185° vs 175°; J1825: 174° vs ~177°), bez wyraźnego pochylenia — wygląda na AM, nie dryf.
+- J1946 (1/57): poziome pasy w całym profilu = modulacja natężenia (zgodne z flagą NAT dla piku 18.6 w teście L);
+  P3(n) 14–45 ze skokami — „poprawa” ΔR² to śledzenie nulli/burstów, nie dryfu.
