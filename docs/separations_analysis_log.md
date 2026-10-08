@@ -2444,3 +2444,10 @@ zyskuje mało (+0.01–0.03); wyłączenie nulli +0.01. P3(n): sLRFS najdokładn
 C — najlepszy kompromis; Kalman nieskalibrowany. Na syntetykach Kalman zachowuje się rozsądnie, na danych
 rzeczywistych nie (q_ω na brzegu siatki) → generatorowi brakuje cech prawdziwych danych (AM, zmienność podpulsów
 między impulsami, harmoniczne); kolejny krok: kalibracja generatora na danych (statystyki LRFS, S/N).
+
+## 2026-10-08 — implementacja: auto f_c i P3(n) wariantu C jako funkcje _agent
+
+`modules/p3fold_viterbi.jl`: `auto_cutoff_agent`, `coherent_fold_agent` (+ funkcje pomocnicze `_carrier_track`,
+`_variant_c` itd.); `spats.jl`: `p3fold_coherent_agent`. Stare funkcje bez zmian. Test
+`~/claude/work/scripts/test_p3fold_coherent_agent.jl` (wykresy `~/claude/work/figures/agent/`): f_c J1750 1/147,
+J0034 1/66, J0818 1/35, J1825 1/142 — jak w coherent_fc_cv.jl; P3(n) mediana 47.9 / 6.69 / 5.64 / 14.0, pokrycie 72–82%.

@@ -101,6 +101,18 @@ nie — generator jest uboższy niż dane (do kalibracji).
 5. Impulsy o amplitudzie poniżej mediany z danych przetasowanych i brzegi 1/(2 f_c) nie wchodzą do P3(n).
 6. P3(n) z nachylenia fazy (regresja ważona |s|²) w oknie 1/(2 f_c).
 
+## Implementacja (funkcje `_agent`)
+
+- `P3FoldViterbi.auto_cutoff_agent(data, p3, bin_st, bin_end; ybins, grid, nshuffle)` — f_c = max ΔR² (CV po
+  długości − null z tasowania) w f3·{1/16, 1/10, 1/8, 1/6, 1/4, 1/3}.
+- `P3FoldViterbi.coherent_fold_agent(data, p3, bin_st, bin_end; ybins, lowpass_cutoff=:auto, niter=2, n_groups=4)` —
+  fold i P3(n) wariantu C; P3(n) = NaN poza pulsami z fazą, błędy z `n_groups` zakresów długości.
+- `SpaTs.p3fold_coherent_agent(outdir; datafile, plotdir, name_mod, figtitle, lowpass_cutoff=:auto)` — odpowiednik
+  `p3fold_coherent` bez okien, wykres `<name_mod>_p3fold_compare.pdf/.png`.
+
+Test (`~/claude/work/scripts/test_p3fold_coherent_agent.jl`): f_c J1750 1/147, J0034 1/66, J0818 1/35, J1825 1/142
+(zgodne z testami wyżej); P3(n) w 72–82% pulsów; czas 2–10 s na pulsar.
+
 ## Wnioski i otwarte sprawy
 
 - Rekomendacja na teraz: fold — auto f_c (pewny, duży zysk), opcjonalnie Kalman i wyłączanie nulli (dla dryferów
@@ -110,4 +122,4 @@ nie — generator jest uboższy niż dane (do kalibracji).
 - Reguła z rozrzutu śladu sLRFS (f_c = 1.3·q90|Δf|) daje 80–100% optimum w 6/8 pulsarach (J0034 tylko ~50%).
 - Do zrobienia: kalibracja generatora syntetyków na danych; odróżnienie
   natężenia od dryfu (κ / widmo energii z progiem kalibrowanym per pulsar); osobne P3 dla trybów (J1825, J0034).
-- Kod w `spats.jl` / `modules/` bez zmian — tylko skrypty testowe.
+- Kod: nowe funkcje `_agent` (wyżej); `coherent_fold` i `p3fold_coherent` bez zmian.

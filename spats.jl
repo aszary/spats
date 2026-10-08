@@ -502,6 +502,52 @@ module SpaTs
 
 
     """
+    Non-interactive `p3fold_coherent` with a data-driven low-pass cutoff and a
+    variable-P3 track (`P3FoldViterbi.coherent_fold_agent`, docs/coherent_fold_params.md).
+
+    Differences from `p3fold_coherent`:
+      - `lowpass_cutoff=:auto` (default) picks f_c in [f3/16, f3/3] by
+        cross-validated fold quality minus a pulse-shuffle null
+        (`P3FoldViterbi.auto_cutoff_agent`); a number fixes it. The fixed
+        1/300 of `p3fold_coherent` is too slow for P3 ≲ 15 — the fold is then
+        practically the constant-P3 fold;
+      - P3(n) from "variant C": adaptive carrier (2 passes), pulses with no
+        usable phase (|s| below the shuffle median: nulls, weak stretches)
+        and the first/last 1/(2 f_c) pulses left out (NaN), slope of the
+        phase weighted by |s|²; errors from `n_groups` longitude sub-ranges;
+      - never opens a window (no `show_`).
+
+    Reads `datafile` and params.json from `outdir`, zaps as `p3fold_coherent`.
+    Figure: `<plotdir>/<name_mod>_p3fold_compare.pdf/.png`. Returns the
+    `coherent_fold_agent` result (incl. `lowpass_cutoff`).
+      p3fold_coherent_agent(vpmout*"J1750-3503"; plotdir="/home/psr/output/")
+    """
+    function p3fold_coherent_agent(outdir; ybins=nothing, lowpass_cutoff=:auto, filter_order=6, n_groups=4,
+                                   darkness=1.0, datafile="pulsar.debase.txt", plotdir=outdir,
+                                   name_mod="pulsar_coherent_agent", figtitle=nothing)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, datafile))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        yb   = isnothing(ybins) ? round(Int, p["p3_ybins"]) : ybins
+        p3   = Float64(p["p3"])
+        result = P3FoldViterbi.coherent_fold_agent(
+            data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
+            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups)
+        fc = result.lowpass_cutoff
+        println("Matched-filter SNR: $(round(result.snr, digits=1)), lowpass_cutoff = 1/$(round(1 / fc, digits=1)) " *
+                "($(round(fc * p3, digits=3)) f3), P3(n) measured in $(round(100 * count(isfinite, result.p3_per_pulse) / length(result.p3_per_pulse), digits=1))% of pulses")
+        folded_const = Tools.p3fold(data, p3, yb)
+        intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
+        Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, plotdir;
+                            bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
+                            name_mod=name_mod, show_=false, repeat_num=4,
+                            label="coherent fold (f\$_c\$ = 1/$(round(Int, 1 / fc)))",
+                            p3_per_pulse_err=result.p3_per_pulse_err, intensity=intensity, figtitle=figtitle)
+        return result
+    end
+
+
+    """
     Controlled comparison of `Tools.p3fold` (the "constant P3" naive fold
     used inside `p3fold_coherent`/`p3fold_refine`) against PSRSALSA's own
     `pfold -p3fold_norefine`, run on the *same* archive (`pulsar.debase.gg`)

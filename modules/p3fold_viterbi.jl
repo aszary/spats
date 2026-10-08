@@ -3,6 +3,7 @@ module P3FoldViterbi
 using Statistics
 using FFTW
 using DSP
+using Random
 
 # Background / design rationale: p3fold-refine-notes.md §3.1-3.2.
 #
@@ -454,6 +455,261 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
 
     return (folded=main.folded, phase=main.phase, bin=main.bin, p3_per_pulse=main.p3_per_pulse,
             snr=main.snr, p3_per_pulse_err=p3_per_pulse_err, phase_err=phase_err)
+end
+
+
+# ---------------------------------------------------------------------------
+# Agent variants: automatic low-pass cutoff and a variable-P3 track for
+# `coherent_fold` (tests and rationale: docs/coherent_fold_params.md).
+# ---------------------------------------------------------------------------
+
+"Spatial matched filter at f3 = 1/p3: conj of the full-length FFT bin k = round(N/p3) (as in `coherent_fold`)."
+function _template_weights(X::AbstractMatrix, p3::Real)
+    N = size(X, 1)
+    F = fft(X, 1)
+    k = clamp(round(Int, N / p3), 1, N ÷ 2)
+    return conj.(F[k+1, :])
+end
+
+function _lowpass(x::AbstractVector, cutoff::Real, order::Int)
+    respf = digitalfilter(Lowpass(cutoff), Butterworth(order); fs=1.0)
+    return filtfilt(respf, real.(x)) .+ im .* filtfilt(respf, imag.(x))
+end
+
+function _interp_lin(x, y, x0)
+    j = searchsortedlast(x, x0)
+    x[j] == x0 && return y[j]
+    return y[j] + (y[j+1] - y[j]) * (x0 - x[j]) / (x[j+1] - x[j])
+end
+
+"""
+    _carrier_track(X, p3, cutoff; filter_order, niter, threshold) -> (s, carrier)
+
+Demodulate the matched-filter series z = X·w at the carrier phase and low-pass
+it: s = LP(z·e^{−i·carrier}); total P3-phase = carrier + arg(s). With
+`niter = 0` the carrier is the constant-P3 ramp 2πn/p3 (`coherent_fold`).
+Each further pass moves the carrier onto the phase found so far (unwrapped
+over pulses with |s| ≥ `threshold`, linear across the rest), so a local P3
+far from p3 sits near zero frequency and is not attenuated by the filter.
+X must have its column means removed.
+"""
+function _carrier_track(X::AbstractMatrix, p3::Real, cutoff::Real; filter_order::Int=6,
+                        niter::Int=0, threshold=nothing)
+    N = size(X, 1)
+    n = collect(1:N)
+    z = X * _template_weights(X, p3)
+    carrier = (2π / p3) .* n
+    s = _lowpass(z .* exp.(-1im .* carrier), cutoff, filter_order)
+    for _ in 1:niter
+        keep = threshold === nothing ? trues(N) : abs.(s) .>= threshold
+        idx = findall(keep)
+        length(idx) < 3 && break
+        θ = DSP.unwrap(angle.(s[idx]))
+        carrier = carrier .+ [i ≤ idx[1] ? θ[1] : i ≥ idx[end] ? θ[end] : _interp_lin(idx, θ, i) for i in n]
+        s = _lowpass(z .* exp.(-1im .* carrier), cutoff, filter_order)
+    end
+    return s, carrier
+end
+
+"Quantile `q` of |s| for pulse-order shuffles (no P3 periodicity left) — the noise level of the demodulated amplitude."
+function _shuffle_level(X, p3, cutoff; filter_order=6, niter=0, threshold=nothing, q=0.5, nshuffle=5, seed=1)
+    rng = MersenneTwister(seed)
+    N = size(X, 1)
+    vals = Float64[]
+    for _ in 1:nshuffle
+        s, _ = _carrier_track(X[randperm(rng, N), :], p3, cutoff; filter_order=filter_order,
+                              niter=niter, threshold=threshold)
+        append!(vals, abs.(s))
+    end
+    return quantile(vals, q)
+end
+
+"Fraction of fluctuation variance of Y explained by folding with `phase` into `ybins`, minus the noise bias (ybins−1)/(N−1)."
+function _fold_r2(Y::AbstractMatrix, phase::AbstractVector, ybins::Int)
+    N = size(Y, 1)
+    b = [Int(floor(mod(phase[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
+    between = 0.0
+    for y in 1:ybins
+        idx = findall(==(y), b)
+        isempty(idx) && continue
+        between += length(idx) * sum(abs2, mean(Y[idx, :], dims=1))
+    end
+    return between / sum(abs2, Y) - (ybins - 1) / (N - 1)
+end
+
+"Interleaved blocks of 4 on-pulse bins: two halves with independent noise, both covering the whole profile."
+_bin_halves(nb::Int) = (A = [j for j in 1:nb if iseven((j - 1) ÷ 4)]; (A, setdiff(1:nb, A)))
+
+function _cv_r2(X, A, B, p3, cutoff, ybins, filter_order)
+    sc = 0.0
+    for (P, Q) in ((A, B), (B, A))
+        s, carrier = _carrier_track(X[:, P], p3, cutoff; filter_order=filter_order)
+        sc += _fold_r2(X[:, Q], carrier .+ angle.(s), ybins) / 2
+    end
+    return sc
+end
+
+
+"""
+    auto_cutoff_agent(data, p3, bin_st, bin_end; ybins=10, grid=(1/16, 1/10, 1/8, 1/6, 1/4, 1/3),
+                      filter_order=6, nshuffle=5, seed=2) -> NamedTuple
+
+Choose `lowpass_cutoff` for `coherent_fold` from the data. Candidates are
+f_c = g·f3 for g in `grid` (f3 = 1/p3): the cutoff must exceed the P3 wander
+|1/P3_local − f3| to follow it, and stay ≲ f3/3 — above that the −f3 image and
+the intensity modulation (nulls) leak into the phase.
+
+Score: cross-validated fold quality. The phase is estimated from one half of
+the on-pulse bins (interleaved blocks of 4), the other half is folded with
+it, and vice versa; the score is the fraction of fluctuation variance
+explained by the fold. Its mean over `nshuffle` pulse-order shuffles is
+subtracted: a fast cutoff lets the phase follow each pulse's own subpulse
+position, which "explains" variance in the other half too, but has nothing to
+do with the P3 periodicity (shuffling keeps it, destroys the periodicity).
+
+Returns: cutoff [cycles/P], grid (cutoffs tried), score (ΔR² per cutoff).
+On 10 pulsars the optimum fell at 0.07–0.33·f3; the fixed 1/300 of
+`p3fold_coherent` gave 2–6× lower ΔR² for P3 ≲ 15 (synthetic benchmark:
+fold correlation with the truth 0.68 → 0.85).
+"""
+function auto_cutoff_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                           ybins::Int=10, grid=(1/16, 1/10, 1/8, 1/6, 1/4, 1/3),
+                           filter_order::Int=6, nshuffle::Int=5, seed::Int=2)
+    X = data[:, bin_st:bin_end]
+    X = X .- mean(X, dims=1)
+    N = size(X, 1)
+    A, B = _bin_halves(size(X, 2))
+    cutoffs = [g / p3 for g in grid]
+    rng = MersenneTwister(seed)
+    perms = [randperm(rng, N) for _ in 1:nshuffle]
+    score = map(cutoffs) do fc
+        _cv_r2(X, A, B, p3, fc, ybins, filter_order) -
+            mean(_cv_r2(X[pp, :], A, B, p3, fc, ybins, filter_order) for pp in perms)
+    end
+    return (cutoff=cutoffs[argmax(score)], grid=cutoffs, score=score)
+end
+
+
+"Local P3 from the slope of the total phase (weighted by |s|²) over ±window/2 pulses, using only `keep` pulses; NaN elsewhere."
+function _weighted_p3(s, carrier, keep, window)
+    N = length(s)
+    idx = findall(keep)
+    out = fill(NaN, N)
+    length(idx) < 3 && return out
+    ph = fill(NaN, N)
+    ph[idx] = carrier[idx] .+ DSP.unwrap(angle.(s[idx]))
+    wt = abs2.(s)
+    h = max(2, window ÷ 2)
+    for i in idx
+        r = filter(j -> keep[j], max(1, i - h):min(N, i + h))
+        length(r) < max(5, h ÷ 2) && continue
+        x = Float64.(r); y = ph[r]; w = wt[r]
+        xm = sum(w .* x) / sum(w); ym = sum(w .* y) / sum(w)
+        out[i] = 2π / (sum(w .* (x .- xm) .* (y .- ym)) / sum(w .* (x .- xm) .^ 2))
+    end
+    return out
+end
+
+"Variant C on one on-pulse range: adaptive carrier, median-of-shuffles threshold, edges dropped."
+function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5)
+    N = size(X, 1)
+    thr0 = _shuffle_level(X, p3, cutoff; filter_order=filter_order, nshuffle=nshuffle)
+    s, carrier = _carrier_track(X, p3, cutoff; filter_order=filter_order, niter=niter, threshold=thr0)
+    thr = niter == 0 ? thr0 : _shuffle_level(X, p3, cutoff; filter_order=filter_order, niter=niter,
+                                             threshold=thr0, nshuffle=nshuffle)
+    window = max(4, round(Int, 1 / (2cutoff)))
+    edge = falses(N)
+    edge[1:min(N, window)] .= true
+    edge[max(1, N - window + 1):N] .= true
+    keep = (abs.(s) .>= thr) .& .!edge
+    return (s=s, carrier=carrier, keep=keep, threshold=thr, window=window,
+            p3=_weighted_p3(s, carrier, keep, window))
+end
+
+
+"""
+    coherent_fold_agent(data, p3, bin_st, bin_end; ybins=10, lowpass_cutoff=:auto, filter_order=6,
+                        niter=2, nshuffle=5, n_groups=4) -> NamedTuple
+
+`coherent_fold` with (1) the low-pass cutoff chosen by `auto_cutoff_agent`
+(or a number), and (2) the P3(n) track of "variant C":
+
+  1. matched-filter series z(n) and demodulation at f3, low-pass f_c;
+  2. `niter` further passes with the carrier following the phase found so
+     far (adaptive carrier): a local P3 far from p3 is no longer attenuated
+     by the filter and |s| no longer drops to zero there;
+  3. pulses with |s| below the median |s| of pulse-order shuffles (no
+     usable phase: nulls, weak or ambiguous stretches) and the first/last
+     1/(2 f_c) pulses (`filtfilt` edges) are left out of P3(n) — not out of
+     the fold, whose bin assignment is modulo 2π;
+  4. P3(n) from the slope of the total phase, weighted by |s|², over
+     1/(2 f_c) pulses.
+
+Same on-pulse window and template as `coherent_fold`. Errors: P3(n) recomputed
+on `n_groups` contiguous longitude sub-ranges (independent noise), std/√n
+over the groups that give a value. A real phase jump within a null still
+shows up as a step in P3(n) next to the gap.
+
+Synthetic benchmark (36 cases, P3 6–45, wander/step, 30% nulls, S/N 1.5–5):
+relative P3(n) error 5.6% (median) at 94% coverage; fold correlation with
+the truth 0.85 (fixed 1/300: 0.68).
+
+Returns:
+  folded         – ybins × N_bins fold with the variant-C phase
+  phase, bin     – total P3-phase [rad] and fold bin per pulse
+  p3_per_pulse   – P3(n) [P], NaN where not measured
+  p3_per_pulse_err – 1σ from the longitude groups (NaN if < 2 groups)
+  used           – pulses that enter P3(n)
+  amplitude, threshold – |s(n)| and the shuffle level
+  lowpass_cutoff – cutoff used; cutoff_grid, cutoff_score (if :auto)
+  snr            – matched-filter detection significance (as `coherent_fold`)
+"""
+function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                             ybins::Int=10, lowpass_cutoff=:auto, filter_order::Int=6,
+                             niter::Int=2, nshuffle::Int=5, n_groups::Int=4)
+    N = size(data, 1)
+    on = bin_st:bin_end
+    if lowpass_cutoff === :auto
+        ac = auto_cutoff_agent(data, p3, bin_st, bin_end; ybins=ybins, filter_order=filter_order,
+                               nshuffle=nshuffle)
+        fc, grid, score = ac.cutoff, ac.grid, ac.score
+    else
+        fc, grid, score = Float64(lowpass_cutoff), nothing, nothing
+    end
+
+    X = data[:, on]
+    X = X .- mean(X, dims=1)
+    c = _variant_c(X, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle)
+    phase = c.carrier .+ angle.(c.s)
+    bin = [Int(floor(mod(phase[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
+    folded = build_template(data, bin, ybins)
+
+    # detection significance, as in coherent_fold
+    F = fft(data, 1)
+    k = clamp(round(Int, N / p3), 1, N ÷ 2)
+    L = F[k+1, :]
+    off = vcat(1:bin_st-1, bin_end+1:size(data, 2))
+    sigma_off = isempty(off) ? 0.0 : std([real.(L[off]); imag.(L[off])])
+    snr = sigma_off == 0 ? Inf : sqrt(sum(abs2, L[on])) / (sigma_off * sqrt(length(on)))
+
+    # errors from independent longitude sub-ranges
+    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+    gp3 = fill(NaN, n_groups, N)
+    for g in 1:n_groups
+        st, en = edges[g], edges[g+1] - 1
+        en - st < 2 && continue
+        Xg = data[:, st:en]
+        Xg = Xg .- mean(Xg, dims=1)
+        gp3[g, :] = _variant_c(Xg, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle).p3
+    end
+    p3_err = map(1:N) do i
+        v = filter(isfinite, @view gp3[:, i])
+        length(v) < 2 ? NaN : std(v) / sqrt(length(v))
+    end
+
+    return (folded=folded, phase=phase, bin=bin, p3_per_pulse=c.p3, p3_per_pulse_err=p3_err,
+            used=c.keep, amplitude=abs.(c.s), threshold=c.threshold, lowpass_cutoff=fc,
+            cutoff_grid=grid, cutoff_score=score, snr=snr)
 end
 
 end # module P3FoldViterbi
