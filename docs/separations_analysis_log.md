@@ -2478,3 +2478,22 @@ piki P3 → ∞ (RMS do 570% przy dobrym śladzie poza nimi). Podział odcinków
 Wprowadzone (`synth_agent_split.jl`, `null_energy_check.jl`): `split_nulls=true` w `coherent_fold_agent` /
 `p3fold_coherent_agent` (`_energy_nulls`: energia uśredniona po 5 P, Ritchings, epizody ≥ 2 P). Mediana 3 P dawała
 fałszywe 18% nulli dla J1750 (S/N energii 1.6) — średnia z 5 P: 0%. Wyniki w docs/coherent_fold_params.md.
+
+## 2026-10-08 — benchmark syntetyczny v2: 200 losowych konfiguracji, coherent_fold_agent (domyślne)
+
+Skrypty `~/claude/work/scripts/synth2_bench.jl` (+ `synth2_lib.jl`, `synth2_wander.jl`, `synth2_summary_fig.jl`), wyniki
+`~/claude/work/bench2.csv`, wykresy `figures/bench2/case*.png`, `summary.png`. Losowo: P3 3–50 (log), stałe / wędrówka
+5–25% (okres 150–600 P) / skok ×0.7–1.4, nulle brak / krótkie (10 P, 10–40%) / długie (50 P, 10–50%), skok fazy po nullu
+z p ∈ {0, 0.5, 1}, S/N 0.8–8 (log), P2 15–40, σ_sub 2–6, jitter 0.5–3; 15% AM. Czas 0.7 s/przypadek.
+
+Całość: mediana |błąd P3(n)| 1.5%, punkty z błędem > 20%: 4%, pokrycie 70%, w ±1σ/±2σ 60/77%, fold 0.75, R 0.87.
+Stałe 0.5%, wędrówka 2.4%, skok 1.7% (poziomy przed/po w ±5% prawdy: 61/78); bez nulli 1.1%, krótkie nulle 3.1%;
+S/N < 1.5: 2.1%, R 0.75, fold 0.52. AM: 3.4%, pokrycie 53%.
+Obejrzane problemy:
+- #161 (P3 44, stałe, krótkie nulle, S/N 8): fold idealny, pokrycie P3(n) 0% — auto f_c = f3/16 (najlepsze dla folda
+  przy stałym P3) → okno P3(n) i brzegi 1/(2 f_c) = 8·P3 = 352 P, dłuższe niż odcinki między nullami. Ogólnie okno
+  związane z f_c obniża pokrycie (brzegi).
+- Wędrówka ≥ ~20%: potrzebne f_c ≳ f3/3; 6/56 przypadków z auto f_c poniżej → śledzenie traci fazę (R 0.05–0.36, #58).
+- AM z głęboką modulacją (0.5 + 0.5 cos): fazy niskiej jasności wykrywane jako nulle (#20: 40%) — to w praktyce
+  okresowe nulle; AM ma też mniejsze pokrycie przez wyższy próg |s| z tasowania (#33).
+- Błędy σ nadal niedoszacowane (~1.5×).
