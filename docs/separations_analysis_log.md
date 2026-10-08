@@ -2261,3 +2261,7 @@ wykresy `~/claude/work/figures/sliding_L/J1750-3503_sLRFS_L??.png` (góra: P3 ka
 P3 z params.json = 49 P > L/2 dla wszystkich L, więc główny dryf jest niewidoczny (moc przy f < fmin).
 Przyjęte okna: L4 0/1028, L8 0/1024, L16 3/1016 (P3 ≈ 3.9), L32 6/1000 (≈ 6.4), L64 39/968 (≈ 14, 17–22 przy pulsach ~200–370).
 Długie P3 da się zmierzyć dopiero przy L ≳ 150 (window_length(49) = 196).
+Dalej L = 128 / 150 / 196 (`j1750_sliding_L.jl 128 150 196`): przyjęte 323/904, 387/882, 454/836; mediana P3 37.8 / 39.7 / 48.4;
+piki na krawędzi 266 / 254 / 66. Przy L = 128 i 150 ślad w części okien ucieka na krawędź (P3 > L/3), przy L = 196 prawie nie.
+Ślad przy L = 196: ~45–50 (pulsy 150–320), ~36–48 (550–640), ~38 (690–820), ~60–70 (840–910), ~27–29 (pojedyncze odcinki).
+Wybór: L = 196 (= window_length(49)).
