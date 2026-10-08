@@ -2555,3 +2555,7 @@ wykres `figures/agent_real10_v2/smallp3_window.png`.
   J1311, J0421, J0932 — praktycznie bez zmian.
 - Reguła „okno ≥ 30 P” (≈ 8·P3 dla P3 ≈ 4, bez wpływu przy P3 ≳ 10) na 200 syntetykach: błąd 1.15% → 0.99%
   (P3 < 8: 1.62 → 0.85%, skok: 1.36 → 0.89%), pokrycie, katastrofy i skoki bez zmian; P3 ≥ 8 identycznie.
+Wprowadzone: okno regresji P3(n) = max(1/(2 f_c), 3·P3, 30 P) (`_variant_c`). 10 pulsarów (`real10_agent_v3.jl`,
+`figures/agent_real10_v3/`): J1041 q05–q95 3.69–5.38 → 3.72–4.95, J1056 3.11–5.88 → 3.11–5.59, J1919 5.70–8.19 →
+5.99–7.98 (pik przy ~120: 19 → 13), pozostałe bez zmian. J1041/J1056: krótkie odcinki (poniżej progu |s|) dają teraz
+płaskie kreski zamiast szarpania; więcej ciągłości daje threshold_q = 0.3.

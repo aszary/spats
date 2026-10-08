@@ -514,10 +514,11 @@ module SpaTs
       - P3(n) from "variant C": adaptive carrier (2 passes), pulses with no
         usable phase (|s| below the shuffle median: nulls, weak stretches)
         and the first/last 1/(2 f_c) pulses left out (NaN), slope of the
-        phase weighted by |s|² over max(1/(2 f_c), 3·P3) pulses within continuous
+        phase weighted by |s|² over max(1/(2 f_c), 3·P3, 30) pulses within continuous
         runs (no fit across a gap), values outside [2, 3·P3] dropped;
         `threshold_q` = shuffle quantile used as the |s| threshold (0.5;
-        lower → shorter gaps, noisier P3(n)); `split_nulls` also drops nulls
+        lower → shorter gaps, noisier P3(n); 0.3 worth trying for weak
+        pulsars / small P3); `split_nulls` also drops nulls
         found from pulse energy and splits P3(n) on them; errors from `n_groups`
         longitude sub-ranges;
       - never opens a window (no `show_`).

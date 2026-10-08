@@ -676,10 +676,12 @@ function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshol
     s, carrier = _carrier_track(X, p3, cutoff; filter_order=filter_order, niter=niter, threshold=thr0)
     thr = niter == 0 ? thr0 : _shuffle_level(X, p3, cutoff; filter_order=filter_order, niter=niter,
                                              threshold=thr0, nshuffle=nshuffle, q=threshold_q)
-    # filtfilt edges: 1/(2 f_c); regression window at least 3·P3 — at f_c ≈ f3/3 the
-    # 1/(2 f_c) ≈ 1.5·P3 window (5–10 P for P3 ≈ 4) made P3(n) jitter pulse to pulse
+    # filtfilt edges: 1/(2 f_c); regression window at least 3·P3 and 30 pulses — at
+    # f_c ≈ f3/3 the 1/(2 f_c) ≈ 1.5·P3 window (5–10 P for P3 ≈ 4) made P3(n) jitter
+    # pulse to pulse; the 30-P floor (≈ 8·P3 at P3 ≈ 4) halves the P3(n) error for
+    # P3 < 8 on synthetic data and changes nothing for P3 ≳ 10
     nedge = max(4, round(Int, 1 / (2cutoff)))
-    window = max(nedge, round(Int, 3p3))
+    window = max(nedge, round(Int, 3p3), 30)
     edge = falses(N)
     edge[1:min(N, nedge)] .= true
     edge[max(1, N - nedge + 1):N] .= true
@@ -712,7 +714,7 @@ end
      then never reach the |s| threshold, while |s| dips inside them flip the
      phase (single P3(n) spikes → ∞ on synthetic data);
   4. P3(n) from the slope of the total phase, weighted by |s|², over
-     max(1/(2 f_c), 3·P3) pulses (values outside [2, 3·p3] → NaN), within each continuous run of used pulses (no
+     max(1/(2 f_c), 3·P3, 30) pulses (values outside [2, 3·p3] → NaN), within each continuous run of used pulses (no
      unwrapping or fitting across a gap: the number of cycles in a gap is
      unknown, so P3(n) may jump there).
 

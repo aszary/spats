@@ -100,7 +100,7 @@ nie — generator jest uboższy niż dane (do kalibracji).
 4. Dwa kolejne przebiegi z nośną podążającą za fazą z poprzedniego — zmiany P3 nie są tłumione przez filtr.
 5. Z P3(n) wypadają: impulsy o |s| poniżej mediany z danych przetasowanych (`threshold_q`), nulle wykryte z energii
    (`split_nulls`) i brzegi 1/(2 f_c). Fold używa wszystkich impulsów.
-6. P3(n) z nachylenia fazy (regresja ważona |s|²) w oknie max(1/(2 f_c), 3·P3), osobno w każdym ciągłym odcinku;
+6. P3(n) z nachylenia fazy (regresja ważona |s|²) w oknie max(1/(2 f_c), 3·P3, 30 P), osobno w każdym ciągłym odcinku;
    wartości poza [2, 3·P3] odrzucane (pojedynczy punkt −700 w J1919+0134); błędy z
    `n_groups` niezależnych zakresów długości.
 
@@ -163,7 +163,8 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
    małym P3 i f_c = f3/3: okno 1.5·P3 ≈ 5 P i P3(n) szarpie się z puls na puls (#78, #92, #199) — częściowo
    naprawione (okno ≥ 3·P3); J1041/J1056 (P3 ≈ 4) nadal poszarpane w krótkich odcinkach. Sprawdzone
    (`smallp3_window.jl`, `window_minpulses.jl`): okno ≥ 30 P zmniejsza błąd dla P3 < 8 z 1.6% do 0.85% bez wpływu na
-   większe P3 i skoki; `threshold_q` 0.3 daje +4% pokrycia (J1041/J1056: +20%) przy podobnym błędzie. Do wprowadzenia.
+   większe P3 i skoki — wprowadzone; `threshold_q` 0.3 daje +4% pokrycia (J1041/J1056: +20%) przy podobnym błędzie —
+   domyślnie zostaje 0.5, 0.3 jako opcja dla słabych pulsarów / małego P3.
 2. **Osobne f_c dla P3(n)** — auto f_c optymalizuje fold; przy wędrówce P3 ≳ 20% potrzeba f_c ≈ f3/3, a dobór
    wybierał mniej w 6/56 przypadków (faza gubiona, #58). Np. f_c dla P3(n) ≥ rozrzut P3 z pierwszego przebiegu lub ze
    śladu sLRFS.
