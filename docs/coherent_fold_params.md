@@ -92,8 +92,19 @@ Pasma dryfu ze znaną fazą: P3 ∈ {6, 15, 45}, P3(n) stałe / wędrówka ±20%
 Auto f_c to główny zysk; Kalman lepiej śledzi fazę, ale fold zyskuje mało. Na syntetykach Kalman działa, na danych
 nie — generator jest uboższy niż dane (do kalibracji).
 
+## Wariant C w skrócie
+
+1. Szablon cyklu dryfu z całej obserwacji (bin FFT przy f3).
+2. Każdy impuls rzutowany na szablon → liczba zespolona: kąt = faza w cyklu, długość = wyrazistość.
+3. Demodulacja i wygładzenie sąsiednich impulsów (f_c ≈ 0.1–0.33·f3, auto).
+4. Drugi przebieg z nośną podążającą za fazą z pierwszego — zmiany P3 nie są tłumione przez filtr.
+5. Impulsy o amplitudzie poniżej mediany z danych przetasowanych i brzegi 1/(2 f_c) nie wchodzą do P3(n).
+6. P3(n) z nachylenia fazy (regresja ważona |s|²) w oknie 1/(2 f_c).
+
 ## Wnioski i otwarte sprawy
 
+- Rekomendacja na teraz: fold — auto f_c (pewny, duży zysk), opcjonalnie Kalman i wyłączanie nulli (dla dryferów
+  z nullami; nie przy modulacji natężenia); P3(n) — wariant C, a tam, gdzie mierzy, ślad sLRFS (dokładniejszy).
 - Domyślne `lowpass_cutoff = 1/300` w `p3fold_coherent` jest za niskie dla P3 ≲ 15. f_c skalować z f3:
   zakres **0.1–0.33·f3**; stała wartość awaryjna f3/5; najlepiej automatycznie: max ΔR² w [f3/16, f3/3].
 - Reguła z rozrzutu śladu sLRFS (f_c = 1.3·q90|Δf|) daje 80–100% optimum w 6/8 pulsarach (J0034 tylko ~50%).
