@@ -2287,3 +2287,28 @@ Wnioski: J1825 — reguła działa (reżim 32–60 po ~800 widoczny tylko przy L
 kwaziokresowość nulli/burstów (J0034 ~33, J1001 ~43–58), nie drugi tryb dryfu; L_new rośnie 5–14×. Przy długim L
 główne P3 jest śledzone stabilniej (J1001: 4.2 przez ~300 P zamiast pojedynczych okien), ale ślad miesza P3 dryfu z
 okresem nulli. Reguła „najdłuższy pik” wymaga odróżnienia modulacji natężenia (nulle) od dryfu przed użyciem.
+
+## 2026-10-08 — test L: kryterium energii (10 pulsarów)
+
+`p3track_Ltest.jl` rozszerzony: z tych samych FFT widmo energii S(f) = Σ_w|Σ_φ F|² (= widmo E(n)) i koherencja fazy
+κ = S / Σ_w(Σ_φ|F|)². Pik średniego LRFS = natężenie (NAT), gdy E w ±1/(2L0) ≥ próg shuffle 99% ORAZ κ ≥ 0.5.
+L_new = window_length(najdłuższe P3 nie-NAT). Log `~/claude/work/logs/p3track_Ltest2.log`, wykresy `figures/Ltest/`.
+
+| PSR | P3 par | najdłuższe piki (E, κ) | L_par → L_new | przyjęte L_par / L_new |
+|---|---|---|---|---|
+| J0034-0721 | 6.6 | 33.0 (18.6, 0.84) NAT; 7.3 | 26 → 29 | 221/1017 / 244/1014 |
+| J1825+0004 | 14.2 | 36.6 (6.1, 0.42) | 57 → 146 | 517/984 / 651/895 |
+| J1750-3503 | 49 | 48.8 (0.9, 0.03) | 196 → 195 | bez zmian |
+| J1001-5559 | 4.2 | 58.5 (3.4<3.47, 0.43), 42.7 (3.2, 0.47) | 17 → 234 | 40/1015 / 364/798 |
+| J0818-3232 | 5.8 | 5.5 | 23 → 22 | bez zmian |
+| J1626-4537 | 25 | 62.1 (9.8, 0.36) | 100 → 248 | 67/942 / 396/794 |
+| J1946+1805 | 19 | 78.8…15.6 NAT (κ 0.67–0.92); 12.9 (2.8, 0.42) | 76 → 52 | 215/967 / 85/991 |
+| J1905-0056 | 11 | 51.2 (2.7, 0.26) | 44 → 205 | 16/993 / 102/832 |
+| J1614+0737 | 5.6 | 68.3 (2.8, 0.21) | 22 → 273 | 6/1015 / 250/764 |
+| J0959-4809 | 6.0 | 51.2 (6.6, 0.48), 30.6, 22.5, 16.3 (E 3.7–4.2, κ 0.37–0.38) | 24 → 205 | 175/1026 / 455/845 |
+
+Wnioski: κ dobrze rozdziela skrajności (dryf J1750 κ ≈ 0.03–0.1; nulle J0034/J1946 κ 0.8–0.9), ale stały próg 0.5
+jest zły — tło κ zależy od pulsara (szum: J1750 ~0.1, J0818 ~0.4). Strefa szara κ 0.36–0.48 przy istotnym E:
+J0959 (widoczne naprzemienne jasne/słabe odcinki ~50 P), J1626, J1001 oraz J1825 36.6 (wcześniej AM, Δψ 0.06).
+Kryterium „tylko E” oznaczyłoby J1825 36.6, J1626 62.1 i długie piki J0959. J1614 i J1905: długie piki bez energii,
+niskie κ — przy L_par prawie nic nie przechodzi (6 i 16 okien), natura długich P3 niejasna.
