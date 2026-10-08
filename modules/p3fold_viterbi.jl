@@ -590,33 +590,50 @@ function auto_cutoff_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end:
 end
 
 
-"Local P3 from the slope of the total phase (weighted by |s|²) over ±window/2 pulses, using only `keep` pulses; NaN elsewhere."
+"""
+Local P3 from the slope of the total phase (weighted by |s|²) over ±window/2
+pulses. Computed within each continuous run of `keep` pulses only: the phase
+is unwrapped and the slope fitted without crossing a gap, because the number
+of P3 cycles inside a gap is unknown (a gap of ~P3 pulses makes it
+ambiguous, J1750-3503) — across a gap P3(n) may jump, it is not interpolated.
+NaN outside `keep` and where a run has too few pulses in the window.
+"""
 function _weighted_p3(s, carrier, keep, window)
     N = length(s)
-    idx = findall(keep)
     out = fill(NaN, N)
-    length(idx) < 3 && return out
-    ph = fill(NaN, N)
-    ph[idx] = carrier[idx] .+ DSP.unwrap(angle.(s[idx]))
     wt = abs2.(s)
     h = max(2, window ÷ 2)
-    for i in idx
-        r = filter(j -> keep[j], max(1, i - h):min(N, i + h))
-        length(r) < max(5, h ÷ 2) && continue
-        x = Float64.(r); y = ph[r]; w = wt[r]
-        xm = sum(w .* x) / sum(w); ym = sum(w .* y) / sum(w)
-        out[i] = 2π / (sum(w .* (x .- xm) .* (y .- ym)) / sum(w .* (x .- xm) .^ 2))
+    i = 1
+    while i ≤ N
+        if !keep[i]
+            i += 1
+            continue
+        end
+        j = i
+        while j < N && keep[j+1]
+            j += 1
+        end
+        run = i:j
+        ph = carrier[run] .+ DSP.unwrap(angle.(s[run]))
+        for (m, t) in enumerate(run)
+            lo = max(1, m - h); hi = min(length(run), m + h)
+            hi - lo + 1 < max(5, h ÷ 2) && continue
+            x = Float64.(run[lo:hi]); y = ph[lo:hi]; w = wt[run[lo:hi]]
+            xm = sum(w .* x) / sum(w); ym = sum(w .* y) / sum(w)
+            out[t] = 2π / (sum(w .* (x .- xm) .* (y .- ym)) / sum(w .* (x .- xm) .^ 2))
+        end
+        i = j + 1
     end
     return out
 end
 
-"Variant C on one on-pulse range: adaptive carrier, median-of-shuffles threshold, edges dropped."
-function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5)
+"Variant C on one on-pulse range: adaptive carrier, shuffle-quantile threshold, edges dropped."
+function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshold_q=0.5)
     N = size(X, 1)
-    thr0 = _shuffle_level(X, p3, cutoff; filter_order=filter_order, nshuffle=nshuffle)
+    thr0 = _shuffle_level(X, p3, cutoff; filter_order=filter_order, nshuffle=nshuffle, q=threshold_q)
     s, carrier = _carrier_track(X, p3, cutoff; filter_order=filter_order, niter=niter, threshold=thr0)
     thr = niter == 0 ? thr0 : _shuffle_level(X, p3, cutoff; filter_order=filter_order, niter=niter,
-                                             threshold=thr0, nshuffle=nshuffle)
+                                             threshold=thr0, nshuffle=nshuffle, q=threshold_q)
     window = max(4, round(Int, 1 / (2cutoff)))
     edge = falses(N)
     edge[1:min(N, window)] .= true
@@ -629,7 +646,7 @@ end
 
 """
     coherent_fold_agent(data, p3, bin_st, bin_end; ybins=10, lowpass_cutoff=:auto, filter_order=6,
-                        niter=2, nshuffle=5, n_groups=4) -> NamedTuple
+                        niter=2, nshuffle=5, n_groups=4, threshold_q=0.5) -> NamedTuple
 
 `coherent_fold` with (1) the low-pass cutoff chosen by `auto_cutoff_agent`
 (or a number), and (2) the P3(n) track of "variant C":
@@ -638,17 +655,20 @@ end
   2. `niter` further passes with the carrier following the phase found so
      far (adaptive carrier): a local P3 far from p3 is no longer attenuated
      by the filter and |s| no longer drops to zero there;
-  3. pulses with |s| below the median |s| of pulse-order shuffles (no
-     usable phase: nulls, weak or ambiguous stretches) and the first/last
+  3. pulses with |s| below the `threshold_q` quantile (default: median) of
+     |s| for pulse-order shuffles — the noise level, no periodicity left (no
+     usable phase: nulls, weak or ambiguous stretches) — and the first/last
      1/(2 f_c) pulses (`filtfilt` edges) are left out of P3(n) — not out of
-     the fold, whose bin assignment is modulo 2π;
+     the fold, whose bin assignment is modulo 2π; a lower `threshold_q`
+     shortens the gaps at the cost of noisier phase;
   4. P3(n) from the slope of the total phase, weighted by |s|², over
-     1/(2 f_c) pulses.
+     1/(2 f_c) pulses, within each continuous run of used pulses (no
+     unwrapping or fitting across a gap: the number of cycles in a gap is
+     unknown, so P3(n) may jump there).
 
 Same on-pulse window and template as `coherent_fold`. Errors: P3(n) recomputed
 on `n_groups` contiguous longitude sub-ranges (independent noise), std/√n
-over the groups that give a value. A real phase jump within a null still
-shows up as a step in P3(n) next to the gap.
+over the groups that give a value.
 
 Synthetic benchmark (36 cases, P3 6–45, wander/step, 30% nulls, S/N 1.5–5):
 relative P3(n) error 5.6% (median) at 94% coverage; fold correlation with
@@ -666,7 +686,7 @@ Returns:
 """
 function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                              ybins::Int=10, lowpass_cutoff=:auto, filter_order::Int=6,
-                             niter::Int=2, nshuffle::Int=5, n_groups::Int=4)
+                             niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5)
     N = size(data, 1)
     on = bin_st:bin_end
     if lowpass_cutoff === :auto
@@ -679,7 +699,7 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
 
     X = data[:, on]
     X = X .- mean(X, dims=1)
-    c = _variant_c(X, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle)
+    c = _variant_c(X, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle, threshold_q=threshold_q)
     phase = c.carrier .+ angle.(c.s)
     bin = [Int(floor(mod(phase[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
     folded = build_template(data, bin, ybins)
@@ -700,7 +720,8 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
         en - st < 2 && continue
         Xg = data[:, st:en]
         Xg = Xg .- mean(Xg, dims=1)
-        gp3[g, :] = _variant_c(Xg, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle).p3
+        gp3[g, :] = _variant_c(Xg, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle,
+                               threshold_q=threshold_q).p3
     end
     p3_err = map(1:N) do i
         v = filter(isfinite, @view gp3[:, i])

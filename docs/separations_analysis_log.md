@@ -2451,3 +2451,6 @@ między impulsami, harmoniczne); kolejny krok: kalibracja generatora na danych (
 `_variant_c` itd.); `spats.jl`: `p3fold_coherent_agent`. Stare funkcje bez zmian. Test
 `~/claude/work/scripts/test_p3fold_coherent_agent.jl` (wykresy `~/claude/work/figures/agent/`): f_c J1750 1/147,
 J0034 1/66, J0818 1/35, J1825 1/142 — jak w coherent_fc_cv.jl; P3(n) mediana 47.9 / 6.69 / 5.64 / 14.0, pokrycie 72–82%.
+Poprawka (`test_p3fold_coherent_agent2.jl`, `j1750_p3n_gaps.jl`): P3(n) tylko w obrębie ciągłych odcinków; nowy
+parametr `threshold_q`. J1750 przed: 4 skoki > 3 P, wszystkie przy przerwach (96–111, 351–386, 468–525, 838–865).
+Po: q = 0.5 pokrycie 72%, 5 odcinków; q = 0.3 81%, 2 odcinki; J0034 82% / 13 odcinków, J0818 92% / 5, J1825 82% / 1.

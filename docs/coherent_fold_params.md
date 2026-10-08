@@ -110,6 +110,12 @@ nie — generator jest uboższy niż dane (do kalibracji).
 - `SpaTs.p3fold_coherent_agent(outdir; datafile, plotdir, name_mod, figtitle, lowpass_cutoff=:auto)` — odpowiednik
   `p3fold_coherent` bez okien, wykres `<name_mod>_p3fold_compare.pdf/.png`.
 
+P3(n) liczone tylko w obrębie ciągłych odcinków użytych pulsów (bez rozwijania fazy i dopasowania przez przerwę —
+liczba cykli w przerwie ~P3 jest nieznana; wcześniej wszystkie skoki > 3 P w J1750 leżały przy przerwach, a wartości
+obok przerw różniły się do 17.5 P zależnie od tego założenia). `threshold_q` (0.5) = kwantyl |s| z tasowania jako próg;
+J1750: 0.5 → pokrycie 72%, 4 przerwy; 0.3 → 81%, 1 przerwa (468–525), szersze błędy w słabych odcinkach; 0.2 ≈ 0.3.
+Próg wpływa też lekko na fold (adaptacyjna nośna interpoluje fazę przez pulsy poniżej progu).
+
 Test (`~/claude/work/scripts/test_p3fold_coherent_agent.jl`): f_c J1750 1/147, J0034 1/66, J0818 1/35, J1825 1/142
 (zgodne z testami wyżej); P3(n) w 72–82% pulsów; czas 2–10 s na pulsar.
 
