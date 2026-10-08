@@ -627,8 +627,47 @@ function _weighted_p3(s, carrier, keep, window)
     return out
 end
 
-"Variant C on one on-pulse range: adaptive carrier, shuffle-quantile threshold, edges dropped."
-function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshold_q=0.5)
+"""
+    _energy_nulls(data, on; smooth=5, minlen=2) -> BitVector
+
+Nulls from pulse energy E(n) = Σ_on I(n,φ), averaged over `smooth` pulses.
+Null fraction nf = 2·frac(Ē < 0) (Ritchings 1976: noise is symmetric, so nulls
+put as many values below zero as above); if nf < 5% no pulse is flagged,
+otherwise the nf lowest Ē, kept only in episodes of ≥ `minlen` pulses.
+Averaging first matters for weak pulsars: single pulses of J1750-3503
+(energy S/N 1.6, no nulls) fall below zero often enough to fake an 18% null
+fraction; nulls last several pulses, noise dips of emitting pulses do not, so
+the mean over 5 pulses raises the emission S/N √5× and leaves nulls at zero.
+Independent of the low-pass filter, so it catches nulls shorter than the
+filter memory, which the |s| threshold misses.
+"""
+function _energy_nulls(data::AbstractMatrix, on; smooth::Int=5, minlen::Int=2)
+    N = size(data, 1)
+    E = vec(sum(data[:, on], dims=2))
+    h = smooth ÷ 2
+    Es = [mean(E[max(1, i - h):min(N, i + h)]) for i in 1:N]
+    nf = 2 * mean(Es .< 0)
+    out = falses(N)
+    nf < 0.05 && return out
+    m = Es .< quantile(Es, min(nf, 0.9))
+    i = 1
+    while i ≤ N
+        if m[i]
+            j = i
+            while j < N && m[j+1]
+                j += 1
+            end
+            j - i + 1 ≥ minlen && (out[i:j] .= true)
+            i = j + 1
+        else
+            i += 1
+        end
+    end
+    return out
+end
+
+"Variant C on one on-pulse range: adaptive carrier, shuffle-quantile threshold, edges and `exclude` (nulls) dropped."
+function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshold_q=0.5, exclude=nothing)
     N = size(X, 1)
     thr0 = _shuffle_level(X, p3, cutoff; filter_order=filter_order, nshuffle=nshuffle, q=threshold_q)
     s, carrier = _carrier_track(X, p3, cutoff; filter_order=filter_order, niter=niter, threshold=thr0)
@@ -639,6 +678,7 @@ function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshol
     edge[1:min(N, window)] .= true
     edge[max(1, N - window + 1):N] .= true
     keep = (abs.(s) .>= thr) .& .!edge
+    exclude === nothing || (keep .&= .!exclude)
     return (s=s, carrier=carrier, keep=keep, threshold=thr, window=window,
             p3=_weighted_p3(s, carrier, keep, window))
 end
@@ -646,7 +686,7 @@ end
 
 """
     coherent_fold_agent(data, p3, bin_st, bin_end; ybins=10, lowpass_cutoff=:auto, filter_order=6,
-                        niter=2, nshuffle=5, n_groups=4, threshold_q=0.5) -> NamedTuple
+                        niter=2, nshuffle=5, n_groups=4, threshold_q=0.5, split_nulls=true) -> NamedTuple
 
 `coherent_fold` with (1) the low-pass cutoff chosen by `auto_cutoff_agent`
 (or a number), and (2) the P3(n) track of "variant C":
@@ -661,6 +701,10 @@ end
      1/(2 f_c) pulses (`filtfilt` edges) are left out of P3(n) — not out of
      the fold, whose bin assignment is modulo 2π; a lower `threshold_q`
      shortens the gaps at the cost of noisier phase;
+     with `split_nulls` also the nulls found from pulse energy
+     (`_energy_nulls`) — they can be shorter than the filter memory and
+     then never reach the |s| threshold, while |s| dips inside them flip the
+     phase (single P3(n) spikes → ∞ on synthetic data);
   4. P3(n) from the slope of the total phase, weighted by |s|², over
      1/(2 f_c) pulses, within each continuous run of used pulses (no
      unwrapping or fitting across a gap: the number of cycles in a gap is
@@ -680,13 +724,15 @@ Returns:
   p3_per_pulse   – P3(n) [P], NaN where not measured
   p3_per_pulse_err – 1σ from the longitude groups (NaN if < 2 groups)
   used           – pulses that enter P3(n)
+  nulls          – pulses flagged as nulls from energy (all false if `split_nulls=false`)
   amplitude, threshold – |s(n)| and the shuffle level
   lowpass_cutoff – cutoff used; cutoff_grid, cutoff_score (if :auto)
   snr            – matched-filter detection significance (as `coherent_fold`)
 """
 function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                              ybins::Int=10, lowpass_cutoff=:auto, filter_order::Int=6,
-                             niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5)
+                             niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5,
+                             split_nulls::Bool=true)
     N = size(data, 1)
     on = bin_st:bin_end
     if lowpass_cutoff === :auto
@@ -699,7 +745,9 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
 
     X = data[:, on]
     X = X .- mean(X, dims=1)
-    c = _variant_c(X, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle, threshold_q=threshold_q)
+    nulls = split_nulls ? _energy_nulls(data, on) : falses(N)
+    c = _variant_c(X, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle, threshold_q=threshold_q,
+                   exclude=nulls)
     phase = c.carrier .+ angle.(c.s)
     bin = [Int(floor(mod(phase[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
     folded = build_template(data, bin, ybins)
@@ -721,7 +769,7 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
         Xg = data[:, st:en]
         Xg = Xg .- mean(Xg, dims=1)
         gp3[g, :] = _variant_c(Xg, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle,
-                               threshold_q=threshold_q).p3
+                               threshold_q=threshold_q, exclude=nulls).p3
     end
     p3_err = map(1:N) do i
         v = filter(isfinite, @view gp3[:, i])
@@ -729,7 +777,7 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
     end
 
     return (folded=folded, phase=phase, bin=bin, p3_per_pulse=c.p3, p3_per_pulse_err=p3_err,
-            used=c.keep, amplitude=abs.(c.s), threshold=c.threshold, lowpass_cutoff=fc,
+            used=c.keep, nulls=nulls, amplitude=abs.(c.s), threshold=c.threshold, lowpass_cutoff=fc,
             cutoff_grid=grid, cutoff_score=score, snr=snr)
 end
 

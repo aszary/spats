@@ -105,7 +105,8 @@ nie — generator jest uboższy niż dane (do kalibracji).
 
 - `P3FoldViterbi.auto_cutoff_agent(data, p3, bin_st, bin_end; ybins, grid, nshuffle)` — f_c = max ΔR² (CV po
   długości − null z tasowania) w f3·{1/16, 1/10, 1/8, 1/6, 1/4, 1/3}.
-- `P3FoldViterbi.coherent_fold_agent(data, p3, bin_st, bin_end; ybins, lowpass_cutoff=:auto, niter=2, n_groups=4)` —
+- `P3FoldViterbi.coherent_fold_agent(data, p3, bin_st, bin_end; ybins, lowpass_cutoff=:auto, niter=2, n_groups=4,
+  threshold_q=0.5, split_nulls=true)` —
   fold i P3(n) wariantu C; P3(n) = NaN poza pulsami z fazą, błędy z `n_groups` zakresów długości.
 - `SpaTs.p3fold_coherent_agent(outdir; datafile, plotdir, name_mod, figtitle, lowpass_cutoff=:auto)` — odpowiednik
   `p3fold_coherent` bez okien, wykres `<name_mod>_p3fold_compare.pdf/.png`.
@@ -121,7 +122,14 @@ Test (`~/claude/work/scripts/test_p3fold_coherent_agent.jl`): f_c J1750 1/147, J
 
 Benchmark syntetyczny (`synth_agent.jl`): P3(n) błąd 5.6% / pokrycie 94% (q = 0.5), bez nulli 2.1%, z nullami 15.5%.
 Błędy σ niedoszacowane (w ±2σ 75% zamiast 95%; bez nulli 90%). Słaby punkt: nulle krótsze niż okno filtra nie są
-maskowane przez próg |s|, a skok fazy po nullu przenosi się na P3(n) → do zrobienia: podział odcinków na nullach z energii.
+maskowane przez próg |s|, a skok fazy po nullu przenosi się na P3(n).
+
+Podział na nullach z energii (`split_nulls=true`, domyślnie): energia pulsu uśredniona po 5 pulsach, ułamek nulli
+2·frac(Ē < 0), epizody ≥ 2 P; pulsy z nulli wypadają z P3(n), odcinki dzielą się na nich. Uśrednianie jest konieczne:
+z pojedynczych pulsów J1750 (S/N energii 1.6, bez nulli) wychodziło fałszywie 18% nulli. Teraz: J1750, J0818, J1825 0%,
+J0034 31%, syntetyki z 30% nulli 23–25%, bez nulli 0%. Syntetyki (mediana RMS / pokrycie): nulle z zachowaną fazą
+0.067 → 0.038 / 0.84 → 0.64 (piki usunięte), nulle ze skokiem fazy 0.155 → 0.123 / 0.83 → 0.67 (wahania zostają —
+filtr przechodzi przez null), bez nulli bez zmian. J0034: P3(n) w burstach, q05–q95 6.2–7.6 → 6.3–7.1.
 
 ## Wnioski i otwarte sprawy
 

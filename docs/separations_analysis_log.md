@@ -2475,3 +2475,6 @@ piki P3 → ∞ (RMS do 570% przy dobrym śladzie poza nimi). Podział odcinków
 - faza zachowana: RMS 0.067 → 0.041 (mediana |błędu| 0.019 → 0.016), pokrycie 0.84 → 0.54 — piki usunięte;
 - skok fazy: RMS 0.155 → 0.111 (0.056 → 0.041), pokrycie 0.83 → 0.56 — wahania zostają, bo demodulacja/filtr i
   adaptacyjna nośna przechodzą przez null; odcinki między nullami (~2 cykle) za krótkie na pewne P3.
+Wprowadzone (`synth_agent_split.jl`, `null_energy_check.jl`): `split_nulls=true` w `coherent_fold_agent` /
+`p3fold_coherent_agent` (`_energy_nulls`: energia uśredniona po 5 P, Ritchings, epizody ≥ 2 P). Mediana 3 P dawała
+fałszywe 18% nulli dla J1750 (S/N energii 1.6) — średnia z 5 P: 0%. Wyniki w docs/coherent_fold_params.md.

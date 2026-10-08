@@ -516,7 +516,8 @@ module SpaTs
         and the first/last 1/(2 f_c) pulses left out (NaN), slope of the
         phase weighted by |s|² within continuous runs (no fit across a gap);
         `threshold_q` = shuffle quantile used as the |s| threshold (0.5;
-        lower → shorter gaps, noisier P3(n)); errors from `n_groups`
+        lower → shorter gaps, noisier P3(n)); `split_nulls` also drops nulls
+        found from pulse energy and splits P3(n) on them; errors from `n_groups`
         longitude sub-ranges;
       - never opens a window (no `show_`).
 
@@ -526,7 +527,7 @@ module SpaTs
       p3fold_coherent_agent(vpmout*"J1750-3503"; plotdir="/home/psr/output/")
     """
     function p3fold_coherent_agent(outdir; ybins=nothing, lowpass_cutoff=:auto, filter_order=6, n_groups=4,
-                                   threshold_q=0.5, darkness=1.0, datafile="pulsar.debase.txt", plotdir=outdir,
+                                   threshold_q=0.5, split_nulls=true, darkness=1.0, datafile="pulsar.debase.txt", plotdir=outdir,
                                    name_mod="pulsar_coherent_agent", figtitle=nothing)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, datafile))
@@ -536,10 +537,10 @@ module SpaTs
         result = P3FoldViterbi.coherent_fold_agent(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups,
-            threshold_q=threshold_q)
+            threshold_q=threshold_q, split_nulls=split_nulls)
         fc = result.lowpass_cutoff
         println("Matched-filter SNR: $(round(result.snr, digits=1)), lowpass_cutoff = 1/$(round(1 / fc, digits=1)) " *
-                "($(round(fc * p3, digits=3)) f3), P3(n) measured in $(round(100 * count(isfinite, result.p3_per_pulse) / length(result.p3_per_pulse), digits=1))% of pulses")
+                "($(round(fc * p3, digits=3)) f3), nulls (energy) $(round(100 * count(result.nulls) / length(result.nulls), digits=1))%, P3(n) measured in $(round(100 * count(isfinite, result.p3_per_pulse) / length(result.p3_per_pulse), digits=1))% of pulses")
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
         Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, plotdir;
