@@ -2576,3 +2576,16 @@ Lista `~/claude/work/random10_drift_b.txt`, skrypt `real10b_agent.jl`, wykresy `
 Test: odrzucanie P3(n) na brzegach odcinków (`edge_check.jl`, `figures/agent_edge/`) — ODRZUCONE, kod cofnięty.
 ≥ h/2 pulsów z każdej strony: piki J1137 23 → 14, J1655 19 → 15, ale pokrycie J1655 67 → 41%, J1056 69 → 25%.
 ≥ h/4: piki zostają (J1137 20, J1655 17), pokrycie J1655 55%, J1056 47%. Piki nie są wyłącznie efektem brzegu.
+
+## 2026-10-08 — trzecia dziesiątka losowych pewnych dryferów (seed 20261010)
+
+Lista `~/claude/work/random10_drift_c.txt`, skrypt `real10c_agent.jl`, wykresy `figures/agent_real10c/` (domyślne).
+- Fold: wyraźna poprawa J0459-0210, J1059-5742, J1404+1159, J1547-5750 (stały fold bez struktury → pasma),
+  J2046+1540; J1539-4828 (P3 2.17, blisko Nyquista) — naprzemienność zamiast pochylenia; J1328-4921, J1612-5805
+  (P3 ≈ 3) — mała zmiana; J1627-5936 (S/N 1.8) i J1651-7642 (41% nulli) — bez poprawy.
+- P3(n) ciągłe (pokrycie 87–98%): J0459 2.2–2.6, J1612 2.65–3.0, J1404 4.5–6.1, J1059 4–7 (kilka przerw),
+  J1547 10–18, J2046 21–43 (duże wahania, szeroki błąd ~500 — część może być szumem); J1627 i J1651 — kawałki,
+  J1651 pik ~9.5 na początku odcinka (~700).
+- J1404 i J2046: na wykresie natężenia pojedynczy impuls-pik (~950) i większy rozrzut w pierwszych ~100 P —
+  możliwe zakłócenia w danych; fold J1404 ma poziome ciemne pasy (oba foldy).
+Podsumowanie 30 pulsarów: fold wyraźnie lepszy w ~17/30, bez zmian głównie przy P3 ≈ 2–3, S/N ≲ 2 lub dużych nullach.
