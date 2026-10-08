@@ -2497,3 +2497,18 @@ Obejrzane problemy:
 - AM z głęboką modulacją (0.5 + 0.5 cos): fazy niskiej jasności wykrywane jako nulle (#20: 40%) — to w praktyce
   okresowe nulle; AM ma też mniejsze pokrycie przez wyższy próg |s| z tasowania (#33).
 - Błędy σ nadal niedoszacowane (~1.5×).
+
+## 2026-10-08 — przegląd wzrokowy wszystkich 200 przypadków benchmarku v2
+
+Zestawienia `~/claude/work/figures/bench2/sheets/sheet01–22.png` (9 przypadków na arkusz).
+- Większość dryferów z S/N ≳ 2 bez nulli: P3(n) pokrywa się z prawdą (linia agenta zasłonięta przez czarną — błąd
+  0.2–0.5%, np. #9, #56, #115, #169, #196), fold jak prawdziwy.
+- NOWE, najpoważniejsze: **skok P3 przegapiony bez sygnału błędu** — #156 (25.8 → 18.9, agent 25.8 do końca, pokrycie
+  75%), #153 (7.5 → 5.3, agent 7.4), #110, #22 (AM). Wspólne: Δf skoku > auto f_c (np. #156: 0.37 f3 vs f_c = 0.1 f3) —
+  sygnał po skoku leży poza pasmem filtra, szablon z globalnego FFT jest dla starego P3, a |s| nie spada poniżej progu.
+- Małe P3 (3–6) ze skokiem przy f_c = f3/4–f3/3 (#40, #78, #80, #92, #152, #179, #199): poziomy poprawne, ale P3(n)
+  szarpie się z puls na puls (okno regresji 1/(2 f_c) = 1.5–2·P3 ≈ 5–10 P).
+- Krótkie nulle ze skokiem fazy (#42, #57, #81, #107, #149, #189, #198): P3(n) faluje ±20–30% — znane.
+- AM (#22, #31, #82, #97, #121, #132): P3(n) w krótkich płaskich kawałkach rozrzuconych ±20%.
+- S/N ≲ 1.2 (#5, #16, #34, #96, #119, #127, #153, #163, #110): fold w szumie, P3(n) szczątkowe — granica metody.
+- Brzegi przy niskim f_c: P3(n) kończy się ~100–330 P przed końcem (#9, #130, #158, #172).

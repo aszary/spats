@@ -152,8 +152,13 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
 
 ## Ewentualne kroki do rozważenia
 
+0. **Przegapiony skok P3** (przegląd wszystkich 200 przypadków): gdy Δf skoku > auto f_c, P3(n) zostaje przy starym
+   P3 bez żadnego sygnału błędu (#156: 25.8 zamiast 18.9 przez ~400 P; #153, #110). Najpilniejsze — wynik
+   pewny i fałszywy. Możliwe: test zgodności P3(n) ze śladem sLRFS / LRFS odcinków, wyższe f_c dla P3(n) (pkt 2),
+   szablon odnawiany lokalnie.
 1. **Okno P3(n) niezależne od f_c** — ograniczyć okno regresji i brzegi do ~2–3·P3. Teraz przy auto f_c = f3/16
-   (stałe P3) okno i brzegi to 8·P3; przy częstych nullach pokrycie spada do zera (syntetyk #161).
+   (stałe P3) okno i brzegi to 8·P3; przy częstych nullach pokrycie spada do zera (syntetyk #161). Odwrotnie przy
+   małym P3 i f_c = f3/3: okno 1.5·P3 ≈ 5 P i P3(n) szarpie się z puls na puls (#78, #92, #199).
 2. **Osobne f_c dla P3(n)** — auto f_c optymalizuje fold; przy wędrówce P3 ≳ 20% potrzeba f_c ≈ f3/3, a dobór
    wybierał mniej w 6/56 przypadków (faza gubiona, #58). Np. f_c dla P3(n) ≥ rozrzut P3 z pierwszego przebiegu lub ze
    śladu sLRFS.
