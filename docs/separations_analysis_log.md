@@ -2512,3 +2512,14 @@ Zestawienia `~/claude/work/figures/bench2/sheets/sheet01–22.png` (9 przypadkó
 - AM (#22, #31, #82, #97, #121, #132): P3(n) w krótkich płaskich kawałkach rozrzuconych ±20%.
 - S/N ≲ 1.2 (#5, #16, #34, #96, #119, #127, #153, #163, #110): fold w szumie, P3(n) szczątkowe — granica metody.
 - Brzegi przy niskim f_c: P3(n) kończy się ~100–330 P przed końcem (#9, #130, #158, #172).
+
+## 2026-10-08 — test: wyższe f_c dla P3(n) (fold bez zmian)
+
+Skrypt `~/claude/work/scripts/synth2_fcp3.jl`, wyniki `~/claude/work/bench2_fcp3.csv`, wykresy `figures/bench2/fcp3_case*.png`.
+Te same 200 przypadków. A = obecne (auto f_c, okno 1/(2f_c)); B = f3/3, okno 1.5·P3; C = f3/3, okno 3·P3; D = f3/2, okno 3·P3.
+Mediana |błędu| / punkty > 20% / pokrycie: A 1.48% / 4.1% / 70%; B 2.27 / 4.9 / 73; C 1.55 / 4.0 / 68; D 1.62 / 4.7 / 67.
+Skoki poprawne (±5%): A 61/78, B 60, C 61/77, D 64/77; przegapione: A 13, C 11, D 9. Stałe P3: A 0.48%, C 1.10% (gorzej).
+P3 < 6: szarpanie (‰/puls) A 3.1, B 13.3, C 5.7 — B bezużyteczne; okno 3·P3 konieczne.
+#156 (Δf skoku = 0.36 f3): przegapiony w A, B, C; D łapie kawałkami (P3 18.5–21), ale oscyluje między starym i nowym.
+Wniosek: samo wyższe f_c nie rozwiązuje przegapionych skoków — przy Δf ≳ f3/3 sygnał wychodzi z pasma, a f_c > f3/3
+wpuszcza przeciek −f3 / natężenia. Skuteczniejsze: nośna startowa z lokalnego P3 (np. ślad sLRFS) zamiast stałego f3.
