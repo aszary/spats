@@ -2402,3 +2402,27 @@ Dwie wstęgi przy f_c = 1/147: s₊ (demodulacja przy +f3, szablon), s₋ (przy 
   Hipoteza „odwrócenie dryfu” tu NIE pasuje; raczej wolny dryf (D ≈ 0.2) / przejście, gdzie obie wstęgi porównywalne.
 - Epizody D < 0 przy wysokim |s₊| (680–720, 980–1030) — przeciw hipotezie.
 Wniosek: minimum |s₊| bywa odwróceniem (40–110), ale nie jest jego wiarygodnym wskaźnikiem.
+
+## 2026-10-08 — filtr Kalmana vs coherent_fold (fold i P3(n)), wyłączanie nulli wg energii
+
+Skrypty `~/claude/work/scripts/kalman_compare.jl` (+ `kalman_lib.jl`, `kalman_shuffle_fold.jl`, `kalman_p3slope.jl`),
+logi `logs/kalman_*.log`, wykresy `figures/cohfc/<PSR>_kalman*.png`. Kalman: stan (θ, ω), pomiar z(n) bez filtra,
+innowacja arg(z·e^{−iθ_pred}), R(n) = R₀·med|z|²/|z|², (q_ω, q_θ, R₀) z wiarygodności predykcyjnej, gładzenie RTS.
+Nulle: ułamek 2·frac(E<0) (Ritchings), wyłączane najsłabsze; 3σ szumu off-pulse odrzucone (J1750: 86% „nulli”).
+Miary folda: ΔR² i Δr = r_split − null (korelacja reszt folda pulsów parzystych/nieparzystych; faza z A, fold na B).
+
+Δr: A 1/300 / A auto / C auto / Kalman / A auto −nulle / Kalman −nulle
+- J0818 0.015/0.252/0.165/0.096/0.342/0.215; J1001 0.278/0.298/0.185/0.126/0.257/0.154
+- J0034 0.322/0.235/0.072/0.096/0.328/0.173; J1825 −0.031/−0.040/0.029/0.087/(bez nulli)
+- J1946 −0.018/0.289/0.337/−0.034/0.168/0.017; J1750 0.038/0.085/0.116/0.165/0.085/0.154
+ΔR² Kalmana bywa bardzo wysokie (J0034 0.23, J1946 0.34), Δr niskie — miary sprzeczne ze sobą i z oceną wzrokową.
+
+- Fold Kalmana (pełny model, q_θ = 0.1) daje wzrokowo najostrzejsze pasma dryfu (J0034, J1750); test na przetasowanych
+  pulsach: pasm brak → nie są narzucone przez szablon. J0818: wzór AM (177° vs 183°) widoczny także po tasowaniu,
+  dla Kalmana i coherent — częściowo artefakt sortowania pulsów.
+- P3(n) z Kalmana bezużyteczne: ML wybiera q_ω na górnym brzegu siatki (1e-2), σ_P3 20–1100% P3, std(z_AB) 0.2–2.4
+  (błędy nieskalibrowane); nachylenie fazy Kalmana w oknie 1/(2 f_c) ma rozbiegające się wartości (RMS połówek 10³–10⁶),
+  poza J0818/J1825. Wariant C pozostaje najlepszy dla P3(n) (RMS połówek A/B 0.2–7).
+- Nulle wg energii: pomaga dryferom z nullami (J0034, J0818: Δr +0.09), szkodzi modulacji natężenia (J1946 0.29 → 0.17),
+  bez wpływu J1001/J1750/J1825.
+Wniosek: miary ΔR²/Δr nie nadają się do porównywania metod o różnej „sile” śledzenia — potrzebny benchmark syntetyczny.
