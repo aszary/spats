@@ -2940,3 +2940,13 @@ Powyżej 10³³ sprawdzone wszystkie dryfery Song+23 z danymi (poza J2215+1538 �
 - „slabe”: J1615-5444 (32.45, P3 2.8 — blisko Nyquista) — zygzak częściowo zostaje.
 - brak: J1905-0056, J1116-4122, J1319-6105 (null odjęty: AM), J1807-0847, J1902+0615, J1527-5552, J1430-6623,
   J1635-5954.
+
+## 2026-10-09 — pas 2·10³² < Ė ≤ 10³³: kolejne 10 (seed 20261020)
+
+`drift_mid10b.txt`, `mid10b_agent.jl`, `figures/agent_mid10b/` (16 wykresów) + null dla 4.
+- Wyraźne pochylenie: 0/10.
+- „slabe” (po nullu zostaje częściowo): J1312-5516 (P3 2.6 — Nyquist, resztki ukośne w 515–525), J1748-1300 (P3 7.2,
+  pochylony ogon składowej końcowej 520–540).
+- „slabe_artefakt”: J1017-5621, J0820-3921 (null odtwarza wzór, różnica 25–41%).
+- brak: J1909+0007, J1412-6111, J1909+0254, J1013-5934, J1910-0309, J1112-6926.
+Pas 2·10³²–10³³ po 20/48: wyraźne 0, słabe_potw 1 (J0809), słabe 3, artefakt 2, brak 14.
