@@ -2812,3 +2812,16 @@ wszystkie 14 oglądane pojedynczo w pełnej rozdzielczości.
 Wniosek: powyżej ~10³³ dryfu nie widać w 10/10 dryferów Song+23 — zgodne z hipotezą użytkownika, że Song+23
 oznaczają dryf tam, gdzie go nie ma (przynajmniej przy wysokim Ė), i z górną granicą ~10³³.
 Klasyfikacja dopisana do `coherent_drift_classification.csv` (brak_pochylenia), P–Ṗ odświeżony.
+
+## 2026-10-09 — test hipotezy: 10 dryferów Song+23 z Ė < 10³³ (poniżej granicy)
+
+198 niesprawdzonych dryferów Song+23 z Ė < 10³³; losowo 10 (seed 20261016, log Ė 30.6–33.0): `drift_lowE10.txt`,
+skrypt `lowE_agent.jl`, log `logs/lowE.log`, wykresy `figures/agent_lowE/` — 16 oglądanych pojedynczo.
+- Pochylenie: tylko J1806+1023 (log Ė 31.3, P3 3.58) — słabe ukośne pasmo w słabej składowej wiodącej (~30–45 bin),
+  jasna składowa końcowa AM; Δψ +0.40 +0.41 +0.68 +0.73 (4/4, małe) → „umiarkowane”.
+- Bez pochylenia (AM): J1123-6102, J1953+1149 (płaski), J1845+0623, J1838+1650, J1915+1647 (dwie składowe w fazie),
+  J1926+1434, J1740+1311, J1843-0000 (składowe przesunięte w fazie), J1536-3602.
+- Ψ: żaden nie ma wzoru dryfera (duże, powtarzalne |Δψ| w 4/4).
+Wniosek: także poniżej granicy większość losowych dryferów Song+23 spoza puli pewnych (pairshift) nie pokazuje
+pochylenia (9/10) — hipoteza użytkownika dotyczy całej klasy, nie tylko wysokiego Ė. Pochylenie pojawia się prawie
+wyłącznie tam, gdzie pairshift też widzi dryf (|z_blk| ≥ 3); tu |z_blk| < 3 w 8/10.
