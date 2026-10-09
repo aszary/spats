@@ -2994,3 +2994,10 @@ wybraną wg pairshift — obciążenie):
 - „slabe”: J1517-4356 (2.0, lekko zostaje). „slabe_artefakt”: J1746+2245.
 - brak: J0904-4246, J1632-1013, J1646-6831, J1345-6115.
 Wbrew oczekiwaniu: 4/10 z pochyleniem (por. pas 2·10³²–10³³ ~23%, > 10³³ ~2%).
+Kontrola danych (uwaga użytkownika): `check_0211_1700.jl`, `j1700_zap.jl`, `figures/agent_low10a/check_*.png`, `J1700_zap.png`.
+- J0211-8159: ZŁE DANE — pulsar wędruje w fazie łukiem (bin ~350 → 590 → 350 w pulsach 160–300; zła efemeryda /
+  foldowanie), okno on 454–575 łapie tylko fragment łuku; „pochylenie” w foldzie to ten łuk. Klasa → „zle_dane”.
+- J1700-3312: RFI w pulsach 79–82 (energia ±150 przy medianie 4). Po wyzerowaniu i osobno dla pulsów 200–1037
+  pochylone pasma zostają bez zmian. Stroma lewa krawędź to cecha profilu (narasta 493 → 498 z ~0 do 0.14,
+  dwuskładnikowy profil), nie obcięcie. Zostaje „pochylenie”.
+Lista problemów z danymi: `~/claude/work/data_issues.txt`. Partia Ė ≤ 2·10³²: pochylenie 3/10.
