@@ -2726,3 +2726,17 @@ wykresy `figures/agent_rest/` (zestawienia sheet01–07).
 - J1650 (S/N 5.4) i J1403 (S/N 2.4): mało pokrycia mimo S/N ≥ 2 — z powodu nulli; obniżone progi stosować też tam.
 Podsumowanie puli 104 pewnych dryferów: fold koherentny wyraźnie lepszy od stałego P3 w ~69/104 (~66%), gorszy w
 ~3 (J0905, J1742 — raczej AM; J1807 przy auto σ).
+
+## 2026-10-09 — 10 P3-only, najlepsi kandydaci na dryf (wykresy oglądane pojedynczo, pełna rozdzielczość)
+
+Wybór: P3Track drift/partial wśród P3-only (J1810-5338, J1543+0929, J1016-5345, J1057-5226) + największe |z_blk|
+pairshift (J0849-6322 2.8, J1652-1400, J1849-0636, J1324-6302, J1141-3322, J1613-4714; |z_blk| 2.5–2.8 — żaden nie
+przekracza progu 3). Lista `~/claude/work/p3only10.txt`, skrypt `p3only10_agent.jl`, wykresy `figures/agent_p3only/`.
+- Fold koherentny: we WSZYSTKICH modulacja amplitudy — pionowe plamy, bez pochylonych pasm. J1543, J1057, J1141:
+  składowe modulowane z przesunięciem fazy względem siebie (~0.5 cyklu) — skok fazy między składowymi, nie ciągły
+  dryf; J1016 — najwyżej minimalne pochylenie w obrębie składowej; J1613 — lewa krawędź bardziej modulowana.
+- J1652 (P3 36.6, AM całego profilu): split_nulls oznacza 50% pulsów jako nulle → P3(n) puste; bez podziału 86%.
+  Ponownie: głęboka AM całego profilu wygląda dla detektora energii jak nulle.
+- J1810 (P3Track drift, z 5.4): fold koherentny ≈ stały, P3(n) pokrycie 2% (f_c = f3/16) — brak koherentnego sygnału.
+- P3(n): gładkie dla J1324 (23–38), J1613 (16–37), J1652 (bez nulli, 30–47), J1543 (13–35), J1016 (6–14, pik ~26).
+Wniosek: metoda nie tworzy dryfu tam, gdzie go nie ma — dla P3-only fold pokazuje AM. Wspiera Song+23.
