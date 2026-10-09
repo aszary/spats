@@ -2921,3 +2921,12 @@ nowych detekcji (`missing_null.jl`, `figures/slabe_null/`).
 - Jakość danych: J1012-5857, J1543-0620, J1733-4005, J1812+0226, J1844-0433 — natężenie płaskie (zero) poza krótkim
   fragmentem — dane w większości puste; przyczyna błędu pairshift.
 J1918+1444 — kolejny dryfer powyżej 10³³ (obok J1537 bi-drifter, J1922).
+
+## 2026-10-09 — pas 10³³ < Ė ≤ 1.2·10³³ (4 dryfery Song+23)
+
+`drift_band4.txt`, `band4_agent.jl`, `figures/agent_band4/` (6 wykresów) + null (`missing_null.jl`, `figures/slabe_null/`).
+- J0738-4042 (P3 10, S/N 78): fold z pochyleniem, ale null odtwarza je (kor. 0.97), dane − null: drobne resztki → artefakt.
+- J1820-0427 (P3 3.4): „S”, null identyczny (kor. 0.97, różnica 25%) → artefakt.
+- J1513-5739 (P3 17): po odjęciu nulla zostaje słaby ukośny ogon 505→520 → „slabe” (niepewne).
+- J1635-4944 (P3 12): AM, po odjęciu szum → brak.
+Powyżej 10³³ sprawdzone wszystkie dryfery Song+23 z danymi (poza J2215+1538 — brak danych).
