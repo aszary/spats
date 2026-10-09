@@ -2707,3 +2707,22 @@ a przy nullach > 5% także split_nulls=false), wykresy `figures/agent_real10g/`.
   wybrało 0.15 (J1415, J1424). J1415 q 0.2: pik P3(n) ~18 przy ~680 (znany artefakt).
 - J1424: wykryte 16% „nulli” to raczej modulacja natężenia — bez podziału lepiej.
 Łącznie 70: fold wyraźnie lepszy w ~45/70.
+
+## 2026-10-09 — reszta puli pewnych dryferów (34), koniec przeglądu puli (104)
+
+Lista `~/claude/work/drift_rest.txt`, skrypt `rest_agent.jl` (wariant dla S/N < 2), log `logs/rest_agent.log`,
+wykresy `figures/agent_rest/` (zestawienia sheet01–07).
+- Fold wyraźnie lepszy (~24/34): J0134-2937, J0533+0402, J0725-1635, J0823+0159, J0904-7459, J0952-3839, J1036-6559,
+  J1110-5637, J1246+2253, J1303-6305, J1312-5402, J1512-5431, J1514-4834, J1650-1654, J1651-5222, J1720-2933,
+  J1741-0840, J1821+1715, J1927+0911, J1943+0609, J1133-6250, J0924-5814, J1927+2234, J1648-6044;
+  modulacja bez wyraźnego pochylenia / niewielka różnica: J0909-7212, J1034-3224, J1350-5115, J1403-7646, J1850+0026,
+  J1919+1745, J1933+1304, J1951+1123, J0820-4114; płaski przy auto σ = 0.3: J1807+0756 (S/N 1.2; przy σ 0.07 słaba
+  struktura).
+- P3(n) gładkie m.in. J0533, J0820 (16–24), J1034, J1303, J1312, J1514 (31–57), J1720 (2.40–2.50), J1821, J1933, J0952,
+  J1943; w kawałkach przy nullach/słabym S/N: J1403 (24% nulli, 27%), J1648, J1650 (11% nulli), J1807, J1927+2234.
+- Wariant słabych (q 0.2 / σ 0.07): J0134 43 → 74%, J1927+2234 20 → 76%, J1807 18 → 61%, J1648 31 → 68–73%,
+  J1036-6559 84 → 91%, mediany bez zmian.
+- Artefakty P3(n): piki J1110 (~24 przy ~520), J0909 (~16 przy ~760), J1927+0911 (~60 przy ~490).
+- J1650 (S/N 5.4) i J1403 (S/N 2.4): mało pokrycia mimo S/N ≥ 2 — z powodu nulli; obniżone progi stosować też tam.
+Podsumowanie puli 104 pewnych dryferów: fold koherentny wyraźnie lepszy od stałego P3 w ~69/104 (~66%), gorszy w
+~3 (J0905, J1742 — raczej AM; J1807 przy auto σ).
