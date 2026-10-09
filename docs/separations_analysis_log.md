@@ -2970,3 +2970,17 @@ Uwaga użytkownika: alias przy P3 ≈ 2–3 (nieokreślony kierunek) nie jest ar
 - „slabe_artefakt”: J1806-1154, J2002+1637 (null odtwarza wzór).
 - brak: J1921+1419 (po odjęciu AM, bez pochylenia), J0758-1528, J1735-0724, J1743-1351, J1841+0912, J1905+0709.
 Pas 2·10³²–10³³ po 30/48: pochylenie 2, słabe_potw 1, słabe 3, artefakt 4, brak 20.
+
+## 2026-10-09 — pas 2·10³² < Ė ≤ 10³³: ostatnie 18 (pas kompletny)
+
+`drift_mid18.txt`, `mid18_agent.jl`, `figures/agent_mid18/` (27 wykresów) + null dla 10 (`figures/slabe_null/`).
+- Pochylenie (zostaje po odjęciu nulla): J1754-3510 (P3 13), J1929+2121 (P3 32).
+- „slabe_potw”: J1255-6131 (49), J1744-3130 (21, „V” — bi-drift?), J1941+0121 (6.2), J1739+0612 (12, składowa końcowa).
+- „slabe”: J1903+0135 (3.5), J1840-1207 (4.0, 270 P).
+- „slabe_artefakt”: J1202-5820, J2127-6648.
+- brak: J1001-5507, J1225-6408, J1236-5033, J1328-4357, J1544-5308, J1627-5547, J1907-1532, J1915+0227.
+Podsumowanie wszystkich sklasyfikowanych dryferów Song+23 wg Ė (uwaga: Ė ≤ 2·10³² zawiera pulę pewnych dryferów
+wybraną wg pairshift — obciążenie):
+  Ė ≤ 2·10³²: 123 — pochylenie 63, umiark. 3, słabe_potw 2, słabe 3, artefakt 2, brak 50.
+  2·10³²–10³³: 75 (kompletny) — pochylenie 16, umiark. 1, słabe_potw 5, słabe 5, artefakt 8, brak 40.
+  > 10³³: 84 (kompletny z danymi) — pochylenie 2, słabe_potw 4, słabe 6, artefakt 11, brak 61.
