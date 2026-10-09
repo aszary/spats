@@ -2960,3 +2960,13 @@ dryf lub alias przy P3 2.6), zostaje „slabe”.
 `psi_all.jl` → `~/claude/work/psi_all.csv`: ψ stabilne (4/4 znak, CV < 0.5): pochylenie 48/77, umiarkowane 3/4,
 slabe_potw 2/7, slabe 1/12, artefakt 2/17. Miara wystarczająca, nie konieczna (odrzuca J1750, J1918, J2053, J1519…).
 Odłożone (użytkownik): punktacja 3 testów (null, ψ, pairshift) dla wszystkich.
+
+## 2026-10-09 — pas 2·10³² < Ė ≤ 10³³: trzecia dziesiątka (seed 20261021)
+
+`drift_mid10c.txt`, `mid10c_agent.jl`, `figures/agent_mid10c/` (14 wykresów) + null dla 5.
+Uwaga użytkownika: alias przy P3 ≈ 2–3 (nieokreślony kierunek) nie jest argumentem przeciw dryfowi.
+- Pochylenie (zostaje po odjęciu nulla, null pionowy/słaby): J1338-6204 (log Ė 32.46, P3 20, ψ 4/4 +1.5),
+  J1848-0123 (32.86, P3 16, ψ 4/4 −2.8…−4.6 — stabilne).
+- „slabe_artefakt”: J1806-1154, J2002+1637 (null odtwarza wzór).
+- brak: J1921+1419 (po odjęciu AM, bez pochylenia), J0758-1528, J1735-0724, J1743-1351, J1841+0912, J1905+0709.
+Pas 2·10³²–10³³ po 30/48: pochylenie 2, słabe_potw 1, słabe 3, artefakt 4, brak 20.
