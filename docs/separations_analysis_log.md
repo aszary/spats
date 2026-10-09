@@ -2683,3 +2683,9 @@ Lista `~/claude/work/random10_drift_f.txt`, skrypt `real10f_agent.jl`, wykresy `
   koherentnego z LOO foldu stałym P3 i wybrać lepszy).
 - P3(n) gładkie: J1809 3.3–4.0, J2046 2.6–3.0, J1638 9–18, J1320 8–20, J1901 4.5–6.7, J1035 4.4–8 (spadek ~300–480).
 Łącznie 60: fold wyraźnie lepszy w ~38/60; wyraźnie gorszy w 2/60 (J0905, J1742).
+J0905/J1742 — parametry dla słabych pulsarów (`weak2.jl`, `weak3.jl`, `figures/agent_real10f/weak2.png`), σ_k = 0.07:
+- J0905: threshold_q 0.5 / 0.3 / 0.15 → pokrycie 25 / 56 / 71%, P3(n) 3.85–4.15 (wolna oscylacja, okres ~80 P), σ ~0.05.
+- J1742: 13 / 42 / 56%, kawałki; „nulle” z energii 18% to raczej kwaziokresowa modulacja natężenia (~20–30 P),
+  nie nulle — split_nulls=false + q 0.15: pokrycie 72%, 4 odcinki, P3(n) 6.8–7.15 (oscylacja ~130 P).
+- σ_k = 0.07 zamiast auto 0.3 pokazuje modulację w foldzie koherentnym (słabą, jak w stałym P3).
+Dla bardzo słabych (S/N < 2): threshold_q 0.15–0.3, kernel_sigma ~0.07, przy modulacji natężenia split_nulls=false.
