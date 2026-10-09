@@ -2648,3 +2648,12 @@ f_c 1/22, σ_k 0.07).
 Wniosek: pochylenie (dryf) jest w danych; amplitudę foldu porównywać z foldem tasowanym. P3 ≈ 2.8 jest blisko
 Nyquista — kierunek/tempo dryfu niejednoznaczne (alias P3 ≈ 1.56), metoda pokazuje wariant przy założonym f3 = 1/P3.
 Propozycja: rysować obok fold z tasowania (null) lub odejmować go.
+Odejmowanie foldu-null (`null_subtract.jl`, `figures/agent_real10d/null_subtract.png`): null = fold jądrowy 10 tasowań
+kolejności pulsów z TYM SAMYM szablonem co dane (te same współrzędne fazy). std reszt dane / null / różnica:
+J0255 0.112/0.068/0.057, J1232 0.014/0.004/0.010, J0034 0.030/0.014/0.023, J1539 0.0056/0.0028/0.0036,
+J1919 0.023/0.011/0.014, J0818 0.025/0.014/0.015. Korelacja dane–null 0.67–0.94: przy wspólnym szablonie null
+odtwarza w dużej części wzór szablonu (u J0255, J1919 — także pochylenie), bo sortuje pulsy wg rzutu na szablon
+niezależnie od kolejności. Po odjęciu pochylenie zostaje u wszystkich dryferów (J1232, J0034 bez zmian kształtu,
+J1539 wyraźniejsze); J0818: zostaje przesunięcie fazy między składowymi (dryf skokowy?), modulacja środkowej
+składowej w dużej mierze z nulla. Nadwyżka nad nullem 40–75% amplitudy. Wcześniejszy null z własnym szablonem
+tasowanych danych (J0255: bez pochylenia) nie był w tych samych współrzędnych — ten jest właściwy.
