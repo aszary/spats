@@ -2756,3 +2756,18 @@ pairshift z_blk 0.84 (brak), subtrack D± ±0.05 bin/P.
 Ocena: słaby/niejednoznaczny kandydat — możliwe niewielkie przesunięcie podpulsu w obrębie wąskiej składowej
 (< szerokość składowej na cykl), niestabilne w czasie; w tych danych nie da się go odróżnić od AM z niewielkim
 gradientem fazy. Do sprawdzenia: inne obserwacje / wyższa rozdzielczość czasowa.
+
+## 2026-10-09 — kolejne 10 dryferów (Song+23 drift) spoza puli, wg |z_blk| (wykresy pojedynczo, pełna rozdzielczość)
+
+Pula 104 wyczerpana; pozostało 276 pulsarów z etykietą drift. Wzięte 10 z największym |z_blk| (3.7–4.6):
+`~/claude/work/drift_next10.txt`, skrypty `next10_agent.jl`, `next10_lowcov.jl`, wykresy `figures/agent_next10/`.
+- Pochylenie w foldzie koherentnym: J0856-6137 (wyraźne, P3 2.8), J0401-7608 (składowa wiodąca), J1846-07492
+  (pasmo zakrzywione „S” — dryf zmienny w obrębie składowej lub alias, P3 2.7), J1926+0431 (słabe).
+- Modulacja amplitudy (pionowe plamy / poziome pasy): J1705-1906, J1914+1122 (składowa końcowa), J1750-3157,
+  J1257-1027, J1703-3241 (cały profil), J1302-6350 (płaski nawet przy σ 0.07, S/N 1.4).
+- J1703-3241: pokrycie P3(n) 2% przy S/N 11.7 — próg |s| z tasowania (36.6) WYŻSZY od mediany |s| danych (23.1):
+  silna modulacja natężenia całego profilu; tasowanie przenosi moc fluktuacji energii z niskich częstości do pasma
+  przy f3, więc null jest zawyżony. q 0.2 → 22%. Do „Ewentualnych kroków”: null progu |s| liczyć z energią
+  pulsów zachowaną/odjętą.
+- Obniżone progi przy niskim pokryciu mimo dobrego S/N: J1750-3157 44 → 77%, J0856 50 → 82%.
+Wniosek: poza pulą dryf widoczny w ~3–4/10, reszta AM — zgodne ze słabszymi z_blk.

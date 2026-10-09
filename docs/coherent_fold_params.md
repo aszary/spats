@@ -206,5 +206,8 @@ i zmienia znak (szczegóły w logu 2026-10-09). Pozostałe 9 sprawdzonych P3-onl
    nadwyżka amplitudy nad nullem, fold z połówek binów jako kontrola; koszt ~10 dodatkowych przebiegów na pulsar.
 6e. **Fallback do stałego P3** — przy S/N ≲ 2 fold koherentny bywa płaski (σ_k na granicy siatki), a fold stałym P3
    pokazuje modulację (J0905-6019, J1742-4616). Porównać LOO foldu koherentnego i stałego P3, wybrać lepszy.
+6f. **Próg |s| zawyżony przy modulacji natężenia** — J1703-3241: null z tasowania (36.6) > mediana |s| danych (23.1),
+   pokrycie P3(n) 2% przy S/N 11.7. Tasowanie przenosi moc fluktuacji energii do pasma f3. Rozważyć null z pulsami
+   znormalizowanymi do energii (lub z odjętą składową energii) przy liczeniu progu.
 7. **Inne** — odróżnienie natężenia od dryfu (κ / widmo energii z progiem per pulsar); osobne P3 dla trybów
    (J1825, J0034); reguła f_c z rozrzutu śladu sLRFS (80–100% optimum w 6/8 pulsarach) jako alternatywa dla CV.
