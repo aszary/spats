@@ -2771,3 +2771,7 @@ Pula 104 wyczerpana; pozostało 276 pulsarów z etykietą drift. Wzięte 10 z na
   pulsów zachowaną/odjętą.
 - Obniżone progi przy niskim pokryciu mimo dobrego S/N: J1750-3157 44 → 77%, J0856 50 → 82%.
 Wniosek: poza pulą dryf widoczny w ~3–4/10, reszta AM — zgodne ze słabszymi z_blk.
+Korekta: J1926+0431 — wcześniej „słabe pochylenie”, po obejrzeniu w pełnej rozdzielczości i przeliczeniu z σ 0.07
+(`j1926.jl`): plamy przy ~37 binie z modulacją jasności, bez pochylenia (lekkie poszerzenie w prawo w fazach
+jasnych, jak w foldzie stałym P3) → AM. P3(n) 2.5–2.9 (q 0.2, bez nulli: pokrycie 86%). Poza pulą pochylenie: 3/10
+(J0856, J0401, J1846).
