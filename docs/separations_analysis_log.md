@@ -2614,3 +2614,8 @@ w 1% od maksimum. Siatki: ybins 4–64, σ_k 0.01–0.15 cyklu.
   w 40/40, CV-biny lepsze od 2·P3 w 36/40. σ_k na górnej granicy siatki (0.15) w 10/40 — siatkę rozszerzyć.
 - Uwaga: optimum LOO mocno wygładza (σ 0.07–0.1 cyklu ≈ FWHM 0.16–0.24 cyklu) — J0034 i J1232 wizualnie
   rozmyte względem CV-binów, choć bliżej prawdy w sensie korelacji (syntetyki).
+Wprowadzone: fold jądrowy domyślny w `coherent_fold_agent` / `p3fold_coherent_agent` (`kernel_fold_agent`,
+`kernel_sigma_agent`, `fold=:kernel|:bins`, `kernel_sigma=:auto|liczba`, `nphase=64`), siatka σ 0.01–0.3 cyklu,
+LOO na siatce 256 faz (bez macierzy N × N). Test (`test_kernel_agent.jl`, `figures/agent_kernel/`): σ J1539 0.07,
+J1232 0.07, J0034 0.1, J1750 0.1, J1919 0.045, J1547 0.1 (jak w teście; szersza siatka nic nie zmieniła), 2–11 s;
+własne σ (0.03) i `fold=:bins` (ybins 12, counts 74–84) działają.

@@ -692,9 +692,98 @@ function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshol
 end
 
 
+"Phase grid for the kernel fold: `nphase` points, cycles 0 … 1."
+_phase_grid(nphase::Int) = collect(0:nphase-1) ./ nphase
+
+"Wrapped-Gaussian weights between grid phases `g` and pulse phases `u` (both in cycles), σ in cycles: G × N."
+function _kernel_weights(g, u, σ)
+    d = g .- u'
+    d .-= round.(d)
+    return exp.(-d .^ 2 ./ (2σ^2))
+end
+
+"""
+    kernel_fold_agent(data, phase, sigma; nphase=64) -> Matrix
+
+Kernel P3-fold: at each of `nphase` grid phases θ the weighted MEAN of all
+pulses, weights a Gaussian in phase wrapped on the cycle,
+w = exp(−d²/2σ²), d = θ − θ_n (cycles). No binning — every pulse contributes
+to nearby phases with a weight set by `sigma`, which should be about the
+phase uncertainty; `kernel_sigma_agent` picks it from the data.
+`phase` in radians (as returned by `coherent_fold_agent`), `sigma` in cycles.
+"""
+function kernel_fold_agent(data::AbstractMatrix, phase::AbstractVector, sigma::Real; nphase::Int=64)
+    u = mod.(phase ./ (2π), 1.0)
+    W = _kernel_weights(_phase_grid(nphase), u, sigma)
+    return (W * data) ./ sum(W, dims=2)
+end
+
+"""
+LOO score of the kernel fold: fold of `Y` (pulses × bins, column means removed)
+computed on a fine phase grid (`ngrid`), each pulse predicted from the fold
+without itself (its own weight w(0) = 1 removed at its nearest grid phase),
+score = 1 − Σ|Y − Ŷ|² / Σ|Y|². G × N weights instead of N × N, so it also runs
+on long observations (27 000 pulses).
+"""
+function _loo_kernel_score(Y, u, σ; ngrid::Int=256)
+    g = _phase_grid(ngrid)
+    W = _kernel_weights(g, u, σ)
+    S = W * Y
+    C = vec(sum(W, dims=2))
+    k = mod.(round.(Int, u .* ngrid), ngrid) .+ 1
+    err = 0.0
+    for n in eachindex(u)
+        c = C[k[n]] - 1.0
+        if c ≤ 1e-9
+            err += sum(abs2, @view Y[n, :])
+        else
+            err += sum(abs2, (S[k[n], :] .- Y[n, :]) ./ c .- Y[n, :])
+        end
+    end
+    return 1 - err / sum(abs2, Y)
+end
+
+"""
+    kernel_sigma_agent(data, p3, bin_st, bin_end, cutoff; grid, filter_order, niter, nshuffle,
+                       threshold_q, exclude) -> NamedTuple
+
+Kernel width for `kernel_fold_agent` from the data. The phase (variant C,
+low-pass `cutoff`) is estimated from one half of the on-pulse bins
+(interleaved blocks of 4), every pulse of the other half is predicted from
+the kernel fold of the remaining pulses (leave-one-out), and vice versa;
+score = 1 − Σ|Y−Ŷ|²/Σ|Y|² (mean of both halves). Too narrow a kernel follows
+noise, too wide a one smears the bands; the largest σ within 1% of the best
+score is returned (prefer the smoother fold when the score is flat).
+Synthetic benchmark (40 cases): fold correlation with the truth 0.813 vs 0.761
+for the best cross-validated number of bins and 0.677 for ybins = 2·P3.
+
+Returns: sigma [cycles], grid, score.
+"""
+function kernel_sigma_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int, cutoff::Real;
+                            grid=(0.01, 0.015, 0.02, 0.03, 0.045, 0.07, 0.1, 0.15, 0.2, 0.3),
+                            filter_order::Int=6, niter::Int=2, nshuffle::Int=5, threshold_q::Real=0.5,
+                            exclude=nothing)
+    X = data[:, bin_st:bin_end]
+    X = X .- mean(X, dims=1)
+    A, B = _bin_halves(size(X, 2))
+    score = zeros(length(grid))
+    for (P, Q) in ((A, B), (B, A))
+        c = _variant_c(X[:, P], p3, cutoff; filter_order=filter_order, niter=niter, nshuffle=nshuffle,
+                       threshold_q=threshold_q, exclude=exclude)
+        u = mod.((c.carrier .+ angle.(c.s)) ./ (2π), 1.0)
+        Y = X[:, Q] .- mean(X[:, Q], dims=1)
+        score .+= [_loo_kernel_score(Y, u, σ) for σ in grid] ./ 2
+    end
+    best = maximum(score)
+    i = findlast(x -> x ≥ best - 0.01 * abs(best), score)
+    return (sigma=grid[i], grid=collect(grid), score=score)
+end
+
+
 """
     coherent_fold_agent(data, p3, bin_st, bin_end; ybins=10, lowpass_cutoff=:auto, filter_order=6,
-                        niter=2, nshuffle=5, n_groups=4, threshold_q=0.5, split_nulls=true) -> NamedTuple
+                        niter=2, nshuffle=5, n_groups=4, threshold_q=0.5, split_nulls=true,
+                        fold=:kernel, kernel_sigma=:auto, nphase=64) -> NamedTuple
 
 `coherent_fold` with (1) the low-pass cutoff chosen by `auto_cutoff_agent`
 (or a number), and (2) the P3(n) track of "variant C":
@@ -727,9 +816,15 @@ relative P3(n) error 5.6% (median) at 94% coverage; fold correlation with
 the truth 0.85 (fixed 1/300: 0.68).
 
 Returns:
-  folded         – ybins × N_bins fold with the variant-C phase: MEAN of the pulses
-                   in each phase bin (NaN for an empty bin), not the sum
-  counts         – number of pulses in each phase bin
+  folded         – the fold selected by `fold`: `folded_kernel` (default) or `folded_bins`
+  folded_kernel  – nphase × N_bins kernel fold (`kernel_fold_agent`): weighted mean of all
+                   pulses, wrapped Gaussian in phase of width `kernel_sigma` [cycles] —
+                   chosen by `kernel_sigma_agent` (LOO, halves of the longitude bins) when
+                   `kernel_sigma=:auto`, or given as a number
+  kernel_sigma, sigma_grid, sigma_score – σ used and the LOO scores (if :auto)
+  folded_bins    – ybins × N_bins binned fold: MEAN of the pulses in each phase bin
+                   (NaN for an empty bin), not the sum
+  counts         – number of pulses in each phase bin (binned fold)
   phase, bin     – total P3-phase [rad] and fold bin per pulse
   p3_per_pulse   – P3(n) [P], NaN where not measured
   p3_per_pulse_err – 1σ from the longitude groups (NaN if < 2 groups)
@@ -742,7 +837,8 @@ Returns:
 function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                              ybins::Int=10, lowpass_cutoff=:auto, filter_order::Int=6,
                              niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5,
-                             split_nulls::Bool=true)
+                             split_nulls::Bool=true, fold::Symbol=:kernel, kernel_sigma=:auto, nphase::Int=64)
+    fold in (:kernel, :bins) || error("fold must be :kernel or :bins")
     N = size(data, 1)
     on = bin_st:bin_end
     if lowpass_cutoff === :auto
@@ -764,8 +860,19 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
     # the bins unevenly (P3 ≈ 2: phases cluster at two values, J1539-4828: 38–155 pulses
     # per bin at ybins = 16), and a sum shows the bin occupancy instead of the emission
     counts = [count(==(y), bin) for y in 1:ybins]
-    folded = build_template(data, bin, ybins) ./ counts
-    folded[counts .== 0, :] .= NaN
+    folded_bins = build_template(data, bin, ybins) ./ counts
+    folded_bins[counts .== 0, :] .= NaN
+
+    # kernel fold (default): weighted mean over all pulses, σ from the data unless given
+    if kernel_sigma === :auto
+        ks = kernel_sigma_agent(data, p3, bin_st, bin_end, fc; filter_order=filter_order, niter=niter,
+                                nshuffle=nshuffle, threshold_q=threshold_q, exclude=nulls)
+        ksig, ksgrid, ksscore = ks.sigma, ks.grid, ks.score
+    else
+        ksig, ksgrid, ksscore = Float64(kernel_sigma), nothing, nothing
+    end
+    folded_kernel = kernel_fold_agent(data, phase, ksig; nphase=nphase)
+    folded = fold === :kernel ? folded_kernel : folded_bins
 
     # detection significance, as in coherent_fold
     F = fft(data, 1)
@@ -791,7 +898,9 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
         length(v) < 2 ? NaN : std(v) / sqrt(length(v))
     end
 
-    return (folded=folded, counts=counts, phase=phase, bin=bin, p3_per_pulse=c.p3, p3_per_pulse_err=p3_err,
+    return (folded=folded, fold=fold, folded_kernel=folded_kernel, kernel_sigma=ksig, sigma_grid=ksgrid,
+            sigma_score=ksscore, folded_bins=folded_bins, counts=counts, phase=phase, bin=bin,
+            p3_per_pulse=c.p3, p3_per_pulse_err=p3_err,
             used=c.keep, nulls=nulls, amplitude=abs.(c.s), threshold=c.threshold, lowpass_cutoff=fc,
             cutoff_grid=grid, cutoff_score=score, snr=snr)
 end

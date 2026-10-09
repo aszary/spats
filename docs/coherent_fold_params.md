@@ -112,8 +112,15 @@ nie — generator jest uboższy niż dane (do kalibracji).
   threshold_q=0.5, split_nulls=true)` — fold i P3(n) wariantu C; fold = ŚREDNIA pulsów w binie fazy (nie suma —
   fazy z danych obsadzają biny nierówno, J1539: 31–155 pulsów/bin), zwraca też `counts`, `used`, `nulls`, `amplitude`,
   `lowpass_cutoff`, `cutoff_score`.
+- `P3FoldViterbi.kernel_fold_agent(data, phase, sigma; nphase=64)` — fold jądrowy: średnia ważona wszystkich pulsów,
+  zawinięty Gauss w fazie o szerokości σ [cykle]; `kernel_sigma_agent(data, p3, bin_st, bin_end, cutoff; grid)` — σ z
+  LOO na połówkach binów długości (siatka 0.01–0.3 cyklu, największe σ w 1% od maksimum; LOO na siatce 256 faz, więc
+  działa też dla 27 000 pulsów).
+- `coherent_fold_agent(...; fold=:kernel, kernel_sigma=:auto, nphase=64)` — DOMYŚLNIE fold jądrowy (`folded` =
+  `folded_kernel`, `kernel_sigma`, `sigma_score`); `fold=:bins` → średnia w binach (`folded_bins`, `counts`, `ybins`);
+  `kernel_sigma=0.03` — własna szerokość (np. dla drobniejszych szczegółów; LOO wybiera mocne wygładzenie).
 - `SpaTs.p3fold_coherent_agent(outdir; datafile, plotdir, name_mod, figtitle, lowpass_cutoff=:auto, threshold_q=0.5,
-  split_nulls=true)` — odpowiednik `p3fold_coherent` bez okien, wykres `<name_mod>_p3fold_compare.pdf/.png`.
+  split_nulls=true, fold=:kernel, kernel_sigma=:auto, nphase=64)` — odpowiednik `p3fold_coherent` bez okien, wykres `<name_mod>_p3fold_compare.pdf/.png`.
 - `coherent_fold` i `p3fold_coherent` bez zmian.
 
 Decyzje projektowe i ich uzasadnienie:
@@ -182,6 +189,6 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
    p3_ybins z params niejednorodne (find_ybins, find_ybins_old, ręczne). Sprawdzone (`ybins_kernel.jl`): CV (LOO,
    połówki binów) daje ybins 4–16, prawie jak wyrocznia (syntetyki 0.761 vs 0.766; 2·P3: 0.677). Fold JĄDROWY
    (zawinięty Gauss w fazie, σ z CV) lepszy w 40/40 syntetyków (0.813) i ma wyższy LOO na 7/7 pulsarach —
-   kandydat do wprowadzenia; σ_k często na granicy siatki 0.15 → rozszerzyć.
+   WPROWADZONY jako domyślny (siatka σ do 0.3 cyklu, własne σ opcjonalnie).
 7. **Inne** — odróżnienie natężenia od dryfu (κ / widmo energii z progiem per pulsar); osobne P3 dla trybów
    (J1825, J0034); reguła f_c z rozrzutu śladu sLRFS (80–100% optimum w 6/8 pulsarach) jako alternatywa dla CV.

@@ -521,9 +521,12 @@ module SpaTs
         pulsars / small P3); `split_nulls` also drops nulls
         found from pulse energy and splits P3(n) on them; errors from `n_groups`
         longitude sub-ranges;
-      - the coherent fold is the MEAN of the pulses in each phase bin (result
-        also has `counts`); the constant-P3 panel stays `Tools.p3fold` (sum,
-        nearly equal bin occupancy there);
+      - the coherent fold is by default a KERNEL fold (`fold=:kernel`): weighted
+        mean of all pulses, wrapped Gaussian in phase of width `kernel_sigma`
+        [cycles] chosen from the data (`:auto`, leave-one-out on halves of the
+        longitude bins) or given; `fold=:bins` draws the mean per phase bin
+        (`ybins`) instead (result also has `counts`). The constant-P3 panel
+        stays `Tools.p3fold` (sum, nearly equal bin occupancy there);
       - never opens a window (no `show_`).
 
     Reads `datafile` and params.json from `outdir`, zaps as `p3fold_coherent`.
@@ -532,7 +535,8 @@ module SpaTs
       p3fold_coherent_agent(vpmout*"J1750-3503"; plotdir="/home/psr/output/")
     """
     function p3fold_coherent_agent(outdir; ybins=nothing, lowpass_cutoff=:auto, filter_order=6, n_groups=4,
-                                   threshold_q=0.5, split_nulls=true, darkness=1.0, datafile="pulsar.debase.txt", plotdir=outdir,
+                                   threshold_q=0.5, split_nulls=true, fold=:kernel, kernel_sigma=:auto,
+                                   nphase=64, darkness=1.0, datafile="pulsar.debase.txt", plotdir=outdir,
                                    name_mod="pulsar_coherent_agent", figtitle=nothing)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, datafile))
@@ -542,17 +546,20 @@ module SpaTs
         result = P3FoldViterbi.coherent_fold_agent(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups,
-            threshold_q=threshold_q, split_nulls=split_nulls)
+            threshold_q=threshold_q, split_nulls=split_nulls, fold=fold, kernel_sigma=kernel_sigma,
+            nphase=nphase)
         fc = result.lowpass_cutoff
         println("Matched-filter SNR: $(round(result.snr, digits=1)), lowpass_cutoff = 1/$(round(1 / fc, digits=1)) " *
-                "($(round(fc * p3, digits=3)) f3), nulls (energy) $(round(100 * count(result.nulls) / length(result.nulls), digits=1))%, P3(n) measured in $(round(100 * count(isfinite, result.p3_per_pulse) / length(result.p3_per_pulse), digits=1))% of pulses")
+                "($(round(fc * p3, digits=3)) f3), kernel σ = $(round(result.kernel_sigma, digits=3)) cycle, nulls (energy) $(round(100 * count(result.nulls) / length(result.nulls), digits=1))%, P3(n) measured in $(round(100 * count(isfinite, result.p3_per_pulse) / length(result.p3_per_pulse), digits=1))% of pulses")
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
         # mean fold; an empty phase bin (NaN) is drawn as 0 so that the colour scale works
         Plot.p3fold_compare(replace(result.folded, NaN => 0.0), folded_const, result.p3_per_pulse, p3, plotdir;
                             bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
                             name_mod=name_mod, show_=false, repeat_num=4,
-                            label="coherent fold, mean (f\$_c\$ = 1/$(round(Int, 1 / fc)))",
+                            label=(fold === :kernel ?
+                                   "coherent fold, kernel σ = $(round(result.kernel_sigma, digits=3)) (f\$_c\$ = 1/$(round(Int, 1 / fc)))" :
+                                   "coherent fold, mean, $(yb) bins (f\$_c\$ = 1/$(round(Int, 1 / fc)))"),
                             p3_per_pulse_err=result.p3_per_pulse_err, intensity=intensity, figtitle=figtitle)
         return result
     end
