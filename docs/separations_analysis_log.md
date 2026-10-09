@@ -3001,3 +3001,13 @@ Kontrola danych (uwaga użytkownika): `check_0211_1700.jl`, `j1700_zap.jl`, `fig
   pochylone pasma zostają bez zmian. Stroma lewa krawędź to cecha profilu (narasta 493 → 498 z ~0 do 0.14,
   dwuskładnikowy profil), nie obcięcie. Zostaje „pochylenie”.
 Lista problemów z danymi: `~/claude/work/data_issues.txt`. Partia Ė ≤ 2·10³²: pochylenie 3/10.
+
+## 2026-10-09 — decyzja: ślepa ocena folda; przygotowanie ślepego przeglądu
+
+Dotychczasowa klasyfikacja wzrokowa nie była w pełni niezależna (w logach widoczne z_blk i ψ; przy J1312 pairshift
+użyty jako argument; wybór partii wg pairshift/Song+23). Użytkownik: ocena ma być niezależna, także dla wcześniejszych.
+Przygotowane: 302 pulsary z `coherent_drift_classification.csv` (bez `zle_dane`) przeliczone bieżącym kodem
+(`~/claude/work/scripts/blind_run.jl`) z losowymi ID (`~/claude/work/blind/raw/B####*.png`), mapowanie w
+`blind/mapping_DO_NOT_READ.csv`. Wcześniejsze partie liczone starszymi wersjami (fold binowany, przed jądrowym) —
+przegląd ujednolici też wersję kodu. Do zrobienia w nowej sesji: ślepe werdykty → `blind/verdicts.csv`, ślepy null,
+na końcu porównanie z poprzednią klasyfikacją, pairshift i Song+23.
