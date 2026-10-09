@@ -178,7 +178,10 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
    syntetykach, a na danych nie.
 6b. **Piki P3(n) na początku odcinków** (J1137 ~23, J1655 ~19, J1056 ~9). Odrzucanie punktów z jednostronnym oknem
    sprawdzone i odrzucone — zbyt duża utrata pokrycia (J1056 69 → 25%), piki tylko częściowo znikają.
-6c. **ybins dla foldu koherentnego** — p3_ybins z params (≈ 2·P3) za małe przy P3 ≈ 2 (J1539: pasma widoczne dopiero
-   przy 8–16); rozważyć ybins = max(p3_ybins, ~16) w `_agent`.
+6c. **ybins dla foldu koherentnego** — w foldzie koherentnym ybins to rozdzielczość w fazie cyklu, niezależna od P3.
+   p3_ybins z params niejednorodne (find_ybins, find_ybins_old, ręczne). Sprawdzone (`ybins_kernel.jl`): CV (LOO,
+   połówki binów) daje ybins 4–16, prawie jak wyrocznia (syntetyki 0.761 vs 0.766; 2·P3: 0.677). Fold JĄDROWY
+   (zawinięty Gauss w fazie, σ z CV) lepszy w 40/40 syntetyków (0.813) i ma wyższy LOO na 7/7 pulsarach —
+   kandydat do wprowadzenia; σ_k często na granicy siatki 0.15 → rozszerzyć.
 7. **Inne** — odróżnienie natężenia od dryfu (κ / widmo energii z progiem per pulsar); osobne P3 dla trybów
    (J1825, J0034); reguła f_c z rozrzutu śladu sLRFS (80–100% optimum w 6/8 pulsarach) jako alternatywa dla CV.

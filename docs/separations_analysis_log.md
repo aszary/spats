@@ -2599,3 +2599,18 @@ dwóch wartościach (liczby pulsów w binach przy ybins = 16: 31–155), więc s
 Wynik (`j1539_ybins_mean.jl`, `figures/agent_real10c/mean_check.png`): J1539 przy ybins 8 i 16 — wyraźne ukośne
 pasma dryfu (przy 4 i przy sumie niewidoczne); J1232, J1547 — obraz jak przy sumie (równe obsadzenie).
 Wniosek: dla P3 blisko 2 p3_ybins z params.json (≈ 2·P3) jest za małe dla foldu koherentnego.
+
+## 2026-10-09 — dobór ybins z danych (CV) i fold jądrowy
+
+Skrypt `~/claude/work/scripts/ybins_kernel.jl` (real / synth), wyniki `~/claude/work/ybins_kernel_synth.csv`,
+`logs/ybins_kernel_real.log`, wykresy `figures/agent_real10c/ybins_kernel_*.png`. Faza: wariant C z połowy binów
+długości; miara LOO — każdy puls drugiej połowy przewidywany z folda pozostałych (średnia binu bez niego / średnia
+ważona zawiniętym Gaussem w fazie bez niego), score = 1 − Σ|Y−Ŷ|²/Σ|Y|²; wybór: najmniejsze ybins / największe σ_k
+w 1% od maksimum. Siatki: ybins 4–64, σ_k 0.01–0.15 cyklu.
+- Dane: CV ybins 4–16 (J1539 6, J1232 12, J0034 6, J1547 4, J1750 6, J0820 12, J1919 16), σ_k 0.045–0.1 cyklu;
+  jądro ma wyższy LOO score od najlepszego binowania we wszystkich 7.
+- Syntetyki (40, co piąty z benchmarku v2; korelacja z prawdziwym foldem): ybins = 2·P3 0.677, CV ybins 0.761,
+  najlepsze ybins (wyrocznia) 0.766, jądro CV 0.813 (S/N < 2: 0.42 / 0.52 / 0.53 / 0.60). Jądro lepsze od CV-binów
+  w 40/40, CV-biny lepsze od 2·P3 w 36/40. σ_k na górnej granicy siatki (0.15) w 10/40 — siatkę rozszerzyć.
+- Uwaga: optimum LOO mocno wygładza (σ 0.07–0.1 cyklu ≈ FWHM 0.16–0.24 cyklu) — J0034 i J1232 wizualnie
+  rozmyte względem CV-binów, choć bliżej prawdy w sensie korelacji (syntetyki).
