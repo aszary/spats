@@ -109,7 +109,8 @@ nie — generator jest uboższy niż dane (do kalibracji).
 - `P3FoldViterbi.auto_cutoff_agent(data, p3, bin_st, bin_end; ybins, grid, nshuffle)` — f_c = max ΔR² (CV po
   długości − null z tasowania) w f3·{1/16, 1/10, 1/8, 1/6, 1/4, 1/3}.
 - `P3FoldViterbi.coherent_fold_agent(data, p3, bin_st, bin_end; ybins, lowpass_cutoff=:auto, niter=2, n_groups=4,
-  threshold_q=0.5, split_nulls=true)` — fold i P3(n) wariantu C; zwraca też `used`, `nulls`, `amplitude`,
+  threshold_q=0.5, split_nulls=true)` — fold i P3(n) wariantu C; fold = ŚREDNIA pulsów w binie fazy (nie suma —
+  fazy z danych obsadzają biny nierówno, J1539: 31–155 pulsów/bin), zwraca też `counts`, `used`, `nulls`, `amplitude`,
   `lowpass_cutoff`, `cutoff_score`.
 - `SpaTs.p3fold_coherent_agent(outdir; datafile, plotdir, name_mod, figtitle, lowpass_cutoff=:auto, threshold_q=0.5,
   split_nulls=true)` — odpowiednik `p3fold_coherent` bez okien, wykres `<name_mod>_p3fold_compare.pdf/.png`.
@@ -177,5 +178,7 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
    syntetykach, a na danych nie.
 6b. **Piki P3(n) na początku odcinków** (J1137 ~23, J1655 ~19, J1056 ~9). Odrzucanie punktów z jednostronnym oknem
    sprawdzone i odrzucone — zbyt duża utrata pokrycia (J1056 69 → 25%), piki tylko częściowo znikają.
+6c. **ybins dla foldu koherentnego** — p3_ybins z params (≈ 2·P3) za małe przy P3 ≈ 2 (J1539: pasma widoczne dopiero
+   przy 8–16); rozważyć ybins = max(p3_ybins, ~16) w `_agent`.
 7. **Inne** — odróżnienie natężenia od dryfu (κ / widmo energii z progiem per pulsar); osobne P3 dla trybów
    (J1825, J0034); reguła f_c z rozrzutu śladu sLRFS (80–100% optimum w 6/8 pulsarach) jako alternatywa dla CV.

@@ -521,6 +521,9 @@ module SpaTs
         pulsars / small P3); `split_nulls` also drops nulls
         found from pulse energy and splits P3(n) on them; errors from `n_groups`
         longitude sub-ranges;
+      - the coherent fold is the MEAN of the pulses in each phase bin (result
+        also has `counts`); the constant-P3 panel stays `Tools.p3fold` (sum,
+        nearly equal bin occupancy there);
       - never opens a window (no `show_`).
 
     Reads `datafile` and params.json from `outdir`, zaps as `p3fold_coherent`.
@@ -545,10 +548,11 @@ module SpaTs
                 "($(round(fc * p3, digits=3)) f3), nulls (energy) $(round(100 * count(result.nulls) / length(result.nulls), digits=1))%, P3(n) measured in $(round(100 * count(isfinite, result.p3_per_pulse) / length(result.p3_per_pulse), digits=1))% of pulses")
         folded_const = Tools.p3fold(data, p3, yb)
         intensity, _ = Tools.intensity_pulses(data[:, Int(p["bin_st"]):Int(p["bin_end"])])
-        Plot.p3fold_compare(result.folded, folded_const, result.p3_per_pulse, p3, plotdir;
+        # mean fold; an empty phase bin (NaN) is drawn as 0 so that the colour scale works
+        Plot.p3fold_compare(replace(result.folded, NaN => 0.0), folded_const, result.p3_per_pulse, p3, plotdir;
                             bin_st=p["bin_st"], bin_end=p["bin_end"], darkness=darkness,
                             name_mod=name_mod, show_=false, repeat_num=4,
-                            label="coherent fold (f\$_c\$ = 1/$(round(Int, 1 / fc)))",
+                            label="coherent fold, mean (f\$_c\$ = 1/$(round(Int, 1 / fc)))",
                             p3_per_pulse_err=result.p3_per_pulse_err, intensity=intensity, figtitle=figtitle)
         return result
     end

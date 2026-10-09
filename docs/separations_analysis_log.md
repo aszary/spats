@@ -2589,3 +2589,13 @@ Lista `~/claude/work/random10_drift_c.txt`, skrypt `real10c_agent.jl`, wykresy `
 - J1404 i J2046: na wykresie natężenia pojedynczy impuls-pik (~950) i większy rozrzut w pierwszych ~100 P —
   możliwe zakłócenia w danych; fold J1404 ma poziome ciemne pasy (oba foldy).
 Podsumowanie 30 pulsarów: fold wyraźnie lepszy w ~17/30, bez zmian głównie przy P3 ≈ 2–3, S/N ≲ 2 lub dużych nullach.
+
+## 2026-10-09 — coherent_fold_agent: fold uśredniony zamiast sumy, `counts`
+
+J1539-4828 (P3 2.17, params p3_ybins = 4): przy ybins 8/16 fold-suma dawał izolowane plamki — fazy skupiają się przy
+dwóch wartościach (liczby pulsów w binach przy ybins = 16: 31–155), więc suma pokazywała obsadzenie binów.
+`coherent_fold_agent` zwraca teraz `folded` = średnia pulsów w binie fazy (NaN dla pustego) i `counts`;
+`p3fold_coherent_agent` rysuje średnią (NaN → 0), panel stałego P3 bez zmian (`Tools.p3fold`, suma).
+Wynik (`j1539_ybins_mean.jl`, `figures/agent_real10c/mean_check.png`): J1539 przy ybins 8 i 16 — wyraźne ukośne
+pasma dryfu (przy 4 i przy sumie niewidoczne); J1232, J1547 — obraz jak przy sumie (równe obsadzenie).
+Wniosek: dla P3 blisko 2 p3_ybins z params.json (≈ 2·P3) jest za małe dla foldu koherentnego.

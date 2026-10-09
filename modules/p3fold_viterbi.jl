@@ -727,7 +727,9 @@ relative P3(n) error 5.6% (median) at 94% coverage; fold correlation with
 the truth 0.85 (fixed 1/300: 0.68).
 
 Returns:
-  folded         – ybins × N_bins fold with the variant-C phase
+  folded         – ybins × N_bins fold with the variant-C phase: MEAN of the pulses
+                   in each phase bin (NaN for an empty bin), not the sum
+  counts         – number of pulses in each phase bin
   phase, bin     – total P3-phase [rad] and fold bin per pulse
   p3_per_pulse   – P3(n) [P], NaN where not measured
   p3_per_pulse_err – 1σ from the longitude groups (NaN if < 2 groups)
@@ -758,7 +760,12 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
                    exclude=nulls)
     phase = c.carrier .+ angle.(c.s)
     bin = [Int(floor(mod(phase[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
-    folded = build_template(data, bin, ybins)
+    # mean per phase bin, not the sum of `build_template`: the data-driven phases fill
+    # the bins unevenly (P3 ≈ 2: phases cluster at two values, J1539-4828: 38–155 pulses
+    # per bin at ybins = 16), and a sum shows the bin occupancy instead of the emission
+    counts = [count(==(y), bin) for y in 1:ybins]
+    folded = build_template(data, bin, ybins) ./ counts
+    folded[counts .== 0, :] .= NaN
 
     # detection significance, as in coherent_fold
     F = fft(data, 1)
@@ -784,7 +791,7 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
         length(v) < 2 ? NaN : std(v) / sqrt(length(v))
     end
 
-    return (folded=folded, phase=phase, bin=bin, p3_per_pulse=c.p3, p3_per_pulse_err=p3_err,
+    return (folded=folded, counts=counts, phase=phase, bin=bin, p3_per_pulse=c.p3, p3_per_pulse_err=p3_err,
             used=c.keep, nulls=nulls, amplitude=abs.(c.s), threshold=c.threshold, lowpass_cutoff=fc,
             cutoff_grid=grid, cutoff_score=score, snr=snr)
 end
