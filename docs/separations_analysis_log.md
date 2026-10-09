@@ -2794,3 +2794,21 @@ pairshift → granica dryfu przesunięta do ~10³³. Zastrzeżenia: blisko grani
 J1846-07492) — kierunek niepewny (alias).
 Hipoteza użytkownika (2026-10-09): Song+23 oznaczają dryf także tam, gdzie go nie ma — do sprawdzenia (patrz wyżej:
 poza pulą tylko 3/10 z pochyleniem, 39 dryferów Song+23 sprawdzonych bez pochylenia).
+
+## 2026-10-09 — test hipotezy: 10 dryferów Song+23 z Ė > 1.2·10³³ (powyżej naszej granicy)
+
+70 niesprawdzonych dryferów Song+23 z Ė > 1.2·10³³; losowo 10 (seed 20261015, log Ė 33.1–34.5): `drift_highE10.txt`,
+skrypty `highE_agent.jl`, `psi_metric.jl`, `psi_calib.jl`, log `logs/highE.log`, wykresy `figures/agent_highE/` —
+wszystkie 14 oglądane pojedynczo w pełnej rozdzielczości.
+- Fold koherentny: we WSZYSTKICH 10 brak pochylenia — pionowe plamy (AM): J1534-5405, J1522-5829, J1905+0616,
+  J0922+0638, J1141-6545, J1611-5209, J0519-6932 (prawie płaski); dwie składowe z przesunięciem fazy (J1856-0526,
+  J1707-4729); J0905-5127 — „warkocz” kilku wąskich podskładowych przesuwanych naprzemiennie, bez spójnego pochylenia.
+- Miara liczbowa ψ (`psi_metric.jl`: Δψ wzdłuż silnej części przy f3, 4 odcinki czasowe). Kalibracja: z względem
+  tasowania słabo rozdziela (J1232 −1.7, J0034 +3.0) — tasowanie daje przypadkowe ψ o dużym rozrzucie. Rozróżnia
+  ZGODNOŚĆ odcinków: dryfery J1232 (−14.0 −14.3 −14.0 −14.3), J1919, J0820-1350, J0034, J1809, J1320 — 4/4, duże
+  i powtarzalne |Δψ|; J0905-6019 (AM) 1/4; J1750 2/4 (P3 49, odwrócenia — ograniczenie miary).
+  Ė > 1.2e33: odcinki zgodne co do znaku 0–4/4, ale |Δψ| małe lub nieregularne (np. J1611 −0.64 −0.57 −0.04 −0.34;
+  J1856 +17.0 +0.4 +12.7 +8.0; J0519 −9.2 +12.0 +11.1 −9.8) — żaden nie ma wzoru dryfera.
+Wniosek: powyżej ~10³³ dryfu nie widać w 10/10 dryferów Song+23 — zgodne z hipotezą użytkownika, że Song+23
+oznaczają dryf tam, gdzie go nie ma (przynajmniej przy wysokim Ė), i z górną granicą ~10³³.
+Klasyfikacja dopisana do `coherent_drift_classification.csv` (brak_pochylenia), P–Ṗ odświeżony.
