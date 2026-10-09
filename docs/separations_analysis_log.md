@@ -2689,3 +2689,9 @@ J0905/J1742 — parametry dla słabych pulsarów (`weak2.jl`, `weak3.jl`, `figur
   nie nulle — split_nulls=false + q 0.15: pokrycie 72%, 4 odcinki, P3(n) 6.8–7.15 (oscylacja ~130 P).
 - σ_k = 0.07 zamiast auto 0.3 pokazuje modulację w foldzie koherentnym (słabą, jak w stałym P3).
 Dla bardzo słabych (S/N < 2): threshold_q 0.15–0.3, kernel_sigma ~0.07, przy modulacji natężenia split_nulls=false.
+J0905/J1742 — dryf czy AM? (`psi_check.jl`, `figures/agent_real10f/psi_check.png`): ψ(φ) = arg LRFS przy f3 w 4
+odcinkach czasowych. Kontrola: J1232 Δψ −14.76 ± 0.07 rad, J1919 +8.81 ± 0.11, J1320 −4.04 ± 0.23 — liniowe, zgodne
+między odcinkami (dryf). J0905 i J1742: |LRFS(f3)| ledwo nad szumem, ψ w obrębie składowej PŁASKIE w każdym odcinku,
+skoki między fragmentami, odcinki niezgodne (liczbowe Δψ to artefakt rozwijania fazy przez szum). Obraz zgodny z
+modulacją amplitudy, nie z dryfem — ale przy S/N < 2 niepewny. Etykieta Song+23 „drift” i pairshift z_blk ≈ −5 —
+do sprawdzenia; P3Track: J0905 inconclusive, J1742 grupa P3 48 = am.
