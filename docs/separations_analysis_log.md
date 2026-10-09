@@ -2631,3 +2631,20 @@ Lista `~/claude/work/random10_drift_d.txt`, skrypt `real10d_agent.jl`, wykresy `
   J1518; J1910 — pokrycie 5% (fold ok, |s| poniżej progu prawie wszędzie).
 - σ_k: 0.07 w 6/10, 0.1 w 3/10, 0.2 dla najsłabszego (J1518) — zgodnie z oczekiwaniem.
 Łącznie 40 losowych pewnych dryferów: fold wyraźnie lepszy od stałego P3 w ~24/40.
+
+## 2026-10-09 — J0255-5304: czy fold jądrowy pokazuje coś niefizycznego?
+
+`~/claude/work/scripts/j0255_check.jl`, wykres `figures/agent_real10d/J0255_check.png` (P3 params 2.79, P3(n) med 2.82,
+f_c 1/22, σ_k 0.07).
+- Połówki binów (faza z A, fold B): korelacja reszt z foldem na wszystkich binach 0.994, amplituda 0.104 vs 0.112 —
+  wzór nie jest dopasowaniem szumu.
+- Tasowanie kolejności pulsów (ten sam f_c, σ): modulacja pozostaje, ale PIONOWA (bez pochylenia), amplituda 0.054
+  (≈ połowa danych 0.112), korelacja reszt z danymi 0.50 → ~połowa amplitudy foldu to artefakt „sortowania” pulsów
+  wg szablonu; pochylenie jest tylko w danych.
+- Klasyczne foldy stałym lokalnym P3 (odcinki 100 P, P3 2.74–2.90): w każdym odcinku obie składowe zmieniają jasność
+  z przesunięciem fazy (lewa przy ~0.25 cyklu, prawa ~0.75) — to samo przesunięcie fazy z długością co w foldzie
+  jądrowym, tylko schodkowo (6 binów); fold całej obserwacji stałym P3 rozmyty, bo P3(n) wędruje 2.7–3.1, a przy
+  Δ(1/P3) ≈ 0.006 cyklu/puls faza rozjeżdża się o kilka cykli w ~1000 P.
+Wniosek: pochylenie (dryf) jest w danych; amplitudę foldu porównywać z foldem tasowanym. P3 ≈ 2.8 jest blisko
+Nyquista — kierunek/tempo dryfu niejednoznaczne (alias P3 ≈ 1.56), metoda pokazuje wariant przy założonym f3 = 1/P3.
+Propozycja: rysować obok fold z tasowania (null) lub odejmować go.
