@@ -2930,3 +2930,13 @@ J1918+1444 — kolejny dryfer powyżej 10³³ (obok J1537 bi-drifter, J1922).
 - J1513-5739 (P3 17): po odjęciu nulla zostaje słaby ukośny ogon 505→520 → „slabe” (niepewne).
 - J1635-4944 (P3 12): AM, po odjęciu szum → brak.
 Powyżej 10³³ sprawdzone wszystkie dryfery Song+23 z danymi (poza J2215+1538 — brak danych).
+
+## 2026-10-09 — pas 2·10³² < Ė ≤ 10³³: pierwsze 10 z 48 (seed 20261019)
+
+`drift_mid10.txt`, `mid10_agent.jl`, `figures/agent_mid10/` (17 wykresów) + null dla 3 (`figures/slabe_null/`).
+- Wyraźne pochylenie: 0/10.
+- „slabe_potw”: J0809-4753 (log Ė 32.87, P3 9.7) — składowa wiodąca 485–500 z ukośnymi plamami, zostaje po odjęciu
+  nulla (null modeluje główną składową).
+- „slabe”: J1615-5444 (32.45, P3 2.8 — blisko Nyquista) — zygzak częściowo zostaje.
+- brak: J1905-0056, J1116-4122, J1319-6105 (null odjęty: AM), J1807-0847, J1902+0615, J1527-5552, J1430-6623,
+  J1635-5954.
