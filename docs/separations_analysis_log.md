@@ -2695,3 +2695,15 @@ między odcinkami (dryf). J0905 i J1742: |LRFS(f3)| ledwo nad szumem, ψ w obrę
 skoki między fragmentami, odcinki niezgodne (liczbowe Δψ to artefakt rozwijania fazy przez szum). Obraz zgodny z
 modulacją amplitudy, nie z dryfem — ale przy S/N < 2 niepewny. Etykieta Song+23 „drift” i pairshift z_blk ≈ −5 —
 do sprawdzenia; P3Track: J0905 inconclusive, J1742 grupa P3 48 = am.
+
+## 2026-10-09 — siódma dziesiątka losowych pewnych dryferów (seed 20261014), z wariantem dla słabych
+
+Lista `~/claude/work/random10_drift_g.txt`, skrypt `real10g_agent.jl` (dla S/N < 2 dodatkowo q = 0.2, σ_k = 0.07,
+a przy nullach > 5% także split_nulls=false), wykresy `figures/agent_real10g/`.
+- Fold wyraźnie lepszy: J1018-1642, J1414-6802, J1745-0129, J1814-0521 (stały fold bez struktury), J1036-4926,
+  J1424-6438, J1817-3837; J1812-3039 — umiarkowanie; J1415-6621, J1914+0219 — modulacja bez wyraźnego pochylenia.
+- Słabe (5/10: J1036, J1812, J1415, J1424, J1814): wariant q 0.2 / σ 0.07 zwiększa pokrycie P3(n) o 13–49 p.p.
+  (J1814 12 → 61%, J1424 45 → 67%, bez nulli 77%), mediany P3 bez zmian; fold wyraźniejszy przy σ 0.07 tam, gdzie auto
+  wybrało 0.15 (J1415, J1424). J1415 q 0.2: pik P3(n) ~18 przy ~680 (znany artefakt).
+- J1424: wykryte 16% „nulli” to raczej modulacja natężenia — bez podziału lepiej.
+Łącznie 70: fold wyraźnie lepszy w ~45/70.
