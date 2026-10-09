@@ -2740,3 +2740,19 @@ przekracza progu 3). Lista `~/claude/work/p3only10.txt`, skrypt `p3only10_agent.
 - J1810 (P3Track drift, z 5.4): fold koherentny ≈ stały, P3(n) pokrycie 2% (f_c = f3/16) — brak koherentnego sygnału.
 - P3(n): gładkie dla J1324 (23–38), J1613 (16–37), J1652 (bez nulli, 30–47), J1543 (13–35), J1016 (6–14, pik ~26).
 Wniosek: metoda nie tworzy dryfu tam, gdzie go nie ma — dla P3-only fold pokazuje AM. Wspiera Song+23.
+
+## 2026-10-09 — J1016-5345 (P3-only): kandydat na dryf, analiza
+
+Dopisany do `~/claude/work/drift_candidates_p3only.txt` (prośba użytkownika). Skrypty `j1016_drift.jl`,
+`j1016_sliding_psi.jl`, wykresy `figures/agent_p3only/J1016_drift.png`, `J1016_sliding_psi.png`. P3 8.92 (params),
+składowa wąska (~4°, 179–183°), S/N filtra 4.0, f_c 1/27, σ_auto 0.07. Wcześniej: P3Track grupa P3 10.1 „partial”,
+pairshift z_blk 0.84 (brak), subtrack D± ±0.05 bin/P.
+- Fold jądrowy: lekkie pochylenie maksimum reszt 4.3°/cykl P3; null (tasowanie, wspólny szablon) 3.3°/cykl;
+  dane − null 3.3°/cykl (wąska pochylona smuga przy 180–182°). Amplituda reszt dane 0.022 vs null 0.016 → większość
+  kontrastu z „sortowania”. Połówki binów 0.962 (struktura niezależna od szumu, ale obejmuje AM).
+- ψ(φ) przy f3 (4 odcinki): Δψ wzdłuż silnej części +0.27, +0.26, +3.71, +1.32 rad — dodatnie, w 3/4 małe.
+- Δψ w oknach 128 P: |z| > 3 w 1/29 oknach (−3.7 przy 800–930), znak dodatni tylko w 9/29 — brak spójnego dryfu.
+- Lokalne foldy stałym P3 (150 P, P3 lokalne 7.5–10.9): plamy w 180–182°, bez czytelnego pochylenia.
+Ocena: słaby/niejednoznaczny kandydat — możliwe niewielkie przesunięcie podpulsu w obrębie wąskiej składowej
+(< szerokość składowej na cykl), niestabilne w czasie; w tych danych nie da się go odróżnić od AM z niewielkim
+gradientem fazy. Do sprawdzenia: inne obserwacje / wyższa rozdzielczość czasowa.

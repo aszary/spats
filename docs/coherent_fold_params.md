@@ -159,6 +159,12 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
   dużej wędrówce P3 i S/N < 1.5. Ślad sLRFS dokładniejszy tam, gdzie mierzy (~40% pulsów).
 - Miary ΔR² / Δr nie nadają się do porównywania metod o różnej sile śledzenia — rozstrzyga benchmark syntetyczny.
 
+## Kandydaci na dryf wśród P3-only
+
+Lista `~/claude/work/drift_candidates_p3only.txt`. J1016-5345 — słaby/niejednoznaczny: w foldzie koherentnym lekkie
+pochylenie (~3°/cykl P3) zostaje po odjęciu nulla z tasowania, ale nachylenie fazy w oknach 128 P jest nieistotne
+i zmienia znak (szczegóły w logu 2026-10-09). Pozostałe 9 sprawdzonych P3-only: AM.
+
 ## Ewentualne kroki do rozważenia
 
 0. **Przegapiony skok P3** (przegląd wszystkich 200 przypadków): gdy Δf skoku > auto f_c, P3(n) zostaje przy starym
