@@ -2865,3 +2865,18 @@ Lista `~/claude/work/drift_highE_rest.txt`, skrypt `highE_rest_agent.jl`, log `l
 UWAGA: „S” i lekkie pochylenie plamy mogą być częściowo artefaktem metody — null z tasowania przy wspólnym
 szablonie odtwarza kształt szablonu (J0255). Kategorię „slabe” trzeba sprawdzić odejmowaniem nulla przed wnioskami.
 Pominięte 29 dryferów (błąd pairshift, nie brak P/Ṗ): `drift_missing_ppdot.txt` — do zrobienia.
+
+## 2026-10-09 — kategoria „slabe” (21): fold − null
+
+Skrypt `~/claude/work/scripts/slabe_null.jl` (σ_k 0.07, q 0.2; null = 10 tasowań, wspólny szablon), log
+`logs/slabe_null.log`, wykresy `figures/slabe_null/` — 23 oglądane pojedynczo (21 + kontrole J1232 dryf: pochylenie
+zostaje, null słaby; J0905-6019 AM: po odjęciu szum). Miara liczbowa (położenie maksimum) zbyt zaszumiona — ocena wzrokowa.
+- Pochylenie ZOSTAJE (null pionowy/słaby) → „slabe_potw”: J0902-6325 (log Ė 31.1), J1000-5149 (33.4), J1537-4912
+  (33.5), J1922+1733 (34.6), J2043+2740 (34.8).
+- Niepewne (częściowo zostaje) → „slabe”: J1645-0317 (33.1), J1453-6413 (34.3), J1737-3555 (33.6), J1915+1009 (34.0),
+  J1902+0556 (33.1, zygzak przy Nyquist).
+- ZNIKA (null odtwarza wzór, korelacja 0.9–0.99) → „slabe_artefakt”: J1806+1023, J1901-0312, J0837-4135, J0907-5157,
+  J0940-5428, J1126-6054, J1327-6222, J1709-4429, J1626-4537, J1852-0635, J1909+1102 — „S”/falowanie i zygzak
+  przy P3 ≈ 2.4–2.8 to w większości artefakt sortowania wg szablonu.
+Wniosek: 4 pulsary z pochyleniem odpornym na null powyżej 10³³ (J1000, J1537, J1922, J2043; Ė do 6·10³⁴) — kandydaci
+na dryf przy wysokim Ė. P–Ṗ: nowe symbole (złota gwiazdka / fioletowy trójkąt / szary trójkąt).
