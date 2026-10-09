@@ -2905,3 +2905,19 @@ składowa 163–177° Δψ −0.19 ± 0.02, słaba 183–193° +0.17 ± 0.03, zn
 (dane − null) widać kształt „V”: główna plama i słabsza smuga przy 185–192° pochylona przeciwnie; ψ(φ) w `cand4_drift.jl`
 rośnie w głównej i przeskakuje przy 185°. Miara Δψ w `cand4_drift.jl` sumuje odcinki składowych — dla bi-driftera
 miesza znaki (dominuje główna). Czy J1537 jest znany z literatury jako bi-drifter — niesprawdzone.
+
+## 2026-10-09 — 29 dryferów pominiętych (błąd pairshift)
+
+Przyczyna pominięcia: filtr na błąd pairshift (23 × „σ_sub z ACF nieokreślone”, 6 × „brak danych”), NIE brak P/Ṗ.
+6 bez danych w ~/output: J0944-1354 (tylko params.json), J1402-5021, J1605-5257, J1901+0511, J2215+1538, J2346-0609.
+23 przeliczone (`missing29.txt`, `missing_agent.jl`, `figures/agent_missing/`, 41 wykresów pojedynczo) + null dla
+nowych detekcji (`missing_null.jl`, `figures/slabe_null/`).
+- Pochylenie (zostaje po odjęciu nulla): J1054-6452 (P3 2.2, log Ė 31.3, Δψ 4/4), J1843+2024 (10.4, 30.0; null =
+  modulacja natężenia, pasma zostają), J1918+1444 (59, **33.71**; null słaby, wyraźne ukośne pasma).
+- „slabe_potw”: J1908+0916 (24, 30.8).
+- „slabe” (niepewne, bez nulla): J1534-4428, J1720+2150, J2051+1248.
+- „slabe_artefakt”: J1626-6621, J1006-6311 (P3 ≈ 2.1).
+- brak: J1012, J1046, J1159, J1429, J1543, J1622, J1707, J1733, J1743, J1812, J1844, J1901+0716, J1906, J1916.
+- Jakość danych: J1012-5857, J1543-0620, J1733-4005, J1812+0226, J1844-0433 — natężenie płaskie (zero) poza krótkim
+  fragmentem — dane w większości puste; przyczyna błędu pairshift.
+J1918+1444 — kolejny dryfer powyżej 10³³ (obok J1537 bi-drifter, J1922).
