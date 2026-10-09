@@ -2837,3 +2837,16 @@ wykresy `figures/agent_highE2/` — 18 oglądanych pojedynczo.
 - AM: J1359-6038, J0729-1836, J1636-2614, J1224-6407, J1830-0131, J1117-6154 (prawie płaski), J1705-3423, J1723-3659.
 - Δψ: żaden z wzorem dryfera.
 Łącznie Ė > 1.2·10³³: 20 sprawdzonych, wyraźne pochylenie 0/20, słabe 2/20 (oba tuż nad 10³³).
+
+## 2026-10-09 — kategoria „slabe”; kolejne 10 dryferów Song+23 z Ė < 10³³
+
+Nowa osobna kategoria w `coherent_drift_classification.csv`: „slabe” (słabe / niejednoznaczne pochylenie) — prośba
+użytkownika („chyba coś tutaj mamy”). Przeniesione: J1806+1023, J1901-0312, J1902+0556. Wykres P–Ṗ: fioletowe trójkąty.
+10 losowych z 188 (seed 20261018, log Ė 30.7–32.6): `drift_lowE10b.txt`, `lowE2_agent.jl`, `figures/agent_lowE2/`
+(15 wykresów pojedynczo).
+- Pochylenie: J1848-1150 (P3 2.7, z_blk 3.0) — wyraźne ukośne smugi w składowej końcowej.
+- Słabe: J0902-6325 (P3 5.3, z_blk 3.2) — zygzak/krótkie ukośne fragmenty w składowej wiodącej; J0837-4135
+  (P3 2.8, S/N 68) — falowanie położenia w cyklu („S”, jak J1846/J1902).
+- AM: J1336-2522, J1627+1419, J1823+0550, J1839-1238, J1106-6438, J1355-5153, J1913+0936.
+Stan: pochylenie 74, umiarkowane 4, słabe 5, brak 85. „Słabe”: 3/5 przy P3 ≈ 2.3–2.8 z falowaniem „S” — wspólny
+wzorzec bliski Nyquista (J0837, J1902, oraz wcześniej J1846 w „pochylenie”).
