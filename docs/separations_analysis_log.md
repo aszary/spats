@@ -2984,3 +2984,13 @@ wybraną wg pairshift — obciążenie):
   Ė ≤ 2·10³²: 123 — pochylenie 63, umiark. 3, słabe_potw 2, słabe 3, artefakt 2, brak 50.
   2·10³²–10³³: 75 (kompletny) — pochylenie 16, umiark. 1, słabe_potw 5, słabe 5, artefakt 8, brak 40.
   > 10³³: 84 (kompletny z danymi) — pochylenie 2, słabe_potw 4, słabe 6, artefakt 11, brak 61.
+
+## 2026-10-09 — Ė ≤ 2·10³² (niesprawdzone, 130): pierwsze 10 losowo (seed 20261022)
+
+`drift_low10a.txt`, `low10a_agent.jl`, `figures/agent_low10a/` (15 wykresów) + null dla 6.
+- Pochylenie (zostaje po odjęciu nulla): J0959-4809 (P3 6, wiele ukośnych pasm w całym profilu; z_blk −7.4),
+  J1840-0809 (2.2), J1700-3312 (2.2, kilka pochylonych podpasm), J0211-8159 (16.3, null prawie pusty — pasma w
+  burstach, widoczne też w stałym foldzie).
+- „slabe”: J1517-4356 (2.0, lekko zostaje). „slabe_artefakt”: J1746+2245.
+- brak: J0904-4246, J1632-1013, J1646-6831, J1345-6115.
+Wbrew oczekiwaniu: 4/10 z pochyleniem (por. pas 2·10³²–10³³ ~23%, > 10³³ ~2%).
