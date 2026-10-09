@@ -2850,3 +2850,18 @@ użytkownika („chyba coś tutaj mamy”). Przeniesione: J1806+1023, J1901-0312
 - AM: J1336-2522, J1627+1419, J1823+0550, J1839-1238, J1106-6438, J1355-5153, J1913+0936.
 Stan: pochylenie 74, umiarkowane 4, słabe 5, brak 85. „Słabe”: 3/5 przy P3 ≈ 2.3–2.8 z falowaniem „S” — wspólny
 wzorzec bliski Nyquista (J0837, J1902, oraz wcześniej J1846 w „pochylenie”).
+
+## 2026-10-09 — wszystkie pozostałe dryfery Song+23 z Ė > 1.2·10³³ (50)
+
+Lista `~/claude/work/drift_highE_rest.txt`, skrypt `highE_rest_agent.jl`, log `logs/highE_rest.log`, wykresy
+`figures/agent_highE_rest/` — wszystkie 82 oglądane pojedynczo w pełnej rozdzielczości.
+- Wyraźne pochylenie: 0/50.
+- „slabe” 16/50: falowanie „S” jasnej składowej w cyklu (J0907-5157, J1000-5149, J1645-0317, J1709-4429, J1737-3555,
+  J1852-0635, J1909+1102, J2043+2740, J1626-4537), zygzak dwóch podskładowych przy P3 ≈ 2.4–2.8 (J1126-6054,
+  J1327-6222), plama z ukośnym ogonem jak J1901-0312 (J1537-4912, J1922+1733), lekko pochylona plama (J1453-6413,
+  J1915+1009, J0940-5428).
+- AM / płaskie 34/50.
+Łącznie Ė > 1.2·10³³: 70 sprawdzonych — wyraźne pochylenie 0, słabe 18, brak 52.
+UWAGA: „S” i lekkie pochylenie plamy mogą być częściowo artefaktem metody — null z tasowania przy wspólnym
+szablonie odtwarza kształt szablonu (J0255). Kategorię „slabe” trzeba sprawdzić odejmowaniem nulla przed wnioskami.
+Pominięte 29 dryferów (błąd pairshift, nie brak P/Ṗ): `drift_missing_ppdot.txt` — do zrobienia.
