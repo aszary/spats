@@ -190,8 +190,13 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
    połówki binów) daje ybins 4–16, prawie jak wyrocznia (syntetyki 0.761 vs 0.766; 2·P3: 0.677). Fold JĄDROWY
    (zawinięty Gauss w fazie, σ z CV) lepszy w 40/40 syntetyków (0.813) i ma wyższy LOO na 7/7 pulsarach —
    WPROWADZONY jako domyślny (siatka σ do 0.3 cyklu, własne σ opcjonalnie).
-6d. **Null foldu z tasowania** — J0255: fold z przetasowanych pulsów ma ~połowę amplitudy foldu danych (pionowe
-   pasma, bez pochylenia) — „sortowanie” pulsów wg szablonu. Pochylenie realne (połówki binów 0.994, lokalne foldy
-   stałym P3). Rozważyć: rysować/odejmować fold tasowany, raportować nadwyżkę amplitudy nad nullem.
+6d. **Czy fold pokazuje dane, czy artefakt metody** (J0255 i 5 innych; `j0255_check.jl`, `null_subtract.jl`).
+   Pochylenie pasm jest w danych: faza z połowy binów długości + fold drugiej połowy daje ten sam wzór (0.994),
+   lokalne foldy stałym P3 (odcinki 100 P) pokazują to samo przesunięcie fazy, po odjęciu nulla pochylenie zostaje
+   u wszystkich dryferów. Kontrast jest zawyżony ~2×: null (tasowane pulsy, ten sam szablon) daje 25–60% amplitudy
+   foldu, bo faza z dopasowania do szablonu częściowo odtwarza szablon. Kontrastu nie traktować jako głębokości
+   modulacji. Przy P3 ≈ 2–3 kierunek/tempo dryfu niejednoznaczne (alias). Ewentualne rozszerzenie
+   `coherent_fold_agent` o te testy (opcjonalnie): fold-null z tasowania (wspólny szablon) i fold dane − null,
+   nadwyżka amplitudy nad nullem, fold z połówek binów jako kontrola; koszt ~10 dodatkowych przebiegów na pulsar.
 7. **Inne** — odróżnienie natężenia od dryfu (κ / widmo energii z progiem per pulsar); osobne P3 dla trybów
    (J1825, J0034); reguła f_c z rozrzutu śladu sLRFS (80–100% optimum w 6/8 pulsarach) jako alternatywa dla CV.
