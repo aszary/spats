@@ -2775,3 +2775,13 @@ Korekta: J1926+0431 — wcześniej „słabe pochylenie”, po obejrzeniu w peł
 (`j1926.jl`): plamy przy ~37 binie z modulacją jasności, bez pochylenia (lekkie poszerzenie w prawo w fazach
 jasnych, jak w foldzie stałym P3) → AM. P3(n) 2.5–2.9 (q 0.2, bez nulli: pokrycie 86%). Poza pulą pochylenie: 3/10
 (J0856, J0401, J1846).
+
+## 2026-10-09 — P–Ṗ pulsarów z dryfem wykrytym w foldzie koherentnym
+
+Klasyfikacja wzrokowa ze wszystkich przeglądów (pula 104, 10 spoza puli, P3-only, wcześniejsze): tabela
+`~/claude/work/coherent_drift_classification.csv` (pochylenie 73, umiarkowane 4, bez pochylenia 51 — w tym 10 P3-only
+i J1825). Skrypt `ppdot_coherent_drift.jl`, wykres `ppdot_coherent_drift.png/pdf` w `~/claude/work/figures/` i
+`~/output/claude/` (tło ATNF, okręgi: Song+23 drift).
+log Ė: pochylenie mediana 31.48 (q25–q75 30.96–32.01), bez pochylenia 31.71 (30.93–32.64) — bez wyraźnej różnicy
+(dryfery z pochyleniem nieco skupione przy niższym Ė, Ṗ < 10⁻¹⁴). Uwaga: klasyfikacja wzrokowa, część z zestawień
+w zmniejszeniu (przed 2026-10-09 wieczór).
