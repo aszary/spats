@@ -2657,3 +2657,16 @@ niezależnie od kolejności. Po odjęciu pochylenie zostaje u wszystkich dryfer�
 J1539 wyraźniejsze); J0818: zostaje przesunięcie fazy między składowymi (dryf skokowy?), modulacja środkowej
 składowej w dużej mierze z nulla. Nadwyżka nad nullem 40–75% amplitudy. Wcześniejszy null z własnym szablonem
 tasowanych danych (J0255: bez pochylenia) nie był w tych samych współrzędnych — ten jest właściwy.
+
+## 2026-10-09 — piąta dziesiątka losowych pewnych dryferów (seed 20261012)
+
+Lista `~/claude/work/random10_drift_e.txt`, skrypt `real10e_agent.jl`, wykresy `figures/agent_real10e/`.
+- Fold jądrowy wyraźnie lepszy od stałego P3: J0151-0635, J0152-1637, J1555-3134 (dwie składowe, różne pochylenie),
+  J1857+0057 (stały fold bez struktury), J2053-7200, J2139+2242, J1645+1012; J1819-0925 umiarkowanie; J1847-0438,
+  J0108-1431 — modulacja bez pochylenia.
+- P3(n): gładkie J0151 11–17, J2139 2.6–3.0 (przerwa = null ~560–650), J1555 8–23 (wyraźne piki P3 ~15–23,
+  zgodne połówki → prawdopodobnie realne), J0152 5–8 (bardziej zmienne na początku); w kawałkach J0108, J2053,
+  J1645 (pokrycie 14%, S/N 1.1), J1819, J1847, J1857.
+- J1645+1012: panel natężenia płaski z jednym ogromnym pikiem przy ~1400 — prawdopodobnie zakłócenie w danych
+  (skaluje wykres); fold mimo to pokazuje dryf.
+Łącznie 50 pewnych dryferów: fold wyraźnie lepszy od stałego P3 w ~31/50.
