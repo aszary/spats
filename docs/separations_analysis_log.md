@@ -2950,3 +2950,13 @@ Powyżej 10³³ sprawdzone wszystkie dryfery Song+23 z danymi (poza J2215+1538 �
 - „slabe_artefakt”: J1017-5621, J0820-3921 (null odtwarza wzór, różnica 25–41%).
 - brak: J1909+0007, J1412-6111, J1909+0254, J1013-5934, J1910-0309, J1112-6926.
 Pas 2·10³²–10³³ po 20/48: wyraźne 0, słabe_potw 1 (J0809), słabe 3, artefakt 2, brak 14.
+
+## 2026-10-09 — J1312-5516 szczegółowo; stabilność ψ dla wszystkich z pochyleniem
+
+`cand4_drift.jl` dla J1312-5516 i (wzorzec) J1054-6452, wykresy `figures/slabe_null/<PSR>_analiza.png`.
+J1054: ψ(φ) liniowe i identyczne w 4 odcinkach (−7.4 −7.9 −8.0 −7.7). J1312: ψ niespójne (+0.8 +3.3 −10.5 0.0), okna
+przesuwne znak 203/350; pochylenie folda z jednego odcinka (~355–530); pairshift z_blk −3.3 → niepewny (epizodyczny
+dryf lub alias przy P3 2.6), zostaje „slabe”.
+`psi_all.jl` → `~/claude/work/psi_all.csv`: ψ stabilne (4/4 znak, CV < 0.5): pochylenie 48/77, umiarkowane 3/4,
+slabe_potw 2/7, slabe 1/12, artefakt 2/17. Miara wystarczająca, nie konieczna (odrzuca J1750, J1918, J2053, J1519…).
+Odłożone (użytkownik): punktacja 3 testów (null, ψ, pairshift) dla wszystkich.
