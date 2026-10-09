@@ -2787,3 +2787,10 @@ log Ė: pochylenie mediana 31.48 (q25–q75 30.96–32.01), bez pochylenia 31.71
 w zmniejszeniu (przed 2026-10-09 wieczór).
 Dodana granica Basu, Mitra & Melikidze (2016, ApJ 833, 29): Ė = 2·10³² erg/s (zielona linia). Powyżej: pochylenie
 13/73 (18%), bez pochylenia 15/51 (29%). Pulsary z pochyleniem powyżej granicy leżą blisko niej (log Ė ≲ 33).
+Porównanie z Basu+16 (bez odniesienia do Song+23): pochylenie w foldzie koherentnym widoczne w 13 pulsarach
+powyżej Ė = 2·10³² (log Ė 32.32–33.08; J1428-5530, J1809-0119, J1036-4926, J1817-3837, J0134-2937, J1036-6559,
+J1110-5637, J1514-4834, J1651-5222, J1943+0609, J0924-5814, J0401-7608, J1846-07492) — wszystkie z |z_blk| ≥ 3 w
+pairshift → granica dryfu przesunięta do ~10³³. Zastrzeżenia: blisko granicy; P3 ≈ 2.6–2.9 (J1036-4926, J1817-3837,
+J1846-07492) — kierunek niepewny (alias).
+Hipoteza użytkownika (2026-10-09): Song+23 oznaczają dryf także tam, gdzie go nie ma — do sprawdzenia (patrz wyżej:
+poza pulą tylko 3/10 z pochyleniem, 39 dryferów Song+23 sprawdzonych bez pochylenia).
