@@ -2880,3 +2880,23 @@ zostaje, null słaby; J0905-6019 AM: po odjęciu szum). Miara liczbowa (położe
   przy P3 ≈ 2.4–2.8 to w większości artefakt sortowania wg szablonu.
 Wniosek: 4 pulsary z pochyleniem odpornym na null powyżej 10³³ (J1000, J1537, J1922, J2043; Ė do 6·10³⁴) — kandydaci
 na dryf przy wysokim Ė. P–Ṗ: nowe symbole (złota gwiazdka / fioletowy trójkąt / szary trójkąt).
+
+## 2026-10-09 — szczegółowa analiza 4 kandydatów na dryf przy wysokim Ė
+
+Skrypt `~/claude/work/scripts/cand4_drift.jl` (fold jądrowy, null 20 tasowań, połówki binów, ψ(φ) przy f3 w 4 odcinkach,
+Δψ w oknach 4·P3 vs tasowanie, lokalne foldy stałym P3, pulsy), wykresy `figures/slabe_null/<PSR>_analiza.png`
+(oglądane w pełnej rozdzielczości).
+- J1537-4912 (log Ė 33.45, P3 56, 2991 P — 53 cykle): NAJMOCNIEJSZY. Δψ całość +2.68 rad, odcinki +2.02 +2.34 +2.14
+  +2.81 (4/4, stabilne P3 53–62); okna 224 P: znak zgodny 43/50, |z|>3 0/50 (pojedyncze okna za krótkie); ψ(φ) rośnie
+  liniowo 165–178° identycznie w 4 odcinkach; połówki 1.00; pojedyncze pulsy: wąskie podpulsy przesuwające się
+  w długości przez kilkanaście P (puls ~100–115, ~320–340). Dryf powolny przy długim P3.
+- J1922+1733 (34.60, P3 10, 1055 P): Δψ −0.60 (odcinki −1.11 −0.52 +0.25 −0.43, 3/4), okna 40 P: znak 77/102.
+  Dane − null: wyraźne skośne pasmo 182→186° (null pionowy). Lokalne foldy: jasna plama z ogonem; pulsy: krótkie
+  podpulsy, pochylenie mało widoczne. Słaby, ale spójny w czasie.
+- J2043+2740 (34.75, P3 37, 402 P — 11 cykli): Δψ całość +0.22, odcinki −1.3 +2.0 +3.3 +6.5 — niespójne; okna 6/7
+  zgodne. Dane − null: ukośna plama 173→178°. Za krótka obserwacja.
+- J1000-5149 (33.36, P3 66, 786 P — 12 cykli): Δψ +0.24, odcinki +5.7 +5.9 −0.2 +0.6 — dwa odcinki z skokiem fazy
+  (dwie składowe w przeciwfazie, ψ: przeskok ~3–5 rad między 181 a 184°). Raczej przesunięcie fazy między składowymi
+  (jak J0818) niż ciągły dryf. Za krótka obserwacja.
+Wniosek: J1537-4912 — dryf przy Ė ≈ 3·10³³ (jednoznaczny); J1922+1733 — prawdopodobny przy Ė ≈ 4·10³⁴; J2043, J1000
+— niepewne (≈ 11–12 cykli P3).
