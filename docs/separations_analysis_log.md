@@ -2900,3 +2900,8 @@ Skrypt `~/claude/work/scripts/cand4_drift.jl` (fold jądrowy, null 20 tasowań, 
   (jak J0818) niż ciągły dryf. Za krótka obserwacja.
 Wniosek: J1537-4912 — dryf przy Ė ≈ 3·10³³ (jednoznaczny); J1922+1733 — prawdopodobny przy Ė ≈ 4·10³⁴; J2043, J1000
 — niepewne (≈ 11–12 cykli P3).
+Korekta (uwaga użytkownika): J1537-4912 to bi-drifter znaleziony już 2026-10-02 (P3Track, `j1537_bidrift.jl`): główna
+składowa 163–177° Δψ −0.19 ± 0.02, słaba 183–193° +0.17 ± 0.03, znaki stabilne w ćwiartkach czasu. W foldzie jądrowym
+(dane − null) widać kształt „V”: główna plama i słabsza smuga przy 185–192° pochylona przeciwnie; ψ(φ) w `cand4_drift.jl`
+rośnie w głównej i przeskakuje przy 185°. Miara Δψ w `cand4_drift.jl` sumuje odcinki składowych — dla bi-driftera
+miesza znaki (dominuje główna). Czy J1537 jest znany z literatury jako bi-drifter — niesprawdzone.
