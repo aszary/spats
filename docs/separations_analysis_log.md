@@ -2619,3 +2619,15 @@ Wprowadzone: fold jądrowy domyślny w `coherent_fold_agent` / `p3fold_coherent_
 LOO na siatce 256 faz (bez macierzy N × N). Test (`test_kernel_agent.jl`, `figures/agent_kernel/`): σ J1539 0.07,
 J1232 0.07, J0034 0.1, J1750 0.1, J1919 0.045, J1547 0.1 (jak w teście; szersza siatka nic nie zmieniła), 2–11 s;
 własne σ (0.03) i `fold=:bins` (ybins 12, counts 74–84) działają.
+
+## 2026-10-09 — czwarta dziesiątka losowych pewnych dryferów (fold jądrowy domyślny, seed 20261011)
+
+Lista `~/claude/work/random10_drift_d.txt`, skrypt `real10d_agent.jl`, wykresy `figures/agent_real10d/`.
+- Fold jądrowy: ostre, ciągłe pasma dryfu tam, gdzie stały fold ich nie pokazuje — J0255-5304, J0711+0931,
+  J1654-3710 (zakrzywione pasmo), J1703-1846, J1720-0212, J1904-1224; J0525+1115, J1912+2104, J1910+0714 —
+  modulacja bez wyraźnego pochylenia; J1518-3952 (S/N 1.5, σ_k 0.2) — praktycznie płaski fold.
+- P3(n): gładkie J0255 (2.7–3.1, od pulsu ~150 — wcześniej null/brak sygnału), J1654 2.3–2.6, J1912 2.4–3.0,
+  J1904 8.6–12.4 (szybkie wahania po ~600), J0711 5.8–7.6 (250 P), J1720 4.7–7.3 (420 P); w kawałkach J0525, J1703,
+  J1518; J1910 — pokrycie 5% (fold ok, |s| poniżej progu prawie wszędzie).
+- σ_k: 0.07 w 6/10, 0.1 w 3/10, 0.2 dla najsłabszego (J1518) — zgodnie z oczekiwaniem.
+Łącznie 40 losowych pewnych dryferów: fold wyraźnie lepszy od stałego P3 w ~24/40.
