@@ -198,5 +198,7 @@ Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy �
    modulacji. Przy P3 ≈ 2–3 kierunek/tempo dryfu niejednoznaczne (alias). Ewentualne rozszerzenie
    `coherent_fold_agent` o te testy (opcjonalnie): fold-null z tasowania (wspólny szablon) i fold dane − null,
    nadwyżka amplitudy nad nullem, fold z połówek binów jako kontrola; koszt ~10 dodatkowych przebiegów na pulsar.
+6e. **Fallback do stałego P3** — przy S/N ≲ 2 fold koherentny bywa płaski (σ_k na granicy siatki), a fold stałym P3
+   pokazuje modulację (J0905-6019, J1742-4616). Porównać LOO foldu koherentnego i stałego P3, wybrać lepszy.
 7. **Inne** — odróżnienie natężenia od dryfu (κ / widmo energii z progiem per pulsar); osobne P3 dla trybów
    (J1825, J0034); reguła f_c z rozrzutu śladu sLRFS (80–100% optimum w 6/8 pulsarach) jako alternatywa dla CV.

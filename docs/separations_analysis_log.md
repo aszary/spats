@@ -2670,3 +2670,16 @@ Lista `~/claude/work/random10_drift_e.txt`, skrypt `real10e_agent.jl`, wykresy `
 - J1645+1012: panel natężenia płaski z jednym ogromnym pikiem przy ~1400 — prawdopodobnie zakłócenie w danych
   (skaluje wykres); fold mimo to pokazuje dryf.
 Łącznie 50 pewnych dryferów: fold wyraźnie lepszy od stałego P3 w ~31/50.
+
+## 2026-10-09 — szósta dziesiątka losowych pewnych dryferów (seed 20261013)
+
+Lista `~/claude/work/random10_drift_f.txt`, skrypt `real10f_agent.jl`, wykresy `figures/agent_real10f/`.
+- Fold jądrowy wyraźnie lepszy: J1035-6345, J1428-5530, J1519-6106, J1638-3815, J1809-0119, J2046-0421, J1901-0906;
+  J1320-3512 — modulacja bez wyraźnego pochylenia.
+- NOWY PROBLEM: J0905-6019 (S/N 1.7) i J1742-4616 (S/N 1.8) — fold koherentny PŁASKI (σ_k = 0.3, górna granica siatki),
+  f_c = f3/16, pokrycie P3(n) 13–25%, podczas gdy fold stałym P3 pokazuje wyraźną modulację (J0905 silna, P3 4.0).
+  Przy słabym sygnale faza z szablonu jest za szumna, fold się rozmywa, LOO wybiera maksymalne wygładzenie.
+  Dla takich pulsarów fold koherentny jest GORSZY od stałego P3 — potrzebny fallback (np. porównać LOO foldu
+  koherentnego z LOO foldu stałym P3 i wybrać lepszy).
+- P3(n) gładkie: J1809 3.3–4.0, J2046 2.6–3.0, J1638 9–18, J1320 8–20, J1901 4.5–6.7, J1035 4.4–8 (spadek ~300–480).
+Łącznie 60: fold wyraźnie lepszy w ~38/60; wyraźnie gorszy w 2/60 (J0905, J1742).
