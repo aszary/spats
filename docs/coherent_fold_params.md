@@ -1,98 +1,33 @@
-# Dobór parametrów: sliding LRFS (L) i `coherent_fold` (lowpass_cutoff)
+# Fold koherentny (`coherent_fold_agent`): metoda, parametry i test dryfu
 
-Stan na 2026-10-08. Skrypty w `~/claude/work/scripts/`, wykresy w `~/claude/work/figures/{sliding_L,Ltest,cohfc}/`,
-szczegóły i liczby w `docs/separations_analysis_log.md` (wpisy z 2026-10-08).
+**Miejsce startu.** Dokument opisuje obecną metodę (fold koherentny z P3(n)) i bieżący projekt: test hipotezy, że
+Song+23 oznaczają dryf także tam, gdzie go nie ma, oraz porównanie z granicą Ė Basu+16. Pełny przebieg: dziennik
+`docs/separations_analysis_log.md` (wpisy 2026-10-08 i 2026-10-09). Dobór okna sliding LRFS przeniesiony do
+`docs/sliding_lrfs_window.md`.
 
-## 1. Długość okna L w sliding LRFS (J1750-3503)
+## 1. Stan i od czego zacząć (2026-10-09)
 
-`j1750_sliding_L.jl`: L = 4 … 512, P3Track (`sliding_lrfs`, `p3_track`, `contrast_null`, `good_windows`).
+- **Kod:** `modules/p3fold_viterbi.jl` (`auto_cutoff_agent`, `coherent_fold_agent`, `kernel_fold_agent`,
+  `kernel_sigma_agent`), `spats.jl` (`SpaTs.p3fold_coherent_agent` — wykres). Stare `coherent_fold`, `p3fold_coherent`
+  bez zmian. Gałąź `claude`.
+- **Uruchomienie dla jednego pulsara** (kontener, `psrx`):
+  `SpaTs.p3fold_coherent_agent("/home/psr/output/<PSR>[_16]"; datafile=..., plotdir="/home/psr/work/figures/...")`.
+  Dla słabych (S/N filtra < 2) lub małego pokrycia P3(n) dodatkowo `threshold_q=0.2, kernel_sigma=0.07`, a gdy
+  „nulle” to w rzeczywistości modulacja natężenia — `split_nulls=false`.
+- **Partia pulsarów:** `~/claude/work/scripts/highE_agent.jl <lista>` (lista: `katalog plik` w wierszu; fold +
+  wariant dla słabych + miara ψ), test nulla: `missing_null.jl` (czyta `~/claude/work/slabe21.txt.tmp`) → wykresy
+  `figures/slabe_null/<PSR>.png` (dane / null / dane − null).
+- **Wyniki klasyfikacji:** `~/claude/work/coherent_drift_classification.csv` (psr, etykieta Song+23, klasa),
+  P–Ṗ: `~/claude/work/scripts/ppdot_coherent_drift.jl` → `figures/ppdot_coherent_drift.png` i `~/output/claude/`.
+  Problemy z danymi: `~/claude/work/data_issues.txt`.
+- **Następny krok — ŚLEPY PRZEGLĄD** (sekcja 6.5): 302 pulsary przeliczone bieżącym kodem z losowymi ID w
+  `~/claude/work/blind/raw/` (`scripts/blind_run.jl`, log `logs/blind_run.log`, na końcu „KONIEC”). Werdykty do
+  `blind/verdicts.csv` (id,klasa), mapowania `blind/mapping_DO_NOT_READ.csv` nie otwierać przed zapisaniem werdyktów.
+  Potem ślepy null dla pochylenie/słabe, na końcu porównanie z poprzednią klasyfikacją, pairshift i Song+23.
+- Potem: pozostałe ~120 dryferów Song+23 z Ė ≤ 2·10³² (ślepo), 6 bez danych w `~/output` (J0944-1354, J1402-5021,
+  J1605-5257, J1901+0511, J2215+1538, J2346-0609).
 
-- Mierzalne jest tylko P3 ≲ L/3 (fmin = 2/L, osłona krawędzi 1/L). Dla P3 ≈ 49 okna L ≤ 64 nic nie widzą.
-- L = 128–150: ślad ucieka na krawędź tam, gdzie lokalne P3 rośnie do 60–65.
-- L = 196 (= 4·P3, `window_length`): mediana 48.4, prawie bez krawędzi, widoczne zmiany P3 (36–65).
-- L = 384–512: zostają dwie średnie (~53 i ~44). Kompromis: dłuższe L = stabilniej, gorsza rozdzielczość czasowa
-  (niezależnych okien ~N/L).
-- Reguła praktyczna: **L ≈ 3–4 × najdłuższe lokalne P3**.
-
-## 2. L z najdłuższego P3 w średnim LRFS (10 pulsarów)
-
-`p3track_Ltest.jl`: średnie LRFS (Welch, L0 = 256), istotne piki wobec shuffle 99%, L_new = 4·P3_max.
-
-- Działa dla J1825+0004 (reżim P3 32–60 po ~800 widoczny tylko przy L_new).
-- U J0034, J1946 i innych najdłuższy pik to okres nulli/burstów, nie dryfu.
-- Kryterium energii (widmo E(n) + koherencja fazy κ = |Σ_φF|²/(Σ_φ|F|)²): rozdziela skrajności
-  (dryf J1750 κ ≈ 0.05, nulle J0034/J1946 κ ≈ 0.85), ale stały próg κ = 0.5 zawodzi — tło κ zależy od pulsara,
-  strefa szara 0.36–0.48 obejmuje też J1825 (AM).
-- Dłuższe L zwiększa liczbę przyjętych okien także dla głównego P3 (4·P3 to za mało cykli dla progu shuffle).
-
-## 3. `P3FoldViterbi.coherent_fold`: lowpass_cutoff f_c
-
-Demodulacja przy f3 + filtr dolnoprzepustowy f_c to odpowiednik sliding LRFS z L ≈ 1/f_c:
-- f_c > rozrzut |1/P3_lok − f3| — inaczej faza nie nadąża za P3;
-- f_c ≲ f3/3 — powyżej do fazy przecieka składowa −f3 i modulacja natężenia (nulle).
-
-`coherent_fc_cv.jl`: kroswalidacja po długości (faza z połowy binów, fold na drugiej), miara
-ΔR² = R²_cv − null z przetasowanych pulsów. Sam R²_cv rośnie do f_c → f3 (sortowanie pulsów wg podpulsu), stąd null.
-
-| PSR | P3 | optimum f_c (≤ f3/3) | ΔR² opt / 1/300 |
-|---|---|---|---|
-| J0034-0721 | 6.6 | 0.07 f3 (1/100) | 0.031 / 0.016 |
-| J1825+0004 | 14.2 | 0.14 f3 (1/100) | 0.009 / ~0 |
-| J0818-3232 | 5.8 | 0.17 f3 (1/35) | 0.069 / 0.011 |
-| J1001-5559 | 4.2 | plateau 0.08–0.5 f3 | 0.070 / 0.020 |
-| J0959-4809 | 6.0 | 0.33 f3 | 0.026 / ~0 |
-| J1750-3503 | 49 | 0.33 f3 (rośnie do f3) | 0.010 / 0.004 |
-| J1946+1805 | 19 | 0.33 f3 | 0.032 / ~0 |
-| J1626-4537 | 25 | 0.33 f3 | 0.008 / ~0 |
-| J1905-0056, J1614+0737 | | brak sygnału | ~0 |
-
-Porównanie foldów (`coherent_fc_compare.jl`): przy 1/300 fold ≈ stałe P3. Przy optimum: J0034 i J1750 — wyraźne pasma
-dryfu; J0818, J1001, J1825 — modulacja amplitudy składowych w przeciwfazie (AM); J1946 — modulacja natężenia całego
-profilu (nulle), więc wzrost ΔR² nie zawsze oznacza lepszy fold dryfu.
-
-## 4. Maskowanie pulsów o małej amplitudzie (`coherent_mask.jl`)
-
-Maska |s(n)| ≥ q95 z nulla shuffle; P3(n) z regresji fazy ważonej |s|². Skoki P3(n) (J1750 ~100, J0034 przy nullach)
-to przejścia |s| przez zero — maska je usuwa: RMS względem sLRFS spada w 6/6 pulsarach (J1750 11.0 → 6.5),
-wartości poza zakresem sLRFS znikają (J1946 11% → 0). Wady: maskuje 26–74% pulsów i wycina też odcinki, gdzie lokalne
-P3 odchodzi od f3 (tłumienie filtra, J1750 ~800–890). Brzeg `filtfilt` daje osobny artefakt amplitudy (J1001, pierwsze pulsy).
-
-Poprawka (`coherent_mask2.jl`): adaptacyjna nośna (demodulacja przy fazie z poprzedniego przebiegu, 2 iteracje),
-próg = mediana nulla, brzegi 1/(2 f_c) pominięte. Maskuje 10–36% pulsów, pokrycie śladu sLRFS 93–100%, brak zer |s|.
-Na wspólnych oknach dokładność A ≈ B ≈ C (maska nie poprawia pomiaru, tylko usuwa złe punkty); C lepsze dla J1750
-(RMS 6.6 → 5.8) i J1946. Fold bez zmian. J1750 ~830–900: coherent P3 ≈ 35 vs sLRFS ≈ 65 przy minimum |s| —
-hipoteza: odwrócenie dryfu (rzut na szablon wybiera drugą wstęgę). Sprawdzone z subtrack (`j1750_reversal_check.jl`):
-pasuje dla 40–110 (D ≈ −0.5 °/P, moc w lustrzanej wstędze), nie pasuje dla 800–900 (D ≈ +0.2); statystycznie
-nieistotne (AUC 0.67, null 0.49 ± 0.16). Minimum |s| nie jest wiarygodnym wskaźnikiem odwrócenia.
-
-## 5. Filtr Kalmana i wyłączanie nulli (`kalman_compare.jl`)
-
-Kalman (stan faza + częstotliwość, pomiar z(n) bez filtra, parametry z wiarygodności, gładzenie RTS):
-- **Fold**: wzrokowo najostrzejsze pasma (J0034, J1750); na przetasowanych pulsach pasm nie ma, więc są zmierzone,
-  nie narzucone. J0818: wzór AM widoczny też po tasowaniu (dla wszystkich metod) — częściowo artefakt.
-- **P3(n)**: bezużyteczne w tej postaci — wiarygodność wybiera maksymalny szum procesu, błędy nieskalibrowane.
-  Dla P3(n) zostaje wariant C.
-- Miary ΔR² i Δr dają sprzeczne rankingi metod → do porównań potrzebny benchmark syntetyczny.
-
-Nulle wg energii (ułamek 2·frac(E<0)): lepszy fold dla dryferów z nullami (J0034, J0818), gorszy przy modulacji
-natężenia (J1946).
-
-## 6. Benchmark syntetyczny (`synth_benchmark.jl`, 36 przypadków)
-
-Pasma dryfu ze znaną fazą: P3 ∈ {6, 15, 45}, P3(n) stałe / wędrówka ±20% / skok ×1.3, nulle 0 / 30%, S/N 1.5 / 5.
-
-| metoda | fold (korelacja z prawdą) | faza R | P3(n) RMS / pokrycie |
-|---|---|---|---|
-| A f_c = 1/300 | 0.68 | 0.55 | — |
-| A f_c auto | 0.85 | 0.93 | — |
-| C auto | 0.85 | 0.93 | 0.056 / 94% |
-| Kalman (−nulle) | 0.86 (0.88) | 0.96 | q_θ = 0: 0.063 / 100%, nieskalibrowany |
-| sLRFS | — | — | 0.032 / 39% |
-
-Auto f_c to główny zysk; Kalman lepiej śledzi fazę, ale fold zyskuje mało. Na syntetykach Kalman działa, na danych
-nie — generator jest uboższy niż dane (do kalibracji).
-
-## Wariant C w skrócie (stan obecny `coherent_fold_agent`)
+## 2. Metoda: wariant C w skrócie (`coherent_fold_agent`)
 
 1. Szablon cyklu dryfu z całej obserwacji (bin FFT przy f3).
 2. Każdy impuls rzutowany na szablon → liczba zespolona: kąt = faza w cyklu, długość = wyrazistość.
@@ -104,7 +39,7 @@ nie — generator jest uboższy niż dane (do kalibracji).
    wartości poza [2, 3·P3] odrzucane (pojedynczy punkt −700 w J1919+0134); błędy z
    `n_groups` niezależnych zakresów długości.
 
-## Implementacja (funkcje `_agent`)
+## 3. Implementacja (funkcje `_agent`)
 
 - `P3FoldViterbi.auto_cutoff_agent(data, p3, bin_st, bin_end; ybins, grid, nshuffle)` — f_c = max ΔR² (CV po
   długości − null z tasowania) w f3·{1/16, 1/10, 1/8, 1/6, 1/4, 1/3}.
@@ -136,7 +71,147 @@ Decyzje projektowe i ich uzasadnienie:
 Testy na danych: f_c J1750 1/147, J0034 1/66, J0818 1/35, J1825 1/142; P3(n) w 60–92% pulsów; 2–10 s na pulsar
 (`test_p3fold_coherent_agent*.jl`, `synth_agent_split.jl`).
 
-## Benchmark syntetyczny v2 (`synth2_bench.jl`, 200 losowych przypadków)
+## 4. Wnioski o metodzie
+
+- Fold: auto f_c zamiast 1/300 — pewny, duży zysk (syntetyki 0.68 → 0.85). Kalman lepiej śledzi fazę, ale fold zyskuje
+  mało (+0.01–0.03); na danych rzeczywistych P3(n) z Kalmana bezużyteczne.
+- P3(n): wariant C (`coherent_fold_agent`) — mediana błędu ~1.5% na syntetykach, gorzej przy krótkich nullach,
+  dużej wędrówce P3 i S/N < 1.5. Ślad sLRFS dokładniejszy tam, gdzie mierzy (~40% pulsów).
+- Miary ΔR² / Δr nie nadają się do porównywania metod o różnej sile śledzenia — rozstrzyga benchmark syntetyczny.
+
+## 5. Czy fold pokazuje dane, czy artefakt metody
+
+- **Pochylenie pasm jest w danych:** faza z połowy binów długości + fold drugiej połowy daje ten sam wzór (J0255:
+  0.994), lokalne foldy stałym P3 (odcinki ~100 P) pokazują to samo przesunięcie fazy, po odjęciu nulla pochylenie
+  zostaje u pewnych dryferów (kontrola J1232).
+- **Kontrast zawyżony ~2×:** null = fold jądrowy z przetasowanych pulsów przy WSPÓLNYM szablonie (te same współrzędne
+  fazy) daje 25–60% amplitudy foldu, bo faza z dopasowania do szablonu częściowo odtwarza szablon. Kontrastu nie
+  traktować jako głębokości modulacji.
+- **Falowanie „S” i zygzak przy P3 ≈ 2–3** to w większości artefakt (null odtwarza wzór, korelacja 0.9–0.99).
+- **Alias przy P3 ≈ 2–3** (nieokreślony kierunek dryfu) nie jest argumentem przeciw dryfowi — liczy się pochylenie.
+- **Złe dane** dają pozorne pochylenie: J0211-8159 — pulsar wędruje w fazie łukiem (zła efemeryda); sprawdzać panel
+  pulsów i energii. RFI w pojedynczych pulsach (J1700-3312) trzeba wyzerować i powtórzyć (tam pochylenie zostało).
+- J0905-6019, J1742-4616 (S/N < 2): fold płaski, stały fold z modulacją; ψ(φ) płaskie → AM, nie dryf.
+
+## 6. Test hipotezy: Song+23 oznaczają dryf tam, gdzie go nie ma; granica Ė (Basu+16)
+
+### 6.1. Kryteria klasyfikacji (obecne, wzrokowe)
+
+Wykres `*_p3fold_compare.png` w pełnej rozdzielczości: czy plama jasności w kolejnych fazach cyklu P3 przesuwa się
+w długości (ukośne pasma) czy tylko zmienia jasność w miejscu (pionowe plamy = AM). Dla podejrzanych — fold − null.
+Klasy: `pochylenie` (wyraźne, zostaje po nullu), `umiarkowane`, `slabe_potw` (słabe, zostaje po nullu), `slabe`
+(niepewne), `slabe_artefakt` (znika po nullu), `brak_pochylenia`, `zle_dane`.
+Pomocniczo miara ψ (`psi_metric.jl`: Δψ wzdłuż składowej przy f3 w 4 odcinkach czasu): stabilne ψ (4/4 znak, CV < 0.5)
+to mocne potwierdzenie (pochylenie 48/77), ale jego brak nie wyklucza dryfu (odwrócenia, długie P3, nulle, kilka
+składowych: J1750, J1918, J2053). Słabości: subiektywność granic klas, starsze partie oglądane w zmniejszeniu i
+starszą wersją kodu, null nie dla wszystkich, ocena NIE była ślepa (w logach z_blk, ψ) → ślepy przegląd (6.5).
+
+### 6.2. Wyniki (przed ślepym przeglądem)
+
+Dryfery Song+23 wg Ė (n = sklasyfikowane z danymi):
+
+| Ė (erg/s) | n | pochylenie (+umiark.) | słabe potw. | słabe | artefakt | brak |
+|---|---|---|---|---|---|---|
+| ≤ 2·10³² | 132* | 69 | 2 | 4 | 3 | 54 |
+| 2·10³²–10³³ (komplet) | 75 | 17 (23%) | 5 | 5 | 8 | 40 |
+| > 10³³ (komplet z danymi) | 84 | 2 (2%) | 4 | 6 | 11 | 61 |
+
+\* obciążone: zawiera pulę 104 „pewnych dryferów” wybraną wg pairshift (|z_blk| ≥ 3–5, P3Track). Losowa partia 10
+z pozostałych (Ė ≤ 2·10³²): pochylenie 3/10 (J0959-4809, J1840-0809, J1700-3312), J0211-8159 — złe dane.
+Wniosek wstępny: dryf zanika stopniowo z Ė, nie urywa się przy 2·10³²; powyżej 10³³ prawie go nie ma. Dryf nad
+granicą Basu: J1537-4912 (log Ė 33.45, znany bi-drifter), J1918+1444 (33.71), J1922+1733 (34.60, prawdopodobny);
+niepewne J1000-5149, J2043+2740 (~11–12 cykli P3). Wykres P–Ṗ z linią Ė = 2·10³² (Basu, Mitra & Melikidze 2016).
+
+### 6.3. Pulsary analizowane szczegółowo (`cand4_drift.jl`: null, połówki, ψ w odcinkach i oknach, lokalne foldy, pulsy)
+
+- J1537-4912 — bi-drift: główna składowa (163–177°) Δψ −0.19 ± 0.02, słaba (183–193°) +0.17 ± 0.03 (P3Track, stabilne w ćwiartkach; „V” po odjęciu nulla).
+- J1922+1733 — pochylone pasmo zostaje po nullu, ψ spójne 3/4.
+- J2043+2740, J1000-5149 — niepewne (krótkie obserwacje; J1000: skok fazy ~π między składowymi).
+- J1312-5516 — graniczny: ψ niespójne w czasie (pochylenie z jednego odcinka), pairshift −3.3; „slabe”.
+- J1016-5345 (P3-only) — słaby/niejednoznaczny.
+
+### 6.4. Kandydaci na dryf wśród P3-only
+
+Lista `~/claude/work/drift_candidates_p3only.txt`. J1016-5345 — słaby/niejednoznaczny: w foldzie koherentnym lekkie
+pochylenie (~3°/cykl P3) zostaje po odjęciu nulla z tasowania, ale nachylenie fazy w oknach 128 P jest nieistotne
+i zmienia znak (szczegóły w logu 2026-10-09). Pozostałe 9 sprawdzonych P3-only: AM.
+
+
+### 6.5. Ślepy przegląd (do zrobienia)
+
+Zasada: ocena folda bez z_blk, ψ, P3Track i etykiet Song+23; inne metody dołączane dopiero po zapisaniu werdyktów.
+Przygotowanie opisane w sekcji 1. Po przeglądzie uaktualnić tabelę 6.2 i P–Ṗ.
+
+## 7. Historia testów metody (szczegóły w dzienniku)
+
+### H1. `P3FoldViterbi.coherent_fold`: lowpass_cutoff f_c
+
+Demodulacja przy f3 + filtr dolnoprzepustowy f_c to odpowiednik sliding LRFS z L ≈ 1/f_c:
+- f_c > rozrzut |1/P3_lok − f3| — inaczej faza nie nadąża za P3;
+- f_c ≲ f3/3 — powyżej do fazy przecieka składowa −f3 i modulacja natężenia (nulle).
+
+`coherent_fc_cv.jl`: kroswalidacja po długości (faza z połowy binów, fold na drugiej), miara
+ΔR² = R²_cv − null z przetasowanych pulsów. Sam R²_cv rośnie do f_c → f3 (sortowanie pulsów wg podpulsu), stąd null.
+
+| PSR | P3 | optimum f_c (≤ f3/3) | ΔR² opt / 1/300 |
+|---|---|---|---|
+| J0034-0721 | 6.6 | 0.07 f3 (1/100) | 0.031 / 0.016 |
+| J1825+0004 | 14.2 | 0.14 f3 (1/100) | 0.009 / ~0 |
+| J0818-3232 | 5.8 | 0.17 f3 (1/35) | 0.069 / 0.011 |
+| J1001-5559 | 4.2 | plateau 0.08–0.5 f3 | 0.070 / 0.020 |
+| J0959-4809 | 6.0 | 0.33 f3 | 0.026 / ~0 |
+| J1750-3503 | 49 | 0.33 f3 (rośnie do f3) | 0.010 / 0.004 |
+| J1946+1805 | 19 | 0.33 f3 | 0.032 / ~0 |
+| J1626-4537 | 25 | 0.33 f3 | 0.008 / ~0 |
+| J1905-0056, J1614+0737 | | brak sygnału | ~0 |
+
+Porównanie foldów (`coherent_fc_compare.jl`): przy 1/300 fold ≈ stałe P3. Przy optimum: J0034 i J1750 — wyraźne pasma
+dryfu; J0818, J1001, J1825 — modulacja amplitudy składowych w przeciwfazie (AM); J1946 — modulacja natężenia całego
+profilu (nulle), więc wzrost ΔR² nie zawsze oznacza lepszy fold dryfu.
+
+### H2. Maskowanie pulsów o małej amplitudzie (`coherent_mask.jl`)
+
+Maska |s(n)| ≥ q95 z nulla shuffle; P3(n) z regresji fazy ważonej |s|². Skoki P3(n) (J1750 ~100, J0034 przy nullach)
+to przejścia |s| przez zero — maska je usuwa: RMS względem sLRFS spada w 6/6 pulsarach (J1750 11.0 → 6.5),
+wartości poza zakresem sLRFS znikają (J1946 11% → 0). Wady: maskuje 26–74% pulsów i wycina też odcinki, gdzie lokalne
+P3 odchodzi od f3 (tłumienie filtra, J1750 ~800–890). Brzeg `filtfilt` daje osobny artefakt amplitudy (J1001, pierwsze pulsy).
+
+Poprawka (`coherent_mask2.jl`): adaptacyjna nośna (demodulacja przy fazie z poprzedniego przebiegu, 2 iteracje),
+próg = mediana nulla, brzegi 1/(2 f_c) pominięte. Maskuje 10–36% pulsów, pokrycie śladu sLRFS 93–100%, brak zer |s|.
+Na wspólnych oknach dokładność A ≈ B ≈ C (maska nie poprawia pomiaru, tylko usuwa złe punkty); C lepsze dla J1750
+(RMS 6.6 → 5.8) i J1946. Fold bez zmian. J1750 ~830–900: coherent P3 ≈ 35 vs sLRFS ≈ 65 przy minimum |s| —
+hipoteza: odwrócenie dryfu (rzut na szablon wybiera drugą wstęgę). Sprawdzone z subtrack (`j1750_reversal_check.jl`):
+pasuje dla 40–110 (D ≈ −0.5 °/P, moc w lustrzanej wstędze), nie pasuje dla 800–900 (D ≈ +0.2); statystycznie
+nieistotne (AUC 0.67, null 0.49 ± 0.16). Minimum |s| nie jest wiarygodnym wskaźnikiem odwrócenia.
+
+### H3. Filtr Kalmana i wyłączanie nulli (`kalman_compare.jl`)
+
+Kalman (stan faza + częstotliwość, pomiar z(n) bez filtra, parametry z wiarygodności, gładzenie RTS):
+- **Fold**: wzrokowo najostrzejsze pasma (J0034, J1750); na przetasowanych pulsach pasm nie ma, więc są zmierzone,
+  nie narzucone. J0818: wzór AM widoczny też po tasowaniu (dla wszystkich metod) — częściowo artefakt.
+- **P3(n)**: bezużyteczne w tej postaci — wiarygodność wybiera maksymalny szum procesu, błędy nieskalibrowane.
+  Dla P3(n) zostaje wariant C.
+- Miary ΔR² i Δr dają sprzeczne rankingi metod → do porównań potrzebny benchmark syntetyczny.
+
+Nulle wg energii (ułamek 2·frac(E<0)): lepszy fold dla dryferów z nullami (J0034, J0818), gorszy przy modulacji
+natężenia (J1946).
+
+### H4. Benchmark syntetyczny (`synth_benchmark.jl`, 36 przypadków)
+
+Pasma dryfu ze znaną fazą: P3 ∈ {6, 15, 45}, P3(n) stałe / wędrówka ±20% / skok ×1.3, nulle 0 / 30%, S/N 1.5 / 5.
+
+| metoda | fold (korelacja z prawdą) | faza R | P3(n) RMS / pokrycie |
+|---|---|---|---|
+| A f_c = 1/300 | 0.68 | 0.55 | — |
+| A f_c auto | 0.85 | 0.93 | — |
+| C auto | 0.85 | 0.93 | 0.056 / 94% |
+| Kalman (−nulle) | 0.86 (0.88) | 0.96 | q_θ = 0: 0.063 / 100%, nieskalibrowany |
+| sLRFS | — | — | 0.032 / 39% |
+
+Auto f_c to główny zysk; Kalman lepiej śledzi fazę, ale fold zyskuje mało. Na syntetykach Kalman działa, na danych
+nie — generator jest uboższy niż dane (do kalibracji).
+
+### H5. Benchmark syntetyczny v2 (`synth2_bench.jl`, 200 losowych przypadków)
 
 P3 3–50, stałe / wędrówka 5–25% / skok ×0.7–1.4, nulle brak / krótkie / długie (skok fazy po nullu z p 0–1),
 S/N 0.8–8, różna geometria podpulsów, 15% AM.
@@ -151,21 +226,7 @@ S/N 0.8–8, różna geometria podpulsów, 15% AM.
 
 Punkty z błędem > 20%: 4%. Skok P3 (poziomy przed/po w ±5%): 61/78. Błędy σ: w ±2σ 77% (powinno 95%).
 
-## Wnioski
-
-- Fold: auto f_c zamiast 1/300 — pewny, duży zysk (syntetyki 0.68 → 0.85). Kalman lepiej śledzi fazę, ale fold zyskuje
-  mało (+0.01–0.03); na danych rzeczywistych P3(n) z Kalmana bezużyteczne.
-- P3(n): wariant C (`coherent_fold_agent`) — mediana błędu ~1.5% na syntetykach, gorzej przy krótkich nullach,
-  dużej wędrówce P3 i S/N < 1.5. Ślad sLRFS dokładniejszy tam, gdzie mierzy (~40% pulsów).
-- Miary ΔR² / Δr nie nadają się do porównywania metod o różnej sile śledzenia — rozstrzyga benchmark syntetyczny.
-
-## Kandydaci na dryf wśród P3-only
-
-Lista `~/claude/work/drift_candidates_p3only.txt`. J1016-5345 — słaby/niejednoznaczny: w foldzie koherentnym lekkie
-pochylenie (~3°/cykl P3) zostaje po odjęciu nulla z tasowania, ale nachylenie fazy w oknach 128 P jest nieistotne
-i zmienia znak (szczegóły w logu 2026-10-09). Pozostałe 9 sprawdzonych P3-only: AM.
-
-## Ewentualne kroki do rozważenia
+## 8. Ewentualne kroki do rozważenia
 
 0. **Przegapiony skok P3** (przegląd wszystkich 200 przypadków): gdy Δf skoku > auto f_c, P3(n) zostaje przy starym
    P3 bez żadnego sygnału błędu (#156: 25.8 zamiast 18.9 przez ~400 P; #153, #110). Najpilniejsze — wynik

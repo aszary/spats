@@ -3011,3 +3011,9 @@ Przygotowane: 302 pulsary z `coherent_drift_classification.csv` (bez `zle_dane`)
 `blind/mapping_DO_NOT_READ.csv`. Wcześniejsze partie liczone starszymi wersjami (fold binowany, przed jądrowym) —
 przegląd ujednolici też wersję kodu. Do zrobienia w nowej sesji: ślepe werdykty → `blind/verdicts.csv`, ślepy null,
 na końcu porównanie z poprzednią klasyfikacją, pairshift i Song+23.
+
+## 2026-10-09 — reorganizacja dokumentacji
+
+`docs/coherent_fold_params.md` przebudowany jako miejsce startu: stan i instrukcja (sekcja 1), metoda, implementacja,
+fizyczność folda, test hipotezy Song+23 / Basu z tabelą wyników i kryteriami klasyfikacji, ślepy przegląd, historia
+testów, ewentualne kroki. Dobór okna sLRFS (dawne sekcje 1–2) przeniesiony do `docs/sliding_lrfs_window.md`.
