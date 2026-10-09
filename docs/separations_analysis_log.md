@@ -2785,3 +2785,5 @@ i J1825). Skrypt `ppdot_coherent_drift.jl`, wykres `ppdot_coherent_drift.png/pdf
 log Ė: pochylenie mediana 31.48 (q25–q75 30.96–32.01), bez pochylenia 31.71 (30.93–32.64) — bez wyraźnej różnicy
 (dryfery z pochyleniem nieco skupione przy niższym Ė, Ṗ < 10⁻¹⁴). Uwaga: klasyfikacja wzrokowa, część z zestawień
 w zmniejszeniu (przed 2026-10-09 wieczór).
+Dodana granica Basu, Mitra & Melikidze (2016, ApJ 833, 29): Ė = 2·10³² erg/s (zielona linia). Powyżej: pochylenie
+13/73 (18%), bez pochylenia 15/51 (29%). Pulsary z pochyleniem powyżej granicy leżą blisko niej (log Ė ≲ 33).
