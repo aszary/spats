@@ -2825,3 +2825,15 @@ skrypt `lowE_agent.jl`, log `logs/lowE.log`, wykresy `figures/agent_lowE/` — 1
 Wniosek: także poniżej granicy większość losowych dryferów Song+23 spoza puli pewnych (pairshift) nie pokazuje
 pochylenia (9/10) — hipoteza użytkownika dotyczy całej klasy, nie tylko wysokiego Ė. Pochylenie pojawia się prawie
 wyłącznie tam, gdzie pairshift też widzi dryf (|z_blk| ≥ 3); tu |z_blk| < 3 w 8/10.
+
+## 2026-10-09 — test hipotezy: kolejne 10 dryferów Song+23 z Ė > 1.2·10³³
+
+Losowo 10 z 60 (seed 20261017, log Ė 33.1–35.1): `drift_highE10b.txt`, skrypt `highE2_agent.jl`, log `logs/highE2.log`,
+wykresy `figures/agent_highE2/` — 18 oglądanych pojedynczo.
+- Wyraźne pochylenie: 0/10.
+- Słabe / niejednoznaczne („umiarkowane”): J1901-0312 (log Ė 33.30, P3 17, 54% nulli wg energii) — jasna plama
+  z słabym ogonem ciągnącym się ukośnie w stronę późniejszych długości; J1902+0556 (log Ė 33.09, P3 2.3 — blisko
+  Nyquista) — falowanie położenia jasnej składowej w cyklu („S”, jak J1846), kierunek nieokreślony.
+- AM: J1359-6038, J0729-1836, J1636-2614, J1224-6407, J1830-0131, J1117-6154 (prawie płaski), J1705-3423, J1723-3659.
+- Δψ: żaden z wzorem dryfera.
+Łącznie Ė > 1.2·10³³: 20 sprawdzonych, wyraźne pochylenie 0/20, słabe 2/20 (oba tuż nad 10³³).
