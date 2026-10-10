@@ -3044,3 +3044,14 @@ prowadzona w pamięci agenta.
 Pochylenie/umiarkowane przy P3 ≈ 2–3 (null obowiązkowy): B4110, B6224. Obserwacja: częsty wzór „dwie składowe
 z pionowymi plamami przesuniętymi w fazie cyklu” (B3744, B5567, B5764, B6170, B6479, B6664) — klasyfikowany jako
 brak/słabe; może to być dryf próbkowany tylko w składowych — do decyzji użytkownika.
+
+## 2026-10-10 — ślepy przegląd, partia 4 (302/302, komplet)
+
+ID B6879–B9978 (pozycje 201–302). Uzasadnienia: `blind/verdicts_notes_p4.txt`. `blind/verdicts.csv` ma teraz
+kolumnę `flaga`: `faza_skl` = pionowe plamy w składowych przesunięte w fazie cyklu P3 (na prośbę użytkownika;
+22 ID, w tym 7 z partii 1–3). Klasa pozostaje wg kryterium pochylenia w składowej.
+Partia 4: pochylenie 18, umiarkowane 17, słabe 17, brak 44, złe dane 6.
+Razem (302): pochylenie 57, umiarkowane 42, słabe 55, brak 130, złe dane 18.
+Złe dane z ukośnymi pasmami w foldzie (po wyzerowaniu RFI prawdopodobnie pochylenie): B7841, B8896.
+Następne kroki: przeliczenie RFI (lista w pamięci agenta), ślepy null dla pochylenie/umiarkowane/słabe,
+potem join z mapowaniem, pairshift i Song+23.
