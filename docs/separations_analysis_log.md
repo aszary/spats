@@ -3130,3 +3130,10 @@ B2808–B4760. Pochylenie 6, umiarkowane 4, słabe 8, brak 29 (faza_skl 6), złe
 początku; B3960 — sygnał tylko ~100 P; B4651 — sygnał tylko <110 P). Do potwierdzenia po RFI: B3183 (pochylenie,
 impuls ~570 P). Null przy P3 ≈ 2–3: B2947, B3202, B3217, B3914, B3989, B4165, B4630, B4729. Uzasadnienia
 `blind/verdicts2_notes_p2.txt`.
+
+## 2026-10-10 — ślepy przegląd, część 2, partia 3 (150/227)
+
+B4844–B6855. Pochylenie 3 (B4844, B5779, B6417), umiarkowane 3, słabe 12, brak 30, złe dane 2 (B6182 — skoki
+poziomu i RFI; B6690 — impuls RFI, ale fold wyraźnie pochylony: kandydat po wyzerowaniu). Wzór faza_skl częsty
+(15 w partii). Null przy P3 ≈ 2–3: B4844, B5029, B5253, B5548, B5779, B5978, B6447, B6613, B6815. Uzasadnienia
+`blind/verdicts2_notes_p3.txt`.
