@@ -3114,3 +3114,12 @@ Wniosek: krok null (wspólny szablon) był zbyt agresywny; z 18 „artefaktów�
 „brak” i 9/36 „słabe artefakt” — gradient może też pochodzić z nakładających się składowych o różnej fazie cyklu
 (np. B7972, B1259), więc nie jest tożsamy z dryfem. Udział |t| ≥ 3.5 wśród dryferów Song+23 wg Ė: 98/130, 23/75,
 13/64, 4/18 — spadek z Ė zachowany. Klas w `verdicts.csv` NIE zmieniono (decyzja użytkownika).
+
+## 2026-10-10 — ślepy przegląd, część 2 (227 obserwacji spoza pierwszych 302), partia 1 (50/227)
+
+Krok 1: `~/claude/work/scripts/blind_run2.jl`, lista `blind/run_list2.txt` (nowe losowe ID, mapowanie
+`blind/mapping2_DO_NOT_READ.csv`), wykresy `blind/raw2/`, 0 błędów, wariant `w` dla 143/227. Skład (widziany przy
+budowie listy, bez ID): 121 dryferów Song+23, 98 p3only, 8 dodatkowych obserwacji (UHF, katalog testowy); 22 katalogi
+bez pełnych danych pominięte. Partia 1 (B1005–B2784): pochylenie 4, umiarkowane 4, słabe 7, brak 32, złe dane 3
+(B1005, B1081, B2481); faza_skl 5. Werdykty `blind/verdicts2.csv`, uzasadnienia `blind/verdicts2_notes_p1.txt`.
+Do null przy P3 ≈ 2–3: B1507, B1677, B1738, B1760, B2252, B2396.
