@@ -3137,3 +3137,13 @@ B4844–B6855. Pochylenie 3 (B4844, B5779, B6417), umiarkowane 3, słabe 12, bra
 poziomu i RFI; B6690 — impuls RFI, ale fold wyraźnie pochylony: kandydat po wyzerowaniu). Wzór faza_skl częsty
 (15 w partii). Null przy P3 ≈ 2–3: B4844, B5029, B5253, B5548, B5779, B5978, B6447, B6613, B6815. Uzasadnienia
 `blind/verdicts2_notes_p3.txt`.
+
+## 2026-10-10 — ślepy przegląd, część 2, partia 4 (227/227, komplet)
+
+B6938–B9896 (77). Pochylenie 5 (B7150, B7431, B8191, B9382, B9819), umiarkowane 6, słabe 7, brak 48, złe dane 11.
+Razem część 2 (227): pochylenie 18, umiarkowane 17, słabe 34, brak 139 (faza_skl 39), złe dane 19.
+Złe dane w tej partii to głównie linia bazowa modulowana co puls / z P3 (poziome pasy przez całe okno w foldzie
+stałym: B7112, B7888, B8646, B8850, B9863) albo wzór „co drugi puls” (B8171, B8918, B8970) — tego nie naprawi
+zerowanie pojedynczych pulsów; RFI do wyzerowania: B8638, B9532, B9754. Werdykty `blind/verdicts2.csv`.
+Następne: przeliczenie RFI (`blind_rfi.jl` dla części 2), null dla pochylenie/umiarkowane/słabe, LRFS (informacyjnie),
+potem odsłonięcie `mapping2_DO_NOT_READ.csv`.
