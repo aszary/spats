@@ -3034,3 +3034,13 @@ ID B2324–B3741 (pozycje 51–100), zasady jak w partii 1. Uzasadnienia: `blind
 Wynik: pochylenie 12, umiarkowane 7, słabe 11, brak 19, złe dane 1 (B3646). Do przeliczenia po RFI (na końcu
 przeglądu): partia 1 — B1259, B1744, B1745, B1833, B2087, B1499; partia 2 — B3646, B3090 (pochylenie), B2892 (sprawdzić).
 Pochylenie/umiarkowane przy P3 ≈ 2–3 (null obowiązkowy): B2461, B2557, B3261, B3513, B3587, B3648.
+
+## 2026-10-10 — ślepy przegląd, partia 3 (200/302)
+
+ID B3744–B6846 (pozycje 101–200), zasady jak wyżej. Uzasadnienia: `blind/verdicts_notes_p3.txt`.
+Wynik: pochylenie 15, umiarkowane 13, słabe 21, brak 45, złe dane 6 (B4249, B5067, B6000, B6370, B6639, B6702).
+Do sprawdzenia danych: B3876, B5464, B5599, B5850, B6114, B6531. Lista do przeliczenia (na końcu przeglądu)
+prowadzona w pamięci agenta.
+Pochylenie/umiarkowane przy P3 ≈ 2–3 (null obowiązkowy): B4110, B6224. Obserwacja: częsty wzór „dwie składowe
+z pionowymi plamami przesuniętymi w fazie cyklu” (B3744, B5567, B5764, B6170, B6479, B6664) — klasyfikowany jako
+brak/słabe; może to być dryf próbkowany tylko w składowych — do decyzji użytkownika.
