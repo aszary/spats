@@ -3147,3 +3147,12 @@ stałym: B7112, B7888, B8646, B8850, B9863) albo wzór „co drugi puls” (B817
 zerowanie pojedynczych pulsów; RFI do wyzerowania: B8638, B9532, B9754. Werdykty `blind/verdicts2.csv`.
 Następne: przeliczenie RFI (`blind_rfi.jl` dla części 2), null dla pochylenie/umiarkowane/słabe, LRFS (informacyjnie),
 potem odsłonięcie `mapping2_DO_NOT_READ.csv`.
+
+## 2026-10-10 — ślepy przegląd, część 2, krok 1: przeliczenie po RFI
+
+`~/claude/work/scripts/blind_rfi2.jl` (jak `blind_rfi.jl`), 14 ID (9 RFI + 2 za mało sygnału + 3 do sprawdzenia),
+log `logs/blind_rfi2.log`, wykresy `blind/raw2_rfi/`, opisy `blind/verdicts2_notes_rfi.txt`; stan sprzed:
+`blind/verdicts2_przed_rfi.csv`. Zmieniło się 10 werdyktów: B6690 → pochylenie (kandydat potwierdzony), B2481 →
+umiarkowane (faza_skl), B6182 → słabe, 7 → brak; B2784 i B3183 pochylenie potwierdzone; B9754 — ukośne pasy w całym
+oknie były artefaktem RFI. Zostaje 9 złych danych: B3960 (za mało sygnału) + 8 z linią bazową / „co drugi puls”
+(pominięte w kroku 2 — decyzja użytkownika). Część 2: pochylenie 19, umiarkowane 18, słabe 35, brak 146, złe dane 9.
