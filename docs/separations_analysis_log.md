@@ -3055,3 +3055,14 @@ Razem (302): pochylenie 57, umiarkowane 42, słabe 55, brak 130, złe dane 18.
 Złe dane z ukośnymi pasmami w foldzie (po wyzerowaniu RFI prawdopodobnie pochylenie): B7841, B8896.
 Następne kroki: przeliczenie RFI (lista w pamięci agenta), ślepy null dla pochylenie/umiarkowane/słabe,
 potem join z mapowaniem, pairshift i Song+23.
+
+## 2026-10-10 — ślepy przegląd, krok 1: przeliczenie po wyzerowaniu RFI
+
+`~/claude/work/scripts/blind_rfi.jl`: pulsy z RMS lub średnią off-pulse odstającą > 6σ (MAD) zerowane, potem
+`coherent_fold_agent` (+ wariant dla słabych) dla 30 ID (18 `zle_dane` + 12 „do sprawdzenia”), log `logs/blind_rfi.log`,
+wykresy `blind/raw_rfi/`, opisy `blind/verdicts_notes_rfi.txt`. `blind/verdicts.csv` uaktualniony (flaga `rfi_zap`),
+stan sprzed: `blind/verdicts_przed_rfi.csv`. Zmieniło się 17 werdyktów; m.in. B7841, B8896 → pochylenie; B1499, B3090
+pochylenie potwierdzone. Kryterium zeruje czasem długie odcinki z podniesionym off-pulse (B1744, B1745, B6639).
+Zostały 4 `zle_dane` nienaprawialne zerowaniem: B6000 (linia bazowa modulowana z P3), B6702 (impuls na początku
+niewykryty), B8146 i B9364 (P3 z params.json 167 / 256 — prawdopodobnie z zakłóceń, do ponownego wyznaczenia).
+Razem (302): pochylenie 59, umiarkowane 44, słabe 59, brak 136, złe dane 4; flaga faza_skl 24.
