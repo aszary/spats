@@ -3017,3 +3017,13 @@ na końcu porównanie z poprzednią klasyfikacją, pairshift i Song+23.
 `docs/coherent_fold_params.md` przebudowany jako miejsce startu: stan i instrukcja (sekcja 1), metoda, implementacja,
 fizyczność folda, test hipotezy Song+23 / Basu z tabelą wyników i kryteriami klasyfikacji, ślepy przegląd, historia
 testów, ewentualne kroki. Dobór okna sLRFS (dawne sekcje 1–2) przeniesiony do `docs/sliding_lrfs_window.md`.
+
+## 2026-10-10 — ślepy przegląd, partia 1 (50/302)
+
+ID B1024–B2322 (pierwsze 50 wg sortowania), każdy PNG w pełnej rozdzielczości, wariant `w` tam, gdzie jest.
+Bez z_blk, ψ, Song+23; mapowania nie otwierano. Werdykty: `~/claude/work/blind/verdicts.csv`, uzasadnienia:
+`blind/verdicts_notes_p1.txt`. Wynik: pochylenie 12, umiarkowane 5, słabe 6, brak 22, złe dane 5.
+- Złe dane (B1259, B1744, B1745, B1833, B2087): pojedyncze ogromne impulsy (RFI) lub sygnał tylko w części
+  obserwacji, poziome pasy także off-pulse. Do wyzerowania RFI i powtórki. B1499 (pochylenie) też ma impuls RFI.
+- Pochylenie/umiarkowane przy P3 ≈ 2–3 (B1324, B1462, B1505, B1627, B2099, B2234, B2322) — obowiązkowo null.
+- Otwarte: partie 2–7, ślepy null dla pochylenie/umiarkowane/słabe.
