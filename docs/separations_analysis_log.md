@@ -3087,3 +3087,11 @@ dane − null — u silnych dryferów null wyostrza pochylenie. Gdy null sam jes
 B8997, B9063, B8980), pochylenie uznane za możliwy artefakt dopasowania do szablonu. Poziome pasy w danych i nullu
 (linia bazowa) w B8493, B1828, B8897, B7972, B3816 → znika. B9752: null silniejszy niż dane (artefakt).
 Następny krok: odsłonięcie mapowania i porównanie z poprzednią klasyfikacją, pairshift, Song+23.
+
+## 2026-10-10 — ślepy przegląd, krok 3: odsłonięcie mapowania i porównanie
+
+Klasy końcowe nadane wg wyniku nulla (decyzja użytkownika, sekcja 6.5 w `coherent_fold_params.md`), potem mapowanie
+otwarte; `~/claude/work/scripts/blind_compare.py` → `blind/blind_compare.csv` (ID, PSR, klasa ślepa / poprzednia,
+Song+23, z_blk, ψ, Ė). Dryf ślepo wśród dryferów Song+23: Ė ≤ 2·10³² 76/130, 2·10³²–10³³ 12/75, 10³³–10³⁴ 4/64,
+> 10³⁴ 1/18. Z 84 poprzednich „pochylenie” 71 zostaje dryfem. Otwarte: 18 „artefakt” (10 z |z_blk| ≥ 3, w tym
+J1700-3312) — sprawdzić innym nullem; P–Ṗ z klasą ślepą.

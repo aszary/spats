@@ -20,7 +20,7 @@ Song+23 oznaczają dryf także tam, gdzie go nie ma, oraz porównanie z granicą
 - **Wyniki klasyfikacji:** `~/claude/work/coherent_drift_classification.csv` (psr, etykieta Song+23, klasa),
   P–Ṗ: `~/claude/work/scripts/ppdot_coherent_drift.jl` → `figures/ppdot_coherent_drift.png` i `~/output/claude/`.
   Problemy z danymi: `~/claude/work/data_issues.txt`.
-- **Następny krok — ŚLEPY PRZEGLĄD** (sekcja 6.5): 302 pulsary przeliczone bieżącym kodem z losowymi ID w
+- **Ślepy przegląd — ZROBIONY 2026-10-10** (sekcja 6.5): 302 pulsary przeliczone bieżącym kodem z losowymi ID w
   `~/claude/work/blind/raw/` (`scripts/blind_run.jl`, log `logs/blind_run.log`, na końcu „KONIEC”). Werdykty do
   `blind/verdicts.csv` (id,klasa), mapowania `blind/mapping_DO_NOT_READ.csv` nie otwierać przed zapisaniem werdyktów.
   Potem ślepy null dla pochylenie/słabe, na końcu porównanie z poprzednią klasyfikacją, pairshift i Song+23.
@@ -137,10 +137,30 @@ pochylenie (~3°/cykl P3) zostaje po odjęciu nulla z tasowania, ale nachylenie 
 i zmienia znak (szczegóły w logu 2026-10-09). Pozostałe 9 sprawdzonych P3-only: AM.
 
 
-### 6.5. Ślepy przegląd (do zrobienia)
+### 6.5. Ślepy przegląd (zrobiony 2026-10-10)
 
-Zasada: ocena folda bez z_blk, ψ, P3Track i etykiet Song+23; inne metody dołączane dopiero po zapisaniu werdyktów.
-Przygotowanie opisane w sekcji 1. Po przeglądzie uaktualnić tabelę 6.2 i P–Ṗ.
+302 pulsary pod losowymi ID (`~/claude/work/blind/`), ocena folda bez z_blk, ψ, P3Track i Song+23; potem przeliczenie
+po RFI (`scripts/blind_rfi.jl`) i null dla pochylenie/umiarkowane/słabe (`scripts/blind_null.jl`), dopiero na końcu
+odsłonięcie mapowania (`scripts/blind_compare.py` → `blind/blind_compare.csv`, log `logs/blind_compare.log`).
+Klasa końcowa: słabe + null zostaje → `slabe_potw`, słabe + znika → `slabe_artefakt`, pochylenie/umiarkowane + znika →
+`artefakt`, pochylenie + słabnie → `umiarkowane`. 4 złe dane (J dla B6000, B6702, B8146, B9364) bez nulla.
+
+Dryfery Song+23 wg Ė, ślepo (dryf = pochylenie + umiarkowane + słabe potw.; bez złych danych):
+
+| Ė (erg/s) | n | pochylenie | umiark. | słabe potw. | słabe | słabe artef. | artefakt | brak | dryf |
+|---|---|---|---|---|---|---|---|---|---|
+| ≤ 2·10³² | 130 | 45 | 27 | 4 | 2 | 8 | 9 | 35 | 76 (58%) |
+| 2·10³²–10³³ | 75 | 4 | 6 | 2 | 7 | 13 | 6 | 37 | 12 (16%) |
+| 10³³–10³⁴ | 64 | 1 | 1 | 2 | 5 | 11 | 2 | 42 | 4 (6%) |
+| > 10³⁴ | 18 | 0 | 1 | 0 | 1 | 4 | 0 | 12 | 1 (6%) |
+
+Zgodność z poprzednią (nieślepą) klasyfikacją: z 84 „pochylenie” ślepo dryf 71 (50 pochylenie), 7 artefakt; z 166
+„brak” ślepo dryf 14 (głównie umiarkowane/słabe potw. po nullu). Wniosek z 6.2 się utrzymuje: udział dryfu spada
+stopniowo z Ė, powyżej 10³³ prawie go nie ma. Pierwszy przedział nadal obciążony pulą wybraną wg pairshift.
+Uwaga: 10/18 „artefakt” ma |z_blk| ≥ 3 (3 z ψ 4/4: J0856-6137, J1042-5521, J1819-0925) — null przy wspólnym
+szablonie odtwarzający 80–90 % pochylonego wzoru może usuwać też prawdziwy dryf; J1700-3312 ślepo „artefakt”, a w
+6.3 pochylenie zostawało po nullu (inne okno pulsów). Te przypadki do sprawdzenia innym nullem (np. bez wspólnego
+szablonu). Do zrobienia: P–Ṗ z klasą ślepą.
 
 ## 7. Historia testów metody (szczegóły w dzienniku)
 
