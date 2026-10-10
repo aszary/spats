@@ -3095,3 +3095,22 @@ otwarte; `~/claude/work/scripts/blind_compare.py` → `blind/blind_compare.csv` 
 Song+23, z_blk, ψ, Ė). Dryf ślepo wśród dryferów Song+23: Ė ≤ 2·10³² 76/130, 2·10³²–10³³ 12/75, 10³³–10³⁴ 4/64,
 > 10³⁴ 1/18. Z 84 poprzednich „pochylenie” 71 zostaje dryfem. Otwarte: 18 „artefakt” (10 z |z_blk| ≥ 3, w tym
 J1700-3312) — sprawdzić innym nullem; P–Ṗ z klasą ślepą.
+
+## 2026-10-10 — sprawdzenie 18 „artefaktów” ślepego przeglądu
+
+Podejrzenie: null ze wspólnym szablonem dziedziczy gradient fazy szablonu (= faza LRFS przy f3 z całych danych), więc
+„odtwarza” pochylenie także u prawdziwych dryferów. Dwa testy (kontrole: 3–8 pewnych dryferów, 2 AM, 8 „brak”):
+1. `scripts/blind_artefakt_check.jl` — null z szablonem liczonym od nowa z przetasowanych danych (30 tasowań),
+   statystyka Im S = Im Σ_b c_{b+1}c_b* (c_b — 1. harmoniczna cyklu P3), wykresy `blind/artefakt_check/`.
+   Sam kąt ψ' = arg S nie działał (kontrole-dryfery z 0.4–2.3); Im S: dryfery z +11…+33, AM −0.6…+1.2. Wada: Im S
+   rośnie z amplitudą², silna AM z małym nachyleniem daje duże z (B8563). Null niezależny też daje ukośne pasma, ale o
+   losowym znaku — samodopasowanie tworzy pochylenie z szumu; wspólny szablon nadaje mu znak danych.
+2. `scripts/blind_lrfs_grad.jl` — bez śledzenia fazy: gradient fazy widma krzyżowego LRFS (pasmo f3 ± 15 %) wzdłuż
+   długości w 8 niezależnych odcinkach czasu, t = spójność znaku. Kontrole: 8 „pochylenie” |t| 6.9–41, 7/8 „brak”
+   |t| ≤ 1.6. Wynik dla 18: |t| ≥ 3.5 — 14, 2–3.5 — 2 (B6130, B8997), < 2 — 2 (B5850, B9311); znak gradientu LRFS
+   zgodny z foldem koherentnym we wszystkich 18. Tabela `blind/artefakt_check.txt`, wszystkie 302: `blind/lrfs_grad.csv`.
+Wniosek: krok null (wspólny szablon) był zbyt agresywny; z 18 „artefaktów” 14 ma spójny gradient fazy LRFS
+(propozycja: umiarkowane), 2 słabe, 2 artefakt. Dla wszystkich 302: pochylenie |t| ≥ 3.5 w 50/50, ale też 24/136
+„brak” i 9/36 „słabe artefakt” — gradient może też pochodzić z nakładających się składowych o różnej fazie cyklu
+(np. B7972, B1259), więc nie jest tożsamy z dryfem. Udział |t| ≥ 3.5 wśród dryferów Song+23 wg Ė: 98/130, 23/75,
+13/64, 4/18 — spadek z Ė zachowany. Klas w `verdicts.csv` NIE zmieniono (decyzja użytkownika).
