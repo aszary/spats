@@ -3027,3 +3027,10 @@ Bez z_blk, ψ, Song+23; mapowania nie otwierano. Werdykty: `~/claude/work/blind/
   obserwacji, poziome pasy także off-pulse. Do wyzerowania RFI i powtórki. B1499 (pochylenie) też ma impuls RFI.
 - Pochylenie/umiarkowane przy P3 ≈ 2–3 (B1324, B1462, B1505, B1627, B2099, B2234, B2322) — obowiązkowo null.
 - Otwarte: partie 2–7, ślepy null dla pochylenie/umiarkowane/słabe.
+
+## 2026-10-10 — ślepy przegląd, partia 2 (100/302)
+
+ID B2324–B3741 (pozycje 51–100), zasady jak w partii 1. Uzasadnienia: `blind/verdicts_notes_p2.txt`.
+Wynik: pochylenie 12, umiarkowane 7, słabe 11, brak 19, złe dane 1 (B3646). Do przeliczenia po RFI (na końcu
+przeglądu): partia 1 — B1259, B1744, B1745, B1833, B2087, B1499; partia 2 — B3646, B3090 (pochylenie), B2892 (sprawdzić).
+Pochylenie/umiarkowane przy P3 ≈ 2–3 (null obowiązkowy): B2461, B2557, B3261, B3513, B3587, B3648.
