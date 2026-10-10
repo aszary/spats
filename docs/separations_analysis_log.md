@@ -3123,3 +3123,10 @@ budowie listy, bez ID): 121 dryferów Song+23, 98 p3only, 8 dodatkowych obserwac
 bez pełnych danych pominięte. Partia 1 (B1005–B2784): pochylenie 4, umiarkowane 4, słabe 7, brak 32, złe dane 3
 (B1005, B1081, B2481); faza_skl 5. Werdykty `blind/verdicts2.csv`, uzasadnienia `blind/verdicts2_notes_p1.txt`.
 Do null przy P3 ≈ 2–3: B1507, B1677, B1738, B1760, B2252, B2396.
+
+## 2026-10-10 — ślepy przegląd, część 2, partia 2 (100/227)
+
+B2808–B4760. Pochylenie 6, umiarkowane 4, słabe 8, brak 29 (faza_skl 6), złe dane 3 (B3412 — impuls RFI na
+początku; B3960 — sygnał tylko ~100 P; B4651 — sygnał tylko <110 P). Do potwierdzenia po RFI: B3183 (pochylenie,
+impuls ~570 P). Null przy P3 ≈ 2–3: B2947, B3202, B3217, B3914, B3989, B4165, B4630, B4729. Uzasadnienia
+`blind/verdicts2_notes_p2.txt`.
