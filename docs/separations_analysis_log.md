@@ -3066,3 +3066,24 @@ pochylenie potwierdzone. Kryterium zeruje czasem długie odcinki z podniesionym 
 Zostały 4 `zle_dane` nienaprawialne zerowaniem: B6000 (linia bazowa modulowana z P3), B6702 (impuls na początku
 niewykryty), B8146 i B9364 (P3 z params.json 167 / 256 — prawdopodobnie z zakłóceń, do ponownego wyznaczenia).
 Razem (302): pochylenie 59, umiarkowane 44, słabe 59, brak 136, złe dane 4; flaga faza_skl 24.
+
+## 2026-10-10 — ślepy przegląd, krok 2: null dla pochylenie/umiarkowane/słabe
+
+`~/claude/work/scripts/blind_null.jl` (metoda jak `missing_null.jl`: fold jądrowy − średnia z 10 tasowań przy wspólnym
+szablonie; σ jądra jak w foldzie bazowym, wariant dla słabych gdy istniał; dla ID z `rfi_zap` te same pulsy zerowane).
+162 ID, bez błędów; wykresy `blind/null/<ID>.png` (dane / null / dane − null), opisy `blind/null_notes.txt`.
+`blind/verdicts.csv` ma kolumnę `null`: zostaje (wyraźne ukośne pasma w dane − null) / slabnie / znika.
+4 `zle_dane` (B6000, B6702, B8146, B9364) pominięte (decyzja użytkownika).
+
+| klasa przed nullem | n | zostaje | słabnie | znika |
+|---|---|---|---|---|
+| pochylenie | 59 | 50 | 5 | 4 |
+| umiarkowane | 44 | 14 | 16 | 14 |
+| słabe | 59 | 8 | 15 | 36 |
+
+Wg P3: P3 < 3 — 35 ID: 11 / 7 / 17 (zostaje/słabnie/znika); P3 ≥ 3 — 127 ID: 61 / 29 / 37.
+Obserwacje: null przy wspólnym szablonie często odtwarza pionową plamę (AM) w całości, a ukośne pasma zostają w
+dane − null — u silnych dryferów null wyostrza pochylenie. Gdy null sam jest pochylony (~80–90% wzoru: B2195, B6130,
+B8997, B9063, B8980), pochylenie uznane za możliwy artefakt dopasowania do szablonu. Poziome pasy w danych i nullu
+(linia bazowa) w B8493, B1828, B8897, B7972, B3816 → znika. B9752: null silniejszy niż dane (artefakt).
+Następny krok: odsłonięcie mapowania i porównanie z poprzednią klasyfikacją, pairshift, Song+23.
