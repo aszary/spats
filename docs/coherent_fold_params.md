@@ -46,6 +46,28 @@ Zabawki: `scripts/svd_toy.py`, `svd_toy_faza.py` (rozdziela `faza_skl` — obró
 `svd_toy_p3var.py` (zmienne P3, nulle, odwrócenie, P3 → 2.2 — wszystko wykryte). Do poprawy: szum bez binów off-pulse
 (dane wycentrowane na sygnale), RFI bez off-pulse.
 
+**Kalibracja testu SVD na syntetykach (2026-10-11, `~/claude/work/scripts/svd_calib.jl`).** Generator `synth2_lib`
+(P3 3–50 stałe / wędrujące / skokowe, nulle krótkie i długie, jitter podpulsów 0.5–3 binów, S/N 0.8–8), 30 dryfów i
+30 czystych AM. Tabela `~/claude/work/svd_calib.csv`, wykresy stos + skumulowany obrót
+`~/claude/work/figures/svd_calib/<id>_<typ>.png`.
+
+| kryterium | wykryte dryfy | fałszywe alarmy (AM) |
+|---|---|---|
+| **koniec skumulowanego obrotu poza nullami (p < 0.05)** | **24/30** | **1/30** |
+| \|z_obr\| ≥ 3 (obrót ze znakiem) | 18/30 | 0/30 |
+| z_blok ≥ 3 (obrót w blokach 16 P) | 20/30 | 3/30 |
+| pokrycie ≥ 15% | 18/30 | 3/30 |
+| najlepsze okno ruchome, p < 0.05 po korekcie | 21/30 | 5/30 |
+
+Wniosek: głównym kryterium jest skumulowany obrót (fałszywe alarmy na poziomie nominalnym ~3%); okno ruchome daje za
+dużo fałszywych alarmów — tylko pomocniczo. Zgubione dryfy: 5 z S/N ≤ 1.4 (#5, 12, 13, 16, 30) i #1 (S/N 3.2,
+P3 ≈ 26, jitter 2.8). Ograniczenia: generator ma dryf w jednym kierunku (odwrócenia nie sprawdzone), brak P3 < 3.
+Na danych: J0152-1637 („umiarkowane” w ślepym przeglądzie) — obrót w zakresie nulli, użytkownik nie widzi dryfu w
+pojedynczych pulsach, mimo że fold koherentny i fold z fazą SVD pokazują pasma (oba foldy nie używają kolejności
+pulsów do rozstrzygania — nie są testem dryfu). J1750-3503 — obrót +93 (nulle −33…+36), z odcinkami płaskimi /
+cofającymi się (kandydaci na odwrócenia). Cztery widoki jednego pulsara: `scripts/drift_three.jl`
+(→ `figures/drift_three/<PSR>/`).
+
 ### 1.2. Stan ślepego przeglądu (szczegóły 6.5 i dziennik)
 
 - Część 1 (302): zrobiona z nullem i odsłonięta (`blind/blind_compare.csv`, P–Ṗ `figures/ppdot_blind.png`).
