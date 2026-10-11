@@ -3170,3 +3170,18 @@ null ze wspólnym szablonem (jak w kroku 2) i null z szablonem liczonym od nowa 
   dlatego „zjada” prawdziwy dryf przy pochylonym szablonie.
 Wniosek: kryterium dryfu powinno łączyć (1) amplitudę danych wyraźnie powyżej pojedynczego tasowania z własnym
 szablonem i (2) stały kierunek pochylenia (np. gradient LRFS w odcinkach). Sam wygląd ukośnych pasm nie wystarcza.
+
+## 2026-10-11 — nowy test dryfu: SVD stosu pulsów („kółko czy kreska”), pierwsze próby
+
+Idea: AM to fluktuacje rzędu 1 (jeden wzór w długości, tylko jaśnieje/ciemnieje), dryf — fala biegnąca, wymaga
+dwóch wzorów w kwadraturze; amplitudy (u1, u2) kolejnych pulsów obracają się. Miara Rn = średni sinus kąta obrotu
+między kolejnymi pulsami; null: niezależnie losowe fazy Fouriera u1 i u2 (zachowane widma, znika stałe wyprzedzenie).
+Bez P3, bez szablonu, bez folda. Test osobno w oknie ruchomym po długości rozdziela dryf (obrót wewnątrz składowej)
+od `faza_skl` (obrót tylko między składowymi). Zabawki: `scripts/svd_toy.py`, `svd_toy_faza.py`
+(figures/svd_toy*.png). Prawdziwe dane: `scripts/svd_drift_examples.jl` → `blind/svd_examples/<ID>_phase.png`.
+Wyniki (całe okno, z): J1720-0212 dryf +6.9; J0940-5428 (AM wg nulla) −7.3 (!); J1126-6054 artefakt +0.9;
+J1246+2253 −2.1 całość, okno ruchome do +9.0 w składowej wiodącej; J1913+0936 złe dane −0.4; J1910+0714 −7.1.
+Uwagi: na prawdziwych danych portret to chmura (mały S/N pojedynczego pulsu), decyduje statystyka; P3 z obrotu
+różni się od P3 z params (wzory łapią całą zmienność, nie tylko modulację przy P3). J0940-5428: wzór 2 ≈ pochodna
+wzoru 1 (przesunięcie emisji) i stały kierunek obrotu — możliwy słaby dryf, który fold/null przeoczył, albo efekt
+nieuwzględniony w nullu. Przed użyciem: kalibracja na syntetykach z jitterem, wędrującym P3 i nullami.
