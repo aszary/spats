@@ -3216,3 +3216,9 @@ J1126-6054 +1.6 | 3.4, 2.7 | 13% | 4.3, 0.000 — (brak)
 J1913+0936 −5.6 | 2.1, 0.5 | 16% | 2.3, 0.105 — (chyba brak)
 Wniosek: silne dryfery (pokrycie > 60%) wyraźnie oddzielone; słabe/epizodyczne (J1750, J1246 vs J0940, J1126) —
 na razie nie rozdziela ich jedna liczba. Następny krok: kalibracja na syntetykach + ocena wzrokowa użytkownika.
+
+## 2026-10-11 — decyzja: trzy metody na syntetykach, null odrzucony
+
+Użytkownik: testujemy na syntetykach (1) fold jądrowy oceniany wzrokowo bez nulla, (2) test SVD (wykres skumulowanego
+obrotu), (3) fold jądrowy z P3(n) z prędkości obrotu SVD. Null nie jest przydatny do klasyfikacji. Plan i uzasadnienie
+w `coherent_fold_params.md` §1.1.

@@ -5,7 +5,55 @@ Song+23 oznaczają dryf także tam, gdzie go nie ma, oraz porównanie z granicą
 `docs/separations_analysis_log.md` (wpisy 2026-10-08 i 2026-10-09). Dobór okna sliding LRFS przeniesiony do
 `docs/sliding_lrfs_window.md`.
 
-## 1. Stan i od czego zacząć (2026-10-09)
+## 1. Stan i od czego zacząć (2026-10-11)
+
+**Najpierw przeczytaj 1.1 — zmienia się sposób oceny dryfu.**
+
+### 1.1. Nowy plan: trzy metody oceny dryfu, test na syntetykach
+
+Decyzja (2026-10-11): klasyfikacja „dryf / brak” z samego folda koherentnego oglądanego wzrokowo (6.1) + null nie jest
+wiarygodna i nigdy nie była sprawdzona na danych o znanej odpowiedzi. Testujemy na syntetykach (`synth2_lib.jl`:
+czysty dryf i czysta AM, wędrujące P3, nulle, S/N 0.8–8) trzy metody:
+
+1. **Fold jądrowy** (`coherent_fold_agent`, ocena wzrokowa ślepa, BEZ nulla) — ile AM rysuje jako dryf, ile dryfów gubi.
+2. **Test SVD** (`~/claude/work/scripts/svd_drift2.jl`): SVD fluktuacji stosu w binach z sygnałem, po usunięciu
+   składowej „cały profil jaśniej/ciemniej”; dwa wiodące wzory w długości; z pulsu na puls amplitudy (u1, u2) —
+   dryf = obrót w jedną stronę (fala biegnąca), AM = brak obrotu (jeden wzór). Nie potrzebuje P3, szablonu ani folda.
+   Null: niezależnie losowe fazy Fouriera u1 i u2. Główny wykres: **skumulowany obrót** (czerwona linia vs wachlarz
+   nulli; dryf = równomierna ucieczka w jedną stronę, odwrócenie = zawrócenie linii). Liczby: z_obr (ze znakiem),
+   z_blok (bloki 16 P, też dla odwróceń), pokrycie (ułamek istotnych bloków, szum ~5%), odporność (bez 5%
+   najsilniejszych kroków), okno ruchome z korektą na wybór okna, P3(n) z prędkości obrotu.
+3. **Fold jądrowy z P3(n) z prędkości obrotu SVD** — fazę bierzemy z obrotu (bez dopasowania do szablonu), fold tylko
+   ilustruje. Do zaimplementowania.
+
+Dla każdej metody: odsetek AM uznanych za dryf i zgubionych dryfów w funkcji S/N, P3, nulli. Start: ~60 przypadków
+(30 dryf, 30 AM, podobne S/N). Odniesienie na danych: ocena użytkownika na pojedynczych pulsach (15–20 pulsarów, przed
+zobaczeniem wyników testu).
+
+**Null okazał się mało przydatny** (`scripts/null_compare.jl`, `blind/null_compare/`, dziennik 2026-10-11):
+- fold koherentny tworzy strukturę, także UKOŚNE pasma, z przetasowanych pulsów (pojedyncze tasowanie z własnym
+  szablonem: 0.56–1.41 amplitudy danych; kierunek losowy) — samo dopasowanie fazy do szablonu robi „dryf” z szumu;
+- null ze wspólnym szablonem odtwarza szablon razem z kierunkiem pochylenia (korelacja z danymi 0.75–0.96), więc
+  „zjada” prawdziwy dryf: 14 z 18 „artefaktów” ślepego przeglądu ma spójny gradient fazy LRFS (J1700-3312 i in.);
+- null z szablonem liczonym od nowa ma losową fazę — jego średnia się znosi, odejmowanie nic nie daje.
+Wniosek: nulla nie używamy do klasyfikacji; klasy „artefakt / slabe_artefakt” z 6.5 traktować jako niepewne.
+
+Test SVD na przykładach (szczegóły w dzienniku 2026-10-11): zgodny z oceną użytkownika na pojedynczych pulsach dla
+silnych dryferów (J1720-0212, J1910+0714: pokrycie > 60%) i J1246+2253 (okno w składowej wiodącej), brak obrotu dla
+J1913+0936 po odrzuceniu najsilniejszych pulsów; J0940-5428 (użytkownik: brak) daje schodkowy obrót — do wyjaśnienia
+na syntetykach z AM + jitter. J1750-3503 (odwrócenia) wykryty dopiero po usunięciu składowej „cały profil”.
+Zabawki: `scripts/svd_toy.py`, `svd_toy_faza.py` (rozdziela `faza_skl` — obrót tylko między składowymi),
+`svd_toy_p3var.py` (zmienne P3, nulle, odwrócenie, P3 → 2.2 — wszystko wykryte). Do poprawy: szum bez binów off-pulse
+(dane wycentrowane na sygnale), RFI bez off-pulse.
+
+### 1.2. Stan ślepego przeglądu (szczegóły 6.5 i dziennik)
+
+- Część 1 (302): zrobiona z nullem i odsłonięta (`blind/blind_compare.csv`, P–Ṗ `figures/ppdot_blind.png`).
+- Część 2 (227 obserwacji, `blind/verdicts2.csv`, mapowanie `mapping2_DO_NOT_READ.csv` NIE otwarte): ocena wzrokowa
+  folda + przeliczenie RFI zrobione; null wstrzymany (patrz 1.1). 9 złych danych pominiętych (decyzja użytkownika).
+- Klasyfikacja obu części do powtórzenia nową metodą po teście na syntetykach.
+
+### 1.3. Kod i uruchomienie
 
 - **Kod:** `modules/p3fold_viterbi.jl` (`auto_cutoff_agent`, `coherent_fold_agent`, `kernel_fold_agent`,
   `kernel_sigma_agent`), `spats.jl` (`SpaTs.p3fold_coherent_agent` — wykres). Stare `coherent_fold`, `p3fold_coherent`
