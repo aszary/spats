@@ -3232,3 +3232,13 @@ Obrót: końcowo +93 (nulle −33…+36); pulsy ~0–150 bez obrotu, potem wzros
 (~320–460, ~900, ~985) — kandydaci na odwrócenia. Fold z fazą z SVD daje czystsze, ciągłe pasmo niż koherentny.
 UWAGA: fold z fazą z SVD nie używa kolejności pulsów (faza = położenie w płaszczyźnie wzorów), więc z definicji
 rysuje pasmo wzdłuż pary wzorów — to ilustracja kształtu, nie dowód dryfu. Dowodem jest tylko obrót (kolejność).
+
+## 2026-10-11 — kalibracja testu SVD na 60 syntetykach (`~/claude/work/scripts/svd_calib.jl`)
+
+Generator synth2_lib (P3 3–50 stałe/wędrujące/skokowe, nulle, jitter 0.5–3 bin, S/N 0.8–8): 30 dryfów, 30 czystych AM.
+Tabela `~/claude/work/svd_calib.csv`, wykresy stos + skumulowany obrót `figures/svd_calib/<id>_<typ>.png`.
+Wykrycie (dryf / fałszywe alarmy AM): koniec skumulowanego obrotu poza nullami (p_end < 0.05) 24/30 / 1/30;
+|z_obr| ≥ 3 18/30 / 0/30; z_blok ≥ 3 20/30 / 3/30; pokrycie ≥ 15% 18/30 / 3/30; najlepsze okno p < 0.05 21/30 / 5/30.
+Najlepsze: p_end (skumulowany obrót) — fałszywe alarmy na poziomie nominalnym 3%. Okno ruchome daje za dużo
+fałszywych alarmów (korekta niewystarczająca). Zgubione dryfy: głównie S/N ≤ 1.4 (#5, 12, 13, 16, 30) i #1
+(S/N 3.2, P3 26, jitter 2.8). Ograniczenie: generator ma dryf w jednym kierunku (bez odwróceń).
