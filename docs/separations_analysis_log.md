@@ -3156,3 +3156,17 @@ log `logs/blind_rfi2.log`, wykresy `blind/raw2_rfi/`, opisy `blind/verdicts2_not
 umiarkowane (faza_skl), B6182 → słabe, 7 → brak; B2784 i B3183 pochylenie potwierdzone; B9754 — ukośne pasy w całym
 oknie były artefaktem RFI. Zostaje 9 złych danych: B3960 (za mało sygnału) + 8 z linią bazową / „co drugi puls”
 (pominięte w kroku 2 — decyzja użytkownika). Część 2: pochylenie 19, umiarkowane 18, słabe 35, brak 146, złe dane 9.
+
+## 2026-10-11 — dwa nulle na 6 przykładach (dryf, AM, artefakt, nierozstrzygnięte, złe dane, null nie do interpretacji)
+
+`~/claude/work/scripts/null_compare.jl` → `blind/null_compare/<ID>.png`, log `logs/null_compare.log`. Porównane:
+null ze wspólnym szablonem (jak w kroku 2) i null z szablonem liczonym od nowa z przetasowanych pulsów.
+- Pojedyncze tasowanie z własnym szablonem daje fold o amplitudzie 0.56–1.41 danych i z wyraźną strukturą, także
+  UKOŚNĄ (J1720-0212: pasma o przeciwnym kierunku niż w danych). Samodopasowanie fazy tworzy pochylenie z szumu.
+- Średnia takich nulli się znosi (losowa faza globalna) — odejmowanie jej nic nie daje; liczy się amplituda
+  pojedynczego tasowania względem danych (std null/dane): dryf J1720-0212 0.56 ± 0.06; AM J0940-5428 0.92;
+  artefakt J1126-6054 1.35; nierozstrzygnięty J1246+2253 0.88; złe dane J1913+0936 0.97; J1910+0714 1.41.
+- Null ze wspólnym szablonem odtwarza wzór danych przez szablon (korelacja 0.75–0.96), także kierunek pochylenia —
+  dlatego „zjada” prawdziwy dryf przy pochylonym szablonie.
+Wniosek: kryterium dryfu powinno łączyć (1) amplitudę danych wyraźnie powyżej pojedynczego tasowania z własnym
+szablonem i (2) stały kierunek pochylenia (np. gradient LRFS w odcinkach). Sam wygląd ukośnych pasm nie wystarcza.
