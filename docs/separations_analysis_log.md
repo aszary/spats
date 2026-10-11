@@ -3222,3 +3222,13 @@ na razie nie rozdziela ich jedna liczba. Następny krok: kalibracja na syntetyka
 Użytkownik: testujemy na syntetykach (1) fold jądrowy oceniany wzrokowo bez nulla, (2) test SVD (wykres skumulowanego
 obrotu), (3) fold jądrowy z P3(n) z prędkości obrotu SVD. Null nie jest przydatny do klasyfikacji. Plan i uzasadnienie
 w `coherent_fold_params.md` §1.1.
+
+## 2026-10-11 — J1750-3503: cztery widoki (`~/claude/work/scripts/drift_three.jl`)
+
+Wykresy `~/claude/work/figures/drift_three/J1750-3503/`: (1) fold koherentny + P3(n) (wyznaczone w 70% pulsów,
+P3 36–60), (2) pojedyncze pulsy w 4 najdłuższych odcinkach z P3(n), (3) stos obok skumulowanego obrotu SVD (wspólna
+oś pulsów), (4) fold koherentny vs fold jądrowy z fazą = kąt (u1, u2) z SVD.
+Obrót: końcowo +93 (nulle −33…+36); pulsy ~0–150 bez obrotu, potem wzrost z odcinkami płaskimi/cofającymi się
+(~320–460, ~900, ~985) — kandydaci na odwrócenia. Fold z fazą z SVD daje czystsze, ciągłe pasmo niż koherentny.
+UWAGA: fold z fazą z SVD nie używa kolejności pulsów (faza = położenie w płaszczyźnie wzorów), więc z definicji
+rysuje pasmo wzdłuż pary wzorów — to ilustracja kształtu, nie dowód dryfu. Dowodem jest tylko obrót (kolejność).
