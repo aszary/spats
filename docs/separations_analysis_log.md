@@ -3197,3 +3197,22 @@ impulsem, słaby sygnał) daje stały wzrost — fałszywy alarm z wyboru okna. 
 z sygnałem, kryterium równomierności (zgodny znak w odcinkach czasu / odporność na usunięcie najsilniejszych pulsów),
 korekta na wybór najlepszego okna. Fold+null oceniał J1246 jako nierozstrzygnięty, a J1910 jako null nie do
 interpretacji — test SVD zgadza się tu z oceną wzrokową.
+
+## 2026-10-11 — test SVD v2 (`~/claude/work/scripts/svd_drift2.jl`), J1750-3503 i 6 przykładów
+
+Poprawki: biny z sygnałem (profil > 3σ off-pulse), obrót w blokach 16 P (z_blok, wykrywa też odwrócenia), pokrycie
+(ułamek bloków istotnych, szum ~5%), odporność (bez 5% najsilniejszych kroków), okno ruchome z korektą na wybór
+okna (rozkład maksimum po oknach w nullach), P3(n) z prędkości obrotu. Kluczowa poprawka: przed SVD usunięta
+składowa „cały profil jaśniej/ciemniej” (rzut na średni profil) — bez niej w J1750-3503 wiodący wzór to jasność
+profilu, a para od dryfu była dopiero 2–3 (z_blok −1.1 → +4.7 po usunięciu).
+J1750-3503: z_obr +5.7, z_blok 4.1, pokrycie 12% (tylko bloki dodatnie istotne), P3(n) obu znaków (~+25 / ~−40),
+wzory = para sin/cos z P2 ≈ 60 binów. Odwrócenia widoczne jako płaskie/opadające odcinki, ale bloki ujemne nieistotne.
+6 przykładów (z_obr | z_blok, bez 5% najsiln. | pokrycie | najlepsze okno z, p):
+J1720-0212 +8.3 | 11.7, 10.8 | 73% | 10.4, 0.000 — dryf (ocena użytkownika: dryf)
+J1910+0714 −11.0 | 16.0, 16.2 | 63% | 15.8, 0.000 — dryf (dryf)
+J1246+2253 +4.0 | 2.7, 1.7 | 11% | 8.8, 0.000 — dryf w części profilu (dryf)
+J0940-5428 −9.8 | 5.6, 2.8 | 21% | 5.8, 0.000 — (użytkownik: brak) epizodyczne
+J1126-6054 +1.6 | 3.4, 2.7 | 13% | 4.3, 0.000 — (brak)
+J1913+0936 −5.6 | 2.1, 0.5 | 16% | 2.3, 0.105 — (chyba brak)
+Wniosek: silne dryfery (pokrycie > 60%) wyraźnie oddzielone; słabe/epizodyczne (J1750, J1246 vs J0940, J1126) —
+na razie nie rozdziela ich jedna liczba. Następny krok: kalibracja na syntetykach + ocena wzrokowa użytkownika.
