@@ -3185,3 +3185,15 @@ Uwagi: na prawdziwych danych portret to chmura (mały S/N pojedynczego pulsu), d
 różni się od P3 z params (wzory łapią całą zmienność, nie tylko modulację przy P3). J0940-5428: wzór 2 ≈ pochodna
 wzoru 1 (przesunięcie emisji) i stały kierunek obrotu — możliwy słaby dryf, który fold/null przeoczył, albo efekt
 nieuwzględniony w nullu. Przed użyciem: kalibracja na syntetykach z jitterem, wędrującym P3 i nullami.
+
+## 2026-10-11 — test SVD: skumulowany obrót vs ocena wzrokowa pojedynczych pulsów (użytkownik)
+
+Użytkownik (pojedyncze pulsy): dryf — J1246+2253, J1910+0714, J1720-0212; brak — J0940-5428, J1126-6054,
+J1913+0936 (chyba). Nowy wykres `scripts/svd_drift_walk.jl` → `blind/svd_examples/<ID>_walk.png`: suma narastająca
+ważonego kąta obrotu (u1,u2) po pulsach na tle 30 nulli + histogram kątów. Dryf = stały, równomierny spadek/wzrost
+(J1720-0212, J1910+0714, J1246+2253 w oknie 491–509). J0940-5428: spadek SCHODKOWY (epizody ~350–400, ~600 P) — mimo
+z −7 to nie równomierny dryf. J1913+0936 (okno 509–526): schodek ~150–230 P. J1126-6054: okno 699–722 (przed
+impulsem, słaby sygnał) daje stały wzrost — fałszywy alarm z wyboru okna. Potrzebne poprawki: okna tylko w binach
+z sygnałem, kryterium równomierności (zgodny znak w odcinkach czasu / odporność na usunięcie najsilniejszych pulsów),
+korekta na wybór najlepszego okna. Fold+null oceniał J1246 jako nierozstrzygnięty, a J1910 jako null nie do
+interpretacji — test SVD zgadza się tu z oceną wzrokową.
