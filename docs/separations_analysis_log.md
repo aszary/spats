@@ -3242,3 +3242,11 @@ Wykrycie (dryf / fałszywe alarmy AM): koniec skumulowanego obrotu poza nullami 
 Najlepsze: p_end (skumulowany obrót) — fałszywe alarmy na poziomie nominalnym 3%. Okno ruchome daje za dużo
 fałszywych alarmów (korekta niewystarczająca). Zgubione dryfy: głównie S/N ≤ 1.4 (#5, 12, 13, 16, 30) i #1
 (S/N 3.2, P3 26, jitter 2.8). Ograniczenie: generator ma dryf w jednym kierunku (bez odwróceń).
+
+## 2026-10-12 — port foldu koherentnego do Pythona (`python/p3fold_coherent.py`)
+
+Samodzielny plik (numpy/scipy/matplotlib): `p3fold_coherent` (wersja pierwotna, `--legacy`) i
+`p3fold_coherent_agent` (wariant C + fold jądrowy) ze wszystkimi zależnościami (wczytanie ASCII, zap, fold stałym
+P3, wykres p3fold_compare), w nagłówku opis metody, testy i słabości. Weryfikacja z Julią: s(n) identyczne,
+S/N, f_c, σ takie same (J1750-3503, J0152-1637); pokrycie P3(n) różni się przez próg |s| z tasowania (5 tasowań,
+zależność od ziarna: J1750 próg 0.26–0.33 dla 20 ziaren, pokrycie 70–78%) — nowa słabość, dotyczy też wersji Julii.
