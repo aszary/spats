@@ -940,14 +940,15 @@ module SpaTs
         # odniesienia p3_nominal): odpal skan na dwoch roznych pulsarach,
         # zeby zobaczyc czy nowa P3-zalezna siatka wyglada sensownie dla
         # dwoch bardzo roznych wartosci P3, i czy dedupe/linia dzialaja
-        # TEST KONCOWY (wersja ostateczna): jeden reprezentatywny pulsar,
-        # pelny pipeline - skan cutoffu (z P3-zalezna siatka, dedupe, mapa
-        # heatmap) + finalny fold (ze spojnym p3_window=60 wszedzie,
-        # nowym bin_search, spojnoscia podpasm). J1750-3503 byl naszym
-        # glownym testem przez cala sesje - slabszy sygnal (SNR~3) wiec
-        # dobrze wymusza wszystkie zabezpieczenia (odrzucanie eksplodujacych
-        # cutoffow itd.)
-        for psr_test in ["J1750-3503"]
+        # TEST KONCOWY (wersja ostateczna): kilku zroznicowanych pulsarow,
+        # pelny pipeline - skan cutoffu (P3-zalezna siatka, dedupe, mapa
+        # heatmap) + finalny fold (spojny p3_window=60, nowy bin_search,
+        # spojnosc podpasm). Dobor celowo zroznicowany:
+        #   J1750-3503 - slaby sygnal (SNR~3), znany odwracajacy sie dryf
+        #   J1539-6322 - mocny sygnal (SNR~26), kontrast dla powyzszego
+        #   J1110-5637 - "podrecznikowy" czysty przypadek z dokumentacji
+        #   J2053-7200 - bardzo krotkie P3≈3, trudny przypadek dla ybins
+        for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]
             println("\n===== $psr_test =====")
             try
                 scan_result = p3fold_cutoff_scan(vpmout*psr_test)
