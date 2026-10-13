@@ -3303,3 +3303,19 @@ Log `logs/order_free_J1750.log`, wykresy `figures/order_free/J1750-3503/`.
   więcej maksimów na zboczu spływu (560–600). Słaby efekt; stos 200–330 potwierdza, że ∧ > 3σ siedzą na podpulsach.
 - Do poprawy: A' — rozkład zespolonego F_n(k) przy k podpulsów (koło vs kreska: niewłaściwość |⟨z²⟩|/(⟨|z|²⟩−szum),
   kurtoza), C — tylko maksima > 3σ.
+
+## 2026-10-13 cd. — A′ (koło vs kreska przy k podpulsów) i C > 3σ na J1750-3503
+
+`order_free.jl` rozszerzony. A′: z_n = F_n(k) − ⟨F(k)⟩ (bez kolejności pulsów); niewłaściwość γ = |⟨z²⟩|/(⟨|z|²⟩ − N0)
+(szum kołowy, więc ⟨z²⟩ bez biasu), kurtoza κ odszumiona; wartości tylko przy mocy > 0.5 szumu. Nowe kontrole przy skali
+podpulsów (P2 = 58, ℓ = 9 z danych; głębokość d = 0.53 dopasowana do mocy danych przy k_d = 4): DR (dryf), ZZ (dwa
+nieruchome ciągi podpulsów na zmianę), AMφ (trzy nieruchome ciągi z opóźnieniem fazy 120°).
+- γ przy k_d = 4, 30% najjaśniejszych: dane 0.079 [0.030–0.207, bootstrap 90%], DR 0.066, AMφ 0.093, ZZ 1.022, AM4 0.918
+  (AM1, AM2, TR: brak mocy przy k = 4). Wszystkie pulsy: dane 0.031, DR 0.025, ZZ 1.004. Dane = „koło”, nie „kreska”;
+  niskie γ w całym zakresie k = 3–9.
+- κ: dane 2.1–2.2 (dysk, nie pierścień), DR 1.2 (jasne) / 2.0 (wszystkie) — zależy od rozkładu jasności podpulsów,
+  nie rozdziela.
+- C > 3σ (rozkład położeń maksimów, pole = 1): ZZ i AMφ mają ostre piki w stałych położeniach; dane gładkie jak DR / AM1 /
+  translacja. C rozbija degenerację AMφ, której A′ nie rozbija (o ile nieruchome składowe są w skali podpulsu).
+- Wniosek wstępny: J1750 zgodny z dryfem lub jitterem w Q1 (A′ + C); wykluczone nieruchome składowe w skali podpulsu.
+  Q2 (okresowość położenia) jeszcze nie liczone. Następny krok: para J1720-0212 (dryf, P3 ≈ 2.5) / J1126-6054 (zygzak).
