@@ -331,6 +331,39 @@ end
 
 
 """
+    phase_rate(b, window) -> Vector{Float64}
+
+Local phase rate [rad/pulse] of complex series `b`, centred window of
+`window` pulses (shrinks at edges): `angle(Σ t_k · b[k+1]·conj(b[k]))`
+(pulse-pair / lag-1 autocorrelation estimator) with a parabolic taper
+`t_k` — the same kernel an unweighted local linear regression applies to
+phase increments, so smoothness matches `windowed_slope`.
+
+Unlike regression on `unwrap(angle(b))`, every increment is weighted by
+`|b[k]||b[k+1]|`: where `b` passes near zero (phase rotates ~π, undefined)
+the increments carry ~no weight, so no phantom jump in the slope.
+"""
+function phase_rate(b::AbstractVector{<:Complex}, window::Int)
+    N = length(b)
+    N < 2 && return zeros(Float64, N)
+    inc = b[2:end] .* conj.(b[1:end-1])   # inc[k] links pulses k, k+1
+    halfw = max(1, window ÷ 2)
+    rate = zeros(Float64, N)
+    for i in 1:N
+        lo = max(1, i - halfw)
+        hi = min(N, i + halfw)
+        M = hi - lo                       # number of increments in window
+        acc = zero(ComplexF64)
+        for j in 1:M
+            acc += (j * (M - j + 1)) * inc[lo + j - 1]
+        end
+        rate[i] = angle(acc)
+    end
+    return rate
+end
+
+
+"""
     second_difference_matrix(N) -> SparseMatrixCSC
 
 (N-2) × N second-difference operator: `(D*x)[i] = x[i+2] - 2x[i+1] + x[i]`,
@@ -585,15 +618,16 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     bin = [Int(floor(mod(phase_total[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
     template = build_template(data, bin, ybins)
 
-    # weight each pulse's contribution to the slope fit by its instantaneous
-    # baseband power (|z|²) — the standard optimal weighting for phase
-    # precision (phase error variance ~ 1/amplitude²). A pulse where the
-    # signal happened to be weak gets down-weighted instead of treated as an
-    # equally-good phase measurement, so a noise-driven unwrap glitch at a
-    # low-amplitude dip can't masquerade as a genuine P3 excursion in the
-    # surrounding window.
-    amp_weights = abs2.(baseband_smooth)
-    slope = windowed_slope(phase_total, p3_window; weights=amp_weights)
+    # phase rate from the complex baseband itself (pulse-pair estimator),
+    # NOT from a regression on the unwrapped phase: when the smoothed
+    # baseband passes near zero, its phase rotates by ~±π in a few pulses
+    # (direction depends on which side of the origin it passes — flips
+    # between neighbouring cutoffs). A regression on unwrapped phase sees
+    # that as a real step between the high-amplitude points before/after
+    # it -> phantom P3 spike (J1750-3503, pulse ~630). Here each phase
+    # increment is weighted by |b[k]||b[k+1]|, so the rotation at the null
+    # carries ~zero weight.
+    slope = (2π * f3) .+ phase_rate(baseband_smooth, p3_window)
     # P3 = 2π/slope blows up whenever the local phase slope passes near zero
     # (noise, or — for genuine drift-reversal pulsars — a real sign change);
     # either way a near-zero slope makes 2π/slope numerically explode to
@@ -743,10 +777,16 @@ function cutoff_metrics(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::In
     # p3_std alone (grows with noise, not with real signal).
     signal_std = (isnan(consistency) || consistency <= 0 || isnan(p3_std_val)) ? 0.0 :
                  p3_std_val * sqrt(consistency)
+    # reliability of the FULL-data track (all n_groups subbands together),
+    # Spearman-Brown: R = n r / (1 + (n-1) r) = signal variance / total
+    # variance of the combined track. R >= 0.5 <=> signal dominates noise
+    # in what is actually plotted (for n=8: r >= 1/9 ≈ 0.11).
+    reliability = (isnan(consistency) || consistency <= 0) ? 0.0 :
+                  n_groups * consistency / (1 + (n_groups - 1) * consistency)
 
     return (cutoff=co, consistency=consistency,
-            p3_std=p3_std_val, signal_std=signal_std, snr=main.snr,
-            p3_per_pulse=main.p3_per_pulse, valid=valid)
+            p3_std=p3_std_val, signal_std=signal_std, reliability=reliability,
+            snr=main.snr, p3_per_pulse=main.p3_per_pulse, valid=valid)
 end
 
 
@@ -812,6 +852,10 @@ Arguments: same as `cutoff_metrics`, plus
   tol      – stop when the bracket width (in log space) shrinks below
              this fraction of its start, default 0.02 (~2%)
   max_iter – hard cap on iterations regardless of `tol`, default 25
+  objective – :signal_std (default, gated by `min_reliability`) or
+             :consistency (fallback when no cutoff is reliable)
+  min_reliability – minimum full-track reliability (see `cutoff_metrics`)
+             for a cutoff to count under :signal_std, default 0.5
 
 Returns: `cutoff_metrics`'s result at the refined optimum, plus `trace` —
 every (cutoff, signal_std) pair actually evaluated during the search, in
@@ -821,18 +865,27 @@ straight from the coarse grid to one isolated final value.
 """
 function refine_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int,
                         lo::Real, hi::Real; ybins::Int=10, filter_order::Int=4,
-                        p3_window::Int=60, n_groups::Int=8, tol::Real=0.02, max_iter::Int=25)
+                        p3_window::Int=60, n_groups::Int=8, tol::Real=0.02, max_iter::Int=25,
+                        objective::Symbol=:signal_std, min_reliability::Real=0.5)
     lo <= 0 && error("refine_cutoff: lo must be > 0 (got $lo)")
     lo >= hi && error("refine_cutoff: need lo < hi (got lo=$lo, hi=$hi)")
 
     φ = (sqrt(5) - 1) / 2  # golden ratio conjugate, ≈0.618
     trace = Tuple{Float64,Float64}[]
+    # objective=:signal_std  -> maximise signal_std, but only where the
+    #   combined track is still majority signal (reliability >= min_reliability);
+    # objective=:consistency -> fallback when no cutoff reaches that: take the
+    #   most reproducible track instead of the noisiest one.
+    # `trace` always records raw signal_std (what the plot panel shows).
     function score(logco)
-        s = cutoff_metrics(data, p3, bin_st, bin_end, exp(logco);
+        m = cutoff_metrics(data, p3, bin_st, bin_end, exp(logco);
                             ybins=ybins, filter_order=filter_order,
-                            p3_window=p3_window, n_groups=n_groups).signal_std
-        push!(trace, (exp(logco), s))
-        return s
+                            p3_window=p3_window, n_groups=n_groups)
+        push!(trace, (exp(logco), m.signal_std))
+        if objective == :consistency
+            return isfinite(m.consistency) ? m.consistency : -Inf
+        end
+        return m.reliability >= min_reliability ? m.signal_std : -Inf
     end
 
     a, b = log(lo), log(hi)

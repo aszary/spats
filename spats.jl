@@ -416,7 +416,7 @@ module SpaTs
       # inspect the plot, then:
       p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=<chosen value>)
     """
-    function p3fold_cutoff_scan(outdir; cutoffs=nothing,
+    function p3fold_cutoff_scan(outdir; cutoffs=nothing, min_reliability=0.5,
                                 filter_order=6, n_groups=8, ybins=nothing, chosen=nothing, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
@@ -451,7 +451,8 @@ module SpaTs
                         "consistency=$(round(r.consistency, digits=3))  " *
                         "p3_std=$(round(r.p3_std, digits=3))  " *
                         "signal_std=$(round(r.signal_std, digits=3))  " *
-                        "snr=$(round(r.snr, digits=1))")
+                        "R=$(round(r.reliability, digits=2))" *
+                        (r.reliability >= min_reliability ? "" : " (szum>sygnał)"))
             end
         end
         # snr is identical across all rows by design (computed pre-filter, so
@@ -476,6 +477,17 @@ module SpaTs
         # within its own immediate neighbours), then take whichever refined
         # result actually scores best — a real comparison after polishing,
         # not a bet on the raw grid alone.
+        #
+        # Selection criterion: signal_std grows with cutoff by construction
+        # (a wider filter always lets more signal AND noise through), so
+        # maximising it alone always drifts to the top edge of the grid
+        # whenever consistency is near noise level (seen: J1110, J2053 picked
+        # the noisiest cutoff, J2053 even beyond the grid). So only cutoffs
+        # whose combined track is still majority signal (reliability R >=
+        # min_reliability, see cutoff_metrics) compete on signal_std. If no
+        # cutoff reaches that, P3(t) variability isn't reliably detected at
+        # all — then take the most reproducible track (max consistency).
+        # Refinement brackets stay inside the scanned grid.
         valid = filter(r -> isfinite(r.consistency) && isfinite(r.signal_std), results)
         suggested = nothing
         refined = nothing
@@ -484,30 +496,57 @@ module SpaTs
             sorted = sort(valid, by = r -> r.cutoff)
             sorted_cutoffs = [r.cutoff for r in sorted]
             n = length(sorted)
-            is_local_max(i) = (i == 1 || sorted[i].signal_std >= sorted[i-1].signal_std) &&
-                               (i == n || sorted[i].signal_std >= sorted[i+1].signal_std)
+            use_signal = any(r -> r.reliability >= min_reliability, sorted)
+            objective = use_signal ? :signal_std : :consistency
+            key(r) = use_signal ? (r.reliability >= min_reliability ? r.signal_std : -Inf) :
+                                  r.consistency
+            if !use_signal
+                println("UWAGA: żaden cutoff nie ma R >= $min_reliability — zmienność P3(t) " *
+                        "nie jest wiarygodnie wykryta (szum dominuje). Wybieram cutoff " *
+                        "o najwyższej spójności; traktuj P3(t) jako ~stałe.")
+            end
+            keys_ = [key(r) for r in sorted]
+            is_local_max(i) = isfinite(keys_[i]) &&
+                              (i == 1 || keys_[i] >= keys_[i-1]) &&
+                              (i == n || keys_[i] >= keys_[i+1])
             candidate_idxs = [i for i in 1:n if is_local_max(i)]
-            isempty(candidate_idxs) && (candidate_idxs = [argmax([r.signal_std for r in sorted])])
+            isempty(candidate_idxs) && (candidate_idxs = [argmax(keys_)])
 
+            best_key = -Inf
             for idx in candidate_idxs
-                lo = idx > 1 ? sorted_cutoffs[idx-1] : sorted_cutoffs[idx] * 0.7
-                hi = idx < n ? sorted_cutoffs[idx+1] : sorted_cutoffs[idx] * 1.4
+                # grid point itself is a candidate (golden-section never
+                # evaluates the bracket ends)
+                if keys_[idx] > best_key
+                    best_key, refined = keys_[idx], merge(sorted[idx], (trace=Tuple{Float64,Float64}[],))
+                end
+                n == 1 && continue
+                lo = sorted_cutoffs[max(1, idx-1)]
+                hi = sorted_cutoffs[min(n, idx+1)]
                 r = P3FoldViterbi.refine_cutoff(
                     data, p3, Int(p["bin_st"]), Int(p["bin_end"]), lo, hi;
-                    filter_order=filter_order, n_groups=n_groups, ybins=yb)
+                    filter_order=filter_order, n_groups=n_groups, ybins=yb,
+                    objective=objective, min_reliability=min_reliability)
                 append!(refine_trace, r.trace)
-                if isnothing(refined) || r.signal_std > refined.signal_std
-                    refined = r
+                if r.valid && key(r) > best_key
+                    best_key, refined = key(r), r
                 end
             end
             suggested = refined.cutoff
+            println("Wybrany cutoff=$(round(suggested, sigdigits=3)) " *
+                    "(skala ~$(round(1/suggested, digits=0)) impulsów)  " *
+                    "consistency=$(round(refined.consistency, digits=3))  " *
+                    "R=$(round(refined.reliability, digits=2))  " *
+                    "kryterium=$(use_signal ? "max signal_std przy R>=$min_reliability" : "max consistency (fallback)")")
         end
         # only valid (non-blown-up) cutoffs get drawn at all — a rejected
         # cutoff doesn't even get a point on the scan plots, per the whole
         # candidate being thrown out rather than patched
         Plot.lowpass_cutoff_scan(valid, outdir; name_mod="pulsar",
                                  chosen=something(chosen, suggested), chosen_metrics=refined,
-                                 refine_trace=refine_trace, show_=show_)
+                                 refine_trace=refine_trace,
+                                 # r at which R = min_reliability (inverse Spearman-Brown)
+                                 r_threshold=min_reliability / (n_groups - (n_groups - 1) * min_reliability),
+                                 show_=show_)
         # drop cutoffs whose P3(t) track is basically identical to a
         # neighbour's before plotting the track overlay — several grid
         # points (typically the tightest cutoffs, all collapsing to ≈flat

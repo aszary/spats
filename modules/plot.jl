@@ -453,7 +453,8 @@ module Plot
     to use in `p3fold_coherent`.
     """
     function lowpass_cutoff_scan(results, outdir; name_mod="pulsar", chosen=nothing,
-                                 chosen_metrics=nothing, refine_trace=nothing, show_=false)
+                                 chosen_metrics=nothing, refine_trace=nothing,
+                                 r_threshold=nothing, show_=false)
         cutoffs     = [r.cutoff for r in results]
         consistency = [r.consistency for r in results]
         p3_std      = [r.p3_std for r in results]
@@ -472,6 +473,13 @@ module Plot
         for (x, y) in zip(cutoffs, consistency)
             annotate(@sprintf("%.3f", y), (x, y), textcoords="offset points",
                      xytext=(0, 6), ha="center", fontsize=6.5, color="#333333")
+        end
+        # below this line the combined P3(t) track is more noise than signal
+        # (reliability R < 0.5) — such cutoffs don't compete on signal_std
+        if r_threshold !== nothing
+            axhline(r_threshold, color="gray", ls=":", lw=1.0, zorder=2,
+                    label=@sprintf("próg wiarygodności (R=0.5, r=%.3f)", r_threshold))
+            legend(fontsize=6.5, loc="best", framealpha=0.9)
         end
         chosen !== nothing && axvspan(chosen*0.92, chosen*1.08, color="red", alpha=0.07, zorder=1)
         chosen !== nothing && axvline(chosen, color="red", ls="--", lw=1.0, alpha=0.6, zorder=2)
