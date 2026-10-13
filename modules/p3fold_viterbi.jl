@@ -154,7 +154,7 @@ end
 
 
 """
-    instantaneous_p3(path, ybins, p3_nominal; window=20) -> Vector{Float64}
+    instantaneous_p3(path, ybins, p3_nominal; window=20, weights=nothing) -> Vector{Float64}
 
 Smoothed, per-pulse instantaneous P3 [pulse periods] implied by the Viterbi
 phase path — this is "the P3 actually used" for each pulse, as opposed to
@@ -165,8 +165,17 @@ phase track (`circ_unwrap_steps`), then a local linear fit over a sliding
 window of `window` pulses gives the local slope dphase/dpulse, from which
 `P3 = ybins / slope`. Pulses too close to either end for a full window keep
 `p3_nominal`.
+
+`weights` (optional, same length as `path`) makes this a weighted local
+fit, same idea as `coherent_fold`'s amplitude-weighted `windowed_slope`:
+a pulse whose Viterbi phase assignment was a poor match to begin with
+(e.g. a nulled pulse — see `fold`'s `confidence`) shouldn't count the same
+as a confidently-assigned one when estimating the local slope, or a single
+bad assignment can tilt the whole surrounding window's P3 estimate away
+from what the well-matched pulses actually show.
 """
-function instantaneous_p3(path::AbstractVector{Int}, ybins::Int, p3_nominal::Real; window::Int=20)
+function instantaneous_p3(path::AbstractVector{Int}, ybins::Int, p3_nominal::Real;
+                          window::Int=20, weights::Union{Nothing,AbstractVector}=nothing)
     delta = ybins / p3_nominal
     N = length(path)
     steps = circ_unwrap_steps(path, ybins, delta)
@@ -180,10 +189,15 @@ function instantaneous_p3(path::AbstractVector{Int}, ybins::Int, p3_nominal::Rea
         hi - lo < 2 && continue
         xs = lo:hi
         ys = @view cum[lo:hi]
-        xbar = mean(xs)
-        ybar = mean(ys)
-        num = sum((x - xbar) * (y - ybar) for (x, y) in zip(xs, ys))
-        den = sum((x - xbar)^2 for x in xs)
+        ws = weights === nothing ? ones(Float64, length(xs)) : @view weights[lo:hi]
+        sw = sum(ws)
+        if sw <= 0
+            continue
+        end
+        xbar = sum(w * x for (w, x) in zip(ws, xs)) / sw
+        ybar = sum(w * y for (w, y) in zip(ws, ys)) / sw
+        num = sum(w * (x - xbar) * (y - ybar) for (w, x, y) in zip(ws, xs, ys))
+        den = sum(w * (x - xbar)^2 for (w, x) in zip(ws, xs))
         slope = den == 0 ? delta : num / den
         p3_inst[i] = slope == 0 ? p3_nominal : ybins / slope
     end
@@ -259,7 +273,11 @@ function fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
         end
     end
 
-    p3_per_pulse = instantaneous_p3(path, ybins, p3; window=p3_window)
+    # clamp(.,0,Inf): confidence is a Pearson correlation, so it can be
+    # negative (anti-matched) — a negative weight would invert that pulse's
+    # contribution to the slope fit instead of just ignoring it
+    p3_per_pulse = instantaneous_p3(path, ybins, p3; window=p3_window,
+                                    weights=max.(confidence, 0.0))
 
     return (folded=template, phase=path, confidence=confidence, margin=margin,
             p3_per_pulse=p3_per_pulse)
