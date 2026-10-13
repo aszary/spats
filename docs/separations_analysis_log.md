@@ -3406,3 +3406,6 @@ Skupienie przesunięć |⟨e^{2πiΔ/P}⟩| (0 płasko, 1 wszystkie równe), par
 - J1750: wyraźna piła na mapie położeń; J1910: piła niewidoczna w 100 P (ząb ~3 P), ale histogram ma wąski pik −2.3 bin.
 - J1126: histogram nie jest płaski — nadmiar przeskoków o ~pół okresu (±P/2) i niedobór Δ ≈ 0: naprzemienność położeń
   (lub dryf przy P3 ≈ 2.4 blisko Nyquista — nierozróżnialne). J1246: na mapie głównie chmura, krótkie epizody piły.
+- Użytkownik po wykresach położeń/przesunięć: dla J1126 nie widzi dryfu (zgodne z Q2: skupienie 0.22 przy losowym 0.15).
+  Słabość do zapamiętania: skupienie liczy przeskok o ±P/2 jako „uporządkowany” — silny zygzak przy P3 ≈ 2 dałby
+  fałszywy dryf. Propozycja: pik histogramu przy |Δ| ≈ P/2 → flaga „alias / zygzak, nierozstrzygnięte”, nie „dryf”.
