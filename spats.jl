@@ -350,6 +350,11 @@ module SpaTs
                             name_mod=name_mod, show_=show_, repeat_num=4,
                             label="coherent fold", p3_per_pulse_err=result.p3_per_pulse_err,
                             intensity=intensity) # , p3_ylim=(-150, 150))
+        # diagnostic for WHY a given peak/dip on P3(t) should be trusted:
+        # overlay the n_groups independent longitude-subband tracks against
+        # the combined result — consistent across most subbands = real wobble
+        Plot.subband_consistency(result.group_p3, result.p3_per_pulse, outdir;
+                                 p3_nominal=p3, name_mod=name_mod, show_=show_)
         return result
     end
 
@@ -510,6 +515,10 @@ module SpaTs
         tracks_for_plot = P3FoldViterbi.dedupe_redundant_cutoffs(valid)
         Plot.p3_tracks_vs_cutoff(tracks_for_plot, outdir; name_mod="pulsar",
                                  highlight_cutoff=suggested, p3_nominal=p3, show_=show_)
+        # diagnostic for WHY results differ across cutoffs: a 2D map (cutoff
+        # x pulse number) — a feature present across many rows is real, one
+        # confined to a single row is a filter artifact specific to that cutoff
+        Plot.p3_cutoff_heatmap(valid, outdir; p3_nominal=p3, name_mod="pulsar", show_=show_)
         return (results=results, suggested_cutoff=suggested)
     end
 

@@ -638,7 +638,8 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
     phase_err = [finite_se(@view group_phase[:, i]) for i in 1:N]
 
     return (folded=main.folded, phase=main.phase, bin=main.bin, p3_per_pulse=main.p3_per_pulse,
-            snr=main.snr, p3_per_pulse_err=p3_per_pulse_err, phase_err=phase_err)
+            snr=main.snr, p3_per_pulse_err=p3_per_pulse_err, phase_err=phase_err,
+            group_p3=group_p3)
 end
 
 """

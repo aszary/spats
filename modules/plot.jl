@@ -636,6 +636,121 @@ module Plot
     end
 
 
+    """
+    Diagnostic for "why do different cutoffs give such different P3(t)
+    results?" — a 2D map with cutoff on the y-axis (log scale) and pulse
+    number on the x-axis, colour = P3 value. A feature (bright/dark stripe)
+    that runs vertically across *many* cutoff rows at the same pulse range
+    is present regardless of how much smoothing is applied — strong evidence
+    it's real. A feature confined to one or two rows (cutoffs) is a filter
+    artifact specific to that amount of smoothing, not a genuine signal.
+
+    `results` should be the same `valid` (non-rejected) list passed to
+    `p3_tracks_vs_cutoff` — each entry needs `cutoff` and `p3_per_pulse`.
+    """
+    function p3_cutoff_heatmap(results, outdir; p3_nominal=nothing, name_mod="pulsar", show_=false)
+        sorted = sort(collect(filter(r -> hasproperty(r, :p3_per_pulse), results)), by = r -> r.cutoff)
+        isempty(sorted) && return nothing
+        N = length(sorted[1].p3_per_pulse)
+        M = zeros(Float64, length(sorted), N)
+        for (i, r) in enumerate(sorted)
+            M[i, :] = r.p3_per_pulse
+        end
+        cutoffs = [r.cutoff for r in sorted]
+
+        rc("font", size=8.5, family="sans-serif")
+        fig = figure(figsize=(8.5, 5))
+        fig.patch.set_facecolor("white")
+
+        center = p3_nominal !== nothing ? p3_nominal : median(M)
+        spread = maximum(abs.(M .- center))
+        spread = spread > 0 ? spread : 1.0
+
+        im = imshow(M, aspect="auto", origin="lower", cmap="RdBu_r",
+                    vmin=center - spread, vmax=center + spread,
+                    extent=(1, N, 1, length(cutoffs)))
+        cb = colorbar(im)
+        cb.set_label("\$P_3\$ per pulse (P)" * (p3_nominal !== nothing ?
+                     @sprintf("  (biały ≈ nominalne %.3g)", p3_nominal) : ""), fontsize=8)
+
+        yticks(1:2:length(cutoffs), [@sprintf("%.3g", c) for c in cutoffs[1:2:end]], fontsize=6.5)
+        xlabel("pulse number", fontsize=8.5)
+        ylabel("lowpass_cutoff (cycles/pulse)", fontsize=8.5)
+        title("Mapa P3: cutoff × czas" * (isempty(name_mod) ? "" : "  ($name_mod)") *
+              "\npionowy pasek przez wiele wierszy = prawdziwy sygnał; pojedynczy wiersz = artefakt filtra",
+              fontsize=9, fontweight="bold")
+        tight_layout()
+        savefig("$outdir/$(name_mod)_p3_cutoff_heatmap.pdf")
+        println("$outdir/$(name_mod)_p3_cutoff_heatmap.pdf")
+        savefig("$outdir/$(name_mod)_p3_cutoff_heatmap.png")
+        println("$outdir/$(name_mod)_p3_cutoff_heatmap.png")
+        if show_ == true
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
+    """
+    Diagnostic for "is this feature on P3(t) real, or a filter artifact?" —
+    overlays the `n_groups` independent longitude-subband P3(t) tracks
+    (thin, muted colours) against the combined/main track (bold black).
+    A feature (peak, dip) that shows up in most/all independent subbands is
+    reproducible — likely real wobble, since each subband carries its own
+    independent noise. A feature visible in only one or two subbands is more
+    likely noise or a filter transient local to that subband's data, not
+    genuine P3 variation.
+
+    `group_p3` is `coherent_fold_jackknife`'s `group_p3` field (n_groups × N
+    matrix); `main_p3` its `p3_per_pulse`.
+    """
+    function subband_consistency(group_p3, main_p3, outdir; p3_nominal=nothing,
+                                 name_mod="pulsar", show_=false)
+        n_groups, N = size(group_p3)
+        palette = ["#08519c", "#3182bd", "#6baed6", "#74c476",
+                   "#fd8d3c", "#e6550d", "#a50f15", "#756bb1"]
+
+        rc("font", size=8.5, family="sans-serif")
+        rc("axes", linewidth=0.7, edgecolor="#444444")
+        fig = figure(figsize=(8.5, 5.5))
+        fig.patch.set_facecolor("white")
+        grid(true, alpha=0.2, lw=0.4)
+        minorticks_on()
+
+        if p3_nominal !== nothing
+            axhline(p3_nominal, color="gray", ls=":", lw=1.0, alpha=0.6, zorder=1)
+        end
+        for g in 1:n_groups
+            col = palette[mod1(g, length(palette))]
+            plot(1:N, @view(group_p3[g, :]), color=col, lw=0.8, alpha=0.5,
+                 zorder=2, label="podpasmo $g")
+        end
+        plot(1:length(main_p3), main_p3, color="black", lw=2.0, alpha=0.9,
+             zorder=5, label="połączony wynik")
+
+        xlabel("pulse number", fontsize=8.5)
+        ylabel("\$P_3\$ per pulse (P)", fontsize=8.5)
+        title("Spójność między niezależnymi podpasmami" *
+              (isempty(name_mod) ? "" : "  ($name_mod)") *
+              "\ncienkie linie = $(n_groups) niezależnych fragmentów danych, czarna = wynik połączony",
+              fontsize=9.5, fontweight="bold")
+        legend(fontsize=6, ncol=3, loc="best", framealpha=0.9)
+        tight_layout()
+        savefig("$outdir/$(name_mod)_subband_consistency.pdf")
+        println("$outdir/$(name_mod)_subband_consistency.pdf")
+        savefig("$outdir/$(name_mod)_subband_consistency.png")
+        println("$outdir/$(name_mod)_subband_consistency.png")
+        if show_ == true
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
    function twodfs(data, outdir, params; cmap="viridis", darkness=0.3, name_mod="PSR_NAME", show_=false, average=nothing)
 
         p = params
