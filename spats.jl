@@ -927,7 +927,11 @@ module SpaTs
         # wzór w foldzie) — p3fold_cutoff_scan/p3fold_coherent liczą teraz
         # wlasciwa wartosc automatycznie przez Functions.find_ybins, zamiast
         # slepo ufac plikowi, wiec nie trzeba juz nic wymuszac recznie.
-        #=for psr_test in ["J1750-3503"]
+        # TEST zadan 1-3 (dedupe cutoffow, siatka zalezna od P3, linia
+        # odniesienia p3_nominal): odpal skan na dwoch roznych pulsarach,
+        # zeby zobaczyc czy nowa P3-zalezna siatka wyglada sensownie dla
+        # dwoch bardzo roznych wartosci P3, i czy dedupe/linia dzialaja
+        for psr_test in ["J1750-3503", "J1539-6322"]
             println("\n===== $psr_test =====")
             try
                 scan_result = p3fold_cutoff_scan(vpmout*psr_test)
@@ -939,7 +943,6 @@ module SpaTs
                 println("ERROR dla $psr_test: $e")
             end
         end
-        =#
         
         # PSR J1539-6322
         #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
@@ -956,25 +959,16 @@ module SpaTs
         # TEST jednorazowy: J1750-3503 z recznie wymuszonym ybins=49
         # (zamiast automatycznego find_ybins) i dwiema wartosciami cutoffu
         # do porownania
-        #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/100, name_mod="pulsar_coherent_ybins49_cut100")
-        #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_ybins49_cut300")
+        # TEST zadania 4 (stary vs nowy bin_search) — ten sam pulsar,
+        # ybins, cutoff; roznica tylko w bin_search/p3_window
+        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_NEW_bin_search")
+        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300,
+                        bin_search=0, p3_window=20, name_mod="pulsar_coherent_OLD_bin_search")
 
-        # TEST: odtworzenie STAREGO zachowania (sprzed poprawek z tej sesji) —
-        # bin_search=0 wylacza przeszukiwanie sasiednich binow FFT (wraca do
-        # starego k=round(N/p3)), p3_window=20 to stara (krotsza) wartosc
-        # okna przy liczeniu pochodnej fazy. Ten sam cutoff=1/300 co powyzej,
-        # zeby bylo widac dokladnie co zmienily poprawki, nie co zmienil cutoff.
-        #p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300,
-         #               bin_search=0, p3_window=60, name_mod="pulsar_coherent_OLD_repro")
-
-        # TEST: J2053-7200 ze STARYMI ustawieniami (bin_search=0, p3_window=20,
-        # ybins=10 — ta sama wartosc co dawala artefakt aliasingu wczesniej)
-        # i cutoffem ktory wczesniej wyszedl jako najlepszy z p3fold_cutoff_scan
-        # (consistency=0.125, signal_std=0.03 przy cutoff=0.027) — zeby
-        # sprawdzic czy szachownica byla tez na starym kodzie, czy to cos
-        # co pojawilo sie dopiero z poprawkami z tej sesji
-        p3fold_coherent(vpmout*"J2053-7200", ybins=10, lowpass_cutoff=0.027,
-                        bin_search=0, p3_window=20, name_mod="pulsar_coherent_2053_OLD_repro")
+        # J2053-7200 na starym kodzie (bin_search=0) — JUZ ZROBIONE/POTWIERDZONE
+        # (zadanie 6 w pamieci), zostawione zakomentowane dla referencji
+        #p3fold_coherent(vpmout*"J2053-7200", ybins=10, lowpass_cutoff=0.027,
+        #                bin_search=0, p3_window=20, name_mod="pulsar_coherent_2053_OLD_repro")
 
 
         #test(vpmout)
