@@ -3490,3 +3490,18 @@ zR 19/85), 1× niepewny (V09). Dryfery wyraźne: γ 0.05–0.26, zR ≥ 69.
 - Interpretacja otwarta: (a) przy wysokim Ė położenia są ciągłe, ale bez stałego kierunku (metody kierunkowe tego nie
   widziały; P3Track: wędrówka P3 i fazy rośnie z Ė), albo (b) metoda nazywa „dryfem” coś, czego użytkownik nie uzna
   (T07/T08). Testy z użytkownikiem miały głównie Ė < 10^32.6 — metoda niezwalidowana przy wysokim Ė.
+
+## 2026-10-13 cd. — najsilniejsze „dryfy” przy Ė > 10^33: wada metody (ciągłość = także „stanie w miejscu”)
+
+Użytkownik: wynik pełnej próbki źle wygląda (silna zależność od S/N, brak granicy Basu). Najsilniejsze werdykty „dryf”
+przy Ė > 10^33 (zR): J1048-5832 (1910), J1827-0750 (355), J1709-4429 (268), J1453-6413 (182) — wszystkie ze średnim
+przesunięciem ≈ 0 (−0.00 … −0.05 okresu) zamiast ≈ 1/P3 (J1827: P3 5 → 0.2). Wykresy `figures/pozycje/<psr>/`
+(pozycje, przesunięcia, fold koherentny). Obraz:
+- J1827: pulsy 101–135 jasne, potem długi odcinek słaby/null — położenie stałe (~63 z 72): w słabych pulsach
+  z_n = F_n − ⟨F⟩ ≈ −⟨F⟩, czyli stała faza → sztuczna „ciągłość”.
+- J1048, J1453, J1709: chmura położeń z krótkimi epizodami, w których położenie trzyma się przez kilka pulsów (Δ ≈ 0);
+  J1048: emisja przeskakuje między lewą a prawą częścią profilu w epizodach.
+Wada: Q2 nagradza każdą ciągłość, także brak ruchu (Δ ≈ 0) i epizody nulli/słabego modu. Syntetyki nie miały klasy
+„trwałe położenie / nulle” (jitter był niezależny z pulsu na puls). Możliwe poprawki (wymagają ponownej kalibracji
+i testów T/V): (1) z_n = F_n − α_n ⟨F⟩ (usunąć skalowany profil, nulle → szum); (2) wymagać ruchu: średnie przesunięcie
+istotnie ≠ 0 i zgodne z ±1/P3 (z aliasem); (3) klasy syntetyczne: jitter z czasem korelacji, epizody nulli/modów.
