@@ -3430,3 +3430,12 @@ dudnienie/zygzak ≥ 0.42); inaczej dryf.
   (zR 0.5, γ 0.74) → brak dryfu; J1913, J0940 → brak wyniku (19–20 par). 6/6 rozstrzygniętych zgodnie z oceną.
 - Ograniczenia: syntetyczny dryf idealny (głęboka modulacja, stałe P2) — próg S/N realnych dryferów będzie wyższy;
   S/N to mediana dla pulsu, a o wyniku decyduje moc przy k_d (głębokość modulacji). Wykresy `figures/calib_q12/`.
+
+## 2026-10-13 cd. — test ślepy na 10 nowych pulsarach (T01–T10)
+
+Losowanie (`random.Random(20261013)`): 5 z etykietą Song+23 drift i 5 P3-only z `pairshift_v2.csv`, bez 8
+referencyjnych; lista `~/claude/work/test10/lista.csv` (sha256 ed29ccde…). Metoda bez zmian (`test10_method.jl`:
+`analyse` z `calib_q12.jl` + reguła z `calib_analyse.jl`); werdykty zapisane PRZED przygotowaniem wykresów i ocenią
+użytkownika: `~/claude/work/test10/wyniki_metody.csv`, sha256 a16fa3229048ba8bf9ec5e87d65406f9575ec237f007f3b584149ff2974407b0
+(2026-10-13 17:47). Do użytkownika: pojedyncze pulsy (`figures/single/T??/`) i fold koherentny (`test10/fig/`,
+`p3fold_coherent_agent` jak w `blind_run.jl`; wariant „w” dla słabych) pod ID, bez nazw, etykiet i werdyktów.
