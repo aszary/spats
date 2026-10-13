@@ -3409,3 +3409,24 @@ Skupienie przesunięć |⟨e^{2πiΔ/P}⟩| (0 płasko, 1 wszystkie równe), par
 - Użytkownik po wykresach położeń/przesunięć: dla J1126 nie widzi dryfu (zgodne z Q2: skupienie 0.22 przy losowym 0.15).
   Słabość do zapamiętania: skupienie liczy przeskok o ±P/2 jako „uporządkowany” — silny zygzak przy P3 ≈ 2 dałby
   fałszywy dryf. Propozycja: pik histogramu przy |Δ| ≈ P/2 → flaga „alias / zygzak, nierozstrzygnięte”, nie „dryf”.
+
+## 2026-10-13 cd. — kalibracja Q1/Q2 na syntetykach (`calib_q12.jl`, `calib_analyse.jl`, `calib_apply_refs.jl`)
+
+Syntetyki z prawdziwych składników (obwiednia, szum off-pulse, jasność α_n z nullami) dwóch pulsarów: J1750 (szeroki,
+P2 56) i J1126 (wąski, P2 20); modulacja: DR / DRrev (odwrócenia co 50–150 P) / DRwan (P3 ±20%) przy P3 2.5, 5, 15, 40;
+NONE, JT (jitter), ZZ (P3 2.4, 5), BEAT (7.0/7.4), AMphi (P3 5, 15); głębokość 0.6; S/N pulsu 1–12; 12 realizacji;
+2 × 576 przypadków (`~/claude/work/calib_q12/*.csv`). Analiza = funkcja `analyse` (k_d z danych, γ, Q2, przesunięcia).
+Błąd generatora po drodze: ciąg podpulsów niezdefiniowany dla |przesunięcia| > 600 binów (stały dryf tracił
+modulację) — naprawione (modulo P2) przed pełnym przebiegiem.
+Pierwsza reguła (stały próg skupienia 0.1, siatka) dawała jitter jako dryf przy S/N 2–3 (33%, 21%) — odrzucona.
+Reguła końcowa, progi z rozkładów syntetyków: brak wyniku (< 30 par / moc < 0.5 szumu); zR = n·skupienie² ≤ 10
+→ brak dryfu (jitter 95% ≤ 3.7); |średnie przesunięcie| > 0.4 okresu → alias; γ ≥ 0.4 → brak dryfu (dryf 95% ≤ 0.24,
+dudnienie/zygzak ≥ 0.42); inaczej dryf.
+- Fałszywe „dryf”: 0% dla NONE, JT, ZZ, BEAT przy każdym S/N (obie obwiednie). AMphi: 54% przy S/N 3, 100% od S/N 5
+  (znana słabość).
+- Wykrycie dryfu, P3 ≥ 5: 94% (S/N 2), 96% (3), 100% (5–12); S/N 1: brak wyniku. P3 = 2.5: 72–89% „alias”.
+  Dryf z odwróceniami przy S/N 2–3: część „brak dryfu” (17%, 8%).
+- Pulsary referencyjne (ta sama funkcja i reguła): J1750, J1720, J1910, J1246 → dryf; J1126 (zR 8.3) i J0152
+  (zR 0.5, γ 0.74) → brak dryfu; J1913, J0940 → brak wyniku (19–20 par). 6/6 rozstrzygniętych zgodnie z oceną.
+- Ograniczenia: syntetyczny dryf idealny (głęboka modulacja, stałe P2) — próg S/N realnych dryferów będzie wyższy;
+  S/N to mediana dla pulsu, a o wyniku decyduje moc przy k_d (głębokość modulacji). Wykresy `figures/calib_q12/`.
