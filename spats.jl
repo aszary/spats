@@ -940,7 +940,14 @@ module SpaTs
         # odniesienia p3_nominal): odpal skan na dwoch roznych pulsarach,
         # zeby zobaczyc czy nowa P3-zalezna siatka wyglada sensownie dla
         # dwoch bardzo roznych wartosci P3, i czy dedupe/linia dzialaja
-        for psr_test in ["J1750-3503", "J1539-6322"]
+        # TEST KONCOWY (wersja ostateczna): jeden reprezentatywny pulsar,
+        # pelny pipeline - skan cutoffu (z P3-zalezna siatka, dedupe, mapa
+        # heatmap) + finalny fold (ze spojnym p3_window=60 wszedzie,
+        # nowym bin_search, spojnoscia podpasm). J1750-3503 byl naszym
+        # glownym testem przez cala sesje - slabszy sygnal (SNR~3) wiec
+        # dobrze wymusza wszystkie zabezpieczenia (odrzucanie eksplodujacych
+        # cutoffow itd.)
+        for psr_test in ["J1750-3503"]
             println("\n===== $psr_test =====")
             try
                 scan_result = p3fold_cutoff_scan(vpmout*psr_test)
@@ -952,32 +959,6 @@ module SpaTs
                 println("ERROR dla $psr_test: $e")
             end
         end
-        
-        # PSR J1539-6322
-        #J1539_6322_Sard("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout)
-        #process_psrdata_16("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_16")
-        #Data.p3fold_psrdata(vpmout*"J1539-6322_16")
-        #Data.analyse_p3folds_16(vpmout*"J1539-6322_16", "norefine")
-        #Data.analyse_p3folds_16_new(vpmout*"J1539-6322_16", "norefine", n_comp=2)
-        #Data.position_angle(vpmout*"J1539-6322_16")
-        #process_psrdata_single("/home/psr/data/new/J1539-6322/2020-04-11-23:52:16/", vpmout*"J1539-6322_single")
-        #process_psrdata(vpmout*"J1539-6322", vpmout*"J1539-6322") # single not stable, P. p3fold (10 ybins)
-        #phase_modulation(vpmout*"J1539-6322")
-        #phase_modulation2(vpmout*"J1539-6322")
-        #phase_modulation3(vpmout*"J1539-6322")
-        # TEST jednorazowy: J1750-3503 z recznie wymuszonym ybins=49
-        # (zamiast automatycznego find_ybins) i dwiema wartosciami cutoffu
-        # do porownania
-        # TEST zadania 4 (stary vs nowy bin_search) — ten sam pulsar,
-        # ybins, cutoff; roznica tylko w bin_search/p3_window
-        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300, name_mod="pulsar_coherent_NEW_bin_search")
-        p3fold_coherent(vpmout*"J1750-3503", ybins=49, lowpass_cutoff=1/300,
-                        bin_search=0, p3_window=20, name_mod="pulsar_coherent_OLD_bin_search")
-
-        # J2053-7200 na starym kodzie (bin_search=0) — JUZ ZROBIONE/POTWIERDZONE
-        # (zadanie 6 w pamieci), zostawione zakomentowane dla referencji
-        #p3fold_coherent(vpmout*"J2053-7200", ybins=10, lowpass_cutoff=0.027,
-        #                bin_search=0, p3_window=20, name_mod="pulsar_coherent_2053_OLD_repro")
 
 
         #test(vpmout)
