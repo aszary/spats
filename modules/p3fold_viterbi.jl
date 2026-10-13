@@ -285,13 +285,6 @@ end
 
 
 """
-    windowed_slope(y, window) -> Vector{Float64}
-
-Local slope dy/dx of `y` (sampled at integer x=1..length(y)), from a
-sliding linear-regression window of `window` samples centered at each
-point (the window shrinks near the edges).
-"""
-"""
     windowed_slope(y, window; weights=nothing) -> Vector{Float64}
 
 Local slope dy/dx of `y` (sampled at integer x=1..length(y)), from a
