@@ -818,4 +818,47 @@ function refine_cutoff(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     return merge(best, (trace=trace,))
 end
 
+
+"""
+    dedupe_redundant_cutoffs(results; tol=0.05) -> Vector{NamedTuple}
+
+Drops cutoffs whose `p3_per_pulse` track is essentially identical to the
+previous *kept* one (sorted by cutoff), instead of keeping every grid
+point regardless of whether it adds new information. Two adjacent cutoffs
+often produce near-identical tracks — most commonly at the over-smoothed
+end of the grid, where several very tight cutoffs all collapse to ≈flat
+lines at the nominal P3 — which clutters `Plot.p3_tracks_vs_cutoff` and
+wastes `refine_cutoff` effort on a "new" local maximum that's really the
+same curve as its neighbour.
+
+A pair is considered redundant when the RMS difference between their
+tracks is below `tol` times the larger track's own spread (`std`):
+tracks that barely differ relative to their own variability carry no new
+information. `results` must already be sorted/filterable the way
+`p3fold_cutoff_scan` uses them (only entries with finite `p3_per_pulse`
+are compared; entries without that field, or marked `valid=false`, pass
+through unfiltered since there's nothing meaningful to compare).
+"""
+function dedupe_redundant_cutoffs(results; tol::Real=0.05)
+    sorted = sort(collect(results), by = r -> r.cutoff)
+    isempty(sorted) && return sorted
+
+    keep = trues(length(sorted))
+    last_kept = 1
+    for i in 2:length(sorted)
+        a = hasproperty(sorted[last_kept], :p3_per_pulse) ? sorted[last_kept].p3_per_pulse : nothing
+        b = hasproperty(sorted[i], :p3_per_pulse) ? sorted[i].p3_per_pulse : nothing
+        if a !== nothing && b !== nothing && all(isfinite, a) && all(isfinite, b)
+            scale = max(std(a), std(b), 1e-9)
+            rmsdiff = sqrt(mean((a .- b) .^ 2))
+            if rmsdiff / scale < tol
+                keep[i] = false
+                continue
+            end
+        end
+        last_kept = i
+    end
+    return sorted[keep]
+end
+
 end # module P3FoldViterbi

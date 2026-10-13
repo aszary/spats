@@ -411,13 +411,28 @@ module SpaTs
       # inspect the plot, then:
       p3fold_coherent(vpmout*"J1750-3503", lowpass_cutoff=<chosen value>)
     """
-    function p3fold_cutoff_scan(outdir; cutoffs=10 .^ range(log10(1/5000), log10(1/10), length=20),
+    function p3fold_cutoff_scan(outdir; cutoffs=nothing,
                                 filter_order=6, n_groups=8, ybins=nothing, chosen=nothing, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         p3 = Float64(p["p3"])
-        yb = isnothing(ybins) ? Data.Functions.find_ybins(p3, size(data, 1)) : ybins
+        N  = size(data, 1)
+        yb = isnothing(ybins) ? Data.Functions.find_ybins(p3, N) : ybins
+        # Grid now scales with P3 instead of one fixed range for every
+        # pulsar: a cutoff of X cycles/pulse corresponds to a timescale of
+        # 1/X pulses, so bound that timescale physically —
+        #   fastest meaningful: ~2 P3 cycles (can't define a slope/wobble
+        #     faster than that; least 1 cycle just to have samples)
+        #   slowest meaningful: ~N/3 pulses (anything slower than a third
+        #     of the whole observation isn't "variability", it's a constant
+        #     offset) — capped so very short observations still get a
+        #     sensible spread
+        if isnothing(cutoffs)
+            lo_timescale = max(3.0, 2 * p3)
+            hi_timescale = max(lo_timescale * 5, N / 3)
+            cutoffs = 1.0 ./ (10 .^ range(log10(hi_timescale), log10(lo_timescale), length=20))
+        end
         results = P3FoldViterbi.scan_lowpass_cutoff(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             cutoffs=cutoffs, filter_order=filter_order, n_groups=n_groups, ybins=yb)
@@ -488,8 +503,13 @@ module SpaTs
         Plot.lowpass_cutoff_scan(valid, outdir; name_mod="pulsar",
                                  chosen=something(chosen, suggested), chosen_metrics=refined,
                                  refine_trace=refine_trace, show_=show_)
-        Plot.p3_tracks_vs_cutoff(valid, outdir; name_mod="pulsar",
-                                 highlight_cutoff=suggested, show_=show_)
+        # drop cutoffs whose P3(t) track is basically identical to a
+        # neighbour's before plotting the track overlay — several grid
+        # points (typically the tightest cutoffs, all collapsing to ≈flat
+        # lines at nominal P3) add nothing and just clutter the legend
+        tracks_for_plot = P3FoldViterbi.dedupe_redundant_cutoffs(valid)
+        Plot.p3_tracks_vs_cutoff(tracks_for_plot, outdir; name_mod="pulsar",
+                                 highlight_cutoff=suggested, p3_nominal=p3, show_=show_)
         return (results=results, suggested_cutoff=suggested)
     end
 

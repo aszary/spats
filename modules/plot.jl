@@ -565,7 +565,7 @@ module Plot
     just noise wiggle.
     """
     function p3_tracks_vs_cutoff(results, outdir; name_mod="pulsar", highlight_cutoff=nothing,
-                                 show_=false)
+                                 p3_nominal=nothing, show_=false)
         palette = ["#08519c", "#3182bd", "#6baed6", "#74c476",
                    "#fd8d3c", "#e6550d", "#a50f15", "#756bb1"]
 
@@ -575,6 +575,16 @@ module Plot
         fig.patch.set_facecolor("white")
         grid(true, alpha=0.2, lw=0.4)
         minorticks_on()
+
+        # explicit baseline so it's unambiguous what "no real variability"
+        # looks like on this plot — previously some pulsars happened to have
+        # a near-flat track sitting at the nominal value (which could be
+        # mistaken for a deliberate "no cutoff" reference curve) while others
+        # didn't, with no labelled ground truth either way
+        if p3_nominal !== nothing
+            axhline(p3_nominal, color="black", ls=":", lw=1.2, alpha=0.6, zorder=1,
+                    label=@sprintf("nominalne P3 = %.4g", p3_nominal))
+        end
 
         # draw the non-highlighted tracks first, muted, so the highlighted
         # one (if any) reads clearly on top instead of fighting for attention
