@@ -3268,3 +3268,22 @@ w odcinkach, test SVD. Wspólny problem metod fazowych/korelacyjnych: wszystkie 
 Działający punkt odniesienia: ocena użytkownika na pojedynczych pulsach.
 Porządki: pliki mapowań ślepego przeglądu przemianowane na `blind/mapping.csv` i `blind/mapping2.csv` (przegląd
 zakończony, mapowania jawne); odwołania w skryptach, dokumentach i pamięci poprawione.
+
+## 2026-10-13 — przegląd literatury: nowe metody dryf vs P3-only (bez obliczeń)
+
+Cel: metoda spoza kanału antysymetrii A(Δ,τ) (travel / 2DFS / gradient LRFS / SVD) i spoza metod drugiego agenta
+(Radon, tensor, Viterbi, korelacja wielolagowa, sPOD, faza, transport). Pełny przegląd z linkami:
+`~/claude/work/przeglad_nowe_metody_2026-10-13.md`.
+- Diagnoza: A(Δ,0) ≡ 0, więc każda statystyka zerowego opóźnienia (bez kolejności pulsów) jest formalnie poza kanałem
+  travel. Pytania: Q1 — czy zmienność pojedynczych pulsów jest translacyjna czy amplitudowa (bez kolejności);
+  Q2 — czy współrzędna translacji jest okresowa z P3 (widmo, bez znaku). Odporne z konstrukcji na dudnienie,
+  reverserów i alias P3 ≈ 2–3; jitter i przesunięcie całej emisji (J0940) wymagają Q2 / kryterium obwiedni.
+- Kandydaci: (A) momenty niezmiennicze względem przesunięcia (MRA/cryo-EM: widmo mocy, bispektrum, MRFA),
+  (B) geometria chmury pulsów (TDA, współrzędne kołowe), (C) wzorce porządkowe Bandta–Pompe wzdłuż długości
+  (mapa P(∧|φ)), (D) oś częstotliwości (8 kanałów), (E) elastic FDA (niski priorytet, ryzyko powielenia),
+  (F) etykiety użytkownika jako kalibracja.
+- Odrzucone po przeszukaniu (ten sam kanał / duplikat): LRFS phase (Basu+), Hsu+2025, 2D AM-FM, KymoButler/Radon,
+  STICS/pCF, transport Wassersteina–Fishera–Rao (= przepływ), DMD/CEOF/POP, seqNMF/PP-Seq, transfer entropy,
+  korelacje trójpunktowe, conditional averaging.
+- Propozycja (czeka na akceptację): A + C na 8 pulsarach referencyjnych + syntetyki (dudnienie, zygzak P3 = 2.5,
+  jitter, przesunięcie składowej, reverser, dryf P3 = 2.4).
