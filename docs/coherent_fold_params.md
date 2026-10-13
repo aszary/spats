@@ -5,11 +5,38 @@ Song+23 oznaczają dryf także tam, gdzie go nie ma, oraz porównanie z granicą
 `docs/separations_analysis_log.md` (wpisy 2026-10-08 i 2026-10-09). Dobór okna sliding LRFS przeniesiony do
 `docs/sliding_lrfs_window.md`.
 
-## 1. Stan i od czego zacząć (2026-10-11)
+## 1. Stan i od czego zacząć (2026-10-13)
 
-**Najpierw przeczytaj 1.1 — zmienia się sposób oceny dryfu.**
+**Najpierw przeczytaj 1.0 — co już zrobiliśmy i co NIE działa. Nie powtarzać tych podejść.**
 
-### 1.1. Nowy plan: trzy metody oceny dryfu, test na syntetykach
+### 1.0. Metody rozróżnienia dryf / modulacja jasności (P3-only): co zrobione i dlaczego nie wystarcza
+
+Cel: rozstrzygnąć, czy pulsar dryfuje, czy tylko jaśnieje i gaśnie w miejscu (sprawdzenie etykiet Song+23, zależność
+od Ė, granica Basu+16). Żadna z poniższych metod nie dała wiarygodnej klasyfikacji. Kolejność chronologiczna.
+
+| metoda | gdzie opis | co mierzy | dlaczego nie wystarcza |
+|---|---|---|---|
+| **travel** (2026-09) | `docs/travel_test_method.md` | antysymetria korelacji czasowo-długościowej (czy φ wyprzedza φ+Δ), T_cv, f_trav, ρ | ten sam kanał informacji co asymetria 2DFS (Song+23); dudnienie dwóch składowych o bliskich P3 daje fałszywy „dryf”; reverser o losowych epizodach niewidoczny; dryf w części obserwacji rozmyty; null rank-r z randomizacją faz odrzucony (zabija też dryf, §7.3). Wynik: 67% dryferów / 11% P3-only. Użytkownik niezadowolony (czułość, interpretacja, zgodność z oceną wzrokową) |
+| **P3Track** (2026-09/10) | `docs/p3track_method.md` | sliding LRFS → ślad P3 → fold z kompensacją P3 → faza szablonu Δψ | wobec Song+23 zmienia bardzo niewiele: żaden P3-only nie przechodzi pewnie do dryfu, ~55% dryferów bez rozstrzygnięcia |
+| **Δψ(t)** w oknach 4·P3, ciągłe P3(n) z `coherent_fold` jako klasyfikator | dziennik 2026-10-02 | faza szablonu w czasie | nie rozdziela klas; filtr dopasowany „zjada” ψ(φ); nie łapie J1825/J1750 |
+| **subtrack** (śledzenie podpulsów, Szary+2022) | `docs/subpulse_methods.md` §3 | ścieżki podpulsów, tempo dryfu D(t) | wymaga S/N podpulsu ≥ 5 i pasm ≥ 8 P; losowa próbka: 0/10 dryferów wykrytych — tylko jasne dryfery z szerokim profilem |
+| **pairshift** | `docs/subpulse_methods.md` | znak przesunięć podpulsów n ↔ n+1, null z blokowego losowania znaków (z_blk) | 152/388 dryferów (39%), 0/103 P3-only — czysty, ale mało czuły; nie widzi reverserów; alias przy P3 ≈ 2 |
+| **polaryzacja** | `docs/polarization_test_method.md` | moc cechy P3 w resztach Q′/U′/V | nie dyskryminuje (Rpol 0.237 vs 0.236) |
+| **przepływ optyczny** | `~/claude/work/flow/NOTES_flow.md` | ~pairshift | +10% detekcji, P3-only ze „strzałką czasu” przy k = 1 — użytkownik: ślepy zaułek |
+| **fold koherentny (wariant C) + ocena wzrokowa** (2026-10-06…10) | ten dokument §2–6, `python/p3fold_coherent.py` | ukośne pasma w foldzie z fazą z dopasowania do szablonu | **fold nie jest testem na dryf**: robi pasma (także ukośne) z PRZETASOWANYCH pulsów (0.56–1.41 amplitudy danych); ocena wzrokowa subiektywna — te same 84 „pochylenia” ślepo: 50 pochylenie, 18 umiarkowane, 9 słabe; J0152-1637: fold pokazuje pasma, pojedyncze pulsy nie |
+| **null foldu** (tasowanie pulsów) (2026-10-09…11) | dziennik 2026-10-11, `scripts/null_compare.jl` | fold − fold przetasowanych pulsów | ze wspólnym szablonem odtwarza szablon razem z kierunkiem pochylenia (korelacja 0.75–0.96) i zjada prawdziwy dryf (14/18 „artefaktów” z gradientem LRFS); z szablonem liczonym od nowa — losowa faza, średnia się znosi |
+| **gradient fazy LRFS w odcinkach** (2026-10-10) | dziennik, `scripts/blind_lrfs_grad.jl` | spójność znaku gradientu fazy przy f3 w 8 odcinkach | to samo co asymetria 2DFS / travel; gradient daje też nakładanie się składowych o różnej fazie cyklu (faza_skl) |
+| **test SVD, „skumulowany obrót”** (2026-10-11) | §1.1, `scripts/svd_drift2.jl`, `svd_calib.jl` | obrót amplitud dwóch wiodących wzorów SVD z pulsu na puls | **to travel wymyślony od nowa** (ta sama obserwabla, §2–3 travel), a null z losowymi fazami Fouriera to wariant odrzucony w travel §7.3. Na syntetykach 24/30 dryfów, 1/30 AM, ale ma wszystkie słabości travel (dudnienie, reversery, dryf w części obserwacji); słaby sygnał (S/N ≤ 1.4) gubiony. NIE jest nową metodą |
+
+Ślepy przegląd (302 + 227 obserwacji, 6.5) zrobiony foldem koherentnym + nullem — klasy z niego są niepewne z
+powodów z tabeli. Wnioski jakościowe (spadek dryfu z Ė) powtarzają się we wszystkich metodach, ale żadna nie jest
+skalibrowana na danych o znanej odpowiedzi poza syntetykami.
+
+Punkt odniesienia, który działa: **ocena użytkownika na pojedynczych pulsach** (2026-10-11: dryf — J1246+2253,
+J1910+0714, J1720-0212, J1750-3503; brak — J0940-5428, J1126-6054, J1913+0936, J0152-1637).
+
+
+### 1.1. Plan z 2026-10-11 (nieaktualny — test SVD okazał się travelem, zob. 1.0)
 
 Decyzja (2026-10-11): klasyfikacja „dryf / brak” z samego folda koherentnego oglądanego wzrokowo (6.1) + null nie jest
 wiarygodna i nigdy nie była sprawdzona na danych o znanej odpowiedzi. Testujemy na syntetykach (`synth2_lib.jl`:
@@ -71,7 +98,7 @@ cofającymi się (kandydaci na odwrócenia). Cztery widoki jednego pulsara: `scr
 ### 1.2. Stan ślepego przeglądu (szczegóły 6.5 i dziennik)
 
 - Część 1 (302): zrobiona z nullem i odsłonięta (`blind/blind_compare.csv`, P–Ṗ `figures/ppdot_blind.png`).
-- Część 2 (227 obserwacji, `blind/verdicts2.csv`, mapowanie `mapping2_DO_NOT_READ.csv` NIE otwarte): ocena wzrokowa
+- Część 2 (227 obserwacji, `blind/verdicts2.csv`, mapowanie `blind/mapping2.csv`): ocena wzrokowa
   folda + przeliczenie RFI zrobione; null wstrzymany (patrz 1.1). 9 złych danych pominiętych (decyzja użytkownika).
 - Klasyfikacja obu części do powtórzenia nową metodą po teście na syntetykach.
 
@@ -92,7 +119,7 @@ cofającymi się (kandydaci na odwrócenia). Cztery widoki jednego pulsara: `scr
   Problemy z danymi: `~/claude/work/data_issues.txt`.
 - **Ślepy przegląd — ZROBIONY 2026-10-10** (sekcja 6.5): 302 pulsary przeliczone bieżącym kodem z losowymi ID w
   `~/claude/work/blind/raw/` (`scripts/blind_run.jl`, log `logs/blind_run.log`, na końcu „KONIEC”). Werdykty do
-  `blind/verdicts.csv` (id,klasa), mapowania `blind/mapping_DO_NOT_READ.csv` nie otwierać przed zapisaniem werdyktów.
+  `blind/verdicts.csv` (id,klasa), mapowanie ID → pulsar: `blind/mapping.csv` (część 2: `mapping2.csv`).
   Potem ślepy null dla pochylenie/słabe, na końcu porównanie z poprzednią klasyfikacją, pairshift i Song+23.
 - Potem: pozostałe ~120 dryferów Song+23 z Ė ≤ 2·10³² (ślepo), 6 bez danych w `~/output` (J0944-1354, J1402-5021,
   J1605-5257, J1901+0511, J2215+1538, J2346-0609).

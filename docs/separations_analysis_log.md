@@ -3008,7 +3008,7 @@ Dotychczasowa klasyfikacja wzrokowa nie była w pełni niezależna (w logach wid
 użyty jako argument; wybór partii wg pairshift/Song+23). Użytkownik: ocena ma być niezależna, także dla wcześniejszych.
 Przygotowane: 302 pulsary z `coherent_drift_classification.csv` (bez `zle_dane`) przeliczone bieżącym kodem
 (`~/claude/work/scripts/blind_run.jl`) z losowymi ID (`~/claude/work/blind/raw/B####*.png`), mapowanie w
-`blind/mapping_DO_NOT_READ.csv`. Wcześniejsze partie liczone starszymi wersjami (fold binowany, przed jądrowym) —
+`blind/mapping.csv`. Wcześniejsze partie liczone starszymi wersjami (fold binowany, przed jądrowym) —
 przegląd ujednolici też wersję kodu. Do zrobienia w nowej sesji: ślepe werdykty → `blind/verdicts.csv`, ślepy null,
 na końcu porównanie z poprzednią klasyfikacją, pairshift i Song+23.
 
@@ -3118,7 +3118,7 @@ Wniosek: krok null (wspólny szablon) był zbyt agresywny; z 18 „artefaktów�
 ## 2026-10-10 — ślepy przegląd, część 2 (227 obserwacji spoza pierwszych 302), partia 1 (50/227)
 
 Krok 1: `~/claude/work/scripts/blind_run2.jl`, lista `blind/run_list2.txt` (nowe losowe ID, mapowanie
-`blind/mapping2_DO_NOT_READ.csv`), wykresy `blind/raw2/`, 0 błędów, wariant `w` dla 143/227. Skład (widziany przy
+`blind/mapping2.csv`), wykresy `blind/raw2/`, 0 błędów, wariant `w` dla 143/227. Skład (widziany przy
 budowie listy, bez ID): 121 dryferów Song+23, 98 p3only, 8 dodatkowych obserwacji (UHF, katalog testowy); 22 katalogi
 bez pełnych danych pominięte. Partia 1 (B1005–B2784): pochylenie 4, umiarkowane 4, słabe 7, brak 32, złe dane 3
 (B1005, B1081, B2481); faza_skl 5. Werdykty `blind/verdicts2.csv`, uzasadnienia `blind/verdicts2_notes_p1.txt`.
@@ -3146,7 +3146,7 @@ Złe dane w tej partii to głównie linia bazowa modulowana co puls / z P3 (pozi
 stałym: B7112, B7888, B8646, B8850, B9863) albo wzór „co drugi puls” (B8171, B8918, B8970) — tego nie naprawi
 zerowanie pojedynczych pulsów; RFI do wyzerowania: B8638, B9532, B9754. Werdykty `blind/verdicts2.csv`.
 Następne: przeliczenie RFI (`blind_rfi.jl` dla części 2), null dla pochylenie/umiarkowane/słabe, LRFS (informacyjnie),
-potem odsłonięcie `mapping2_DO_NOT_READ.csv`.
+potem odsłonięcie `mapping2.csv`.
 
 ## 2026-10-10 — ślepy przegląd, część 2, krok 1: przeliczenie po RFI
 
@@ -3250,3 +3250,21 @@ Samodzielny plik (numpy/scipy/matplotlib): `p3fold_coherent` (wersja pierwotna, 
 P3, wykres p3fold_compare), w nagłówku opis metody, testy i słabości. Weryfikacja z Julią: s(n) identyczne,
 S/N, f_c, σ takie same (J1750-3503, J0152-1637); pokrycie P3(n) różni się przez próg |s| z tasowania (5 tasowań,
 zależność od ziarna: J1750 próg 0.26–0.33 dla 20 ziaren, pokrycie 70–78%) — nowa słabość, dotyczy też wersji Julii.
+
+## 2026-10-13 — podsumowanie: co zrobiliśmy i co NIE działa (pełna tabela: `coherent_fold_params.md` §1.0)
+
+Odkrycie: test SVD „skumulowany obrót” (2026-10-11) to test **travel** z 2026-09 wymyślony od nowa — ta sama
+obserwabla (antysymetria korelacji czasowo-długościowej, czyli asymetria 2DFS jak u Song+23), a null z niezależnie
+losowymi fazami Fouriera modów to wariant odrzucony w `travel_test_method.md` §7.3. Agent nie przeczytał dokumentacji
+travel przed zaproponowaniem metody, mimo zapisu w pamięci. Kalibracja na syntetykach (24/30 dryfów, 1/30 AM) nie
+zmienia tego, że test ma znane słabości travel: dudnienie dwóch składowych o bliskich P3, reversery o losowych
+epizodach, dryf tylko w części obserwacji.
+
+Lista podejść sprawdzonych i niewystarczających: travel, P3Track, Δψ(t) / ciągłe P3(n), subtrack, pairshift,
+polaryzacja, przepływ optyczny, fold koherentny z oceną wzrokową, null foldu (oba warianty), gradient fazy LRFS
+w odcinkach, test SVD. Wspólny problem metod fazowych/korelacyjnych: wszystkie mierzą ten sam kanał co 2DFS.
+Ślepy przegląd (fold + null) — klasy niepewne; różnica 84 → 50 „pochyleń” wynika z subiektywnej granicy klas
+(pochylenie+umiarkowane+słabe potw.: 99 przed, 93 po).
+Działający punkt odniesienia: ocena użytkownika na pojedynczych pulsach.
+Porządki: pliki mapowań ślepego przeglądu przemianowane na `blind/mapping.csv` i `blind/mapping2.csv` (przegląd
+zakończony, mapowania jawne); odwołania w skryptach, dokumentach i pamięci poprawione.
