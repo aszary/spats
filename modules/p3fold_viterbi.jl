@@ -273,7 +273,24 @@ Local slope dy/dx of `y` (sampled at integer x=1..length(y)), from a
 sliding linear-regression window of `window` samples centered at each
 point (the window shrinks near the edges).
 """
-function windowed_slope(y::AbstractVector, window::Int)
+"""
+    windowed_slope(y, window; weights=nothing) -> Vector{Float64}
+
+Local slope dy/dx of `y` (sampled at integer x=1..length(y)), from a
+sliding linear-regression window of `window` samples centered at each
+point (the window shrinks near the edges).
+
+`weights` (optional, same length as `y`) turns this into a weighted
+local regression: samples with low weight barely influence the slope at
+nearby points, instead of being counted equally alongside reliable ones.
+Used by `coherent_fold` to down-weight pulses where the instantaneous
+baseband amplitude is low — `angle()` of a near-zero complex number is
+essentially noise, so `unwrap` can stitch in a spurious phase jump right
+there, which this window would otherwise average in as if it were a real
+measurement, producing a phantom bump/dip in `p3_per_pulse` centered on
+nothing physical.
+"""
+function windowed_slope(y::AbstractVector, window::Int; weights::Union{Nothing,AbstractVector}=nothing)
     N = length(y)
     slope = zeros(Float64, N)
     halfw = max(1, window ÷ 2)
@@ -286,10 +303,16 @@ function windowed_slope(y::AbstractVector, window::Int)
         end
         xs = lo:hi
         ys = @view y[lo:hi]
-        xbar = mean(xs)
-        ybar = mean(ys)
-        num = sum((x - xbar) * (yy - ybar) for (x, yy) in zip(xs, ys))
-        den = sum((x - xbar)^2 for x in xs)
+        ws = weights === nothing ? ones(Float64, length(xs)) : @view weights[lo:hi]
+        sw = sum(ws)
+        if sw <= 0
+            slope[i] = 0.0
+            continue
+        end
+        xbar = sum(w * x for (w, x) in zip(ws, xs)) / sw
+        ybar = sum(w * yy for (w, yy) in zip(ws, ys)) / sw
+        num = sum(w * (x - xbar) * (yy - ybar) for (w, x, yy) in zip(ws, xs, ys))
+        den = sum(w * (x - xbar)^2 for (w, x) in zip(ws, xs))
         slope[i] = den == 0 ? 0.0 : num / den
     end
     return slope
@@ -551,7 +574,15 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     bin = [Int(floor(mod(phase_total[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
     template = build_template(data, bin, ybins)
 
-    slope = windowed_slope(phase_total, p3_window)
+    # weight each pulse's contribution to the slope fit by its instantaneous
+    # baseband power (|z|²) — the standard optimal weighting for phase
+    # precision (phase error variance ~ 1/amplitude²). A pulse where the
+    # signal happened to be weak gets down-weighted instead of treated as an
+    # equally-good phase measurement, so a noise-driven unwrap glitch at a
+    # low-amplitude dip can't masquerade as a genuine P3 excursion in the
+    # surrounding window.
+    amp_weights = abs2.(baseband_smooth)
+    slope = windowed_slope(phase_total, p3_window; weights=amp_weights)
     # P3 = 2π/slope blows up whenever the local phase slope passes near zero
     # (noise, or — for genuine drift-reversal pulsars — a real sign change);
     # either way a near-zero slope makes 2π/slope numerically explode to
