@@ -297,8 +297,9 @@ module SpaTs
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
-        yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
+        # same as p3fold_coherent: p["p3_ybins"] can be stale (J2053 aliasing)
+        yb   = isnothing(ybins) ? Data.Functions.find_ybins(p3, size(data, 1)) : ybins
         result = P3FoldViterbi.fold(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             ybins=yb, n_iter=n_iter, continuity_weight=continuity_weight)
@@ -584,7 +585,9 @@ module SpaTs
     function p3fold_norefine_compare(outdir; ybins=nothing, darkness=1.0, show_=true)
         p  = Tools.read_params(joinpath(outdir, "params.json"))
         p3 = Float64(p["p3"])
-        yb = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
+        # same rule as p3fold_coherent (p["p3_ybins"] can be stale); used for
+        # BOTH sides of the comparison, so they stay identical
+        yb = isnothing(ybins) ? Data.Functions.find_ybins(p3) : ybins
 
         debase_gg = joinpath(outdir, "pulsar.debase.gg")
         run(pipeline(`pfold -p3fold_norefine -p3fold "$p3 $yb" -onpulse "$(p["bin_st"]) $(p["bin_end"])" -onpulsed "/NULL" -p3foldd "/NULL" -w -oformat ascii $debase_gg`, stderr="errs.txt"))
