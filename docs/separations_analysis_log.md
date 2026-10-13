@@ -3319,3 +3319,26 @@ nieruchome ciągi podpulsów na zmianę), AMφ (trzy nieruchome ciągi z opóźn
   translacja. C rozbija degenerację AMφ, której A′ nie rozbija (o ile nieruchome składowe są w skali podpulsu).
 - Wniosek wstępny: J1750 zgodny z dryfem lub jitterem w Q1 (A′ + C); wykluczone nieruchome składowe w skali podpulsu.
   Q2 (okresowość położenia) jeszcze nie liczone. Następny krok: para J1720-0212 (dryf, P3 ≈ 2.5) / J1126-6054 (zygzak).
+
+## 2026-10-13 cd. — A′ i C na J1720-0212 (dryf) i J1126-6054 (brak dryfu wg użytkownika)
+
+Poprawki `order_free.jl`: P2 := 2 × pierwsze LOKALNE minimum wygładzonej (±ℓ/4) autokorelacji fluktuacji (poprzednio
+globalne maksimum — dla J1126 dawało P2 = 47 ≈ szerokość profilu); γ̄ zbiorcza w paśmie k, gdzie moc fluktuacji > szum;
+zabezpieczenia pustych rozkładów. J1750 po poprawce bez zmian (P2 56, γ(k_d) 0.031).
+**Sprostowanie:** J1720-0212 ma P3 ≈ 5.8 (P3(n) 4.7–7.3), nie 2.4–2.5 — to wartość J1720-2933 (pomyłka w przeglądzie,
+poprawiona w `nowe_metody_dryf_do_oceny_2026-10-13.md`). Para testowa to więc dryf P3 5.8 vs zygzak P3 2.4.
+
+30% najjaśniejszych, γ przy k_d (szum podłogi |⟨z²⟩| ≈ √(κ/N): ~0.08 J1750, ~0.13 J1720, ~0.10 J1126):
+| pulsar | ℓ, P2, k_d | dane | DR | ZZ | AM2 | AM4 | AMφ |
+|---|---|---|---|---|---|---|---|
+| J1750 | 9, 56, 4 | 0.079 | 0.044 | 1.010 | — | 0.918 | 0.063 |
+| J1720 | 20, 130, 2 | 0.171 | 0.096 | 0.950 | 0.850 | 0.168 | 0.138 |
+| J1126 | 3, 20, 6 | 0.116 | 0.109 | 0.983 | 0.881 | 0.957 | 0.097 |
+- We wszystkich trzech dane = „koło” (γ na poziomie podłogi szumu), jak syntetyczny dryf. γ̄ zbiorcze mniej czyste
+  (J1126: kontrole DR/AM2/AM4/AMφ 0.33–0.65, dane 0.23) — pasmo obejmuje skale profilu.
+- C > 3σ: J1720 dane gładkie jak DR (AM1/AM2/ZZ/AMφ mają piki i luki); J1126 dane dwugarbne (742, 753) jak DR —
+  garby pochodzą z obwiedni profilu, nie ze stałych podskładowych. Stos J1720 200–330: maksima > 3σ układają się w pasma.
+- Wniosek: Q1 (bez kolejności) działa na kontrolach, ale na danych wszystkie trzy wychodzą „translacyjne” —
+  J1126 (brak dryfu wg użytkownika) nie odróżnia się od dryferów. Pozycje w J1126 zmieniają się w sposób ciągły
+  (jitter lub ruch); rozstrzygnięcie wymaga Q2 (organizacja w czasie). Przy P3 ≈ 2.4 zamiatanie i przeskakiwanie
+  są w zasadzie nierozróżnialne (Nyquist).
