@@ -3386,3 +3386,23 @@ skupiska jasnych pulsów (JT > null) — zastąpiona koherencją w bloku. Faza �
   ciągłość tylko przy k = 1 (skala profilu).
 - Bez kalibracji: z rośnie z N i S/N, k_d wybierane z autokorelacji (pojedyncze k, bez korekty na wybór), kontrole
   syntetyczne wyidealizowane. 8 pulsarów to za mało na próg.
+
+## 2026-10-13 cd. — czytelne wykresy Q1/Q2 dla użytkownika (`~/claude/work/scripts/pozycje_view.jl`)
+
+Użytkownik: dotychczasowe wykresy (γ(k), portrety z_n, R(k)) nieczytelne. Nowe, na pulsar (`figures/pozycje/<psr>/`):
+(1) `pozycje_<n1>_<n2>.png` — pojedyncze pulsy obok położenia podpulsów w każdym pulsie (−arg F_n(k_d), modulo M/k_d;
+czarne gdy |z|² > 3 × szum); (2) `przesuniecia.png` — histogram przesunięcia od poprzedniego pulsu, dane vs potasowane.
+Skupienie przesunięć |⟨e^{2πiΔ/P}⟩| (0 płasko, 1 wszystkie równe), pary pulsów z wiarygodnym położeniem:
+| pulsar | ocena | pary | dane | potasowane (95%) | najczęstsze Δ [bin] |
+|---|---|---|---|---|---|
+| J1750 | dryf | 499 | 0.83 | 0.08 | +1.3 (P 63) |
+| J1720 | dryf | 357 | 0.68 | 0.09 | +15.2 (P 146) |
+| J1910 | dryf | 574 | 0.65 | 0.07 | −2.3 (P 7.5) |
+| J1246 | dryf | 565 | 0.35 | 0.06 | +2.0 (P 18.8) |
+| J1126 | brak | 179 | 0.22 | 0.15 | ±9.7 ≈ P/2 (P 20.3) |
+| J0152 | brak | 219 | 0.05 | 0.14 | — |
+| J1913 | brak? | 19 | — | — | za mało par |
+| J0940 | brak | 20 | — | — | za mało par |
+- J1750: wyraźna piła na mapie położeń; J1910: piła niewidoczna w 100 P (ząb ~3 P), ale histogram ma wąski pik −2.3 bin.
+- J1126: histogram nie jest płaski — nadmiar przeskoków o ~pół okresu (±P/2) i niedobór Δ ≈ 0: naprzemienność położeń
+  (lub dryf przy P3 ≈ 2.4 blisko Nyquista — nierozróżnialne). J1246: na mapie głównie chmura, krótkie epizody piły.
