@@ -3287,3 +3287,19 @@ Cel: metoda spoza kanału antysymetrii A(Δ,τ) (travel / 2DFS / gradient LRFS /
   korelacje trójpunktowe, conditional averaging.
 - Propozycja (czeka na akceptację): A + C na 8 pulsarach referencyjnych + syntetyki (dudnienie, zygzak P3 = 2.5,
   jitter, przesunięcie składowej, reverser, dryf P3 = 2.4).
+
+## 2026-10-13 — metody bez kolejności pulsów (A, C): pierwszy test na J1750-3503
+
+Skrypt `~/claude/work/scripts/order_free.jl` (A: korelacja kształtu vs widma mocy |F_k|² pulsu ze średnią, k ≤ kmax;
+C: obsadzenie lokalnych maksimów „∧” w skali ℓ). Kontrole z tym samym szumem (pas off-pulse tego samego pulsu): AM1,
+AM2–4 (K nieruchomych kawałków profilu, amplitudy z regresji każdego pulsu), translacja całego profilu ±P2/2.
+Log `logs/order_free_J1750.log`, wykresy `figures/order_free/J1750-3503/`.
+- Bez kolejności: HWHM fluktuacji ℓ = 9 binów, P2 ≈ 58 binów (minimum autokorelacji 29, maksimum 58); zgodne z SVD (~60).
+- A (30% najjaśniejszych, spadek ρ względem AM1): dane Δraw 0.243 / Δinv 0.071; translacja 0.100 / 0.000;
+  AM2–4 0.036–0.097 / 0.002–0.016. Żadna kontrola nie odtwarza zmienności kształtu danych. Niezmiennik działa
+  (translacja: Δinv = 0), ale rozdziela translację od AM_K słabo, bo korelację po k dominuje obwiednia (k = 1–2),
+  a podpulsy siedzą przy k ≈ 4. Dane mają też zmienność nietranslacyjną (Δinv większe niż w kontrolach).
+- C: maksima z szumu (P ≈ 0.285) dominują; dane bez koncentracji maksimów na szczycie profilu (AM1–4 ją mają),
+  więcej maksimów na zboczu spływu (560–600). Słaby efekt; stos 200–330 potwierdza, że ∧ > 3σ siedzą na podpulsach.
+- Do poprawy: A' — rozkład zespolonego F_n(k) przy k podpulsów (koło vs kreska: niewłaściwość |⟨z²⟩|/(⟨|z|²⟩−szum),
+  kurtoza), C — tylko maksima > 3σ.
