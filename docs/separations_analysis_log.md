@@ -3363,3 +3363,26 @@ skupiska jasnych pulsów (JT > null) — zastąpiona koherencją w bloku. Faza �
   potem Q2. Pozostała degeneracja: AMφ (≥ 3 nieruchome składowe z opóźnieniem fazy) przechodzi Q1 i Q2; odróżnia go tylko C.
 - J1750 podgląd kierunku: arg ⟨z_{n+1} z_n*⟩ ≈ ±10–20°/P ze zmianami znaku między blokami (epizody odwrotne).
 - Następny krok: pozostałe 5 pulsarów referencyjnych (J1246, J1910 dryf; J0940, J1913, J0152 brak).
+
+## 2026-10-13 cd. — A′ + Q2 na wszystkich 8 pulsarach referencyjnych
+
+`order_free.jl` bez zmian metody; pliki pełnego pasma (J1246, J1910: `<psr>/pulsar.debase.txt`; J0940, J1913, J0152:
+`<psr>_16/pulsar_full_debase.txt`). Logi `logs/order_free_<psr>.log`, wykresy `figures/order_free/<psr>/`.
+
+| pulsar | ocena użytk. | S/N pulsu (med.) | k_d (P2) | γ(k_d), 30% jasnych | R(τ=1) | null 95% | z | bloki > 95% |
+|---|---|---|---|---|---|---|---|---|
+| J1750-3503 | dryf | 5.4 | 4 (56) | 0.08 | 0.67 | 0.24 | 35 | 98% |
+| J1720-0212 | dryf | 14.1 | 2 (130) | 0.17 | 0.61 | 0.25 | 19 | 92% |
+| J1910+0714 | dryf | 8.7 | 8 (8) | 0.33 | 0.47 | 0.24 | 19 | 62% |
+| J1246+2253 | dryf | 10.6 | 5 (18) | 0.05 | 0.31 | 0.23 | 7.5 | 23% |
+| J1126-6054 | brak | 5.3 | 6 (20) | 0.12 | 0.24 | 0.23 | 2.6 | 13% |
+| J0152-1637 | brak | 7.0 | 4 (26) | **0.74** (kreska) | 0.22 | 0.24 | 0.6 | 5% |
+| J1913+0936 | brak? | 1.8 | 6 (16) | moc ≈ szum | 0.23 | 0.24 | 0.7 | 6% |
+| J0940-5428 | brak | 2.2 | — | brak mocy fluktuacji ponad szumem przy k ≥ 2 | — | — | — | — |
+- Q2 (ciągłość) rozdziela 7 policzalnych zgodnie z oceną: dryfery z ≥ 7.5, brak dryfu z ≤ 2.6. Margines J1246 / J1126
+  umiarkowany; J1246 ma ciągłość tylko przy k 4–7 i w 23% bloków (dryf w części profilu wg wcześniejszych notatek).
+- J0152: Q1 daje kreskę (γ 0.74, jak AM2/AM4) i Q2 na poziomie nulla — dwa niezależne argumenty przeciw dryfowi.
+- J0940 i J1913: za mały S/N pojedynczego pulsu przy skali podpulsu — brak wyniku (nie „brak dryfu”). J1913 ma
+  ciągłość tylko przy k = 1 (skala profilu).
+- Bez kalibracji: z rośnie z N i S/N, k_d wybierane z autokorelacji (pojedyncze k, bez korekty na wybór), kontrole
+  syntetyczne wyidealizowane. 8 pulsarów to za mało na próg.
