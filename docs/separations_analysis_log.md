@@ -3450,3 +3450,23 @@ Nowa próbka (`random.Random(20261014)`) z `blind/blind_compare.csv`, bez flag: 
 3 „brak_pochylenia”, 2 „artefakt”; bez referencyjnych i T01–T10. Lista `~/claude/work/test10b/lista.csv`
 (sha256 cfadd8a9…), werdykty metody (bez zmian metody) `test10b/wyniki_metody.csv`, sha256
 370c0ed38896890589369a53e135736cf48f77082a4d654aa032fe00b3e6b2e0 (18:06), zapisane przed pokazaniem pulsów.
+
+## 2026-10-13 cd. — V01–V10: wynik (suma kontrolna werdyktów zgodna, 370c0ed3…)
+
+| ID | pulsar | przegląd ślepy | S/N | γ | zR | przesunięcie | metoda | użytkownik |
+|---|---|---|---|---|---|---|---|---|
+| V01 | J0151-0635 | pochylenie | 15.7 | 0.12 | 525 | −0.07 | dryf | dryf |
+| V02 | J1054-6452 | pochylenie | 5.0 | 0.10 | 110 | +0.47 | alias | podejrzany dryf / AM? |
+| V03 | J1046-5813 | brak_pochylenia | 3.2 | 0.50 | 5 | — (11 par) | brak wyniku | AM |
+| V04 | J1232-4742 | pochylenie | 13.7 | 0.09 | 671 | +0.05 | dryf | dryf |
+| V05 | J1919+0134 | pochylenie | 10.6 | 0.17 | 544 | −0.16 | dryf | dryf |
+| V06 | J1514-4834 | pochylenie | 12.7 | 0.26 | 294 | +0.03 | dryf | dryf |
+| V07 | J1905-0056 | brak_pochylenia | 7.7 | 0.25 | 1.9 | +0.07 | brak dryfu | AM |
+| V08 | J1519-6106 | artefakt | 6.6 | 0.10 | 179 | +0.32 | dryf | dryf |
+| V09 | J1042-5521 | artefakt | 28.4 | 0.05 | 187 | +0.40 | dryf (na granicy aliasu) | podejrzany dryf / AM? |
+| V10 | J1611-5209 | brak_pochylenia | 2.6 | 0.77 | 5 | — (25 par) | brak wyniku | AM |
+Wszystkie 10 to Song „drift”. Dryf wg użytkownika 5/5 wykryty; brak fałszywego „dryf” wśród AM (V07 brak dryfu, V03,
+V10 brak wyniku); niepewne V02 (alias), V09 (dryf, przesunięcie 0.40 = próg aliasu). V08: przegląd ślepy (fold + null)
+dał „artefakt”, użytkownik i metoda — dryf.
+Łącznie (referencyjne + T + V): werdykt „dryf” metody 9× zgodny z użytkownikiem, 2× niezgodny (T07, T08: γ 0.34–0.35,
+zR 19/85), 1× niepewny (V09). Dryfery wyraźne: γ 0.05–0.26, zR ≥ 69.
