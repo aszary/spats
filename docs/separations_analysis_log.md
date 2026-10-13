@@ -3470,3 +3470,23 @@ V10 brak wyniku); niepewne V02 (alias), V09 (dryf, przesunięcie 0.40 = próg al
 dał „artefakt”, użytkownik i metoda — dryf.
 Łącznie (referencyjne + T + V): werdykt „dryf” metody 9× zgodny z użytkownikiem, 2× niezgodny (T07, T08: γ 0.34–0.35,
 zR 19/85), 1× niepewny (V09). Dryfery wyraźne: γ 0.05–0.26, zR ≥ 69.
+
+## 2026-10-13 cd. — metoda Q1/Q2 na pełnej próbce (521 pulsarów)
+
+`~/claude/work/scripts/full_q12.jl` (4 części; ta sama funkcja i reguła co w teście), podsumowanie
+`full_q12_summary.py` → `~/claude/work/full_q12/wyniki_z_edot.csv`, wykresy `figures/full_q12/`. Ė z `psrcat_ppdot.csv`.
+19 błędów: off-pulse krótszy niż okno on-pulse (szerokie profile) — brak paska szumu; bez obchodzenia.
+| Song+23 | n | dryf [γ 0.3–0.4] | alias | brak dryfu | brak wyniku | błąd |
+|---|---|---|---|---|---|---|
+| drift | 412 | 176 (43%) [33] | 17 (4%) | 141 (34%) | 65 (16%) | 13 |
+| P3-only | 109 | 13 (12%) [3] | 2 (2%) | 44 (40%) | 44 (40%) | 6 |
+- Zależność od Ė: BRAK. Ułamek „dryf” wśród rozstrzygniętych (drift Song): 62/55/49/49/59/70% w przedziałach
+  10^28–30 … 10^34–37; logistyczna dryf ~ log Ė + log S/N: log Ė z = 0.0 (wszystkie), +0.4 (drift); S/N z = +2.6/+2.9.
+  Sprzeczne z travel, P3Track, pairshift i Basu+16 (spadek z Ė).
+- Sprawdzone i odrzucone wyjaśnienia artefaktu: (1) skala profilu — przy Ė > 10^33 werdykty „dryf” mają k_d 3–10
+  (k_d ≤ 2: 0/47); (2) „podpuls” = cała składowa — n_sub = W10/P2e ≈ 1.8–2.2 we wszystkich przedziałach Ė, < 1 w 0–2%.
+- Zgodność z wcześniejszymi: dryf metody → pairshift |z_blk| ≥ 3 w 98/186, travel z_cv ≥ 5 (B 32) w 143/189;
+  brak dryfu metody → pairshift 33/176, travel 90/184.
+- Interpretacja otwarta: (a) przy wysokim Ė położenia są ciągłe, ale bez stałego kierunku (metody kierunkowe tego nie
+  widziały; P3Track: wędrówka P3 i fazy rośnie z Ė), albo (b) metoda nazywa „dryfem” coś, czego użytkownik nie uzna
+  (T07/T08). Testy z użytkownikiem miały głównie Ė < 10^32.6 — metoda niezwalidowana przy wysokim Ė.
