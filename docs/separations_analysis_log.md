@@ -3439,3 +3439,14 @@ referencyjnych; lista `~/claude/work/test10/lista.csv` (sha256 ed29ccde…). Met
 użytkownika: `~/claude/work/test10/wyniki_metody.csv`, sha256 a16fa3229048ba8bf9ec5e87d65406f9575ec237f007f3b584149ff2974407b0
 (2026-10-13 17:47). Do użytkownika: pojedyncze pulsy (`figures/single/T??/`) i fold koherentny (`test10/fig/`,
 `p3fold_coherent_agent` jak w `blind_run.jl`; wariant „w” dla słabych) pod ID, bez nazw, etykiet i werdyktów.
+
+## 2026-10-13 cd. — T01–T10: wynik i decyzja użytkownika; nowa próbka V01–V10 z przeglądu ślepego
+
+T01–T10 (losowe z całej próbki), metoda vs użytkownik: zgodnie „nie dryf” T01, T02, T05, T10 (+ T03 alias); metoda
+„dryf” w T07 (P3-only) i T08 (Song drift) — użytkownik AM w obu (γ 0.35/0.34, blisko progu 0.4; syntetyczny dryf ≤ 0.24);
+T09 (dryf wg użytkownika) — brak wyniku (moc przy k_d 0.11 szumu); T04, T06 brak wyniku (S/N 1.0, 1.6). Użytkownik:
+próbka zła — wykryty dryf (T09) bardzo słaby; z 5 Song „drift” użytkownik widzi dryf tylko w T09.
+Nowa próbka (`random.Random(20261014)`) z `blind/blind_compare.csv`, bez flag: 5 „pochylenie” (null: zostaje),
+3 „brak_pochylenia”, 2 „artefakt”; bez referencyjnych i T01–T10. Lista `~/claude/work/test10b/lista.csv`
+(sha256 cfadd8a9…), werdykty metody (bez zmian metody) `test10b/wyniki_metody.csv`, sha256
+370c0ed38896890589369a53e135736cf48f77082a4d654aa032fe00b3e6b2e0 (18:06), zapisane przed pokazaniem pulsów.
