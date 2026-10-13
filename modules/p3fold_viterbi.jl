@@ -637,41 +637,7 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
     p3_per_pulse_err = [finite_se(@view group_p3[:, i]) for i in 1:N]
     phase_err = [finite_se(@view group_phase[:, i]) for i in 1:N]
 
-    # Cross-check the full-bin ("main") estimate against the independent
-    # subbands at every pulse: a value that's within coherent_fold's global
-    # 3×-nominal blow-up bound can still be untrustworthy if it's wildly
-    # inconsistent with what the *other* longitude sub-ranges show at that
-    # same pulse — e.g. one subband has a transient near-zero-slope spike
-    # that happens to land just under the global cutoff, while the other
-    # n_groups-1 subbands agree with each other. That's the same "which
-    # feature is real?" question `Plot.subband_consistency` answers
-    # visually, applied here automatically: if main disagrees with the
-    # subband median by more than 4 subband-spreads, treat it the same way
-    # as a blown-up value (NaN) rather than keeping a spurious spike in the
-    # displayed/returned p3_per_pulse.
-    p3_checked = copy(main.p3_per_pulse)
-    for i in 1:N
-        finite_vals = filter(isfinite, @view group_p3[:, i])
-        length(finite_vals) < 2 && continue
-        med = median(finite_vals)
-        # MAD (median absolute deviation), not std: with only n_groups (e.g.
-        # 4) subbands, a single wild outlier among them inflates std enough
-        # to raise its own detection threshold and mask itself — MAD stays
-        # anchored to the majority as long as fewer than half the subbands
-        # are bad, which is the case we actually care about here.
-        mad = median(abs.(finite_vals .- med))
-        spread = max(mad * 1.4826, 0.05 * abs(p3))  # 1.4826: scales MAD to be
-                                                     # comparable to std for
-                                                     # normally-distributed data;
-                                                     # floor so near-perfect
-                                                     # subband agreement doesn't
-                                                     # make the test hyper-sensitive
-        if isfinite(p3_checked[i]) && abs(p3_checked[i] - med) > 4 * spread
-            p3_checked[i] = NaN
-        end
-    end
-
-    return (folded=main.folded, phase=main.phase, bin=main.bin, p3_per_pulse=p3_checked,
+    return (folded=main.folded, phase=main.phase, bin=main.bin, p3_per_pulse=main.p3_per_pulse,
             snr=main.snr, p3_per_pulse_err=p3_per_pulse_err, phase_err=phase_err,
             group_p3=group_p3)
 end
