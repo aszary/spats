@@ -3342,3 +3342,24 @@ poprawiona w `nowe_metody_dryf_do_oceny_2026-10-13.md`). Para testowa to więc d
   J1126 (brak dryfu wg użytkownika) nie odróżnia się od dryferów. Pozycje w J1126 zmieniają się w sposób ciągły
   (jitter lub ruch); rozstrzygnięcie wymaga Q2 (organizacja w czasie). Przy P3 ≈ 2.4 zamiatanie i przeskakiwanie
   są w zasadzie nierozróżnialne (Nyquist).
+
+## 2026-10-13 cd. — Q2: ciągłość położeń (zależy od kolejności, nie od kierunku); J1126 pojedyncze pulsy
+
+Użytkownik obejrzał pojedyncze pulsy J1126-6054 (`~/claude/work/scripts/single_pulses_view.jl`, wykresy
+`figures/single/J1126-6054{,_zoom}/`): brak dryfu = (2) losowe położenia bez ciągłości + (3) brak stałego kierunku.
+Q2 w `order_free.jl`: R(τ) = średnia po blokach 16 P koherencji |Σ z_{n+τ} z_n*| / √(Σ|z_{n+τ}|² Σ|z_n|²) przy k_d
+(z jak w A′). Moduł — bez znaku obrotu (reversery, alias P3 ≈ 2 nie szkodzą). Null: 200 tasowań pulsów. Nowa kontrola JT
+(ciąg podpulsów w losowym miejscu w każdym pulsie). Pierwsza wersja (|c_b| / moc całej obserwacji) była zawyżana przez
+skupiska jasnych pulsów (JT > null) — zastąpiona koherencją w bloku. Faza ⟨z_{n+1} z_n*⟩ w blokach tylko jako podgląd
+(kanał travel), osobny wykres.
+
+| τ = 1, k_d | dane | null med. / 95% | z | bloki > 95% nulla | DR | JT | ZZ | AMφ |
+|---|---|---|---|---|---|---|---|---|
+| J1750 (dryf) | 0.672 | 0.215 / 0.239 | 35 | 98% | 0.644 | 0.247 | 0.557 | 0.447 |
+| J1720 (dryf) | 0.606 | 0.211 / 0.246 | 19 | 92% | 0.810 | 0.245 | 0.395 | 0.687 |
+| J1126 (brak) | 0.238 | 0.201 / 0.226 | 2.6 | 13% | 0.622 | 0.248 | 0.448 | 0.412 |
+- Q2 rozdziela trzy pulsary zgodnie z oceną użytkownika: J1126 ≈ jitter (JT), dryfery wysoko ponad null w ~95% bloków.
+- Q2 sam nie wystarcza (nieruchome składowe modulowane okresowo też są „ciągłe”: ZZ, AMφ) — kolejność: Q1 (koło, A′),
+  potem Q2. Pozostała degeneracja: AMφ (≥ 3 nieruchome składowe z opóźnieniem fazy) przechodzi Q1 i Q2; odróżnia go tylko C.
+- J1750 podgląd kierunku: arg ⟨z_{n+1} z_n*⟩ ≈ ±10–20°/P ze zmianami znaku między blokami (epizody odwrotne).
+- Następny krok: pozostałe 5 pulsarów referencyjnych (J1246, J1910 dryf; J0940, J1913, J0152 brak).
