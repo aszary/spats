@@ -708,19 +708,45 @@ module SpaTs
     i wszystkie produkty. Na koniec tabela SNR przed/po w
     `vpmout/zap_summary.csv`.
 
-      reprocess_all_zap()                                  # wszystkie
+      reprocess_all_zap()                                  # wszystkie, od początku
+      reprocess_all_zap(reverse=true)                      # od ostatniego w dół
       reprocess_all_zap(only=["J1750-3503", "J2053-7200"]) # wybrane
       reprocess_all_zap(zap_mode=:auto)                    # bez pytań
+
+    Dwie osoby naraz: jedna `reverse=false`, druga `reverse=true`. Wiersze są
+    DOPISYWANE do wspólnego `zap_summary.csv`, a pulsary, które już tam są
+    (status inny niż "blad"), są pomijane — więc spotkacie się w środku bez
+    dublowania pracy. Żeby przerobić pulsar jeszcze raz: usuń jego wiersz
+    albo `skip_done=false`.
+
+    Status w tabeli: ok / brak_P3 / pominiety (s w oknie zapów) / blad.
     """
     function reprocess_all_zap(; dataroot="/home/psr/data/new/", vpmout="/home/psr/output/",
-                               only=nothing, zap_mode=:review, zap_nsigma=5.0)
-        psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
+                               only=nothing, zap_mode=:review, zap_nsigma=5.0,
+                               reverse=false, skip_done=true, warn_pct=10.0)
+        psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)); rev=reverse)
         isnothing(only) || (psr_dirs = filter(in(Set(only)), psr_dirs))
-        rows = String["pulsar,n_pulses,n_zapped,pct_zapped,snr_before,snr_after,zaps"]
         summary_file = joinpath(vpmout, "zap_summary.csv")
+        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_before,snr_after,zaps"
+        done = Set{String}()
+        if isfile(summary_file)
+            for line in Iterators.drop(eachline(summary_file), 1)
+                parts = split(line, ",")
+                length(parts) >= 2 && parts[2] != "blad" && push!(done, parts[1])
+            end
+        else
+            open(f -> println(f, header), summary_file, "w")
+        end
+        rows = String[]
         fmt(x) = isnothing(x) ? "" : string(round(x, digits=2))
+        # dopisanie po każdym pulsarze — nic nie ginie przy przerwaniu
+        record(row) = (push!(rows, row); open(f -> println(f, row), summary_file, "a"))
 
         for psr in psr_dirs
+            if skip_done && psr in done
+                println("SKIP $psr — już w $summary_file")
+                continue
+            end
             psr_path = joinpath(dataroot, psr)
             obs_dirs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
             if isempty(obs_dirs)
@@ -738,21 +764,31 @@ module SpaTs
                 nz = sum((b - a + 1 for (a, b) in Data.zaps_to_ranges(zaps)); init=0)
                 np = something(get(p, "nsubint", nothing), 0)
                 pct = np > 0 ? 100 * nz / np : 0.0
-                println("$psr: odrzucono $nz/$np impulsów ($(round(pct, digits=1))%), " *
+                status = (p["p3"] isa Number && p["p3"] > 0) ? "ok" : "brak_P3"
+                println("$psr [$status]: odrzucono $nz/$np impulsów ($(round(pct, digits=1))%), " *
                         "SNR $(fmt(snr_before)) → $(fmt(snr_after))")
-                push!(rows, "$psr,$np,$nz,$(round(pct, digits=2)),$(fmt(snr_before)),$(fmt(snr_after))," *
-                            "\"$(something(zaps, ""))\"")
-                # zapis po każdym pulsarze — nic nie ginie przy przerwaniu
-                open(summary_file, "w") do f; foreach(r -> println(f, r), rows); end
+                pct > warn_pct && println("UWAGA: odrzucono ponad $(warn_pct)% impulsów — szum może " *
+                                          "siedzieć w jednym kanale częstotliwości; rozważ ścieżkę _16 " *
+                                          "z zapowaniem kanałów (paz -z) zamiast wyrzucania impulsów.")
+                record("$psr,$status,$np,$nz,$(round(pct, digits=2)),$(fmt(snr_before)),$(fmt(snr_after))," *
+                       "\"$(something(zaps, ""))\"")
             catch e
-                @warn "Błąd dla $psr: $e"
+                if e isa Data.SkipPulsar
+                    println("$psr — pominięty na życzenie.")
+                    record("$psr,pominiety,,,,,,\"\"")
+                else
+                    @warn "Błąd dla $psr: $e"
+                    msg = replace(sprint(showerror, e), '"' => '\'', '\n' => ' ')
+                    record("$psr,blad,,,,,,\"$(first(msg, 200))\"")
+                end
             end
             if zap_mode == :review
                 print("Dalej? [Enter = następny, q = koniec]: ")
                 strip(readline()) == "q" && break
             end
         end
-        println("\nPodsumowanie: $summary_file")
+        println("\nPodsumowanie (ta sesja), pełna tabela: $summary_file")
+        println(header)
         foreach(println, rows)
         return rows
     end

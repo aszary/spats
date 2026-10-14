@@ -137,32 +137,65 @@ module Data
     end
 
 
+    "Thrown by `review_zaps` when the user chooses to skip the pulsar (`s`)."
+    struct SkipPulsar <: Exception end
+
+
+    # 0-based "12 40-45" -> 1-based rows, clamped to 1:N
+    zaps_to_rows(zaps, N) = sort(unique(filter(i -> 1 <= i <= N,
+                                 [i + 1 for (a, b) in zaps_to_ranges(zaps) for i in a:b])))
+
+
     """
         review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review)
 
-    Runs `find_bad_pulses` on `txtfile`, shows `Plot.bad_pulses`, and (mode
-    `:review`) asks: Enter = accept, `n` = no zaps, or type your own ranges.
-    `:auto` accepts without asking. Saves the result to `p["zaps"]`.
+    Runs `find_bad_pulses` on `txtfile` and shows `Plot.zap_review` (left:
+    data before zapping, right: after). Mode `:review` then loops until
+    accepted — every change redraws the window:
+
+      Enter        zatwierdź obecny wybór
+      n            bez zapów
+      s            pomiń ten pulsar (rzuca `SkipPulsar`)
+      +12 40-45    dodaj impulsy      -40-45   usuń z wyboru
+      12 40-45     zastąp cały wybór  (numeracja od 0, jak w zaps)
+
+    `:auto` accepts the automatic choice without asking. Saves `p["zaps"]`.
     """
     function review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review)
         data = load_ascii(txtfile)
         N = size(data, 1)
         r = find_bad_pulses(data, p["bin_st"], p["bin_end"]; nsigma=nsigma)
-        suggested = pulses_to_zaps(r.bad)
-        println("Złe impulsy: $(length(r.bad)) z $N " *
-                "($(round(100 * length(r.bad) / N, digits=1))%)  →  \"$suggested\"")
-        Plot.bad_pulses(r, outdir; show_=(mode == :review))
-        zaps = suggested
-        if mode == :review
-            print("Enter = zatwierdź, n = bez zapów, albo wpisz własne zakresy " *
-                  "(numeracja od 0, np. \"12 40-45\"): ")
-            ans = strip(readline())
+        rows = copy(r.bad)
+        println("Automatycznie: $(length(rows)) złych impulsów z $N " *
+                "($(round(100 * length(rows) / N, digits=1))%)  →  \"$(pulses_to_zaps(rows))\"")
+        while true
+            Plot.zap_review(data, r, rows, p["bin_st"], p["bin_end"], outdir; show_=(mode == :review))
+            mode == :review || break
+            print("\nEnter = zatwierdź | n = bez zapów | s = pomiń pulsar | " *
+                  "+12 40-45 = dodaj | -40-45 = usuń | 12 40-45 = zastąp:  ")
+            ans = String(strip(readline()))
+            Plot.close_all()
+            isempty(ans) && break
+            ans == "s" && throw(SkipPulsar())
             if ans == "n"
-                zaps = ""
-            elseif !isempty(ans)
-                zaps = String(ans)
+                rows = Int[]
+                break
             end
+            try
+                if startswith(ans, "+")
+                    rows = sort(unique(vcat(rows, zaps_to_rows(ans[2:end], N))))
+                elseif startswith(ans, "-")
+                    rows = setdiff(rows, zaps_to_rows(ans[2:end], N))
+                else
+                    rows = zaps_to_rows(ans, N)
+                end
+            catch
+                println("Nie rozumiem \"$ans\" — przykład: +12 40-45")
+                continue
+            end
+            println("Teraz: $(length(rows)) impulsów  →  \"$(pulses_to_zaps(rows))\"")
         end
+        zaps = pulses_to_zaps(rows)
         p["zaps"] = isempty(zaps) ? nothing : zaps
         Tools.save_params(params_file, p)
         println("Zapisane zaps = $(repr(p["zaps"]))")
@@ -414,6 +447,19 @@ module Data
                 p3_value = parse(Float64, last_match.captures[1])
                 p3_error = parse(Float64, last_match.captures[2])
                 println("Found P3 = $p3_value ± $p3_error P0")
+            else
+                # no P3 found: type it by hand (e.g. read off the 2DFS/LRFS,
+                # or from literature), or leave the pulsar marked "no P3"
+                print("Nie znaleziono P3. Wpisz P3 ręcznie [P0] albo Enter = brak P3: ")
+                ans = strip(readline())
+                v = isempty(ans) ? nothing : tryparse(Float64, ans)
+                if isnothing(v) || v <= 0
+                    println("Brak P3 — pulsar oznaczony jako bez P3 (p3 = -1).")
+                    p["p3"] = -1.0
+                    Tools.save_params(params_file, p)
+                    return
+                end
+                p3_value, p3_error = v, -1.0
             end
 
             ybins = Functions.find_ybins(p3_value)
@@ -509,7 +555,11 @@ module Data
         # Calculate 2dfs and lrfs
         twodfs_lrfs(debased_file, params_file, p; detect=false)
 
-        # calculate p3-folded profile
+        # calculate p3-folded profile (impossible without P3)
+        if !(p["p3"] isa Number) || p["p3"] <= 0
+            println("Brak P3 — pomijam P3-fold.")
+            return p, debased_file, outdir
+        end
         println("P3-folding with:")
         # TODO experiment here
         println("pfold -p3fold_noonpulse -p3fold \"$(p["p3"]) $(p["p3_ybins"])\" -onpulse \"$(p["bin_st"]) $(p["bin_end"])\" -onpulsed \"/NULL\" -p3foldd \"/NULL\" -w -oformat ascii $debased_file")

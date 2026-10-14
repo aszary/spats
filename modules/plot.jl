@@ -761,54 +761,103 @@ module Plot
     end
 
 
+    # S/N of the average profile from the given (good) pulses
+    function profile_snr(data, rows, bin_st, bin_end)
+        isempty(rows) && return NaN
+        prof = vec(mean(data[rows, :], dims=1))
+        nb = length(prof)
+        off = vcat(1:bin_st-1, bin_end+1:nb)
+        length(off) < 3 && return NaN
+        s = std(prof[off])
+        s > 0 || return NaN
+        return sum(prof[bin_st:bin_end] .- mean(prof[off])) / (s * sqrt(bin_end - bin_st + 1))
+    end
+
+
+    close_all() = close("all")
+
+
     """
-    Diagnostic for `Data.find_bad_pulses`: off-pulse noise level and spike
-    statistic (robust z-scores, what the decision is based on) plus on-pulse
-    energy (context only — never used to reject, so nulls stay) vs pulse
-    number. Rejected pulses in red, threshold ±nsigma dotted.
+    Review window for bad-pulse zapping (`Data.review_zaps`).
+
+    Left column = data BEFORE zapping, right = AFTER (current selection):
+      top     single pulses around the on-pulse window (same colour scale on
+              both sides, so RFI stands out on the left); zapped pulses are
+              marked red on the left edge of the "before" panel
+      middle  average profile, with its S/N in the title
+      bottom  the two detection statistics (robust z of off-pulse noise and
+              of the largest off-pulse spike), threshold dotted, selected
+              pulses red. On-pulse emission is never used, so nulls stay.
+    Pulse numbers are 0-based, the same numbering as `p["zaps"]`.
+
+    With `show_=true` the window is left open (the caller asks the question
+    and then calls `close_all`); otherwise it is only saved.
     """
-    function bad_pulses(r, outdir; name_mod="pulsar", show_=false)
-        N = length(r.z_rms)
-        x = 0:N-1          # 0-based, same numbering as p["zaps"]
-        bad = r.bad        # 1-based rows (for indexing y)
-        ns = r.nsigma
+    function zap_review(data, r, rows, bin_st, bin_end, outdir; name_mod="pulsar", show_=false)
+        N, nb = size(data)
+        w = bin_end - bin_st + 1
+        lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
+        good_before = findall(i -> any(!iszero, @view data[i, :]), 1:N)
+        good_after = setdiff(good_before, rows)
+        after = copy(data)
+        after[rows, :] .= 0
+
+        win = data[good_before, lo:hi]
+        vmin, vmax = isempty(win) ? (0.0, 1.0) : (quantile(vec(win), 0.01), quantile(vec(win), 0.995))
+        snr_b = profile_snr(data, good_before, bin_st, bin_end)
+        snr_a = profile_snr(data, good_after, bin_st, bin_end)
 
         rc("font", size=8.5, family="sans-serif")
         rc("axes", linewidth=0.7, edgecolor="#444444")
-        fig = figure(figsize=(9, 7))
+        fig = figure(figsize=(11, 9))
         fig.patch.set_facecolor("white")
+        ext = (lo - 0.5, hi + 0.5, -0.5, N - 0.5)
 
-        panels = [(r.z_rms, "szum off-pulse (z)", true),
-                  (r.z_peak, "największy skok off-pulse (z)", false),
-                  (r.on_energy, "energia on-pulse\n(tylko podgląd)", nothing)]
-        for (k, (y, lab, twosided)) in enumerate(panels)
-            subplot(3, 1, k)
+        for (col, (d, lab)) in enumerate(((data, "PRZED zapowaniem"), (after, "PO zapowaniu")))
+            subplot2grid((6, 2), (0, col - 1), rowspan=3)
+            imshow(d[:, lo:hi], origin="lower", aspect="auto", cmap="viridis",
+                   vmin=vmin, vmax=vmax, interpolation="nearest", extent=ext)
+            if col == 1 && !isempty(rows)
+                scatter(fill(lo + 0.5, length(rows)), rows .- 1, marker="_", s=40,
+                        color="#d62728", zorder=5)
+            end
+            title(lab, fontsize=10, fontweight="bold")
+            ylabel("pulse number (od 0)")
+            col == 2 && tick_params(labelleft=false)
+
+            subplot2grid((6, 2), (3, col - 1))
+            prof_rows = col == 1 ? good_before : good_after
+            isempty(prof_rows) || plot(lo:hi, vec(mean(data[prof_rows, lo:hi], dims=1)),
+                                       color="black", lw=0.9)
+            axvspan(bin_st, bin_end, color="#3182bd", alpha=0.08)
+            title(@sprintf("profil średni, S/N = %.1f", col == 1 ? snr_b : snr_a), fontsize=8.5)
+            xlabel("bin", fontsize=8)
+        end
+
+        x = 0:N-1
+        for (k, (y, lab, twosided)) in enumerate(((r.z_rms, "szum off-pulse (z)", true),
+                                                  (r.z_peak, "największy skok off-pulse (z)", false)))
+            subplot2grid((6, 2), (4 + k - 1, 0), colspan=2)
             grid(true, alpha=0.2, lw=0.4)
             plot(x, y, color="#3182bd", lw=0.6, zorder=2)
-            isempty(bad) || scatter(bad .- 1, y[bad], s=14, color="#d62728", zorder=4,
-                                    label="odrzucone ($(length(bad)))")
-            if twosided !== nothing
-                axhline(ns, color="gray", ls=":", lw=1.0, zorder=1)
-                twosided && axhline(-ns, color="gray", ls=":", lw=1.0, zorder=1)
-            end
-            ylabel(lab, fontsize=8.5)
-            k == 1 && title(@sprintf("Złe impulsy (%s): %d z %d (%.1f%%), próg %.0fσ",
-                                     name_mod, length(bad), N, 100 * length(bad) / N, ns),
-                            fontsize=10, fontweight="bold")
-            k == 1 && !isempty(bad) && legend(fontsize=7, loc="upper right")
-            k < 3 ? tick_params(labelbottom=false) : xlabel("pulse number (od 0, jak w zaps)", fontsize=8.5)
+            isempty(rows) || scatter(rows .- 1, y[rows], s=12, color="#d62728", zorder=4)
+            axhline(r.nsigma, color="gray", ls=":", lw=1.0)
+            twosided && axhline(-r.nsigma, color="gray", ls=":", lw=1.0)
+            ylabel(lab, fontsize=8)
+            k == 1 ? tick_params(labelbottom=false) : xlabel("pulse number (od 0, jak w zaps)")
         end
-        tight_layout()
-        savefig("$outdir/$(name_mod)_bad_pulses.pdf")
-        println("$outdir/$(name_mod)_bad_pulses.pdf")
-        savefig("$outdir/$(name_mod)_bad_pulses.png")
+
+        suptitle(@sprintf("Zapowanie: %d z %d impulsów (%.1f%%)  —  S/N profilu %.1f → %.1f",
+                          length(rows), N, 100 * length(rows) / N, snr_b, snr_a),
+                 fontsize=11, fontweight="bold")
+        tight_layout(rect=(0, 0, 1, 0.96))
+        savefig("$outdir/$(name_mod)_bad_pulses.png", dpi=120)
         println("$outdir/$(name_mod)_bad_pulses.png")
         if show_ == true
             show()
-            println("Press Enter to close the figure.")
-            readline(stdin; keep=false)
+        else
+            close()
         end
-        close()
     end
 
 
