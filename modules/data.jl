@@ -101,6 +101,11 @@ module Data
                    from the max of many noise samples)
       * all-zero pulses (already zapped / missing) are always flagged
 
+    Baseline-structure and spike pulses are always cut (systematics). A
+    noise-level outlier is only a SUSPECT: it is cut only if it adds more
+    noise than signal (s/v < S/2V, see code), so bright pulses whose
+    off-pulse merely looks noisier are kept (`kept_bright`).
+
     z = robust z-score, (x - median) / (1.4826·MAD), so the bad pulses
     themselves don't inflate the threshold. Flagged pulses separated by at
     most `fill_gap` good ones are merged into one bad region.
@@ -159,7 +164,24 @@ module Data
         # (extreme-value level for N·n_off samples, +1σ margin)
         k_spike = sqrt(2 * log(N * length(off))) + 1.0
         spike(i) = z_peak[i] > nsigma && off_peak[i] > k_spike
-        flag = [empty[i] || abs(z_rms[i]) > nsigma || spike(i) || z_struct[i] > nsigma for i in 1:N]
+        # baseline structure and spikes are systematics, not white noise —
+        # they don't average down, so they are always cut
+        always = [spike(i) || z_struct[i] > nsigma for i in 1:N]
+        suspect = [abs(z_rms[i]) > nsigma for i in 1:N]
+
+        # S/N gate for noise-level suspects: cut only if the pulse brings more
+        # noise than signal. Adding a pulse with signal s and variance v to
+        # the sum raises S/N iff s/v > S/(2V) (S, V = totals). Bright pulses
+        # whose off-pulse merely looks noisier (per-pulse digitiser scaling —
+        # seen on real data: zapping them LOWERED S/N) are kept; pulses
+        # carrying mostly noise are cut. Nulls are not suspects unless their
+        # noise is abnormal, so they stay.
+        n_on = bin_end - bin_st + 1
+        sig = [on_energy[i] - n_on * mean(@view data[i, off]) for i in 1:N]
+        noise_var = n_on .* off_rms .^ 2
+        S, V = sum(sig[good]), sum(noise_var[good])
+        worth(i) = V > 0 && noise_var[i] > 0 && sig[i] / noise_var[i] > 0.5 * S / V
+        flag = [empty[i] || always[i] || (suspect[i] && !worth(i)) for i in 1:N]
 
         # bad stretches come in runs: close gaps of <= fill_gap pulses
         # between flagged pulses, so a bad region is cut as one block
@@ -171,7 +193,8 @@ module Data
         end
         bad = findall(flag)
         return (bad=bad, z_rms=z_rms, z_peak=z_peak, z_struct=z_struct,
-                on_energy=on_energy, nsigma=nsigma)
+                on_energy=on_energy, nsigma=nsigma, sig=sig, noise_var=noise_var,
+                kept_bright=findall(i -> suspect[i] && worth(i) && !always[i], 1:N))
     end
 
 
@@ -206,6 +229,9 @@ module Data
         rows = copy(r.bad)
         println("Automatycznie: $(length(rows)) złych impulsów z $N " *
                 "($(round(100 * length(rows) / N, digits=1))%)  →  \"$(pulses_to_zaps(rows))\"")
+        isempty(r.kept_bright) ||
+            println("Zostawione mimo podejrzanego szumu (dużo sygnału, podnoszą S/N): " *
+                    "$(length(r.kept_bright))  →  \"$(pulses_to_zaps(r.kept_bright))\"")
         while true
             Plot.zap_review(data, r, rows, p["bin_st"], p["bin_end"], outdir; show_=(mode == :review))
             mode == :review || break

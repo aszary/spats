@@ -806,10 +806,16 @@ module Plot
         vmin, vmax = isempty(win) ? (0.0, 1.0) : (quantile(vec(win), 0.01), quantile(vec(win), 0.995))
         snr_b = profile_snr(data, good_before, bin_st, bin_end)
         snr_a = profile_snr(data, good_after, bin_st, bin_end)
+        # S/N of the sum of pulses from per-pulse signal and noise (what the
+        # zapping decision optimises; the profile S/N above is often limited
+        # by baseline systematics rather than noise)
+        rad(rws) = isempty(rws) ? NaN : sum(r.sig[rws]) / sqrt(sum(r.noise_var[rws]))
+        rad_b, rad_a = rad(good_before), rad(good_after)
 
-        rc("font", size=8, family="sans-serif")
+        rc("font", size=7.5, family="sans-serif")
         rc("axes", linewidth=0.7, edgecolor="#444444")
-        fig = figure(figsize=(12, 7.5))
+        # fits a ~950 px wide VNC screen including the toolbar (zoom/pan)
+        fig = figure(figsize=(9.2, 6.6), dpi=100)
         fig.patch.set_facecolor("white")
         ext = (lo - 0.5, hi + 0.5, -0.5, N - 0.5)
 
@@ -842,6 +848,8 @@ module Plot
             subplot2grid((7, 2), (4 + k - 1, 0), colspan=2)
             grid(true, alpha=0.2, lw=0.4)
             plot(x, y, color="#3182bd", lw=0.6, zorder=2)
+            isempty(r.kept_bright) || scatter(r.kept_bright .- 1, y[r.kept_bright], s=10,
+                                              color="#ff9f1c", zorder=3)
             isempty(rows) || scatter(rows .- 1, y[rows], s=10, color="#d62728", zorder=4)
             axhline(r.nsigma, color="gray", ls=":", lw=1.0)
             twosided && axhline(-r.nsigma, color="gray", ls=":", lw=1.0)
@@ -851,11 +859,13 @@ module Plot
         end
 
         # zapping must not lower the S/N — if it does, good pulses are being cut
-        warn = snr_a < snr_b ? "   ⚠ S/N SPADŁO — odrzucasz dobre impulsy?" : ""
-        suptitle(@sprintf("Zapowanie: %d z %d impulsów (%.1f%%)  —  S/N profilu %.1f → %.1f",
-                          length(rows), N, 100 * length(rows) / N, snr_b, snr_a) * warn,
-                 fontsize=11, fontweight="bold", color=(isempty(warn) ? "black" : "#b30000"))
-        tight_layout(rect=(0, 0, 1, 0.96))
+        warn = (snr_a < snr_b || rad_a < rad_b) ? "\n⚠ S/N SPADŁO — odrzucasz dobre impulsy?" : ""
+        suptitle(@sprintf("Zapowanie: %d z %d (%.1f%%)   S/N sumy impulsów %.1f → %.1f   " *
+                          "S/N profilu %.1f → %.1f",
+                          length(rows), N, 100 * length(rows) / N, rad_b, rad_a, snr_b, snr_a) *
+                 "\nczerwone = wycinane, pomarańczowe = podejrzane, ale zostawione (dużo sygnału)" * warn,
+                 fontsize=9, fontweight="bold", color=(isempty(warn) ? "black" : "#b30000"))
+        tight_layout(rect=(0, 0, 1, isempty(warn) ? 0.93 : 0.91))
         savefig("$outdir/$(name_mod)_bad_pulses.png", dpi=120)
         println("$outdir/$(name_mod)_bad_pulses.png")
         if show_ == true
