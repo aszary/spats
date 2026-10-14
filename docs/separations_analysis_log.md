@@ -3515,3 +3515,15 @@ Kontrola: folded, phase, P3(n), σ, S/N identyczne bit w bit z `coherent_fold_ja
 J0820-1350: N = 1056, k = 221 (f = 0.2093 vs 1/P3 = 0.2092), S/N 89.5, odchylenie fazy od stałego P3 −0.57…+0.03 cyklu.
 Uwagi: pulsy 1–18 bez emisji (sam szum) → z(n) tam stałe (= −⟨x⟩·conj L); okno on-pulse z params.json (470–567) dużo
 szersze niż emisja (~495–530), więc w jackknife podzakresy 1 i 4 to prawie sam szum.
+
+### 2026-10-14 (cd.) — p3fold_coherent_agent krok po kroku (J0820-1350)
+
+Nowe: `P3FoldViterbi.coherent_fold_agent_steps`, `Plot.p3fold_coherent_agent_steps` (kroki 0–10; 1–2 wspólne z wersją
+podstawową), `SpaTs.p3fold_coherent_agent_steps`. Skrypt `~/claude/work/scripts/coherent_agent_steps_J0820.jl`, wykresy
+`~/claude/work/figures/coherent_agent_steps/J0820-1350_step<k>.png`. Kontrola: f_c, ΔR², σ, faza, P3(n), błędy, oba foldy,
+maska, próg, S/N identyczne z `coherent_fold_agent`.
+J0820-1350: f_c = 1/38.2 (0.125 f3), σ = 0.07 cyklu, nulle z energii 0 (2·frac = 1.9% < 5%; 18-pulsowy null na początku
+nie jest wykrywany, ale pokrywa się z brzegiem filtra 19 P), P3(n) w 96.4% pulsów, 4.41–5.01, mediana 4.76.
+Do sprawdzenia: wersja podstawowa (1/300) i `_agent` różnią się o ~1 cykl fazy przy pulsach ~230–290 (podstawowa: faza
+maleje o ~0.3, `_agent`: rośnie o ~0.85, lokalnie P3 ≈ 4.4–4.5). W jackknife podzakresy 1 i 4 (okno 470–567 szersze niż
+emisja) to szum, a mimo to dają P3(n) w 41% / 33% pulsów i poszerzają pasmo błędu.

@@ -593,6 +593,37 @@ module SpaTs
         return result
     end
 
+    """
+    `p3fold_coherent_agent` drawn step by step (`P3FoldViterbi.coherent_fold_agent_steps`,
+    `Plot.p3fold_coherent_agent_steps`): one figure per step, `steps` picks which
+    (0 data/nulls, 1 FFT/template, 2 matched filter, 3 f_c choice, 4 demodulation + low-pass,
+    5 adaptive carrier, 6 pulses used for P3(n), 7 phase and P3(n), 8 kernel σ, 9 folds,
+    10 errors). Same defaults and data handling as `p3fold_coherent_agent`.
+    Figures: `<plotdir>/<name_mod>_step<k>.pdf/.png`. Returns all intermediates.
+      p3fold_coherent_agent_steps(vpmout*"J0820-1350"; plotdir="/home/psr/work/figures/coherent_agent_steps/", figtitle="J0820-1350")
+    """
+    function p3fold_coherent_agent_steps(outdir; steps=0:10, ybins=nothing, lowpass_cutoff=:auto, filter_order=6,
+                                         n_groups=4, threshold_q=0.5, split_nulls=true, kernel_sigma=:auto,
+                                         nphase=64, npulses=150, darkness=1.0, datafile="pulsar.debase.txt",
+                                         plotdir=outdir, name_mod="pulsar_coherent_agent_steps", figtitle=nothing)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, datafile))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        yb   = isnothing(ybins) ? round(Int, p["p3_ybins"]) : ybins
+        p3   = Float64(p["p3"])
+        s = P3FoldViterbi.coherent_fold_agent_steps(
+            data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
+            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups,
+            threshold_q=threshold_q, split_nulls=split_nulls, kernel_sigma=kernel_sigma, nphase=nphase)
+        fc = s.lowpass_cutoff
+        println("Matched-filter SNR: $(round(s.snr, digits=1)), lowpass_cutoff = 1/$(round(1 / fc, digits=1)) " *
+                "($(round(fc * p3, digits=3)) f3), kernel σ = $(s.kernel_sigma) cycle, nulls (energy) $(count(s.nulls)), " *
+                "P3(n) measured in $(round(100 * count(isfinite, s.p3_per_pulse) / length(s.p3_per_pulse), digits=1))% of pulses")
+        Plot.p3fold_coherent_agent_steps(s, data, plotdir; steps=steps, npulses=npulses, name_mod=name_mod,
+                                         figtitle=figtitle, darkness=darkness)
+        return s
+    end
+
 
     """
     Controlled comparison of `Tools.p3fold` (the "constant P3" naive fold

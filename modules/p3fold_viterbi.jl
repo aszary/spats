@@ -996,4 +996,144 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
             cutoff_grid=grid, cutoff_score=score, snr=snr)
 end
 
+
+"""
+    coherent_fold_agent_steps(data, p3, bin_st, bin_end; ybins, lowpass_cutoff, filter_order, niter,
+                              nshuffle, n_groups, threshold_q, split_nulls, kernel_sigma, nphase,
+                              cutoff_grid, cutoff_seed) -> NamedTuple
+
+`coherent_fold_agent` with every intermediate quantity returned, for drawing
+the method step by step (`Plot.p3fold_coherent_agent_steps`). Built from the
+same internal functions in the same order, so `phase`, `p3_per_pulse`,
+`p3_per_pulse_err`, `folded_kernel`, `folded_bins`, `lowpass_cutoff`,
+`kernel_sigma` equal those of `coherent_fold_agent` with the same arguments.
+
+Extra fields (besides the `coherent_fold_agent` ones):
+  template   – `F`, `k`, `L`, `off`, `sigma_off`, `argL_on`, `f3`
+  matched filter – `w`, `z`, `baseband` = z·e^{−2πi f3 n} (pass 0, before the low-pass)
+  cutoff     – `halves` (A, B: interleaved on-pulse bin blocks), `cutoff_grid`, `cv_data`,
+               `cv_shuffle` (grid × nshuffle), `cutoff_score` = cv_data − mean(cv_shuffle)
+  filter     – `resp_f`, `resp_H` (|H|⁴ at f_c), `resp_H300` (|H|⁴ at 1/300, the old default)
+  nulls      – `energy` E(n), `energy_smooth` (5 P), `null_frac` = 2·frac(Ē < 0)
+  carrier    – `passes`: (s, carrier) for niter = 0..niter, `threshold0` (shuffle level, pass 0)
+  mask       – `edge`, `above` (|s| ≥ threshold), `used`, `nedge`, `window`
+  fold       – `phase_const` = 2πn/p3, `phase_dev` = unwrapped phase − phase_const,
+               `folded_const` (kernel fold with phase_const, same σ)
+  jackknife  – `edges`, `group_p3`, `group_used`
+"""
+function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                                   ybins::Int=10, lowpass_cutoff=:auto, filter_order::Int=6,
+                                   niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5,
+                                   split_nulls::Bool=true, kernel_sigma=:auto, nphase::Int=64,
+                                   cutoff_grid=(1/16, 1/10, 1/8, 1/6, 1/4, 1/3), cutoff_seed::Int=2)
+    N = size(data, 1)
+    on = bin_st:bin_end
+    n = collect(1:N)
+    f3 = 1.0 / p3
+
+    # template and detection significance (as coherent_fold)
+    F = fft(data, 1)
+    k = clamp(round(Int, N / p3), 1, N ÷ 2)
+    L = F[k+1, :]
+    off = vcat(1:bin_st-1, bin_end+1:size(data, 2))
+    sigma_off = isempty(off) ? 0.0 : std([real.(L[off]); imag.(L[off])])
+    snr = sigma_off == 0 ? Inf : sqrt(sum(abs2, L[on])) / (sigma_off * sqrt(length(on)))
+
+    # matched filter on the de-meaned on-pulse window
+    X = data[:, on]
+    X = X .- mean(X, dims=1)
+    w = _template_weights(X, p3)
+    z = X * w
+    phase_const = (2π / p3) .* n
+    baseband = z .* exp.(-1im .* phase_const)
+
+    # low-pass cutoff: cross-validated fold quality minus pulse-shuffle level (auto_cutoff_agent)
+    A, B = _bin_halves(size(X, 2))
+    if lowpass_cutoff === :auto
+        cutoffs = [g / p3 for g in cutoff_grid]
+        rng = MersenneTwister(cutoff_seed)
+        perms = [randperm(rng, N) for _ in 1:nshuffle]
+        cv_data = [_cv_r2(X, A, B, p3, fc, ybins, filter_order) for fc in cutoffs]
+        cv_shuffle = [_cv_r2(X[pp, :], A, B, p3, fc, ybins, filter_order) for fc in cutoffs, pp in perms]
+        score = cv_data .- vec(mean(cv_shuffle, dims=2))
+        fc = cutoffs[argmax(score)]
+    else
+        fc = Float64(lowpass_cutoff)
+        cutoffs, cv_data, cv_shuffle, score = nothing, nothing, nothing, nothing
+    end
+    resp_f = collect(range(0, 0.5, length=4000))
+    resp_H = abs2.(freqresp(digitalfilter(Lowpass(fc), Butterworth(filter_order); fs=1.0), 2π .* resp_f)) .^ 2
+    resp_H300 = abs2.(freqresp(digitalfilter(Lowpass(1 / 300), Butterworth(filter_order); fs=1.0), 2π .* resp_f)) .^ 2
+
+    # nulls from pulse energy (_energy_nulls, smooth = 5)
+    E = vec(sum(data[:, on], dims=2))
+    Es = [mean(E[max(1, i - 2):min(N, i + 2)]) for i in 1:N]
+    null_frac = 2 * mean(Es .< 0)
+    nulls = split_nulls ? _energy_nulls(data, on) : falses(N)
+
+    # variant C (_variant_c): adaptive carrier, threshold, edges, nulls, weighted P3(n)
+    thr0 = _shuffle_level(X, p3, fc; filter_order=filter_order, nshuffle=nshuffle, q=threshold_q)
+    passes = [_carrier_track(X, p3, fc; filter_order=filter_order, niter=i, threshold=thr0) for i in 0:niter]
+    s, carrier = passes[end]
+    thr = niter == 0 ? thr0 : _shuffle_level(X, p3, fc; filter_order=filter_order, niter=niter,
+                                             threshold=thr0, nshuffle=nshuffle, q=threshold_q)
+    nedge = max(4, round(Int, 1 / (2fc)))
+    window = max(nedge, round(Int, 3p3), 30)
+    edge = falses(N)
+    edge[1:min(N, nedge)] .= true
+    edge[max(1, N - nedge + 1):N] .= true
+    above = abs.(s) .>= thr
+    used = above .& .!edge .& .!nulls
+    p3n = _weighted_p3(s, carrier, used, window; bounds=(2.0, 3p3))
+
+    # folds
+    phase = carrier .+ angle.(s)
+    bin = [Int(floor(mod(phase[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
+    counts = [count(==(y), bin) for y in 1:ybins]
+    folded_bins = build_template(data, bin, ybins) ./ counts
+    folded_bins[counts .== 0, :] .= NaN
+    if kernel_sigma === :auto
+        ks = kernel_sigma_agent(data, p3, bin_st, bin_end, fc; filter_order=filter_order, niter=niter,
+                                nshuffle=nshuffle, threshold_q=threshold_q, exclude=nulls)
+        ksig, ksgrid, ksscore = ks.sigma, ks.grid, ks.score
+    else
+        ksig, ksgrid, ksscore = Float64(kernel_sigma), nothing, nothing
+    end
+    folded_kernel = kernel_fold_agent(data, phase, ksig; nphase=nphase)
+    folded_const = kernel_fold_agent(data, phase_const, ksig; nphase=nphase)
+
+    # errors from independent longitude sub-ranges
+    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+    gp3 = fill(NaN, n_groups, N)
+    gused = falses(n_groups, N)
+    for g in 1:n_groups
+        st, en = edges[g], edges[g+1] - 1
+        en - st < 2 && continue
+        Xg = data[:, st:en]
+        Xg = Xg .- mean(Xg, dims=1)
+        cg = _variant_c(Xg, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle,
+                        threshold_q=threshold_q, exclude=nulls)
+        gp3[g, :] = cg.p3
+        gused[g, :] = cg.keep
+    end
+    p3_err = map(1:N) do i
+        v = filter(isfinite, @view gp3[:, i])
+        length(v) < 2 ? NaN : std(v) / sqrt(length(v))
+    end
+
+    return (folded=folded_kernel, folded_kernel=folded_kernel, kernel_sigma=ksig, sigma_grid=ksgrid,
+            sigma_score=ksscore, folded_bins=folded_bins, counts=counts, phase=phase, bin=bin,
+            p3_per_pulse=p3n, p3_per_pulse_err=p3_err, used=used, nulls=nulls, amplitude=abs.(s),
+            threshold=thr, lowpass_cutoff=fc, cutoff_grid=cutoffs, cutoff_score=score, snr=snr,
+            p3=p3, f3=f3, ybins=ybins, nphase=nphase, filter_order=filter_order, niter=niter,
+            n_groups=n_groups, threshold_q=threshold_q, bin_st=bin_st, bin_end=bin_end,
+            F=F, k=k, L=L, off=off, sigma_off=sigma_off, argL_on=DSP.unwrap(angle.(L[on])),
+            w=w, z=z, baseband=baseband, halves=(A, B), cv_data=cv_data, cv_shuffle=cv_shuffle,
+            resp_f=resp_f, resp_H=resp_H, resp_H300=resp_H300,
+            energy=E, energy_smooth=Es, null_frac=null_frac,
+            passes=passes, threshold0=thr0, edge=edge, above=above, nedge=nedge, window=window,
+            phase_const=phase_const, phase_dev=DSP.unwrap(phase .- phase_const), folded_const=folded_const,
+            edges=edges, group_p3=gp3, group_used=gused)
+end
+
 end # module P3FoldViterbi
