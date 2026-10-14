@@ -592,8 +592,14 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     # frequency 0 and, unlike in `drift_test` (which reads a single FFT bin and never
     # mixes frequencies), a time-domain projection like this carries every frequency
     # through, so the huge DC term would otherwise swamp the low-pass filter below.
+    # Zapped pulses (Data.zap! -> all-zero rows) are MISSING data, not zero
+    # signal: mean profile from good pulses only, and a zapped pulse
+    # contributes exactly 0 after demeaning (otherwise it'd be "-mean
+    # profile", a fake constant-phase signal).
+    good = [any(!iszero, @view data[i, :]) for i in 1:N]
     on_data = data[:, on]
-    on_data_demeaned = on_data .- mean(on_data, dims=1)
+    on_data_demeaned = on_data .- mean(on_data[good, :], dims=1)
+    on_data_demeaned[.!good, :] .= 0
     w = conj.(L_on)
     z = on_data_demeaned * w
 
@@ -642,8 +648,11 @@ function coherent_fold(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int
     # credible, so that's treated as a blow-up, not a real measurement.
     raw_p3 = (2π) ./ slope
     p3_per_pulse = [abs(x) > 3 * abs(p3) ? NaN : x for x in raw_p3]
+    # no measurement at zapped pulses -> gap in the P3(t) line
+    p3_per_pulse[.!good] .= NaN
 
-    return (folded=template, phase=phase_total, bin=bin, p3_per_pulse=p3_per_pulse, snr=snr)
+    return (folded=template, phase=phase_total, bin=bin, p3_per_pulse=p3_per_pulse, snr=snr,
+            good=good)
 end
 
 
@@ -753,19 +762,22 @@ function cutoff_metrics(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::In
     # points are left over. `valid=false` zeroes signal_std (never selected
     # by argmax/refine_cutoff) and tells the plots to skip this cutoff
     # entirely instead of drawing a gappy or partial line for it.
-    valid = all(isfinite, main.p3_per_pulse) && all(isfinite, group_p3)
+    # zapped pulses (main.good == false) are gaps by design, not blow-ups —
+    # every statistic below uses only the good pulses
+    g = main.good
+    valid = all(isfinite, main.p3_per_pulse[g]) && all(isfinite, group_p3[:, g])
 
     cors = Float64[]
     if valid
         for a in 1:n_groups, b in a+1:n_groups
-            va, vb = @view(group_p3[a, :]), @view(group_p3[b, :])
+            va, vb = group_p3[a, g], group_p3[b, g]
             if std(va) > 0 && std(vb) > 0
                 push!(cors, cor(va, vb))
             end
         end
     end
     consistency = (!valid || isempty(cors)) ? NaN : mean(cors)
-    p3_std_val  = valid ? std(main.p3_per_pulse) : NaN
+    p3_std_val  = valid ? std(main.p3_per_pulse[g]) : NaN
     # effective *signal* variability: `consistency` estimates what
     # fraction of the observed p3_std is reproducible (shared between
     # independent subbands) rather than independent per-subband noise —
@@ -944,7 +956,10 @@ function dedupe_redundant_cutoffs(results; tol::Real=0.05)
     for i in 2:length(sorted)
         a = hasproperty(sorted[last_kept], :p3_per_pulse) ? sorted[last_kept].p3_per_pulse : nothing
         b = hasproperty(sorted[i], :p3_per_pulse) ? sorted[i].p3_per_pulse : nothing
-        if a !== nothing && b !== nothing && all(isfinite, a) && all(isfinite, b)
+        # compare only where both are finite (zapped pulses are NaN gaps)
+        fin = (a !== nothing && b !== nothing) ? (isfinite.(a) .& isfinite.(b)) : nothing
+        if fin !== nothing && count(fin) > 2
+            a, b = a[fin], b[fin]
             scale = max(std(a), std(b), 1e-9)
             rmsdiff = sqrt(mean((a .- b) .^ 2))
             if rmsdiff / scale < tol

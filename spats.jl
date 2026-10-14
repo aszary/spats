@@ -78,8 +78,8 @@ module SpaTs
         Plot.single(d1, outdir; darkness=0.9, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="pulsar", show_=true)
     end
 
-    function process_psrdata(indir, outdir)
-        p, debased_file, outdir = Data.process_psrdata(indir, outdir)
+    function process_psrdata(indir, outdir; zap_mode=:review, zap_nsigma=5.0)
+        p, debased_file, outdir = Data.process_psrdata(indir, outdir; zap_mode=zap_mode, zap_nsigma=zap_nsigma)
         Data.plot_psrdata(outdir, p)
         Data.process_data_andrzej(debased_file, outdir, p)
     end
@@ -681,6 +681,82 @@ module SpaTs
         end
     end
 
+
+    # matched-filter SNR of the current pulsar.debase.txt (with its zaps),
+    # or `nothing` when P3/on-pulse aren't known yet
+    function coherent_snr(outdir)
+        pf = joinpath(outdir, "params.json")
+        tf = joinpath(outdir, "pulsar.debase.txt")
+        (isfile(pf) && isfile(tf)) || return nothing
+        p = Tools.read_params(pf)
+        (get(p, "p3", -1.0) isa Number && p["p3"] > 0 && !isnothing(get(p, "bin_st", nothing))) || return nothing
+        data = Data.load_ascii(tf)
+        Data.zap!(data; ranges=get(p, "zaps", nothing))
+        return P3FoldViterbi.coherent_fold(data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
+                                           warn_weak=false).snr
+    end
+
+
+    """
+    Przelicza od nowa wszystkie pulsary z `dataroot` (ścieżka `<pulsar>`, ta
+    sama co analiza P3) z automatycznym wykrywaniem złych impulsów.
+
+    Dla każdego pulsara: psradd → debase → wykrycie złych impulsów (wykres
+    `pulsar_bad_pulses` + pytanie: Enter = zatwierdź, n = bez zapów, albo
+    własne zakresy) → paz → debase jeszcze raz → 2DFS/LRFS/pfold.
+    Istniejące params.json (on-pulse, P3) są zachowane; nowe są tylko zaps
+    i wszystkie produkty. Na koniec tabela SNR przed/po w
+    `vpmout/zap_summary.csv`.
+
+      reprocess_all_zap()                                  # wszystkie
+      reprocess_all_zap(only=["J1750-3503", "J2053-7200"]) # wybrane
+      reprocess_all_zap(zap_mode=:auto)                    # bez pytań
+    """
+    function reprocess_all_zap(; dataroot="/home/psr/data/new/", vpmout="/home/psr/output/",
+                               only=nothing, zap_mode=:review, zap_nsigma=5.0)
+        psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
+        isnothing(only) || (psr_dirs = filter(in(Set(only)), psr_dirs))
+        rows = String["pulsar,n_pulses,n_zapped,pct_zapped,snr_before,snr_after,zaps"]
+        summary_file = joinpath(vpmout, "zap_summary.csv")
+        fmt(x) = isnothing(x) ? "" : string(round(x, digits=2))
+
+        for psr in psr_dirs
+            psr_path = joinpath(dataroot, psr)
+            obs_dirs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
+            if isempty(obs_dirs)
+                @warn "Brak katalogu obserwacji dla $psr, pomijam"
+                continue
+            end
+            indir  = joinpath(psr_path, obs_dirs[1]) * "/"
+            outdir = vpmout * psr
+            println("\n===== $psr  (obs: $(obs_dirs[1])) =====")
+            try
+                snr_before = try coherent_snr(outdir) catch; nothing end
+                p, _, _ = Data.process_psrdata(indir, outdir; zap_mode=zap_mode, zap_nsigma=zap_nsigma)
+                snr_after = try coherent_snr(outdir) catch; nothing end
+                zaps = get(p, "zaps", nothing)
+                nz = sum((b - a + 1 for (a, b) in Data.zaps_to_ranges(zaps)); init=0)
+                np = something(get(p, "nsubint", nothing), 0)
+                pct = np > 0 ? 100 * nz / np : 0.0
+                println("$psr: odrzucono $nz/$np impulsów ($(round(pct, digits=1))%), " *
+                        "SNR $(fmt(snr_before)) → $(fmt(snr_after))")
+                push!(rows, "$psr,$np,$nz,$(round(pct, digits=2)),$(fmt(snr_before)),$(fmt(snr_after))," *
+                            "\"$(something(zaps, ""))\"")
+                # zapis po każdym pulsarze — nic nie ginie przy przerwaniu
+                open(summary_file, "w") do f; foreach(r -> println(f, r), rows); end
+            catch e
+                @warn "Błąd dla $psr: $e"
+            end
+            if zap_mode == :review
+                print("Dalej? [Enter = następny, q = koniec]: ")
+                strip(readline()) == "q" && break
+            end
+        end
+        println("\nPodsumowanie: $summary_file")
+        foreach(println, rows)
+        return rows
+    end
+
     function main()
         # output directory for VPM
         vpmout = "/home/psr/output/"
@@ -990,6 +1066,11 @@ module SpaTs
         #   J1539-6322 - mocny sygnal (SNR~26), kontrast dla powyzszego
         #   J1110-5637 - "podrecznikowy" czysty przypadek z dokumentacji
         #   J2053-7200 - bardzo krotkie P3≈3, trudny przypadek dla ybins
+        #
+        # KROK 0: przeliczenie tych 4 pulsarow od nowa z wykrywaniem zlych
+        # impulsow (wykres + Enter/n/wlasne zakresy), tabela SNR przed/po.
+        # Gdy wyglada dobrze -> reprocess_all_zap() dla wszystkich z data/new.
+        reprocess_all_zap(only=["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"])
         for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]
             println("\n===== $psr_test =====")
             try

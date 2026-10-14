@@ -670,8 +670,10 @@ module Plot
         fig = figure(figsize=(8.5, 5))
         fig.patch.set_facecolor("white")
 
-        center = p3_nominal !== nothing ? p3_nominal : median(M)
-        spread = maximum(abs.(M .- center))
+        # NaN = zapped pulses (gaps) — colour range from finite values only
+        Mf = filter(isfinite, M)
+        center = p3_nominal !== nothing ? p3_nominal : (isempty(Mf) ? 0.0 : median(Mf))
+        spread = isempty(Mf) ? 1.0 : maximum(abs.(Mf .- center))
         spread = spread > 0 ? spread : 1.0
 
         im = imshow(M, aspect="auto", origin="lower", cmap="RdBu_r",
@@ -750,6 +752,57 @@ module Plot
         println("$outdir/$(name_mod)_subband_consistency.pdf")
         savefig("$outdir/$(name_mod)_subband_consistency.png")
         println("$outdir/$(name_mod)_subband_consistency.png")
+        if show_ == true
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
+    """
+    Diagnostic for `Data.find_bad_pulses`: off-pulse noise level and spike
+    statistic (robust z-scores, what the decision is based on) plus on-pulse
+    energy (context only — never used to reject, so nulls stay) vs pulse
+    number. Rejected pulses in red, threshold ±nsigma dotted.
+    """
+    function bad_pulses(r, outdir; name_mod="pulsar", show_=false)
+        N = length(r.z_rms)
+        x = 0:N-1          # 0-based, same numbering as p["zaps"]
+        bad = r.bad        # 1-based rows (for indexing y)
+        ns = r.nsigma
+
+        rc("font", size=8.5, family="sans-serif")
+        rc("axes", linewidth=0.7, edgecolor="#444444")
+        fig = figure(figsize=(9, 7))
+        fig.patch.set_facecolor("white")
+
+        panels = [(r.z_rms, "szum off-pulse (z)", true),
+                  (r.z_peak, "największy skok off-pulse (z)", false),
+                  (r.on_energy, "energia on-pulse\n(tylko podgląd)", nothing)]
+        for (k, (y, lab, twosided)) in enumerate(panels)
+            subplot(3, 1, k)
+            grid(true, alpha=0.2, lw=0.4)
+            plot(x, y, color="#3182bd", lw=0.6, zorder=2)
+            isempty(bad) || scatter(bad .- 1, y[bad], s=14, color="#d62728", zorder=4,
+                                    label="odrzucone ($(length(bad)))")
+            if twosided !== nothing
+                axhline(ns, color="gray", ls=":", lw=1.0, zorder=1)
+                twosided && axhline(-ns, color="gray", ls=":", lw=1.0, zorder=1)
+            end
+            ylabel(lab, fontsize=8.5)
+            k == 1 && title(@sprintf("Złe impulsy (%s): %d z %d (%.1f%%), próg %.0fσ",
+                                     name_mod, length(bad), N, 100 * length(bad) / N, ns),
+                            fontsize=10, fontweight="bold")
+            k == 1 && !isempty(bad) && legend(fontsize=7, loc="upper right")
+            k < 3 ? tick_params(labelbottom=false) : xlabel("pulse number (od 0, jak w zaps)", fontsize=8.5)
+        end
+        tight_layout()
+        savefig("$outdir/$(name_mod)_bad_pulses.pdf")
+        println("$outdir/$(name_mod)_bad_pulses.pdf")
+        savefig("$outdir/$(name_mod)_bad_pulses.png")
+        println("$outdir/$(name_mod)_bad_pulses.png")
         if show_ == true
             show()
             println("Press Enter to close the figure.")

@@ -40,6 +40,156 @@ module Data
 
 
     """
+        zaps_to_ranges(zaps) -> Vector{Tuple{Int,Int}}
+
+    Parse a `p["zaps"]` string ("12 40-45", 0-based, inclusive) into 0-based
+    (start, end) pairs. `nothing`/empty -> empty vector.
+    """
+    function zaps_to_ranges(zaps)
+        (isnothing(zaps) || isempty(strip(zaps))) && return Tuple{Int,Int}[]
+        out = Tuple{Int,Int}[]
+        for tok in split(zaps)
+            b = split(tok, "-")
+            lo = parse(Int, b[1])
+            push!(out, (lo, length(b) == 1 ? lo : parse(Int, b[2])))
+        end
+        return out
+    end
+
+
+    """
+        pulses_to_zaps(rows) -> String
+
+    1-based row numbers (Julia) -> `p["zaps"]` string (0-based PSRCHIVE
+    subints), consecutive pulses merged into "a-b" ranges.
+    """
+    function pulses_to_zaps(rows)
+        r = sort(unique(rows)) .- 1
+        isempty(r) && return ""
+        toks = String[]
+        st = prev = r[1]
+        for x in r[2:end]
+            if x == prev + 1
+                prev = x
+                continue
+            end
+            push!(toks, st == prev ? "$st" : "$st-$prev")
+            st = prev = x
+        end
+        push!(toks, st == prev ? "$st" : "$st-$prev")
+        return join(toks, " ")
+    end
+
+
+    """
+        find_bad_pulses(data, bin_st, bin_end; nsigma=5.0, margin=nothing)
+
+    Automatic bad-pulse (RFI / broken data) detection, from the OFF-pulse
+    region only — so nulls and bright pulses (real pulsar emission) are never
+    rejected, only pulses where the noise itself is wrong:
+
+      * `z_rms`  – off-pulse noise level (broadband RFI raises it, dropouts
+                   lower it) — flagged when |z| > nsigma
+      * `z_peak` – largest single off-pulse sample in units of that pulse's own
+                   rms (narrow spikes) — flagged when z > nsigma AND the spike
+                   is above the Gaussian extreme-value level (no false alarms
+                   from the max of many noise samples)
+      * all-zero pulses (already zapped / missing) are always flagged
+
+    z = robust z-score, (x - median) / (1.4826·MAD), so the bad pulses
+    themselves don't inflate the threshold. `margin` (default 5% of bins)
+    keeps the off-pulse window away from the on-pulse edges.
+
+    Returns (bad = 1-based rows, z_rms, z_peak, on_energy).
+    """
+    function find_bad_pulses(data, bin_st, bin_end; nsigma=5.0, margin=nothing)
+        N, nb = size(data)
+        m = isnothing(margin) ? max(2, round(Int, 0.05 * nb)) : margin
+        off = vcat(1:max(0, bin_st - m - 1), min(nb + 1, bin_end + m + 1):nb)
+        length(off) < 20 && (off = vcat(1:bin_st-1, bin_end+1:nb))
+        off_rms  = [std(@view data[i, off]) for i in 1:N]
+        off_peak = [maximum(abs, @view data[i, off]) / max(off_rms[i], eps()) for i in 1:N]
+        on_energy = [sum(@view data[i, bin_st:bin_end]) for i in 1:N]
+
+        empty = off_rms .== 0
+        good = .!empty
+        function robust_z(x)
+            z = fill(NaN, N)
+            xs = x[good]
+            isempty(xs) && return z
+            med = median(xs)
+            mad = 1.4826 * median(abs.(xs .- med))
+            mad = mad > 0 ? mad : max(std(xs), eps())
+            z[good] = (xs .- med) ./ mad
+            return z
+        end
+        z_rms = robust_z(off_rms)
+        z_peak = robust_z(off_peak)
+
+        # the max of many noise samples has a heavy right tail, so z_peak > nsigma
+        # alone gives false alarms; also require the spike to exceed what pure
+        # Gaussian noise practically never reaches anywhere in the observation
+        # (extreme-value level for N·n_off samples, +1σ margin)
+        k_spike = sqrt(2 * log(N * length(off))) + 1.0
+        spike(i) = z_peak[i] > nsigma && off_peak[i] > k_spike
+        bad = findall(i -> empty[i] || abs(z_rms[i]) > nsigma || spike(i), 1:N)
+        return (bad=bad, z_rms=z_rms, z_peak=z_peak, on_energy=on_energy, nsigma=nsigma)
+    end
+
+
+    """
+        review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review)
+
+    Runs `find_bad_pulses` on `txtfile`, shows `Plot.bad_pulses`, and (mode
+    `:review`) asks: Enter = accept, `n` = no zaps, or type your own ranges.
+    `:auto` accepts without asking. Saves the result to `p["zaps"]`.
+    """
+    function review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review)
+        data = load_ascii(txtfile)
+        N = size(data, 1)
+        r = find_bad_pulses(data, p["bin_st"], p["bin_end"]; nsigma=nsigma)
+        suggested = pulses_to_zaps(r.bad)
+        println("Złe impulsy: $(length(r.bad)) z $N " *
+                "($(round(100 * length(r.bad) / N, digits=1))%)  →  \"$suggested\"")
+        Plot.bad_pulses(r, outdir; show_=(mode == :review))
+        zaps = suggested
+        if mode == :review
+            print("Enter = zatwierdź, n = bez zapów, albo wpisz własne zakresy " *
+                  "(numeracja od 0, np. \"12 40-45\"): ")
+            ans = strip(readline())
+            if ans == "n"
+                zaps = ""
+            elseif !isempty(ans)
+                zaps = String(ans)
+            end
+        end
+        p["zaps"] = isempty(zaps) ? nothing : zaps
+        Tools.save_params(params_file, p)
+        println("Zapisane zaps = $(repr(p["zaps"]))")
+        return p["zaps"]
+    end
+
+
+    """
+    Zero the weights of the `zaps` subints in a PSRCHIVE archive (in place),
+    ranges as `-W "a b"`, single pulses as `-w "x y"`.
+    """
+    function apply_zaps(archive, zaps)
+        rngs = zaps_to_ranges(zaps)
+        isempty(rngs) && return
+        args = String[]
+        singles = [string(a) for (a, b) in rngs if a == b]
+        for (a, b) in rngs
+            a == b && continue
+            push!(args, "-W", "$a $b")
+        end
+        isempty(singles) || push!(args, "-w", join(singles, " "))
+        println("ZAPPING subints: $zaps")
+        run(pipeline(`paz -m $args $archive`, stderr="errs.txt"))
+    end
+
+
+    """
     Loads PSRCHIVE ASCII file
     """
     function load_ascii(infile)
@@ -305,8 +455,15 @@ module Data
 
     """
     Process data with PSRCHIVE and PSRSALSA
+
+    Bad pulses: after the first debase, `review_zaps` detects bad pulses
+    (`zap_mode=:review` shows a plot and asks, `:auto` accepts silently,
+    `:off` keeps whatever `p["zaps"]` already holds). Zaps are then applied
+    with `paz` and the data debased again, so every later step (2DFS, P3,
+    pfold, pulsar.debase.txt) works on the cleaned data.
     """
-    function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json")
+    function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json",
+                             zap_mode=:review, zap_nsigma=5.0)
 
         # full paths
         params_file = joinpath(outdir, params_file)
@@ -338,6 +495,16 @@ module Data
 
         # debase the data
         debase(outfile, params_file, p)
+
+        # bad pulses: detect on the debased data, then zap + debase again
+        # (outfile is rebuilt by psradd on every run, so zaps are re-applied)
+        zaps = zap_mode == :off ? get(p, "zaps", nothing) :
+               review_zaps(replace(outfile, ".spCF" => ".debase.txt"), p, params_file, outdir;
+                           nsigma=zap_nsigma, mode=zap_mode)
+        if !isnothing(zaps)
+            apply_zaps(outfile, zaps)
+            debase(outfile, params_file, p)
+        end
 
         # Calculate 2dfs and lrfs
         twodfs_lrfs(debased_file, params_file, p; detect=false)
