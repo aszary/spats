@@ -782,6 +782,9 @@ module SpaTs
                 record("$psr,$status,$np,$nz,$(round(pct, digits=2)),$(fmt(snr_before)),$(fmt(snr_after))," *
                        "\"$(something(zaps, ""))\"")
             catch e
+                # Ctrl+C stops the whole run (not just this pulsar); the
+                # interrupted pulsar is not recorded, so a rerun redoes it
+                e isa InterruptException && rethrow()
                 if e isa Data.SkipPulsar
                     println("$psr — pominięty na życzenie.")
                     record("$psr,pominiety,,,,,,\"\"")
@@ -1112,22 +1115,24 @@ module SpaTs
         #   J1110-5637 - "podrecznikowy" czysty przypadek z dokumentacji
         #   J2053-7200 - bardzo krotkie P3≈3, trudny przypadek dla ybins
         #
-        # KROK 0: przeliczenie tych 4 pulsarow od nowa z wykrywaniem zlych
-        # impulsow (wykres + Enter/n/wlasne zakresy), tabela SNR przed/po.
-        # Gdy wyglada dobrze -> reprocess_all_zap() dla wszystkich z data/new.
-        reprocess_all_zap(only=["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"])
-        for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]
-            println("\n===== $psr_test =====")
-            try
-                scan_result = p3fold_cutoff_scan(vpmout*psr_test)
-                if !isnothing(scan_result.suggested_cutoff)
-                    println(">>> OSTATECZNIE WYBRANY cutoff dla $psr_test: $(scan_result.suggested_cutoff)")
-                    p3fold_coherent(vpmout*psr_test, lowpass_cutoff=scan_result.suggested_cutoff)
-                end
-            catch e
-                println("ERROR dla $psr_test: $e")
-            end
-        end
+        # PRZELICZENIE OD NOWA z zapowaniem zlych impulsow: moja polowa,
+        # od ostatniego pulsara (J2346-0609) w dol. Po przerwaniu wystarczy
+        # uruchomic ponownie — zrobione pulsary (zap_summary.csv) sa pomijane.
+        reprocess_all_zap(reverse=true, half=true)
+
+        # test skanu cutoffu + coherent fold na 4 pulsarach (wylaczony)
+        #for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]
+        #    println("\n===== $psr_test =====")
+        #    try
+        #        scan_result = p3fold_cutoff_scan(vpmout*psr_test)
+        #        if !isnothing(scan_result.suggested_cutoff)
+        #            println(">>> OSTATECZNIE WYBRANY cutoff dla $psr_test: $(scan_result.suggested_cutoff)")
+        #            p3fold_coherent(vpmout*psr_test, lowpass_cutoff=scan_result.suggested_cutoff)
+        #        end
+        #    catch e
+        #        println("ERROR dla $psr_test: $e")
+        #    end
+        #end
 
 
         #test(vpmout)

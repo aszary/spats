@@ -807,14 +807,14 @@ module Plot
         snr_b = profile_snr(data, good_before, bin_st, bin_end)
         snr_a = profile_snr(data, good_after, bin_st, bin_end)
 
-        rc("font", size=8.5, family="sans-serif")
+        rc("font", size=8, family="sans-serif")
         rc("axes", linewidth=0.7, edgecolor="#444444")
-        fig = figure(figsize=(11, 9))
+        fig = figure(figsize=(12, 7.5))
         fig.patch.set_facecolor("white")
         ext = (lo - 0.5, hi + 0.5, -0.5, N - 0.5)
 
         for (col, (d, lab)) in enumerate(((data, "PRZED zapowaniem"), (after, "PO zapowaniu")))
-            subplot2grid((6, 2), (0, col - 1), rowspan=3)
+            subplot2grid((7, 2), (0, col - 1), rowspan=3)
             imshow(d[:, lo:hi], origin="lower", aspect="auto", cmap="viridis",
                    vmin=vmin, vmax=vmax, interpolation="nearest", extent=ext)
             if col == 1 && !isempty(rows)
@@ -825,7 +825,7 @@ module Plot
             ylabel("pulse number (od 0)")
             col == 2 && tick_params(labelleft=false)
 
-            subplot2grid((6, 2), (3, col - 1))
+            subplot2grid((7, 2), (3, col - 1))
             prof_rows = col == 1 ? good_before : good_after
             isempty(prof_rows) || plot(lo:hi, vec(mean(data[prof_rows, lo:hi], dims=1)),
                                        color="black", lw=0.9)
@@ -835,21 +835,26 @@ module Plot
         end
 
         x = 0:N-1
-        for (k, (y, lab, twosided)) in enumerate(((r.z_rms, "szum off-pulse (z)", true),
-                                                  (r.z_peak, "największy skok off-pulse (z)", false)))
-            subplot2grid((6, 2), (4 + k - 1, 0), colspan=2)
+        stats = ((r.z_rms, "skok szumu", true),
+                 (r.z_struct, "linia bazowa", false),
+                 (r.z_peak, "pojedynczy skok", false))
+        for (k, (y, lab, twosided)) in enumerate(stats)
+            subplot2grid((7, 2), (4 + k - 1, 0), colspan=2)
             grid(true, alpha=0.2, lw=0.4)
             plot(x, y, color="#3182bd", lw=0.6, zorder=2)
-            isempty(rows) || scatter(rows .- 1, y[rows], s=12, color="#d62728", zorder=4)
+            isempty(rows) || scatter(rows .- 1, y[rows], s=10, color="#d62728", zorder=4)
             axhline(r.nsigma, color="gray", ls=":", lw=1.0)
             twosided && axhline(-r.nsigma, color="gray", ls=":", lw=1.0)
-            ylabel(lab, fontsize=8)
-            k == 1 ? tick_params(labelbottom=false) : xlabel("pulse number (od 0, jak w zaps)")
+            xlim(-0.5, N - 0.5)
+            ylabel(lab * " (z)", fontsize=7.5)
+            k < length(stats) ? tick_params(labelbottom=false) : xlabel("pulse number (od 0, jak w zaps)")
         end
 
+        # zapping must not lower the S/N — if it does, good pulses are being cut
+        warn = snr_a < snr_b ? "   ⚠ S/N SPADŁO — odrzucasz dobre impulsy?" : ""
         suptitle(@sprintf("Zapowanie: %d z %d impulsów (%.1f%%)  —  S/N profilu %.1f → %.1f",
-                          length(rows), N, 100 * length(rows) / N, snr_b, snr_a),
-                 fontsize=11, fontweight="bold")
+                          length(rows), N, 100 * length(rows) / N, snr_b, snr_a) * warn,
+                 fontsize=11, fontweight="bold", color=(isempty(warn) ? "black" : "#b30000"))
         tight_layout(rect=(0, 0, 1, 0.96))
         savefig("$outdir/$(name_mod)_bad_pulses.png", dpi=120)
         println("$outdir/$(name_mod)_bad_pulses.png")

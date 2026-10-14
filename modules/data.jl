@@ -88,8 +88,13 @@ module Data
     region only — so nulls and bright pulses (real pulsar emission) are never
     rejected, only pulses where the noise itself is wrong:
 
-      * `z_rms`  – off-pulse noise level (broadband RFI raises it, dropouts
-                   lower it) — flagged when |z| > nsigma
+      * `z_rms`  – off-pulse noise level vs its LOCAL running median
+                   (`local_win` pulses) — sudden jumps (RFI bursts, dropouts)
+                   flagged when |z| > nsigma; slow gain/scintillation drifts
+                   are not (they raise signal and noise together)
+      * `z_struct` – baseline structure: spread of off-pulse block means in
+                   units of white noise (wavy / tilted / stepped baselines =
+                   horizontal stripes in the image) — flagged when z > nsigma
       * `z_peak` – largest single off-pulse sample in units of that pulse's own
                    rms (narrow spikes) — flagged when z > nsigma AND the spike
                    is above the Gaussian extreme-value level (no false alarms
@@ -97,19 +102,27 @@ module Data
       * all-zero pulses (already zapped / missing) are always flagged
 
     z = robust z-score, (x - median) / (1.4826·MAD), so the bad pulses
-    themselves don't inflate the threshold. `margin` (default 5% of bins)
-    keeps the off-pulse window away from the on-pulse edges.
+    themselves don't inflate the threshold. Flagged pulses separated by at
+    most `fill_gap` good ones are merged into one bad region.
 
-    Returns (bad = 1-based rows, z_rms, z_peak, on_energy).
+    Returns (bad = 1-based rows, z_rms, z_peak, z_struct, on_energy).
     """
-    function find_bad_pulses(data, bin_st, bin_end; nsigma=5.0, margin=nothing)
+    function find_bad_pulses(data, bin_st, bin_end; nsigma=5.0, margin=0, nblocks=8,
+                             local_win=31, fill_gap=2)
         N, nb = size(data)
-        m = isnothing(margin) ? max(2, round(Int, 0.05 * nb)) : margin
-        off = vcat(1:max(0, bin_st - m - 1), min(nb + 1, bin_end + m + 1):nb)
+        off = vcat(1:max(0, bin_st - margin - 1), min(nb + 1, bin_end + margin + 1):nb)
         length(off) < 20 && (off = vcat(1:bin_st-1, bin_end+1:nb))
         off_rms  = [std(@view data[i, off]) for i in 1:N]
         off_peak = [maximum(abs, @view data[i, off]) / max(off_rms[i], eps()) for i in 1:N]
         on_energy = [sum(@view data[i, bin_st:bin_end]) for i in 1:N]
+        # baseline structure: spread of the mean of `nblocks` off-pulse blocks,
+        # in units of what white noise would give (≈1). Wavy / tilted /
+        # stepped baselines (the horizontal stripes in the single-pulse image)
+        # push it up. Ratio of two noise-scaled numbers -> gain-independent.
+        bs = cld(length(off), nblocks)
+        blocks = [off[k:min(k + bs - 1, end)] for k in 1:bs:length(off)]
+        off_struct = [std([mean(@view data[i, b]) for b in blocks]) /
+                      max(off_rms[i] / sqrt(bs), eps()) for i in 1:N]
 
         empty = off_rms .== 0
         good = .!empty
@@ -123,8 +136,22 @@ module Data
             z[good] = (xs .- med) ./ mad
             return z
         end
-        z_rms = robust_z(off_rms)
+        # noise level relative to its LOCAL running median: slow changes of
+        # gain / scintillation raise noise AND signal together (seen on
+        # J1110: whole 330-760 stretch elevated, flagging it threw away the
+        # brightest pulses and LOWERED the profile S/N) — only sudden jumps
+        # of the noise level are bad pulses
+        lr = log.(max.(off_rms, eps()))
+        gi = findall(good)
+        h = local_win ÷ 2
+        loc = zeros(N)
+        for i in 1:N
+            win = filter(j -> abs(j - i) <= h, gi)
+            loc[i] = isempty(win) ? 0.0 : median(lr[win])
+        end
+        z_rms = robust_z(lr .- loc)
         z_peak = robust_z(off_peak)
+        z_struct = robust_z(off_struct)
 
         # the max of many noise samples has a heavy right tail, so z_peak > nsigma
         # alone gives false alarms; also require the spike to exceed what pure
@@ -132,8 +159,19 @@ module Data
         # (extreme-value level for N·n_off samples, +1σ margin)
         k_spike = sqrt(2 * log(N * length(off))) + 1.0
         spike(i) = z_peak[i] > nsigma && off_peak[i] > k_spike
-        bad = findall(i -> empty[i] || abs(z_rms[i]) > nsigma || spike(i), 1:N)
-        return (bad=bad, z_rms=z_rms, z_peak=z_peak, on_energy=on_energy, nsigma=nsigma)
+        flag = [empty[i] || abs(z_rms[i]) > nsigma || spike(i) || z_struct[i] > nsigma for i in 1:N]
+
+        # bad stretches come in runs: close gaps of <= fill_gap pulses
+        # between flagged pulses, so a bad region is cut as one block
+        fl = findall(flag)
+        for k in 1:length(fl)-1
+            if 1 < fl[k+1] - fl[k] <= fill_gap + 1
+                flag[fl[k]+1:fl[k+1]-1] .= true
+            end
+        end
+        bad = findall(flag)
+        return (bad=bad, z_rms=z_rms, z_peak=z_peak, z_struct=z_struct,
+                on_energy=on_energy, nsigma=nsigma)
     end
 
 
