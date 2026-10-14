@@ -3595,3 +3595,26 @@ Uwaga zasadnicza: użycie WSZYSTKICH par R naraz (max Σ R(n,m) cos(θ_m − θ_
 faza z SVD (u1, u2) — czyli już znany kierunek (travel/SVD, §1.0 coherent_fold_params). Lokalna wersja jest nowa,
 ale przegrywa z agentem przy każdym S/N. Wniosek: R nie daje lepszego P3(n) ani folda. Wartość R zostaje diagnostyczna:
 nulle/mody jako bloki, skok fazy w poprzek nulla (J0820, poprzedni wpis).
+
+## 2026-10-14 cd. — model noname (aszary/noname) jako generator; czy wynik zależy od geometrii (test 1a)
+
+Kontekst: użytkownik chce czegoś zupełnie innego (rekurencja odrzucona); propozycja: model fizyczny karuzeli zamiast
+przetwarzania sygnału. Pytanie użytkownika: α, β nie są znane dla większości pulsarów — czy wyniki zależą od geometrii?
+Generator: kopia modułów noname (commit 9252e30) w `~/claude/work/noname_run/` (README: podmiany c i GLMakie, bez
+instalacji pakietów — dysk 90%). `noname_lib.jl`: P = 1 s, R_em = 500 km, 9 iskier na jednym pierścieniu (spacing „t”,
+solidbody), promień iskry 20 m (input/1.json), pierścień rf = rf_min + 0.4(1 − rf_min) (przecina linię widzenia),
+256 binów; nulle 5% (epizody ~3 P) z karuzelą stojącą (P3 = ∞); szum N(0,1), S/N = maksimum trafionej iskry,
+fluktuacja energii pulsu lognormal 0.3. Stałe amplitudy iskier.
+
+Obrazy (`noname_view.jl`, `~/claude/work/figures/noname_view/`): ta sama karuzela i P3(n) wygląda zupełnie inaczej:
+β = +1° — dwie składowe migające w miejscu (wygląda jak P3-only), β = +4° — krótkie lekko pochylone podpulsy,
+β = +7° (brzeg) — długie ukośne pasma przez cały profil (klasyczny dryf).
+
+Test 1a (`noname_geomtest.jl`, `~/claude/work/noname_geomtest.csv`): coherent_fold_agent, P3 10 → 7 przy 500, N = 1000,
+6 geometrii × S/N {1, 2, 4} × 3 realizacje (mediany): fold corr S/N 1: 0.33–0.49, S/N 2: 0.79–0.87, S/N 4: 0.95–0.96;
+faza R 0.37–0.48 / 0.64–0.75 / 0.83–0.92. Różnice między geometriami ≪ różnice między S/N → wynik agenta prawie nie
+zależy od geometrii. Wspólna wada we wszystkich geometriach: skok P3 10 → 7 zaniżony/przegapiony — po skoku
+S/N 1: ~10 (przegapiony), S/N 2: 7.7–8.7, S/N 4: 7.1–8.2 (= §8.0 coherent_fold_params).
+Wniosek: geometria decyduje o WYGLĄDZIE (dryf vs „P3-only”), nie o mierzalności P3(n)/folda. Dla modelu fizycznego:
+do P3(n)/folda wystarczy reprezentacja bez geometrii (linia plazmy jako dowolna krzywa na czapie); α, β potrzebne
+tylko do interpretacji. Ograniczenia: jedna konfiguracja iskier, tylko dipol, solidbody, stałe amplitudy.
