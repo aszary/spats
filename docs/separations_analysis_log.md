@@ -3567,3 +3567,31 @@ interpretacja: alias + zwolnienie karuzeli jak B0809+74). Uwaga: Δ miesza skok 
 
 Otwarte: granica S/N (uśrednianie wzdłuż przekątnych / bloków pulsów); P3(n) z czasu powrotu i fold przez wyrównanie
 cykli (DTW) — jeszcze nie zrobione; J1825 granica modu vs P3Track; J1750 pasma antydiagonalne (odwrócenia?).
+
+## 2026-10-14 cd. — krok 2: P3(n) z czasu powrotu i faza z rekurencji — WYNIK NEGATYWNY
+
+Metoda (`~/claude/work/scripts/recurrence_p3.jl`): ścieżka Viterbiego wzdłuż grzbietów K = 1…4 w widoku opóźnień
+(|Δτ| ≤ 1, jak DTW), doprecyzowanie parabolą, faza φ(n) z ważonej MNK po więzach φ(n + τ̂_K) − φ(n) = K naraz,
+P3(n) = 1/nachylenie φ w oknie jednego cyklu. Wariant „kształt”, „reszta” tylko gdy kształt bez grzbietu.
+Błąd po drodze: pasmo K ≥ 2 przeskakiwało o > 1 → Viterbi bez przejść → ścieżka na τ = 1 → fałszywe więzy (CV −0.003
+na J0820); naprawione (restart, środek pasma wygładzony na cykl). „reszta” wybierana dla J0034 → bloki nulli.
+
+Dane (`recurrence_real.jl`, CV: faza z binów parzystych, LOO foldu jądrowego na nieparzystych; stałe P3 / agent / rek):
+J0820 0.035 / 0.443 / 0.442; J0034 0.002 / 0.032 / 0.004; J1750 −0.001 / 0.008 / −0.000; J1825 −0.002 / 0.008 / 0.019;
+J1720 −0.005 / 0.106 / 0.000. Ścieżka idzie za szumem tam, gdzie grzbietu nie ma (J1720); J1825 P3(n) skacze 9–25
+quasi-okresowo (raczej artefakt). Wykresy `~/claude/work/figures/recurrence_p3/<psr>/`.
+
+Syntetyki (`recurrence_bench.jl`, 200 przypadków benchmarku v2, `~/claude/work/recurrence_bench.csv`), mediany, agent / rek:
+| S/N | n | faza R | fold corr | błąd P3(n) |
+| < 1.5 | 43 | 0.96 / 0.15 | 0.67 / 0.13 | 1.1% / 14.8% |
+| 1.5–3 | 68 | 0.97 / 0.43 | 0.84 / 0.52 | 1.0% / 10.1% |
+| 3–5 | 38 | 0.98 / 0.70 | 0.94 / 0.75 | 0.8% / 7.6% |
+| 5–9 | 25 | 0.99 / 0.81 | 0.97 / 0.89 | 0.5% / 5.2% |
+Skoki P3 (poziom po skoku w ±5%): agent 54/64, rek 48/64; #156 rek 20.1 (prawda 18.9, agent 25.8 — przegapiony),
+ale przed skokiem 23.5 zamiast 25.8. AM: fold 0.61 / 0.22. Miara „ufność” bezużyteczna (pokrycie 97% przy S/N < 1.5).
+
+Diagnoza: argmax grzbietu w każdym pulsie wyrzuca informację — para pulsów ma S/N korelacji ≪ 1 poza jasnymi pulsarami.
+Uwaga zasadnicza: użycie WSZYSTKICH par R naraz (max Σ R(n,m) cos(θ_m − θ_n)) = wektory własne macierzy Grama pulsów =
+faza z SVD (u1, u2) — czyli już znany kierunek (travel/SVD, §1.0 coherent_fold_params). Lokalna wersja jest nowa,
+ale przegrywa z agentem przy każdym S/N. Wniosek: R nie daje lepszego P3(n) ani folda. Wartość R zostaje diagnostyczna:
+nulle/mody jako bloki, skok fazy w poprzek nulla (J0820, poprzedni wpis).
