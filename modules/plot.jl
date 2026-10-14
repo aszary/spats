@@ -347,6 +347,250 @@ module Plot
 
 
     """
+    Step-by-step figures of the coherent P3-fold (`P3FoldViterbi.coherent_fold_steps` result `s`),
+    one file per step: `<outdir>/<name_mod>_step<k>.pdf/.png`.
+
+      0 – input: single pulses (first `npulses`) and the average profile
+      1 – FFT along pulse number: spectrum, template |L(φ)| and arg L(φ) at f3
+      2 – matched filter: z(n) = Σ_φ (x_n − ⟨x⟩)·conj(L), one complex number per pulse
+      3 – demodulation at f3 and low-pass: baseband before/after, its spectrum and the filter
+      4 – residual phase, fold-bin assignment, P3(n)
+      5 – coherent fold vs constant-P3 fold (same phase origin)
+      6 – jackknife over `n_groups` longitude sub-ranges: phases, P3(n) and its error
+    """
+    function p3fold_coherent_steps(s, data, outdir; steps=0:6, npulses=150, name_mod="pulsar_coherent_steps",
+                                   figtitle=nothing, cmap="viridis", darkness=1.0, repeat_num=4)
+        N, nb = size(data)
+        on = s.bin_st:s.bin_end
+        width = length(on)
+        lo, hi = max(1, s.bin_st - width ÷ 2), min(nb, s.bin_end + width ÷ 2)
+        np_ = min(npulses, N)
+        n = 1:N
+        wrap(x) = mod.(x .+ π, 2π) .- π
+        prof = vec(mean(data, dims=1))
+
+        rc("font", size=8.)
+        rc("axes", linewidth=0.5)
+        rc("lines", linewidth=0.5)
+
+        function start_fig(height, stitle)
+            figure(figsize=(6.29921, height))
+            subplots_adjust(left=0.12, bottom=0.07, right=0.97, top=0.92, hspace=0.45, wspace=0.3)
+            suptitle((figtitle === nothing ? "" : figtitle * " — ") * stitle, fontsize=10, y=0.985)
+        end
+        function save_fig(k)
+            for ext in ("pdf", "png")
+                savefig("$outdir/$(name_mod)_step$(k).$ext")
+                println("$outdir/$(name_mod)_step$(k).$ext")
+            end
+            close()
+        end
+
+        # 0. input data
+        if 0 in steps
+            start_fig(7.3, "krok 0: dane wejściowe")
+            subplot2grid((4, 1), (0, 0))
+            plot(lo:hi, prof[lo:hi], c="black")
+            axvspan(s.bin_st, s.bin_end, color="orange", alpha=0.2, lw=0, label="okno on-pulse")
+            xlim(lo, hi)
+            ylabel("profil średni")
+            legend(fontsize=6, loc="upper right")
+            subplot2grid((4, 1), (1, 0), rowspan=3)
+            da = data[1:np_, lo:hi]
+            imshow(da, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+                   extent=[lo - 0.5, hi + 0.5, 0.5, np_ + 0.5], vmax=darkness * maximum(da))
+            axvline(s.bin_st, c="white", ls="--", lw=0.6)
+            axvline(s.bin_end, c="white", ls="--", lw=0.6)
+            xlabel("bin długości")
+            ylabel("numer pulsu (pierwsze $np_ z $N)")
+            save_fig(0)
+        end
+
+        # 1. FFT along pulse number
+        if 1 in steps
+            start_fig(7.3, "krok 1: FFT po numerze pulsu, szablon L(φ) przy f₃")
+            nh = N ÷ 2
+            freqs = (1:nh) ./ N
+            pw_on = vec(sum(abs2, s.F[2:nh+1, on], dims=2))
+            pw_off = isempty(s.off) ? nothing : vec(mean(abs2, s.F[2:nh+1, s.off], dims=2)) .* width
+            subplot2grid((3, 1), (0, 0))
+            isnothing(pw_off) || plot(freqs, pw_off, c="grey", label="off-pulse (ta sama liczba binów)")
+            plot(freqs, pw_on, c="black", label="Σ po binach on-pulse")
+            axvline(s.k / N, c="red", ls="--", lw=0.6, label="k = $(s.k): f = $(round(s.k / N, digits=4)) (1/P₃ = $(round(s.f3, digits=4)))")
+            xlim(0, 0.5)
+            xlabel("częstotliwość (cykle / P)")
+            ylabel("|F|²")
+            legend(fontsize=6, loc="upper right")
+            subplot2grid((3, 1), (1, 0))
+            absL = abs.(s.L)
+            plot(lo:hi, absL[lo:hi], c="black", label="|L(φ)|")
+            plot(lo:hi, prof[lo:hi] ./ maximum(prof[on]) .* maximum(absL[on]), c="grey", ls=":", label="profil średni (skala)")
+            axhline(sqrt(2) * s.sigma_off, c="red", ls="--", lw=0.6, label="poziom szumu √2·σ_off")
+            axvspan(s.bin_st, s.bin_end, color="orange", alpha=0.15, lw=0)
+            xlim(lo, hi)
+            ylabel("amplituda modulacji")
+            title("S/N filtra dopasowanego = $(round(s.snr, digits=1))", fontsize=8)
+            legend(fontsize=6, loc="upper right")
+            subplot2grid((3, 1), (2, 0))
+            ph = s.argL_on ./ (2π)
+            scatter(collect(on), ph, c=absL[on], s=6, cmap="Greys", vmin=0)
+            xlim(lo, hi)
+            xlabel("bin długości")
+            ylabel("arg L(φ) (cykle)")
+            title("faza modulacji wzdłuż profilu (odcień ∝ |L|)", fontsize=8)
+            save_fig(1)
+        end
+
+        # 2. matched filter: one complex number per pulse
+        if 2 in steps
+            start_fig(7.3, "krok 2: filtr dopasowany, z(n) = Σ (x − ⟨x⟩)·conj L")
+            nn = 1:np_
+            subplot2grid((3, 2), (0, 0), colspan=2)
+            plot(nn, real.(s.z[nn]), c="C0", label="Re z")
+            plot(nn, imag.(s.z[nn]), c="C1", label="Im z")
+            plot(nn, abs.(s.z[nn]), c="grey", lw=0.8, label="|z|")
+            xlim(1, np_)
+            ylabel("z(n)")
+            legend(fontsize=6, loc="upper right", ncol=3)
+            subplot2grid((3, 2), (1, 0), colspan=2)
+            c0 = angle(mean(s.baseband))  # best constant phase offset
+            plot(nn, angle.(s.z[nn]) ./ (2π), "o", ms=2, c="black", label="arg z(n)")
+            plot(nn, wrap((2π * s.f3) .* nn .+ c0) ./ (2π), c="red", lw=0.6, label="stałe P₃ = $(s.p3)")
+            xlim(1, np_)
+            xlabel("numer pulsu")
+            ylabel("arg z (cykle)")
+            legend(fontsize=6, loc="upper right", ncol=2)
+            subplot2grid((3, 2), (2, 0))
+            scatter(real.(s.z[nn]), imag.(s.z[nn]), c=collect(nn), s=4, cmap="viridis")
+            plot(real.(s.z[nn]), imag.(s.z[nn]), c="grey", lw=0.2)
+            gca().set_aspect("equal", adjustable="datalim")
+            xlabel("Re z")
+            ylabel("Im z")
+            title("płaszczyzna zespolona (kolor = n)", fontsize=7)
+            subplot2grid((3, 2), (2, 1))
+            hist(abs.(s.z), bins=50, color="grey")
+            xlabel("|z| (wszystkie pulsy)")
+            ylabel("liczba")
+            save_fig(2)
+        end
+
+        # 3. demodulation + low-pass
+        if 3 in steps
+            fc = s.lowpass_cutoff
+            start_fig(7.3, "krok 3: demodulacja przy f₃ i filtr dolnoprzepustowy (f_c = 1/$(round(1 / fc, digits=1)))")
+            subplot2grid((3, 1), (0, 0))
+            plot(n, real.(s.baseband), c="lightgrey", lw=0.4, label="Re b(n) = Re[z·e^{−2πif₃n}]")
+            plot(n, real.(s.baseband_smooth), c="C0", lw=1.0, label="Re po filtrze")
+            plot(n, imag.(s.baseband_smooth), c="C1", lw=1.0, label="Im po filtrze")
+            xlim(1, N)
+            ylabel("b(n)")
+            legend(fontsize=6, loc="upper right", ncol=3)
+            subplot2grid((3, 1), (1, 0))
+            plot(n, angle.(s.baseband) ./ (2π), ".", ms=1.5, c="grey", label="arg b(n) przed filtrem")
+            plot(n, angle.(s.baseband_smooth) ./ (2π), ".", ms=1.5, c="red", label="arg b(n) po filtrze")
+            xlim(1, N)
+            ylim(-0.5, 0.5)
+            xlabel("numer pulsu")
+            ylabel("faza (cykle)")
+            legend(fontsize=6, loc="upper right", ncol=2, markerscale=4)
+            subplot2grid((3, 1), (2, 0))
+            fr = fftshift(fftfreq(N))
+            sb = fftshift(abs2.(fft(s.baseband)))
+            ss = fftshift(abs2.(fft(s.baseband_smooth)))
+            semilogy(fr, sb, c="grey", lw=0.4, label="widmo b przed filtrem")
+            semilogy(fr, ss, c="red", lw=0.6, label="po filtrze")
+            semilogy(vcat(-reverse(s.resp_f), s.resp_f), vcat(reverse(s.resp_H), s.resp_H) .* maximum(sb), c="C0", ls="--", lw=0.6,
+                     label="|H|⁴ filtra (filtfilt, skala)")
+            axvline(-s.f3, c="black", ls=":", lw=0.5)
+            axvline(-2 * s.f3 + (2 * s.f3 > 0.5 ? 1 : 0), c="black", ls=":", lw=0.5)
+            xlim(-0.5, 0.5)
+            ylim(maximum(sb) * 1e-6, maximum(sb) * 3)
+            xlabel("częstotliwość po demodulacji (cykle / P); 0 = dawne f₃, kropki: −f₃ (DC), −2f₃")
+            ylabel("|FFT b|²")
+            legend(fontsize=6, loc="upper right")
+            save_fig(3)
+        end
+
+        # 4. phase -> fold bins, P3(n)
+        if 4 in steps
+            start_fig(7.3, "krok 4: faza każdego pulsu, przypisanie do binów, P₃(n)")
+            subplot2grid((3, 1), (0, 0))
+            plot(n, s.resid ./ (2π), c="black", lw=0.8)
+            xlim(1, N)
+            ylabel("odchylenie fazy\nod stałego P₃ (cykle)")
+            subplot2grid((3, 1), (1, 0))
+            nn = 1:np_
+            PyPlot.step(nn, s.bin_const[nn], where="mid", c="grey", lw=0.6, label="stałe P₃")
+            PyPlot.step(nn, s.bin[nn], where="mid", c="red", lw=0.6, label="koherentnie")
+            xlim(1, np_)
+            ylabel("bin fazy (1..$(s.ybins))")
+            legend(fontsize=6, loc="upper right", ncol=2)
+            subplot2grid((3, 1), (2, 0))
+            plot(n, s.p3_per_pulse, c="black", lw=0.8)
+            axhline(s.p3, c="red", ls="--", lw=0.6)
+            xlim(1, N)
+            xlabel("numer pulsu")
+            ylabel("P₃(n) (P)\nokno $(s.p3_window) P")
+            save_fig(4)
+        end
+
+        # 5. folds
+        if 5 in steps
+            start_fig(6.3, "krok 5: fold koherentny vs stałe P₃")
+            dv = repeat(s.folded[:, lo:hi], repeat_num)
+            dc = repeat(s.folded_const[:, lo:hi], repeat_num)
+            ext = [lo - 0.5, hi + 0.5, 0, repeat_num]
+            subplot(1, 2, 1)
+            imshow(dv, origin="lower", cmap=cmap, interpolation="none", aspect="auto", extent=ext, vmax=darkness * maximum(dv))
+            xlabel("bin długości")
+            ylabel("faza P₃ (cykle)")
+            title("koherentny", fontsize=8)
+            subplot(1, 2, 2)
+            imshow(dc, origin="lower", cmap=cmap, interpolation="none", aspect="auto", extent=ext, vmax=darkness * maximum(dc))
+            tick_params(labelleft=false)
+            xlabel("bin długości")
+            title("stałe P₃ = $(s.p3)", fontsize=8)
+            save_fig(5)
+        end
+
+        # 6. jackknife
+        if 6 in steps
+            start_fig(7.3, "krok 6: błędy z $(s.n_groups) podzakresów długości (jackknife)")
+            cols = ["C$(g - 1)" for g in 1:s.n_groups]
+            subplot2grid((3, 1), (0, 0))
+            plot(lo:hi, prof[lo:hi], c="black")
+            for g in 1:s.n_groups
+                axvspan(s.edges[g] - 0.5, s.edges[g+1] - 0.5, color=cols[g], alpha=0.25, lw=0)
+            end
+            xlim(lo, hi)
+            xlabel("bin długości")
+            ylabel("profil średni")
+            subplot2grid((3, 1), (1, 0))
+            for g in 1:s.n_groups
+                plot(n, s.group_phase[g, :] ./ (2π) .- s.phase_const ./ (2π) .+ mean(s.phase_const) / (2π),
+                     c=cols[g], lw=0.6, label="podzakres $g")
+            end
+            xlim(1, N)
+            ylabel("faza − 2πf₃n (cykle)")
+            legend(fontsize=6, loc="upper right", ncol=s.n_groups)
+            subplot2grid((3, 1), (2, 0))
+            for g in 1:s.n_groups
+                plot(n, s.group_p3[g, :], c=cols[g], lw=0.4)
+            end
+            fill_between(n, s.p3_per_pulse .- s.p3_per_pulse_err, s.p3_per_pulse .+ s.p3_per_pulse_err,
+                         color="grey", alpha=0.5, linewidth=0, label="±σ = std/√$(s.n_groups)")
+            plot(n, s.p3_per_pulse, c="black", lw=0.8, label="wszystkie biny")
+            axhline(s.p3, c="red", ls="--", lw=0.6)
+            xlim(1, N)
+            xlabel("numer pulsu")
+            ylabel("P₃(n) (P)")
+            legend(fontsize=6, loc="upper right", ncol=2)
+            save_fig(6)
+        end
+    end
+
+
+    """
     Diagnostic figure for `P3FoldViterbi.fold`: the Viterbi-refined p3-fold
     next to the constant-P3 (naive, `Tools.p3fold`) fold of the same data,
     with a panel underneath showing the per-pulse instantaneous P3 implied

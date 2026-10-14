@@ -502,6 +502,35 @@ module SpaTs
 
 
     """
+    `p3fold_coherent` drawn step by step (`P3FoldViterbi.coherent_fold_steps`,
+    `Plot.p3fold_coherent_steps`): one figure per step, `steps` picks which
+    (0 data, 1 FFT/template, 2 matched filter, 3 demodulation + low-pass,
+    4 phase/bins/P3(n), 5 fold, 6 jackknife). Same defaults and data handling
+    as `p3fold_coherent`; never opens a window. Figures:
+    `<plotdir>/<name_mod>_step<k>.pdf/.png`. Returns the full set of intermediates.
+      p3fold_coherent_steps(vpmout*"J0820-1350"; plotdir="/home/psr/work/figures/coherent_steps/", figtitle="J0820-1350")
+    """
+    function p3fold_coherent_steps(outdir; steps=0:6, ybins=nothing, lowpass_cutoff=1/300, filter_order=6,
+                                   n_groups=4, p3_window=20, npulses=150, darkness=1.0,
+                                   datafile="pulsar.debase.txt", plotdir=outdir,
+                                   name_mod="pulsar_coherent_steps", figtitle=nothing)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, datafile))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        yb   = isnothing(ybins) ? round(Int, p["p3_ybins"]) : ybins
+        p3   = Float64(p["p3"])
+        s = P3FoldViterbi.coherent_fold_steps(
+            data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
+            ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, p3_window=p3_window,
+            n_groups=n_groups)
+        println("Matched-filter SNR: $(round(s.snr, digits=1)), k = $(s.k) (f = $(round(s.k / size(data, 1), digits=4)), f3 = $(round(1 / p3, digits=4)))")
+        Plot.p3fold_coherent_steps(s, data, plotdir; steps=steps, npulses=npulses, name_mod=name_mod,
+                                   figtitle=figtitle, darkness=darkness)
+        return s
+    end
+
+
+    """
     Non-interactive `p3fold_coherent` with a data-driven low-pass cutoff and a
     variable-P3 track (`P3FoldViterbi.coherent_fold_agent`, docs/coherent_fold_params.md).
 

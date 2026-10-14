@@ -458,6 +458,97 @@ function coherent_fold_jackknife(data::AbstractMatrix, p3::Real, bin_st::Int, bi
 end
 
 
+"""
+    coherent_fold_steps(data, p3, bin_st, bin_end; ybins, lowpass_cutoff, filter_order,
+                        p3_window, n_groups) -> NamedTuple
+
+`coherent_fold_jackknife` with every intermediate quantity returned, for
+drawing the method step by step (`Plot.p3fold_coherent_steps`). The
+computation is the same line by line as `coherent_fold`; `folded`, `phase`,
+`bin`, `p3_per_pulse`, `snr`, `p3_per_pulse_err`, `phase_err` equal those of
+`coherent_fold_jackknife` with the same arguments.
+
+Extra fields:
+  step 1 – `F` (FFT along pulse number), `k`, `L`, `off`, `sigma_off`, `argL_on` (unwrapped)
+  step 2 – `on_data_demeaned`, `w = conj(L_on)`, `z` (one complex number per pulse)
+  step 3 – `carrier`, `baseband` (z·carrier), `baseband_smooth`, `respf`,
+           `resp_f`, `resp_H` (|H|⁴ of the zero-phase filter at f = 0..0.5)
+  step 4 – `resid`, `phase_const = 2π f3 n`, `bin_const`, `slope`
+  step 5 – `folded_const`: the same fold with resid = 0 (constant P3, same phase origin)
+  step 6 – `edges` (longitude sub-ranges), `group_phase`, `group_p3`
+"""
+function coherent_fold_steps(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
+                             ybins::Int=10, lowpass_cutoff::Real=1/200, filter_order::Int=4,
+                             p3_window::Int=20, n_groups::Int=4)
+    N = size(data, 1)
+    on = bin_st:bin_end
+    f3 = 1.0 / p3
+
+    # 1. full-length FFT along pulse number, spatial template at f3
+    F = fft(data, 1)
+    k = clamp(round(Int, N / p3), 1, N ÷ 2)
+    L = F[k+1, :]
+    L_on = L[on]
+    off = vcat(1:bin_st-1, bin_end+1:size(data, 2))
+    sigma_off = isempty(off) ? 0.0 : std([real.(L[off]); imag.(L[off])])
+    snr = sigma_off == 0 ? Inf : sqrt(sum(abs2, L_on)) / (sigma_off * sqrt(length(on)))
+
+    # 2. matched-filter projection
+    on_data = data[:, on]
+    on_data_demeaned = on_data .- mean(on_data, dims=1)
+    w = conj.(L_on)
+    z = on_data_demeaned * w
+
+    # 3. demodulation at f3 + low-pass
+    n = 1:N
+    carrier = exp.((-1im * 2π * f3) .* n)
+    baseband = z .* carrier
+    respf = digitalfilter(Lowpass(lowpass_cutoff), Butterworth(filter_order); fs=1.0)
+    baseband_smooth = filtfilt(respf, real.(baseband)) .+ im .* filtfilt(respf, imag.(baseband))
+    resp_f = collect(range(0, 0.5, length=2000))
+    resp_H = abs2.(freqresp(respf, 2π .* resp_f)) .^ 2  # filtfilt = filter applied twice: |H|⁴
+
+    # 4. phase -> fold bins, P3(n)
+    resid = DSP.unwrap(angle.(baseband_smooth))
+    phase_const = (2π * f3) .* n
+    phase_total = phase_const .+ resid
+    bin = [Int(floor(mod(phase_total[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
+    bin_const = [Int(floor(mod(phase_const[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
+    slope = windowed_slope(phase_total, p3_window)
+    p3_per_pulse = (2π) ./ slope
+
+    # 5. folds
+    folded = build_template(data, bin, ybins)
+    folded_const = build_template(data, bin_const, ybins)
+
+    # 6. jackknife over longitude sub-ranges (as coherent_fold_jackknife)
+    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+    group_p3 = fill(NaN, n_groups, N)
+    group_phase = fill(NaN, n_groups, N)
+    for g in 1:n_groups
+        st, en = edges[g], edges[g+1] - 1
+        en < st && continue
+        r = coherent_fold(data, p3, st, en; ybins=ybins, lowpass_cutoff=lowpass_cutoff,
+                          filter_order=filter_order, p3_window=p3_window)
+        group_p3[g, :] = r.p3_per_pulse
+        group_phase[g, :] = r.phase .- mean(r.phase)
+    end
+    p3_per_pulse_err = [std(@view group_p3[:, i]) / sqrt(n_groups) for i in 1:N]
+    phase_err = [std(@view group_phase[:, i]) / sqrt(n_groups) for i in 1:N]
+
+    return (folded=folded, phase=phase_total, bin=bin, p3_per_pulse=p3_per_pulse, snr=snr,
+            p3_per_pulse_err=p3_per_pulse_err, phase_err=phase_err,
+            p3=p3, f3=f3, ybins=ybins, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order,
+            p3_window=p3_window, n_groups=n_groups, bin_st=bin_st, bin_end=bin_end,
+            F=F, k=k, L=L, off=off, sigma_off=sigma_off, argL_on=DSP.unwrap(angle.(L_on)),
+            on_data_demeaned=on_data_demeaned, w=w, z=z,
+            carrier=carrier, baseband=baseband, baseband_smooth=baseband_smooth, respf=respf,
+            resp_f=resp_f, resp_H=resp_H,
+            resid=resid, phase_const=phase_const, bin_const=bin_const, slope=slope,
+            folded_const=folded_const, edges=edges, group_phase=group_phase, group_p3=group_p3)
+end
+
+
 # ---------------------------------------------------------------------------
 # Agent variants: automatic low-pass cutoff and a variable-P3 track for
 # `coherent_fold` (tests and rationale: docs/coherent_fold_params.md).

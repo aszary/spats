@@ -3505,3 +3505,13 @@ Wada: Q2 nagradza każdą ciągłość, także brak ruchu (Δ ≈ 0) i epizody n
 „trwałe położenie / nulle” (jitter był niezależny z pulsu na puls). Możliwe poprawki (wymagają ponownej kalibracji
 i testów T/V): (1) z_n = F_n − α_n ⟨F⟩ (usunąć skalowany profil, nulle → szum); (2) wymagać ruchu: średnie przesunięcie
 istotnie ≠ 0 i zgodne z ±1/P3 (z aliasem); (3) klasy syntetyczne: jitter z czasem korelacji, epizody nulli/modów.
+
+## 2026-10-14 — p3fold_coherent krok po kroku (J0820-1350)
+
+Nowe: `P3FoldViterbi.coherent_fold_steps` (te same obliczenia co `coherent_fold_jackknife` + wszystkie wielkości
+pośrednie), `Plot.p3fold_coherent_steps` (jeden wykres na krok 0–6), `SpaTs.p3fold_coherent_steps(outdir; steps=0:6, ...)`.
+Skrypt `~/claude/work/scripts/coherent_steps_J0820.jl`, wykresy `~/claude/work/figures/coherent_steps/J0820-1350_step<k>.png`.
+Kontrola: folded, phase, P3(n), σ, S/N identyczne bit w bit z `coherent_fold_jackknife` (1/300, rząd 6, 4 grupy).
+J0820-1350: N = 1056, k = 221 (f = 0.2093 vs 1/P3 = 0.2092), S/N 89.5, odchylenie fazy od stałego P3 −0.57…+0.03 cyklu.
+Uwagi: pulsy 1–18 bez emisji (sam szum) → z(n) tam stałe (= −⟨x⟩·conj L); okno on-pulse z params.json (470–567) dużo
+szersze niż emisja (~495–530), więc w jackknife podzakresy 1 i 4 to prawie sam szum.
