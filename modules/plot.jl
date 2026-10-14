@@ -880,14 +880,17 @@ module Plot
         # 9. folds
         if 9 in steps
             start_fig(6.3, "krok 9: foldy")
+            # zoom on the emission: on-pulse bins above 5% of the profile peak, ± 5 bins
+            em = findall(prof[on] .> 0.05 * maximum(prof[on]))
+            zlo, zhi = max(1, s.bin_st + em[1] - 6), min(nb, s.bin_st + em[end] + 4)
             panels = ((s.folded_kernel, "jądro σ = $(s.kernel_sigma), koherentnie"),
                       (replace(s.folded_bins, NaN => 0.0), "biny ($(s.ybins)), średnia, koherentnie"),
                       (s.folded_const, "jądro σ = $(s.kernel_sigma), stałe P₃"))
             for (i, (fd, lab)) in enumerate(panels)
                 subplot(1, 3, i)
-                d = repeat(fd[:, lo:hi], repeat_num)
+                d = repeat(fd[:, zlo:zhi], repeat_num)
                 imshow(d, origin="lower", cmap=cmap, interpolation="none", aspect="auto",
-                       extent=[lo - 0.5, hi + 0.5, 0, repeat_num], vmax=darkness * maximum(d))
+                       extent=[zlo - 0.5, zhi + 0.5, 0, repeat_num], vmax=darkness * maximum(d))
                 i == 1 ? ylabel("faza P₃ (cykle)") : tick_params(labelleft=false)
                 xlabel("bin długości")
                 title(lab, fontsize=7)

@@ -3527,3 +3527,9 @@ nie jest wykrywany, ale pokrywa się z brzegiem filtra 19 P), P3(n) w 96.4% puls
 Do sprawdzenia: wersja podstawowa (1/300) i `_agent` różnią się o ~1 cykl fazy przy pulsach ~230–290 (podstawowa: faza
 maleje o ~0.3, `_agent`: rośnie o ~0.85, lokalnie P3 ≈ 4.4–4.5). W jackknife podzakresy 1 i 4 (okno 470–567 szersze niż
 emisja) to szum, a mimo to dają P3(n) w 41% / 33% pulsów i poszerzają pasmo błędu.
+Sprawdzenie różnicy o 1 cykl (`~/claude/work/scripts/coherent_slip_check.jl`, średnia kołowa surowego b(n) w oknach 10 P):
+dwa skoki fazy +0.31 (pulsy 240–249) i +0.36 cyklu (270–279), w oknach ze skokiem spójność 0.34–0.35; łącznie 180→350:
+surowe +0.78, `_agent` +0.79, wersja podstawowa (1/300) −0.32 → podstawowa gubi jeden cykl (obchodzi fazę krótszą drogą).
+W `_agent` skoki pojawiają się jako dołki P3(n) 4.41/4.47 (rozmyte oknem 30 P), a nie jako przeskoki.
+Kierunek pasm (`coherent_fold_direction.jl`): maksimum foldu 522 → 513 przy fazie 0.2 → 1.06 (w stronę wcześniejszych
+długości), arg L 1.51/2.15/2.89 cyklu dla binów 505/515/525 — zgodne. Krok 9 przybliżony do emisji (> 5% szczytu ± 5 binów).
