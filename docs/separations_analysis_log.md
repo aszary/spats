@@ -3533,3 +3533,37 @@ surowe +0.78, `_agent` +0.79, wersja podstawowa (1/300) −0.32 → podstawowa g
 W `_agent` skoki pojawiają się jako dołki P3(n) 4.41/4.47 (rozmyte oknem 30 P), a nie jako przeskoki.
 Kierunek pasm (`coherent_fold_direction.jl`): maksimum foldu 522 → 513 przy fazie 0.2 → 1.06 (w stronę wcześniejszych
 długości), arg L 1.51/2.15/2.89 cyklu dla binów 505/515/525 — zgodne. Krok 9 przybliżony do emisji (> 5% szczytu ± 5 binów).
+
+## 2026-10-14 cd. — macierz rekurencji pulsów: nowy kierunek dla P3(n) i folda (pierwsze obrazy)
+
+Cel (użytkownik): coś nowego do wykrywania zmian P3 i lepszego folda — poza potokiem nośna/szablon/okno widmowe
+(sLRFS, coherent_fold, Kalman, Viterbi to wygładzacze z jedną skalą: L, f_c, q, waga ciągłości).
+Pomysł: R(n,m) = korelacja Pearsona pulsów n i m w oknie emisji (bez szablonu, bez nośnej). Warianty reszt: „kształt”
+x_n − α_n⟨x⟩ (bez jasności i nulli) i „reszta” x_n − ⟨x⟩ (z jasnością). Widok opóźnień L(τ,n) = R(n,n+τ).
+Średnia po n = zwykła autokorelacja pulsów — nowa jest tylko lokalność w n. R jest symetryczne → nie mówi nic o
+kierunku dryfu (to NIE test dryf/P3-only).
+Skrypty: `~/claude/work/scripts/recurrence_view.jl` (obrazy; `recurrence_lib.jl` = jego część z funkcjami, wycięta sed-em),
+`recurrence_nulljump.jl`, `tmp/rec_sign.jl`, `tmp/j0820_zoom.jl`. Wykresy `~/claude/work/figures/recurrence/<psr>/`.
+
+Obrazy (6 pulsarów + syntetyki #156, #153, #110):
+- J0820-1350 (S/N 89): R do ±0.9, grzbiety τ ≈ 5, 10, 14.5, 19. „Skoki fazy” z 2026-10-14 (240–249, 270–279) to NULLE:
+  puls 246 i 277–278 (E ≈ 0.5σ przy medianie 58σ) — w R białe krzyże, pasma za krzyżem przesunięte.
+- J0034-0721: wariant „reszta” — nulle jako wielkie bloki, burst-y jako szachownica (segmentacja bez detektora);
+  „kształt” — w burstach grzbiety τ ≈ 6.5, 13, 20.
+- J1825+0004 (_16): zmiana modu ~750 ostra w obu wariantach (P3Track: mod dryfu 1–696, AM po ~715 — porównać).
+- J1750-3503: bloki i zakrzywione pasma w R (wędrówka P3, ew. odwrócenia — niezbadane); widok opóźnień zdominowany
+  przez pojedyncze jasne pulsy (smugi o nachyleniu −1).
+- J1720-0212, J1126-6054: słabo / nic widocznego w pojedynczych parach.
+- Syntetyki #156 (S/N 2), #153, #110 (S/N 0.8): nic. W #156 dryf moduluje kształt ~10% (σ_sub 5.75 przy P2 17),
+  reszta zmienności to losowe amplitudy podpulsów → ⟨R⟩ ≈ 0.01 przy szumie ~0.1. GRANICA S/N metody — do ustalenia.
+
+Pomiar bez szablonu: skok fazy wzoru w poprzek nulla, Δ = arg Σ R(n,m) e^{−2πi(m−n)/P3} po parach przed/po nullu
+(odcinki 20 P, τ ≤ 15 + k). P3 z par wewnątrz ciągłych odcinków: 4.790 (params 4.78), faza wewnątrz −0.001.
+J0820: k = 1: Δ = 0.25, 0.11, 0.20 (k/P3 = 0.21); k = 2: 0.35 (0.42). Kontrola (200 granic bez nulla): 0.004 ± 0.070.
+Znak sprawdzony na syntetyku (`tmp/rec_sign.jl`): wzór stojący w nullu → Δ = −k/P3, biegnący → 0; alias znaku NIE
+odwraca (R symetryczne). J0820 ma +k/P3: po nullu wzór WYPRZEDZA ekstrapolację — pozorne przyspieszenie dryfu w nullach,
+zgodne z Janssen & van Leeuwen 2004 (A&A 425, 255; astro-ph/0406486: dryf B0818-13 pozornie przyspiesza w nullach,
+interpretacja: alias + zwolnienie karuzeli jak B0809+74). Uwaga: Δ miesza skok w nullu i zmianę P3 tuż po nullu.
+
+Otwarte: granica S/N (uśrednianie wzdłuż przekątnych / bloków pulsów); P3(n) z czasu powrotu i fold przez wyrównanie
+cykli (DTW) — jeszcze nie zrobione; J1825 granica modu vs P3Track; J1750 pasma antydiagonalne (odwrócenia?).
