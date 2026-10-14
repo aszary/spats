@@ -483,7 +483,125 @@ module SpaTs
 
 
 
+    """
+    Automatically process pulsars found in `dataroot` in order from 1st to last.
+    For each pulsar:
+      1. Creates an output directory in `vpmout` (e.g. `joinpath(vpmout, psr)`).
+      2. Combines all .spCF files from the observation folder into `pulsar.spCF`.
+      3. Loads P3 value and error from both `drift_pulsars_P3.txt` and `p3only_pulsars_P3.txt`
+         and writes them into `params.json`.
+      4. Runs `pazi pulsar.spCF` so you can inspect subintegrations interactively.
+      5. Prompts for and records `zaps` in `params.json`.
+    """
+    function analyse_all_zaps(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/")
+        isdir(dataroot) || error("dataroot not found: $dataroot")
 
+        # Load P3 from both drift and p3only lists
+        p3_map = Dict{String,String}()
+        for fname in ["input/drift_pulsars_P3.txt", "input/p3only_pulsars_P3.txt"]
+            fpath = isfile(fname) ? fname : joinpath(@__DIR__, fname)
+            if isfile(fpath)
+                for line in eachline(fpath)
+                    s = strip(line)
+                    (isempty(s) || startswith(s, "#")) && continue
+                    parts = split(s)
+                    length(parts) >= 2 && (p3_map[parts[1]] = parts[2])
+                end
+            end
+        end
+        println("Loaded $(length(p3_map)) pulsars with P3 values from input files.")
+
+        psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
+        isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
+        println("Found $(length(psr_dirs)) pulsar directories in $dataroot")
+
+        for (idx, psr) in enumerate(psr_dirs)
+            psr_path = joinpath(dataroot, psr)
+            obs_dirs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
+            if isempty(obs_dirs)
+                @warn "[$idx/$(length(psr_dirs))] No observation subdirectory for $psr, skipping"
+                continue
+            end
+
+            indir  = joinpath(psr_path, obs_dirs[1])
+            outdir = joinpath(vpmout, psr)
+            isdir(outdir) || mkpath(outdir)
+
+            outfile     = joinpath(outdir, "pulsar.spCF")
+            params_file = joinpath(outdir, "params.json")
+
+            p3_str = get(p3_map, psr, "unknown")
+            println("\n=== [$idx/$(length(psr_dirs))] Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
+
+            try
+                # 1. Combine all .spCF files into pulsar.spCF
+                if !isfile(outfile)
+                    println("Combining .spCF files from $indir into $outfile ...")
+                    Data.add_psrfiles(indir, outfile; sixteen=false)
+                else
+                    println("Archive $outfile already exists, skipping psradd.")
+                end
+
+                # 2. Create or load params.json and populate P3
+                p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
+
+                # Parse P3 value and error from "6.6(2)" notation
+                m = match(r"^(\d+(?:\.\d+)?)\((\d+)\)$", p3_str)
+                if !isnothing(m)
+                    val_str = m.captures[1]
+                    err_digits = parse(Int, m.captures[2])
+                    p3_value = parse(Float64, val_str)
+                    dot_pos = findfirst('.', val_str)
+                    decimal_places = isnothing(dot_pos) ? 0 : length(val_str) - dot_pos
+                    p3_error = err_digits * 10.0^(-decimal_places)
+                    p3_ybins = Data.Functions.find_ybins(p3_value)
+
+                    p["p3"] = p3_value
+                    p["p3_error"] = p3_error
+                    p["p3_ybins"] = p3_ybins
+                else
+                    @warn "Could not parse P3 format for $psr (raw: '$p3_str')"
+                end
+
+                # Read total number of subintegrations if available
+                if isnothing(get(p, "nsubint", nothing)) && isfile(outfile)
+                    try
+                        Data.get_nsubint(outfile, params_file, p)
+                    catch
+                    end
+                end
+
+                Tools.save_params(params_file, p)
+
+                # 3. Run interactive pazi on the combined pulsar.spCF
+                if isfile(outfile)
+                    println("Launching pazi for $psr ($outfile) ...")
+                    run(`pazi $outfile`)
+                else
+                    @warn "Cannot run pazi: $outfile does not exist."
+                end
+
+                # 4. Prompt user to record zaps identified in pazi
+                current_zaps = get(p, "zaps", nothing)
+                println("Current zaps in params.json: ", isnothing(current_zaps) ? "none" : current_zaps)
+                print("Enter zaps for $psr (e.g. '49-194 532-580', or press Enter to keep): ")
+                zaps_input = strip(readline())
+                if !isempty(zaps_input)
+                    p["zaps"] = zaps_input
+                    Tools.save_params(params_file, p)
+                    println("Updated zaps in $params_file -> $(p["zaps"])")
+                end
+
+            catch e
+                @warn "Failed for $psr: $e"
+            end
+
+            println("Finished PSR $psr")
+            print("Continue to next pulsar? [Enter = next, q = quit]: ")
+            input = strip(readline())
+            input == "q" && break
+        end
+    end
 
 
 
