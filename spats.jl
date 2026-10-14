@@ -713,19 +713,28 @@ module SpaTs
       reprocess_all_zap(only=["J1750-3503", "J2053-7200"]) # wybrane
       reprocess_all_zap(zap_mode=:auto)                    # bez pytań
 
-    Dwie osoby naraz: jedna `reverse=false`, druga `reverse=true`. Wiersze są
-    DOPISYWANE do wspólnego `zap_summary.csv`, a pulsary, które już tam są
-    (status inny niż "blad"), są pomijane — więc spotkacie się w środku bez
-    dublowania pracy. Żeby przerobić pulsar jeszcze raz: usuń jego wiersz
-    albo `skip_done=false`.
+    Podział na pół (każdy ma swój `vpmout`):
+      reprocess_all_zap(reverse=true, half=true)   # ostatnia połowa, od końca
+      reprocess_all_zap(half=true)                 # pierwsza połowa, od początku
+
+    Wiersze są DOPISYWANE do `vpmout/zap_summary.csv`, a pulsary, które już
+    tam są (status inny niż "blad"), są pomijane — po przerwaniu wystarczy
+    uruchomić ponownie, żeby kontynuować. Żeby przerobić pulsar jeszcze raz:
+    usuń jego wiersz albo `skip_done=false`.
 
     Status w tabeli: ok / brak_P3 / pominiety (s w oknie zapów) / blad.
     """
     function reprocess_all_zap(; dataroot="/home/psr/data/new/", vpmout="/home/psr/output/",
                                only=nothing, zap_mode=:review, zap_nsigma=5.0,
-                               reverse=false, skip_done=true, warn_pct=10.0)
+                               reverse=false, half=false, skip_done=true, warn_pct=10.0)
         psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)); rev=reverse)
         isnothing(only) || (psr_dirs = filter(in(Set(only)), psr_dirs))
+        if half && !isempty(psr_dirs)
+            n_all = length(psr_dirs)
+            psr_dirs = psr_dirs[1:cld(n_all, 2)]
+            println("Połowa listy: $(length(psr_dirs)) z $n_all pulsarów " *
+                    "($(first(psr_dirs)) … $(last(psr_dirs)))")
+        end
         summary_file = joinpath(vpmout, "zap_summary.csv")
         header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_before,snr_after,zaps"
         done = Set{String}()
