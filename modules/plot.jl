@@ -860,8 +860,7 @@ module Plot
 
         # zapping must not lower the S/N — if it does, good pulses are being cut
         warn = (snr_a < snr_b || rad_a < rad_b) ? "\n⚠ S/N SPADŁO — odrzucasz dobre impulsy?" : ""
-        suptitle(@sprintf("Zapowanie: %d z %d (%.1f%%)   S/N sumy impulsów %.1f → %.1f   " *
-                          "S/N profilu %.1f → %.1f",
+        suptitle(@sprintf("Zapowanie: %d z %d (%.1f%%)   S/N sumy impulsów %.1f → %.1f   S/N profilu %.1f → %.1f",
                           length(rows), N, 100 * length(rows) / N, rad_b, rad_a, snr_b, snr_a) *
                  "\nczerwone = wycinane, pomarańczowe = podejrzane, ale zostawione (dużo sygnału)" * warn,
                  fontsize=9, fontweight="bold", color=(isempty(warn) ? "black" : "#b30000"))
