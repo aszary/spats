@@ -3737,3 +3737,7 @@ przy 14). UWAGA metodyczna: CV po przeplatanych binach BEZ nulla z tasowania jes
 Wniosek: przewaga z noname (6/6 skoków) nie przenosi się na inny generator ani na dane; HMM ze skokami tempa ≈ agent
 (lepszy tylko przy S/N < 1.5, gorszy przy wysokim S/N, nie naprawia przegapionych skoków §8.0). Model fizyczny
 (PhysFit :model) nie testowany na synth2/danych — wspólna część HMM jest tu słabym ogniwem.
+**Ocena użytkownika (2026-10-15): „słabo, niewielkie poprawki”.** Trzy zmiany (nulle z pojedynczych pulsów, podzakresy
+błędów z binów z modulacją, filtr w odcinkach między nullami) poprawiają P3(n) i błędy tylko nieznacznie (syntetyki RMS
+0.077 → 0.063, fold bez zmian) i nie dotykają głównego ograniczenia: szablon L(φ) usuwa nachylenie fazy, więc metoda nie
+odróżnia dryfu od P3-only.
