@@ -3618,3 +3618,33 @@ S/N 1: ~10 (przegapiony), S/N 2: 7.7–8.7, S/N 4: 7.1–8.2 (= §8.0 coherent_f
 Wniosek: geometria decyduje o WYGLĄDZIE (dryf vs „P3-only”), nie o mierzalności P3(n)/folda. Dla modelu fizycznego:
 do P3(n)/folda wystarczy reprezentacja bez geometrii (linia plazmy jako dowolna krzywa na czapie); α, β potrzebne
 tylko do interpretacji. Ograniczenia: jedna konfiguracja iskier, tylko dipol, solidbody, stałe amplitudy.
+
+## 2026-10-15 — noname: skalowanie z czapą, losowe amplitudy iskier; test 1b; wyrocznia HMM
+
+Uwagi użytkownika: parametry iskier zależą od pulsara (rozmiar czapy); losowych amplitud iskier nie ma w noname.
+`noname_lib.jl` (wrapper, repo noname nietknięte): promień iskry = 0.17·r_pc (input/1: 0.14, input/15: 0.20),
+liczba iskier z gęstego upakowania na pierścieniu (odstęp ≈ średnica, jak input/15); β skalowane ρ(P)
+(`Geometry.ρ_max`); amplitudy a_k(n) = lognormal σ 0.5 przypisane do iskry (AR(1), domyślnie niezależne), sygnał
+każdej iskry osobno (generate_signal_new z amplitudą jednostkową dla jednej iskry). Uwaga: docstring ρ_max w noname
+podaje ≈ 2.7° dla P = 1 s, R_em = 500 km; funkcja zwraca 8.8° (zgodne z 1.5·√(r/R_lc)).
+
+Test 1b (`noname_geomtest2.jl`, `~/claude/work/noname_geomtest2.csv`, obrazy `figures/noname_geom2/`): P ∈ {0.3, 1, 3} s
+× α ∈ {15, 30, 60}° × β ∈ {0.1, 0.45, 0.8}ρ (27 geometrii, 8–16 iskier, r_s 14–45 m), S/N {1, 2, 4} × 2, agent:
+fold corr (zakres median po geometriach) S/N 1: 0.50–0.82, S/N 2: 0.86–0.96, S/N 4: 0.92–0.98; przy S/N 2 mediany
+wg P 0.88/0.91/0.91, wg α 0.90/0.90/0.90, wg β/ρ 0.90/0.90/0.95. P3 po skoku (prawda 7): S/N 1 mediana 9.8,
+S/N 2 7.8, S/N 4 7.4. Potwierdza 1a: geometria i rozmiar czapy mają mały wpływ, S/N decyduje; skok zaniżany wszędzie.
+
+Wyrocznia (`noname_run/physfit_oracle.jl`, wykresy `figures/physfit_oracle/`): HMM (faza 64 × tempo 61 wartości P3
+4–25, skok tempa p_c = 1e-3, skok fazy p_j = 1e-3, dyfuzja 5%) z IDEALNYM szablonem (sygnał każdej iskry z noname na
+siatce faz) i amplitudami iskier z MNK w każdym pulsie; P = 1 s, α 30°, β {0.1, 0.45, 0.8}ρ:
+| β/ρ, S/N | agent: błąd P3, po skoku, fold | HMM: błąd P3, po skoku, fold |
+| 0.1, 1 | 5.7%, 9.73, 0.55 | 3.8%, 6.93, 0.70 |
+| 0.1, 2 | 4.3%, 7.61, 0.91 | 1.0%, 7.07, 0.89 |
+| 0.45, 1 | 4.6%, 9.00, 0.64 | 0.9%, 6.93, 0.79 |
+| 0.45, 2 | 3.6%, 8.09, 0.90 | 0.8%, 6.93, 0.91 |
+| 0.8, 1 | 9.3%, 9.20, 0.81 | 0.8%, 6.93, 0.88 |
+| 0.8, 2 | 2.6%, 7.35, 0.95 | 0.9%, 6.93, 0.94 |
+Pokrycie P3(n): HMM 96%, agent 52–93%. ALE przedziały 68% za wąskie (prawda w środku w 3–34% pulsów; siatka P3 co 3%),
+a przy β = 0.1ρ, S/N 1 HMM trzyma złe tempo długimi odcinkami (P3 ≈ 12 w 150–300, ≈ 4.3 w 580–610); model nie zna
+zatrzymania karuzeli w nullu (traktowane jako skok fazy). To górna granica: prawdziwe dopasowanie nie zna geometrii,
+K ani kształtu iskier. Projekt dopasowania: `~/claude/work/physfit_plan.md`.
