@@ -842,22 +842,29 @@ module Plot
 
         # 7. total phase and P3(n)
         if 7 in steps
+            seg = s.filter_segments && any(s.nulls)
             start_fig(6.3, "krok 7: faza całkowita i P₃(n) (regresja w oknie $(s.window) P, ważona |s|²)")
             dev = s.phase_dev
             subplot2grid((2, 1), (0, 0))
+            if seg
+                plot(n, cyc(s.phase_dev_global), c="C0", lw=0.7, ls="--", label="filtr przez nulle (cała obserwacja)")
+            end
             plot(n, cyc(dev), c="lightgrey", lw=0.8, label="wszystkie pulsy")
             d2 = copy(dev); d2[.!s.used] .= NaN
-            plot(n, cyc(d2), c="black", lw=1.0, label="użyte do P₃(n)")
+            plot(n, cyc(d2), c="black", lw=1.0, label=seg ? "filtr w odcinkach między nullami, użyte" : "użyte do P₃(n)")
+            any(s.nulls) && plot(findall(s.nulls), fill(minimum(cyc(dev)), count(s.nulls)), "v", c="red", ms=3, label="null")
             xlim(1, N)
             ylabel("faza − 2πn/P₃ (cykle)")
-            legend(fontsize=6, loc="upper right", ncol=2)
+            legend(fontsize=6, loc="upper left", ncol=2)
             subplot2grid((2, 1), (1, 0))
-            plot(n, s.p3_per_pulse, c="black", lw=0.9)
+            seg && plot(n, s.p3_per_pulse_global, c="C0", lw=0.7, ls="--", label="filtr przez nulle")
+            plot(n, s.p3_per_pulse, c="black", lw=0.9, label=seg ? "filtr w odcinkach" : "P₃(n)")
             axhline(s.p3, c="red", ls="--", lw=0.6, label="P₃ = $(s.p3)")
+            any(s.nulls) && plot(findall(s.nulls), fill(s.p3, count(s.nulls)), "v", c="red", ms=3)
             xlim(1, N)
             xlabel("numer pulsu")
             ylabel("P₃(n) (P)")
-            legend(fontsize=6, loc="upper right")
+            legend(fontsize=6, loc="upper right", ncol=3)
             save_fig(7)
         end
 

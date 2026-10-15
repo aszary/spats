@@ -3693,3 +3693,16 @@ Start ze stałego P3 zawodzi w 4/6. Przedziały 68%: pokrycie prawdy 0.01–0.74
 na 1000 pulsów, HMM_fold 5 s, agent < 8 s. ZASTRZEŻENIE: generator (noname, iskry na torze) = ta sama rodzina co
 model → wynik optymistyczny; jeden scenariusz P3, jedna rodzina geometrii. Dalej: benchmark v2 (inny generator)
 i dane (J0820, J0034, J1750, J1825; s2 z off-pulse).
+
+### 2026-10-15 (cd.) — filtr w odcinkach między nullami (problem 2)
+
+`_segment_track`: przy nullach demodulacja, filtr i adaptacyjna nośna liczone osobno w każdym odcinku między nullami
+(globalny szablon), filtr jako normalizowany splot LP(z·m)/LP(m); `filter_segments=true` (domyślnie), `min_segment=20`.
+Warianty (`~/claude/work/scripts/segment_filter_variants.jl`, 18 syntetyków × skok fazy po nullu / faza zachowana):
+`filtfilt` na samym odcinku gorszy niż brak podziału (zgodność fazy po nullu przy S/N 5: 0.974 → 0.941; przy fazie
+zachowanej S/N 1.5: 0.983 → 0.557 dla min 20) — odbicie na brzegach krótkich odcinków; normalizowany splot: skok fazy
+RMS P3(n) 0.077 → 0.063, mediana 0.024 → 0.016, faza 20 P po nullu 0.876 → 0.917, pokrycie 0.62 → 0.60; faza zachowana
+bez zmian. `filter_segments=false` = HEAD (36/36 syntetyków, 10/10 pulsarów, `segment_filter_test.jl`).
+Dane: J0820-1350 skoki fazy przy nullach 246, 277–278, 634 jako nieciągłości, P3(n) 4.52–5.01 (było 4.39–5.01);
+fold bez zmian (korelacja ≥ 0.9997 na 10 pulsarach); J0034 pokrycie P3(n) 48.0 → 44.4% (odcinki < 20 P bez P3(n)),
+J1049 52.5 → 55.3%.

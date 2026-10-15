@@ -582,22 +582,28 @@ it: s = LP(z·e^{−i·carrier}); total P3-phase = carrier + arg(s). With
 Each further pass moves the carrier onto the phase found so far (unwrapped
 over pulses with |s| ≥ `threshold`, linear across the rest), so a local P3
 far from p3 sits near zero frequency and is not attenuated by the filter.
-X must have its column means removed.
+X must have its column means removed. `w`: matched-filter weights (default:
+the template of X itself); `n0`: pulse-number offset of X[1, :], so that a
+piece of an observation gets the same carrier as the whole one.
 """
 function _carrier_track(X::AbstractMatrix, p3::Real, cutoff::Real; filter_order::Int=6,
-                        niter::Int=0, threshold=nothing)
+                        niter::Int=0, threshold=nothing, w=nothing, n0::Int=0, mask=nothing)
     N = size(X, 1)
     n = collect(1:N)
-    z = X * _template_weights(X, p3)
-    carrier = (2π / p3) .* n
-    s = _lowpass(z .* exp.(-1im .* carrier), cutoff, filter_order)
+    z = X * (w === nothing ? _template_weights(X, p3) : w)
+    carrier = (2π / p3) .* (n0 .+ n)
+    # mask: normalized convolution LP(z·m)/LP(m) — pulses outside the mask do not enter at all
+    norm = mask === nothing ? nothing : real.(_lowpass(complex.(Float64.(mask)), cutoff, filter_order))
+    lp(x) = mask === nothing ? _lowpass(x, cutoff, filter_order) : _lowpass(x .* mask, cutoff, filter_order) ./ norm
+    s = lp(z .* exp.(-1im .* carrier))
     for _ in 1:niter
         keep = threshold === nothing ? trues(N) : abs.(s) .>= threshold
+        mask === nothing || (keep .&= mask)
         idx = findall(keep)
         length(idx) < 3 && break
         θ = DSP.unwrap(angle.(s[idx]))
         carrier = carrier .+ [i ≤ idx[1] ? θ[1] : i ≥ idx[end] ? θ[end] : _interp_lin(idx, θ, i) for i in n]
-        s = _lowpass(z .* exp.(-1im .* carrier), cutoff, filter_order)
+        s = lp(z .* exp.(-1im .* carrier))
     end
     return s, carrier
 end
@@ -820,13 +826,80 @@ function _group_edges(L::AbstractVector, bin_st::Int, bin_end::Int, sigma_off::R
     return round.(Int, range(st, en + 1, length=n_groups + 1)), st:en
 end
 
-"Variant C on one on-pulse range: adaptive carrier, shuffle-quantile threshold, edges and `exclude` (nulls) dropped."
-function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshold_q=0.5, exclude=nothing)
+"Runs of pulses between nulls (`exclude` = true), as ranges."
+function _null_segments(exclude::AbstractVector{Bool})
+    segs = UnitRange{Int}[]
+    i, N = 1, length(exclude)
+    while i ≤ N
+        if exclude[i]
+            i += 1
+            continue
+        end
+        j = i
+        while j < N && !exclude[j+1]
+            j += 1
+        end
+        push!(segs, i:j)
+        i = j + 1
+    end
+    return segs
+end
+
+"""
+    _segment_track(X, p3, cutoff, s, carrier, exclude; filter_order, niter, threshold, min_len) -> (s, carrier, tracked)
+
+Phase track redone separately in every run of pulses between nulls
+(`exclude`): demodulation, low-pass and adaptive carrier (`_carrier_track`)
+with the template of the whole observation, the low-pass as a normalized
+convolution LP(z·m)/LP(m), m = 1 on the run and 0 elsewhere. The filter never
+reaches across a null, so the phase may jump there instead of being smeared
+over ~1/f_c pulses on both sides (J0820-1350: ~1/3-cycle jumps across the
+1–2-pulse nulls at 246 and 277–278); near the run ends the estimate is the
+weighted mean of the pulses available. `filtfilt` on each run alone (padding
+by odd reflection) was worse than no splitting at all on synthetic data
+(phase agreement 20 P after a null 0.974 → 0.941 at S/N 5), the normalized
+convolution better (→ 0.977; S/N 1.5: 0.807 → 0.874).
+Runs shorter than `min_len` and the nulls keep the input `s`, `carrier` and
+get `tracked = false`.
+"""
+function _segment_track(X::AbstractMatrix, p3::Real, cutoff::Real, s::AbstractVector, carrier::AbstractVector,
+                        exclude::AbstractVector{Bool}; filter_order::Int=6, niter::Int=2, threshold=nothing,
+                        min_len::Int=20)
+    w = _template_weights(X, p3)
+    N = size(X, 1)
+    s2, c2 = copy(s), copy(carrier)
+    tracked = falses(N)
+    for r in _null_segments(exclude)
+        length(r) < min_len && continue
+        m = falses(N)
+        m[r] .= true
+        ss, cc = _carrier_track(X, p3, cutoff; filter_order=filter_order, niter=niter, threshold=threshold,
+                                w=w, mask=m)
+        s2[r] = ss[r]
+        c2[r] = cc[r]
+        tracked[r] .= true
+    end
+    return s2, c2, tracked
+end
+
+"""
+Variant C on one on-pulse range: adaptive carrier, shuffle-quantile threshold, edges and `exclude` (nulls) dropped.
+`filter_segments`: phase track redone between nulls (`_segment_track`), runs shorter than `min_segment`
+(default 20 pulses) left out of P3(n).
+"""
+function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshold_q=0.5, exclude=nothing,
+                    filter_segments::Bool=false, min_segment=nothing)
     N = size(X, 1)
     thr0 = _shuffle_level(X, p3, cutoff; filter_order=filter_order, nshuffle=nshuffle, q=threshold_q)
     s, carrier = _carrier_track(X, p3, cutoff; filter_order=filter_order, niter=niter, threshold=thr0)
     thr = niter == 0 ? thr0 : _shuffle_level(X, p3, cutoff; filter_order=filter_order, niter=niter,
                                              threshold=thr0, nshuffle=nshuffle, q=threshold_q)
+    tracked = trues(N)
+    if filter_segments && exclude !== nothing && any(exclude)
+        ml = min_segment === nothing ? 20 : min_segment
+        s, carrier, tracked = _segment_track(X, p3, cutoff, s, carrier, exclude; filter_order=filter_order,
+                                             niter=niter, threshold=thr0, min_len=ml)
+    end
     # filtfilt edges: 1/(2 f_c); regression window at least 3·P3 and 30 pulses — at
     # f_c ≈ f3/3 the 1/(2 f_c) ≈ 1.5·P3 window (5–10 P for P3 ≈ 4) made P3(n) jitter
     # pulse to pulse; the 30-P floor (≈ 8·P3 at P3 ≈ 4) halves the P3(n) error for
@@ -836,9 +909,9 @@ function _variant_c(X, p3, cutoff; filter_order=6, niter=2, nshuffle=5, threshol
     edge = falses(N)
     edge[1:min(N, nedge)] .= true
     edge[max(1, N - nedge + 1):N] .= true
-    keep = (abs.(s) .>= thr) .& .!edge
+    keep = (abs.(s) .>= thr) .& .!edge .& tracked
     exclude === nothing || (keep .&= .!exclude)
-    return (s=s, carrier=carrier, keep=keep, threshold=thr, window=window,
+    return (s=s, carrier=carrier, keep=keep, threshold=thr, window=window, tracked=tracked,
             p3=_weighted_p3(s, carrier, keep, window; bounds=(2.0, 3p3)))
 end
 
@@ -913,14 +986,15 @@ Returns: sigma [cycles], grid, score.
 function kernel_sigma_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int, cutoff::Real;
                             grid=(0.01, 0.015, 0.02, 0.03, 0.045, 0.07, 0.1, 0.15, 0.2, 0.3),
                             filter_order::Int=6, niter::Int=2, nshuffle::Int=5, threshold_q::Real=0.5,
-                            exclude=nothing)
+                            exclude=nothing, filter_segments::Bool=false, min_segment=nothing)
     X = data[:, bin_st:bin_end]
     X = X .- mean(X, dims=1)
     A, B = _bin_halves(size(X, 2))
     score = zeros(length(grid))
     for (P, Q) in ((A, B), (B, A))
         c = _variant_c(X[:, P], p3, cutoff; filter_order=filter_order, niter=niter, nshuffle=nshuffle,
-                       threshold_q=threshold_q, exclude=exclude)
+                       threshold_q=threshold_q, exclude=exclude, filter_segments=filter_segments,
+                       min_segment=min_segment)
         u = mod.((c.carrier .+ angle.(c.s)) ./ (2π), 1.0)
         Y = X[:, Q] .- mean(X[:, Q], dims=1)
         score .+= [_loo_kernel_score(Y, u, σ) for σ in grid] ./ 2
@@ -935,7 +1009,7 @@ end
     coherent_fold_agent(data, p3, bin_st, bin_end; ybins=10, lowpass_cutoff=:auto, filter_order=6,
                         niter=2, nshuffle=5, n_groups=4, threshold_q=0.5, split_nulls=true,
                         fold=:kernel, kernel_sigma=:auto, nphase=64, bright_q=20.0, null_level=0.15,
-                        group_snr=4.0) -> NamedTuple
+                        group_snr=4.0, filter_segments=true, min_segment=nothing) -> NamedTuple
 
 `coherent_fold` with (1) the low-pass cutoff chosen by `auto_cutoff_agent`
 (or a number), and (2) the P3(n) track of "variant C":
@@ -959,7 +1033,13 @@ end
   4. P3(n) from the slope of the total phase, weighted by |s|², over
      max(1/(2 f_c), 3·P3, 30) pulses (values outside [2, 3·p3] → NaN), within each continuous run of used pulses (no
      unwrapping or fitting across a gap: the number of cycles in a gap is
-     unknown, so P3(n) may jump there).
+     unknown, so P3(n) may jump there);
+  5. with `filter_segments` (default) and nulls found, steps 1–2 are redone
+     separately in every run between nulls (`_segment_track`, global
+     template): the low-pass filter does not reach across a null, so the
+     phase can jump there instead of being smeared (J0820-1350: ~1/3-cycle
+     jumps across 1–2-pulse nulls); runs shorter than `min_segment` (default
+     20 pulses) keep the whole-observation phase and are left out of P3(n).
 
 Same on-pulse window and template as `coherent_fold`. Errors: P3(n) recomputed
 on `n_groups` contiguous longitude sub-ranges (independent noise), std/√n
@@ -985,6 +1065,8 @@ Returns:
   p3_per_pulse   – P3(n) [P], NaN where not measured
   p3_per_pulse_err – 1σ from the longitude groups (NaN if < 2 groups)
   used           – pulses that enter P3(n)
+  tracked        – pulses whose phase comes from a run between nulls (all true without nulls
+                   or with `filter_segments=false`)
   nulls          – pulses flagged as nulls from energy (all false if `split_nulls=false`)
   null_method    – :bright (single-pulse energies) or :fraction (5-P mean, Ritchings)
   group_span     – longitude bins split into the error sub-ranges
@@ -996,7 +1078,8 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
                              ybins::Int=10, lowpass_cutoff=:auto, filter_order::Int=6,
                              niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5,
                              split_nulls::Bool=true, fold::Symbol=:kernel, kernel_sigma=:auto, nphase::Int=64,
-                             bright_q=20.0, null_level::Real=0.15, group_snr=4.0)
+                             bright_q=20.0, null_level::Real=0.15, group_snr=4.0,
+                             filter_segments::Bool=true, min_segment=nothing)
     fold in (:kernel, :bins) || error("fold must be :kernel or :bins")
     N = size(data, 1)
     on = bin_st:bin_end
@@ -1013,7 +1096,8 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
     ni = _energy_nulls_info(data, on; bright_q=bright_q, null_level=null_level)
     nulls = split_nulls ? ni.nulls : falses(N)
     c = _variant_c(X, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle, threshold_q=threshold_q,
-                   exclude=nulls)
+                   exclude=nulls,
+                filter_segments=filter_segments, min_segment=min_segment)
     phase = c.carrier .+ angle.(c.s)
     bin = [Int(floor(mod(phase[i] / (2π) * ybins, ybins))) + 1 for i in 1:N]
     # mean per phase bin, not the sum of `build_template`: the data-driven phases fill
@@ -1026,7 +1110,8 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
     # kernel fold (default): weighted mean over all pulses, σ from the data unless given
     if kernel_sigma === :auto
         ks = kernel_sigma_agent(data, p3, bin_st, bin_end, fc; filter_order=filter_order, niter=niter,
-                                nshuffle=nshuffle, threshold_q=threshold_q, exclude=nulls)
+                                nshuffle=nshuffle, threshold_q=threshold_q, exclude=nulls,
+                filter_segments=filter_segments, min_segment=min_segment)
         ksig, ksgrid, ksscore = ks.sigma, ks.grid, ks.score
     else
         ksig, ksgrid, ksscore = Float64(kernel_sigma), nothing, nothing
@@ -1051,7 +1136,8 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
         Xg = data[:, st:en]
         Xg = Xg .- mean(Xg, dims=1)
         gp3[g, :] = _variant_c(Xg, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle,
-                               threshold_q=threshold_q, exclude=nulls).p3
+                               threshold_q=threshold_q, exclude=nulls,
+                filter_segments=filter_segments, min_segment=min_segment).p3
     end
     p3_err = map(1:N) do i
         v = filter(isfinite, @view gp3[:, i])
@@ -1062,7 +1148,8 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
             sigma_score=ksscore, folded_bins=folded_bins, counts=counts, phase=phase, bin=bin,
             p3_per_pulse=c.p3, p3_per_pulse_err=p3_err,
             used=c.keep, nulls=nulls, amplitude=abs.(c.s), threshold=c.threshold, lowpass_cutoff=fc,
-            cutoff_grid=grid, cutoff_score=score, snr=snr, null_method=ni.method, group_span=gspan)
+            cutoff_grid=grid, cutoff_score=score, snr=snr, null_method=ni.method, group_span=gspan,
+            tracked=c.tracked)
 end
 
 
@@ -1085,7 +1172,9 @@ Extra fields (besides the `coherent_fold_agent` ones):
   filter     – `resp_f`, `resp_H` (|H|⁴ at f_c), `resp_H300` (|H|⁴ at 1/300, the old default)
   nulls      – `energy` E(n), `energy_q` (single-pulse S/N), `q80`, `sigma_E`, `null_method`, `null_level`
                (:bright), `energy_smooth` (5 P) and `null_frac` = 2·frac(Ē < 0) (:fraction)
-  carrier    – `passes`: (s, carrier) for niter = 0..niter, `threshold0` (shuffle level, pass 0)
+  carrier    – `passes`: (s, carrier) for niter = 0..niter (whole observation), `threshold0` (shuffle level,
+               pass 0); `s_global`, `carrier_global`, `phase_dev_global`: the whole-observation track before
+               `_segment_track`; `tracked`: pulses whose phase was redone between nulls, `p3_per_pulse_global`: P3(n) from the whole-observation track
   mask       – `edge`, `above` (|s| ≥ threshold), `used`, `nedge`, `window`
   fold       – `phase_const` = 2πn/p3, `phase_dev` = unwrapped phase − phase_const,
                `folded_const` (kernel fold with phase_const, same σ)
@@ -1096,7 +1185,8 @@ function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, 
                                    niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5,
                                    split_nulls::Bool=true, kernel_sigma=:auto, nphase::Int=64,
                                    cutoff_grid=(1/16, 1/10, 1/8, 1/6, 1/4, 1/3), cutoff_seed::Int=2,
-                                   bright_q=20.0, null_level::Real=0.15, group_snr=4.0)
+                                   bright_q=20.0, null_level::Real=0.15, group_snr=4.0,
+                             filter_segments::Bool=true, min_segment=nothing)
     N = size(data, 1)
     on = bin_st:bin_end
     n = collect(1:N)
@@ -1146,14 +1236,25 @@ function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, 
     s, carrier = passes[end]
     thr = niter == 0 ? thr0 : _shuffle_level(X, p3, fc; filter_order=filter_order, niter=niter,
                                              threshold=thr0, nshuffle=nshuffle, q=threshold_q)
+    # phase track redone between nulls (_segment_track)
+    s_global, carrier_global = s, carrier
+    tracked = trues(N)
+    if filter_segments && any(nulls)
+        ml = min_segment === nothing ? 20 : min_segment
+        s, carrier, tracked = _segment_track(X, p3, fc, s, carrier, nulls; filter_order=filter_order, niter=niter,
+                                             threshold=thr0, min_len=ml)
+    end
     nedge = max(4, round(Int, 1 / (2fc)))
     window = max(nedge, round(Int, 3p3), 30)
     edge = falses(N)
     edge[1:min(N, nedge)] .= true
     edge[max(1, N - nedge + 1):N] .= true
     above = abs.(s) .>= thr
-    used = above .& .!edge .& .!nulls
+    used = above .& .!edge .& .!nulls .& tracked
     p3n = _weighted_p3(s, carrier, used, window; bounds=(2.0, 3p3))
+    # for comparison: P3(n) from the whole-observation track (filter across nulls)
+    used_global = (abs.(s_global) .>= thr) .& .!edge .& .!nulls
+    p3n_global = _weighted_p3(s_global, carrier_global, used_global, window; bounds=(2.0, 3p3))
 
     # folds
     phase = carrier .+ angle.(s)
@@ -1163,7 +1264,8 @@ function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, 
     folded_bins[counts .== 0, :] .= NaN
     if kernel_sigma === :auto
         ks = kernel_sigma_agent(data, p3, bin_st, bin_end, fc; filter_order=filter_order, niter=niter,
-                                nshuffle=nshuffle, threshold_q=threshold_q, exclude=nulls)
+                                nshuffle=nshuffle, threshold_q=threshold_q, exclude=nulls,
+                filter_segments=filter_segments, min_segment=min_segment)
         ksig, ksgrid, ksscore = ks.sigma, ks.grid, ks.score
     else
         ksig, ksgrid, ksscore = Float64(kernel_sigma), nothing, nothing
@@ -1181,7 +1283,8 @@ function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, 
         Xg = data[:, st:en]
         Xg = Xg .- mean(Xg, dims=1)
         cg = _variant_c(Xg, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle,
-                        threshold_q=threshold_q, exclude=nulls)
+                        threshold_q=threshold_q, exclude=nulls,
+                filter_segments=filter_segments, min_segment=min_segment)
         gp3[g, :] = cg.p3
         gused[g, :] = cg.keep
     end
@@ -1203,6 +1306,8 @@ function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, 
             q80=ni.q80, sigma_E=ni.sigma_E, null_level=ni.level, bright_q=bright_q,
             passes=passes, threshold0=thr0, edge=edge, above=above, nedge=nedge, window=window,
             phase_const=phase_const, phase_dev=DSP.unwrap(phase .- phase_const), folded_const=folded_const,
+            s_global=s_global, carrier_global=carrier_global, phase_dev_global=DSP.unwrap(carrier_global .+ angle.(s_global) .- phase_const),
+            p3_per_pulse_global=p3n_global, tracked=tracked, filter_segments=filter_segments,
             edges=edges, group_span=gspan, group_snr=group_snr, group_p3=gp3, group_used=gused)
 end
 

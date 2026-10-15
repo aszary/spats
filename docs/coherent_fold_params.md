@@ -141,7 +141,7 @@ cofającymi się (kandydaci na odwrócenia). Cztery widoki jednego pulsara: `scr
 - `P3FoldViterbi.auto_cutoff_agent(data, p3, bin_st, bin_end; ybins, grid, nshuffle)` — f_c = max ΔR² (CV po
   długości − null z tasowania) w f3·{1/16, 1/10, 1/8, 1/6, 1/4, 1/3}.
 - `P3FoldViterbi.coherent_fold_agent(data, p3, bin_st, bin_end; ybins, lowpass_cutoff=:auto, niter=2, n_groups=4,
-  bright_q=20.0, null_level=0.15, group_snr=4.0,
+  bright_q=20.0, null_level=0.15, group_snr=4.0, filter_segments=true, min_segment=20,
   threshold_q=0.5, split_nulls=true)` — fold i P3(n) wariantu C; fold = ŚREDNIA pulsów w binie fazy (nie suma —
   fazy z danych obsadzają biny nierówno, J1539: 31–155 pulsów/bin), zwraca też `counts`, `used`, `nulls`, `amplitude`,
   `lowpass_cutoff`, `cutoff_score`.
@@ -176,6 +176,15 @@ Decyzje projektowe i ich uzasadnienie:
   (J0820-1350, okno 470–567, emisja 495–530) i poszerzały pasmo błędu. Mediana σ: J0820 0.036 → 0.017, J2139
   0.015 → 0.006, J1919 0.144 → 0.063; większa przy mniejszej liczbie binów na podzakres: J1750 2.0 → 2.7, J1041
   0.15 → 0.22. `group_snr=nothing` = całe okno.
+- **`filter_segments`** (od 2026-10-15, domyślnie true) — gdy są nulle, demodulacja, filtr i adaptacyjna nośna liczone
+  osobno w każdym odcinku między nullami (`_segment_track`), z globalnym szablonem; filtr jako normalizowany splot
+  LP(z·m)/LP(m) (m = 1 w odcinku), więc nie sięga przez null i faza może tam przeskoczyć. Odcinki < `min_segment`
+  (20 P) zostają z fazą globalną i bez P3(n). Syntetyki (18 przypadków, 30% nulli, skok fazy U(0, 2π) po nullu): RMS P3(n)
+  0.077 → 0.063, mediana |błędu| 0.024 → 0.016, zgodność fazy 20 P po nullu 0.876 → 0.917 (S/N 1.5: 0.807 → 0.874),
+  pokrycie 0.62 → 0.60; z fazą zachowaną bez zmian (0.030 → 0.028). `filtfilt` na samym odcinku (odbicie na brzegach)
+  był gorszy niż brak podziału (0.974 → 0.941 przy S/N 5) — odrzucony. J0820-1350: skoki fazy przy nullach 246, 277–278,
+  634 jako nieciągłości, dołek P3(n) przed 246: 4.39 → 4.52; fold prawie bez zmian (korelacja ≥ 0.9997 na 10 pulsarach).
+  `~/claude/work/scripts/segment_filter_test.jl`, `segment_filter_variants.jl`.
 
 Testy na danych: f_c J1750 1/147, J0034 1/66, J0818 1/35, J1825 1/142; P3(n) w 60–92% pulsów; 2–10 s na pulsar
 (`test_p3fold_coherent_agent*.jl`, `synth_agent_split.jl`).
