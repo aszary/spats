@@ -3757,3 +3757,23 @@ dziury w danych, ≥ max(20, 2·P3) pulsów emisji po obu stronach.
 - USTERKA detektora nulli z 2026-10-15 (`_energy_nulls_info`, reżim jasny): próg max(0.15·E₈₀, 3σ_E) przy q₈₀ ~ 100–200
   oznacza słabe pulsy (q ~ 10–30) jako nulle — 9 pulsarów z medianą q „nulli” ≥ 5 (J0837-4135 39 „nulli”, q 22;
   J1243-6423 145, q 21; J1932+1059, J1327-6222, J1903+0135, J1326-6700, J1900-2600, …). Do poprawki: dodatkowo q < 5.
+
+### 2026-10-15 (cd.) — skok fazy modulacji przez null vs pseudo-nulle: wynik negatywny (za mała moc)
+
+Detektor nulli poprawiony (reżim jasny: dodatkowo q < 5; commit 069f1af). Pomiar `~/claude/work/scripts/null_phase.jl`
+(wynik `~/output/claude/null_census/null_phase.csv`, podsumowanie `null_phase_summary.py`): dla każdego ścisłego przejścia
+Δφ = arg(Σ_po b · conj Σ_przed b), b = z·e^{−2πin/P3}, okna M = max(20, 2·P3); kontrola: 300 pseudo-nulli tej samej długości
+w ciągłej emisji tego samego pulsara; u = P(|Δφ_ctrl| < |Δφ|) (bez efektu u ~ U(0,1)); u_amp — kontrola dobrana amplitudą;
+estymator 2 — wspólne lokalne P3 obu okien, fazy ekstrapolowane do krawędzi nulla.
+- S/N modulacji ≥ 10: 89 przejść w 23 pulsarach (78 nulli 1–2 P): średnie u 0.50 (u_amp 0.48, u2 0.47 ± 0.03),
+  u > 0.9: 10–11%, KS p 0.24–0.93 — nulle nie różnią się od pseudo-nulli. S/N ≥ 20 (65 przejść): to samo.
+- Moc: nawet bez nulla |Δφ| kontroli ma medianę 0.19–0.20 cyklu (pełny reset fazy: 0.25); oczekiwane u przy pełnym
+  resecie tylko 0.58–0.61. Dane wolą brak resetu (S/N ≥ 10: u2 0.47 ± 0.03 vs 0.575, ~3σ), ale częściowego resetu
+  test nie odróżni. Faza modulacji w większości pulsarów nie jest spójna na skali 20–40 P — to ogranicza pomysł, nie
+  estymator (lokalne P3 nie zmniejszyło rozrzutu kontroli: 0.197 vs 0.204).
+- S/N ≥ 5: estymator 2 daje nadmiar u2 > 0.9 (17%, p = 0.007), ale znika przy S/N ≥ 10 — niespójne, raczej systematyka
+  słabych pulsarów; nie traktować jako efektu.
+- J0820-1350: wszystkie 3 przejścia u2 ≥ 0.96 (Δφ2 +0.21, +0.26, +0.15 cyklu), jedyny taki pulsar — ale wybrany
+  a posteriori (stąd pomysł), więc to obserwacja pojedynczego przypadku, nie wynik populacyjny.
+Wniosek: przegląd populacyjny pamięci fazy przez nulle nie jest wykonalny na tych danych (krótkie obserwacje, krótkie
+nulle, faza modulacji niespójna na skali okna). Zostaje opis pojedynczych przypadków (J0820-1350).
