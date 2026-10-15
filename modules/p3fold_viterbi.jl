@@ -728,7 +728,8 @@ function _weighted_p3(s, carrier, keep, window; bounds=(2.0, Inf))
 end
 
 """
-    _energy_nulls_info(data, on; smooth=5, minlen=2, bright_q=20.0, null_level=0.15, null_k=3.0) -> NamedTuple
+    _energy_nulls_info(data, on; smooth=5, minlen=2, bright_q=20.0, null_level=0.15, null_k=3.0,
+                       null_qmax=5.0) -> NamedTuple
 
 Nulls from pulse energy E(n) = Σ_on I(n,φ). Noise of E from the data: σ_E =
 1.4826·MAD of the energies of all disjoint off-pulse windows of the on-pulse
@@ -738,7 +739,10 @@ Two regimes:
 
   * bright pulsar — 80th percentile of q at least `bright_q` (`bright_q =
     nothing` switches this off): every pulse on its own, null if
-    E(n) < max(`null_level`·E₈₀, `null_k`·σ_E), E₈₀ = 80th percentile of E.
+    E(n) < max(`null_level`·E₈₀, `null_k`·σ_E), E₈₀ = 80th percentile of E,
+    and q(n) < `null_qmax` (energy consistent with noise: at q₈₀ ~ 100–200 the
+    0.15·E₈₀ level alone took weak pulses with q ~ 10–30 for nulls, 9 of 521
+    pulsars, e.g. J0837-4135 39 "nulls" with median q 22).
     Single-pulse nulls count (no smoothing, no minimum length, no minimum
     null fraction). The 80th percentile, not the median: with ≥ 50% nulls the
     median is a null (J0034-0721 has ~45%). J0820-1350: nulls < 0.15·E₈₀,
@@ -763,7 +767,7 @@ without an off-pulse window), q80, level (energy threshold, :bright only), Es,
 null_frac (:fraction only, NaN otherwise).
 """
 function _energy_nulls_info(data::AbstractMatrix, on; smooth::Int=5, minlen::Int=2, bright_q=20.0,
-                            null_level::Real=0.15, null_k::Real=3.0)
+                            null_level::Real=0.15, null_k::Real=3.0, null_qmax::Real=5.0)
     N, nb = size(data)
     E = vec(sum(data[:, on], dims=2))
     w = length(on)
@@ -777,7 +781,7 @@ function _energy_nulls_info(data::AbstractMatrix, on; smooth::Int=5, minlen::Int
     q80 = all(isnan, q) ? NaN : quantile(q, 0.8)
     if bright_q !== nothing && isfinite(q80) && q80 ≥ bright_q
         level = max(null_level * quantile(E, 0.8), null_k * sigE)
-        return (nulls=E .< level, method=:bright, E=E, sigma_E=sigE, q=q, q80=q80, level=level, Es=E, null_frac=NaN)
+        return (nulls=(E .< level) .& (q .< null_qmax), method=:bright, E=E, sigma_E=sigE, q=q, q80=q80, level=level, Es=E, null_frac=NaN)
     end
     h = smooth ÷ 2
     Es = [mean(E[max(1, i - h):min(N, i + h)]) for i in 1:N]
@@ -1025,7 +1029,8 @@ end
      the fold, whose bin assignment is modulo 2π; a lower `threshold_q`
      shortens the gaps at the cost of noisier phase;
      with `split_nulls` also the nulls found from pulse energy
-     (`_energy_nulls_info`: single pulses below max(`null_level`·E₈₀, 3σ_E) for a
+     (`_energy_nulls_info`: single pulses below max(`null_level`·E₈₀, 3σ_E) and with
+     energy S/N < 5 for a
      bright pulsar, 80th percentile of energy S/N ≥ `bright_q`; otherwise the 5-P mean and
      Ritchings null fraction) — they can be shorter than the filter memory and
      then never reach the |s| threshold, while |s| dips inside them flip the

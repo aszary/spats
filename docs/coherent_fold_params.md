@@ -167,7 +167,8 @@ Decyzje projektowe i ich uzasadnienie:
   nullu pomaga częściowo (15.5% → 12.3%), bo filtr nadal przechodzi przez null.
   **Od 2026-10-15 dla jasnych pulsarów** (80. percentyl S/N energii pulsu ≥ `bright_q` = 20, σ_E = 1.4826·MAD
   energii okien off-pulse o szerokości okna on-pulse, czyli z falowaniem linii bazowej) każdy puls osobno:
-  null, gdy E < max(0.15·E₈₀, 3σ_E). Bez progu 5% i bez minimalnej długości. J0820-1350: 0 → 23 nulle (1–18, 246,
+  null, gdy E < max(0.15·E₈₀, 3σ_E) i q = E/σ_E < 5 (warunek q dodany tego samego dnia: bez niego przy q₈₀ ~ 100–200
+  słabe pulsy z q ~ 10–30 liczyły się jako nulle — 9 z 521 pulsarów, np. J0837-4135). Bez progu 5% i bez minimalnej długości. J0820-1350: 0 → 23 nulle (1–18, 246,
   277–278, 634, 1044; przy 246 i 277–278 skoki fazy ~1/3 cyklu); J0034 319 → 480 (46%); J2139+2242 0 → 95
   (91 pulsów zer = dziura w danych 560–650); J1041-1942 0 → 19. Słabe (J1049, J1750, J1919, J0152, J1720, J1246)
   bez zmian. `bright_q=nothing` = stara reguła (`~/claude/work/scripts/nulls_groups_test.jl`).

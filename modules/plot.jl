@@ -684,7 +684,7 @@ module Plot
             if s.null_method === :bright
                 plot(n, s.energy, c="black", lw=0.5, label="E(n) = Σ_on I")
                 axhline(s.null_level, c="red", ls="--", lw=0.6,
-                        label="próg nulla = max(0.15·E₈₀, 3σ_E) = $(round(s.null_level / quantile(s.energy, 0.8), digits=2))·E₈₀")
+                        label="próg nulla = max(0.15·E₈₀, 3σ_E) = $(round(s.null_level / quantile(s.energy, 0.8), digits=2))·E₈₀ i S/N < 5")
                 info = "$mq ≥ $(s.bright_q): każdy puls osobno; nulle (czerwone): $(count(s.nulls)) pulsów"
             else
                 plot(n, s.energy, c="lightgrey", lw=0.4, label="E(n) = Σ_on I")
