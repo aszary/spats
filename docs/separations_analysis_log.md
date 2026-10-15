@@ -3663,3 +3663,33 @@ Dwie poprawki z przeglądu krok po kroku (J0820-1350); domyślnie włączone, st
 Skutek dla P3(n) J0820: 4 odcinki zamiast 1 (podział na nullach 246, 277–278, 634), ale filtr nadal przechodzi przez null,
 więc skok fazy jest dalej rozmyty, a na brzegach odcinków (jednostronne okno) P3(n) ma dołki: 4.39 przy 245, 4.58 przy 633.
 Następny krok (problem 2): filtr dolnoprzepustowy osobno w każdym odcinku między nullami.
+
+## 2026-10-15 cd. — PhysFit: model karuzeli bez geometrii + HMM (faza, tempo ze skokami) — pierwszy test
+
+Kod: `~/claude/work/scripts/physfit.jl` (projekt `~/claude/work/physfit_plan.md`). Model: X(n,j) = Σ_k a_{n,k}
+exp(−D²/2σ²), D² = (1+d_j)² + 1 − 2(1+d_j) cos(a_j − (θ_n + 2πk)/K); a_j (Legendre st. 3), d_j (st. 4), σ, K z siatki
+{6, 8, 10, 12}. HMM: 64 fazy × 121 P3 (0.4–2.5 × P3 startowe), p_c = p_j = 1e-3, dyfuzja 5%. EM 4 iteracje.
+Wariant kontrolny HMM_fold: ten sam HMM, szablon = fold jądrowy danych (jedna amplituda na puls).
+Po drodze (diagnostyka `noname_run/physfit_diag.jl`): z WOLNYMI amplitudami każdej iskry model jest zdegenerowany —
+szerokie iskry (σ 0.9–1.4) z amplitudą na iskrę = dowolna gładka baza, koszt PONIŻEJ poziomu szumu, faza bez
+znaczenia (R 0.09). Przy prawdziwej fazie szablon (nawet złe K = 6 zamiast 12) + HMM → R 0.98, P3 9.98/7.01 —
+problemem był start/EM, nie pojemność modelu. Naprawa: amplitudy iskier z rozkładem a priori a = c·1 + δ,
+δ ~ N(0, (0.5c)²) (MAP), plus start z fazy coherent_fold_agent (opcja θ0). Poprawka osobliwości (A + μI singular, gdy
+żadna iskra nie leży przy linii widzenia).
+
+Test (`noname_run/physfit_test.jl`, `~/claude/work/physfit_test_all.csv`, wykresy `figures/physfit_test/`): noname
+P = 1 s, α 30°, β {0.1, 0.45, 0.8}ρ, P3 10 → 7 przy 500, nulle 5% z karuzelą stojącą, amplitudy iskier σ 0.5.
+| β/ρ, S/N | agent: błąd, P3 po, faza R, fold | HMM_fold | HMM_model (start stałe P3) | HMM_model_ag (start agent) |
+| 0.45, 1 | 4.6%, 9.00, 0.57, 0.64 | 1.5%, 9.99, 0.48, 0.57 | 20.6%, 6.38, 0.07, 0.09 | 0.5%, 7.04, 0.98, 0.81 |
+| 0.45, 2 | 3.6%, 8.09, 0.82, 0.90 | 0.7%, 6.99, 0.98, 0.93 | 46.9%, 7.28, 0.23, 0.55 | 0.6%, 6.99, 0.99, 0.93 |
+| 0.10, 1 | 5.7%, 9.73, 0.51, 0.55 | 5.2%, 10.00, 0.32, 0.36 | 1.8%, 7.04, 0.96, 0.77 | 1.4%, 7.04, 0.96, 0.78 |
+| 0.10, 2 | 4.3%, 7.61, 0.81, 0.91 | 0.5%, 7.03, 0.96, 0.92 | 0.7%, 7.04, 0.99, 0.86 | 0.7%, 7.04, 0.99, 0.93 |
+| 0.80, 1 | 9.3%, 9.20, 0.68, 0.82 | 0.4%, 7.03, 0.98, 0.88 | 24.8%, 7.14, 0.39, 0.65 | 0.4%, 7.02, 1.00, 0.90 |
+| 0.80, 2 | 2.6%, 7.35, 0.91, 0.95 | 0.5%, 7.02, 1.00, 0.91 | 25.7%, 6.63, 0.63, 0.84 | 0.3%, 7.01, 1.00, 0.96 |
+Wnioski: HMM_model_ag najlepszy lub równy we wszystkich 6 przypadkach, skok trafiony wszędzie (7.01–7.04; agent
+7.35–9.73), fold ≥ agent wszędzie. HMM_fold (5 s) równy przy S/N 2 i β = 0.8ρ, przegapia skok przy S/N 1 dla β 0.1
+i 0.45ρ → przy niskim S/N szablon fizyczny pomaga, przy wyższym zysk daje głównie HMM ze skokami tempa.
+Start ze stałego P3 zawodzi w 4/6. Przedziały 68%: pokrycie prawdy 0.01–0.74 (nieskalibrowane). Czas: model 2.5–6 min
+na 1000 pulsów, HMM_fold 5 s, agent < 8 s. ZASTRZEŻENIE: generator (noname, iskry na torze) = ta sama rodzina co
+model → wynik optymistyczny; jeden scenariusz P3, jedna rodzina geometrii. Dalej: benchmark v2 (inny generator)
+i dane (J0820, J0034, J1750, J1825; s2 z off-pulse).
