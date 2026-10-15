@@ -565,6 +565,7 @@ module SpaTs
     """
     function p3fold_coherent_agent(outdir; ybins=nothing, lowpass_cutoff=:auto, filter_order=6, n_groups=4,
                                    threshold_q=0.5, split_nulls=true, fold=:kernel, kernel_sigma=:auto,
+                                   bright_q=20.0, null_level=0.15, group_snr=4.0,
                                    nphase=64, darkness=1.0, datafile="pulsar.debase.txt", plotdir=outdir,
                                    name_mod="pulsar_coherent_agent", figtitle=nothing)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
@@ -576,7 +577,7 @@ module SpaTs
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups,
             threshold_q=threshold_q, split_nulls=split_nulls, fold=fold, kernel_sigma=kernel_sigma,
-            nphase=nphase)
+            nphase=nphase, bright_q=bright_q, null_level=null_level, group_snr=group_snr)
         fc = result.lowpass_cutoff
         println("Matched-filter SNR: $(round(result.snr, digits=1)), lowpass_cutoff = 1/$(round(1 / fc, digits=1)) " *
                 "($(round(fc * p3, digits=3)) f3), kernel σ = $(round(result.kernel_sigma, digits=3)) cycle, nulls (energy) $(round(100 * count(result.nulls) / length(result.nulls), digits=1))%, P3(n) measured in $(round(100 * count(isfinite, result.p3_per_pulse) / length(result.p3_per_pulse), digits=1))% of pulses")
@@ -604,6 +605,7 @@ module SpaTs
     """
     function p3fold_coherent_agent_steps(outdir; steps=0:10, ybins=nothing, lowpass_cutoff=:auto, filter_order=6,
                                          n_groups=4, threshold_q=0.5, split_nulls=true, kernel_sigma=:auto,
+                                         bright_q=20.0, null_level=0.15, group_snr=4.0,
                                          nphase=64, npulses=150, darkness=1.0, datafile="pulsar.debase.txt",
                                          plotdir=outdir, name_mod="pulsar_coherent_agent_steps", figtitle=nothing)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
@@ -614,7 +616,8 @@ module SpaTs
         s = P3FoldViterbi.coherent_fold_agent_steps(
             data, p3, Int(p["bin_st"]), Int(p["bin_end"]);
             ybins=yb, lowpass_cutoff=lowpass_cutoff, filter_order=filter_order, n_groups=n_groups,
-            threshold_q=threshold_q, split_nulls=split_nulls, kernel_sigma=kernel_sigma, nphase=nphase)
+            threshold_q=threshold_q, split_nulls=split_nulls, kernel_sigma=kernel_sigma, nphase=nphase,
+            bright_q=bright_q, null_level=null_level, group_snr=group_snr)
         fc = s.lowpass_cutoff
         println("Matched-filter SNR: $(round(s.snr, digits=1)), lowpass_cutoff = 1/$(round(1 / fc, digits=1)) " *
                 "($(round(fc * p3, digits=3)) f3), kernel σ = $(s.kernel_sigma) cycle, nulls (energy) $(count(s.nulls)), " *

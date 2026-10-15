@@ -594,7 +594,7 @@ module Plot
     Step-by-step figures of `coherent_fold_agent` (`P3FoldViterbi.coherent_fold_agent_steps` result `s`),
     one file per step: `<outdir>/<name_mod>_step<k>.pdf/.png`.
 
-      0  – input: average profile, first `npulses` pulses, pulse energy and nulls
+      0  – input: average profile, first `npulses` pulses, pulse energy and nulls (`_energy_nulls_info`)
       1  – FFT along pulse number, template L(φ) (as `p3fold_coherent_steps`)
       2  – matched filter z(n) (as `p3fold_coherent_steps`)
       3  – low-pass cutoff f_c: cross-validated fold quality on two halves of the bins minus pulse shuffles
@@ -604,7 +604,7 @@ module Plot
       7  – total phase and P3(n) within continuous runs
       8  – kernel width σ (leave-one-out) and the distribution of fold phases
       9  – folds: kernel (coherent), binned mean (coherent), kernel with constant P3
-      10 – errors from `n_groups` longitude sub-ranges
+      10 – errors from `n_groups` longitude sub-ranges (of the bins with significant |L|)
     """
     function p3fold_coherent_agent_steps(s, data, outdir; steps=0:10, npulses=150,
                                          name_mod="pulsar_coherent_agent_steps", figtitle=nothing,
@@ -678,15 +678,25 @@ module Plot
             xlabel("bin długości")
             ylabel("puls (pierwsze $np_)")
             subplot2grid((5, 1), (3, 0), rowspan=2)
-            spans(s.nulls; color="red", alpha=0.25)
-            plot(n, s.energy, c="lightgrey", lw=0.4, label="E(n) = Σ_on I")
-            plot(n, s.energy_smooth, c="black", lw=0.7, label="średnia po 5 P")
+            spans(s.nulls; color="red", alpha=0.35)
             axhline(0, c="grey", ls=":", lw=0.5)
+            mq = isfinite(s.q80) ? "80. percentyl S/N energii pulsu = $(round(s.q80, digits=1))" : "brak okna off-pulse"
+            if s.null_method === :bright
+                plot(n, s.energy, c="black", lw=0.5, label="E(n) = Σ_on I")
+                axhline(s.null_level, c="red", ls="--", lw=0.6,
+                        label="próg nulla = max(0.15·E₈₀, 3σ_E) = $(round(s.null_level / quantile(s.energy, 0.8), digits=2))·E₈₀")
+                info = "$mq ≥ $(s.bright_q): każdy puls osobno; nulle (czerwone): $(count(s.nulls)) pulsów"
+            else
+                plot(n, s.energy, c="lightgrey", lw=0.4, label="E(n) = Σ_on I")
+                plot(n, s.energy_smooth, c="black", lw=0.7, label="średnia po 5 P")
+                info = "$mq < $(s.bright_q): 2·frac(Ē < 0) = $(round(100 * s.null_frac, digits=1))% (próg 5%); " *
+                       "nulle (czerwone): $(count(s.nulls)) pulsów"
+            end
+            any(s.nulls) && plot(findall(s.nulls), fill(0.0, count(s.nulls)), "v", c="red", ms=3)
             xlim(1, N)
             xlabel("numer pulsu")
             ylabel("energia pulsu")
-            text(0.01, 0.04, "2·frac(Ē < 0) = $(round(100 * s.null_frac, digits=1))% (próg 5%); nulle (czerwone): " *
-                 "$(count(s.nulls)) pulsów", fontsize=7, transform=gca().transAxes)
+            text(0.01, 0.04, info, fontsize=7, transform=gca().transAxes)
             legend(fontsize=6, loc="upper right", ncol=2)
             save_fig(0)
         end
@@ -814,6 +824,7 @@ module Plot
             spans(s.nulls; color="red", alpha=0.25)
             spans(.!s.above .& .!s.edge .& .!s.nulls; color="orange", alpha=0.3)
             plot(n, s.amplitude, c="black", lw=0.7)
+            any(s.nulls) && plot(findall(s.nulls), fill(0.0, count(s.nulls)), "v", c="red", ms=3, label="null")
             axhline(s.threshold, c="orange", ls="--", lw=0.8, label="próg |s| (tasowanie, q = $(s.threshold_q))")
             xlim(1, N)
             ylabel("|s(n)| (ostatnie przejście)")
@@ -903,13 +914,21 @@ module Plot
             start_fig(7.3, "krok 10: błędy z $(s.n_groups) podzakresów długości")
             cols = ["C$(g - 1)" for g in 1:s.n_groups]
             subplot2grid((3, 1), (0, 0))
-            plot(lo:hi, prof[lo:hi], c="black")
+            plot(lo:hi, prof[lo:hi], c="black", label="profil średni")
+            absL = abs.(s.L)
+            plot(lo:hi, absL[lo:hi] ./ maximum(absL[on]) .* maximum(prof[on]), c="grey", ls=":", label="|L(φ)| (skala)")
             for g in 1:s.n_groups
                 axvspan(s.edges[g] - 0.5, s.edges[g+1] - 0.5, color=cols[g], alpha=0.25, lw=0)
             end
+            axvline(s.bin_st, c="black", ls="--", lw=0.5)
+            axvline(s.bin_end, c="black", ls="--", lw=0.5)
             xlim(lo, hi)
             xlabel("bin długości")
             ylabel("profil średni")
+            title(s.group_snr === nothing ? "podzakresy z całego okna on-pulse (przerywane)" :
+                  "podzakresy z binów $(first(s.group_span))–$(last(s.group_span)): |L| > $(s.group_snr)·σ_off " *
+                  "(okno on-pulse: przerywane)", fontsize=7)
+            legend(fontsize=6, loc="upper right")
             subplot2grid((3, 1), (1, 0), rowspan=2)
             for g in 1:s.n_groups
                 cov = round(100 * count(isfinite, s.group_p3[g, :]) / N, digits=0)

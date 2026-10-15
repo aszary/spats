@@ -722,27 +722,63 @@ function _weighted_p3(s, carrier, keep, window; bounds=(2.0, Inf))
 end
 
 """
-    _energy_nulls(data, on; smooth=5, minlen=2) -> BitVector
+    _energy_nulls_info(data, on; smooth=5, minlen=2, bright_q=20.0, null_level=0.15, null_k=3.0) -> NamedTuple
 
-Nulls from pulse energy E(n) = Σ_on I(n,φ), averaged over `smooth` pulses.
-Null fraction nf = 2·frac(Ē < 0) (Ritchings 1976: noise is symmetric, so nulls
-put as many values below zero as above); if nf < 5% no pulse is flagged,
-otherwise the nf lowest Ē, kept only in episodes of ≥ `minlen` pulses.
-Averaging first matters for weak pulsars: single pulses of J1750-3503
-(energy S/N 1.6, no nulls) fall below zero often enough to fake an 18% null
-fraction; nulls last several pulses, noise dips of emitting pulses do not, so
-the mean over 5 pulses raises the emission S/N √5× and leaves nulls at zero.
+Nulls from pulse energy E(n) = Σ_on I(n,φ). Noise of E from the data: σ_E =
+1.4826·MAD of the energies of all disjoint off-pulse windows of the on-pulse
+width (all pulses) — it includes baseline wander, which rms_off·√n_on misses
+(J1049-5833: nulls spread to 0.3·E₈₀ at a nominal σ of 0.03·E₈₀); q(n) = E(n)/σ_E.
+Two regimes:
+
+  * bright pulsar — 80th percentile of q at least `bright_q` (`bright_q =
+    nothing` switches this off): every pulse on its own, null if
+    E(n) < max(`null_level`·E₈₀, `null_k`·σ_E), E₈₀ = 80th percentile of E.
+    Single-pulse nulls count (no smoothing, no minimum length, no minimum
+    null fraction). The 80th percentile, not the median: with ≥ 50% nulls the
+    median is a null (J0034-0721 has ~45%). J0820-1350: nulls < 0.15·E₈₀,
+    emitting pulses ≥ 0.35·E₈₀, among the nulls 1-pulse ones at 246 and
+    277–278 where the phase jumps by ~1/3 cycle — the old rule below (5-P
+    mean, ≥ 5%) found none. Pulses of zeros (data gaps, J2139+2242 560–650)
+    are flagged too.
+  * otherwise (old rule) — E averaged over `smooth` pulses; null fraction
+    nf = 2·frac(Ē < 0) (Ritchings 1976: noise is symmetric, so nulls put as
+    many values below zero as above); if nf < 5% no pulse is flagged,
+    otherwise the nf lowest Ē, kept only in episodes of ≥ `minlen` pulses.
+    Averaging matters for weak pulsars: single pulses of J1750-3503 (energy
+    S/N 1.6, no nulls) fall below zero often enough to fake an 18% null
+    fraction; nulls last several pulses, noise dips of emitting pulses do not,
+    so the mean over 5 pulses raises the emission S/N √5× and leaves nulls at zero.
+
 Independent of the low-pass filter, so it catches nulls shorter than the
 filter memory, which the |s| threshold misses.
+
+Returns: nulls (BitVector), method (:bright or :fraction), E, sigma_E, q (NaN
+without an off-pulse window), q80, level (energy threshold, :bright only), Es,
+null_frac (:fraction only, NaN otherwise).
 """
-function _energy_nulls(data::AbstractMatrix, on; smooth::Int=5, minlen::Int=2)
-    N = size(data, 1)
+function _energy_nulls_info(data::AbstractMatrix, on; smooth::Int=5, minlen::Int=2, bright_q=20.0,
+                            null_level::Real=0.15, null_k::Real=3.0)
+    N, nb = size(data)
     E = vec(sum(data[:, on], dims=2))
+    w = length(on)
+    wins = [k*w+1:(k+1)*w for k in 0:(nb ÷ w - 1) if isempty(intersect(k*w+1:(k+1)*w, on))]
+    sigE = NaN
+    if !isempty(wins)
+        Eoff = reduce(vcat, [vec(sum(data[:, r], dims=2)) for r in wins])
+        sigE = 1.4826 * median(abs.(Eoff .- median(Eoff)))
+    end
+    q = isfinite(sigE) && sigE > 0 ? E ./ sigE : fill(NaN, N)
+    q80 = all(isnan, q) ? NaN : quantile(q, 0.8)
+    if bright_q !== nothing && isfinite(q80) && q80 ≥ bright_q
+        level = max(null_level * quantile(E, 0.8), null_k * sigE)
+        return (nulls=E .< level, method=:bright, E=E, sigma_E=sigE, q=q, q80=q80, level=level, Es=E, null_frac=NaN)
+    end
     h = smooth ÷ 2
     Es = [mean(E[max(1, i - h):min(N, i + h)]) for i in 1:N]
     nf = 2 * mean(Es .< 0)
     out = falses(N)
-    nf < 0.05 && return out
+    info = (method=:fraction, E=E, sigma_E=sigE, q=q, q80=q80, level=NaN, Es=Es, null_frac=nf)
+    nf < 0.05 && return (; nulls=out, info...)
     m = Es .< quantile(Es, min(nf, 0.9))
     i = 1
     while i ≤ N
@@ -757,7 +793,31 @@ function _energy_nulls(data::AbstractMatrix, on; smooth::Int=5, minlen::Int=2)
             i += 1
         end
     end
-    return out
+    return (; nulls=out, info...)
+end
+
+"Null mask from pulse energy, see `_energy_nulls_info`."
+_energy_nulls(data::AbstractMatrix, on; kwargs...) = _energy_nulls_info(data, on; kwargs...).nulls
+
+"""
+Longitude sub-ranges for the P3(n) errors: `n_groups` contiguous pieces of the
+span between the first and last on-pulse bin with |L| > `group_snr`·σ_off
+(significant modulation at f3; |L| of pure noise is Rayleigh, P(> 4σ) = 3·10⁻⁴).
+Bins outside the span carry only noise, yet with the median-of-noise |s|
+threshold they still give P3(n) in a third or more of the pulses and inflate
+the scatter (J0820-1350: window 470–567, emission 495–530, noise groups gave
+P3(n) 4.1–5.6 in 41% / 33% of pulses). Whole window if `group_snr = nothing`
+or the span is shorter than 3 bins per group. Returns (edges, span).
+"""
+function _group_edges(L::AbstractVector, bin_st::Int, bin_end::Int, sigma_off::Real, n_groups::Int; group_snr=4.0)
+    st, en = bin_st, bin_end
+    if group_snr !== nothing && sigma_off > 0
+        sig = findall(abs.(L[bin_st:bin_end]) .> group_snr * sigma_off)
+        if !isempty(sig) && sig[end] - sig[1] + 1 ≥ 3 * n_groups
+            st, en = bin_st + sig[1] - 1, bin_st + sig[end] - 1
+        end
+    end
+    return round.(Int, range(st, en + 1, length=n_groups + 1)), st:en
 end
 
 "Variant C on one on-pulse range: adaptive carrier, shuffle-quantile threshold, edges and `exclude` (nulls) dropped."
@@ -874,7 +934,8 @@ end
 """
     coherent_fold_agent(data, p3, bin_st, bin_end; ybins=10, lowpass_cutoff=:auto, filter_order=6,
                         niter=2, nshuffle=5, n_groups=4, threshold_q=0.5, split_nulls=true,
-                        fold=:kernel, kernel_sigma=:auto, nphase=64) -> NamedTuple
+                        fold=:kernel, kernel_sigma=:auto, nphase=64, bright_q=20.0, null_level=0.15,
+                        group_snr=4.0) -> NamedTuple
 
 `coherent_fold` with (1) the low-pass cutoff chosen by `auto_cutoff_agent`
 (or a number), and (2) the P3(n) track of "variant C":
@@ -890,7 +951,9 @@ end
      the fold, whose bin assignment is modulo 2π; a lower `threshold_q`
      shortens the gaps at the cost of noisier phase;
      with `split_nulls` also the nulls found from pulse energy
-     (`_energy_nulls`) — they can be shorter than the filter memory and
+     (`_energy_nulls_info`: single pulses below max(`null_level`·E₈₀, 3σ_E) for a
+     bright pulsar, 80th percentile of energy S/N ≥ `bright_q`; otherwise the 5-P mean and
+     Ritchings null fraction) — they can be shorter than the filter memory and
      then never reach the |s| threshold, while |s| dips inside them flip the
      phase (single P3(n) spikes → ∞ on synthetic data);
   4. P3(n) from the slope of the total phase, weighted by |s|², over
@@ -900,7 +963,9 @@ end
 
 Same on-pulse window and template as `coherent_fold`. Errors: P3(n) recomputed
 on `n_groups` contiguous longitude sub-ranges (independent noise), std/√n
-over the groups that give a value.
+over the groups that give a value; the sub-ranges split only the span of bins
+with significant modulation, |L| > `group_snr`·σ_off (`_group_edges`;
+`group_snr = nothing`: whole on-pulse window, as before 2026-10-15).
 
 Synthetic benchmark (36 cases, P3 6–45, wander/step, 30% nulls, S/N 1.5–5):
 relative P3(n) error 5.6% (median) at 94% coverage; fold correlation with
@@ -921,6 +986,8 @@ Returns:
   p3_per_pulse_err – 1σ from the longitude groups (NaN if < 2 groups)
   used           – pulses that enter P3(n)
   nulls          – pulses flagged as nulls from energy (all false if `split_nulls=false`)
+  null_method    – :bright (single-pulse energies) or :fraction (5-P mean, Ritchings)
+  group_span     – longitude bins split into the error sub-ranges
   amplitude, threshold – |s(n)| and the shuffle level
   lowpass_cutoff – cutoff used; cutoff_grid, cutoff_score (if :auto)
   snr            – matched-filter detection significance (as `coherent_fold`)
@@ -928,7 +995,8 @@ Returns:
 function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                              ybins::Int=10, lowpass_cutoff=:auto, filter_order::Int=6,
                              niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5,
-                             split_nulls::Bool=true, fold::Symbol=:kernel, kernel_sigma=:auto, nphase::Int=64)
+                             split_nulls::Bool=true, fold::Symbol=:kernel, kernel_sigma=:auto, nphase::Int=64,
+                             bright_q=20.0, null_level::Real=0.15, group_snr=4.0)
     fold in (:kernel, :bins) || error("fold must be :kernel or :bins")
     N = size(data, 1)
     on = bin_st:bin_end
@@ -942,7 +1010,8 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
 
     X = data[:, on]
     X = X .- mean(X, dims=1)
-    nulls = split_nulls ? _energy_nulls(data, on) : falses(N)
+    ni = _energy_nulls_info(data, on; bright_q=bright_q, null_level=null_level)
+    nulls = split_nulls ? ni.nulls : falses(N)
     c = _variant_c(X, p3, fc; filter_order=filter_order, niter=niter, nshuffle=nshuffle, threshold_q=threshold_q,
                    exclude=nulls)
     phase = c.carrier .+ angle.(c.s)
@@ -974,7 +1043,7 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
     snr = sigma_off == 0 ? Inf : sqrt(sum(abs2, L[on])) / (sigma_off * sqrt(length(on)))
 
     # errors from independent longitude sub-ranges
-    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+    edges, gspan = _group_edges(L, bin_st, bin_end, sigma_off, n_groups; group_snr=group_snr)
     gp3 = fill(NaN, n_groups, N)
     for g in 1:n_groups
         st, en = edges[g], edges[g+1] - 1
@@ -993,7 +1062,7 @@ function coherent_fold_agent(data::AbstractMatrix, p3::Real, bin_st::Int, bin_en
             sigma_score=ksscore, folded_bins=folded_bins, counts=counts, phase=phase, bin=bin,
             p3_per_pulse=c.p3, p3_per_pulse_err=p3_err,
             used=c.keep, nulls=nulls, amplitude=abs.(c.s), threshold=c.threshold, lowpass_cutoff=fc,
-            cutoff_grid=grid, cutoff_score=score, snr=snr)
+            cutoff_grid=grid, cutoff_score=score, snr=snr, null_method=ni.method, group_span=gspan)
 end
 
 
@@ -1014,18 +1083,20 @@ Extra fields (besides the `coherent_fold_agent` ones):
   cutoff     – `halves` (A, B: interleaved on-pulse bin blocks), `cutoff_grid`, `cv_data`,
                `cv_shuffle` (grid × nshuffle), `cutoff_score` = cv_data − mean(cv_shuffle)
   filter     – `resp_f`, `resp_H` (|H|⁴ at f_c), `resp_H300` (|H|⁴ at 1/300, the old default)
-  nulls      – `energy` E(n), `energy_smooth` (5 P), `null_frac` = 2·frac(Ē < 0)
+  nulls      – `energy` E(n), `energy_q` (single-pulse S/N), `q80`, `sigma_E`, `null_method`, `null_level`
+               (:bright), `energy_smooth` (5 P) and `null_frac` = 2·frac(Ē < 0) (:fraction)
   carrier    – `passes`: (s, carrier) for niter = 0..niter, `threshold0` (shuffle level, pass 0)
   mask       – `edge`, `above` (|s| ≥ threshold), `used`, `nedge`, `window`
   fold       – `phase_const` = 2πn/p3, `phase_dev` = unwrapped phase − phase_const,
                `folded_const` (kernel fold with phase_const, same σ)
-  jackknife  – `edges`, `group_p3`, `group_used`
+  jackknife  – `edges`, `group_span` (bins with |L| > `group_snr`·σ_off), `group_p3`, `group_used`
 """
 function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, bin_end::Int;
                                    ybins::Int=10, lowpass_cutoff=:auto, filter_order::Int=6,
                                    niter::Int=2, nshuffle::Int=5, n_groups::Int=4, threshold_q::Real=0.5,
                                    split_nulls::Bool=true, kernel_sigma=:auto, nphase::Int=64,
-                                   cutoff_grid=(1/16, 1/10, 1/8, 1/6, 1/4, 1/3), cutoff_seed::Int=2)
+                                   cutoff_grid=(1/16, 1/10, 1/8, 1/6, 1/4, 1/3), cutoff_seed::Int=2,
+                                   bright_q=20.0, null_level::Real=0.15, group_snr=4.0)
     N = size(data, 1)
     on = bin_st:bin_end
     n = collect(1:N)
@@ -1065,11 +1136,9 @@ function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, 
     resp_H = abs2.(freqresp(digitalfilter(Lowpass(fc), Butterworth(filter_order); fs=1.0), 2π .* resp_f)) .^ 2
     resp_H300 = abs2.(freqresp(digitalfilter(Lowpass(1 / 300), Butterworth(filter_order); fs=1.0), 2π .* resp_f)) .^ 2
 
-    # nulls from pulse energy (_energy_nulls, smooth = 5)
-    E = vec(sum(data[:, on], dims=2))
-    Es = [mean(E[max(1, i - 2):min(N, i + 2)]) for i in 1:N]
-    null_frac = 2 * mean(Es .< 0)
-    nulls = split_nulls ? _energy_nulls(data, on) : falses(N)
+    # nulls from pulse energy
+    ni = _energy_nulls_info(data, on; bright_q=bright_q, null_level=null_level)
+    nulls = split_nulls ? ni.nulls : falses(N)
 
     # variant C (_variant_c): adaptive carrier, threshold, edges, nulls, weighted P3(n)
     thr0 = _shuffle_level(X, p3, fc; filter_order=filter_order, nshuffle=nshuffle, q=threshold_q)
@@ -1103,7 +1172,7 @@ function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, 
     folded_const = kernel_fold_agent(data, phase_const, ksig; nphase=nphase)
 
     # errors from independent longitude sub-ranges
-    edges = round.(Int, range(bin_st, bin_end + 1, length=n_groups + 1))
+    edges, gspan = _group_edges(L, bin_st, bin_end, sigma_off, n_groups; group_snr=group_snr)
     gp3 = fill(NaN, n_groups, N)
     gused = falses(n_groups, N)
     for g in 1:n_groups
@@ -1130,10 +1199,11 @@ function coherent_fold_agent_steps(data::AbstractMatrix, p3::Real, bin_st::Int, 
             F=F, k=k, L=L, off=off, sigma_off=sigma_off, argL_on=DSP.unwrap(angle.(L[on])),
             w=w, z=z, baseband=baseband, halves=(A, B), cv_data=cv_data, cv_shuffle=cv_shuffle,
             resp_f=resp_f, resp_H=resp_H, resp_H300=resp_H300,
-            energy=E, energy_smooth=Es, null_frac=null_frac,
+            energy=ni.E, energy_smooth=ni.Es, null_frac=ni.null_frac, null_method=ni.method, energy_q=ni.q,
+            q80=ni.q80, sigma_E=ni.sigma_E, null_level=ni.level, bright_q=bright_q,
             passes=passes, threshold0=thr0, edge=edge, above=above, nedge=nedge, window=window,
             phase_const=phase_const, phase_dev=DSP.unwrap(phase .- phase_const), folded_const=folded_const,
-            edges=edges, group_p3=gp3, group_used=gused)
+            edges=edges, group_span=gspan, group_snr=group_snr, group_p3=gp3, group_used=gused)
 end
 
 end # module P3FoldViterbi

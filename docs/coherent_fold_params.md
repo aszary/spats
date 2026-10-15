@@ -141,6 +141,7 @@ cofającymi się (kandydaci na odwrócenia). Cztery widoki jednego pulsara: `scr
 - `P3FoldViterbi.auto_cutoff_agent(data, p3, bin_st, bin_end; ybins, grid, nshuffle)` — f_c = max ΔR² (CV po
   długości − null z tasowania) w f3·{1/16, 1/10, 1/8, 1/6, 1/4, 1/3}.
 - `P3FoldViterbi.coherent_fold_agent(data, p3, bin_st, bin_end; ybins, lowpass_cutoff=:auto, niter=2, n_groups=4,
+  bright_q=20.0, null_level=0.15, group_snr=4.0,
   threshold_q=0.5, split_nulls=true)` — fold i P3(n) wariantu C; fold = ŚREDNIA pulsów w binie fazy (nie suma —
   fazy z danych obsadzają biny nierówno, J1539: 31–155 pulsów/bin), zwraca też `counts`, `used`, `nulls`, `amplitude`,
   `lowpass_cutoff`, `cutoff_score`.
@@ -164,6 +165,17 @@ Decyzje projektowe i ich uzasadnienie:
   z pojedynczych pulsów J1750 (S/N energii 1.6, bez nulli) wychodziło fałszywie 18% nulli. Wykrywa: J0034 31%,
   J1750/J0818/J1825 0%. Usuwa piki P3(n) w krótkich nullach (syntetyki: RMS 6.7% → 3.8%); przy skoku fazy po każdym
   nullu pomaga częściowo (15.5% → 12.3%), bo filtr nadal przechodzi przez null.
+  **Od 2026-10-15 dla jasnych pulsarów** (80. percentyl S/N energii pulsu ≥ `bright_q` = 20, σ_E = 1.4826·MAD
+  energii okien off-pulse o szerokości okna on-pulse, czyli z falowaniem linii bazowej) każdy puls osobno:
+  null, gdy E < max(0.15·E₈₀, 3σ_E). Bez progu 5% i bez minimalnej długości. J0820-1350: 0 → 23 nulle (1–18, 246,
+  277–278, 634, 1044; przy 246 i 277–278 skoki fazy ~1/3 cyklu); J0034 319 → 480 (46%); J2139+2242 0 → 95
+  (91 pulsów zer = dziura w danych 560–650); J1041-1942 0 → 19. Słabe (J1049, J1750, J1919, J0152, J1720, J1246)
+  bez zmian. `bright_q=nothing` = stara reguła (`~/claude/work/scripts/nulls_groups_test.jl`).
+- **Podzakresy błędów** (od 2026-10-15, `group_snr` = 4) — dzielony jest tylko zakres binów od pierwszego do
+  ostatniego z |L| > 4σ_off, nie całe okno on-pulse. Podzakresy z samym szumem dawały P3(n) w 33–41% pulsów
+  (J0820-1350, okno 470–567, emisja 495–530) i poszerzały pasmo błędu. Mediana σ: J0820 0.036 → 0.017, J2139
+  0.015 → 0.006, J1919 0.144 → 0.063; większa przy mniejszej liczbie binów na podzakres: J1750 2.0 → 2.7, J1041
+  0.15 → 0.22. `group_snr=nothing` = całe okno.
 
 Testy na danych: f_c J1750 1/147, J0034 1/66, J0818 1/35, J1825 1/142; P3(n) w 60–92% pulsów; 2–10 s na pulsar
 (`test_p3fold_coherent_agent*.jl`, `synth_agent_split.jl`).

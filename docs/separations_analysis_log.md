@@ -3648,3 +3648,18 @@ Pokrycie P3(n): HMM 96%, agent 52–93%. ALE przedziały 68% za wąskie (prawda 
 a przy β = 0.1ρ, S/N 1 HMM trzyma złe tempo długimi odcinkami (P3 ≈ 12 w 150–300, ≈ 4.3 w 580–610); model nie zna
 zatrzymania karuzeli w nullu (traktowane jako skok fazy). To górna granica: prawdziwe dopasowanie nie zna geometrii,
 K ani kształtu iskier. Projekt dopasowania: `~/claude/work/physfit_plan.md`.
+
+## 2026-10-15 — coherent_fold_agent: nulle z pojedynczych pulsów i podzakresy błędów z binów z modulacją
+
+Dwie poprawki z przeglądu krok po kroku (J0820-1350); domyślnie włączone, stara reguła: `bright_q=nothing`,
+`group_snr=nothing` (test: identyczne ze starym kodem z HEAD na 10 pulsarach, `~/claude/work/scripts/nulls_groups_test.jl`).
+1. Nulle (`_energy_nulls_info`): dla jasnych (q₈₀ ≥ 20, σ_E z energii okien off-pulse, MAD) null, gdy E < max(0.15·E₈₀, 3σ_E),
+   każdy puls osobno. Odniesienie E₈₀, nie mediana: przy ≥ 50% nulli mediana jest nullem; σ_E empiryczne, bo z rms_off
+   J1049-5833 wychodził „jasny” (q₈₀ 33), a nulle sięgały 0.3·E₈₀ (z σ_E: q₈₀ 12.7 → stara reguła).
+   Energie J0820: nulle q ≤ 8, emisja q ≥ 43 (rms_off); nowe nulle 246, 277–278, 634, 1044 (+1–18) — skoki fazy z kroku 4
+   leżą dokładnie na nullach 246 i 277–278. J0034 319 → 480 (46%), J2139 0 → 95 (91 pulsów zer 560–650), J1041 0 → 19.
+2. Podzakresy jackknife z zakresu binów |L| > 4σ_off (`_group_edges`): J0820 496–529 zamiast 470–567, 4 × 96% pokrycia,
+   mediana σ 0.036 → 0.017.
+Skutek dla P3(n) J0820: 4 odcinki zamiast 1 (podział na nullach 246, 277–278, 634), ale filtr nadal przechodzi przez null,
+więc skok fazy jest dalej rozmyty, a na brzegach odcinków (jednostronne okno) P3(n) ma dołki: 4.39 przy 245, 4.58 przy 633.
+Następny krok (problem 2): filtr dolnoprzepustowy osobno w każdym odcinku między nullami.
