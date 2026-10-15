@@ -3741,3 +3741,19 @@ Wniosek: przewaga z noname (6/6 skoków) nie przenosi się na inny generator ani
 błędów z binów z modulacją, filtr w odcinkach między nullami) poprawiają P3(n) i błędy tylko nieznacznie (syntetyki RMS
 0.077 → 0.063, fold bez zmian) i nie dotykają głównego ograniczenia: szablon L(φ) usuwa nachylenie fazy, więc metoda nie
 odróżnia dryfu od P3-only.
+
+## 2026-10-15 — przegląd nulli: czy da się mierzyć fazę modulacji przez null (pamięć fazy)
+
+Pomysł: zamiast klasyfikacji dryf/P3-only — populacyjny pomiar skoku fazy modulacji P3 przez null (J0820-1350: skoki
+~1/3 cyklu na 1–2-pulsowych nullach). Skrypt `~/claude/work/scripts/null_census.jl` (418 drift + 115 P3-only, pliki jak
+w p3track_batch; 12 bez danych), wynik `~/output/claude/null_census/null_census_v2.csv`, podsumowanie
+`null_census_summary.py`. Przejście ścisłe: null zgodny z szumem (wszystkie pulsy q = E/σ_E < 5), nie na brzegu, bez
+dziury w danych, ≥ max(20, 2·P3) pulsów emisji po obu stronach.
+- Jasne (q₈₀ ≥ 20): 69 z 521, z nullami 49.
+- Przejścia ścisłe: ≥ 1 w 122 pulsarach (drift 100, P3-only 22); z S/N modulacji ≥ 10: 23 pulsary, 81 przejść
+  (1–2 P: 68, 3–10 P: 6, > 10 P: 7); z S/N ≥ 5: 37 pulsarów, 150 przejść (111 / 27 / 12). ≥ 3 przejścia i S/N ≥ 10: 12.
+- Długie nulle (> 10 P) prawie nie występują w ~1000-pulsowych obserwacjach — pytanie o pamięć fazy przez długi null
+  tylko dla pojedynczych pulsarów (J0304+1932, J0034-0721, J1650-1654, J1049-5833).
+- USTERKA detektora nulli z 2026-10-15 (`_energy_nulls_info`, reżim jasny): próg max(0.15·E₈₀, 3σ_E) przy q₈₀ ~ 100–200
+  oznacza słabe pulsy (q ~ 10–30) jako nulle — 9 pulsarów z medianą q „nulli” ≥ 5 (J0837-4135 39 „nulli”, q 22;
+  J1243-6423 145, q 21; J1932+1059, J1327-6222, J1903+0135, J1326-6700, J1900-2600, …). Do poprawki: dodatkowo q < 5.
