@@ -3706,3 +3706,34 @@ bez zmian. `filter_segments=false` = HEAD (36/36 syntetyków, 10/10 pulsarów, `
 Dane: J0820-1350 skoki fazy przy nullach 246, 277–278, 634 jako nieciągłości, P3(n) 4.52–5.01 (było 4.39–5.01);
 fold bez zmian (korelacja ≥ 0.9997 na 10 pulsarach); J0034 pokrycie P3(n) 48.0 → 44.4% (odcinki < 20 P bez P3(n)),
 J1049 52.5 → 55.3%.
+
+## 2026-10-15 cd. — test rozstrzygający HMM ze skokami tempa (szablon z folda): benchmark v2 + dane — NEGATYWNY
+
+Skrypty: `~/claude/work/scripts/hmmfold_bench.jl` (CSV `~/claude/work/hmmfold_bench.csv`), `hmmfold_real.jl`,
+`hmmfold_null.jl` (wykresy `figures/hmmfold_real/`). HMM = PhysFit.fit(variant = :fold), start stałe P3 (HMM_fold)
+lub faza agenta (HMM_fold_ag).
+
+Benchmark v2 (200 synth2 — inny generator niż noname; mediany, agent / HMM_fold / HMM_fold_ag):
+faza R wszystkie dryfy 0.97/0.97/0.98; fold 0.84/0.83/0.85; błąd P3 0.9%/2.6%/2.4%.
+S/N < 1.5: faza 0.89/0.97/0.98, fold 0.62/0.64/0.68, błąd 1.1/0.4/0.6% — lekko lepiej;
+S/N 5–9: fold 0.96/0.93/0.93, błąd 0.5/18.5/10.9% — gorzej (HMM gubi tempo przy ostrych szablonach).
+Skoki P3: trafione 51/49/55 z 64, przegapione 8/15/11; #156, #153, #110 przegapione przez WSZYSTKIE metody.
+AM (26): fold 0.60/0.26/0.58. Fold HMM_fold_ag − agent: mediana −0.003, lepszy w 45, gorszy w 33 z 200.
+Przedziały 68%: pokrycie prawdy 0.41–0.43.
+
+Dane (CV: faza z binów parzystych, LOO foldu na nieparzystych; dane / NULL z pulsów przetasowanych w czasie):
+| PSR | agent | HMM_fold |
+| J0820 | 0.453 / 0.02–0.13 | 0.453 / 0.28–0.29 |
+| J0034 | 0.000 / 0.03–0.06 | 0.078 / 0.11 |
+| J1750 | 0.009 / −0.002 | 0.045 / −0.002 |
+| J1825 | 0.028 / 0.02–0.03 | 0.175 / 0.15–0.17 |
+| J1720 | 0.114 / 0.00 | 0.174 / 0.16–0.17 |
+Pozorna przewaga HMM na danych (J0034, J1825, J1720) = ARTEFAKT SORTOWANIA: elastyczna faza porządkuje pulsy wg kształtu
+(sąsiednie biny = ten sam podpuls), tak samo na przetasowanych pulsach. Nadwyżka nad nullem tylko J1750 (0.047 vs agent
+0.011) i J0820 (HMM 0.17 vs agent 0.38). P3(n) z HMM na danych niewiarygodne (J1750 mediana 82 przy kat. 49, J1825 24
+przy 14). UWAGA metodyczna: CV po przeplatanych binach BEZ nulla z tasowania jest myląca dla metod z elastyczną fazą
+(dotyczy też recurrence_real.jl — J1825 0.019 vs 0.008 było bez nulla).
+
+Wniosek: przewaga z noname (6/6 skoków) nie przenosi się na inny generator ani na dane; HMM ze skokami tempa ≈ agent
+(lepszy tylko przy S/N < 1.5, gorszy przy wysokim S/N, nie naprawia przegapionych skoków §8.0). Model fizyczny
+(PhysFit :model) nie testowany na synth2/danych — wspólna część HMM jest tu słabym ogniwem.
