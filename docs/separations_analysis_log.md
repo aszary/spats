@@ -3871,3 +3871,10 @@ Po kontroli Ė × kampania (permutacja w warstwach, dwustronna): drift_basu vs p
 faza vs p3only 0.053 (0.068); drift_basu vs faza 0.14 (0.029).
 Wniosek: gradient monotoniczny drift_basu < faza < p3only w ΔW/W, ale **ten sam gradient jest w Ė**; po kontroli Ė
 wyniki na granicy i zależne od wariantu (0.02–0.14). Nowa kategoria wyostrza kontrast (80% vs 38%), nie rozstrzyga.
+
+**cd. — |P2|/W10 jako wielkość ciągła** (`scripts/basu_p2w10_edot_fig.py` → `~/claude/work/figures/basu_p2w10_vs_edot.png`).
+ΔW/W vs |P2|/W10 (153 dryfery z pomiarem): ρ = +0.07, p = 0.38; po kontroli Ė ρ = 0.02 — brak związku. Natomiast
+|P2|/W10 rośnie z Ė: ρ = +0.44, p = 8e-19 (376 dryferów Song+23 z P2 i W10). Mediana płaska ~0.7 do log Ė ≈ 31.5,
+potem rośnie do ~4 przy log Ė ≈ 33.5 (P2 dłuższe niż okno = brak prawdziwych pasków dryfu przy wysokim Ė, zgodnie
+z tezą Basu+25). Kategoria drift_basu jest więc w dużej mierze zastępnikiem niskiego Ė; różnica ΔW/W między
+kategoriami nie wnosi nic ponad Ė.
