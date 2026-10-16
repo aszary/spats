@@ -3842,3 +3842,32 @@ integrated profiles”) — jego relacja dotyczy właśnie separacji skrajnych s
 
 Na prośbę użytkownika: ten sam materiał co `1_offsets_analysis.md`, prostym językiem (EN), 5 wykresów z `docs/figures/offsets_*`
 (01, 05, 06, 10, 12), wyniki mało ciekawe tylko wymienione. Nowych obliczeń brak.
+
+## 2026-10-16 cd. — kategoria drift_basu (Basu, Mitra & Melikidze 2025, arXiv:2509.04262, rys. 5)
+
+Kryterium z pracy: dryf Song+23 z |P2| < W10/2 = prawdopodobny dryf (`drift_basu`); |P2| ≥ W10/2 = okresowa modulacja
+z przesunięciem fazy (`faza`), nie dryf. P2: Song+23 tabela A2 (Zenodo 6900582 → `~/claude/work/ext/song23/a2.txt`,
+pdftotext), cecha dominująca = wiersz `drift` z P3 zgodnym z `input/drift_pulsars_P3.txt` (12 bez dopasowania → pierwsza
+cecha z P2). W10: Posselt+21 (VizieR J/MNRAS/508/4249, Component=1, bez IP) → `ext/posselt21/table1.tsv`.
+Skrypty: `scripts/basu_p2w10.py` → `offsets_doc/basu_class.csv` (533), `scripts/basu_fig.py` → `figures/basu_categories_ecdf.png`.
+
+**Nie odtwarzam liczb z pracy.** Oni: 152 cech P2 < W10/2, 295 > W10/2, 134 P3-only. U mnie (wszystkie cechy, |P2|):
+118 / 432 / 214 P3-only; żaden wariant (bez abs, P2 < W10, jedna cecha na składową, per pulsar) nie daje 152/295.
+Selekcja w pracy nieopisana — podział przybliżony. Na 533: drift_basu 66, faza 310, p3only 115, brak P2/W10 42.
+**Kryterium jest ostre dla klasycznych dryferów:** J0034-0721 (B0031−07) |P2| 23.0 vs W10/2 22.85 → faza;
+J0820-1350 5.0 vs 4.92 → faza; J1750-3503 (65 vs 60.1) i J1720-0212 (73 vs 61.9) mają |P2| > W10 → faza.
+
+**Wynik na 193** (cecha dominująca; w nawiasie wariant „dowolna cecha dryfu”):
+
+| kategoria | N | mediana ΔW/W | zwężeń | log Ė |
+|---|---|---|---|---|
+| drift_basu | 25 (42) | −0.045 (−0.045) | 80% (79%) | 31.48 (31.41) |
+| faza | 128 (111) | −0.026 (−0.022) | 69% (68%) | 31.90 |
+| p3only | 29 | +0.008 | 38% | 32.37 |
+| brak | 11 | +0.002 | 45% | 32.20 |
+
+MW: drift_basu vs p3only p = 0.0025 (0.0012); faza vs p3only 0.014 (0.024); drift_basu vs faza 0.068 (0.032).
+Po kontroli Ė × kampania (permutacja w warstwach, dwustronna): drift_basu vs p3only p = 0.069 (0.021);
+faza vs p3only 0.053 (0.068); drift_basu vs faza 0.14 (0.029).
+Wniosek: gradient monotoniczny drift_basu < faza < p3only w ΔW/W, ale **ten sam gradient jest w Ė**; po kontroli Ė
+wyniki na granicy i zależne od wariantu (0.02–0.14). Nowa kategoria wyostrza kontrast (80% vs 38%), nie rozstrzyga.
