@@ -1,5 +1,8 @@
 # Zwężenie profili pulsarów z częstotliwością — analiza MeerKAT
 
+> **Zastąpione 2026-10-16 przez [`1_offsets_analysis.md`](1_offsets_analysis.md)** (po angielsku, z wykresami,
+> statystyki przeliczone na 193 pulsarach z `input/separations.csv`). Ten plik zostaje jako zapis stanu z 2026-09-18.
+
 **Stan na 2026-09-17.** Pomiar zmiany separacji skrajnych składowych profilu między dolnym
 a górnym podpasmem obserwacji MeerKAT, dla próbki pulsarów wykazujących dryf podpulsów.
 

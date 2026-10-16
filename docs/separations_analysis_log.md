@@ -3803,3 +3803,37 @@ log `logs/check_sep_merge.log`, wykres `~/claude/work/figures/ppdot_separations.
 **Otwarte:** dwa pulsary odpadają z wykresu przez ocenę < 6 w `offsets.csv`, która opisuje stare fity:
 J1714-1054 (znany) i **J2139+2242** (nowy, z przeglądu, ocena 3). Na razie zostawione (decyzja
 użytkownika) — do rozwiązania razem z rewizją ocen w `offsets.csv`.
+
+## 2026-10-16 cd. — nowy dokument `docs/1_offsets_analysis.md` (EN) + nowe testy
+
+Cel: jeden dokument o analizie separacji (metoda, kontrola jakości, wyniki z wykresami), po angielsku.
+Zastępuje `profile_narrowing_summary.md` jako główne odniesienie (tam dodany odsyłacz).
+Wykresy: `docs/figures/offsets_01..17_*.png`, każdy osobno. Skrypty (poza repo, `~/claude/work/scripts/`):
+`offsets_doc_data.py` → `~/claude/work/offsets_doc/table.csv`, `offsets_doc_misalign.py` → `misalign.csv`,
+`offsets_doc_figs.py` → wykresy 1–16 + statystyki (`offsets_doc/figs_stats.log`); wykres 17 = `check_sep_merge.jl`.
+Wszystkie liczby przeliczone na 193 (nie 195).
+
+**Offsety krawędzi dla wszystkich 193** (wcześniej tylko 90): z bloków `Weighted mean offsets` w logach, blok przypisany
+tylko przy zgodności sep i dsep z CSV do 1e-4 (193/193); kontrola trail − lead = dsep dla wszystkich. Wynik jak wcześniej:
+lead +0.044° (p = 4e-4), trail −0.048° (p = 0.008), centroid +0.012° (p = 0.22), symetria p = 0.73.
+
+**Nowe — „rozjazd systematyczny" to awaria fitu, nie danych.** Korelacja wzajemna profili scalonych low/high w oknie
+on-pulse dla 380 pulsarów wsadu: |przesunięcie| mediana 0.33 bina dla 184 odrzuconych (0.11 dla przyjętych), żaden > 5 binów,
+przy medianie |Δμ| = 23 biny (~19% okna). Gaussy siadają na różnych cechach w dwóch pasmach. Te 184 są do odzyskania
+lepszą metodą (wspólny fit / template matching).
+
+**Nowe testy eksploracyjne (4, bez rejestracji z góry):**
+- dryfery (164) vs P3-only (29) wg Song+23: mediana −0.027 (69% zwężeń) vs +0.008 (38%), MW p = 0.007. Ale P3-only mają
+  wyższe Ė (32.37 vs 31.86, p = 0.019); po kontroli Ė × kampania (permutacja w warstwach) p = 0.052, regresja rangowa t = −2.1;
+  kampania 1 p = 0.027, wsad p = 0.20. Poszlaka, splątana z trendem Ė.
+- ΔW/W vs P3 (dryfery): brak (ρ = +0.06, p = 0.45).
+- W vs P: W ∝ P^(−0.26 ± 0.07), ρ = −0.25, p = 3.5e-4 (kontrola sensowności, płaściej niż P^−1/2).
+- ΔW/W vs błąd: brak trendu (ρ = +0.08, p = 0.26), ale połowa precyzyjna −0.030 (71% zwężeń) vs zaszumiona −0.0095 (57%)
+  → szum rozmywa znak, prawdziwy odsetek zwężeń > 64%.
+
+**Ė na 193:** kampania 1 ρ = +0.257 (p = 0.014), wsad N = 102 ρ = +0.190 (p = 0.056), razem p = 0.0018. Wsad przy 103
+(z wstrzymanymi) dawał p = 0.11, więc wynik niezależny jest kruchy.
+
+Bibliografia sprawdzona: Song+23 = TPA VIII, MNRAS 520, 4562; Thorsett 1991 ApJ 377 („Frequency dependence of pulsar
+integrated profiles”) — jego relacja dotyczy właśnie separacji skrajnych składowych.
+
