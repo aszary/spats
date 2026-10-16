@@ -33,7 +33,7 @@ Wyniki P3Track: `~/output/claude/p3track_batch/` (CSV v1–v4b, wykresy v4); skr
 
 | co | gdzie |
 |---|---|
-| wyniki | `~/claude/software/spats/input/separations.csv` (91 wierszy) |
+| wyniki | `~/claude/software/spats/input/separations.csv` (193 wiersze od 2026-10-16: 91 kampania 1 + 102 wsad) |
 | lista zadań | `~/claude/software/spats/input/separations_todo.csv` (106 pulsarów) |
 | dane wejściowe | `~/output/claude/<PSR>_16/` (host) = `/home/psr/output/<PSR>_16/` (kontener) |
 | kod | `~/claude/software/spats` = `/home/psr/software/spats` — **bind mount, ten sam katalog** |
@@ -3777,3 +3777,29 @@ estymator 2 — wspólne lokalne P3 obu okien, fazy ekstrapolowane do krawędzi 
   a posteriori (stąd pomysł), więc to obserwacja pojedynczego przypadku, nie wynik populacyjny.
 Wniosek: przegląd populacyjny pamięci fazy przez nulle nie jest wykonalny na tych danych (krótkie obserwacje, krótkie
 nulle, faza modulacji niespójna na skali okna). Zostaje opis pojedynczych przypadków (J0820-1350).
+
+## 2026-10-16 — scalenie wyników wsadu do `input/separations.csv`
+
+Cel: zamknąć otwarte zadanie z 2026-09-17/18 — `separations_merged.csv` (195) istniał obok
+`separations.csv` (91), a `_offset_summary` i `ppdot_separations` używają tego drugiego.
+
+**Wykonane.** Do `input/separations.csv` dopisano 104 − 2 = **102 wiersze** (zrodlo `auto` 47 − 1,
+`przeglad` 57 − 1) wzięte dosłownie z `~/claude/work/separations_batch_full.csv` (ten sam writer,
+ten sam 14-kolumnowy format). Wynik: **193 wiersze**, posortowane po nazwie.
+Backup sprzed zmiany: `~/claude/work/separations_przed_scaleniem_2026-10-16.csv`.
+
+**Wstrzymane (decyzja użytkownika), do weryfikacji przed dopisaniem:**
+- J1717-3425 — ΔW/W = −0.742, auto-czysty, nieoglądany (bramka `MAX_FRAC` powstała po przebiegu);
+- J1819+1305 — sep = 13.3531 nie odtwarza się z `component_offsets.txt` (patrz 2026-09-18).
+Oba zostają w `separations_merged.csv` (195 wierszy, z kolumną `zrodlo`, bez zmian).
+
+**Kontrole:** brak nakładania starych 91 i nowych 104; wszystkie 104 obecne w wyniku wsadu;
+sep/dsep zgodne z `separations_merged.csv` do 1e-4 dla 104/104; 91 starych wierszy bez zmian
+(`git diff`: tylko dodane linie). `_read_separations` czyta 193 pulsary, 0 NaN, mediana ΔW/W = −0.024,
+zwężeń 124/193. `ppdot_separations`: 191/193 narysowanych (skrypt `scripts/check_sep_merge.jl`,
+log `logs/check_sep_merge.log`, wykres `~/claude/work/figures/ppdot_separations.png`;
+`~/output/claude/ppdot_separations.png` z 91 pulsarami nie był nadpisywany).
+
+**Otwarte:** dwa pulsary odpadają z wykresu przez ocenę < 6 w `offsets.csv`, która opisuje stare fity:
+J1714-1054 (znany) i **J2139+2242** (nowy, z przeglądu, ocena 3). Na razie zostawione (decyzja
+użytkownika) — do rozwiązania razem z rewizją ocen w `offsets.csv`.

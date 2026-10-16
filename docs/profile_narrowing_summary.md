@@ -227,11 +227,12 @@ Kolumna `zrodlo` rozróżnia pochodzenie wiersza (`stare` 91 / `auto` 47 / `prze
 `uwaga` podaje, jak wiersz przeszedł weryfikację. Częstotliwości podpasm są wpisane przy
 każdym pulsarze, bo nie są stałe w próbce (§1.2).
 
-**`input/separations.csv` pozostaje nietknięty** — to nadal zweryfikowane 91 wierszy
-z pierwszej kampanii i to jego zapisuje `_offset_summary`. Scalenie obu plików jest
-decyzją otwartą: przegląd ręczny zmienił wniosek o zależności od Ė (§4.4), a nowa próbka
-ma inny rozkład ΔW/W niż stara (§4.2), więc połączenie ich w jedno źródło wymaga
-świadomej decyzji, nie automatu.
+**Scalone do `input/separations.csv` 2026-10-16** (decyzja użytkownika): 91 wierszy
+z pierwszej kampanii + 102 z wsadu = 193 wiersze, w formacie `_offset_summary` (14 kolumn,
+bez `zrodlo`; pochodzenie wiersza zostaje w `separations_merged.csv`). **Wstrzymane do
+weryfikacji: J1717−3425 i J1819+1305** (§5 pkt 5, `maciej_separations.md` §4.1) — są
+w `separations_merged.csv`, nie ma ich w `separations.csv`. Statystyki w tym dokumencie
+liczone są na 195 wierszach `separations_merged.csv`.
 
 ### 4.1 Zwężenie jest efektem populacyjnym
 
@@ -361,7 +362,7 @@ w odróżnieniu od §4.4, które zostaje otwarte.
 
 | co | gdzie |
 |---|---|
-| wyniki pierwszej kampanii | `input/separations.csv` (91 wierszy, w repo) — **nietknięte** |
+| wyniki obu kampanii | `input/separations.csv` (193 wiersze, w repo; scalone 2026-10-16, bez J1717−3425 i J1819+1305) |
 | **tabela finalna** | **`input/separations_merged.csv` (195 wierszy, w repo)** |
 | wyniki wsadu, surowe | `~/claude/work/separations_batch_full.csv` (149) |
 | werdykty przeglądu | `~/claude/work/review_verdicts.csv` (123) |
