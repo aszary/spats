@@ -3837,3 +3837,8 @@ lepszą metodą (wspólny fit / template matching).
 Bibliografia sprawdzona: Song+23 = TPA VIII, MNRAS 520, 4562; Thorsett 1991 ApJ 377 („Frequency dependence of pulsar
 integrated profiles”) — jego relacja dotyczy właśnie separacji skrajnych składowych.
 
+
+## 2026-10-16 cd. — `docs/2_offsets_analysis.md`: krótka wersja na poziomie popularnym
+
+Na prośbę użytkownika: ten sam materiał co `1_offsets_analysis.md`, prostym językiem (EN), 6 wykresów z `docs/figures/offsets_*`
+(01, 05, 06, 10, 12 + przykład), wyniki mało ciekawe tylko wymienione. Nowych obliczeń brak.
