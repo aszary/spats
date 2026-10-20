@@ -778,6 +778,89 @@ module Plot
 
 
     """
+    What the automatic zapper cuts and why (`Data.auto_zap_core` result `a`).
+
+    Left: the data as they are. Right: the same data, every cut pulse
+    covered by a coloured band across the full width, colour = reason:
+      blue    null / no signal (stretch with too little signal)
+      red     noisy stretch (stretch with too much noise)
+      orange  single junk pulse (noise jump, stripe, spike)
+      grey    margin around a cut region / short gap filled in
+      black   empty pulse
+    A thin strip right of the right panel repeats the reasons, so short
+    cuts are visible even when zoomed out. Title: counts and S/N change.
+    """
+    function autozap_view(data, bin_st, bin_end, a, outdir; name_mod="pulsar", title_="", show_=false)
+        N, nb = size(data)
+        w = bin_end - bin_st + 1
+        lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
+        win = data[:, lo:hi]
+        fin = filter(isfinite, vec(win))
+        vmin, vmax = isempty(fin) ? (0.0, 1.0) : (quantile(fin, 0.01), quantile(fin, 0.995))
+        ext = (lo - 0.5, hi + 0.5, -0.5, N - 0.5)
+        cols = Dict(1 => "#000000", 2 => "#ff7f00", 3 => "#1f78b4", 4 => "#e31a1c", 5 => "#9e9e9e")
+        names_ = Dict(1 => "pusty", 2 => "pojedynczy śmieć", 3 => "null / brak sygnału",
+                      4 => "zaszumiony odcinek", 5 => "margines / domknięcie")
+
+        rc("font", size=7.5, family="sans-serif")
+        fig = figure(figsize=(9.2, 6.6), dpi=100)
+        fig.patch.set_facecolor("white")
+
+        ax1 = subplot2grid((1, 21), (0, 0), colspan=10)
+        imshow(win, origin="lower", aspect="auto", cmap="afmhot", vmin=vmin, vmax=vmax,
+               interpolation="nearest", extent=ext)
+        title("PRZED (oryginał)", fontsize=9, fontweight="bold")
+        xlabel("bin"); ylabel("pulse number (od 0)")
+
+        ax2 = subplot2grid((1, 21), (0, 10), colspan=10, sharey=ax1)
+        imshow(win, origin="lower", aspect="auto", cmap="afmhot", vmin=vmin, vmax=vmax,
+               interpolation="nearest", extent=ext)
+        # contiguous runs of the same reason -> one band each
+        i = 1
+        while i <= N
+            r = a.reason[i]
+            if r == 0
+                i += 1
+                continue
+            end
+            j = i
+            while j < N && a.reason[j+1] == r; j += 1; end
+            axhspan(i - 1.5, j - 0.5, color=cols[r], alpha=0.55, lw=0)
+            i = j + 1
+        end
+        title("AUTOMAT: co wycina", fontsize=9, fontweight="bold")
+        xlabel("bin")
+        tick_params(labelleft=false)
+
+        ax3 = subplot2grid((1, 21), (0, 20), sharey=ax1)
+        strip = fill(NaN, N, 1)
+        for i in 1:N; a.reason[i] > 0 && (strip[i, 1] = a.reason[i]); end
+        cmap = pyimport("matplotlib.colors").ListedColormap([cols[k] for k in 1:5])
+        imshow(strip, origin="lower", aspect="auto", cmap=cmap, vmin=0.5, vmax=5.5,
+               interpolation="nearest", extent=(0, 1, -0.5, N - 0.5))
+        axis("off")
+
+        present = sort(unique(filter(>(0), a.reason)))
+        handles = [patch.Patch(color=cols[k],
+                   label="$(names_[k]) ($(count(==(k), a.reason)))") for k in present]
+        isempty(handles) || fig.legend(handles=handles, loc="lower center", ncol=min(5, length(handles)),
+                                       fontsize=7.5, frameon=false)
+        n = length(a.bad)
+        suptitle(@sprintf("%s\nwycięte %d z %d (%.1f%%)   S/N %.1f → %.1f   okno %d", title_, n, N,
+                          100 * n / N, a.snr_before, a.snr_after, a.w), fontsize=9, fontweight="bold")
+        tight_layout(rect=(0, isempty(handles) ? 0 : 0.05, 1, 0.92))
+        savefig("$outdir/$(name_mod)_autozap.png", dpi=110)
+        println("$outdir/$(name_mod)_autozap.png")
+        if show_
+            show()
+            print("Enter = następny pulsar: ")
+            readline(stdin; keep=false)
+        end
+        close()
+    end
+
+
+    """
     Hand zaps vs automatic zaps for one pulsar (`tune_autozap`).
 
     Left: single pulses around the on-pulse window; red bars on the left

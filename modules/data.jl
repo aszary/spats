@@ -472,9 +472,12 @@ module Data
         excess_thr = sn.nwin >= 3 ? 1 + nsigma * sqrt(2 / sn.nwin) : Inf
         single = .!good .| (nz .> nsigma) .| (sn.v ./ max.(sn.vwhite, eps()) .> excess_thr)
 
-        ok = .!single
-        S, V = sum(s[ok]), sum(v[ok])
+        # stretches are smoothed over the typical pulses (single suspects
+        # left out, otherwise one stripe smears over a whole window); if the
+        # suspects are most of the data, smooth over everything
+        ok = count(good .& .!single) > count(good) ÷ 2 ? (good .& .!single) : copy(good)
         if isnothing(w)
+            S, V = sum(s[ok]), sum(v[ok])
             snr_pp = count(ok) > 0 && V > 0 ? S / sqrt(V) / sqrt(count(ok)) : 0.0
             w = snr_pp > 0 ? round(Int, (target / snr_pp)^2) : N ÷ 8
             w = clamp(isodd(w) ? w : w + 1, 3, max(3, N ÷ 8))
@@ -534,8 +537,8 @@ module Data
 
         # reference: only single bad pulses (if that doesn't lower S/N),
         # otherwise only empty pulses
-        ref = morph(single)
-        snr(ref) >= snr0 || (ref = morph(.!good))
+        ref, ref_single = morph(single), true
+        snr(ref) >= snr0 || ((ref, ref_single) = (morph(.!good), false))
         ref_snr = snr(ref)
 
         # Stretches: scan the cut level t (signal per unit noise of a
@@ -545,24 +548,46 @@ module Data
         # nearly everything looked weak and nothing got cut. Guards against
         # chasing noise: a stretch must be below t even after +zsig·σ, at
         # least `min_run` long, and the gain over `ref` at least `min_gain`.
+        # each cut level is tried with and without the single suspects, so a
+        # bad batch of suspects can't veto good stretch cuts
         best, best_snr, t_best = ref, ref_snr, NaN
-        stretch = falses(N)
+        stretch, with_single = falses(N), ref_single
+        ncand = 0
         if count(ok) > 2
             for t in unique(quantile(effw[ok], range(0.02, 0.98, length=n_thr)))
                 st = runfilter([ok[i] && Vs[i] > 0 && Ss[i] + zsig * sqrt(Vs[i]) < t * Vs[i] for i in 1:N])
                 any(st) || continue
-                m = morph(single .| st)
-                sm = snr(m)
-                if sm > best_snr
-                    best, best_snr, t_best, stretch = m, sm, t, st
+                ncand += 1
+                for inc in (false, true)
+                    m = morph(inc ? (single .| st) : (.!good .| st))
+                    sm = snr(m)
+                    if sm > best_snr
+                        best, best_snr, t_best, stretch, with_single = m, sm, t, st, inc
+                    end
                 end
             end
         end
         if !(best_snr >= ref_snr * (1 + min_gain))
-            best, t_best, stretch = ref, NaN, falses(N)
+            best, t_best, stretch, with_single = ref, NaN, falses(N), ref_single
         end
-        return (bad=findall(best), single=findall(single), stretch=findall(stretch),
-                eff=effw, E=t_best, w=w, snr_before=snr0, snr_after=snr(best))
+
+        # why each pulse is cut (for the review plot):
+        # 0 kept, 1 empty, 2 single junk, 3 weak/null stretch, 4 noisy stretch, 5 margin/fill
+        vmed = median(v[good])
+        hwv = [Vs[i] / max(1, count(ok[max(1, i - hw):min(N, i + hw)])) for i in 1:N]
+        reason = zeros(Int8, N)
+        for i in findall(best)
+            reason[i] = !good[i] ? 1 :
+                        (with_single && single[i]) ? 2 :
+                        stretch[i] ? (hwv[i] > 2 * vmed ? 4 : 3) : 5
+        end
+        why = !isnan(t_best) ? "odcinki (próg $(round(t_best, sigdigits=3)))" * (with_single ? " + pojedyncze" : "") :
+              ref_single && any(single) ? "tylko pojedyncze śmieci" :
+              ncand == 0 ? "żaden odcinek nie jest wyraźnie słabszy" :
+              "wycięcie odcinków nie podnosi S/N o ≥$(round(100min_gain))%"
+        return (bad=findall(best), single=findall(single), stretch=findall(stretch), reason=reason,
+                eff=effw, E=t_best, w=w, snr_before=snr0, snr_after=snr(best), why=why,
+                n_single=count(single .& good), n_cand=ncand)
     end
 
 

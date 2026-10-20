@@ -872,14 +872,19 @@ module SpaTs
                 isnothing(m) || println("Zgodność: F1=$(round(m.f1, digits=2))  wspólne=$(m.tp)  " *
                                         "tylko automat=$(m.fp)  tylko Ty=$(m.fn)")
                 snr_u = isnothing(user) ? NaN : Data.zap_snr(sn, user)
-                println("S/N: bez zapów=$(f(a.snr_before))  Twoje=$(f(snr_u))  automat=$(f(a.snr_after))" *
-                        "   (okno=$(a.w), okna z emisją pulsara wyłączone: $(sn.nleak))")
+                println("S/N: bez zapów=$(f(a.snr_before))  Twoje=$(f(snr_u))  automat=$(f(a.snr_after))")
+                println("Decyzja: $(a.why)   [okno=$(a.w), podejrzane pojedyncze=$(a.n_single), " *
+                        "progi z odcinkami=$(a.n_cand), okna off: $(sn.nwin) użyte / $(sn.nleak) z emisją pulsara]")
+                kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
+                println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
                 push!(summary, "$(rpad(psr, 12)) auto=$(lpad(length(a.bad), 4))  Ty=$(lpad(user_s, 4))  " *
                                "F1=$(isnothing(m) ? "  - " : rpad(round(m.f1, digits=2), 4))  " *
                                "S/N bez=$(f(a.snr_before))  Ty=$(f(snr_u))  auto=$(f(a.snr_after))")
-                Plot.zap_compare(data, bst, bend, a, something(user, Int[]), outdir; show_=show_plots,
-                                 title_="$psr — ŚLEPY TEST: czerwone = Ty ($user_s), " *
-                                        "niebieskie = automat ($(length(a.bad)))")
+                # main view: original (left) vs what the automat cuts and why (right)
+                Plot.autozap_view(data, bst, bend, a, outdir; show_=show_plots, title_="$psr — automat")
+                # side file: your zaps vs automat (saved only)
+                Plot.zap_compare(data, bst, bend, a, something(user, Int[]), outdir; show_=false,
+                                 title_="$psr: czerwone = Ty ($user_s), niebieskie = automat ($(length(a.bad)))")
 
                 missed, v = Int[], ""
                 if interactive
@@ -912,7 +917,8 @@ module SpaTs
         end
         println("\n===== PODSUMOWANIE ŚLEPEGO TESTU =====")
         foreach(println, summary)
-        println("Wykresy: $(vpmout)<pulsar>/pulsar_zap_compare.png   Tabela: $out")
+        println("Wykresy: $(vpmout)<pulsar>/pulsar_autozap.png (co wycina automat), " *
+                "pulsar_zap_compare.png (Ty vs automat)   Tabela: $out")
     end
 
 
@@ -1415,7 +1421,7 @@ module SpaTs
         # input/zap_labels/blind_test.csv, <psr>/pulsar_zap_compare.png
         # tylko automat: bez pazi i bez pytan, wykres po kazdym pulsarze
         # (Enter = nastepny), na koncu tabela podsumowania
-        #blind_test_autozap(label_psrs; vpmout=vpmout, interactive=false)
+        blind_test_autozap(label_psrs; vpmout=vpmout, interactive=false)
 
         # eksport danych (bez zapow) do debugowania automatu lokalnie
         export_zap_data(label_psrs; vpmout=vpmout)
