@@ -405,85 +405,6 @@ module SpaTs
 
 
     """
-    Automatically process all pulsars found in `dataroot`.
-    For each pulsar directory, picks the lexicographically first observation
-    subdirectory and runs process_psrdata_16 + analyse_p3folds_16_new.
-    Errors for individual pulsars are caught so the loop continues.
-
-    Arguments:
-      dataroot  – parent directory containing JXXXX-XXXX subdirs
-      vpmout    – output directory prefix (same convention as main())
-      n_comp    – number of components passed to analyse_p3folds_16_new
-    """
-    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/")
-        isdir(dataroot) || error("dataroot not found: $dataroot")
-
-        p3_file = joinpath(@__DIR__, "input/drift_pulsars_P3.txt")
-        p3_map = Dict{String,String}()
-        if isfile(p3_file)
-            for line in eachline(p3_file)
-                parts = split(strip(line))
-                length(parts) >= 2 && (p3_map[parts[1]] = parts[2])
-            end
-        end
-
-        psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
-        isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
-
-        for psr in psr_dirs
-            psr_path = joinpath(dataroot, psr)
-            obs_dirs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
-            if isempty(obs_dirs)
-                @warn "No observation subdirectory for $psr, skipping"
-                continue
-            end
-            indir  = joinpath(psr_path, obs_dirs[1]) * "/"
-            outdir = vpmout * psr * "_16"
-            if isdir(outdir)
-                println("=== Skipping $psr (outdir exists) ===")
-                continue
-            end
-            p3_str = get(p3_map, psr, "unknown")
-            println("=== Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
-            try
-                # parse P3 value and error from "6.6(2)" notation and write to params.json
-                m = match(r"^(\d+(?:\.\d+)?)\((\d+)\)$", p3_str)
-                if !isnothing(m)
-                    val_str = m.captures[1]
-                    err_digits = parse(Int, m.captures[2])
-                    p3_value = parse(Float64, val_str)
-                    dot_pos = findfirst('.', val_str)
-                    decimal_places = isnothing(dot_pos) ? 0 : length(val_str) - dot_pos
-                    p3_error = err_digits * 10.0^(-decimal_places)
-                    p3_ybins = Data.Functions.find_ybins(p3_value)
-                    isdir(outdir) || mkdir(outdir)
-                    params_file = joinpath(outdir, "params.json")
-                    p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
-                    p["p3"] = p3_value
-                    p["p3_error"] = p3_error
-                    p["p3_ybins"] = p3_ybins
-                    Tools.save_params(params_file, p)
-                end
-                process_psrdata_16(indir, outdir)
-                print("n_comp for $psr [default=2]: ")
-                n_comp_input = strip(readline())
-                n_comp = isempty(n_comp_input) ? 2 : parse(Int, n_comp_input)
-                Data.analyse_p3folds_16_new(outdir, "norefine"; n_comp=n_comp)
-            catch e
-                @warn "Failed for $psr: $e"
-            end
-            println("Analysis finished for PSR $psr")
-            print("Continue? [Enter/y/yes = next, q = quit]: ")
-            input = strip(readline())
-            input == "q" && break
-        end
-    end
-
-
-
-
-
-    """
     Automatically process pulsars found in `dataroot` in order from 1st to last.
     For each pulsar:
       1. Creates an output directory in `vpmout` (e.g. `joinpath(vpmout, psr)`).
@@ -493,23 +414,51 @@ module SpaTs
       4. Runs `pazi pulsar.spCF` so you can inspect subintegrations interactively.
       5. Prompts for and records `zaps` in `params.json`.
     """
-    function analyse_all_zaps(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/")
+    function analyse_all(dataroot="/home/psr/data/new/", vpmout="/home/psr/output/"; force_pazi::Bool=false)
         isdir(dataroot) || error("dataroot not found: $dataroot")
 
-        # Load P3 from both drift and p3only lists
-        p3_map = Dict{String,String}()
+        # Robust resolution of input P3 catalogue files
+        find_file(relpath) = begin
+            for base in [@__DIR__, pwd(), "/home/psr/software/spats"]
+                candidate = joinpath(base, relpath)
+                isfile(candidate) && return candidate
+                alt = joinpath(base, "input", basename(relpath))
+                isfile(alt) && return alt
+            end
+            isfile(relpath) && return relpath
+            return nothing
+        end
+
+        p3_map = Dict{String, String}()
+        loaded_count = 0
         for fname in ["input/drift_pulsars_P3.txt", "input/p3only_pulsars_P3.txt"]
-            fpath = isfile(fname) ? fname : joinpath(@__DIR__, fname)
-            if isfile(fpath)
+            fpath = find_file(fname)
+            if !isnothing(fpath)
+                entries_before = length(p3_map)
                 for line in eachline(fpath)
                     s = strip(line)
                     (isempty(s) || startswith(s, "#")) && continue
                     parts = split(s)
-                    length(parts) >= 2 && (p3_map[parts[1]] = parts[2])
+                    if length(parts) >= 2
+                        name = String(strip(parts[1]))
+                        val  = String(strip(parts[2]))
+                        p3_map[name] = val
+                        p3_map[uppercase(name)] = val
+                        # Also index without 'J' and with 'J' to guarantee matching
+                        if startswith(uppercase(name), "J")
+                            p3_map[name[2:end]] = val
+                        else
+                            p3_map["J" * name] = val
+                        end
+                    end
                 end
+                println("Loaded $(length(p3_map) - entries_before) entries from $fpath")
+                loaded_count += 1
+            else
+                @warn "P3 catalogue file not found: $fname"
             end
         end
-        println("Loaded $(length(p3_map)) pulsars with P3 values from input files.")
+        println("Total pulsars registered in P3 catalogue: $(length(p3_map))")
 
         psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
         isempty(psr_dirs) && (@warn "No pulsar directories found in $dataroot"; return)
@@ -530,7 +479,8 @@ module SpaTs
             outfile     = joinpath(outdir, "pulsar.spCF")
             params_file = joinpath(outdir, "params.json")
 
-            p3_str = get(p3_map, psr, "unknown")
+            # Look up P3 by exact name, uppercase, with J, or without J
+            p3_str = get(p3_map, psr, get(p3_map, uppercase(psr), get(p3_map, startswith(psr, "J") ? psr[2:end] : "J"*psr, "unknown")))
             println("\n=== [$idx/$(length(psr_dirs))] Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
 
             try
@@ -545,22 +495,27 @@ module SpaTs
                 # 2. Create or load params.json and populate P3
                 p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
 
-                # Parse P3 value and error from "6.6(2)" notation
-                m = match(r"^(\d+(?:\.\d+)?)\((\d+)\)$", p3_str)
+                # Parse P3 value and error from "6.6(2)", "22(10)", or plain "6.6"
+                m = match(r"^(\d+(?:\.\d+)?)(?:\((\d+)\))?$", p3_str)
                 if !isnothing(m)
                     val_str = m.captures[1]
-                    err_digits = parse(Int, m.captures[2])
                     p3_value = parse(Float64, val_str)
-                    dot_pos = findfirst('.', val_str)
-                    decimal_places = isnothing(dot_pos) ? 0 : length(val_str) - dot_pos
-                    p3_error = err_digits * 10.0^(-decimal_places)
+                    if !isnothing(m.captures[2])
+                        err_digits = parse(Int, m.captures[2])
+                        dot_pos = findfirst('.', val_str)
+                        decimal_places = isnothing(dot_pos) ? 0 : length(val_str) - dot_pos
+                        p3_error = err_digits * 10.0^(-decimal_places)
+                    else
+                        p3_error = 0.0
+                    end
                     p3_ybins = Data.Functions.find_ybins(p3_value)
 
                     p["p3"] = p3_value
                     p["p3_error"] = p3_error
                     p["p3_ybins"] = p3_ybins
+                    println("Saved P3 to params.json: p3=$p3_value, p3_error=$p3_error, p3_ybins=$p3_ybins")
                 else
-                    @warn "Could not parse P3 format for $psr (raw: '$p3_str')"
+                    @warn "Could not parse P3 for $psr (raw string: '$p3_str')"
                 end
 
                 # Read total number of subintegrations if available
@@ -573,33 +528,40 @@ module SpaTs
 
                 Tools.save_params(params_file, p)
 
-                # 3. Run interactive pazi on the combined pulsar.spCF
-                if isfile(outfile)
-                    println("Launching pazi for $psr ($outfile) ...")
-                    run(`pazi $outfile`)
-                else
-                    @warn "Cannot run pazi: $outfile does not exist."
-                end
-
-                # 4. Prompt user to record zaps identified in pazi
+                # 3. Check if zaps are already recorded in params.json
                 current_zaps = get(p, "zaps", nothing)
-                println("Current zaps in params.json: ", isnothing(current_zaps) ? "none" : current_zaps)
-                print("Enter zaps for $psr (e.g. '49-194 532-580', or press Enter to keep): ")
-                zaps_input = strip(readline())
-                if !isempty(zaps_input)
-                    p["zaps"] = zaps_input
-                    Tools.save_params(params_file, p)
-                    println("Updated zaps in $params_file -> $(p["zaps"])")
+                has_zaps = !isnothing(current_zaps) && !isempty(strip(string(current_zaps)))
+
+                if has_zaps && !force_pazi
+                    println("Zaps already present in params.json ('$current_zaps') — skipping pazi.")
+                else
+                    # Run interactive pazi on the combined pulsar.spCF
+                    if isfile(outfile)
+                        println("No zaps found. Launching pazi for $psr ($outfile) ...")
+                        run(`pazi $outfile`)
+
+                        # 4. Prompt user to record zaps identified in pazi
+                        println("Current zaps in params.json: ", isnothing(current_zaps) ? "none" : current_zaps)
+                        print("Enter zaps for $psr (e.g. '49-194 532-580', or press Enter if none): ")
+                        zaps_input = strip(readline())
+                        if !isempty(zaps_input)
+                            p["zaps"] = zaps_input
+                            Tools.save_params(params_file, p)
+                            println("Saved zaps to $params_file -> $(p["zaps"])")
+                        end
+                    else
+                        @warn "Cannot run pazi: $outfile does not exist."
+                    end
+
+                    println("Finished PSR $psr")
+                    print("Continue to next pulsar? [Enter = next, q = quit]: ")
+                    input = strip(readline())
+                    input == "q" && break
                 end
 
             catch e
                 @warn "Failed for $psr: $e"
             end
-
-            println("Finished PSR $psr")
-            print("Continue to next pulsar? [Enter = next, q = quit]: ")
-            input = strip(readline())
-            input == "q" && break
         end
     end
 
@@ -947,7 +909,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        #analyse_all()
+        analyse_all("/home/psr/data/new/", vpmout)
 
         #Data.analyse_p3folds_16_new(vpmout*"J1539-6322_16", "norefine", n_comp=2)
 
@@ -985,13 +947,13 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         #Travel.travel_test(vpmout*"J1750-3503")
 
 
-        list_file = "input/drift_pulsars_P3.txt"
-        csv_output = "drift_classifications_olddrift.csv"
+        #list_file = "input/drift_pulsars_P3.txt"
+        #csv_output = "drift_classifications_olddrift.csv"
 
-        DriftBatch.batch_analyze_drift(vpmout, list_file, csv_output)
+        #DriftBatch.batch_analyze_drift(vpmout, list_file, csv_output)
 
         # 3. Generate the chart!
-        DriftBatch.plot_drift_results("drift_classifications_olddrift.csv", "drift_chart_olddrift.pdf")
+        #DriftBatch.plot_drift_results("drift_classifications_olddrift.csv", "drift_chart_olddrift.pdf")
 
 
 
