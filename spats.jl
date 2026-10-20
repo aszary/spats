@@ -1403,18 +1403,11 @@ module SpaTs
         # zapisane CSV zostaja. Pulsar z gotowym CSV jest pomijany.
         label_psrs = ["J0034-0721", "J0304+1932", "J0459-0210", "J0624-0424", "J0820-1350",
                       "J2346-0609", "J1110-5637", "J1750-3503", "J1539-6322"]
-        for psr in label_psrs
-            if isfile(joinpath(@__DIR__, "input", "zap_labels", "$psr.csv"))
-                println("SKIP $psr — już oznaczony (input/zap_labels/$psr.csv)")
-                continue
-            end
-            try
-                label_bad_pulses(psr; vpmout=vpmout)
-            catch e
-                e isa InterruptException && rethrow()
-                println("BŁĄD dla $psr: $(sprint(showerror, e))")
-            end
-        end
+        # (wylaczone — oznaczanie reczne w pazi juz niepotrzebne)
+        #for psr in label_psrs
+        #    isfile(joinpath(@__DIR__, "input", "zap_labels", "$psr.csv")) && continue
+        #    label_bad_pulses(psr; vpmout=vpmout)
+        #end
 
         # ETAP 2 — SLEPY TEST automatu (domyslne parametry, bez wiedzy o
         # Twoich zapach), porownanie z etykietami + ocena w pazi:
