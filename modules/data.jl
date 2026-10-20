@@ -293,6 +293,65 @@ module Data
     end
 
 
+    """
+        parse_paz_command(out) -> (subints, chans, cmd)
+
+    Reads the `paz ...` line(s) that pazi prints on exit, e.g.
+      paz -w "267 268 269" -e pazi pulsar.spCF
+    Subints (0-based) from `-w "list"` / `-W "a b"`, channels from
+    `-z "list"` / `-Z "a b"`; all paz lines are merged.
+    """
+    function parse_paz_command(out)
+        cmds = [String(strip(l)) for l in split(out, '\n') if startswith(strip(l), "paz ")]
+        subints, chans = Int[], Int[]
+        arg(flag, c) = [something(m.captures[1], m.captures[2])
+                        for m in eachmatch(Regex("$flag\\s+(?:\"([^\"]*)\"|(\\S+))"), c)]
+        for c in cmds
+            for s in arg("-w", c); append!(subints, parse.(Int, split(s))); end
+            for s in arg("-z", c); append!(chans, parse.(Int, split(s))); end
+            for s in arg("-W", c); a, b = parse.(Int, split(s)); append!(subints, a:b); end
+            for s in arg("-Z", c); a, b = parse.(Int, split(s)); append!(chans, a:b); end
+        end
+        return (subints=sort(unique(subints)), chans=sort(unique(chans)),
+                cmd=isempty(cmds) ? nothing : join(cmds, " ; "))
+    end
+
+
+    """
+        run_pazi(archive) -> (subints, chans, cmd)
+
+    Opens PSRCHIVE `pazi` on `archive`; zap pulses/channels there as usual
+    and quit. The `paz` command pazi prints is captured and parsed — the
+    archive itself is not modified by this function.
+    """
+    function run_pazi(archive)
+        tmp = tempname()
+        println("\npazi: zapuj impulsy (i ew. kanały) jak zwykle, potem wyjdź z pazi.\n" *
+                "Komenda paz zostanie odczytana automatycznie.")
+        run(pipeline(`pazi $archive`, `tee $tmp`))
+        out = read(tmp, String)
+        rm(tmp, force=true)
+        z = parse_paz_command(out)
+        println(isnothing(z.cmd) ? "pazi: nic nie wycięto." :
+                "pazi: $(length(z.subints)) impulsów, $(length(z.chans)) kanałów  ←  $(z.cmd)")
+        return z
+    end
+
+
+    "Features + label (+ auto) CSV for detector training, in repo input/zap_labels/<psr>.csv."
+    function save_zap_labels(psr, data, bin_st, bin_end, rows)
+        N = size(data, 1)
+        r = find_bad_pulses(data, bin_st, bin_end)
+        label = falses(N); label[filter(i -> 1 <= i <= N, rows)] .= true
+        auto = falses(N); auto[r.bad] .= true
+        write_labels_csv(joinpath(@__DIR__, "..", "input", "zap_labels", "$psr.csv"),
+                         pulse_features(data, bin_st, bin_end), "label" => label, "auto" => auto)
+        tp, fp, fn = count(label .& auto), count(.!label .& auto), count(label .& .!auto)
+        println("Ty: $(count(label))  automat: $(count(auto))  zgodne: $tp  " *
+                "automat wyciął, Ty nie: $fp  Ty wyciąłeś, automat nie: $fn")
+    end
+
+
     "Thrown by `review_zaps` when the user chooses to skip the pulsar (`s`)."
     struct SkipPulsar <: Exception end
 
@@ -369,9 +428,23 @@ module Data
 
     `:auto` accepts the automatic choice without asking. Saves `p["zaps"]`.
     """
-    function review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review)
+    function review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review, archive=nothing)
         data = load_ascii(txtfile)
         N = size(data, 1)
+        if mode == :pazi
+            # zapping by hand in pazi; the choice also becomes training data
+            # for the automatic detector (input/zap_labels/<psr>.csv)
+            isnothing(archive) && error("review_zaps(mode=:pazi) needs `archive`")
+            z = run_pazi(archive)
+            rows = [s + 1 for s in z.subints if 0 <= s < N]
+            save_zap_labels(basename(rstrip(outdir, '/')), data, p["bin_st"], p["bin_end"], rows)
+            zaps = pulses_to_zaps(rows)
+            p["zaps"] = isempty(zaps) ? nothing : zaps
+            p["zap_chans"] = isempty(z.chans) ? nothing : join(z.chans, " ")
+            Tools.save_params(params_file, p)
+            println("Zapisane zaps = $(repr(p["zaps"]))  zap_chans = $(repr(p["zap_chans"]))")
+            return p["zaps"]
+        end
         r = find_bad_pulses(data, p["bin_st"], p["bin_end"]; nsigma=nsigma)
         rows = copy(r.bad)
         println("Automatycznie: $(length(rows)) złych impulsów z $N " *
@@ -396,10 +469,15 @@ module Data
     Zero the weights of the `zaps` subints in a PSRCHIVE archive (in place),
     ranges as `-W "a b"`, single pulses as `-w "x y"`.
     """
-    function apply_zaps(archive, zaps)
+    function apply_zaps(archive, zaps; chans=nothing)
         rngs = zaps_to_ranges(zaps)
-        isempty(rngs) && return
         args = String[]
+        # channels zapped in pazi (`p["zap_chans"]`, space-separated list)
+        if !isnothing(chans) && !isempty(strip(chans))
+            push!(args, "-z", chans)
+            println("ZAPPING channels: $chans")
+        end
+        isempty(rngs) && isempty(args) && return
         singles = [string(a) for (a, b) in rngs if a == b]
         for (a, b) in rngs
             a == b && continue
@@ -691,14 +769,15 @@ module Data
     """
     Process data with PSRCHIVE and PSRSALSA
 
-    Bad pulses: after the first debase, `review_zaps` detects bad pulses
-    (`zap_mode=:review` shows a plot and asks, `:auto` accepts silently,
-    `:off` keeps whatever `p["zaps"]` already holds). Zaps are then applied
+    Bad pulses: after the first debase, `review_zaps` (`zap_mode=:pazi`,
+    default: zap by hand in pazi, choice also saved as detector training
+    data; `:review` my window; `:auto` automatic; `:off` keep
+    `p["zaps"]`/`p["zap_chans"]`). Pulse and channel zaps are then applied
     with `paz` and the data debased again, so every later step (2DFS, P3,
     pfold, pulsar.debase.txt) works on the cleaned data.
     """
     function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json",
-                             zap_mode=:review, zap_nsigma=5.0)
+                             zap_mode=:pazi, zap_nsigma=5.0)
 
         # full paths
         params_file = joinpath(outdir, params_file)
@@ -735,9 +814,10 @@ module Data
         # (outfile is rebuilt by psradd on every run, so zaps are re-applied)
         zaps = zap_mode == :off ? get(p, "zaps", nothing) :
                review_zaps(replace(outfile, ".spCF" => ".debase.txt"), p, params_file, outdir;
-                           nsigma=zap_nsigma, mode=zap_mode)
-        if !isnothing(zaps)
-            apply_zaps(outfile, zaps)
+                           nsigma=zap_nsigma, mode=zap_mode, archive=outfile)
+        chans = get(p, "zap_chans", nothing)
+        if !isnothing(zaps) || !isnothing(chans)
+            apply_zaps(outfile, zaps; chans=chans)
             debase(outfile, params_file, p)
         end
 

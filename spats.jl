@@ -78,7 +78,7 @@ module SpaTs
         Plot.single(d1, outdir; darkness=0.9, number=150, bin_st=p["bin_st"], bin_end=p["bin_end"], start=1, name_mod="pulsar", show_=true)
     end
 
-    function process_psrdata(indir, outdir; zap_mode=:review, zap_nsigma=5.0)
+    function process_psrdata(indir, outdir; zap_mode=:pazi, zap_nsigma=5.0)
         p, debased_file, outdir = Data.process_psrdata(indir, outdir; zap_mode=zap_mode, zap_nsigma=zap_nsigma)
         Data.plot_psrdata(outdir, p)
         Data.process_data_andrzej(debased_file, outdir, p)
@@ -708,41 +708,37 @@ module SpaTs
     Tryb OZNACZANIA złych impulsów — do opracowania/dostrojenia detektora na
     podstawie Twoich decyzji. Nic nie zapuje i nie zmienia params.json.
 
-    Pokazuje okno przed/po (start: nic nie zaznaczone, żeby nie sugerować się
-    automatem) — zaznaczasz to, co SAM byś wyciął (+12 40-45, -40-45, u =
-    cofnij, Enter = koniec). Zapisuje `input/zap_labels/<pulsar>.csv`:
-    ~16 cech każdego impulsu + `label` (Twoje) + `auto` (obecny detektor).
-    Na koniec porównanie z automatem.
+    Otwiera `pazi pulsar.spCF` — zapujesz tak jak zwykle i wychodzisz z pazi.
+    Komenda `paz -w "..."`, którą pazi wypisuje, jest odczytywana
+    automatycznie. Zapisuje `input/zap_labels/<pulsar>.csv`: ~16 cech każdego
+    impulsu + `label` (Twoje z pazi) + `auto` (obecny detektor), oraz
+    `input/zap_labels/<pulsar>.paz.txt` z oryginalną komendą (impulsy i
+    kanały). Na koniec porównanie z automatem.
 
-      label_bad_pulses("J2346-0609")
-      label_bad_pulses("J1110-5637"; vpmout="/home/psr/output/")
+      label_bad_pulses("J0034-0721")
 
-    Wymaga istniejącego `vpmout/<pulsar>/pulsar.debase.txt` i params.json.
+    Archiwum jest zawsze budowane od nowa z surowych danych (`prepare_debase`:
+    psradd + debase), żeby wcześniejsze zapy nie były już w nim ukryte.
     """
     function label_bad_pulses(psr; vpmout="/home/psr/output/", dataroot="/home/psr/data/new/")
         outdir = vpmout * psr
-        isfile(joinpath(outdir, "pulsar.debase.txt")) || prepare_debase(psr; vpmout=vpmout, dataroot=dataroot)
+        archive = joinpath(outdir, "pulsar.spCF")
+        # always rebuild from raw data: earlier runs may have zapped
+        # pulsar.spCF in place (paz -m), which would hide those pulses in pazi
+        prepare_debase(psr; vpmout=vpmout, dataroot=dataroot)
         p = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         N = size(data, 1)
         bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
-        r = Data.find_bad_pulses(data, bst, bend)
         println("\n=== OZNACZANIE: $psr ($N impulsów, on-pulse $bst-$bend) ===")
-        println("Zaznacz wszystko, co sam byś wyciął (pojedyncze impulsy i całe regiony).")
-        # auto choice hidden (no red/orange) so it doesn't steer the labels
-        r_plot = merge(r, (kept_bright=Int[],))
-        rows = Data.select_pulses(data, r_plot, Int[], bst, bend, outdir;
-                                  allow_skip=false, name_mod="pulsar_label")
-        label = falses(N); label[rows] .= true
-        auto = falses(N); auto[r.bad] .= true
-        feats = Data.pulse_features(data, bst, bend)
-        Data.write_labels_csv(joinpath(@__DIR__, "input", "zap_labels", "$psr.csv"), feats,
-                              "label" => label, "auto" => auto)
-        tp, fp, fn = count(label .& auto), count(.!label .& auto), count(label .& .!auto)
-        println("Ty: $(count(label))  automat: $(count(auto))  zgodne: $tp  " *
-                "automat wyciął, Ty nie: $fp  Ty wyciąłeś, automat nie: $fn")
-        println("Twoje zaps: \"$(Data.pulses_to_zaps(rows))\"")
-        return rows
+        z = Data.run_pazi(archive)
+        rows = [s + 1 for s in z.subints if 0 <= s < N]
+        Data.save_zap_labels(psr, data, bst, bend, rows)
+        cmdfile = joinpath(@__DIR__, "input", "zap_labels", "$psr.paz.txt")
+        open(f -> println(f, something(z.cmd, "")), cmdfile, "w")
+        println("Twoje zaps: \"$(Data.pulses_to_zaps(rows))\"" *
+                (isempty(z.chans) ? "" : "   kanały: $(join(z.chans, " "))"))
+        return z
     end
 
 
@@ -765,9 +761,10 @@ module SpaTs
     Przelicza od nowa wszystkie pulsary z `dataroot` (ścieżka `<pulsar>`, ta
     sama co analiza P3) z automatycznym wykrywaniem złych impulsów.
 
-    Dla każdego pulsara: psradd → debase → wykrycie złych impulsów (wykres
-    `pulsar_bad_pulses` + pytanie: Enter = zatwierdź, n = bez zapów, albo
-    własne zakresy) → paz → debase jeszcze raz → 2DFS/LRFS/pfold.
+    Dla każdego pulsara: psradd → debase → zapowanie w pazi (domyślnie;
+    impulsy i kanały, wybór zapisany też jako dane do nauki detektora w
+    input/zap_labels/) → paz → debase jeszcze raz → 2DFS/LRFS/pfold.
+    `zap_mode=:review` = moje okno, `:auto` = automat bez pytań.
     Istniejące params.json (on-pulse, P3) są zachowane; nowe są tylko zaps
     i wszystkie produkty. Na koniec tabela SNR przed/po w
     `vpmout/zap_summary.csv`.
@@ -789,7 +786,7 @@ module SpaTs
     Status w tabeli: ok / brak_P3 / pominiety (s w oknie zapów) / blad.
     """
     function reprocess_all_zap(; dataroot="/home/psr/data/new/", vpmout="/home/psr/output/",
-                               only=nothing, zap_mode=:review, zap_nsigma=5.0,
+                               only=nothing, zap_mode=:pazi, zap_nsigma=5.0,
                                reverse=false, half=false, skip_done=true, warn_pct=10.0)
         psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)); rev=reverse)
         isnothing(only) || (psr_dirs = filter(in(Set(only)), psr_dirs))
@@ -858,7 +855,7 @@ module SpaTs
                     record("$psr,blad,,,,,,\"$(first(msg, 200))\"")
                 end
             end
-            if zap_mode == :review
+            if zap_mode in (:review, :pazi)
                 print("Dalej? [Enter = następny, q = koniec]: ")
                 strip(readline()) == "q" && break
             end
