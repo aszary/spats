@@ -682,6 +682,47 @@ module SpaTs
     end
 
 
+    """
+    Tryb OZNACZANIA złych impulsów — do opracowania/dostrojenia detektora na
+    podstawie Twoich decyzji. Nic nie zapuje i nie zmienia params.json.
+
+    Pokazuje okno przed/po (start: nic nie zaznaczone, żeby nie sugerować się
+    automatem) — zaznaczasz to, co SAM byś wyciął (+12 40-45, -40-45, u =
+    cofnij, Enter = koniec). Zapisuje `input/zap_labels/<pulsar>.csv`:
+    ~16 cech każdego impulsu + `label` (Twoje) + `auto` (obecny detektor).
+    Na koniec porównanie z automatem.
+
+      label_bad_pulses("J2346-0609")
+      label_bad_pulses("J1110-5637"; vpmout="/home/psr/output/")
+
+    Wymaga istniejącego `vpmout/<pulsar>/pulsar.debase.txt` i params.json.
+    """
+    function label_bad_pulses(psr; vpmout="/home/psr/output/")
+        outdir = vpmout * psr
+        p = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        N = size(data, 1)
+        bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+        r = Data.find_bad_pulses(data, bst, bend)
+        println("\n=== OZNACZANIE: $psr ($N impulsów, on-pulse $bst-$bend) ===")
+        println("Zaznacz wszystko, co sam byś wyciął (pojedyncze impulsy i całe regiony).")
+        # auto choice hidden (no red/orange) so it doesn't steer the labels
+        r_plot = merge(r, (kept_bright=Int[],))
+        rows = Data.select_pulses(data, r_plot, Int[], bst, bend, outdir;
+                                  allow_skip=false, name_mod="pulsar_label")
+        label = falses(N); label[rows] .= true
+        auto = falses(N); auto[r.bad] .= true
+        feats = Data.pulse_features(data, bst, bend)
+        Data.write_labels_csv(joinpath(@__DIR__, "input", "zap_labels", "$psr.csv"), feats,
+                              "label" => label, "auto" => auto)
+        tp, fp, fn = count(label .& auto), count(.!label .& auto), count(label .& .!auto)
+        println("Ty: $(count(label))  automat: $(count(auto))  zgodne: $tp  " *
+                "automat wyciął, Ty nie: $fp  Ty wyciąłeś, automat nie: $fn")
+        println("Twoje zaps: \"$(Data.pulses_to_zaps(rows))\"")
+        return rows
+    end
+
+
     # matched-filter SNR of the current pulsar.debase.txt (with its zaps),
     # or `nothing` when P3/on-pulse aren't known yet
     function coherent_snr(outdir)
@@ -1115,10 +1156,19 @@ module SpaTs
         #   J1110-5637 - "podrecznikowy" czysty przypadek z dokumentacji
         #   J2053-7200 - bardzo krotkie P3≈3, trudny przypadek dla ybins
         #
-        # PRZELICZENIE OD NOWA z zapowaniem zlych impulsow: moja polowa,
-        # od ostatniego pulsara (J2346-0609) w dol. Po przerwaniu wystarczy
-        # uruchomic ponownie — zrobione pulsary (zap_summary.csv) sa pomijane.
-        reprocess_all_zap(reverse=true, half=true)
+        # ETAP 1 — OZNACZANIE zlych impulsow recznie (do dostrojenia
+        # detektora). Wyniki: input/zap_labels/<pulsar>.csv -> git push.
+        # Dopisz tu pulsary, ktore chcesz oznaczyc (rozne typy: czyste,
+        # zaszumione, z RFI, z nullami). Brak pulsar.debase.txt -> pominiety.
+        for psr in ["J2346-0609", "J1110-5637", "J1750-3503", "J1539-6322"]
+            isfile(vpmout * psr * "/pulsar.debase.txt") ||
+                (println("SKIP $psr — brak $(vpmout)$(psr)/pulsar.debase.txt"); continue)
+            label_bad_pulses(psr; vpmout=vpmout)
+        end
+
+        # ETAP 2 (po dostrojeniu detektora) — przeliczenie od nowa z
+        # zapowaniem: moja polowa, od ostatniego pulsara w dol.
+        #reprocess_all_zap(reverse=true, half=true)
 
         # test skanu cutoffu + coherent fold na 4 pulsarach (wylaczony)
         #for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]

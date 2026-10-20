@@ -198,6 +198,101 @@ module Data
     end
 
 
+    """
+        pulse_features(data, bin_st, bin_end) -> Vector{Pair{String,Vector{Float64}}}
+
+    Many candidate per-pulse quality features (off-pulse = all bins outside
+    bin_st:bin_end), computed so that hand labels (`label_bad_pulses` in
+    spats.jl) can show which ones actually separate pulses a human would cut.
+    Deliberately broad — most will turn out irrelevant:
+
+      off_rms        off-pulse noise level
+      off_rms_local  off_rms / running median of off_rms (31 pulses)
+      off_mean       off-pulse mean (≈0 after debase)
+      off_tilt       mean(right off) - mean(left off), in noise units
+      off_struct     spread of 8 off-pulse block means / white-noise expectation
+      off_lowfreq    fraction of off-pulse power in the lowest 5% of Fourier freqs
+      off_ac1        lag-1 autocorrelation of off-pulse samples
+      off_peak       max |off| / off_rms
+      off_kurt       excess kurtosis of off-pulse samples
+      off_skew       skewness of off-pulse samples
+      off_mad_ratio  1.4826·MAD / rms (≈1 Gaussian; <1 heavy tails/outliers)
+      off_nunique    fraction of distinct values (low = clipping / quantisation)
+      on_energy      on-pulse sum
+      on_snr         on-pulse sum / (off_rms·√n_on)
+      on_peak        max on-pulse / off_rms
+      row_rms_local  whole-row rms / running median of it
+    """
+    function pulse_features(data, bin_st, bin_end)
+        N, nb = size(data)
+        off = vcat(1:bin_st-1, bin_end+1:nb)
+        on = bin_st:bin_end
+        lft, rgt = 1:bin_st-1, bin_end+1:nb
+        n_on = length(on)
+        runmed(x, h=15) = [median(x[max(1, i - h):min(N, i + h)]) for i in 1:N]
+        safe(a, b) = b > 0 ? a / b : NaN
+
+        off_rms  = [std(@view data[i, off]) for i in 1:N]
+        off_mean = [mean(@view data[i, off]) for i in 1:N]
+        tilt = [(isempty(rgt) || isempty(lft)) ? NaN :
+                safe(mean(@view data[i, rgt]) - mean(@view data[i, lft]), off_rms[i]) for i in 1:N]
+        bs = cld(length(off), 8)
+        blocks = [off[k:min(k + bs - 1, end)] for k in 1:bs:length(off)]
+        struct_ = [safe(std([mean(@view data[i, b]) for b in blocks]), off_rms[i] / sqrt(bs)) for i in 1:N]
+        nlow = max(1, round(Int, 0.05 * length(off) / 2))
+        lowfreq = map(1:N) do i
+            x = data[i, off] .- off_mean[i]
+            P = abs2.(fft(x))[2:length(x)÷2+1]
+            safe(sum(P[1:nlow]), sum(P))
+        end
+        ac1 = map(1:N) do i
+            x = data[i, off] .- off_mean[i]
+            safe(sum(x[1:end-1] .* x[2:end]), sum(abs2, x))
+        end
+        peak = [safe(maximum(abs, @view data[i, off]), off_rms[i]) for i in 1:N]
+        moment(i, k) = (x = (data[i, off] .- off_mean[i]); mean(x .^ k))
+        kurt = [safe(moment(i, 4), moment(i, 2)^2) - 3 for i in 1:N]
+        skew = [safe(moment(i, 3), moment(i, 2)^1.5) for i in 1:N]
+        madr = [safe(1.4826 * median(abs.(data[i, off] .- median(data[i, off]))), off_rms[i]) for i in 1:N]
+        nuniq = [length(unique(@view data[i, off])) / length(off) for i in 1:N]
+        on_energy = [sum(@view data[i, on]) - n_on * off_mean[i] for i in 1:N]
+        row_rms = [std(@view data[i, :]) for i in 1:N]
+
+        return ["off_rms" => off_rms,
+                "off_rms_local" => off_rms ./ runmed(off_rms),
+                "off_mean" => off_mean,
+                "off_tilt" => tilt,
+                "off_struct" => struct_,
+                "off_lowfreq" => lowfreq,
+                "off_ac1" => ac1,
+                "off_peak" => peak,
+                "off_kurt" => kurt,
+                "off_skew" => skew,
+                "off_mad_ratio" => madr,
+                "off_nunique" => nuniq,
+                "on_energy" => on_energy,
+                "on_snr" => [safe(on_energy[i], off_rms[i] * sqrt(n_on)) for i in 1:N],
+                "on_peak" => [safe(maximum(@view data[i, on]), off_rms[i]) for i in 1:N],
+                "row_rms_local" => row_rms ./ runmed(row_rms)]
+    end
+
+
+    "Write `pulse_features` + label columns to a CSV (one row per pulse, 0-based pulse number)."
+    function write_labels_csv(file, feats, labels::Pair...)
+        N = length(last(first(feats)))
+        mkpath(dirname(file))
+        open(file, "w") do f
+            println(f, join(vcat("pulse", first.(feats), [String(first(l)) for l in labels]), ","))
+            for i in 1:N
+                vals = vcat(string(i - 1), [string(round(v[i], sigdigits=6)) for v in last.(feats)],
+                            [string(Int(last(l)[i])) for l in labels])
+                println(f, join(vals, ","))
+            end
+        end
+        println("Zapisano: $file")
+    end
+
+
     "Thrown by `review_zaps` when the user chooses to skip the pulsar (`s`)."
     struct SkipPulsar <: Exception end
 
@@ -205,6 +300,58 @@ module Data
     # 0-based "12 40-45" -> 1-based rows, clamped to 1:N
     zaps_to_rows(zaps, N) = sort(unique(filter(i -> 1 <= i <= N,
                                  [i + 1 for (a, b) in zaps_to_ranges(zaps) for i in a:b])))
+
+
+    """
+        select_pulses(data, r, rows, bin_st, bin_end, outdir; allow_skip=true, name_mod="pulsar")
+
+    Interactive selection loop on the `Plot.zap_review` window (left before,
+    right after). Every change redraws the window; returns the final 1-based
+    rows. Commands (pulse numbers 0-based, as in zaps):
+
+      Enter        accept          n   nothing / accept empty
+      s            skip pulsar (throws `SkipPulsar`, only if `allow_skip`)
+      +12 40-45    add             -40-45   remove
+      12 40-45     replace all     u        undo last change
+    """
+    function select_pulses(data, r, rows, bin_st, bin_end, outdir; allow_skip=true, name_mod="pulsar")
+        N = size(data, 1)
+        rows = copy(rows)
+        history = Vector{Vector{Int}}()
+        while true
+            Plot.zap_review(data, r, rows, bin_st, bin_end, outdir; show_=true, name_mod=name_mod)
+            print("\nEnter = zatwierdź | n = nic | " * (allow_skip ? "s = pomiń pulsar | " : "") *
+                  "+12 40-45 = dodaj | -40-45 = usuń | 12 40-45 = zastąp | u = cofnij:  ")
+            ans = String(strip(readline()))
+            Plot.close_all()
+            isempty(ans) && break
+            allow_skip && ans == "s" && throw(SkipPulsar())
+            if ans == "n"
+                rows = Int[]
+                break
+            end
+            if ans == "u"
+                isempty(history) ? println("Nie ma czego cofać.") : (rows = pop!(history))
+            else
+                try
+                    new = if startswith(ans, "+")
+                        sort(unique(vcat(rows, zaps_to_rows(ans[2:end], N))))
+                    elseif startswith(ans, "-")
+                        setdiff(rows, zaps_to_rows(ans[2:end], N))
+                    else
+                        zaps_to_rows(ans, N)
+                    end
+                    push!(history, rows)
+                    rows = new
+                catch
+                    println("Nie rozumiem \"$ans\" — przykład: +12 40-45")
+                    continue
+                end
+            end
+            println("Teraz: $(length(rows)) impulsów  →  \"$(pulses_to_zaps(rows))\"")
+        end
+        return rows
+    end
 
 
     """
@@ -232,32 +379,10 @@ module Data
         isempty(r.kept_bright) ||
             println("Zostawione mimo podejrzanego szumu (dużo sygnału, podnoszą S/N): " *
                     "$(length(r.kept_bright))  →  \"$(pulses_to_zaps(r.kept_bright))\"")
-        while true
-            Plot.zap_review(data, r, rows, p["bin_st"], p["bin_end"], outdir; show_=(mode == :review))
-            mode == :review || break
-            print("\nEnter = zatwierdź | n = bez zapów | s = pomiń pulsar | " *
-                  "+12 40-45 = dodaj | -40-45 = usuń | 12 40-45 = zastąp:  ")
-            ans = String(strip(readline()))
-            Plot.close_all()
-            isempty(ans) && break
-            ans == "s" && throw(SkipPulsar())
-            if ans == "n"
-                rows = Int[]
-                break
-            end
-            try
-                if startswith(ans, "+")
-                    rows = sort(unique(vcat(rows, zaps_to_rows(ans[2:end], N))))
-                elseif startswith(ans, "-")
-                    rows = setdiff(rows, zaps_to_rows(ans[2:end], N))
-                else
-                    rows = zaps_to_rows(ans, N)
-                end
-            catch
-                println("Nie rozumiem \"$ans\" — przykład: +12 40-45")
-                continue
-            end
-            println("Teraz: $(length(rows)) impulsów  →  \"$(pulses_to_zaps(rows))\"")
+        if mode == :review
+            rows = select_pulses(data, r, rows, p["bin_st"], p["bin_end"], outdir)
+        else
+            Plot.zap_review(data, r, rows, p["bin_st"], p["bin_end"], outdir; show_=false)
         end
         zaps = pulses_to_zaps(rows)
         p["zaps"] = isempty(zaps) ? nothing : zaps
