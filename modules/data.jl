@@ -325,12 +325,22 @@ module Data
     archive itself is not modified by this function.
     """
     function run_pazi(archive)
-        tmp = tempname()
-        println("\npazi: zapuj impulsy (i ew. kanały) jak zwykle, potem wyjdź z pazi.\n" *
-                "Komenda paz zostanie odczytana automatycznie.")
-        run(pipeline(`pazi $archive`, `tee $tmp`))
-        out = read(tmp, String)
-        rm(tmp, force=true)
+        local out
+        while true
+            tmp = tempname()
+            println("\npazi: zapuj impulsy (i ew. kanały) jak zwykle, potem wyjdź z pazi.\n" *
+                    "Komenda paz zostanie odczytana automatycznie.")
+            proc = run(pipeline(ignorestatus(`pazi $archive`), `tee $tmp`))
+            out = read(tmp, String)
+            rm(tmp, force=true)
+            # pazi crashes e.g. when a click lands outside the subint range
+            # (J0304: "isubint=1032 nsubint=1032") — before printing paz
+            crashed = occursin("Error::", out) || any(p -> p.exitcode != 0, proc.processes)
+            crashed || break
+            print("pazi zakończył się błędem (np. kliknięcie poza zakresem) — zapy z tej sesji przepadły.\n" *
+                  "Enter = otwórz pazi jeszcze raz, n = przejdź dalej bez zapów: ")
+            strip(readline()) == "n" && break
+        end
         z = parse_paz_command(out)
         println(isnothing(z.cmd) ? "pazi: nic nie wycięto." :
                 "pazi: $(length(z.subints)) impulsów, $(length(z.chans)) kanałów  ←  $(z.cmd)")
@@ -341,14 +351,219 @@ module Data
     "Features + label (+ auto) CSV for detector training, in repo input/zap_labels/<psr>.csv."
     function save_zap_labels(psr, data, bin_st, bin_end, rows)
         N = size(data, 1)
-        r = find_bad_pulses(data, bin_st, bin_end)
         label = falses(N); label[filter(i -> 1 <= i <= N, rows)] .= true
-        auto = falses(N); auto[r.bad] .= true
+        auto = falses(N); auto[auto_zap(data, bin_st, bin_end).bad] .= true
         write_labels_csv(joinpath(@__DIR__, "..", "input", "zap_labels", "$psr.csv"),
                          pulse_features(data, bin_st, bin_end), "label" => label, "auto" => auto)
         tp, fp, fn = count(label .& auto), count(.!label .& auto), count(label .& .!auto)
         println("Ty: $(count(label))  automat: $(count(auto))  zgodne: $tp  " *
                 "automat wyciął, Ty nie: $fp  Ty wyciąłeś, automat nie: $fn")
+    end
+
+
+    """
+        pulse_signal_noise(data, bin_st, bin_end) -> (s, v, good)
+
+    Per pulse: on-pulse signal `s` (sum minus off-pulse baseline) and the
+    variance `v` of that sum due to noise, measured EMPIRICALLY: the
+    off-pulse is cut into non-overlapping windows as wide as the on-pulse
+    window and the spread of their sums is taken. Unlike n_on·σ², this also
+    includes correlated junk — baseline stripes, wiggles, contamination
+    right next to the pulse — exactly what makes a stretch useless.
+    With only a handful of windows per pulse `v` is noisy for ONE pulse but
+    unbiased, so it is fine in sums over stretches; `vwhite` = n_on·σ² is
+    the precise white-noise part, used to spot single noise jumps.
+    Returns (s, v, vwhite, good, nwin); `good` = pulse not empty.
+    """
+    function pulse_signal_noise(data, bin_st, bin_end)
+        N, nb = size(data)
+        on = bin_st:bin_end
+        n_on = length(on)
+        segs = [1:bin_st-1, bin_end+1:nb]
+        wins = UnitRange{Int}[]
+        for sg in segs, j in 0:(length(sg) ÷ n_on)-1
+            push!(wins, first(sg) + j * n_on : first(sg) + (j + 1) * n_on - 1)
+        end
+        off = vcat(segs...)
+        s, v, vw, good = zeros(N), zeros(N), zeros(N), trues(N)
+        for i in 1:N
+            row = @view data[i, :]
+            b = mean(row[off])
+            σ2 = var(row[off])
+            s[i] = sum(row[on]) - n_on * b
+            vw[i] = n_on * σ2
+            v[i] = length(wins) >= 3 ? mean(abs2, [sum(row[w]) - n_on * b for w in wins]) : vw[i]
+            good[i] = σ2 > 0
+        end
+        return (s=s, v=v, vwhite=vw, good=good, nwin=length(wins))
+    end
+
+
+    """
+    Robust z of each pulse's log noise variance against its running median
+    (`local_win` pulses): sudden noise jumps, not slow gain drifts. Doesn't
+    depend on the tuned parameters, so `tune_autozap` computes it once.
+    """
+    function noise_jump_z(v, good; local_win=31)
+        N = length(v)
+        lv = log.(max.(v, eps()))
+        gi = findall(good)
+        h = local_win ÷ 2
+        loc = [isempty(gi) ? 0.0 : median(lv[filter(j -> abs(j - i) <= h, gi)]) for i in 1:N]
+        res = lv .- loc
+        rg = res[good]
+        mad = isempty(rg) ? 1.0 : max(1.4826 * median(abs.(rg .- median(rg))), eps())
+        return res ./ mad
+    end
+
+
+    """
+        auto_zap_core(s, v, good; w, zsig, frac, pad, min_keep, nsigma, local_win)
+
+    S/N-driven automatic zapping (built from hand-zapped examples: nulls,
+    faded stretches, stripy/noisy stretches, bad starts — all of them are
+    stretches that bring more noise than signal).
+
+    Removing a set R of pulses raises the S/N of the summed profile iff its
+    signal per unit variance S_R/V_R is below half of the overall S/V. So:
+
+      1. single bad pulses are cut alone: a sudden jump of the white noise
+         (robust z of log vwhite vs a running median > `nsigma`), or
+         correlated junk (window variance / white variance above the χ²
+         tail for `nwin` windows, ≈ 1 + nsigma·√(2/nwin));
+      2. over a sliding window (singles excluded) a stretch is cut when even
+         its signal + `zsig`·σ is below `frac`·E·V_window (`frac` = 0.5
+         is the exact S/N-gain point; `zsig` stops cutting stretches that
+         are only low by chance). E starts at the bright-state efficiency
+         (quantile `q` of the windows) and is iterated to S/V of the kept
+         pulses. The window length adapts to the pulsar:
+         wide enough that an average window has S/N ≈ `target` (bright
+         pulsar -> short window, sharp null edges; weak -> long window), or
+         fixed with `w`;
+      3. stretches shorter than `min_run` pulses are not cut (ordinary
+         pulse-to-pulse modulation); kept islands shorter than `min_keep`
+         between cuts are cut too, and every cut region gets `pad` extra
+         pulses on each side;
+      4. if the result would LOWER the S/N, only the single pulses are cut.
+
+    Returns (bad, single, stretch, eff, E, w, snr_before, snr_after).
+    """
+    function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, frac=0.5, q=0.9, pad=1, min_keep=3,
+                           min_run=5, nsigma=6.0, local_win=31, noise_z=nothing)
+        s, v, good = sn.s, sn.v, sn.good
+        N = length(s)
+        nz = isnothing(noise_z) ? noise_jump_z(sn.vwhite, good; local_win=local_win) : noise_z
+        excess_thr = sn.nwin >= 3 ? 1 + nsigma * sqrt(2 / sn.nwin) : Inf
+        single = .!good .| (nz .> nsigma) .| (sn.v ./ max.(sn.vwhite, eps()) .> excess_thr)
+
+        ok = .!single
+        S, V = sum(s[ok]), sum(v[ok])
+        E = V > 0 ? S / V : 0.0
+        if isnothing(w)
+            snr_pp = count(ok) > 0 && V > 0 ? S / sqrt(V) / sqrt(count(ok)) : 0.0
+            w = snr_pp > 0 ? round(Int, (target / snr_pp)^2) : N ÷ 8
+            w = clamp(isodd(w) ? w : w + 1, 3, max(3, N ÷ 8))
+        end
+        hw = w ÷ 2
+        # window sums via cumulative sums (O(N), so tuning over many
+        # parameter sets stays fast)
+        cs = vcat(0.0, cumsum(s .* ok))
+        cv = vcat(0.0, cumsum(v .* ok))
+        Ss = [cs[min(N, i + hw) + 1] - cs[max(1, i - hw)] for i in 1:N]
+        Vs = [cv[min(N, i + hw) + 1] - cv[max(1, i - hw)] for i in 1:N]
+        # reference efficiency: start from the BRIGHT state (quantile `q` of
+        # window efficiencies) — when most of the observation is faded or
+        # nulling, the plain average is dragged down by the very stretches
+        # that should go (J1110: 77% faded) — then iterate to the
+        # self-consistent value: S/V of whatever is kept
+        effw = [Vs[i] > 0 ? Ss[i] / Vs[i] : 0.0 for i in 1:N]
+        cut(Eref) = [ok[i] && Vs[i] > 0 && Ss[i] + zsig * sqrt(Vs[i]) < frac * Eref * Vs[i] for i in 1:N]
+        any(ok) && (E = quantile(effw[ok], q))
+        stretch = cut(E)
+        for _ in 1:20
+            kept = ok .& .!stretch
+            sv = sum(v[kept])
+            Enew = sv > 0 ? sum(s[kept]) / sv : E
+            abs(Enew - E) <= 1e-3 * abs(E) && break
+            E = Enew
+            stretch = cut(E)
+        end
+        # a few weak pulses in a row are ordinary pulse-to-pulse modulation,
+        # not a null/bad stretch: only runs of >= min_run pulses are cut
+        i = 1
+        while i <= N
+            if stretch[i]
+                j = i
+                while j < N && stretch[j+1]; j += 1; end
+                (j - i + 1) < min_run && (stretch[i:j] .= false)
+                i = j + 1
+            else
+                i += 1
+            end
+        end
+
+        function morph(mask)
+            m = copy(mask)
+            # short kept islands between two cut regions -> cut
+            i = 1
+            while i <= N
+                if !m[i]
+                    j = i
+                    while j < N && !m[j+1]; j += 1; end
+                    if i > 1 && j < N && (j - i + 1) < min_keep
+                        m[i:j] .= true
+                    end
+                    i = j + 1
+                else
+                    i += 1
+                end
+            end
+            out = copy(m)
+            for i in findall(m)
+                out[max(1, i - pad):min(N, i + pad)] .= true
+            end
+            return out
+        end
+
+        snr(mask) = (k = .!mask .& good; sv = sum(v[k]); sv > 0 ? sum(s[k]) / sqrt(sv) : NaN)
+        snr0 = snr(falses(N))
+        bad = morph(single .| stretch)
+        if !(snr(bad) >= snr0)
+            bad = morph(single)
+        end
+        return (bad=findall(bad), single=findall(single), stretch=findall(stretch),
+                eff=Ss ./ max.(Vs, eps()), E=E, w=w, snr_before=snr0, snr_after=snr(bad))
+    end
+
+
+    "Convenience: `auto_zap_core` on a data matrix."
+    auto_zap(data, bin_st, bin_end; kw...) =
+        auto_zap_core(pulse_signal_noise(data, bin_st, bin_end); kw...)
+
+
+    "Pulse-level agreement of automatic vs hand zaps (1-based rows)."
+    function zap_agreement(auto_rows, user_rows, N)
+        a = falses(N); a[auto_rows] .= true
+        u = falses(N); u[filter(i -> 1 <= i <= N, user_rows)] .= true
+        tp, fp, fn = count(a .& u), count(a .& .!u), count(.!a .& u)
+        prec = tp + fp > 0 ? tp / (tp + fp) : (count(u) == 0 ? 1.0 : 0.0)
+        rec = tp + fn > 0 ? tp / (tp + fn) : 1.0
+        f1 = prec + rec > 0 ? 2prec * rec / (prec + rec) : 0.0
+        # both empty = perfect agreement
+        (count(a) == 0 && count(u) == 0) && (f1 = 1.0)
+        return (tp=tp, fp=fp, fn=fn, precision=prec, recall=rec, f1=f1)
+    end
+
+
+    "Hand labels (1-based rows) from input/zap_labels/<psr>.csv (`label` column), or nothing."
+    function read_zap_labels(psr)
+        f = joinpath(@__DIR__, "..", "input", "zap_labels", "$psr.csv")
+        isfile(f) || return nothing
+        lines = readlines(f)
+        hdr = split(lines[1], ",")
+        li = findfirst(==("label"), hdr)
+        isnothing(li) && return nothing
+        return [k - 1 for k in 2:length(lines) if split(lines[k], ",")[li] == "1"]
     end
 
 
@@ -431,6 +646,41 @@ module Data
     function review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review, archive=nothing)
         data = load_ascii(txtfile)
         N = size(data, 1)
+        if mode == :auto_pazi
+            # automatic proposal, reviewed in pazi on a COPY that already has
+            # it applied: zap whatever is still bad there and quit; or redo
+            # everything by hand on the original
+            isnothing(archive) && error("review_zaps(mode=:auto_pazi) needs `archive`")
+            a = auto_zap(data, p["bin_st"], p["bin_end"])
+            println("Automat: $(length(a.bad)) z $N impulsów " *
+                    "($(round(100 * length(a.bad) / N, digits=1))%), S/N $(round(a.snr_before, digits=1)) → " *
+                    "$(round(a.snr_after, digits=1))  →  \"$(pulses_to_zaps(a.bad))\"")
+            preview = replace(archive, r"\.[^.]+$" => ".autozap.ar")
+            cp(archive, preview; force=true)
+            apply_zaps(preview, pulses_to_zaps(a.bad))
+            println("pazi pokazuje dane PO automatycznym zapowaniu — dozapuj, co jeszcze złe, i wyjdź.")
+            z = run_pazi(preview)
+            rows = sort(unique(vcat(a.bad, [s + 1 for s in z.subints if 0 <= s < N])))
+            chans = z.chans
+            print("Enter = zatwierdź (automat + Twoje dozapowania) | r = zrób od nowa ręcznie " *
+                  "w pazi (oryginał) | n = bez zapów: ")
+            ans = strip(readline())
+            if ans == "r"
+                z = run_pazi(archive)
+                rows, chans = [s + 1 for s in z.subints if 0 <= s < N], z.chans
+            elseif ans == "n"
+                rows, chans = Int[], Int[]
+            end
+            rm(preview, force=true)
+            # final choice = training data for the detector too
+            save_zap_labels(basename(rstrip(outdir, '/')), data, p["bin_st"], p["bin_end"], rows)
+            zaps = pulses_to_zaps(rows)
+            p["zaps"] = isempty(zaps) ? nothing : zaps
+            p["zap_chans"] = isempty(chans) ? nothing : join(chans, " ")
+            Tools.save_params(params_file, p)
+            println("Zapisane zaps = $(repr(p["zaps"]))  zap_chans = $(repr(p["zap_chans"]))")
+            return p["zaps"]
+        end
         if mode == :pazi
             # zapping by hand in pazi; the choice also becomes training data
             # for the automatic detector (input/zap_labels/<psr>.csv)

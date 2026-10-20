@@ -778,6 +778,70 @@ module Plot
 
 
     """
+    Hand zaps vs automatic zaps for one pulsar (`tune_autozap`).
+
+    Left: single pulses around the on-pulse window; red bars on the left
+    edge = your zaps (pazi), blue bars on the right edge = automatic.
+    Right: smoothed signal-per-noise efficiency of each stretch (what the
+    automatic decision uses) with the cut level frac·E dashed; your zapped
+    pulses shaded red, automatic ones blue.
+    """
+    function zap_compare(data, bin_st, bin_end, a, user_rows, outdir; title_="", frac=0.5,
+                         name_mod="pulsar", show_=false)
+        N, nb = size(data)
+        w = bin_end - bin_st + 1
+        lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
+        win = data[:, lo:hi]
+        fin = filter(isfinite, vec(win))
+        vmin, vmax = isempty(fin) ? (0.0, 1.0) : (quantile(fin, 0.01), quantile(fin, 0.995))
+
+        rc("font", size=7.5, family="sans-serif")
+        fig = figure(figsize=(9.2, 6.6), dpi=100)
+        fig.patch.set_facecolor("white")
+
+        ax1 = subplot2grid((1, 3), (0, 0), colspan=2)
+        imshow(win, origin="lower", aspect="auto", cmap="afmhot", vmin=vmin, vmax=vmax,
+               interpolation="nearest", extent=(lo - 0.5, hi + 0.5, -0.5, N - 0.5))
+        dx = (hi - lo) * 0.012
+        isempty(user_rows) || scatter(fill(lo + dx, length(user_rows)), user_rows .- 1, marker="s",
+                                      s=6, color="#e41a1c", zorder=5, label="Ty (pazi)")
+        isempty(a.bad) || scatter(fill(hi - dx, length(a.bad)), a.bad .- 1, marker="s",
+                                  s=6, color="#377eb8", zorder=5, label="automat")
+        legend(fontsize=7, loc="upper center", ncol=2, framealpha=0.9)
+        xlabel("bin"); ylabel("pulse number (od 0)")
+
+        subplot2grid((1, 3), (0, 2), sharey=ax1)
+        y = 0:N-1
+        u = falses(N); u[filter(i -> 1 <= i <= N, user_rows)] .= true
+        au = falses(N); au[a.bad] .= true
+        for (mask, col) in ((u, "#e41a1c"), (au, "#377eb8"))
+            i = 1
+            while i <= N
+                if mask[i]
+                    j = i
+                    while j < N && mask[j+1]; j += 1; end
+                    axhspan(i - 1.5, j - 0.5, color=col, alpha=0.18, lw=0)
+                    i = j + 1
+                else
+                    i += 1
+                end
+            end
+        end
+        plot(a.eff, y, color="black", lw=0.7)
+        axvline(frac * a.E, color="gray", ls="--", lw=1.0)
+        axvline(0, color="gray", ls=":", lw=0.6)
+        xlabel("sygnał / szum odcinka\n(przerywana = próg cięcia)")
+        tick_params(labelleft=false)
+
+        suptitle(title_, fontsize=9, fontweight="bold")
+        tight_layout(rect=(0, 0, 1, 0.94))
+        savefig("$outdir/$(name_mod)_zap_compare.png", dpi=110)
+        println("$outdir/$(name_mod)_zap_compare.png")
+        show_ ? show() : close()
+    end
+
+
+    """
     Review window for bad-pulse zapping (`Data.review_zaps`).
 
     Left column = data BEFORE zapping, right = AFTER (current selection):

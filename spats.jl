@@ -742,6 +742,95 @@ module SpaTs
     end
 
 
+    """
+    Strojenie automatycznego zapowania (`Data.auto_zap_core`) na Twoich
+    etykietach z pazi (`input/zap_labels/<pulsar>.csv`).
+
+    Dla każdego pulsara z etykietami i danymi (`vpmout/<psr>/pulsar.debase.txt`
+    — po oznaczaniu to są dane BEZ zapów) sprawdza 2187 kombinacji parametrów
+    i liczy zgodność z Tobą (F1: 1 = identycznie, 0 = nic wspólnego) oraz
+    S/N: bez zapów / Twoje / automat. Wypisuje najlepsze ustawienia,
+    zapisuje pełną tabelę `input/zap_labels/tuning.csv` i dla najlepszych
+    parametrów wykres `vpmout/<psr>/pulsar_zap_compare.png` (czerwone = Ty,
+    niebieskie = automat).
+
+      tune_autozap(["J0034-0721", "J0459-0210", "J0624-0424", ...])
+    """
+    function tune_autozap(psrs; vpmout="/home/psr/output/")
+        sets = []
+        for psr in psrs
+            rows = Data.read_zap_labels(psr)
+            outdir = vpmout * psr
+            tf, pf = joinpath(outdir, "pulsar.debase.txt"), joinpath(outdir, "params.json")
+            if isnothing(rows) || !isfile(tf) || !isfile(pf)
+                println("SKIP $psr — brak etykiet (input/zap_labels/$psr.csv) albo danych")
+                continue
+            end
+            p = Tools.read_params(pf)
+            data = Data.load_ascii(tf)
+            bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+            sn = Data.pulse_signal_noise(data, bst, bend)
+            push!(sets, (psr=psr, outdir=outdir, data=data, bst=bst, bend=bend, sn=sn,
+                         nz=Data.noise_jump_z(sn.vwhite, sn.good), rows=rows, N=size(data, 1)))
+            println("$psr: $(size(data, 1)) impulsów, Twoje zapy: $(length(rows))")
+        end
+        isempty(sets) && (println("Brak danych do strojenia."); return nothing)
+
+        snr(sn, rows) = (k = copy(sn.good); k[filter(i -> 1 <= i <= length(k), rows)] .= false;
+                         sv = sum(sn.v[k]); sv > 0 ? sum(sn.s[k]) / sqrt(sv) : NaN)
+        grid = Iterators.product((5.0, 8.0, 12.0), (2.0, 3.0, 4.0), (0.4, 0.5, 0.6),
+                                 (0.75, 0.9, 0.95), (0, 1, 2), (3, 5, 8), (5.0, 6.0, 8.0))
+        results = []
+        for (target, zsig, frac, q, pad, min_run, nsigma) in grid
+            kw = (target=target, zsig=zsig, frac=frac, q=q, pad=pad, min_run=min_run, nsigma=nsigma)
+            f1s, ratios = Float64[], Float64[]
+            for st in sets
+                a = Data.auto_zap_core(st.sn; noise_z=st.nz, kw...)
+                push!(f1s, Data.zap_agreement(a.bad, st.rows, st.N).f1)
+                push!(ratios, a.snr_after / snr(st.sn, st.rows))
+            end
+            push!(results, (kw=kw, f1=mean(f1s), minf1=minimum(f1s), snr_ratio=mean(ratios), f1s=f1s))
+        end
+        sort!(results, by=r -> (-r.f1, -r.minf1))
+
+        names_ = [st.psr for st in sets]
+        csv = joinpath(@__DIR__, "input", "zap_labels", "tuning.csv")
+        open(csv, "w") do f
+            println(f, join(vcat(["target", "zsig", "frac", "q", "pad", "min_run", "nsigma",
+                                  "mean_f1", "min_f1", "snr_auto_over_user"], names_), ","))
+            for r in results
+                println(f, join(vcat(collect(values(r.kw)), round(r.f1, digits=4), round(r.minf1, digits=4),
+                                     round(r.snr_ratio, digits=4), round.(r.f1s, digits=3)), ","))
+            end
+        end
+        println("\nPełna tabela: $csv\n\nNajlepsze 10 (średnie F1 po pulsarach):")
+        for r in results[1:min(10, end)]
+            println("  F1=$(round(r.f1, digits=3)) (min $(round(r.minf1, digits=2)))  " *
+                    "S/N auto/Twoje=$(round(r.snr_ratio, digits=3))  $(r.kw)")
+        end
+
+        best = results[1].kw
+        default = (target=8.0, zsig=3.0, frac=0.5, q=0.9, pad=1, min_run=5, nsigma=6.0)
+        for (label, kw) in (("DOMYŚLNE", default), ("NAJLEPSZE", best))
+            println("\n$label $kw")
+            for st in sets
+                a = Data.auto_zap_core(st.sn; noise_z=st.nz, kw...)
+                m = Data.zap_agreement(a.bad, st.rows, st.N)
+                println("  $(rpad(st.psr, 12)) Ty=$(lpad(length(st.rows), 4)) auto=$(lpad(length(a.bad), 4))  " *
+                        "F1=$(round(m.f1, digits=2)) prec=$(round(m.precision, digits=2)) " *
+                        "rec=$(round(m.recall, digits=2))  S/N bez=$(round(a.snr_before, digits=1)) " *
+                        "Ty=$(round(snr(st.sn, st.rows), digits=1)) auto=$(round(a.snr_after, digits=1))  okno=$(a.w)")
+                if label == "NAJLEPSZE"
+                    Plot.zap_compare(st.data, st.bst, st.bend, a, st.rows, st.outdir; frac=kw.frac,
+                                     title_="$(st.psr): F1=$(round(m.f1, digits=2))  " *
+                                            "czerwone = Ty ($(length(st.rows))), niebieskie = automat ($(length(a.bad)))")
+                end
+            end
+        end
+        return results
+    end
+
+
     # matched-filter SNR of the current pulsar.debase.txt (with its zaps),
     # or `nothing` when P3/on-pulse aren't known yet
     function coherent_snr(outdir)
@@ -1182,8 +1271,9 @@ module SpaTs
         # zaszumione, z RFI, z nullami). Brak pulsar.debase.txt -> najpierw
         # psradd + debase (prepare_debase). Ctrl+C przerywa calosc; juz
         # zapisane CSV zostaja. Pulsar z gotowym CSV jest pomijany.
-        for psr in ["J0034-0721", "J0304+1932", "J0459-0210", "J0624-0424", "J0820-1350",
-                    "J2346-0609", "J1110-5637", "J1750-3503", "J1539-6322"]
+        label_psrs = ["J0034-0721", "J0304+1932", "J0459-0210", "J0624-0424", "J0820-1350",
+                      "J2346-0609", "J1110-5637", "J1750-3503", "J1539-6322"]
+        for psr in label_psrs
             if isfile(joinpath(@__DIR__, "input", "zap_labels", "$psr.csv"))
                 println("SKIP $psr — już oznaczony (input/zap_labels/$psr.csv)")
                 continue
@@ -1196,9 +1286,13 @@ module SpaTs
             end
         end
 
-        # ETAP 2 (po dostrojeniu detektora) — przeliczenie od nowa z
-        # zapowaniem: moja polowa, od ostatniego pulsara w dol.
-        #reprocess_all_zap(reverse=true, half=true)
+        # ETAP 2 — STROJENIE automatu na etykietach z pazi: tabela
+        # input/zap_labels/tuning.csv + wykresy <psr>/pulsar_zap_compare.png
+        tune_autozap(label_psrs; vpmout=vpmout)
+
+        # ETAP 3 (po strojeniu) — przeliczenie od nowa: automat proponuje,
+        # pazi pokazuje wynik, dozapowujesz / robisz od nowa (r).
+        #reprocess_all_zap(reverse=true, half=true, zap_mode=:auto_pazi)
 
         # test skanu cutoffu + coherent fold na 4 pulsarach (wylaczony)
         #for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]
