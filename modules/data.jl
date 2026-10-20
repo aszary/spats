@@ -525,6 +525,16 @@ module Data
         junk = good .& ((zc .> nsigma) .| (zac .> ac_sigma))
         jump = good .& (nz .> nsigma) .& .!junk .& [!worth(i) for i in 1:N]
         single = junk .| jump
+        # single null pulse (an empty line in a steadily bright pulsar,
+        # J1901): no signal at all (< zdet/2·σ; a real null is 0 ± 1σ) where
+        # even the faintest 10% of pulses are clearly detected (>= 3·zdet·σ),
+        # so it is not ordinary pulse-to-pulse modulation (lognormal σ=0.8:
+        # ~0.02% false). Off for nulling/weak pulsars (there the stretch
+        # test handles nulls).
+        snr1 = [vone(i) > 0 ? s[i] / sqrt(vone(i)) : 0.0 for i in 1:N]
+        rest = good .& .!single
+        q10 = count(rest) > 0 ? quantile(snr1[rest], 0.1) : 0.0
+        null1 = q10 >= 3 * zdet ? rest .& (snr1 .< zdet / 2) : falses(N)
 
         # 2./3. stretches, smoothed over the typical pulses
         ok = count(good .& .!single) > count(good) ÷ 2 ? (good .& .!single) : copy(good)
@@ -641,6 +651,10 @@ module Data
                 nulls .= false
             end
         end
+        if any(null1)
+            cur = cur .| null1
+            push!(kept, "pojedyncze nulle")
+        end
         stretch = nulls .| noisy
         best = morph(cur)
         why = isempty(kept) ? (any(single) ? "tylko pojedyncze śmieci" : "nic do wycięcia") :
@@ -649,7 +663,7 @@ module Data
         reason = zeros(Int8, N)
         for i in findall(best)
             reason[i] = !good[i] ? 1 : single[i] ? 2 : (stretch[i] && noisy[i]) ? 4 :
-                        (stretch[i] && nulls[i]) ? 3 : 5
+                        ((stretch[i] && nulls[i]) || null1[i]) ? 3 : 5
         end
         return (bad=findall(best), single=findall(single), stretch=findall(stretch), reason=reason,
                 eff=effw, E=f_null * e_on, w=w, snr_before=snr0, snr_after=snr(best), why=why,

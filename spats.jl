@@ -1414,9 +1414,9 @@ module SpaTs
         # input/zap_labels/blind_test.csv, <psr>/pulsar_zap_compare.png
         # tylko automat: bez pazi i bez pytan, wykres po kazdym pulsarze
         # (Enter = nastepny), na koncu tabela podsumowania
-        # pierwsze 4 znane + 4 nowe (sprawdzenie na pulsarach, ktorych
+        # pierwsze 5 znanych (z J0820) + 4 nowe (sprawdzenie na pulsarach, ktorych
         # automat "nie widzial" przy strojeniu)
-        test_psrs = vcat(label_psrs[1:4], ["J1903+0135", "J1901-0906", "J1946+1805", "J1555-3134"])
+        test_psrs = vcat(label_psrs[1:5], ["J1903+0135", "J1901-0906", "J1946+1805", "J1555-3134"])
         blind_test_autozap(test_psrs; vpmout=vpmout, interactive=false)
 
         # eksport danych (bez zapow) do debugowania automatu lokalnie
