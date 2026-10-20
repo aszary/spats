@@ -778,6 +778,24 @@ module Plot
 
 
     """
+    Open a saved PNG in an external image viewer (eog / display / feh /
+    xdg-open, whichever exists) — independent of matplotlib's GUI backend,
+    which doesn't always show windows over VNC. Returns true if a viewer
+    was started.
+    """
+    function open_png(path)
+        for viewer in ("eog", "display", "feh", "xdg-open")
+            if !isnothing(Sys.which(viewer))
+                run(pipeline(`$viewer $path`; stdout=devnull, stderr=devnull); wait=false)
+                return true
+            end
+        end
+        println("Brak przeglądarki obrazów (eog/display/feh/xdg-open) — otwórz ręcznie: $path")
+        return false
+    end
+
+
+    """
     What the automatic zapper cuts and why (`Data.auto_zap_core` result `a`).
 
     Left: the data as they are. Right: the same data, every cut pulse
@@ -849,14 +867,16 @@ module Plot
         suptitle(@sprintf("%s\nwycięte %d z %d (%.1f%%)   S/N %.1f → %.1f   okno %d", title_, n, N,
                           100 * n / N, a.snr_before, a.snr_after, a.w), fontsize=9, fontweight="bold")
         tight_layout(rect=(0, isempty(handles) ? 0 : 0.05, 1, 0.92))
-        savefig("$outdir/$(name_mod)_autozap.png", dpi=110)
-        println("$outdir/$(name_mod)_autozap.png")
+        png = "$outdir/$(name_mod)_autozap.png"
+        savefig(png, dpi=110)
+        println(png)
+        close()
         if show_
-            show()
+            # external viewer instead of plt.show(): reliable over VNC
+            open_png(png)
             print("Enter = następny pulsar: ")
             readline(stdin; keep=false)
         end
-        close()
     end
 
 
@@ -918,14 +938,15 @@ module Plot
 
         suptitle(title_, fontsize=9, fontweight="bold")
         tight_layout(rect=(0, 0, 1, 0.94))
-        savefig("$outdir/$(name_mod)_zap_compare.png", dpi=110)
-        println("$outdir/$(name_mod)_zap_compare.png")
+        png = "$outdir/$(name_mod)_zap_compare.png"
+        savefig(png, dpi=110)
+        println(png)
+        close()
         if show_
-            show()
+            open_png(png)
             print("Enter = następny pulsar: ")
             readline(stdin; keep=false)
         end
-        close()
     end
 
 

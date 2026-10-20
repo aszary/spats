@@ -434,7 +434,189 @@ module Data
 
 
     """
-        auto_zap_core(s, v, good; w, zsig, frac, pad, min_keep, nsigma, local_win)
+        auto_zap_core(sn; ...) -> NamedTuple
+
+    Automatic JUNK zapping (built from hand-zapped examples and their
+    failures on real data). It cuts junk, not merely weaker emission:
+
+      1. single junk pulses: correlated off-pulse junk (stripes, wiggles,
+         RFI next to the pulse) = window variance / white variance far above
+         its TYPICAL value in this observation (robust z > `nsigma`; real
+         data have correlated baseline structure in every pulse, so the
+         white-noise expectation flagged ~half of all pulses — J0034, J0304)
+         -> always cut; a sudden jump of the white noise (robust z vs a
+         running median > `nsigma`) -> cut only if the pulse brings more
+         noise than signal (bright pulses with digitiser-scaled noise stay);
+      2. null / no-signal stretches: over a sliding window (singles left
+         out) the signal is significantly (`zsig`·σ) below `f_null` of the
+         typical on-state level (quantile `q_on` of the window efficiencies)
+         — nulls and faded stretches, but NOT ordinary fainter emission
+         (cutting that raised S/N on clean J0304 but is cherry-picking);
+      3. noisy stretches: mean noise of the window > `noise_fac` × typical;
+      4. stretches shorter than `min_run` are ignored (pulse-to-pulse
+         modulation); kept islands < `min_keep` between cuts are cut; every
+         cut region gets `pad` pulses on each side;
+      5. safety: stretch cuts are dropped if they would lower the S/N.
+
+    Window length adapts to the pulsar (average window S/N ≈ `target`).
+    Returns (bad, single, stretch, reason, eff, E, w, snr_before,
+    snr_after, why, n_single, n_cand). reason per pulse: 0 kept, 1 empty,
+    2 single junk, 3 null/no signal, 4 noisy stretch, 5 margin/fill.
+    """
+    function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=3, min_run=5,
+                           nsigma=6.0, f_null=0.25, q_on=0.9, noise_fac=2.0, zdet=2.0,
+                           f_rel=0.15, zrel=1.0,
+                           local_win=31, noise_z=nothing, kw...)
+        s, v, good = sn.s, sn.v, sn.good
+        N = length(s)
+        gi = findall(good)
+        isempty(gi) && return (bad=Int[], single=Int[], stretch=Int[], reason=zeros(Int8, N),
+                               eff=zeros(N), E=NaN, w=0, snr_before=NaN, snr_after=NaN,
+                               why="brak danych", n_single=0, n_cand=0)
+        robz(x) = (m = median(x[gi]); d = max(1.4826 * median(abs.(x[gi] .- m)), eps()); (x .- m) ./ d)
+
+        # 1. single junk
+        nz = isnothing(noise_z) ? noise_jump_z(sn.vwhite, good; local_win=local_win) : noise_z
+        zc = sn.nwin >= 3 ? robz(log.(max.(v, eps()) ./ max.(sn.vwhite, eps()))) : zeros(N)
+        S0, V0 = sum(s[gi]), sum(v[gi])
+        worth(i) = V0 > 0 && v[i] > 0 && s[i] / v[i] > 0.5 * S0 / V0
+        junk = good .& (zc .> nsigma)
+        jump = good .& (nz .> nsigma) .& .!junk .& [!worth(i) for i in 1:N]
+        single = junk .| jump
+
+        # 2./3. stretches, smoothed over the typical pulses
+        ok = count(good .& .!single) > count(good) ÷ 2 ? (good .& .!single) : copy(good)
+        if isnothing(w)
+            S, V = sum(s[ok]), sum(v[ok])
+            snr_pp = count(ok) > 0 && V > 0 ? S / sqrt(V) / sqrt(count(ok)) : 0.0
+            w = snr_pp > 0 ? round(Int, (target / snr_pp)^2) : N ÷ 8
+            w = clamp(isodd(w) ? w : w + 1, 3, max(3, N ÷ 8))
+        end
+        hw = w ÷ 2
+        cs = vcat(0.0, cumsum(s .* ok)); cv = vcat(0.0, cumsum(v .* ok)); cn = vcat(0, cumsum(ok))
+        lo_(i) = max(1, i - hw); hi_(i) = min(N, i + hw)
+        Ss = [cs[hi_(i) + 1] - cs[lo_(i)] for i in 1:N]
+        Vs = [cv[hi_(i) + 1] - cv[lo_(i)] for i in 1:N]
+        Ns = [cn[hi_(i) + 1] - cn[lo_(i)] for i in 1:N]
+        effw = [Vs[i] > 0 ? Ss[i] / Vs[i] : 0.0 for i in 1:N]
+        e_on = quantile(effw[ok], q_on)
+        # null = signal NOT DETECTED in the window (< zdet·σ) although typical
+        # emission there would be clearly detected (e_on·V >= 2·zdet·σ) and
+        # the window is below f_null of typical. A fainter-but-visible
+        # stretch of a bright pulsar is not a null (that cut 32 pulses of a
+        # clean J0304-like pulsar); real nulls and faded stretches are.
+        # ...OR the window is clearly (`zrel`·σ) below `f_rel` (15%) of
+        # typical: a faded stretch of a fairly bright pulsar is still weakly
+        # "detected" (J1110-like: window S/N ~2 vs 22 when bright), but at
+        # ~8% of normal it is junk; natural faint stretches stay well above 15%
+        nulls = [Ns[i] > 0 && Vs[i] > 0 &&
+                 ((Ss[i] < zdet * sqrt(Vs[i]) && e_on * Vs[i] >= 2 * zdet * sqrt(Vs[i]) &&
+                   Ss[i] < f_null * e_on * Vs[i]) ||
+                  Ss[i] + zrel * sqrt(Vs[i]) < f_rel * e_on * Vs[i]) for i in 1:N]
+        # noisy: total noise OR white noise far above typical, over a SHORT
+        # window of its own (noise needs no S/N; the signal window of a weak
+        # pulsar can be 100+ pulses and would dilute a bad start). White
+        # noise separately: with correlated baseline everywhere the total-
+        # noise "typical" is inflated and a white-noise burst hides in it.
+        hn = min_run
+        lon(i) = max(1, i - hn); hin(i) = min(N, i + hn)
+        cw = vcat(0.0, cumsum(sn.vwhite .* ok))
+        Vn = [cv[hin(i) + 1] - cv[lon(i)] for i in 1:N]
+        Wn = [cw[hin(i) + 1] - cw[lon(i)] for i in 1:N]
+        Nn = [cn[hin(i) + 1] - cn[lon(i)] for i in 1:N]
+        vtyp, wtyp = median(v[ok]), median(sn.vwhite[ok])
+        # ...and brings proportionally more noise than signal (signal per
+        # unit white noise < half of typical): a bright stretch whose noise
+        # rose WITH its signal (digitiser scaling) is not junk
+        # (each noise measure judged with its own signal/noise: stripes show
+        # in the window noise V, a white-noise burst in the white noise W)
+        Sn = [cs[hin(i) + 1] - cs[lon(i)] for i in 1:N]
+        effv = [Vn[i] > 0 ? Sn[i] / Vn[i] : 0.0 for i in 1:N]
+        effw_ = [Wn[i] > 0 ? Sn[i] / Wn[i] : 0.0 for i in 1:N]
+        etv, etw = median(effv[ok]), median(effw_[ok])
+        noisy = [Nn[i] > 0 &&
+                 ((Vn[i] / (Nn[i] * vtyp) > noise_fac && effv[i] < 0.5 * etv) ||
+                  (Wn[i] / (Nn[i] * wtyp) > noise_fac && effw_[i] < 0.5 * etw)) for i in 1:N]
+
+        function runfilter(st)
+            st = copy(st); i = 1
+            while i <= N
+                if st[i]
+                    j = i
+                    while j < N && st[j+1]; j += 1; end
+                    (j - i + 1) < min_run && (st[i:j] .= false)
+                    i = j + 1
+                else
+                    i += 1
+                end
+            end
+            return st
+        end
+        function morph(mask)
+            m = copy(mask); i = 1
+            while i <= N
+                if !m[i]
+                    j = i
+                    while j < N && !m[j+1]; j += 1; end
+                    (i > 1 && j < N && (j - i + 1) < min_keep) && (m[i:j] .= true)
+                    i = j + 1
+                else
+                    i += 1
+                end
+            end
+            out = copy(m)
+            for i in findall(m); out[max(1, i - pad):min(N, i + pad)] .= true; end
+            return out
+        end
+        snr(mask) = (k = .!mask .& good; sv = sum(v[k]); sv > 0 ? sum(s[k]) / sqrt(sv) : NaN)
+
+        # close short gaps inside a null region: with a long signal window,
+        # neighbouring windows share most pulses, so a brief "detected" blip
+        # in the middle of a faded stretch is a noise fluctuation (J1110-like)
+        function closegaps(st, maxgap)
+            st = copy(st)
+            idx = findall(st)
+            for k in 1:length(idx)-1
+                g = idx[k+1] - idx[k] - 1
+                0 < g <= maxgap && (st[idx[k]+1:idx[k+1]-1] .= true)
+            end
+            return st
+        end
+        nulls = runfilter(closegaps(nulls .& ok, hw) .& good)
+        noisy = runfilter(noisy .& good)
+        snr0 = snr(falses(N))
+        # noisy stretches (already gated by signal/noise above) are cut
+        # directly — the window-based S/N barely sees a white-noise burst
+        # when baseline structure dominates the noise; nulls only if they
+        # don't lower the S/N (safety)
+        cur = .!good .| single .| noisy
+        kept = any(noisy) ? ["zaszumione odcinki"] : String[]
+        if any(nulls)
+            if snr(morph(cur .| nulls)) >= snr(morph(cur))
+                cur = cur .| nulls
+                push!(kept, "nulle")
+            else
+                nulls .= false
+            end
+        end
+        stretch = nulls .| noisy
+        best = morph(cur)
+        why = isempty(kept) ? (any(single) ? "tylko pojedyncze śmieci" : "nic do wycięcia") :
+              join(kept, " + ") * (any(single) ? " + pojedyncze śmieci" : "")
+
+        reason = zeros(Int8, N)
+        for i in findall(best)
+            reason[i] = !good[i] ? 1 : single[i] ? 2 : (stretch[i] && noisy[i]) ? 4 :
+                        (stretch[i] && nulls[i]) ? 3 : 5
+        end
+        return (bad=findall(best), single=findall(single), stretch=findall(stretch), reason=reason,
+                eff=effw, E=f_null * e_on, w=w, snr_before=snr0, snr_after=snr(best), why=why,
+                n_single=count(single), n_cand=count(stretch))
+    end
+
+
+    """
+        auto_zap_core_scan(sn; ...)   — previous version, kept for comparison
 
     S/N-driven automatic zapping (built from hand-zapped examples: nulls,
     faded stretches, stripy/noisy stretches, bad starts — all of them are
@@ -464,7 +646,7 @@ module Data
     Returns (bad, single, stretch, eff, E = chosen cut level, w,
     snr_before, snr_after).
     """
-    function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=3,
+    function auto_zap_core_scan(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=3,
                            min_run=5, nsigma=6.0, min_gain=0.02, n_thr=60, local_win=31, noise_z=nothing)
         s, v, good = sn.s, sn.v, sn.good
         N = length(s)
