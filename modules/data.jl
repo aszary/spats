@@ -23,7 +23,7 @@ module Data
     used elsewhere in this file. `nothing` (no zaps defined) is a no-op.
     """
     function zap!(data; ranges=nothing)
-        isnothing(ranges) && return data
+        (isnothing(ranges) || isempty(strip(string(ranges))) || ranges == "none") && return data
         pulses = size(data, 1)
         for tok in split(ranges)
             bounds = split(tok, "-")

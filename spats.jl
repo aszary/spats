@@ -479,6 +479,20 @@ module SpaTs
             outfile     = joinpath(outdir, "pulsar.spCF")
             params_file = joinpath(outdir, "params.json")
 
+            # Skip completed pulsars immediately without printing or reprocessing
+            if !force_pazi && isfile(outfile) && isfile(params_file)
+                try
+                    p_existing = Tools.read_params(params_file)
+                    z_val = get(p_existing, "zaps", nothing)
+                    is_done = get(p_existing, "zapped", false) == true ||
+                              (!isnothing(z_val) && !isempty(strip(string(z_val))))
+                    if is_done
+                        continue # Already done! Skip quietly
+                    end
+                catch
+                end
+            end
+
             # Look up P3 by exact name, uppercase, with J, or without J
             p3_str = get(p3_map, psr, get(p3_map, uppercase(psr), get(p3_map, startswith(psr, "J") ? psr[2:end] : "J"*psr, "unknown")))
             println("\n=== [$idx/$(length(psr_dirs))] Processing $psr (obs: $(obs_dirs[1])), P3 = $p3_str ===")
@@ -544,10 +558,13 @@ module SpaTs
                         println("Current zaps in params.json: ", isnothing(current_zaps) ? "none" : current_zaps)
                         print("Enter zaps for $psr (e.g. '49-194 532-580', or press Enter if none): ")
                         zaps_input = strip(readline())
+                        p["zaps"] = isempty(zaps_input) ? "" : zaps_input
+                        p["zapped"] = true
+                        Tools.save_params(params_file, p)
                         if !isempty(zaps_input)
-                            p["zaps"] = zaps_input
-                            Tools.save_params(params_file, p)
                             println("Saved zaps to $params_file -> $(p["zaps"])")
+                        else
+                            println("Recorded: no zaps needed for $psr.")
                         end
                     else
                         @warn "Cannot run pazi: $outfile does not exist."
