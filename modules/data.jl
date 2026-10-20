@@ -370,6 +370,8 @@ module Data
     window and the spread of their sums is taken. Unlike n_on·σ², this also
     includes correlated junk — baseline stripes, wiggles, contamination
     right next to the pulse — exactly what makes a stretch useless.
+    Off-pulse windows carrying pulsar emission (leak of bright pulsars) are
+    detected and excluded (see code; `nleak` in the result).
     With only a handful of windows per pulse `v` is noisy for ONE pulse but
     unbiased, so it is fine in sums over stretches; `vwhite` = n_on·σ² is
     the precise white-noise part, used to spot single noise jumps.
@@ -385,17 +387,31 @@ module Data
             push!(wins, first(sg) + j * n_on : first(sg) + (j + 1) * n_on - 1)
         end
         off = vcat(segs...)
-        s, v, vw, good = zeros(N), zeros(N), zeros(N), trues(N)
-        for i in 1:N
-            row = @view data[i, :]
-            b = mean(row[off])
-            σ2 = var(row[off])
-            s[i] = sum(row[on]) - n_on * b
-            vw[i] = n_on * σ2
-            v[i] = length(wins) >= 3 ? mean(abs2, [sum(row[w]) - n_on * b for w in wins]) : vw[i]
-            good[i] = σ2 > 0
+        good = [var(@view data[i, off]) > 0 for i in 1:N]
+        base = [mean(@view data[i, off]) for i in 1:N]
+        s = [sum(@view data[i, on]) - n_on * base[i] for i in 1:N]
+        # Windows that contain PULSAR emission (bright pulsars leak outside
+        # the on-pulse window: J0304, S/N 6392, had every pulse flagged)
+        # must not count as noise: their sums follow the pulse brightness
+        # (correlate with s) or sit at a steady non-zero level. Junk next to
+        # the pulse (RFI, stripes) does neither, so it is still caught.
+        W = [sum(@view data[i, w]) - n_on * base[i] for i in 1:N, w in wins]
+        gi = findall(good)
+        ng = length(gi)
+        leak = falses(length(wins))
+        for k in eachindex(wins)
+            x = W[gi, k]
+            md = median(x)
+            spread = 1.4826 * median(abs.(x .- md))
+            steady = spread > 0 && abs(md) > 4 * spread / sqrt(ng)
+            follows = std(x) > 0 && std(s[gi]) > 0 && cor(x, s[gi]) > 4 / sqrt(ng)
+            leak[k] = steady || follows
         end
-        return (s=s, v=v, vwhite=vw, good=good, nwin=length(wins))
+        kw = findall(.!leak)
+        clean_off = isempty(kw) ? off : vcat([collect(wins[k]) for k in kw]...)
+        vw = [n_on * var(@view data[i, clean_off]) for i in 1:N]
+        v = length(kw) >= 3 ? [mean(abs2, @view W[i, kw]) for i in 1:N] : copy(vw)
+        return (s=s, v=v, vwhite=vw, good=good, nwin=length(kw), nleak=count(leak))
     end
 
 
@@ -444,7 +460,8 @@ module Data
          pulse-to-pulse modulation); kept islands shorter than `min_keep`
          between cuts are cut too, and every cut region gets `pad` extra
          pulses on each side;
-      4. if the result would LOWER the S/N, only the single pulses are cut.
+      4. if the result would LOWER the S/N, only the single pulses are cut;
+         if even that lowers it, nothing (except empty pulses).
 
     Returns (bad, single, stretch, eff, E, w, snr_before, snr_after).
     """
@@ -530,6 +547,7 @@ module Data
         bad = morph(single .| stretch)
         if !(snr(bad) >= snr0)
             bad = morph(single)
+            !(snr(bad) >= snr0) && (bad = morph(.!good))   # nothing but empty pulses
         end
         return (bad=findall(bad), single=findall(single), stretch=findall(stretch),
                 eff=Ss ./ max.(Vs, eps()), E=E, w=w, snr_before=snr0, snr_after=snr(bad))
