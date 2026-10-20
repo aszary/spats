@@ -1414,7 +1414,7 @@ module SpaTs
         # input/zap_labels/blind_test.csv, <psr>/pulsar_zap_compare.png
         # tylko automat: bez pazi i bez pytan, wykres po kazdym pulsarze
         # (Enter = nastepny), na koncu tabela podsumowania
-        #blind_test_autozap(label_psrs; vpmout=vpmout, interactive=false)
+        blind_test_autozap(label_psrs; vpmout=vpmout, interactive=false)
 
         # eksport danych (bez zapow) do debugowania automatu lokalnie
         #export_zap_data(label_psrs; vpmout=vpmout)
@@ -1427,7 +1427,7 @@ module SpaTs
         # Enter = zatwierdz | p = popraw w pazi | r = od nowa recznie |
         # n = bez zapow | s = pomin. Ctrl+C przerywa; ponowne uruchomienie
         # kontynuuje (vpmout/zap_summary.csv).
-        reprocess_all_zap(vpmout=vpmout, reverse=true, half=true, zap_mode=:auto_pazi)
+        #reprocess_all_zap(vpmout=vpmout, reverse=true, half=true, zap_mode=:auto_pazi)
 
         # test skanu cutoffu + coherent fold na 4 pulsarach (wylaczony)
         #for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]
