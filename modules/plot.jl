@@ -790,6 +790,18 @@ module Plot
                 return true
             end
         end
+        # fallback: separate python process (same python as PyPlot) showing
+        # the PNG in a TkAgg window — independent of the Julia event loop
+        py = PyCall.python
+        if !isempty(py) && isfile(py)
+            code = "import matplotlib; matplotlib.use('TkAgg'); import matplotlib.pyplot as plt; " *
+                   "import matplotlib.image as mi, sys; im = mi.imread(sys.argv[1]); " *
+                   "h, w = im.shape[:2]; f = plt.figure(figsize=(w / 100, h / 100), dpi=100); " *
+                   "f.add_axes([0, 0, 1, 1]).imshow(im); plt.axis('off'); " *
+                   "f.canvas.manager.set_window_title(sys.argv[1]); plt.show()"
+            run(pipeline(`$py -c $code $path`; stdout=devnull, stderr=devnull); wait=false)
+            return true
+        end
         println("Brak przeglądarki obrazów (eog/display/feh/xdg-open) — otwórz ręcznie: $path")
         return false
     end
