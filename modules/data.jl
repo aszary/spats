@@ -513,7 +513,12 @@ module Data
         nz = isnothing(noise_z) ? noise_jump_z(sn.vwhite, good; local_win=local_win) : noise_z
         zc = sn.nwin >= 3 ? robz(log.(max.(v, eps()) ./ max.(sn.vwhite, eps()))) : zeros(N)
         S0, V0 = sum(s[gi]), sum(v[gi])
-        worth(i) = V0 > 0 && v[i] > 0 && s[i] / v[i] > 0.5 * S0 / V0
+        # noise of ONE pulse: v from a few windows is a rough estimate (a
+        # pulse with 25x white noise came out at 11x and was "worth"
+        # keeping); the precise white noise, scaled to v, bounds it below
+        kvw = median(v[gi] ./ max.(sn.vwhite[gi], eps()))
+        vone(i) = max(v[i], kvw * sn.vwhite[i])
+        worth(i) = V0 > 0 && vone(i) > 0 && s[i] / vone(i) > 0.5 * S0 / V0
         # stripes / wiggles seen as off-pulse autocorrelation far above its
         # typical value here (also when there are too few windows for zc)
         zac = hasproperty(sn, :ac1) ? robz(sn.ac1) : zeros(N)
@@ -942,7 +947,7 @@ module Data
             # pazi only on request
             kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
             println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
-            Plot.autozap_view(data, p["bin_st"], p["bin_end"], a, outdir; show_=true, wait_=false,
+            Plot.autozap_view(data, p["bin_st"], p["bin_end"], a, outdir; show_=true,
                               title_="$(basename(rstrip(outdir, '/'))) — automat")
             rows, chans = copy(a.bad), Int[]
             while true
