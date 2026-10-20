@@ -683,6 +683,28 @@ module SpaTs
 
 
     """
+    Minimal preparation of `vpmout/<pulsar>/pulsar.debase.txt` from
+    `dataroot/<pulsar>/<first obs>/`: psradd + debase only (no P3 search,
+    no 2DFS/pfold, no zapping). Without params.json, pmod asks for the
+    on-pulse window interactively, as in normal processing.
+    """
+    function prepare_debase(psr; vpmout="/home/psr/output/", dataroot="/home/psr/data/new/")
+        psr_path = joinpath(dataroot, psr)
+        obs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
+        isempty(obs) && error("brak katalogu obserwacji w $psr_path")
+        indir, outdir = joinpath(psr_path, obs[1]) * "/", vpmout * psr
+        mkpath(outdir)
+        params_file = joinpath(outdir, "params.json")
+        p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
+        outfile = joinpath(outdir, "pulsar.spCF")
+        println("Przygotowuję $psr (obs: $(obs[1])): psradd + debase")
+        Data.add_psrfiles(indir, outfile)
+        isnothing(get(p, "nsubint", nothing)) && Data.get_nsubint(outfile, params_file, p)
+        Data.debase(outfile, params_file, p)
+    end
+
+
+    """
     Tryb OZNACZANIA złych impulsów — do opracowania/dostrojenia detektora na
     podstawie Twoich decyzji. Nic nie zapuje i nie zmienia params.json.
 
@@ -697,8 +719,9 @@ module SpaTs
 
     Wymaga istniejącego `vpmout/<pulsar>/pulsar.debase.txt` i params.json.
     """
-    function label_bad_pulses(psr; vpmout="/home/psr/output/")
+    function label_bad_pulses(psr; vpmout="/home/psr/output/", dataroot="/home/psr/data/new/")
         outdir = vpmout * psr
+        isfile(joinpath(outdir, "pulsar.debase.txt")) || prepare_debase(psr; vpmout=vpmout, dataroot=dataroot)
         p = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
         N = size(data, 1)
@@ -1159,11 +1182,21 @@ module SpaTs
         # ETAP 1 — OZNACZANIE zlych impulsow recznie (do dostrojenia
         # detektora). Wyniki: input/zap_labels/<pulsar>.csv -> git push.
         # Dopisz tu pulsary, ktore chcesz oznaczyc (rozne typy: czyste,
-        # zaszumione, z RFI, z nullami). Brak pulsar.debase.txt -> pominiety.
-        for psr in ["J2346-0609", "J1110-5637", "J1750-3503", "J1539-6322"]
-            isfile(vpmout * psr * "/pulsar.debase.txt") ||
-                (println("SKIP $psr — brak $(vpmout)$(psr)/pulsar.debase.txt"); continue)
-            label_bad_pulses(psr; vpmout=vpmout)
+        # zaszumione, z RFI, z nullami). Brak pulsar.debase.txt -> najpierw
+        # psradd + debase (prepare_debase). Ctrl+C przerywa calosc; juz
+        # zapisane CSV zostaja. Pulsar z gotowym CSV jest pomijany.
+        for psr in ["J0034-0721", "J0304+1932", "J0459-0210", "J0624-0424", "J0820-1350",
+                    "J2346-0609", "J1110-5637", "J1750-3503", "J1539-6322"]
+            if isfile(joinpath(@__DIR__, "input", "zap_labels", "$psr.csv"))
+                println("SKIP $psr — już oznaczony (input/zap_labels/$psr.csv)")
+                continue
+            end
+            try
+                label_bad_pulses(psr; vpmout=vpmout)
+            catch e
+                e isa InterruptException && rethrow()
+                println("BŁĄD dla $psr: $(sprint(showerror, e))")
+            end
         end
 
         # ETAP 2 (po dostrojeniu detektora) — przeliczenie od nowa z
