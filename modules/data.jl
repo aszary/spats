@@ -938,23 +938,39 @@ module Data
             println("Automat: $(length(a.bad)) z $N impulsów " *
                     "($(round(100 * length(a.bad) / N, digits=1))%), S/N $(round(a.snr_before, digits=1)) → " *
                     "$(round(a.snr_after, digits=1))  →  \"$(pulses_to_zaps(a.bad))\"")
-            preview = replace(archive, r"\.[^.]+$" => ".autozap.ar")
-            cp(archive, preview; force=true)
-            apply_zaps(preview, pulses_to_zaps(a.bad))
-            println("pazi pokazuje dane PO automatycznym zapowaniu — dozapuj, co jeszcze złe, i wyjdź.")
-            z = run_pazi(preview)
-            rows = sort(unique(vcat(a.bad, [s + 1 for s in z.subints if 0 <= s < N])))
-            chans = z.chans
-            print("Enter = zatwierdź (automat + Twoje dozapowania) | r = zrób od nowa ręcznie " *
-                  "w pazi (oryginał) | n = bez zapów: ")
-            ans = strip(readline())
-            if ans == "r"
-                z = run_pazi(archive)
-                rows, chans = [s + 1 for s in z.subints if 0 <= s < N], z.chans
-            elseif ans == "n"
-                rows, chans = Int[], Int[]
+            # first the picture (left original, right what is cut and why),
+            # pazi only on request
+            kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
+            println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
+            Plot.autozap_view(data, p["bin_st"], p["bin_end"], a, outdir; show_=true, wait_=false,
+                              title_="$(basename(rstrip(outdir, '/'))) — automat")
+            rows, chans = copy(a.bad), Int[]
+            while true
+                print("Enter = zatwierdź | p = popraw w pazi (dane PO automacie) | r = od nowa ręcznie " *
+                      "w pazi | n = bez zapów | s = pomiń pulsar: ")
+                ans = strip(readline())
+                if ans == "s"
+                    throw(SkipPulsar())
+                elseif ans == "n"
+                    rows, chans = Int[], Int[]
+                elseif ans == "r"
+                    z = run_pazi(archive)
+                    rows, chans = [s + 1 for s in z.subints if 0 <= s < N], z.chans
+                elseif ans == "p"
+                    preview = replace(archive, r"\.[^.]+$" => ".autozap.ar")
+                    cp(archive, preview; force=true)
+                    apply_zaps(preview, pulses_to_zaps(a.bad))
+                    println("pazi pokazuje dane PO automacie — dozapuj, co jeszcze złe, i wyjdź.")
+                    z = run_pazi(preview)
+                    rm(preview, force=true)
+                    rows = sort(unique(vcat(a.bad, [s + 1 for s in z.subints if 0 <= s < N])))
+                    chans = z.chans
+                elseif ans != ""
+                    println("Nie rozumiem \"$ans\".")
+                    continue
+                end
+                break
             end
-            rm(preview, force=true)
             # final choice = training data for the detector too
             save_zap_labels(basename(rstrip(outdir, '/')), data, p["bin_st"], p["bin_end"], rows)
             zaps = pulses_to_zaps(rows)

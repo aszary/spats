@@ -820,7 +820,7 @@ module Plot
     A thin strip right of the right panel repeats the reasons, so short
     cuts are visible even when zoomed out. Title: counts and S/N change.
     """
-    function autozap_view(data, bin_st, bin_end, a, outdir; name_mod="pulsar", title_="", show_=false)
+    function autozap_view(data, bin_st, bin_end, a, outdir; name_mod="pulsar", title_="", show_=false, wait_=true)
         N, nb = size(data)
         w = bin_end - bin_st + 1
         lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
@@ -886,8 +886,10 @@ module Plot
         if show_
             # external viewer instead of plt.show(): reliable over VNC
             open_png(png)
-            print("Enter = następny pulsar: ")
-            readline(stdin; keep=false)
+            if wait_
+                print("Enter = następny pulsar: ")
+                readline(stdin; keep=false)
+            end
         end
     end
 
