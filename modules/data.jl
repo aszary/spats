@@ -411,7 +411,41 @@ module Data
         clean_off = isempty(kw) ? off : vcat([collect(wins[k]) for k in kw]...)
         vw = [n_on * var(@view data[i, clean_off]) for i in 1:N]
         v = length(kw) >= 3 ? [mean(abs2, @view W[i, kw]) for i in 1:N] : copy(vw)
-        return (s=s, v=v, vwhite=vw, good=good, nwin=length(kw), nleak=count(leak))
+        # lag-1 autocorrelation of the clean off-pulse (within windows):
+        # stripes / baseline wiggles / slopes make neighbouring bins alike.
+        # Works with any number of windows (J1750: wide on-pulse, only 2
+        # windows -> v = white noise, blind to stripes; its stripes had
+        # ac1 ~0.3 vs typical 0.02 ± 0.036)
+        # The static off-pulse shape and emission leaking with the pulse
+        # brightness (bright J0304-like wings: smooth, so ac1 would follow
+        # the pulse) are regressed out first: x = d - base - c - s·m.
+        segs_ac = isempty(kw) ? segs : wins[kw]
+        ac_bins = vcat([collect(sg) for sg in segs_ac]...)
+        R = [data[i, j] - base[i] for i in 1:N, j in ac_bins]
+        sc = s .- mean(s[gi])
+        ss = sum(abs2, sc[gi])
+        for (c, j) in enumerate(ac_bins)
+            col = @view R[:, c]
+            col .-= mean(col[gi])
+            ss > 0 && (col .-= sc .* (sum(sc[gi] .* col[gi]) / ss))
+        end
+        ac1 = zeros(N)
+        for i in 1:N
+            num = den = 0.0
+            c0 = 0
+            for sg in segs_ac
+                L = length(sg)
+                for j in 1:L-1
+                    num += R[i, c0+j] * R[i, c0+j+1]
+                end
+                for j in 1:L
+                    den += R[i, c0+j]^2
+                end
+                c0 += L
+            end
+            ac1[i] = den > 0 ? num / den : 0.0
+        end
+        return (s=s, v=v, vwhite=vw, good=good, nwin=length(kw), nleak=count(leak), ac1=ac1)
     end
 
 
@@ -465,7 +499,7 @@ module Data
     """
     function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=3, min_run=5,
                            nsigma=6.0, f_null=0.25, q_on=0.9, noise_fac=2.0, zdet=2.0,
-                           f_rel=0.15, zrel=1.0,
+                           f_rel=0.15, zrel=1.0, ac_sigma=4.5,
                            local_win=31, noise_z=nothing, kw...)
         s, v, good = sn.s, sn.v, sn.good
         N = length(s)
@@ -480,7 +514,10 @@ module Data
         zc = sn.nwin >= 3 ? robz(log.(max.(v, eps()) ./ max.(sn.vwhite, eps()))) : zeros(N)
         S0, V0 = sum(s[gi]), sum(v[gi])
         worth(i) = V0 > 0 && v[i] > 0 && s[i] / v[i] > 0.5 * S0 / V0
-        junk = good .& (zc .> nsigma)
+        # stripes / wiggles seen as off-pulse autocorrelation far above its
+        # typical value here (also when there are too few windows for zc)
+        zac = hasproperty(sn, :ac1) ? robz(sn.ac1) : zeros(N)
+        junk = good .& ((zc .> nsigma) .| (zac .> ac_sigma))
         jump = good .& (nz .> nsigma) .& .!junk .& [!worth(i) for i in 1:N]
         single = junk .| jump
 
