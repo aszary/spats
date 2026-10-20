@@ -916,6 +916,45 @@ module SpaTs
     end
 
 
+    """
+    Eksport danych pojedynczych impulsów (bez zapów) do debugowania automatu
+    lokalnie: `input/zap_data/<psr>.f16.gz` (macierz N×nbin, Float16,
+    wierszami) + `<psr>.json` (N, nbin, bin_st, bin_end). ~1.5–2 MB/pulsar.
+
+      export_zap_data(["J0034-0721", "J0820-1350", ...])
+    """
+    function export_zap_data(psrs; vpmout="/home/psr/output/", dataroot="/home/psr/data/new/")
+        dir = joinpath(@__DIR__, "input", "zap_data")
+        mkpath(dir)
+        for psr in psrs
+            try
+                outdir = vpmout * psr
+                isfile(joinpath(outdir, "pulsar.debase.txt")) || prepare_debase(psr; vpmout=vpmout, dataroot=dataroot)
+                p = Tools.read_params(joinpath(outdir, "params.json"))
+                data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+                N, nb = size(data)
+                # Float16 tops out at 65504 -> store data/scale, scale in the json
+                mx = maximum(abs, filter(isfinite, data); init=0.0)
+                scale = mx > 0 ? mx / 30000 : 1.0
+                raw = joinpath(dir, "$psr.f16")
+                open(raw, "w") do io
+                    write(io, Float16.(permutedims(data) ./ scale))   # row-major: pulse after pulse
+                end
+                run(`gzip -f $raw`)
+                open(joinpath(dir, "$psr.json"), "w") do io
+                    JSON.print(io, Dict("N" => N, "nbin" => nb, "bin_st" => p["bin_st"],
+                                        "bin_end" => p["bin_end"], "scale" => scale))
+                end
+                println("$psr: $(N)×$(nb) → $(raw).gz ($(round(filesize(raw * ".gz") / 1e6, digits=1)) MB)")
+            catch e
+                e isa InterruptException && rethrow()
+                println("BŁĄD dla $psr: $(sprint(showerror, e))")
+            end
+        end
+        println("\nWyślij: git add input/zap_data input/zap_labels && git commit -m \"dane do zapow\" && git push")
+    end
+
+
     # matched-filter SNR of the current pulsar.debase.txt (with its zaps),
     # or `nothing` when P3/on-pulse aren't known yet
     function coherent_snr(outdir)
@@ -1376,7 +1415,10 @@ module SpaTs
         # input/zap_labels/blind_test.csv, <psr>/pulsar_zap_compare.png
         # tylko automat: bez pazi i bez pytan, wykres po kazdym pulsarze
         # (Enter = nastepny), na koncu tabela podsumowania
-        blind_test_autozap(label_psrs; vpmout=vpmout, interactive=false)
+        #blind_test_autozap(label_psrs; vpmout=vpmout, interactive=false)
+
+        # eksport danych (bez zapow) do debugowania automatu lokalnie
+        export_zap_data(label_psrs; vpmout=vpmout)
 
         # ETAP 2b — strojenie parametrow na etykietach (po slepym tescie)
         #tune_autozap(label_psrs; vpmout=vpmout)
