@@ -832,6 +832,79 @@ module SpaTs
     end
 
 
+    """
+    Ślepy test automatu: przerabia pulsary od nowa, automat (DOMYŚLNE
+    parametry, bez wiedzy o Twoich zapach) wycina, a dopiero potem porównanie
+    z Twoimi etykietami (input/zap_labels/<psr>.csv — nie są zmieniane).
+
+    Dla każdego pulsara: dane od zera (psradd + debase) → automat → wydruk
+    (zgodność, S/N bez / Twoje / automat) → `pulsar_zap_compare.png` →
+    pazi NA DANYCH PO AUTOMACIE (dozapuj, jeśli coś zostało — zapisane jako
+    przeoczone) → Twoja ocena. Wyniki: input/zap_labels/blind_test.csv.
+
+      blind_test_autozap(["J0034-0721", "J0459-0210", ...])
+    """
+    function blind_test_autozap(psrs; vpmout="/home/psr/output/", dataroot="/home/psr/data/new/")
+        out = joinpath(@__DIR__, "input", "zap_labels", "blind_test.csv")
+        isfile(out) || open(f -> println(f, "pulsar,n_pulses,n_auto,n_user,f1,precision,recall," *
+                                           "snr_none,snr_user,snr_auto,n_missed_in_pazi,verdict,auto_zaps"),
+                            out, "w")
+        verdicts = Dict("1" => "lepiej_niz_ja", "2" => "tak_samo", "3" => "gorzej")
+        f(x) = isnan(x) ? "" : string(round(x, digits=1))
+        for psr in psrs
+            outdir = vpmout * psr
+            println("\n===== ŚLEPY TEST: $psr =====")
+            try
+                prepare_debase(psr; vpmout=vpmout, dataroot=dataroot)
+                p = Tools.read_params(joinpath(outdir, "params.json"))
+                data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+                N = size(data, 1)
+                bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+                sn = Data.pulse_signal_noise(data, bst, bend)
+                a = Data.auto_zap_core(sn)
+                user = Data.read_zap_labels(psr)
+                user_s = isnothing(user) ? "brak etykiet" : "$(length(user))"
+                m = isnothing(user) ? nothing : Data.zap_agreement(a.bad, user, N)
+                println("Automat: $(length(a.bad)) z $N  →  \"$(Data.pulses_to_zaps(a.bad))\"")
+                println("Ty: $user_s" * (isnothing(user) ? "" : "  →  \"$(Data.pulses_to_zaps(user))\""))
+                isnothing(m) || println("Zgodność: F1=$(round(m.f1, digits=2))  wspólne=$(m.tp)  " *
+                                        "tylko automat=$(m.fp)  tylko Ty=$(m.fn)")
+                snr_u = isnothing(user) ? NaN : Data.zap_snr(sn, user)
+                println("S/N: bez zapów=$(f(a.snr_before))  Twoje=$(f(snr_u))  automat=$(f(a.snr_after))" *
+                        "   (okno=$(a.w), okna z emisją pulsara wyłączone: $(sn.nleak))")
+                Plot.zap_compare(data, bst, bend, a, something(user, Int[]), outdir;
+                                 title_="$psr — ŚLEPY TEST: czerwone = Ty ($user_s), " *
+                                        "niebieskie = automat ($(length(a.bad)))")
+
+                # look at the automatic result in pazi
+                archive = joinpath(outdir, "pulsar.spCF")
+                preview = joinpath(outdir, "pulsar.autozap.ar")
+                cp(archive, preview; force=true)
+                Data.apply_zaps(preview, Data.pulses_to_zaps(a.bad))
+                println("pazi pokazuje dane PO automacie. Dozapuj, jeśli coś zostało (zapisane jako " *
+                        "przeoczone), i wyjdź.")
+                z = Data.run_pazi(preview)
+                missed = [s + 1 for s in z.subints if 0 <= s < N && !(s + 1 in a.bad)]
+                rm(preview, force=true)
+                print("Ocena automatu: 1 = lepiej niż ja, 2 = tak samo dobrze, 3 = gorzej, Enter = bez oceny: ")
+                v = get(verdicts, strip(readline()), "")
+                open(out, "a") do io
+                    println(io, join([psr, N, length(a.bad), isnothing(user) ? "" : length(user),
+                                      isnothing(m) ? "" : round(m.f1, digits=3),
+                                      isnothing(m) ? "" : round(m.precision, digits=3),
+                                      isnothing(m) ? "" : round(m.recall, digits=3),
+                                      f(a.snr_before), f(snr_u), f(a.snr_after), length(missed), v,
+                                      "\"$(Data.pulses_to_zaps(a.bad))\""], ","))
+                end
+                println("Zapisano do $out")
+            catch e
+                e isa InterruptException && rethrow()
+                println("BŁĄD dla $psr: $(sprint(showerror, e))")
+            end
+        end
+    end
+
+
     # matched-filter SNR of the current pulsar.debase.txt (with its zaps),
     # or `nothing` when P3/on-pulse aren't known yet
     function coherent_snr(outdir)
@@ -1287,9 +1360,13 @@ module SpaTs
             end
         end
 
-        # ETAP 2 — STROJENIE automatu na etykietach z pazi: tabela
-        # input/zap_labels/tuning.csv + wykresy <psr>/pulsar_zap_compare.png
-        tune_autozap(label_psrs; vpmout=vpmout)
+        # ETAP 2 — SLEPY TEST automatu (domyslne parametry, bez wiedzy o
+        # Twoich zapach), porownanie z etykietami + ocena w pazi:
+        # input/zap_labels/blind_test.csv, <psr>/pulsar_zap_compare.png
+        blind_test_autozap(label_psrs; vpmout=vpmout)
+
+        # ETAP 2b — strojenie parametrow na etykietach (po slepym tescie)
+        #tune_autozap(label_psrs; vpmout=vpmout)
 
         # ETAP 3 (po strojeniu) — przeliczenie od nowa: automat proponuje,
         # pazi pokazuje wynik, dozapowujesz / robisz od nowa (r).

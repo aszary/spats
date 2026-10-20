@@ -559,6 +559,15 @@ module Data
         auto_zap_core(pulse_signal_noise(data, bin_st, bin_end); kw...)
 
 
+    "S/N of the summed pulses (`pulse_signal_noise` result) with `rows` (1-based) removed."
+    function zap_snr(sn, rows)
+        k = copy(sn.good)
+        k[filter(i -> 1 <= i <= length(k), rows)] .= false
+        sv = sum(sn.v[k])
+        return sv > 0 ? sum(sn.s[k]) / sqrt(sv) : NaN
+    end
+
+
     "Pulse-level agreement of automatic vs hand zaps (1-based rows)."
     function zap_agreement(auto_rows, user_rows, N)
         a = falses(N); a[auto_rows] .= true
