@@ -947,8 +947,8 @@ module Data
             # pazi only on request
             kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
             println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
-            Plot.autozap_view(data, p["bin_st"], p["bin_end"], a, outdir; show_=true,
-                              title_="$(basename(rstrip(outdir, '/'))) — automat")
+            viewer = Plot.autozap_view(data, p["bin_st"], p["bin_end"], a, outdir; show_=true, wait_=false,
+                                       title_="$(basename(rstrip(outdir, '/'))) — automat")
             rows, chans = copy(a.bad), Int[]
             while true
                 print("Enter = zatwierdź | p = popraw w pazi (dane PO automacie) | r = od nowa ręcznie " *
@@ -976,6 +976,7 @@ module Data
                 end
                 break
             end
+            Plot.close_png(viewer)
             # final choice = training data for the detector too
             save_zap_labels(basename(rstrip(outdir, '/')), data, p["bin_st"], p["bin_end"], rows)
             zaps = pulses_to_zaps(rows)

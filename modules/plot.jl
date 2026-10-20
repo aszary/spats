@@ -780,14 +780,13 @@ module Plot
     """
     Open a saved PNG in an external image viewer (eog / display / feh /
     xdg-open, whichever exists) — independent of matplotlib's GUI backend,
-    which doesn't always show windows over VNC. Returns true if a viewer
-    was started.
+    which doesn't always show windows over VNC. Returns the viewer
+    process (or `nothing` if none could be started).
     """
     function open_png(path)
         for viewer in ("eog", "display", "feh", "xdg-open")
             if !isnothing(Sys.which(viewer))
-                run(pipeline(`$viewer $path`; stdout=devnull, stderr=devnull); wait=false)
-                return true
+                return run(pipeline(`$viewer $path`; stdout=devnull, stderr=devnull); wait=false)
             end
         end
         # fallback: separate python process (same python as PyPlot) showing
@@ -799,12 +798,27 @@ module Plot
                    "h, w = im.shape[:2]; f = plt.figure(figsize=(w / 100, h / 100), dpi=100); " *
                    "f.add_axes([0, 0, 1, 1]).imshow(im); plt.axis('off'); " *
                    "f.canvas.manager.set_window_title(sys.argv[1]); plt.show()"
-            run(pipeline(`$py -c $code $path`; stdout=devnull, stderr=devnull); wait=false)
-            return true
+            return run(pipeline(`$py -c $code $path`; stdout=devnull, stderr=devnull); wait=false)
         end
         println("Brak przeglądarki obrazów (eog/display/feh/xdg-open) — otwórz ręcznie: $path")
-        return false
+        return nothing
     end
+
+    """
+    Show a saved PNG (`open_png`), wait for Enter (if `wait_`), then close
+    the viewer window so windows don't pile up. Returns the viewer process
+    when not waiting (caller closes it with `close_png`).
+    """
+    function show_png(path; prompt="Enter = następny pulsar: ", wait_=true)
+        proc = open_png(path)
+        wait_ || return proc
+        print(prompt)
+        readline(stdin; keep=false)
+        close_png(proc)
+        return nothing
+    end
+
+    close_png(proc) = (isnothing(proc) || !process_running(proc) || kill(proc); nothing)
 
 
     """
@@ -820,7 +834,7 @@ module Plot
     A thin strip right of the right panel repeats the reasons, so short
     cuts are visible even when zoomed out. Title: counts and S/N change.
     """
-    function autozap_view(data, bin_st, bin_end, a, outdir; name_mod="pulsar", title_="", show_=false)
+    function autozap_view(data, bin_st, bin_end, a, outdir; name_mod="pulsar", title_="", show_=false, wait_=true)
         N, nb = size(data)
         w = bin_end - bin_st + 1
         lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
@@ -882,11 +896,9 @@ module Plot
         png = "$outdir/$(name_mod)_autozap.png"
         savefig(png, dpi=110)
         println(png)
-        if show_
-            println("Zamknij okno wykresu, żeby przejść dalej.")
-            show()
-        end
         close()
+        # external viewer instead of plt.show(): plt windows don't open here
+        return show_ ? show_png(png; wait_=wait_) : nothing
     end
 
 
@@ -900,7 +912,7 @@ module Plot
     pulses shaded red, automatic ones blue.
     """
     function zap_compare(data, bin_st, bin_end, a, user_rows, outdir; title_="", frac=1.0,
-                         name_mod="pulsar", show_=false)
+                         name_mod="pulsar", show_=false, wait_=true)
         N, nb = size(data)
         w = bin_end - bin_st + 1
         lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
@@ -951,11 +963,9 @@ module Plot
         png = "$outdir/$(name_mod)_zap_compare.png"
         savefig(png, dpi=110)
         println(png)
-        if show_
-            println("Zamknij okno wykresu, żeby przejść dalej.")
-            show()
-        end
         close()
+        # external viewer instead of plt.show(): plt windows don't open here
+        return show_ ? show_png(png; wait_=wait_) : nothing
     end
 
 
