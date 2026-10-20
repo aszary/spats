@@ -786,7 +786,7 @@ module Plot
     automatic decision uses) with the cut level frac·E dashed; your zapped
     pulses shaded red, automatic ones blue.
     """
-    function zap_compare(data, bin_st, bin_end, a, user_rows, outdir; title_="", frac=0.5,
+    function zap_compare(data, bin_st, bin_end, a, user_rows, outdir; title_="", frac=1.0,
                          name_mod="pulsar", show_=false)
         N, nb = size(data)
         w = bin_end - bin_st + 1
@@ -828,7 +828,7 @@ module Plot
             end
         end
         plot(a.eff, y, color="black", lw=0.7)
-        axvline(frac * a.E, color="gray", ls="--", lw=1.0)
+        isfinite(a.E) && axvline(frac * a.E, color="gray", ls="--", lw=1.0)
         axvline(0, color="gray", ls=":", lw=0.6)
         xlabel("sygnał / szum odcinka\n(przerywana = próg cięcia)")
         tick_params(labelleft=false)
@@ -837,7 +837,12 @@ module Plot
         tight_layout(rect=(0, 0, 1, 0.94))
         savefig("$outdir/$(name_mod)_zap_compare.png", dpi=110)
         println("$outdir/$(name_mod)_zap_compare.png")
-        show_ ? show() : close()
+        if show_
+            show()
+            print("Enter = następny pulsar: ")
+            readline(stdin; keep=false)
+        end
+        close()
     end
 
 

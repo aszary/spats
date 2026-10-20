@@ -440,33 +440,32 @@ module Data
     faded stretches, stripy/noisy stretches, bad starts — all of them are
     stretches that bring more noise than signal).
 
-    Removing a set R of pulses raises the S/N of the summed profile iff its
-    signal per unit variance S_R/V_R is below half of the overall S/V. So:
+    Goal = the S/N of the summed pulses, i.e. what hand zapping optimises:
 
       1. single bad pulses are cut alone: a sudden jump of the white noise
          (robust z of log vwhite vs a running median > `nsigma`), or
          correlated junk (window variance / white variance above the χ²
-         tail for `nwin` windows, ≈ 1 + nsigma·√(2/nwin));
-      2. over a sliding window (singles excluded) a stretch is cut when even
-         its signal + `zsig`·σ is below `frac`·E·V_window (`frac` = 0.5
-         is the exact S/N-gain point; `zsig` stops cutting stretches that
-         are only low by chance). E starts at the bright-state efficiency
-         (quantile `q` of the windows) and is iterated to S/V of the kept
-         pulses. The window length adapts to the pulsar:
-         wide enough that an average window has S/N ≈ `target` (bright
-         pulsar -> short window, sharp null edges; weak -> long window), or
-         fixed with `w`;
+         tail for `nwin` windows, ≈ 1 + nsigma·√(2/nwin)) — kept only if
+         that doesn't lower the S/N;
+      2. stretches: over a sliding window (singles excluded) each stretch
+         has a signal-per-unit-noise efficiency; the cut level t is SCANNED
+         (`n_thr` quantiles) and the one giving the highest S/N is kept.
+         A stretch is cut only if even its signal + `zsig`·σ is below t
+         (not just low by chance). Window length adapts to the pulsar: an
+         average window has S/N ≈ `target` (bright pulsar -> short window,
+         sharp null edges; weak -> long window), or fixed with `w`;
       3. stretches shorter than `min_run` pulses are not cut (ordinary
          pulse-to-pulse modulation); kept islands shorter than `min_keep`
          between cuts are cut too, and every cut region gets `pad` extra
          pulses on each side;
-      4. if the result would LOWER the S/N, only the single pulses are cut;
-         if even that lowers it, nothing (except empty pulses).
+      4. stretch cutting is used only if it beats the singles-only result
+         by at least `min_gain` (2%) in S/N.
 
-    Returns (bad, single, stretch, eff, E, w, snr_before, snr_after).
+    Returns (bad, single, stretch, eff, E = chosen cut level, w,
+    snr_before, snr_after).
     """
-    function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, frac=0.5, q=0.9, pad=1, min_keep=3,
-                           min_run=5, nsigma=6.0, local_win=31, noise_z=nothing)
+    function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=3,
+                           min_run=5, nsigma=6.0, min_gain=0.02, n_thr=60, local_win=31, noise_z=nothing)
         s, v, good = sn.s, sn.v, sn.good
         N = length(s)
         nz = isnothing(noise_z) ? noise_jump_z(sn.vwhite, good; local_win=local_win) : noise_z
@@ -475,7 +474,6 @@ module Data
 
         ok = .!single
         S, V = sum(s[ok]), sum(v[ok])
-        E = V > 0 ? S / V : 0.0
         if isnothing(w)
             snr_pp = count(ok) > 0 && V > 0 ? S / sqrt(V) / sqrt(count(ok)) : 0.0
             w = snr_pp > 0 ? round(Int, (target / snr_pp)^2) : N ÷ 8
@@ -488,35 +486,24 @@ module Data
         cv = vcat(0.0, cumsum(v .* ok))
         Ss = [cs[min(N, i + hw) + 1] - cs[max(1, i - hw)] for i in 1:N]
         Vs = [cv[min(N, i + hw) + 1] - cv[max(1, i - hw)] for i in 1:N]
-        # reference efficiency: start from the BRIGHT state (quantile `q` of
-        # window efficiencies) — when most of the observation is faded or
-        # nulling, the plain average is dragged down by the very stretches
-        # that should go (J1110: 77% faded) — then iterate to the
-        # self-consistent value: S/V of whatever is kept
         effw = [Vs[i] > 0 ? Ss[i] / Vs[i] : 0.0 for i in 1:N]
-        cut(Eref) = [ok[i] && Vs[i] > 0 && Ss[i] + zsig * sqrt(Vs[i]) < frac * Eref * Vs[i] for i in 1:N]
-        any(ok) && (E = quantile(effw[ok], q))
-        stretch = cut(E)
-        for _ in 1:20
-            kept = ok .& .!stretch
-            sv = sum(v[kept])
-            Enew = sv > 0 ? sum(s[kept]) / sv : E
-            abs(Enew - E) <= 1e-3 * abs(E) && break
-            E = Enew
-            stretch = cut(E)
-        end
+
         # a few weak pulses in a row are ordinary pulse-to-pulse modulation,
         # not a null/bad stretch: only runs of >= min_run pulses are cut
-        i = 1
-        while i <= N
-            if stretch[i]
-                j = i
-                while j < N && stretch[j+1]; j += 1; end
-                (j - i + 1) < min_run && (stretch[i:j] .= false)
-                i = j + 1
-            else
-                i += 1
+        function runfilter(st)
+            st = copy(st)
+            i = 1
+            while i <= N
+                if st[i]
+                    j = i
+                    while j < N && st[j+1]; j += 1; end
+                    (j - i + 1) < min_run && (st[i:j] .= false)
+                    i = j + 1
+                else
+                    i += 1
+                end
             end
+            return st
         end
 
         function morph(mask)
@@ -544,13 +531,38 @@ module Data
 
         snr(mask) = (k = .!mask .& good; sv = sum(v[k]); sv > 0 ? sum(s[k]) / sqrt(sv) : NaN)
         snr0 = snr(falses(N))
-        bad = morph(single .| stretch)
-        if !(snr(bad) >= snr0)
-            bad = morph(single)
-            !(snr(bad) >= snr0) && (bad = morph(.!good))   # nothing but empty pulses
+
+        # reference: only single bad pulses (if that doesn't lower S/N),
+        # otherwise only empty pulses
+        ref = morph(single)
+        snr(ref) >= snr0 || (ref = morph(.!good))
+        ref_snr = snr(ref)
+
+        # Stretches: scan the cut level t (signal per unit noise of a
+        # stretch) and keep the one giving the HIGHEST S/N — the objective
+        # behind hand zapping, computed. A fixed reference level failed on
+        # J0034 (bright bursts + nulls): the "bright state" was so high that
+        # nearly everything looked weak and nothing got cut. Guards against
+        # chasing noise: a stretch must be below t even after +zsig·σ, at
+        # least `min_run` long, and the gain over `ref` at least `min_gain`.
+        best, best_snr, t_best = ref, ref_snr, NaN
+        stretch = falses(N)
+        if count(ok) > 2
+            for t in unique(quantile(effw[ok], range(0.02, 0.98, length=n_thr)))
+                st = runfilter([ok[i] && Vs[i] > 0 && Ss[i] + zsig * sqrt(Vs[i]) < t * Vs[i] for i in 1:N])
+                any(st) || continue
+                m = morph(single .| st)
+                sm = snr(m)
+                if sm > best_snr
+                    best, best_snr, t_best, stretch = m, sm, t, st
+                end
+            end
         end
-        return (bad=findall(bad), single=findall(single), stretch=findall(stretch),
-                eff=Ss ./ max.(Vs, eps()), E=E, w=w, snr_before=snr0, snr_after=snr(bad))
+        if !(best_snr >= ref_snr * (1 + min_gain))
+            best, t_best, stretch = ref, NaN, falses(N)
+        end
+        return (bad=findall(best), single=findall(single), stretch=findall(stretch),
+                eff=effw, E=t_best, w=w, snr_before=snr0, snr_after=snr(best))
     end
 
 

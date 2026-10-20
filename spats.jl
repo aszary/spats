@@ -748,7 +748,7 @@ module SpaTs
     etykietach z pazi (`input/zap_labels/<pulsar>.csv`).
 
     Dla każdego pulsara z etykietami i danymi (`vpmout/<psr>/pulsar.debase.txt`
-    — po oznaczaniu to są dane BEZ zapów) sprawdza 2187 kombinacji parametrów
+    — po oznaczaniu to są dane BEZ zapów) sprawdza 729 kombinacji parametrów
     i liczy zgodność z Tobą (F1: 1 = identycznie, 0 = nic wspólnego) oraz
     S/N: bez zapów / Twoje / automat. Wypisuje najlepsze ustawienia,
     zapisuje pełną tabelę `input/zap_labels/tuning.csv` i dla najlepszych
@@ -779,11 +779,11 @@ module SpaTs
 
         snr(sn, rows) = (k = copy(sn.good); k[filter(i -> 1 <= i <= length(k), rows)] .= false;
                          sv = sum(sn.v[k]); sv > 0 ? sum(sn.s[k]) / sqrt(sv) : NaN)
-        grid = Iterators.product((5.0, 8.0, 12.0), (2.0, 3.0, 4.0), (0.4, 0.5, 0.6),
-                                 (0.75, 0.9, 0.95), (0, 1, 2), (3, 5, 8), (5.0, 6.0, 8.0))
+        grid = Iterators.product((5.0, 8.0, 12.0), (2.0, 3.0, 4.0), (0, 1, 2),
+                                 (3, 5, 8), (5.0, 6.0, 8.0), (0.01, 0.02, 0.05))
         results = []
-        for (target, zsig, frac, q, pad, min_run, nsigma) in grid
-            kw = (target=target, zsig=zsig, frac=frac, q=q, pad=pad, min_run=min_run, nsigma=nsigma)
+        for (target, zsig, pad, min_run, nsigma, min_gain) in grid
+            kw = (target=target, zsig=zsig, pad=pad, min_run=min_run, nsigma=nsigma, min_gain=min_gain)
             f1s, ratios = Float64[], Float64[]
             for st in sets
                 a = Data.auto_zap_core(st.sn; noise_z=st.nz, kw...)
@@ -797,7 +797,7 @@ module SpaTs
         names_ = [st.psr for st in sets]
         csv = joinpath(@__DIR__, "input", "zap_labels", "tuning.csv")
         open(csv, "w") do f
-            println(f, join(vcat(["target", "zsig", "frac", "q", "pad", "min_run", "nsigma",
+            println(f, join(vcat(["target", "zsig", "pad", "min_run", "nsigma", "min_gain",
                                   "mean_f1", "min_f1", "snr_auto_over_user"], names_), ","))
             for r in results
                 println(f, join(vcat(collect(values(r.kw)), round(r.f1, digits=4), round(r.minf1, digits=4),
@@ -811,7 +811,7 @@ module SpaTs
         end
 
         best = results[1].kw
-        default = (target=8.0, zsig=3.0, frac=0.5, q=0.9, pad=1, min_run=5, nsigma=6.0)
+        default = (target=8.0, zsig=3.0, pad=1, min_run=5, nsigma=6.0, min_gain=0.02)
         for (label, kw) in (("DOMYŚLNE", default), ("NAJLEPSZE", best))
             println("\n$label $kw")
             for st in sets
@@ -822,7 +822,7 @@ module SpaTs
                         "rec=$(round(m.recall, digits=2))  S/N bez=$(round(a.snr_before, digits=1)) " *
                         "Ty=$(round(snr(st.sn, st.rows), digits=1)) auto=$(round(a.snr_after, digits=1))  okno=$(a.w)")
                 if label == "NAJLEPSZE"
-                    Plot.zap_compare(st.data, st.bst, st.bend, a, st.rows, st.outdir; frac=kw.frac,
+                    Plot.zap_compare(st.data, st.bst, st.bend, a, st.rows, st.outdir;
                                      title_="$(st.psr): F1=$(round(m.f1, digits=2))  " *
                                             "czerwone = Ty ($(length(st.rows))), niebieskie = automat ($(length(a.bad)))")
                 end
@@ -844,8 +844,10 @@ module SpaTs
 
       blind_test_autozap(["J0034-0721", "J0459-0210", ...])
     """
-    function blind_test_autozap(psrs; vpmout="/home/psr/output/", dataroot="/home/psr/data/new/")
+    function blind_test_autozap(psrs; vpmout="/home/psr/output/", dataroot="/home/psr/data/new/",
+                                interactive=true, show_plots=!interactive)
         out = joinpath(@__DIR__, "input", "zap_labels", "blind_test.csv")
+        summary = String[]
         isfile(out) || open(f -> println(f, "pulsar,n_pulses,n_auto,n_user,f1,precision,recall," *
                                            "snr_none,snr_user,snr_auto,n_missed_in_pazi,verdict,auto_zaps"),
                             out, "w")
@@ -872,22 +874,28 @@ module SpaTs
                 snr_u = isnothing(user) ? NaN : Data.zap_snr(sn, user)
                 println("S/N: bez zapów=$(f(a.snr_before))  Twoje=$(f(snr_u))  automat=$(f(a.snr_after))" *
                         "   (okno=$(a.w), okna z emisją pulsara wyłączone: $(sn.nleak))")
-                Plot.zap_compare(data, bst, bend, a, something(user, Int[]), outdir;
+                push!(summary, "$(rpad(psr, 12)) auto=$(lpad(length(a.bad), 4))  Ty=$(lpad(user_s, 4))  " *
+                               "F1=$(isnothing(m) ? "  - " : rpad(round(m.f1, digits=2), 4))  " *
+                               "S/N bez=$(f(a.snr_before))  Ty=$(f(snr_u))  auto=$(f(a.snr_after))")
+                Plot.zap_compare(data, bst, bend, a, something(user, Int[]), outdir; show_=show_plots,
                                  title_="$psr — ŚLEPY TEST: czerwone = Ty ($user_s), " *
                                         "niebieskie = automat ($(length(a.bad)))")
 
-                # look at the automatic result in pazi
-                archive = joinpath(outdir, "pulsar.spCF")
-                preview = joinpath(outdir, "pulsar.autozap.ar")
-                cp(archive, preview; force=true)
-                Data.apply_zaps(preview, Data.pulses_to_zaps(a.bad))
-                println("pazi pokazuje dane PO automacie. Dozapuj, jeśli coś zostało (zapisane jako " *
-                        "przeoczone), i wyjdź.")
-                z = Data.run_pazi(preview)
-                missed = [s + 1 for s in z.subints if 0 <= s < N && !(s + 1 in a.bad)]
-                rm(preview, force=true)
-                print("Ocena automatu: 1 = lepiej niż ja, 2 = tak samo dobrze, 3 = gorzej, Enter = bez oceny: ")
-                v = get(verdicts, strip(readline()), "")
+                missed, v = Int[], ""
+                if interactive
+                    # look at the automatic result in pazi
+                    archive = joinpath(outdir, "pulsar.spCF")
+                    preview = joinpath(outdir, "pulsar.autozap.ar")
+                    cp(archive, preview; force=true)
+                    Data.apply_zaps(preview, Data.pulses_to_zaps(a.bad))
+                    println("pazi pokazuje dane PO automacie. Dozapuj, jeśli coś zostało (zapisane jako " *
+                            "przeoczone), i wyjdź.")
+                    z = Data.run_pazi(preview)
+                    missed = [s + 1 for s in z.subints if 0 <= s < N && !(s + 1 in a.bad)]
+                    rm(preview, force=true)
+                    print("Ocena automatu: 1 = lepiej niż ja, 2 = tak samo dobrze, 3 = gorzej, Enter = bez oceny: ")
+                    v = get(verdicts, strip(readline()), "")
+                end
                 open(out, "a") do io
                     println(io, join([psr, N, length(a.bad), isnothing(user) ? "" : length(user),
                                       isnothing(m) ? "" : round(m.f1, digits=3),
@@ -902,6 +910,9 @@ module SpaTs
                 println("BŁĄD dla $psr: $(sprint(showerror, e))")
             end
         end
+        println("\n===== PODSUMOWANIE ŚLEPEGO TESTU =====")
+        foreach(println, summary)
+        println("Wykresy: $(vpmout)<pulsar>/pulsar_zap_compare.png   Tabela: $out")
     end
 
 
@@ -1363,7 +1374,9 @@ module SpaTs
         # ETAP 2 — SLEPY TEST automatu (domyslne parametry, bez wiedzy o
         # Twoich zapach), porownanie z etykietami + ocena w pazi:
         # input/zap_labels/blind_test.csv, <psr>/pulsar_zap_compare.png
-        blind_test_autozap(label_psrs; vpmout=vpmout)
+        # tylko automat: bez pazi i bez pytan, wykres po kazdym pulsarze
+        # (Enter = nastepny), na koncu tabela podsumowania
+        blind_test_autozap(label_psrs; vpmout=vpmout, interactive=false)
 
         # ETAP 2b — strojenie parametrow na etykietach (po slepym tescie)
         #tune_autozap(label_psrs; vpmout=vpmout)
