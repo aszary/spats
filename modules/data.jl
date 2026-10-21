@@ -412,12 +412,16 @@ module Data
         gi = findall(good)
         ng = length(gi)
         leak = falses(length(wins))
+        # rank (Spearman) correlation: a few very loud junk pulses (big s AND
+        # big W) must not make a clean window look like it follows the pulse
+        rank(x) = (r = similar(x); r[sortperm(x)] = 1:length(x); r)
+        rs = rank(s[gi])
         for k in eachindex(wins)
             x = W[gi, k]
             md = median(x)
             spread = 1.4826 * median(abs.(x .- md))
             steady = spread > 0 && abs(md) > 4 * spread / sqrt(ng)
-            follows = std(x) > 0 && std(s[gi]) > 0 && cor(x, s[gi]) > 4 / sqrt(ng)
+            follows = std(x) > 0 && std(s[gi]) > 0 && cor(rank(x), rs) > 4 / sqrt(ng)
             leak[k] = steady || follows
         end
         kw = findall(.!leak)
