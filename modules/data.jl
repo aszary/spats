@@ -961,8 +961,13 @@ module Data
             # pazi only on request
             kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
             println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
+            # S/N as pazi shows it, before / after the proposal
+            sp0 = psrchive_snr(archive)
+            sp1 = psrchive_snr(archive; zaps=pulses_to_zaps(a.bad))
+            p["snr_pazi_before"] = isfinite(sp0) ? sp0 : nothing
+            println("S/N jak w pazi: bez zapów=$(round(sp0, digits=1))  po automacie=$(round(sp1, digits=1))")
             viewer = Plot.autozap_view(data, p["bin_st"], p["bin_end"], a, outdir; show_=true, wait_=false,
-                                       title_="$(basename(rstrip(outdir, '/'))) — automat")
+                                       title_="$(basename(rstrip(outdir, '/'))) — automat", snr_pazi=(sp0, sp1))
             rows, chans = copy(a.bad), Int[]
             while true
                 print("Enter = zatwierdź | p = popraw w pazi (dane PO automacie) | r = od nowa ręcznie " *

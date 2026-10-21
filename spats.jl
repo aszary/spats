@@ -873,22 +873,25 @@ module SpaTs
                 isnothing(m) || println("Zgodność: F1=$(round(m.f1, digits=2))  wspólne=$(m.tp)  " *
                                         "tylko automat=$(m.fp)  tylko Ty=$(m.fn)")
                 snr_u = isnothing(user) ? NaN : Data.zap_snr(sn, user)
-                println("S/N: bez zapów=$(f(a.snr_before))  Twoje=$(f(snr_u))  automat=$(f(a.snr_after))")
-                # the S/N pazi shows (PSRCHIVE psrstat on the scrunched
-                # profile; its own on-pulse width and white noise only), so
-                # it is directly comparable with pazi
+                # S/N exactly as pazi shows it (PSRCHIVE psrstat), before and
+                # after the automat's zaps (on a temporary copy)
                 arch = joinpath(outdir, "pulsar.spCF")
-                println("S/N jak w pazi (PSRCHIVE): bez zapów=$(f(Data.psrchive_snr(arch)))  " *
-                        "automat=$(f(Data.psrchive_snr(arch; zaps=Data.pulses_to_zaps(a.bad))))")
+                sp0 = Data.psrchive_snr(arch)
+                sp1 = Data.psrchive_snr(arch; zaps=Data.pulses_to_zaps(a.bad))
+                println("S/N jak w pazi: bez zapów=$(f(sp0))  po automacie=$(f(sp1))  " *
+                        "($(isnan(sp0) || isnan(sp1) ? "?" : string(round(100 * (sp1 / sp0 - 1), digits=1)) * "%"))")
+                println("   (miara automatu, liczy też falowanie tła: $(f(a.snr_before)) → $(f(a.snr_after))" *
+                        (isnothing(user) ? "" : ", Twoje=$(f(snr_u))") * ")")
                 println("Decyzja: $(a.why)   [okno=$(a.w), podejrzane pojedyncze=$(a.n_single), " *
                         "progi z odcinkami=$(a.n_cand), okna off: $(sn.nwin) użyte / $(sn.nleak) z emisją pulsara]")
                 kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
                 println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
-                push!(summary, "$(rpad(psr, 12)) auto=$(lpad(length(a.bad), 4))  Ty=$(lpad(user_s, 4))  " *
-                               "F1=$(isnothing(m) ? "  - " : rpad(round(m.f1, digits=2), 4))  " *
-                               "S/N bez=$(f(a.snr_before))  Ty=$(f(snr_u))  auto=$(f(a.snr_after))")
+                push!(summary, "$(rpad(psr, 12)) wycięte=$(lpad(length(a.bad), 4)) z $(lpad(N, 4))  " *
+                               "S/N jak w pazi: $(f(sp0)) → $(f(sp1))   (miara automatu: " *
+                               "$(f(a.snr_before)) → $(f(a.snr_after)))")
                 # main view: original (left) vs what the automat cuts and why (right)
-                Plot.autozap_view(data, bst, bend, a, outdir; show_=show_plots, title_="$psr — automat")
+                Plot.autozap_view(data, bst, bend, a, outdir; show_=show_plots, title_="$psr — automat",
+                                  snr_pazi=(sp0, sp1))
                 # side file: your zaps vs automat (saved only)
                 Plot.zap_compare(data, bst, bend, a, something(user, Int[]), outdir; show_=false,
                                  title_="$psr: czerwone = Ty ($user_s), niebieskie = automat ($(length(a.bad)))")
@@ -1023,7 +1026,7 @@ module SpaTs
                     "($(first(psr_dirs)) … $(last(psr_dirs)))")
         end
         summary_file = joinpath(vpmout, "zap_summary.csv")
-        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_before,snr_after,zaps"
+        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_pazi_before,snr_pazi_after,zaps"
         done = Set{String}()
         if isfile(summary_file)
             for line in Iterators.drop(eachline(summary_file), 1)
@@ -1053,16 +1056,20 @@ module SpaTs
             outdir = vpmout * psr
             println("\n===== $psr  (obs: $(obs_dirs[1])) =====")
             try
-                snr_before = try coherent_snr(outdir) catch; nothing end
+                # S/N as pazi shows it: before zapping (measured during the
+                # zap review on the rebuilt archive) and after (zapped archive)
                 p, _, _ = Data.process_psrdata(indir, outdir; zap_mode=zap_mode, zap_nsigma=zap_nsigma)
-                snr_after = try coherent_snr(outdir) catch; nothing end
+                snr_before = get(p, "snr_pazi_before", nothing)
+                snr_after = Data.psrchive_snr(joinpath(outdir, "pulsar.spCF"))
+                (snr_before isa Number && isnan(snr_before)) && (snr_before = nothing)
+                isnan(snr_after) && (snr_after = nothing)
                 zaps = get(p, "zaps", nothing)
                 nz = sum((b - a + 1 for (a, b) in Data.zaps_to_ranges(zaps)); init=0)
                 np = something(get(p, "nsubint", nothing), 0)
                 pct = np > 0 ? 100 * nz / np : 0.0
                 status = (p["p3"] isa Number && p["p3"] > 0) ? "ok" : "brak_P3"
                 println("$psr [$status]: odrzucono $nz/$np impulsów ($(round(pct, digits=1))%), " *
-                        "SNR $(fmt(snr_before)) → $(fmt(snr_after))")
+                        "S/N jak w pazi $(fmt(snr_before)) → $(fmt(snr_after))")
                 pct > warn_pct && println("UWAGA: odrzucono ponad $(warn_pct)% impulsów — szum może " *
                                           "siedzieć w jednym kanale częstotliwości; rozważ ścieżkę _16 " *
                                           "z zapowaniem kanałów (paz -z) zamiast wyrzucania impulsów.")

@@ -834,7 +834,8 @@ module Plot
     A thin strip right of the right panel repeats the reasons, so short
     cuts are visible even when zoomed out. Title: counts and S/N change.
     """
-    function autozap_view(data, bin_st, bin_end, a, outdir; name_mod="pulsar", title_="", show_=false, wait_=true)
+    function autozap_view(data, bin_st, bin_end, a, outdir; name_mod="pulsar", title_="", show_=false, wait_=true,
+                          snr_pazi=nothing)
         N, nb = size(data)
         w = bin_end - bin_st + 1
         lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
@@ -890,8 +891,11 @@ module Plot
         isempty(handles) || fig.legend(handles=handles, loc="lower center", ncol=min(5, length(handles)),
                                        fontsize=7.5, frameon=false)
         n = length(a.bad)
-        suptitle(@sprintf("%s\nwycięte %d z %d (%.1f%%)   S/N %.1f → %.1f   okno %d", title_, n, N,
-                          100 * n / N, a.snr_before, a.snr_after, a.w), fontsize=9, fontweight="bold")
+        # S/N as pazi shows it (PSRCHIVE) when given, else the automat's own measure
+        sb, sa = isnothing(snr_pazi) ? (a.snr_before, a.snr_after) : snr_pazi
+        lab = isnothing(snr_pazi) ? "S/N (miara automatu)" : "S/N jak w pazi"
+        suptitle(@sprintf("%s\nwycięte %d z %d (%.1f%%)   %s %.1f → %.1f", title_, n, N,
+                          100 * n / N, lab, sb, sa), fontsize=9, fontweight="bold")
         tight_layout(rect=(0, isempty(handles) ? 0 : 0.05, 1, 0.92))
         png = "$outdir/$(name_mod)_autozap.png"
         savefig(png, dpi=110)
