@@ -389,13 +389,26 @@ module Data
         off = vcat(segs...)
         good = [var(@view data[i, off]) > 0 for i in 1:N]
         base = [mean(@view data[i, off]) for i in 1:N]
-        s = [sum(@view data[i, on]) - n_on * base[i] for i in 1:N]
+        # MATCHED FILTER: on-pulse bins weighted by the mean profile (smoothed,
+        # >= 0, mean weight 1). A plain sum over a wide on-pulse window
+        # (J0820-4114: 452 bins, mostly empty edges) drowns a weaker pulse in
+        # the noise of the empty bins, so it looked like a null and cutting it
+        # LOWERED the S/N pazi shows (pazi uses its optimal width). With the
+        # weights the empty edges hardly count — like pazi's optimal width.
+        gi0 = findall(good)
+        prof = isempty(gi0) ? zeros(n_on) :
+               vec(mean(data[gi0, on] .- base[gi0], dims=1))
+        hs = max(1, n_on ÷ 40)
+        T = [max(0.0, mean(@view prof[max(1, j - hs):min(n_on, j + hs)])) for j in 1:n_on]
+        T = sum(T) > 0 ? T .* (n_on / sum(T)) : ones(n_on)
+        wsum(i, bins) = sum(T[j] * (data[i, bins[j]] - base[i]) for j in 1:n_on)
+        s = [wsum(i, on) for i in 1:N]
         # Windows that contain PULSAR emission (bright pulsars leak outside
         # the on-pulse window: J0304, S/N 6392, had every pulse flagged)
         # must not count as noise: their sums follow the pulse brightness
         # (correlate with s) or sit at a steady non-zero level. Junk next to
         # the pulse (RFI, stripes) does neither, so it is still caught.
-        W = [sum(@view data[i, w]) - n_on * base[i] for i in 1:N, w in wins]
+        W = [wsum(i, w) for i in 1:N, w in wins]
         gi = findall(good)
         ng = length(gi)
         leak = falses(length(wins))
@@ -409,7 +422,8 @@ module Data
         end
         kw = findall(.!leak)
         clean_off = isempty(kw) ? off : vcat([collect(wins[k]) for k in kw]...)
-        vw = [n_on * var(@view data[i, clean_off]) for i in 1:N]
+        T2 = sum(abs2, T)
+        vw = [T2 * var(@view data[i, clean_off]) for i in 1:N]
         v = length(kw) >= 3 ? [mean(abs2, @view W[i, kw]) for i in 1:N] : copy(vw)
         # lag-1 autocorrelation of the clean off-pulse (within windows):
         # stripes / baseline wiggles / slopes make neighbouring bins alike.
