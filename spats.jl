@@ -874,11 +874,12 @@ module SpaTs
                                         "tylko automat=$(m.fp)  tylko Ty=$(m.fn)")
                 snr_u = isnothing(user) ? NaN : Data.zap_snr(sn, user)
                 println("S/N: bez zapów=$(f(a.snr_before))  Twoje=$(f(snr_u))  automat=$(f(a.snr_after))")
-                # the same with white noise only (bin-to-bin rms, like pazi /
-                # PSRCHIVE): higher, because baseline wiggles are not counted
-                snrw(k) = (sv = sum(sn.vwhite[k]); sv > 0 ? sum(sn.s[k]) / sqrt(sv) : NaN)
-                kept = copy(sn.good); kept[a.bad] .= false
-                println("S/N tylko szum biały (jak pazi): bez zapów=$(f(snrw(sn.good)))  automat=$(f(snrw(kept)))")
+                # the S/N pazi shows (PSRCHIVE psrstat on the scrunched
+                # profile; its own on-pulse width and white noise only), so
+                # it is directly comparable with pazi
+                arch = joinpath(outdir, "pulsar.spCF")
+                println("S/N jak w pazi (PSRCHIVE): bez zapów=$(f(Data.psrchive_snr(arch)))  " *
+                        "automat=$(f(Data.psrchive_snr(arch; zaps=Data.pulses_to_zaps(a.bad))))")
                 println("Decyzja: $(a.why)   [okno=$(a.w), podejrzane pojedyncze=$(a.n_single), " *
                         "progi z odcinkami=$(a.n_cand), okna off: $(sn.nwin) użyte / $(sn.nleak) z emisją pulsara]")
                 kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]

@@ -1059,6 +1059,31 @@ module Data
 
 
     """
+    S/N exactly as pazi / PSRCHIVE reports it ("Total S/N": `psrstat -c snr`
+    on the fully scrunched profile, -j FTp), optionally after zapping
+    `zaps` on a temporary copy. NaN if psrstat fails.
+    """
+    function psrchive_snr(archive; zaps=nothing)
+        target = archive
+        if !isnothing(zaps) && !isempty(zaps_to_ranges(zaps))
+            target = replace(archive, r"\.[^.]+$" => ".snrtmp.ar")
+            cp(archive, target; force=true)
+            redirect_stdout(devnull) do
+                apply_zaps(target, zaps)
+            end
+        end
+        out = try
+            read(pipeline(`psrstat -j FTp -c snr $target`; stderr=devnull), String)
+        catch
+            ""
+        end
+        target == archive || rm(target, force=true)
+        m = match(r"snr=([-+0-9.eE]+)", out)
+        return isnothing(m) ? NaN : parse(Float64, m.captures[1])
+    end
+
+
+    """
     Loads PSRCHIVE ASCII file
     """
     function load_ascii(infile)
