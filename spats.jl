@@ -847,6 +847,7 @@ module SpaTs
     function blind_test_autozap(psrs; vpmout="/home/psr/output/", dataroot="/home/psr/data/new/",
                                 interactive=true, show_plots=!interactive)
         out = joinpath(@__DIR__, "input", "zap_labels", "blind_test.csv")
+        mkpath(dirname(out))
         summary = String[]
         isfile(out) || open(f -> println(f, "pulsar,n_pulses,n_auto,n_user,f1,precision,recall," *
                                            "snr_none,snr_user,snr_auto,n_missed_in_pazi,verdict,auto_zaps"),
