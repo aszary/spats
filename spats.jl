@@ -874,6 +874,11 @@ module SpaTs
                                         "tylko automat=$(m.fp)  tylko Ty=$(m.fn)")
                 snr_u = isnothing(user) ? NaN : Data.zap_snr(sn, user)
                 println("S/N: bez zapów=$(f(a.snr_before))  Twoje=$(f(snr_u))  automat=$(f(a.snr_after))")
+                # the same with white noise only (bin-to-bin rms, like pazi /
+                # PSRCHIVE): higher, because baseline wiggles are not counted
+                snrw(k) = (sv = sum(sn.vwhite[k]); sv > 0 ? sum(sn.s[k]) / sqrt(sv) : NaN)
+                kept = copy(sn.good); kept[a.bad] .= false
+                println("S/N tylko szum biały (jak pazi): bez zapów=$(f(snrw(sn.good)))  automat=$(f(snrw(kept)))")
                 println("Decyzja: $(a.why)   [okno=$(a.w), podejrzane pojedyncze=$(a.n_single), " *
                         "progi z odcinkami=$(a.n_cand), okna off: $(sn.nwin) użyte / $(sn.nleak) z emisją pulsara]")
                 kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
@@ -1418,6 +1423,7 @@ module SpaTs
         # pierwsze 5 znanych (z J0820) + 4 nowe (sprawdzenie na pulsarach, ktorych
         # automat "nie widzial" przy strojeniu)
         test_psrs = vcat(label_psrs[1:5], ["J1903+0135", "J1901-0906", "J1946+1805", "J1555-3134"])
+        blind_test_autozap(["J1355-5153"]; vpmout=vpmout, interactive=false)
         #blind_test_autozap(test_psrs; vpmout=vpmout, interactive=false)
 
         # eksport danych (bez zapow) do debugowania automatu lokalnie
@@ -1431,7 +1437,7 @@ module SpaTs
         # Enter = zatwierdz | p = popraw w pazi | r = od nowa recznie |
         # n = bez zapow | s = pomin. Ctrl+C przerywa; ponowne uruchomienie
         # kontynuuje (vpmout/zap_summary.csv).
-        reprocess_all_zap(vpmout=vpmout, reverse=true, half=true, zap_mode=:auto_pazi)
+        #reprocess_all_zap(vpmout=vpmout, reverse=true, half=true, zap_mode=:auto_pazi)
 
         # test skanu cutoffu + coherent fold na 4 pulsarach (wylaczony)
         #for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]
