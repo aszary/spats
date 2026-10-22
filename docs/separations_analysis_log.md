@@ -3888,3 +3888,9 @@ Usterki w params: J1355-5153 `zaps` z cudzysłowem (`49"`), J0421-0345 `zaps="0-
 (J0629+2415, J1141-6545, J1257-1027), J1402-5124 `p3=-1`, J1703-1846 `nbin=1056` (plik ma 1024), J1651-5222 p3 5.8→90.15
 przy tym samym p3_error co w `params_stary` (LRFS: pik 0.011 c/P + szeroka cecha ~0.17–0.2 c/P). Duże zapy: J0943+2253 27%,
 J1220-6318 29%, J1012-5857 25%, J1148-5725 16%. Niepełne wykresy *_single: J0255-5304, J0934-5249, J1703-1846, J1720-0212.
+
+**cd. — poprawki params (tylko kopia `~/output/claude/pazur`)**. Kopia zapasowa: `~/claude/work/pazur_params_backup_2026-10-22/`.
+`zaps "q" → ""` (J0629+2415, J1141-6545, J1257-1027; `Data.zap!`/`paz -w` wyłożyłyby się na "q"), J1703-1846 `nbin 1056 → 1024`.
+J1355-5153: cudzysłów w zaps usunięty o 11:23 przez kogoś innego (nie przez agenta), przed moją poprawką.
+Sprostowanie przeglądu: `zaps="0-5"` to poprawny zakres (`Data.zap!`, `paz -w`), `p3=-1` to znacznik „wykryj P3” (`data.jl:252`) — bez zmian.
+Oryginał `~/output/pazur` niezmieniony. J1651-5222 (P3 5.8 vs 90.15) czeka na decyzję użytkownika.
