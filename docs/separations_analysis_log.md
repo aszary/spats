@@ -3894,3 +3894,8 @@ J1220-6318 29%, J1012-5857 25%, J1148-5725 16%. Niepełne wykresy *_single: J025
 J1355-5153: cudzysłów w zaps usunięty o 11:23 przez kogoś innego (nie przez agenta), przed moją poprawką.
 Sprostowanie przeglądu: `zaps="0-5"` to poprawny zakres (`Data.zap!`, `paz -w`), `p3=-1` to znacznik „wykryj P3” (`data.jl:252`) — bez zmian.
 Oryginał `~/output/pazur` niezmieniony. J1651-5222 (P3 5.8 vs 90.15) czeka na decyzję użytkownika.
+
+**cd. — przykłady bez okna on-pulse** (`~/claude/work/scripts/pazur_onpulse_show.py`, `pazur_full_stack.py` →
+`~/claude/work/figures/pazur_onpulse/`). J0134-2937 (S/N 225) i J0152-1637 (S/N 157): dane czyste, impuls wyraźny.
+J0211-8159 (347 pulsów): impuls wędruje po fazie przez całą obserwację (zawija się przez bin 1023→0, dwa punkty zwrotne:
+bin ~840 przy pulsie ~30, ~580 przy ~230) — problem efemerydy/foldowania, profil średni rozmyty, okna nie da się wyznaczyć.
