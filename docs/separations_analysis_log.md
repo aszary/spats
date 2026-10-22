@@ -3899,3 +3899,11 @@ Oryginał `~/output/pazur` niezmieniony. J1651-5222 (P3 5.8 vs 90.15) czeka na d
 `~/claude/work/figures/pazur_onpulse/`). J0134-2937 (S/N 225) i J0152-1637 (S/N 157): dane czyste, impuls wyraźny.
 J0211-8159 (347 pulsów): impuls wędruje po fazie przez całą obserwację (zawija się przez bin 1023→0, dwa punkty zwrotne:
 bin ~840 przy pulsie ~30, ~580 przy ~230) — problem efemerydy/foldowania, profil średni rozmyty, okna nie da się wyznaczyć.
+
+**cd. — konwencje okna on-pulse w literaturze** (`~/claude/work/scripts/pazur_window_lit.py`). Pazur = MeerKAT TPA
+(L-band, 1283.58 MHz, jak Song+23). Song+23 (MNRAS 520, 4562, App. B): on-pulse = część szablonu (bezszumowy profil GP,
+Posselt+21) > 1% maksimum, MP + ewentualnie IP, ręcznie gdy trzeba; baseline: wielomian 1. stopnia w off-pulse dla
+każdego pulsu. Posselt+21 (MNRAS 508, 4249, sekc. 3): brzegi przy S/N ≥ 3 w ≥ 5 kolejnych binach (σ z GP).
+Ręczne okna 85 pulsarów vs reguły (wygładzanie gaussowskie zamiast GP): S23 st +20 (IQR 13–27), end −28 (IQR −38…−22),
+82/85 wewnątrz ręcznego, szerokość 0.58 ręcznej; P21 podobnie (+24/−29). Ręczne okno ≈ zasięg emisji + ~20 binów
+z przodu i ~28 z tyłu.
