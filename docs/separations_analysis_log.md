@@ -3907,3 +3907,14 @@ każdego pulsu. Posselt+21 (MNRAS 508, 4249, sekc. 3): brzegi przy S/N ≥ 3 w �
 Ręczne okna 85 pulsarów vs reguły (wygładzanie gaussowskie zamiast GP): S23 st +20 (IQR 13–27), end −28 (IQR −38…−22),
 82/85 wewnątrz ręcznego, szerokość 0.58 ręcznej; P21 podobnie (+24/−29). Ręczne okno ≈ zasięg emisji + ~20 binów
 z przodu i ~28 z tyłu.
+
+**cd. — przeliczenie całego pazur (257/258)**. Okna: rdzeń Song+23 (wygładzony profil > max(1% maks., 3σ)),
+dołączone obszary ≤ 40 binów od rdzenia (przybliżenie szablonu GP; bez scalania dla J1119-7936, J1404+1159 — falistość
+linii bazowej), zapas ±20, off-pulse ≥ 50% (J1133-6250 bez zapasu), parzysta szerokość. W `params.json`: `bin_st/bin_end`
++ `bin_st_core/bin_end_core`. Skrypty: `pazur_windows.py`, `pazur_windows_final.py` (→ `pazur_onpulse/windows_final.csv`),
+kontrola fazy `pazur_wander_check.py`, przeliczenie `pazur_process.jl` (kroki process_psrdata + plot_psrdata +
+process_data_andrzej, show_=false). Stare produkty 85 pulsarów usunięte z kopii claude (oryginał w `~/output/pazur`).
+Wykluczony J0211-8159 (wędrowanie fazy, efemeryda). IP poza oknem: J0905-5127, J1057-5226, J1126-6054, J1302-6350.
+J1402-5124 bez p3fold (p3=-1). Zmiany params: nfft 256→128 (nsubint < 256: J0421-0345, J0932-3217, J1046-5813,
+J1502-6128; stary LRFS J0421 też miał 128), J1720-0212 p3_ybins 5.8→11 (find_ybins). Kopia params:
+`~/claude/work/pazur_params_backup_2026-10-22_all/`. Wykresy okien: `~/claude/work/figures/pazur_onpulse/windows/`.
