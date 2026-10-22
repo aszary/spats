@@ -3878,3 +3878,13 @@ wyniki na granicy i zależne od wariantu (0.02–0.14). Nowa kategoria wyostrza 
 potem rośnie do ~4 przy log Ė ≈ 33.5 (P2 dłuższe niż okno = brak prawdziwych pasków dryfu przy wysokim Ė, zgodnie
 z tezą Basu+25). Kategoria drift_basu jest więc w dużej mierze zastępnikiem niskiego Ė; różnica ΔW/W między
 kategoriami nie wnosi nic ponad Ė.
+
+## 2026-10-22 — przegląd `output/pazur` (tylko odczyt)
+
+`~/output/pazur` i `~/output/claude/pazur` (= kontener `/home/psr/output/pazur`) to identyczne kopie (`diff -rq` pusty, 8.2 GB).
+258 pulsarów MeerKAT (`pulsar.spCF`: nbin 1024, npol 4, nchan 1) + lista `l`. Wszystkie mają `params.json`;
+85 przetworzonych (debase/LRFS/2DFS/p3fold + wykresy), 173 tylko spCF + params (`bin_st`/`bin_end` = null, okno on-pulse niewyznaczone).
+Usterki w params: J1355-5153 `zaps` z cudzysłowem (`49"`), J0421-0345 `zaps="0-5"` (zakres, nie lista), `zaps="q"`
+(J0629+2415, J1141-6545, J1257-1027), J1402-5124 `p3=-1`, J1703-1846 `nbin=1056` (plik ma 1024), J1651-5222 p3 5.8→90.15
+przy tym samym p3_error co w `params_stary` (LRFS: pik 0.011 c/P + szeroka cecha ~0.17–0.2 c/P). Duże zapy: J0943+2253 27%,
+J1220-6318 29%, J1012-5857 25%, J1148-5725 16%. Niepełne wykresy *_single: J0255-5304, J0934-5249, J1703-1846, J1720-0212.
