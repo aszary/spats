@@ -1070,9 +1070,11 @@ module Data
         snr(rows) = profile_snr(data, bst, bend; drop=rows)
         r1(x) = round(x, digits=1)
         chans = Int[]
+        auto_a = nothing
 
         if mode in (:auto_pazi, :auto)
             a = auto_zap(data, bst, bend)
+            auto_a = a
             println("Automat: $(length(a.bad)) z $N impulsów ($(r1(100 * length(a.bad) / N))%)  →  " *
                     "\"$(pulses_to_zaps(a.bad))\"")
             kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
@@ -1151,6 +1153,14 @@ module Data
             cmp["snr_maciej"] = snr(mrows)
             cmp["auto_maciej"] = zap_snr(sn, mrows)
             cmp["zaps_maciej"] = pulses_to_zaps(mrows)
+            # picture: Maciej's cuts (red, left edge) vs the automat's (blue)
+            if mode == :auto && !isnothing(auto_a)
+                Plot.zap_compare(data, bst, bend, auto_a, mrows, outdir; name_mod="pulsar_vs_maciej",
+                                 labels=("Maciej", "automat"),
+                                 title_="$(basename(rstrip(outdir, '/'))) — Maciej vs automat   S/N profilu: " *
+                                        "bez=$(r1(cmp["snr_none"]))  Maciej=$(r1(cmp["snr_maciej"]))  " *
+                                        "automat=$(r1(cmp["snr_mine"]))")
+            end
         elseif !isnothing(ref)
             println("UWAGA: archiwum Macieja ma $(ref.N) impulsów, moje $N — nie porównuję.")
         end

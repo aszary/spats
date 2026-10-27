@@ -976,7 +976,7 @@ module Plot
     pulses shaded red, automatic ones blue.
     """
     function zap_compare(data, bin_st, bin_end, a, user_rows, outdir; title_="", frac=1.0,
-                         name_mod="pulsar", show_=false, wait_=true)
+                         name_mod="pulsar", show_=false, wait_=true, labels=("Ty (pazi)", "automat"))
         N, nb = size(data)
         w = bin_end - bin_st + 1
         lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
@@ -993,9 +993,9 @@ module Plot
                interpolation="nearest", extent=(lo - 0.5, hi + 0.5, -0.5, N - 0.5))
         dx = (hi - lo) * 0.012
         isempty(user_rows) || scatter(fill(lo + dx, length(user_rows)), user_rows .- 1, marker="s",
-                                      s=6, color="#e41a1c", zorder=5, label="Ty (pazi)")
+                                      s=6, color="#e41a1c", zorder=5, label="$(labels[1]) ($(length(user_rows)))")
         isempty(a.bad) || scatter(fill(hi - dx, length(a.bad)), a.bad .- 1, marker="s",
-                                  s=6, color="#377eb8", zorder=5, label="automat")
+                                  s=6, color="#377eb8", zorder=5, label="$(labels[2]) ($(length(a.bad)))")
         legend(fontsize=7, loc="upper center", ncol=2, framealpha=0.9)
         xlabel("bin"); ylabel("pulse number (od 0)")
 
