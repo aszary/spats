@@ -1128,6 +1128,131 @@ module SpaTs
 
 
     """
+    W PEŁNI AUTOMATYCZNE wycięcie złych impulsów we wszystkich pulsarach,
+    bez pytań i bez okien; struktura wyników jak u Macieja:
+    `out/<psr>/params.json` + `out/<psr>/pulsar.spCF` (z wyciętymi
+    impulsami, waga 0) — pełną analizę (2DFS/LRFS/P3-fold) można potem
+    puścić normalnie na `out`.
+
+    Dla każdego pulsara z `dataroot`:
+      1. params = KOPIA params Macieja (`ref_root/<psr>`), jeśli są; inaczej
+         domyślne. Brak okna on-pulse → z `p3_root/<psr>_16` (Czarek7); P3:
+         Macieja, jeśli > 0, inaczej z `p3_root/<psr>_16`, inaczej -1.
+         Bez okna on-pulse pulsar jest pomijany (status brak_onpulse — pmod
+         wymagałby ręcznego zaznaczenia).
+      2. psradd → debase → automat (`review_zaps(mode=:auto)`): moje zapy
+         w `"zaps2"`, `"zaps"` Macieja bez zmian, porównanie S/N profilu z
+         jego zapami w `"zap_cmp"`, obrazek `pulsar_autozap.png`.
+      3. paz: wycięcie `zaps2` w pulsar.spCF; pliki pośrednie (debase) usunięte.
+
+    Postęp w `out/zap_summary.csv` (ponowne uruchomienie kontynuuje).
+
+      autozap_all()
+      autozap_all(only=["J0034-0721"])
+    """
+    function autozap_all(; dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
+                         ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/",
+                         only=nothing, skip_done=true, keep_png=true)
+        endswith(out, "/") || (out *= "/")
+        mkpath(out)
+        psrs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
+        isnothing(only) || (psrs = filter(in(Set(only)), psrs))
+        summary_file = joinpath(out, "zap_summary.csv")
+        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_none,snr_mine,snr_maciej,n_maciej,p3,p3_from,zaps2"
+        done = Set{String}()
+        if isfile(summary_file)
+            for line in Iterators.drop(eachline(summary_file), 1)
+                parts = split(line, ",")
+                length(parts) >= 2 && parts[2] != "blad" && push!(done, parts[1])
+            end
+        else
+            open(f -> println(f, header), summary_file, "w")
+        end
+        fmt(x) = isnothing(x) ? "" : x isa AbstractFloat ? string(round(x, digits=2)) : string(x)
+        record(row) = open(f -> println(f, row), summary_file, "a")
+        valid(x) = x isa Number && x > 0
+        readp(f) = isfile(f) ? (try Tools.read_params(f) catch; nothing end) : nothing
+        n_ok = n_skip = n_err = 0
+        println("AUTOMAT: $(length(psrs)) pulsarów → $out   (params/zapy Macieja: $ref_root, P3/on-pulse zapas: $p3_root)")
+
+        for (k, psr) in enumerate(psrs)
+            if skip_done && psr in done
+                continue
+            end
+            psr_path = joinpath(dataroot, psr)
+            obs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
+            if isempty(obs)
+                record("$psr,brak_danych,,,,,,,,,,\"\"")
+                continue
+            end
+            indir, outdir = joinpath(psr_path, obs[1]) * "/", out * psr
+            println("\n[$k/$(length(psrs))] ===== $psr =====")
+            try
+                mkpath(outdir)
+                pf = joinpath(outdir, "params.json")
+                rp = readp(joinpath(ref_root, psr, "params.json"))
+                cp16 = something(readp(joinpath(p3_root, psr * "_16", "params.json")),
+                                 readp(joinpath(p3_root, psr, "params.json")), Dict())
+                # 1. params: copy of Maciej's (same structure), else default
+                p = !isnothing(rp) ? deepcopy(rp) : Tools.default_params(pf)
+                haskey(p, "zaps") || (p["zaps"] = nothing)
+                for key in ("bin_st", "bin_end")
+                    isnothing(get(p, key, nothing)) && (p[key] = get(cp16, key, nothing))
+                end
+                p3_from = valid(get(p, "p3", nothing)) && !isnothing(rp) ? "Maciej" : ""
+                if p3_from == "" && valid(get(cp16, "p3", nothing))
+                    p["p3"], p3_from = cp16["p3"], "Czarek7"
+                    haskey(cp16, "p3_error") && (p["p3_error"] = cp16["p3_error"])
+                end
+                p3_from == "" && (p["p3"] = get(p, "p3", -1.0); valid(p["p3"]) || (p["p3"] = -1.0))
+                p["nsubint"] = nothing          # recount on the rebuilt archive
+                Tools.save_params(pf, p)
+                if isnothing(p["bin_st"]) || isnothing(p["bin_end"])
+                    println("Brak okna on-pulse (ani u Macieja, ani w $p3_root) — pomijam.")
+                    record("$psr,brak_onpulse,,,,,,,,$(fmt(p["p3"])),$p3_from,\"\"")
+                    n_skip += 1
+                    continue
+                end
+
+                # 2. archive + automat (no questions, no windows)
+                outfile = joinpath(outdir, "pulsar.spCF")
+                Data.add_psrfiles(indir, outfile)
+                Data.get_nsubint(outfile, pf, p)
+                Data.debase(outfile, pf, p)
+                ref_archive = joinpath(ref_root, psr, "pulsar.spCF")
+                ra = (!isnothing(rp) && get(rp, "zapped", false) == true && isfile(ref_archive)) ? ref_archive : nothing
+                zaps = Data.review_zaps(joinpath(outdir, "pulsar.debase.txt"), p, pf, outdir;
+                                        mode=:auto, archive=outfile, ref_archive=ra)
+                p["zapped2"] = true
+                Tools.save_params(pf, p)
+
+                # 3. cut them in pulsar.spCF (zero weights, like Maciej's) + clean up
+                isnothing(zaps) || Data.apply_zaps(outfile, zaps)
+                for f in ("pulsar.debase.gg", "pulsar.debase.txt", "pulsar_zap_review.png")
+                    rm(joinpath(outdir, f), force=true)
+                end
+                keep_png || rm(joinpath(outdir, "pulsar_autozap.png"), force=true)
+
+                c = get(p, "zap_cmp", Dict())
+                np, nz = get(c, "n_pulses", 0), get(c, "n_mine", 0)
+                pct = np > 0 ? 100 * nz / np : 0.0
+                record("$psr,ok,$np,$nz,$(round(pct, digits=2)),$(fmt(get(c, "snr_none", nothing)))," *
+                       "$(fmt(get(c, "snr_mine", nothing))),$(fmt(get(c, "snr_maciej", nothing)))," *
+                       "$(fmt(get(c, "n_maciej", nothing))),$(fmt(p["p3"])),$p3_from,\"$(something(zaps, ""))\"")
+                n_ok += 1
+            catch e
+                e isa InterruptException && rethrow()
+                n_err += 1
+                msg = replace(sprint(showerror, e), '"' => '\'', '\n' => ' ')
+                println("BŁĄD dla $psr: $(first(msg, 300))")
+                record("$psr,blad,,,,,,,,,,\"$(first(msg, 200))\"")
+            end
+        end
+        println("\nAUTOMAT gotowy: ok=$n_ok  pominięte=$n_skip  błędy=$n_err   tabela: $summary_file")
+    end
+
+
+    """
     Końcowe porównanie: moje zapowanie (pazur2, `zaps2`) vs Macieja (pazur).
 
     Czyta `p["zap_cmp"]` z `mine/<psr>/params.json` — liczone przy
@@ -1531,13 +1656,21 @@ module SpaTs
         # pulsara: obrazek, potem Enter = zatwierdz | p = popraw w pazi |
         # r = od nowa recznie | n = bez zapow | s = pomin. Ctrl+C przerywa;
         # ponowne uruchomienie kontynuuje (pazur2/zap_summary.csv).
-        reprocess_all_zap(vpmout="/home/psr/data/OUTPUT/pazur2/", ref_root="/home/psr/data/OUTPUT/pazur/",
-                          zap_mode=:auto_pazi)
+        # (wersja z pytaniami przy kazdym pulsarze — na pozniej)
+        #reprocess_all_zap(vpmout="/home/psr/data/OUTPUT/pazur2/", ref_root="/home/psr/data/OUTPUT/pazur/",
+        #                  zap_mode=:auto_pazi)
+
+        # ETAP 3a — W PELNI AUTOMATYCZNIE (bez pytan i okien): params kopiowane
+        # od Macieja (+ on-pulse/P3 z Czarek7 _16, gdy brak), automat wycina
+        # zle impulsy -> zaps2, pulsar.spCF z wycietymi impulsami; struktura
+        # jak w pazur. Ctrl+C przerywa, ponowne uruchomienie kontynuuje.
+        autozap_all(dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
+                    ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/")
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)
         compare_zap_methods(mine="/home/psr/data/OUTPUT/pazur2/",
-                            outdir="/home/psr/data/OUTPUT/zap_comparison/", show_=true)
+                            outdir="/home/psr/data/OUTPUT/zap_comparison/", show_=false)
 
         # test skanu cutoffu + coherent fold na 4 pulsarach (wylaczony)
         #for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]
