@@ -25,10 +25,9 @@ module Data
     function zap!(data; ranges=nothing)
         isnothing(ranges) && return data
         pulses = size(data, 1)
-        for tok in split(ranges)
-            bounds = split(tok, "-")
-            lo = parse(Int, bounds[1]) + 1  # PSRCHIVE subints are 0-based, Julia rows are 1-based
-            hi = length(bounds) == 1 ? lo : parse(Int, bounds[2]) + 1
+        for (lo, hi) in zaps_to_ranges(ranges)
+            lo += 1; hi += 1  # PSRCHIVE subints are 0-based, Julia rows are 1-based
+            tok = "$(lo-1)-$(hi-1)"
             if lo < 1 || hi > pulses
                 @warn "zap! range $tok (1-based $lo:$hi) outside data bounds 1:$pulses, clamping"
             end
@@ -43,15 +42,22 @@ module Data
         zaps_to_ranges(zaps) -> Vector{Tuple{Int,Int}}
 
     Parse a `p["zaps"]` string ("12 40-45", 0-based, inclusive) into 0-based
-    (start, end) pairs. `nothing`/empty -> empty vector.
+    (start, end) pairs. `nothing`/empty -> empty vector. Hand-typed junk
+    (Maciej's params: "q", "49'") is skipped / trimmed with a warning
+    instead of failing the whole pulsar.
     """
     function zaps_to_ranges(zaps)
         (isnothing(zaps) || isempty(strip(zaps))) && return Tuple{Int,Int}[]
         out = Tuple{Int,Int}[]
         for tok in split(zaps)
-            b = split(tok, "-")
-            lo = parse(Int, b[1])
-            push!(out, (lo, length(b) == 1 ? lo : parse(Int, b[2])))
+            m = match(r"^(\d+)(?:-(\d+))?", tok)
+            if isnothing(m)
+                @warn "zaps: pomijam niepoprawny fragment $(repr(tok))"
+                continue
+            end
+            m.match == tok || @warn "zaps: $(repr(tok)) odczytane jako $(repr(m.match))"
+            lo = parse(Int, m.captures[1])
+            push!(out, (lo, isnothing(m.captures[2]) ? lo : parse(Int, m.captures[2])))
         end
         return out
     end
