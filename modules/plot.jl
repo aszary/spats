@@ -891,9 +891,9 @@ module Plot
         isempty(handles) || fig.legend(handles=handles, loc="lower center", ncol=min(5, length(handles)),
                                        fontsize=7.5, frameon=false)
         n = length(a.bad)
-        # S/N as pazi shows it (PSRCHIVE) when given, else the automat's own measure
+        # given S/N pair (standard profile S/N, `Data.profile_snr`), else the automat's own measure
         sb, sa = isnothing(snr_pazi) ? (a.snr_before, a.snr_after) : snr_pazi
-        lab = isnothing(snr_pazi) ? "S/N (miara automatu)" : "S/N jak w pazi"
+        lab = isnothing(snr_pazi) ? "S/N (miara automatu)" : "S/N profilu"
         suptitle(@sprintf("%s\nwycięte %d z %d (%.1f%%)   %s %.1f → %.1f", title_, n, N,
                           100 * n / N, lab, sb, sa), fontsize=9, fontweight="bold")
         tight_layout(rect=(0, isempty(handles) ? 0 : 0.05, 1, 0.92))
@@ -903,6 +903,64 @@ module Plot
         close()
         # external viewer instead of plt.show(): plt windows don't open here
         return show_ ? show_png(png; wait_=wait_) : nothing
+    end
+
+
+    """
+    Final comparison of two zapping methods (`compare_zap_methods`): rows of
+    `T` have psr, N, n_mine, n_maciej, none, mine, maciej (standard profile
+    S/N on the same data and window).
+
+    Left: S/N gain (vs no zaps) of my method against Maciej's — above the
+    diagonal = mine better. Middle: per-pulsar difference of the gains,
+    sorted. Right: fraction of pulses cut by each method.
+    """
+    function zap_methods_comparison(T, outdir; show_=false)
+        gm = [100 * (t.mine / t.none - 1) for t in T]
+        gj = [100 * (t.maciej / t.none - 1) for t in T]
+        fm = [100 * t.n_mine / t.N for t in T]
+        fj = [100 * t.n_maciej / t.N for t in T]
+        d = gm .- gj
+        col = [x > 0.5 ? "tab:blue" : x < -0.5 ? "tab:red" : "0.5" for x in d]
+
+        fig, axs = subplots(1, 3, figsize=(16, 5.2))
+        ax = axs[1]
+        lo, hi = min(minimum(gm), minimum(gj), 0.0) - 2, max(maximum(gm), maximum(gj), 0.0) + 2
+        ax.plot([lo, hi], [lo, hi], color="k", lw=0.8, ls="--")
+        ax.scatter(gj, gm, c=col, s=18, alpha=0.8)
+        ax.axhline(0, color="0.8", lw=0.6); ax.axvline(0, color="0.8", lw=0.6)
+        ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
+        ax.set_xlabel("zysk S/N — Macieja [%]"); ax.set_ylabel("zysk S/N — moja metoda [%]")
+        ax.set_title("nad przekątną = moja lepsza", fontsize=9)
+
+        ax = axs[2]
+        o = sortperm(d)
+        ax.bar(1:length(d), d[o], color=col[o], width=1.0)
+        ax.axhline(0, color="k", lw=0.6)
+        ax.set_xlabel("pulsary (posortowane)"); ax.set_ylabel("zysk moja − Macieja [punkty %]")
+        nb, nw = count(d .> 0.5), count(d .< -0.5)
+        ax.set_title("moja lepsza: $nb   Macieja lepsza: $nw   remis: $(length(d) - nb - nw)", fontsize=9)
+        if length(T) <= 40
+            ax.set_xticks(1:length(d)); ax.set_xticklabels([T[i].psr for i in o], rotation=90, fontsize=6)
+        end
+
+        ax = axs[3]
+        m = max(maximum(fm), maximum(fj), 1.0) * 1.05
+        ax.plot([0, m], [0, m], color="k", lw=0.8, ls="--")
+        ax.scatter(fj, fm, c=col, s=18, alpha=0.8)
+        ax.set_xlim(0, m); ax.set_ylim(0, m)
+        ax.set_xlabel("wycięte — Macieja [% impulsów]"); ax.set_ylabel("wycięte — moja metoda [% impulsów]")
+        ax.set_title("ile impulsów wycina każda metoda", fontsize=9)
+
+        fig.suptitle("Zapowanie: moja metoda vs Macieja — standardowe S/N profilu " *
+                     "($(length(T)) pulsarów; niebieskie = moja lepsza, czerwone = Macieja, szare = remis <0.5%)",
+                     fontsize=10, fontweight="bold")
+        tight_layout(rect=(0, 0, 1, 0.94))
+        png = joinpath(outdir, "zap_comparison.png")
+        savefig(png, dpi=120)
+        close()
+        show_ && show_png(png)
+        return png
     end
 
 

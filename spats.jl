@@ -108,7 +108,7 @@ module SpaTs
     function phase_modulation(outdir; nreal=6000, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
         result = PhaseDrift.drift_test(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
@@ -149,7 +149,7 @@ module SpaTs
     function phase_modulation2(outdir; nreal=6000, snr_min=3.0, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
         result = PhaseDrift.drift_test(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
@@ -212,7 +212,7 @@ module SpaTs
                                 pulse_st=nothing, pulse_end=nothing, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         result = PhaseDrift.drift_test_profile(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
             window=window, stride=stride, nreal=nreal,
@@ -259,7 +259,7 @@ module SpaTs
     function phase_modulation3(outdir; window=32, stride=1, nreal=1000, sig_min=3.0, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         result = PhaseDrift.drift_test_sliding(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
             window=window, stride=stride, nreal=nreal, sig_min=sig_min)
@@ -297,7 +297,7 @@ module SpaTs
     function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.2, darkness=1.0, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         p3   = Float64(p["p3"])
         # same as p3fold_coherent: p["p3_ybins"] can be stale (J2053 aliasing)
         yb   = isnothing(ybins) ? Data.Functions.find_ybins(p3, size(data, 1)) : ybins
@@ -334,7 +334,7 @@ module SpaTs
     function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, p3_window=60, bin_search=2, darkness=1.0, show_=true, name_mod="pulsar_coherent")
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         p3   = Float64(p["p3"])
         # p["p3_ybins"] bywa nieaktualne/za duze wzgledem faktycznej liczby
         # impulsow na cykl P3 (np. P3≈3 z ybins=10 daje aliasing) — licz
@@ -386,7 +386,7 @@ module SpaTs
                                   name_mod="pulsar_coherent_auto")
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         p3   = Float64(p["p3"])
         yb   = isnothing(ybins) ? Data.Functions.find_ybins(p3, size(data, 1)) : ybins
         result = P3FoldViterbi.coherent_fold_jackknife(
@@ -422,7 +422,7 @@ module SpaTs
                                 filter_order=6, n_groups=8, ybins=nothing, chosen=nothing, show_=true)
         p    = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         p3 = Float64(p["p3"])
         N  = size(data, 1)
         yb = isnothing(ybins) ? Data.Functions.find_ybins(p3, N) : ybins
@@ -596,7 +596,7 @@ module SpaTs
         folded_norefine = Data.load_ascii(replace(debase_gg, ".gg"=>".p3fold_norefine"))
 
         data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        Data.zap!(data; ranges=Data.zaps_of(p))
         folded_const = Tools.p3fold(data, p3, yb)
 
         Plot.p3fold_compare(folded_norefine, folded_const, fill(p3, size(data, 1)), p3, outdir;
@@ -873,12 +873,11 @@ module SpaTs
                 isnothing(m) || println("Zgodność: F1=$(round(m.f1, digits=2))  wspólne=$(m.tp)  " *
                                         "tylko automat=$(m.fp)  tylko Ty=$(m.fn)")
                 snr_u = isnothing(user) ? NaN : Data.zap_snr(sn, user)
-                # S/N exactly as pazi shows it (PSRCHIVE psrstat), before and
-                # after the automat's zaps (on a temporary copy)
-                arch = joinpath(outdir, "pulsar.spCF")
-                sp0 = Data.psrchive_snr(arch)
-                sp1 = Data.psrchive_snr(arch; zaps=Data.pulses_to_zaps(a.bad))
-                println("S/N jak w pazi: bez zapów=$(f(sp0))  po automacie=$(f(sp1))  " *
+                # standard S/N of the integrated profile (same window), before and
+                # after the automat's zaps
+                sp0 = Data.profile_snr(data, bst, bend)
+                sp1 = Data.profile_snr(data, bst, bend; drop=a.bad)
+                println("S/N profilu: bez zapów=$(f(sp0))  po automacie=$(f(sp1))  " *
                         "($(isnan(sp0) || isnan(sp1) ? "?" : string(round(100 * (sp1 / sp0 - 1), digits=1)) * "%"))")
                 println("   (miara automatu, liczy też falowanie tła: $(f(a.snr_before)) → $(f(a.snr_after))" *
                         (isnothing(user) ? "" : ", Twoje=$(f(snr_u))") * ")")
@@ -887,7 +886,7 @@ module SpaTs
                 kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
                 println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
                 push!(summary, "$(rpad(psr, 12)) wycięte=$(lpad(length(a.bad), 4)) z $(lpad(N, 4))  " *
-                               "S/N jak w pazi: $(f(sp0)) → $(f(sp1))   (miara automatu: " *
+                               "S/N profilu: $(f(sp0)) → $(f(sp1))   (miara automatu: " *
                                "$(f(a.snr_before)) → $(f(a.snr_after)))")
                 # main view: original (left) vs what the automat cuts and why (right)
                 Plot.autozap_view(data, bst, bend, a, outdir; show_=show_plots, title_="$psr — automat",
@@ -980,43 +979,43 @@ module SpaTs
         p = Tools.read_params(pf)
         (get(p, "p3", -1.0) isa Number && p["p3"] > 0 && !isnothing(get(p, "bin_st", nothing))) || return nothing
         data = Data.load_ascii(tf)
-        Data.zap!(data; ranges=get(p, "zaps", nothing))
+        Data.zap!(data; ranges=Data.zaps_of(p))
         return P3FoldViterbi.coherent_fold(data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
                                            warn_weak=false).snr
     end
 
 
     """
-    Przelicza od nowa wszystkie pulsary z `dataroot` (ścieżka `<pulsar>`, ta
-    sama co analiza P3) z automatycznym wykrywaniem złych impulsów.
+    Przerabia od nowa WSZYSTKIE pulsary z `dataroot` moją metodą zapowania
+    do `vpmout` (domyślnie pazur2). Dla każdego: psradd → debase → automat
+    proponuje złe impulsy + obrazek → Enter / p (popraw w pazi) / r (od nowa
+    ręcznie) / n (bez zapów) / s (pomiń) → paz → debase → 2DFS/LRFS/P3-fold.
 
-    Dla każdego pulsara: psradd → debase → zapowanie w pazi (domyślnie;
-    impulsy i kanały, wybór zapisany też jako dane do nauki detektora w
-    input/zap_labels/) → paz → debase jeszcze raz → 2DFS/LRFS/pfold.
-    `zap_mode=:review` = moje okno, `:auto` = automat bez pytań.
-    Istniejące params.json (on-pulse, P3) są zachowane; nowe są tylko zaps
-    i wszystkie produkty. Na koniec tabela SNR przed/po w
-    `vpmout/zap_summary.csv`.
+    Params: moje zapy w `"zaps2"` / `"zap_chans2"`; `"zaps"` nietknięte
+    (przy nowym pulsarze przepisane z params Macieja albo puste). Z
+    `ref_root` (pazur, Maciej — tylko odczyt) brane jest okno on-pulse (jeśli
+    ustawione) i jego zapy (impulsy z zerową wagą w jego pulsar.spCF +
+    jego "zaps") — tylko dla pulsarów z `"zapped": true`. Porównanie S/N
+    profilu (te same dane i okno: bez zapów / moje / Macieja) zapisywane w
+    params `"zap_cmp"`; zbiorczo: `compare_zap_methods()`.
 
-      reprocess_all_zap()                                  # wszystkie, od początku
-      reprocess_all_zap(reverse=true)                      # od ostatniego w dół
+      reprocess_all_zap()                                  # wszystkie
       reprocess_all_zap(only=["J1750-3503", "J2053-7200"]) # wybrane
-      reprocess_all_zap(zap_mode=:auto)                    # bez pytań
-
-    Podział na pół (każdy ma swój `vpmout`):
-      reprocess_all_zap(reverse=true, half=true)   # ostatnia połowa, od końca
-      reprocess_all_zap(half=true)                 # pierwsza połowa, od początku
+      reprocess_all_zap(zap_mode=:auto)                    # automat bez pytań
 
     Wiersze są DOPISYWANE do `vpmout/zap_summary.csv`, a pulsary, które już
     tam są (status inny niż "blad"), są pomijane — po przerwaniu wystarczy
     uruchomić ponownie, żeby kontynuować. Żeby przerobić pulsar jeszcze raz:
     usuń jego wiersz albo `skip_done=false`.
 
-    Status w tabeli: ok / brak_P3 / pominiety (s w oknie zapów) / blad.
+    Status w tabeli: ok / brak_P3 / pominiety (s) / blad.
     """
-    function reprocess_all_zap(; dataroot="/home/psr/data/new/", vpmout="/home/psr/output/",
-                               only=nothing, zap_mode=:pazi, zap_nsigma=5.0,
+    function reprocess_all_zap(; dataroot="/home/psr/data/new/", vpmout="/home/psr/data/OUTPUT/pazur2/",
+                               ref_root="/home/psr/data/OUTPUT/pazur/",
+                               only=nothing, zap_mode=:auto_pazi, zap_nsigma=5.0,
                                reverse=false, half=false, skip_done=true, warn_pct=10.0)
+        endswith(vpmout, "/") || (vpmout *= "/")
+        mkpath(vpmout)
         psr_dirs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)); rev=reverse)
         isnothing(only) || (psr_dirs = filter(in(Set(only)), psr_dirs))
         if half && !isempty(psr_dirs)
@@ -1025,8 +1024,10 @@ module SpaTs
             println("Połowa listy: $(length(psr_dirs)) z $n_all pulsarów " *
                     "($(first(psr_dirs)) … $(last(psr_dirs)))")
         end
+        println("Pulsarów do przerobienia: $(length(psr_dirs))   wyniki: $vpmout   " *
+                "porównanie z: $(something(ref_root, "-"))")
         summary_file = joinpath(vpmout, "zap_summary.csv")
-        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_pazi_before,snr_pazi_after,zaps"
+        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_none,snr_mine,snr_maciej,n_maciej,zaps2"
         done = Set{String}()
         if isfile(summary_file)
             for line in Iterators.drop(eachline(summary_file), 1)
@@ -1037,7 +1038,7 @@ module SpaTs
             open(f -> println(f, header), summary_file, "w")
         end
         rows = String[]
-        fmt(x) = isnothing(x) ? "" : string(round(x, digits=2))
+        fmt(x) = isnothing(x) ? "" : x isa AbstractFloat ? string(round(x, digits=2)) : string(x)
         # dopisanie po każdym pulsarze — nic nie ginie przy przerwaniu
         record(row) = (push!(rows, row); open(f -> println(f, row), summary_file, "a"))
 
@@ -1054,38 +1055,64 @@ module SpaTs
             end
             indir  = joinpath(psr_path, obs_dirs[1]) * "/"
             outdir = vpmout * psr
-            println("\n===== $psr  (obs: $(obs_dirs[1])) =====")
+            # Maciej's results (read only): on-pulse window + his zaps
+            ref_dir = isnothing(ref_root) ? nothing : joinpath(ref_root, psr)
+            ref_params = isnothing(ref_dir) ? nothing : joinpath(ref_dir, "params.json")
+            ref_archive = isnothing(ref_dir) ? nothing : joinpath(ref_dir, "pulsar.spCF")
+            println("\n===== $psr  (obs: $(obs_dirs[1]))" *
+                    (!isnothing(ref_params) && isfile(ref_params) ? "  [jest wynik Macieja]" : "") * " =====")
             try
-                # S/N as pazi shows it: before zapping (measured during the
-                # zap review on the rebuilt archive) and after (zapped archive)
-                p, _, _ = Data.process_psrdata(indir, outdir; zap_mode=zap_mode, zap_nsigma=zap_nsigma)
-                snr_before = get(p, "snr_pazi_before", nothing)
-                snr_after = Data.psrchive_snr(joinpath(outdir, "pulsar.spCF"))
-                (snr_before isa Number && isnan(snr_before)) && (snr_before = nothing)
-                isnan(snr_after) && (snr_after = nothing)
-                zaps = get(p, "zaps", nothing)
+                pf = joinpath(outdir, "params.json")
+                if !isfile(pf)
+                    # new params; from Maciej's take ONLY the on-pulse window
+                    # (if set) and his "zaps" as a record — his p3 etc. are
+                    # not inherited (a placeholder p3 would switch off the
+                    # P3 detection); "zaps" stays untouched, mine go to zaps2
+                    mkpath(outdir)
+                    p0 = Tools.default_params(pf)
+                    if !isnothing(ref_params) && isfile(ref_params)
+                        rp = Tools.read_params(ref_params)
+                        for k in ("bin_st", "bin_end")
+                            isnothing(get(rp, k, nothing)) || (p0[k] = rp[k])
+                        end
+                        p0["zaps"] = get(rp, "zaps", nothing)
+                    end
+                    Tools.save_params(pf, p0)
+                end
+                # compare only with pulsars Maciej marked as done ("zapped": true)
+                ref_done = !isnothing(ref_params) && isfile(ref_params) &&
+                           get(Tools.read_params(ref_params), "zapped", false) == true
+                ra = (ref_done && isfile(ref_archive)) ? ref_archive : nothing
+                ref_done && isnothing(ra) && println("UWAGA: Maciej ma \"zapped\": true, ale brak $ref_archive")
+                p, _, _ = Data.process_psrdata(indir, outdir; zap_mode=zap_mode, zap_nsigma=zap_nsigma,
+                                               ref_archive=ra)
+                zaps = Data.zaps_of(p)
                 nz = sum((b - a + 1 for (a, b) in Data.zaps_to_ranges(zaps)); init=0)
                 np = something(get(p, "nsubint", nothing), 0)
                 pct = np > 0 ? 100 * nz / np : 0.0
+                c = get(p, "zap_cmp", Dict())
                 status = (p["p3"] isa Number && p["p3"] > 0) ? "ok" : "brak_P3"
                 println("$psr [$status]: odrzucono $nz/$np impulsów ($(round(pct, digits=1))%), " *
-                        "S/N jak w pazi $(fmt(snr_before)) → $(fmt(snr_after))")
+                        "S/N profilu: bez zapów $(fmt(get(c, "snr_none", nothing))) → moje " *
+                        "$(fmt(get(c, "snr_mine", nothing)))" *
+                        (haskey(c, "snr_maciej") ? ", Macieja $(fmt(c["snr_maciej"]))" : ""))
                 pct > warn_pct && println("UWAGA: odrzucono ponad $(warn_pct)% impulsów — szum może " *
                                           "siedzieć w jednym kanale częstotliwości; rozważ ścieżkę _16 " *
                                           "z zapowaniem kanałów (paz -z) zamiast wyrzucania impulsów.")
-                record("$psr,$status,$np,$nz,$(round(pct, digits=2)),$(fmt(snr_before)),$(fmt(snr_after))," *
-                       "\"$(something(zaps, ""))\"")
+                record("$psr,$status,$np,$nz,$(round(pct, digits=2)),$(fmt(get(c, "snr_none", nothing)))," *
+                       "$(fmt(get(c, "snr_mine", nothing))),$(fmt(get(c, "snr_maciej", nothing)))," *
+                       "$(fmt(get(c, "n_maciej", nothing))),\"$(something(zaps, ""))\"")
             catch e
                 # Ctrl+C stops the whole run (not just this pulsar); the
                 # interrupted pulsar is not recorded, so a rerun redoes it
                 e isa InterruptException && rethrow()
                 if e isa Data.SkipPulsar
                     println("$psr — pominięty na życzenie.")
-                    record("$psr,pominiety,,,,,,\"\"")
+                    record("$psr,pominiety,,,,,,,,\"\"")
                 else
                     @warn "Błąd dla $psr: $e"
                     msg = replace(sprint(showerror, e), '"' => '\'', '\n' => ' ')
-                    record("$psr,blad,,,,,,\"$(first(msg, 200))\"")
+                    record("$psr,blad,,,,,,,,\"$(first(msg, 200))\"")
                 end
             end
             if zap_mode in (:review, :pazi)
@@ -1097,6 +1124,63 @@ module SpaTs
         println(header)
         foreach(println, rows)
         return rows
+    end
+
+
+    """
+    Końcowe porównanie: moje zapowanie (pazur2, `zaps2`) vs Macieja (pazur).
+
+    Czyta `p["zap_cmp"]` z `mine/<psr>/params.json` — liczone przy
+    przerabianiu na TYCH SAMYCH danych i tym samym oknie on-pulse:
+    standardowe S/N profilu (bez zapów / moje / Macieja) i miara automatu.
+    Zapisuje do `outdir` (poza folderami wyników):
+      zap_comparison.csv  — tabela per pulsar,
+      zap_comparison.png  — S/N moje vs Macieja, zysk S/N, % wyciętych.
+
+      compare_zap_methods()
+    """
+    function compare_zap_methods(; mine="/home/psr/data/OUTPUT/pazur2/",
+                                 outdir="/home/psr/data/OUTPUT/zap_comparison/", show_=false)
+        mkpath(outdir)
+        T = []
+        for psr in sort(readdir(mine))
+            pf = joinpath(mine, psr, "params.json")
+            isfile(pf) || continue
+            c = get(Tools.read_params(pf), "zap_cmp", nothing)
+            (isnothing(c) || !haskey(c, "snr_maciej") || isnothing(c["snr_maciej"])) && continue
+            g(k) = (v = get(c, k, nothing); isnothing(v) ? NaN : Float64(v))
+            push!(T, (psr=psr, N=Int(c["n_pulses"]), n_mine=Int(c["n_mine"]), n_maciej=Int(c["n_maciej"]),
+                      none=g("snr_none"), mine=g("snr_mine"), maciej=g("snr_maciej"),
+                      a_none=g("auto_none"), a_mine=g("auto_mine"), a_maciej=g("auto_maciej")))
+        end
+        isempty(T) && (println("Brak pulsarów z porównaniem (zap_cmp z wynikiem Macieja) w $mine"); return nothing)
+
+        csv = joinpath(outdir, "zap_comparison.csv")
+        open(csv, "w") do f
+            println(f, "pulsar,n_pulses,n_mine,n_maciej,snr_none,snr_mine,snr_maciej,gain_mine_pct," *
+                       "gain_maciej_pct,better,auto_none,auto_mine,auto_maciej")
+            for t in T
+                gm, gj = 100 * (t.mine / t.none - 1), 100 * (t.maciej / t.none - 1)
+                better = abs(t.mine - t.maciej) <= 0.005 * t.none ? "remis" : t.mine > t.maciej ? "moja" : "Macieja"
+                println(f, join([t.psr, t.N, t.n_mine, t.n_maciej, round(t.none, digits=2), round(t.mine, digits=2),
+                                 round(t.maciej, digits=2), round(gm, digits=2), round(gj, digits=2), better,
+                                 round(t.a_none, digits=2), round(t.a_mine, digits=2), round(t.a_maciej, digits=2)], ","))
+            end
+        end
+
+        gm = [100 * (t.mine / t.none - 1) for t in T]
+        gj = [100 * (t.maciej / t.none - 1) for t in T]
+        tol = [0.5 for _ in T]   # remis: różnica < 0.5% S/N bez zapów
+        nb = count(gm .- gj .> tol); nw = count(gj .- gm .> tol); ne = length(T) - nb - nw
+        println("\n===== MOJA METODA vs MACIEJA ($(length(T)) pulsarów, standardowe S/N profilu) =====")
+        println("lepsza moja: $nb   lepsza Macieja: $nw   remis (<0.5%): $ne")
+        println("średni zysk S/N: moja $(round(mean(gm), digits=1))%   Macieja $(round(mean(gj), digits=1))%   " *
+                "(mediana: $(round(median(gm), digits=1))% / $(round(median(gj), digits=1))%)")
+        println("średnio wycięte: moja $(round(mean(t.n_mine / t.N for t in T) * 100, digits=1))%   " *
+                "Macieja $(round(mean(t.n_maciej / t.N for t in T) * 100, digits=1))%")
+        png = Plot.zap_methods_comparison(T, outdir; show_=show_)
+        println("Tabela: $csv\nWykres: $png")
+        return T
     end
 
     function main()
@@ -1431,7 +1515,7 @@ module SpaTs
         # pierwsze 5 znanych (z J0820) + 4 nowe (sprawdzenie na pulsarach, ktorych
         # automat "nie widzial" przy strojeniu)
         test_psrs = vcat(label_psrs[1:5], ["J1903+0135", "J1901-0906", "J1946+1805", "J1555-3134"])
-        blind_test_autozap(["J0955-5304"]; vpmout=vpmout, interactive=false)
+        #blind_test_autozap(["J0955-5304"]; vpmout=vpmout, interactive=false)
         #blind_test_autozap(test_psrs; vpmout=vpmout, interactive=false)
 
         # eksport danych (bez zapow) do debugowania automatu lokalnie
@@ -1440,12 +1524,20 @@ module SpaTs
         # ETAP 2b — strojenie parametrow na etykietach (po slepym tescie)
         #tune_autozap(label_psrs; vpmout=vpmout)
 
-        # ETAP 3 — przeliczenie od nowa (moja polowa: od konca listy).
-        # Dla kazdego pulsara: obrazek przed / co wycina automat, potem
-        # Enter = zatwierdz | p = popraw w pazi | r = od nowa recznie |
-        # n = bez zapow | s = pomin. Ctrl+C przerywa; ponowne uruchomienie
-        # kontynuuje (vpmout/zap_summary.csv).
-        #reprocess_all_zap(vpmout=vpmout, reverse=true, half=true, zap_mode=:auto_pazi)
+        # ETAP 3 — PRZERABIANIE WSZYSTKICH pulsarow moja metoda do pazur2
+        # (pusty, moj). Moje zapy -> params "zaps2"; "zaps" Macieja nietkniete.
+        # Z pazur (Maciej, tylko odczyt) brane: okno on-pulse + jego zapy do
+        # porownania (S/N profilu na tych samych danych). Dla kazdego
+        # pulsara: obrazek, potem Enter = zatwierdz | p = popraw w pazi |
+        # r = od nowa recznie | n = bez zapow | s = pomin. Ctrl+C przerywa;
+        # ponowne uruchomienie kontynuuje (pazur2/zap_summary.csv).
+        reprocess_all_zap(vpmout="/home/psr/data/OUTPUT/pazur2/", ref_root="/home/psr/data/OUTPUT/pazur/",
+                          zap_mode=:auto_pazi)
+
+        # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
+        # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)
+        compare_zap_methods(mine="/home/psr/data/OUTPUT/pazur2/",
+                            outdir="/home/psr/data/OUTPUT/zap_comparison/", show_=true)
 
         # test skanu cutoffu + coherent fold na 4 pulsarach (wylaczony)
         #for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]

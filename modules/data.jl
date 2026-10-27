@@ -947,113 +947,124 @@ module Data
         return rows
     end
 
-
     """
-        review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review)
+        review_zaps(txtfile, p, params_file, outdir; mode=:auto_pazi, archive, ref_archive)
 
-    Runs `find_bad_pulses` on `txtfile` and shows `Plot.zap_review` (left:
-    data before zapping, right: after). Mode `:review` then loops until
-    accepted — every change redraws the window:
+    Chooses the bad pulses of MY analysis and saves them in `p["zaps2"]`
+    (+ `p["zap_chans2"]`). `p["zaps"]` (Maciej's / older runs) is never
+    changed — only created empty if missing.
 
-      Enter        zatwierdź obecny wybór
-      n            bez zapów
-      s            pomiń ten pulsar (rzuca `SkipPulsar`)
-      +12 40-45    dodaj impulsy      -40-45   usuń z wyboru
-      12 40-45     zastąp cały wybór  (numeracja od 0, jak w zaps)
+    Modes: `:auto_pazi` (default use) automat proposal + picture, then
+    Enter / p (fix in pazi) / r (redo by hand) / n (none) / s (skip);
+    `:auto` automat without asking; `:pazi` by hand in pazi; `:review` /
+    old `find_bad_pulses` window.
 
-    `:auto` accepts the automatic choice without asking. Saves `p["zaps"]`.
+    Comparison (`p["zap_cmp"]`): on the SAME unzapped data and on-pulse
+    window, the standard profile S/N (`profile_snr`) and the automat's own
+    measure for: no zaps / Maciej's zaps (pulses zapped in `ref_archive`,
+    e.g. pazur/<psr>/pulsar.spCF, plus his `p["zaps"]`) / my zaps.
     """
-    function review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review, archive=nothing)
+    function review_zaps(txtfile, p, params_file, outdir; nsigma=5.0, mode=:review, archive=nothing,
+                         ref_archive=nothing)
         data = load_ascii(txtfile)
         N = size(data, 1)
-        if mode == :auto_pazi
-            # automatic proposal, reviewed in pazi on a COPY that already has
-            # it applied: zap whatever is still bad there and quit; or redo
-            # everything by hand on the original
-            isnothing(archive) && error("review_zaps(mode=:auto_pazi) needs `archive`")
-            a = auto_zap(data, p["bin_st"], p["bin_end"])
-            println("Automat: $(length(a.bad)) z $N impulsów " *
-                    "($(round(100 * length(a.bad) / N, digits=1))%), S/N $(round(a.snr_before, digits=1)) → " *
-                    "$(round(a.snr_after, digits=1))  →  \"$(pulses_to_zaps(a.bad))\"")
-            # first the picture (left original, right what is cut and why),
-            # pazi only on request
+        bst, bend = p["bin_st"], p["bin_end"]
+        haskey(p, "zaps") || (p["zaps"] = nothing)
+        snr(rows) = profile_snr(data, bst, bend; drop=rows)
+        r1(x) = round(x, digits=1)
+        chans = Int[]
+
+        if mode in (:auto_pazi, :auto)
+            a = auto_zap(data, bst, bend)
+            println("Automat: $(length(a.bad)) z $N impulsów ($(r1(100 * length(a.bad) / N))%)  →  " *
+                    "\"$(pulses_to_zaps(a.bad))\"")
             kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
             println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
-            # S/N as pazi shows it, before / after the proposal
-            sp0 = psrchive_snr(archive)
-            sp1 = psrchive_snr(archive; zaps=pulses_to_zaps(a.bad))
-            p["snr_pazi_before"] = isfinite(sp0) ? sp0 : nothing
-            println("S/N jak w pazi: bez zapów=$(round(sp0, digits=1))  po automacie=$(round(sp1, digits=1))")
-            viewer = Plot.autozap_view(data, p["bin_st"], p["bin_end"], a, outdir; show_=true, wait_=false,
-                                       title_="$(basename(rstrip(outdir, '/'))) — automat", snr_pazi=(sp0, sp1))
-            rows, chans = copy(a.bad), Int[]
-            while true
-                print("Enter = zatwierdź | p = popraw w pazi (dane PO automacie) | r = od nowa ręcznie " *
-                      "w pazi | n = bez zapów | s = pomiń pulsar: ")
-                ans = strip(readline())
-                if ans == "s"
-                    throw(SkipPulsar())
-                elseif ans == "n"
-                    rows, chans = Int[], Int[]
-                elseif ans == "r"
-                    z = run_pazi(archive)
-                    rows, chans = [s + 1 for s in z.subints if 0 <= s < N], z.chans
-                elseif ans == "p"
-                    preview = replace(archive, r"\.[^.]+$" => ".autozap.ar")
-                    cp(archive, preview; force=true)
-                    apply_zaps(preview, pulses_to_zaps(a.bad))
-                    println("pazi pokazuje dane PO automacie — dozapuj, co jeszcze złe, i wyjdź.")
-                    z = run_pazi(preview)
-                    rm(preview, force=true)
-                    rows = sort(unique(vcat(a.bad, [s + 1 for s in z.subints if 0 <= s < N])))
-                    chans = z.chans
-                elseif ans != ""
-                    println("Nie rozumiem \"$ans\".")
-                    continue
+            s0, s1 = snr(Int[]), snr(a.bad)
+            println("S/N profilu: bez zapów=$(r1(s0))  po automacie=$(r1(s1))   " *
+                    "(miara automatu: $(r1(a.snr_before)) → $(r1(a.snr_after)))")
+            rows = copy(a.bad)
+            if mode == :auto
+                Plot.autozap_view(data, bst, bend, a, outdir; show_=false,
+                                  title_="$(basename(rstrip(outdir, '/'))) — automat", snr_pazi=(s0, s1))
+            else
+                isnothing(archive) && error("review_zaps(mode=:auto_pazi) needs `archive`")
+                viewer = Plot.autozap_view(data, bst, bend, a, outdir; show_=true, wait_=false,
+                                           title_="$(basename(rstrip(outdir, '/'))) — automat", snr_pazi=(s0, s1))
+                while true
+                    print("Enter = zatwierdź | p = popraw w pazi (dane PO automacie) | r = od nowa ręcznie " *
+                          "w pazi | n = bez zapów | s = pomiń pulsar: ")
+                    ans = strip(readline())
+                    if ans == "s"
+                        Plot.close_png(viewer)
+                        throw(SkipPulsar())
+                    elseif ans == "n"
+                        rows, chans = Int[], Int[]
+                    elseif ans == "r"
+                        z = run_pazi(archive)
+                        rows, chans = [s + 1 for s in z.subints if 0 <= s < N], z.chans
+                    elseif ans == "p"
+                        preview = replace(archive, r"\.[^.]+$" => ".autozap.ar")
+                        cp(archive, preview; force=true)
+                        apply_zaps(preview, pulses_to_zaps(a.bad))
+                        println("pazi pokazuje dane PO automacie — dozapuj, co jeszcze złe, i wyjdź.")
+                        z = run_pazi(preview)
+                        rm(preview, force=true)
+                        rows = sort(unique(vcat(a.bad, [s + 1 for s in z.subints if 0 <= s < N])))
+                        chans = z.chans
+                    elseif ans != ""
+                        println("Nie rozumiem \"$ans\".")
+                        continue
+                    end
+                    break
                 end
-                break
+                Plot.close_png(viewer)
             end
-            Plot.close_png(viewer)
-            # final choice = training data for the detector too
-            save_zap_labels(basename(rstrip(outdir, '/')), data, p["bin_st"], p["bin_end"], rows)
-            zaps = pulses_to_zaps(rows)
-            p["zaps"] = isempty(zaps) ? nothing : zaps
-            p["zap_chans"] = isempty(chans) ? nothing : join(chans, " ")
-            Tools.save_params(params_file, p)
-            println("Zapisane zaps = $(repr(p["zaps"]))  zap_chans = $(repr(p["zap_chans"]))")
-            return p["zaps"]
-        end
-        if mode == :pazi
-            # zapping by hand in pazi; the choice also becomes training data
-            # for the automatic detector (input/zap_labels/<psr>.csv)
+        elseif mode == :pazi
             isnothing(archive) && error("review_zaps(mode=:pazi) needs `archive`")
             z = run_pazi(archive)
-            rows = [s + 1 for s in z.subints if 0 <= s < N]
-            save_zap_labels(basename(rstrip(outdir, '/')), data, p["bin_st"], p["bin_end"], rows)
-            zaps = pulses_to_zaps(rows)
-            p["zaps"] = isempty(zaps) ? nothing : zaps
-            p["zap_chans"] = isempty(z.chans) ? nothing : join(z.chans, " ")
-            Tools.save_params(params_file, p)
-            println("Zapisane zaps = $(repr(p["zaps"]))  zap_chans = $(repr(p["zap_chans"]))")
-            return p["zaps"]
-        end
-        r = find_bad_pulses(data, p["bin_st"], p["bin_end"]; nsigma=nsigma)
-        rows = copy(r.bad)
-        println("Automatycznie: $(length(rows)) złych impulsów z $N " *
-                "($(round(100 * length(rows) / N, digits=1))%)  →  \"$(pulses_to_zaps(rows))\"")
-        isempty(r.kept_bright) ||
-            println("Zostawione mimo podejrzanego szumu (dużo sygnału, podnoszą S/N): " *
-                    "$(length(r.kept_bright))  →  \"$(pulses_to_zaps(r.kept_bright))\"")
-        if mode == :review
-            rows = select_pulses(data, r, rows, p["bin_st"], p["bin_end"], outdir)
+            rows, chans = [s + 1 for s in z.subints if 0 <= s < N], z.chans
         else
-            Plot.zap_review(data, r, rows, p["bin_st"], p["bin_end"], outdir; show_=false)
+            r = find_bad_pulses(data, bst, bend; nsigma=nsigma)
+            rows = copy(r.bad)
+            println("Automatycznie (stary detektor): $(length(rows)) złych impulsów z $N  →  " *
+                    "\"$(pulses_to_zaps(rows))\"")
+            if mode == :review
+                rows = select_pulses(data, r, rows, bst, bend, outdir)
+            else
+                Plot.zap_review(data, r, rows, bst, bend, outdir; show_=false)
+            end
         end
+
+        # final choice = training data for the detector too
+        mode in (:auto_pazi, :pazi) && save_zap_labels(basename(rstrip(outdir, '/')), data, bst, bend, rows)
         zaps = pulses_to_zaps(rows)
-        p["zaps"] = isempty(zaps) ? nothing : zaps
+        p["zaps2"] = isempty(zaps) ? nothing : zaps
+        p["zap_chans2"] = isempty(chans) ? nothing : join(chans, " ")
+
+        # comparison with Maciej's zapping (same data, same window)
+        sn = pulse_signal_noise(data, bst, bend)
+        cmp = Dict{String,Any}("n_pulses" => N, "n_mine" => length(rows),
+                               "snr_none" => snr(Int[]), "snr_mine" => snr(rows),
+                               "auto_none" => zap_snr(sn, Int[]), "auto_mine" => zap_snr(sn, rows))
+        ref = isnothing(ref_archive) ? nothing : zapped_rows(ref_archive, bst, bend)
+        if !isnothing(ref) && ref.N == N
+            mrows = sort(unique(vcat(ref.rows, zaps_to_rows(p["zaps"], N))))
+            cmp["n_maciej"] = length(mrows)
+            cmp["snr_maciej"] = snr(mrows)
+            cmp["auto_maciej"] = zap_snr(sn, mrows)
+            cmp["zaps_maciej"] = pulses_to_zaps(mrows)
+        elseif !isnothing(ref)
+            println("UWAGA: archiwum Macieja ma $(ref.N) impulsów, moje $N — nie porównuję.")
+        end
+        p["zap_cmp"] = Dict(k => (v isa AbstractFloat && !isfinite(v)) ? nothing : v for (k, v) in cmp)
         Tools.save_params(params_file, p)
-        println("Zapisane zaps = $(repr(p["zaps"]))")
-        return p["zaps"]
+        println("Zapisane zaps2 = $(repr(p["zaps2"]))  zap_chans2 = $(repr(p["zap_chans2"]))   " *
+                "(zaps Macieja/stare bez zmian: $(repr(p["zaps"])))")
+        println("S/N profilu: bez zapów=$(r1(cmp["snr_none"]))  moje=$(r1(cmp["snr_mine"]))" *
+                (haskey(cmp, "snr_maciej") ? "  Macieja=$(r1(cmp["snr_maciej"])) ($(cmp["n_maciej"]) imp.)" :
+                                             "  Macieja: brak"))
+        return p["zaps2"]
     end
 
 
@@ -1103,6 +1114,67 @@ module Data
         target == archive || rm(target, force=true)
         m = match(r"snr=([-+0-9.eE]+)", out)
         return isnothing(m) ? NaN : parse(Float64, m.captures[1])
+    end
+
+
+    """
+    Pulse zaps used by MY analysis: `p["zaps2"]` when it exists (also when
+    it is `nothing` = checked, nothing cut), otherwise the old `p["zaps"]`
+    (Maciej's / earlier runs). `p["zaps"]` itself is never overwritten.
+    """
+    zaps_of(p) = haskey(p, "zaps2") ? p["zaps2"] : get(p, "zaps", nothing)
+    zap_chans_of(p) = haskey(p, "zaps2") ? get(p, "zap_chans2", nothing) : get(p, "zap_chans", nothing)
+
+
+    """
+        profile_snr(data, bin_st, bin_end; drop=Int[]) -> Float64
+
+    Standard S/N of the integrated profile (Lorimer & Kramer): sum the
+    pulses (all-zero rows = already zapped, and rows `drop` left out), then
+
+        S/N = Σ_on (P − mean_off) / (σ_off · √n_on)
+
+    with the fixed on-pulse window `bin_st:bin_end` and σ_off the rms of the
+    integrated profile off the pulse. Same data + same window for every zap
+    set, so the comparison between methods is fair (unlike pazi, which picks
+    its own width).
+    """
+    function profile_snr(data, bin_st, bin_end; drop=Int[])
+        N, nb = size(data)
+        keep = [any(!iszero, @view data[i, :]) for i in 1:N]
+        keep[filter(i -> 1 <= i <= N, collect(drop))] .= false
+        count(keep) == 0 && return NaN
+        P = vec(sum(@view(data[keep, :]), dims=1))
+        on = bin_st:bin_end
+        off = vcat(1:bin_st-1, bin_end+1:nb)
+        μ, σ = mean(P[off]), std(P[off])
+        return σ > 0 ? sum(P[on] .- μ) / (σ * sqrt(length(on))) : NaN
+    end
+
+
+    """
+    Pulses zapped in an EXISTING archive (e.g. Maciej's pazur/<psr>/pulsar.spCF,
+    zapped directly in pazi): debase a temporary copy and return the 1-based
+    rows that came out all-zero, plus the number of pulses. `nothing` if the
+    archive can't be read.
+    """
+    function zapped_rows(archive, bin_st, bin_end)
+        isfile(archive) || return nothing
+        dir = mktempdir()
+        try
+            tmp = joinpath(dir, "ref.spCF")
+            cp(archive, tmp)
+            run(pipeline(`pmod -onpulse "$bin_st $bin_end" -device "/NULL" -debase $tmp`; stdout=devnull, stderr=devnull))
+            txt = joinpath(dir, "ref.debase.txt")
+            convert_psrfit_ascii(joinpath(dir, "ref.debase.gg"), txt)
+            d = load_ascii(txt)
+            return (rows=[i for i in axes(d, 1) if !any(!iszero, @view d[i, :])], N=size(d, 1))
+        catch e
+            println("Nie udało się odczytać zapów z $archive: $(sprint(showerror, e))")
+            return nothing
+        finally
+            rm(dir; recursive=true, force=true)
+        end
     end
 
 
@@ -1394,7 +1466,7 @@ module Data
     pfold, pulsar.debase.txt) works on the cleaned data.
     """
     function process_psrdata(indir, outdir; files=nothing, outfile="pulsar.spCF", params_file="params.json",
-                             zap_mode=:pazi, zap_nsigma=5.0)
+                             zap_mode=:pazi, zap_nsigma=5.0, ref_archive=nothing)
 
         # full paths
         params_file = joinpath(outdir, params_file)
@@ -1429,10 +1501,11 @@ module Data
 
         # bad pulses: detect on the debased data, then zap + debase again
         # (outfile is rebuilt by psradd on every run, so zaps are re-applied)
-        zaps = zap_mode == :off ? get(p, "zaps", nothing) :
+        # (my zaps live in p["zaps2"]; p["zaps"] = Maciej's / older, untouched)
+        zaps = zap_mode == :off ? zaps_of(p) :
                review_zaps(replace(outfile, ".spCF" => ".debase.txt"), p, params_file, outdir;
-                           nsigma=zap_nsigma, mode=zap_mode, archive=outfile)
-        chans = get(p, "zap_chans", nothing)
+                           nsigma=zap_nsigma, mode=zap_mode, archive=outfile, ref_archive=ref_archive)
+        chans = zap_chans_of(p)
         if !isnothing(zaps) || !isnothing(chans)
             apply_zaps(outfile, zaps; chans=chans)
             debase(outfile, params_file, p)
