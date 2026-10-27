@@ -1143,7 +1143,7 @@ module SpaTs
          (pulsar, powód, obserwacja) do zrobienia osobno na końcu.
       2. psradd → debase → automat (`review_zaps(mode=:auto)`): moje zapy
          w `"zaps2"`, `"zaps"` Macieja bez zmian, porównanie S/N profilu z
-         jego zapami w `"zap_cmp"`, obrazek `pulsar_autozap.png`.
+         jego zapami w `"zap_cmp"`, obrazki `pulsar_autozap.pdf` i `pulsar_contrast.pdf`.
       3. paz: wycięcie `zaps2` w pulsar.spCF; pliki pośrednie (debase) usunięte.
 
     Postęp w `out/zap_summary.csv` (ponowne uruchomienie kontynuuje).
@@ -1245,7 +1245,7 @@ module SpaTs
                 for f in ("pulsar.debase.gg", "pulsar.debase.txt", "pulsar_zap_review.png")
                     rm(joinpath(outdir, f), force=true)
                 end
-                keep_png || foreach(f -> rm(joinpath(outdir, f), force=true), ("pulsar_autozap.png", "pulsar_autozap.pdf"))
+                keep_png || foreach(f -> rm(joinpath(outdir, f), force=true), ("pulsar_autozap.pdf", "pulsar_contrast.pdf"))
 
                 c = get(p, "zap_cmp", Dict())
                 np, nz = get(c, "n_pulses", 0), get(c, "n_mine", 0)
@@ -1276,7 +1276,7 @@ module SpaTs
     standardowe S/N profilu (bez zapów / moje / Macieja) i miara automatu.
     Zapisuje do `outdir` (poza folderami wyników):
       zap_comparison.csv  — tabela per pulsar,
-      zap_comparison.png  — S/N moje vs Macieja, zysk S/N, % wyciętych.
+      zap_comparison.pdf  — S/N moje vs Macieja, zysk S/N, % wyciętych.
 
       compare_zap_methods()
     """
@@ -1356,7 +1356,7 @@ module SpaTs
         show_ || return T
         println("
 Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
-        for psr in psrs, f in ("pulsar_autozap.png", "pulsar_vs_maciej_zap_compare.png")
+        for psr in psrs, f in ("pulsar_autozap.pdf", "pulsar_contrast.pdf")
             png = joinpath(out, psr, f)
             isfile(png) || continue
             println("$psr: $f")
@@ -1366,7 +1366,7 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
             Plot.close_png(proc)
             ans == "s" && break
         end
-        cpng = joinpath(out, "zap_comparison", "zap_comparison.png")
+        cpng = joinpath(out, "zap_comparison", "zap_comparison.pdf")
         isfile(cpng) && Plot.show_png(cpng; prompt="Wykres zbiorczy - Enter = koniec: ")
         return T
     end
@@ -1729,31 +1729,31 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         # jak w pazur. Ctrl+C przerywa, ponowne uruchomienie kontynuuje.
         # TEST przed pelnym przebiegiem: reprezentatywne pulsary do
         # /home/psr/data/OUTPUT/pazur2_test/ + porownanie z Maciejem + obrazki
-        autozap_test(["J0034-0721",   # silny nulling
-                      "J0304+1932",   # czysty, jasny (nic nie ciac)
-                      "J0459-0210",   # nulle / wygaszenia
-                      "J0820-4114",   # szerokie okno on-pulse
-                      "J1046-5813",   # Maciej cial pojedyncze impulsy
-                      "J1048-5832",   # jasny, silna modulacja (wczesniej za duzo ciete)
-                      "J1049-5833",   # dlugie odcinki bez sygnalu
-                      "J1054-6452",   # Maciej cial 31 impulsow
-                      "J1056-6258",   # bardzo jasny, czysty
-                      "J1057-5226",   # interpuls
-                      "J1110-5637",   # wygaszony srodek
-                      "J1539-6322",   # zaszumiony koniec
-                      "J1750-3503"])  # paski RFI
+        #autozap_test(["J0034-0721",   # silny nulling
+        #             "J0304+1932",   # czysty, jasny (nic nie ciac)
+        #             "J0459-0210",   # nulle / wygaszenia
+        #             "J0820-4114",   # szerokie okno on-pulse
+        #             "J1046-5813",   # Maciej cial pojedyncze impulsy
+        #             "J1048-5832",   # jasny, silna modulacja (wczesniej za duzo ciete)
+        #             "J1049-5833",   # dlugie odcinki bez sygnalu
+        #             "J1054-6452",   # Maciej cial 31 impulsow
+        #             "J1056-6258",   # bardzo jasny, czysty
+        #             "J1057-5226",   # interpuls
+        #             "J1110-5637",   # wygaszony srodek
+        #             "J1539-6322",   # zaszumiony koniec
+        #             "J1750-3503"])  # paski RFI
 
-        # ETAP 3a — PELNY PRZEBIEG (po akceptacji testu odkomentowac):
+        # ETAP 3a — PELNY PRZEBIEG (test zaakceptowany 2026-10-27):
         # params kopiowane od Macieja (+ on-pulse/P3 z Czarek7 _16, gdy brak),
         # automat wycina zle impulsy -> zaps2; struktura jak w pazur.
         # Ctrl+C przerywa, ponowne uruchomienie kontynuuje.
-        #autozap_all(dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
-        #            ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/")
+        autozap_all(dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
+                    ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/")
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)
-        #compare_zap_methods(mine="/home/psr/data/OUTPUT/pazur2/",
-        #                    outdir="/home/psr/data/OUTPUT/zap_comparison/", show_=false)
+        compare_zap_methods(mine="/home/psr/data/OUTPUT/pazur2/",
+                            outdir="/home/psr/data/OUTPUT/zap_comparison/", show_=false)
 
         # test skanu cutoffu + coherent fold na 4 pulsarach (wylaczony)
         #for psr_test in ["J1750-3503", "J1539-6322", "J1110-5637", "J2053-7200"]

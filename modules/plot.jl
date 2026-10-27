@@ -784,6 +784,15 @@ module Plot
     process (or `nothing` if none could be started).
     """
     function open_png(path)
+        if endswith(lowercase(path), ".pdf")
+            for viewer in ("xpdf", "evince", "okular", "xdg-open")
+                isnothing(Sys.which(viewer)) && continue
+                cmd = viewer == "xpdf" ? `xpdf -z page $path` : `$viewer $path`
+                return run(pipeline(cmd; stdout=devnull, stderr=devnull); wait=false)
+            end
+            println("Brak przeglądarki PDF — otwórz ręcznie: $path")
+            return nothing
+        end
         for viewer in ("eog", "display", "feh", "xdg-open")
             if !isnothing(Sys.which(viewer))
                 return run(pipeline(`$viewer $path`; stdout=devnull, stderr=devnull); wait=false)
@@ -904,9 +913,8 @@ module Plot
         suptitle(@sprintf("%s\nwycięte %d z %d (%.1f%%)   %s %.1f → %.1f", title_, n, N,
                           100 * n / N, lab, sb, sa), fontsize=9, fontweight="bold")
         tight_layout(rect=(0, isempty(handles) ? 0 : 0.05, 1, 0.92))
-        png = "$outdir/$(name_mod)_autozap.png"
+        png = "$outdir/$(name_mod)_autozap.pdf"   # PDF only (xpdf on kopernik)
         savefig(png, dpi=110)
-        savefig(replace(png, r"\.png$" => ".pdf"))   # do xpdf
         println(png)
         close()
         # external viewer instead of plt.show(): plt windows don't open here
@@ -964,9 +972,8 @@ module Plot
                      "($(length(T)) pulsarów; niebieskie = moja lepsza, czerwone = Macieja, szare = remis <0.5%)",
                      fontsize=10, fontweight="bold")
         tight_layout(rect=(0, 0, 1, 0.94))
-        png = joinpath(outdir, "zap_comparison.png")
+        png = joinpath(outdir, "zap_comparison.pdf")
         savefig(png, dpi=120)
-        savefig(replace(png, r"\.png$" => ".pdf"))   # do xpdf
         close()
         show_ && show_png(png)
         return png
@@ -1031,15 +1038,85 @@ module Plot
 
         suptitle(title_, fontsize=9, fontweight="bold")
         tight_layout(rect=(0, 0, 1, 0.94))
-        png = "$outdir/$(name_mod)_zap_compare.png"
+        png = "$outdir/$(name_mod)_zap_compare.pdf"
         savefig(png, dpi=110)
-        savefig(replace(png, r"\.png$" => ".pdf"))   # do xpdf
         println(png)
         close()
         # external viewer instead of plt.show(): plt windows don't open here
         return show_ ? show_png(png; wait_=wait_) : nothing
     end
 
+
+
+    """
+    pazi-like before/after view of the zapping: pulse stack around the
+    on-pulse window with zapped pulses grey and the colour scale from the
+    min..max of the REMAINING pulses (as pazi rescales after zapping, so a
+    removed bright junk pulse makes the pulsar stand out), and the mean
+    profile in S/N units underneath. Columns: before / automat / Maciej
+    (if `mrows` given). Saved as `<name_mod>_contrast.pdf`.
+    """
+    function zap_contrast(data, bin_st, bin_end, rows, mrows, outdir; title_="", name_mod="pulsar",
+                          off=nothing)
+        N, nb = size(data)
+        w = bin_end - bin_st + 1
+        lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
+        isnothing(off) && (off = vcat(1:bin_st-1, bin_end+1:nb))
+        empty = [all(iszero, @view data[i, :]) for i in 1:N]
+        cols = Any[("PRZED (wszystkie)", Int[])]
+        push!(cols, ("AUTOMAT", rows))
+        isnothing(mrows) || push!(cols, ("MACIEJ", mrows))
+        nc = length(cols)
+        profs, snrs = Vector{Float64}[], Float64[]
+        for (_, r) in cols
+            keep = .!empty; keep[filter(i -> 1 <= i <= N, r)] .= false
+            P = count(keep) > 0 ? vec(sum(@view(data[keep, :]), dims=1)) : zeros(nb)
+            μ, σ = mean(P[off]), std(P[off])
+            Pn = σ > 0 ? (P .- μ) ./ σ : P .* 0
+            push!(profs, Pn)
+            push!(snrs, sum(Pn[bin_st:bin_end]) / sqrt(w))
+        end
+        pmax = maximum(maximum(p[lo:hi]) for p in profs)
+        pmin = minimum(minimum(p[lo:hi]) for p in profs)
+
+        rc("font", size=7.5, family="sans-serif")
+        fig = figure(figsize=(9.2, 6.6), dpi=100)
+        fig.patch.set_facecolor("white")
+        cmap = pyimport("copy").copy(PyPlot.get_cmap("afmhot"))
+        cmap.set_bad("#5a6e8c")
+        ax0 = nothing
+        for (k, (name, r)) in enumerate(cols)
+            win = data[:, lo:hi]
+            zr = filter(i -> 1 <= i <= N, r)
+            win[zr, :] .= NaN
+            win[empty, :] .= NaN
+            fin = filter(isfinite, vec(win))
+            vmin, vmax = isempty(fin) ? (0.0, 1.0) : extrema(fin)
+            ax = subplot2grid((4, nc), (0, k - 1), rowspan=3, sharey=ax0)
+            isnothing(ax0) && (ax0 = ax)
+            imshow(win, origin="lower", aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax,
+                   interpolation="nearest", extent=(lo - 0.5, hi + 0.5, -0.5, N - 0.5))
+            title("$name
+wycięte $(length(zr))   S/N profilu $(round(snrs[k], digits=1))",
+                  fontsize=8.5, fontweight="bold")
+            k == 1 ? ylabel("pulse number (od 0)") : tick_params(labelleft=false)
+            tick_params(labelbottom=false)
+            subplot2grid((4, nc), (3, k - 1))
+            plot(lo:hi, profs[k][lo:hi], color="black", lw=0.8)
+            k > 1 && plot(lo:hi, profs[1][lo:hi], color="gray", lw=0.6, ls="--")
+            xlim(lo, hi); ylim(pmin - 0.05 * (pmax - pmin), pmax * 1.05)
+            xlabel("bin")
+            k == 1 ? ylabel("profil [σ off-pulse]") : tick_params(labelleft=false)
+        end
+        suptitle("$title_   (skala kolorów jak w pazi: min–max pozostałych impulsów; " *
+                 "szare = wycięte; przerywana = profil przed)", fontsize=8.5, fontweight="bold")
+        tight_layout(rect=(0, 0, 1, 0.95))
+        pdf = "$outdir/$(name_mod)_contrast.pdf"
+        savefig(pdf, dpi=110)
+        println(pdf)
+        close()
+        return pdf
+    end
 
     """
     Review window for bad-pulse zapping (`Data.review_zaps`).
