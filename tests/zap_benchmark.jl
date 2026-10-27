@@ -25,6 +25,7 @@ prof(j) = exp(-((j - 497) / 6)^2) + 1.3 * exp(-((j - 527) / 8)^2)
 function gen(sc, seed; N=1000)
     rng = MersenneTwister(seed)
     d = randn(rng, N, NB)
+    sc == :slownoise && (d[300:700, :] .*= 1.5)         # J1110/J1057: noisier stretch, signal fine
     junk, nulls = Int[], Int[]
     amp = fill(1.0, N)
     base = sc in (:weakstripes,) ? 0.4 : sc in (:bright,) ? 3.0 : 1.0
@@ -103,7 +104,8 @@ scen = [(:clean, "czysty (nic do cięcia)"), (:bright, "jasny, silna modulacja (
         (:nulls, "nulle"), (:faded, "wygaszony odcinek (J1110)"), (:noisy, "zaszumiony odcinek"),
         (:stripes, "paski RFI"), (:weakstripes, "słabe paski, słaby pulsar (J1750)"),
         (:badstart, "zły początek"), (:impulse, "impulsowe RFI w off-pulse"),
-        (:mixed, "mieszany realistyczny")]
+        (:mixed, "mieszany realistyczny"),
+        (:slownoise, "dłuższy odcinek z wyższym szumem, dobry sygnał (J1110/J1057)")]
 seeds = 1:4
 snr(d, rows) = Base.invokelatest(D.profile_snr, d, first(ON), last(ON); drop=rows)
 

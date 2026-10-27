@@ -933,24 +933,29 @@ module Data
 
 
     """
-        rfi_rms(data, bin_st, bin_end; k=1.5) -> rows
+        rfi_rms(data, bin_st, bin_end; k=3.0, local_win=31) -> rows
 
-    RFI rule of the MeerKAT TPA single-pulse pipeline (Keith+2026): a pulse
-    whose off-pulse rms (emission-free bins, `offpulse_bins`) is above
-    Q3 + `k`·IQR of all pulses is junk. Needed because the profile S/N barely
-    notices one pulse with RFI stripes / an impulsive burst off the pulse,
-    so `profile_gate` put most of them back (synthetic benchmark: stripes
-    caught 28%, impulsive RFI 13%; with this rule 100%, ~0.4% false cuts).
+    RFI rule after the MeerKAT TPA single-pulse pipeline (Keith+2026: pulse
+    off-pulse rms outlier -> whole pulse out), but LOCAL: each pulse's
+    off-pulse rms (emission-free bins) against the running median of its
+    `local_win` neighbours, cut if above by > `k` robust σ (MAD of those
+    residuals). A global Q3+1.5·IQR cut whole stretches with a slowly
+    higher noise level and good signal on real data (J1110 middle, J1057
+    11000-13500: profile S/N 923 -> 781); sudden single-pulse RFI (stripes,
+    bursts) is what this is for — the profile-S/N gate put most of it back
+    (synthetic benchmark: stripes caught 28%, impulsive RFI 13%).
     """
-    function rfi_rms(data, bin_st, bin_end; k=1.5)
+    function rfi_rms(data, bin_st, bin_end; k=3.0, local_win=31)
         N = size(data, 1)
         off = offpulse_bins(data, bin_st, bin_end)
-        good = [any(!iszero, @view data[i, :]) for i in 1:N]
-        g = findall(good)
+        g = findall(i -> any(!iszero, @view data[i, :]), 1:N)
         length(g) < 10 && return Int[]
-        r = [good[i] ? std(@view data[i, off]) : 0.0 for i in 1:N]
-        q1, q3 = quantile(r[g], 0.25), quantile(r[g], 0.75)
-        return findall(good .& (r .> q3 + k * (q3 - q1)))
+        r = [std(@view data[i, off]) for i in g]
+        hw = local_win ÷ 2
+        res = [r[t] - median(@view r[max(1, t - hw):min(length(g), t + hw)]) for t in eachindex(g)]
+        sd = 1.4826 * median(abs.(res .- median(res)))
+        sd > 0 || return Int[]
+        return g[res .> k * sd]
     end
 
 
@@ -958,9 +963,12 @@ module Data
     Convenience: `auto_zap_core` on a data matrix, then (`gate=true`) the
     profile-S/N veto `profile_gate` (vetoed pulses get reason 0), then
     (`rfi=true`) the RFI rule `rfi_rms` — AFTER the gate, which must not
-    put RFI back (new pulses get reason 2, single junk).
+    put RFI back (new pulses get reason 2, single junk). Safety: if the RFI
+    cuts would lower the profile S/N by more than `rfi_tol` (real RFI costs
+    ~0.5% in the benchmark), the threshold is raised (k × 1.5, 2, 3) —
+    on real data a noisy-but-good stretch must not go.
     """
-    function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=1.5, kw...)
+    function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
         a = auto_zap_core(sn; kw...)
         reason = copy(a.reason)
@@ -971,9 +979,19 @@ module Data
             isempty(back) || (why *= " (bramka S/N profilu przywróciła $(length(back)) imp.)")
         end
         if rfi
-            new = filter(i -> reason[i] == 0, rfi_rms(data, bin_st, bin_end; k=rfi_k))
+            cut0 = findall(>(0), reason)
+            s_ref = profile_snr(data, bin_st, bin_end; drop=cut0)
+            new = Int[]
+            for kk in rfi_k .* (1.0, 1.5, 2.0, 3.0)
+                cand = filter(i -> reason[i] == 0, rfi_rms(data, bin_st, bin_end; k=kk))
+                if isempty(cand) || !(profile_snr(data, bin_st, bin_end; drop=vcat(cut0, cand)) <
+                                      (1 - rfi_tol) * s_ref)
+                    new = cand
+                    break
+                end
+            end
             reason[new] .= 2
-            isempty(new) || (why *= " + RFI (szum off-pulse, reguła TPA): $(length(new)) imp.")
+            isempty(new) || (why *= " + RFI (skok szumu off-pulse): $(length(new)) imp.")
         end
         reason == a.reason && return a
         bad = findall(>(0), reason)

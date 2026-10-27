@@ -1049,12 +1049,13 @@ module Plot
 
 
     """
-    pazi-like before/after view of the zapping: pulse stack around the
-    on-pulse window with zapped pulses grey and the colour scale from the
-    min..max of the REMAINING pulses (as pazi rescales after zapping, so a
-    removed bright junk pulse makes the pulsar stand out), and the mean
-    profile in S/N units underneath. Columns: before / automat / Maciej
-    (if `mrows` given). Saved as `<name_mod>_contrast.pdf`.
+    pazi-like before/after view of the zapping: per column (before /
+    automat / Maciej if `mrows` given) the REMAINING pulses only, stacked
+    without gaps (as the data really looks after zapping), colour scale from
+    the 1-99.5% percentiles of those pulses (so removed dark nulls / bright
+    junk change the contrast), and the mean profile in S/N units (σ of the
+    off-pulse) with the "before" profile dashed. Saved as
+    `<name_mod>_contrast.pdf`.
     """
     function zap_contrast(data, bin_st, bin_end, rows, mrows, outdir; title_="", name_mod="pulsar",
                           off=nothing)
@@ -1063,18 +1064,16 @@ module Plot
         lo, hi = max(1, bin_st - w ÷ 2), min(nb, bin_end + w ÷ 2)
         isnothing(off) && (off = vcat(1:bin_st-1, bin_end+1:nb))
         empty = [all(iszero, @view data[i, :]) for i in 1:N]
-        cols = Any[("PRZED (wszystkie)", Int[])]
-        push!(cols, ("AUTOMAT", rows))
+        cols = Any[("PRZED", Int[]), ("AUTOMAT", rows)]
         isnothing(mrows) || push!(cols, ("MACIEJ", mrows))
         nc = length(cols)
-        profs, snrs = Vector{Float64}[], Float64[]
+        keeps, profs, snrs = BitVector[], Vector{Float64}[], Float64[]
         for (_, r) in cols
             keep = .!empty; keep[filter(i -> 1 <= i <= N, r)] .= false
             P = count(keep) > 0 ? vec(sum(@view(data[keep, :]), dims=1)) : zeros(nb)
             μ, σ = mean(P[off]), std(P[off])
             Pn = σ > 0 ? (P .- μ) ./ σ : P .* 0
-            push!(profs, Pn)
-            push!(snrs, sum(Pn[bin_st:bin_end]) / sqrt(w))
+            push!(keeps, keep); push!(profs, Pn); push!(snrs, sum(Pn[bin_st:bin_end]) / sqrt(w))
         end
         pmax = maximum(maximum(p[lo:hi]) for p in profs)
         pmin = minimum(minimum(p[lo:hi]) for p in profs)
@@ -1082,34 +1081,28 @@ module Plot
         rc("font", size=7.5, family="sans-serif")
         fig = figure(figsize=(9.2, 6.6), dpi=100)
         fig.patch.set_facecolor("white")
-        cmap = pyimport("copy").copy(PyPlot.get_cmap("afmhot"))
-        cmap.set_bad("#5a6e8c")
-        ax0 = nothing
-        for (k, (name, r)) in enumerate(cols)
-            win = data[:, lo:hi]
-            zr = filter(i -> 1 <= i <= N, r)
-            win[zr, :] .= NaN
-            win[empty, :] .= NaN
-            fin = filter(isfinite, vec(win))
-            vmin, vmax = isempty(fin) ? (0.0, 1.0) : extrema(fin)
-            ax = subplot2grid((4, nc), (0, k - 1), rowspan=3, sharey=ax0)
-            isnothing(ax0) && (ax0 = ax)
-            imshow(win, origin="lower", aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax,
-                   interpolation="nearest", extent=(lo - 0.5, hi + 0.5, -0.5, N - 0.5))
+        for (k, (name, _)) in enumerate(cols)
+            win = data[keeps[k], lo:hi]
+            n = size(win, 1)
+            fin = vec(win)
+            vmin, vmax = isempty(fin) ? (0.0, 1.0) : (quantile(fin, 0.01), quantile(fin, 0.995))
+            subplot2grid((4, nc), (0, k - 1), rowspan=3)
+            imshow(win, origin="lower", aspect="auto", cmap="afmhot", vmin=vmin, vmax=vmax,
+                   interpolation="nearest", extent=(lo - 0.5, hi + 0.5, -0.5, n - 0.5))
             title("$name
-wycięte $(length(zr))   S/N profilu $(round(snrs[k], digits=1))",
+pozostało $n z $(count(.!empty)) imp.   S/N profilu $(round(snrs[k], digits=1))",
                   fontsize=8.5, fontweight="bold")
-            k == 1 ? ylabel("pulse number (od 0)") : tick_params(labelleft=false)
+            ylabel(k == 1 ? "impulsy (wszystkie)" : "pozostałe impulsy (bez przerw)")
             tick_params(labelbottom=false)
             subplot2grid((4, nc), (3, k - 1))
-            plot(lo:hi, profs[k][lo:hi], color="black", lw=0.8)
-            k > 1 && plot(lo:hi, profs[1][lo:hi], color="gray", lw=0.6, ls="--")
+            k > 1 && plot(lo:hi, profs[1][lo:hi], color="gray", lw=0.7, ls="--", label="przed")
+            plot(lo:hi, profs[k][lo:hi], color="black", lw=0.9, label=name)
             xlim(lo, hi); ylim(pmin - 0.05 * (pmax - pmin), pmax * 1.05)
             xlabel("bin")
-            k == 1 ? ylabel("profil [σ off-pulse]") : tick_params(labelleft=false)
+            k == 1 ? ylabel("profil [σ off-pulse]") : (tick_params(labelleft=false); legend(fontsize=6.5, loc="upper right"))
         end
-        suptitle("$title_   (skala kolorów jak w pazi: min–max pozostałych impulsów; " *
-                 "szare = wycięte; przerywana = profil przed)", fontsize=8.5, fontweight="bold")
+        suptitle("$title_   — dane PO wycięciu (wycięte impulsy usunięte, skala kolorów 1–99.5% pozostałych)",
+                 fontsize=8.5, fontweight="bold")
         tight_layout(rect=(0, 0, 1, 0.95))
         pdf = "$outdir/$(name_mod)_contrast.pdf"
         savefig(pdf, dpi=110)
