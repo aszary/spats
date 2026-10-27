@@ -847,9 +847,69 @@ module Data
     end
 
 
-    "Convenience: `auto_zap_core` on a data matrix."
-    auto_zap(data, bin_st, bin_end; kw...) =
-        auto_zap_core(pulse_signal_noise(data, bin_st, bin_end); kw...)
+    """
+        profile_gate(data, bin_st, bin_end, reason) -> rows to restore
+
+    Veto on the automat's cuts with the standard profile S/N (`profile_snr`):
+    every contiguous cut run (reasons 2-5; empty rows don't matter) is put
+    back if the integrated profile has a higher S/N with it, repeated until
+    nothing changes. If the cuts still lower the S/N, all are put back.
+    Only removes cuts, so it can't cherry-pick faint emission. Needed
+    because on 199 pulsars the cuts alone lowered the profile S/N in more
+    than half of them (median -0.4%, 12% of pulses cut vs Maciej's 1%):
+    pulses with some noise but real signal are worth keeping.
+    """
+    function profile_gate(data, bin_st, bin_end, reason)
+        N, nb = size(data)
+        on, off = bin_st:bin_end, vcat(1:bin_st-1, bin_end+1:nb)
+        psnr(P) = (μ = mean(P[off]); σ = std(P[off]); σ > 0 ? sum(P[on] .- μ) / (σ * sqrt(length(on))) : -Inf)
+        runs = UnitRange{Int}[]
+        i = 1
+        while i <= N
+            if reason[i] >= 2
+                j = i
+                while j < N && reason[j+1] >= 2; j += 1; end
+                push!(runs, i:j); i = j + 1
+            else
+                i += 1
+            end
+        end
+        isempty(runs) && return Int[]
+        Ptot = vec(sum(data, dims=1))
+        Pr = [vec(sum(@view(data[r, :]), dims=1)) for r in runs]
+        P = Ptot .- sum(Pr)
+        cut = trues(length(runs))
+        changed = true
+        while changed
+            changed = false
+            s = psnr(P)
+            for k in findall(cut)
+                s2 = psnr(P .+ Pr[k])
+                if s2 > s
+                    P .+= Pr[k]; cut[k] = false; s = s2; changed = true
+                end
+            end
+        end
+        psnr(P) < psnr(Ptot) && (cut .= false)
+        return reduce(vcat, [collect(runs[k]) for k in findall(.!cut)]; init=Int[])
+    end
+
+
+    """
+    Convenience: `auto_zap_core` on a data matrix, then (`gate=true`) the
+    profile-S/N veto `profile_gate` — vetoed pulses get reason 0.
+    """
+    function auto_zap(data, bin_st, bin_end; gate=true, kw...)
+        sn = pulse_signal_noise(data, bin_st, bin_end)
+        a = auto_zap_core(sn; kw...)
+        gate || return a
+        back = profile_gate(data, bin_st, bin_end, a.reason)
+        isempty(back) && return a
+        reason = copy(a.reason); reason[back] .= 0
+        bad = findall(>(0), reason)
+        return merge(a, (bad=bad, reason=reason, snr_after=zap_snr(sn, bad),
+                         why=a.why * " (bramka S/N profilu przywróciła $(length(back)) imp.)"))
+    end
 
 
     "S/N of the summed pulses (`pulse_signal_noise` result) with `rows` (1-based) removed."
