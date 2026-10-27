@@ -1096,38 +1096,20 @@ module Data
             end
         end
 
-        # Maciej's zapping (same data, same window)
-        ref = isnothing(ref_archive) ? nothing : zapped_rows(ref_archive, bst, bend)
-        mrows = (!isnothing(ref) && ref.N == N) ? sort(unique(vcat(ref.rows, zaps_to_rows(p["zaps"], N)))) : nothing
-        # automatic run: never worse than Maciej — take the best profile S/N of
-        # mine / mine ∪ Maciej's (gated) / mine ∪ Maciej's / Maciej's alone
-        choice = "moja"
-        if mode == :auto && !isnothing(mrows)
-            u = sort(unique(vcat(rows, mrows)))
-            ru = zeros(Int8, N); ru[u] .= 2
-            ug = setdiff(u, profile_gate(data, bst, bend, ru))
-            best = snr(rows)
-            for (name, cand) in (("suma_bramka", ug), ("suma", u), ("Macieja", mrows))
-                sc = snr(cand)
-                if isfinite(sc) && sc > best * (1 + 1e-6)
-                    best, rows, choice = sc, cand, name
-                end
-            end
-            choice != "moja" && println("Wybrano wycięcia: $choice (S/N profilu $(r1(best)))")
-        end
-
         # final choice = training data for the detector too
         mode in (:auto_pazi, :pazi) && save_zap_labels(basename(rstrip(outdir, '/')), data, bst, bend, rows)
         zaps = pulses_to_zaps(rows)
         p["zaps2"] = isempty(zaps) ? nothing : zaps
         p["zap_chans2"] = isempty(chans) ? nothing : join(chans, " ")
 
+        # comparison with Maciej's zapping (same data, same window)
         sn = pulse_signal_noise(data, bst, bend)
         cmp = Dict{String,Any}("n_pulses" => N, "n_mine" => length(rows),
                                "snr_none" => snr(Int[]), "snr_mine" => snr(rows),
-                               "auto_none" => zap_snr(sn, Int[]), "auto_mine" => zap_snr(sn, rows),
-                               "choice" => choice)
-        if !isnothing(mrows)
+                               "auto_none" => zap_snr(sn, Int[]), "auto_mine" => zap_snr(sn, rows))
+        ref = isnothing(ref_archive) ? nothing : zapped_rows(ref_archive, bst, bend)
+        if !isnothing(ref) && ref.N == N
+            mrows = sort(unique(vcat(ref.rows, zaps_to_rows(p["zaps"], N))))
             cmp["n_maciej"] = length(mrows)
             cmp["snr_maciej"] = snr(mrows)
             cmp["auto_maciej"] = zap_snr(sn, mrows)

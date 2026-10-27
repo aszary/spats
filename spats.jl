@@ -1292,21 +1292,20 @@ module SpaTs
             g(k) = (v = get(c, k, nothing); isnothing(v) ? NaN : Float64(v))
             push!(T, (psr=psr, N=Int(c["n_pulses"]), n_mine=Int(c["n_mine"]), n_maciej=Int(c["n_maciej"]),
                       none=g("snr_none"), mine=g("snr_mine"), maciej=g("snr_maciej"),
-                      a_none=g("auto_none"), a_mine=g("auto_mine"), a_maciej=g("auto_maciej"),
-                      choice=string(get(c, "choice", "moja"))))
+                      a_none=g("auto_none"), a_mine=g("auto_mine"), a_maciej=g("auto_maciej")))
         end
         isempty(T) && (println("Brak pulsarów z porównaniem (zap_cmp z wynikiem Macieja) w $mine"); return nothing)
 
         csv = joinpath(outdir, "zap_comparison.csv")
         open(csv, "w") do f
             println(f, "pulsar,n_pulses,n_mine,n_maciej,snr_none,snr_mine,snr_maciej,gain_mine_pct," *
-                       "gain_maciej_pct,better,auto_none,auto_mine,auto_maciej,wybor")
+                       "gain_maciej_pct,better,auto_none,auto_mine,auto_maciej")
             for t in T
                 gm, gj = 100 * (t.mine / t.none - 1), 100 * (t.maciej / t.none - 1)
                 better = abs(t.mine - t.maciej) <= 0.005 * t.none ? "remis" : t.mine > t.maciej ? "moja" : "Macieja"
                 println(f, join([t.psr, t.N, t.n_mine, t.n_maciej, round(t.none, digits=2), round(t.mine, digits=2),
                                  round(t.maciej, digits=2), round(gm, digits=2), round(gj, digits=2), better,
-                                 round(t.a_none, digits=2), round(t.a_mine, digits=2), round(t.a_maciej, digits=2), t.choice], ","))
+                                 round(t.a_none, digits=2), round(t.a_mine, digits=2), round(t.a_maciej, digits=2)], ","))
             end
         end
 
@@ -1320,8 +1319,6 @@ module SpaTs
                 "(mediana: $(round(median(gm), digits=1))% / $(round(median(gj), digits=1))%)")
         println("średnio wycięte: moja $(round(mean(t.n_mine / t.N for t in T) * 100, digits=1))%   " *
                 "Macieja $(round(mean(t.n_maciej / t.N for t in T) * 100, digits=1))%")
-        println("wybrany wariant: " * join(["$k=$(count(t -> t.choice == k, T))"
-                                            for k in ("moja", "suma_bramka", "suma", "Macieja")], "  "))
         png = Plot.zap_methods_comparison(T, outdir; show_=show_)
         println("Tabela: $csv\nWykres: $png")
         return T
