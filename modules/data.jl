@@ -933,19 +933,51 @@ module Data
 
 
     """
-    Convenience: `auto_zap_core` on a data matrix, then (`gate=true`) the
-    profile-S/N veto `profile_gate` — vetoed pulses get reason 0.
+        rfi_rms(data, bin_st, bin_end; k=1.5) -> rows
+
+    RFI rule of the MeerKAT TPA single-pulse pipeline (Keith+2026): a pulse
+    whose off-pulse rms (emission-free bins, `offpulse_bins`) is above
+    Q3 + `k`·IQR of all pulses is junk. Needed because the profile S/N barely
+    notices one pulse with RFI stripes / an impulsive burst off the pulse,
+    so `profile_gate` put most of them back (synthetic benchmark: stripes
+    caught 28%, impulsive RFI 13%; with this rule 100%, ~0.4% false cuts).
     """
-    function auto_zap(data, bin_st, bin_end; gate=true, kw...)
+    function rfi_rms(data, bin_st, bin_end; k=1.5)
+        N = size(data, 1)
+        off = offpulse_bins(data, bin_st, bin_end)
+        good = [any(!iszero, @view data[i, :]) for i in 1:N]
+        g = findall(good)
+        length(g) < 10 && return Int[]
+        r = [good[i] ? std(@view data[i, off]) : 0.0 for i in 1:N]
+        q1, q3 = quantile(r[g], 0.25), quantile(r[g], 0.75)
+        return findall(good .& (r .> q3 + k * (q3 - q1)))
+    end
+
+
+    """
+    Convenience: `auto_zap_core` on a data matrix, then (`gate=true`) the
+    profile-S/N veto `profile_gate` (vetoed pulses get reason 0), then
+    (`rfi=true`) the RFI rule `rfi_rms` — AFTER the gate, which must not
+    put RFI back (new pulses get reason 2, single junk).
+    """
+    function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=1.5, kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
         a = auto_zap_core(sn; kw...)
-        gate || return a
-        back = profile_gate(data, bin_st, bin_end, a.reason)
-        isempty(back) && return a
-        reason = copy(a.reason); reason[back] .= 0
+        reason = copy(a.reason)
+        why = a.why
+        if gate
+            back = profile_gate(data, bin_st, bin_end, reason)
+            reason[back] .= 0
+            isempty(back) || (why *= " (bramka S/N profilu przywróciła $(length(back)) imp.)")
+        end
+        if rfi
+            new = filter(i -> reason[i] == 0, rfi_rms(data, bin_st, bin_end; k=rfi_k))
+            reason[new] .= 2
+            isempty(new) || (why *= " + RFI (szum off-pulse, reguła TPA): $(length(new)) imp.")
+        end
+        reason == a.reason && return a
         bad = findall(>(0), reason)
-        return merge(a, (bad=bad, reason=reason, snr_after=zap_snr(sn, bad),
-                         why=a.why * " (bramka S/N profilu przywróciła $(length(back)) imp.)"))
+        return merge(a, (bad=bad, reason=reason, snr_after=zap_snr(sn, bad), why=why))
     end
 
 
