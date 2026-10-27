@@ -789,6 +789,11 @@ module Plot
                 return run(pipeline(`$viewer $path`; stdout=devnull, stderr=devnull); wait=false)
             end
         end
+        # PDF saved next to the PNG -> xpdf (available on kopernik)
+        pdf = replace(path, r"\.png$" => ".pdf")
+        if pdf != path && isfile(pdf) && !isnothing(Sys.which("xpdf"))
+            return run(pipeline(`xpdf -z page $pdf`; stdout=devnull, stderr=devnull); wait=false)
+        end
         # fallback: separate python process (same python as PyPlot) showing
         # the PNG in a TkAgg window — independent of the Julia event loop
         py = PyCall.python
@@ -901,6 +906,7 @@ module Plot
         tight_layout(rect=(0, isempty(handles) ? 0 : 0.05, 1, 0.92))
         png = "$outdir/$(name_mod)_autozap.png"
         savefig(png, dpi=110)
+        savefig(replace(png, r"\.png$" => ".pdf"))   # do xpdf
         println(png)
         close()
         # external viewer instead of plt.show(): plt windows don't open here
@@ -960,6 +966,7 @@ module Plot
         tight_layout(rect=(0, 0, 1, 0.94))
         png = joinpath(outdir, "zap_comparison.png")
         savefig(png, dpi=120)
+        savefig(replace(png, r"\.png$" => ".pdf"))   # do xpdf
         close()
         show_ && show_png(png)
         return png
@@ -1026,6 +1033,7 @@ module Plot
         tight_layout(rect=(0, 0, 1, 0.94))
         png = "$outdir/$(name_mod)_zap_compare.png"
         savefig(png, dpi=110)
+        savefig(replace(png, r"\.png$" => ".pdf"))   # do xpdf
         println(png)
         close()
         # external viewer instead of plt.show(): plt windows don't open here

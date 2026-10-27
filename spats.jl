@@ -1245,7 +1245,7 @@ module SpaTs
                 for f in ("pulsar.debase.gg", "pulsar.debase.txt", "pulsar_zap_review.png")
                     rm(joinpath(outdir, f), force=true)
                 end
-                keep_png || rm(joinpath(outdir, "pulsar_autozap.png"), force=true)
+                keep_png || foreach(f -> rm(joinpath(outdir, f), force=true), ("pulsar_autozap.png", "pulsar_autozap.pdf"))
 
                 c = get(p, "zap_cmp", Dict())
                 np, nz = get(c, "n_pulses", 0), get(c, "n_mine", 0)
