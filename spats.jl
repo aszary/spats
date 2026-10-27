@@ -1137,9 +1137,10 @@ module SpaTs
     Dla każdego pulsara z `dataroot`:
       1. params = KOPIA params Macieja (`ref_root/<psr>`), jeśli są; inaczej
          domyślne. Brak okna on-pulse → z `p3_root/<psr>_16` (Czarek7); P3:
-         Macieja, jeśli > 0, inaczej z `p3_root/<psr>_16`, inaczej -1.
-         Bez okna on-pulse pulsar jest pomijany (status brak_onpulse — pmod
-         wymagałby ręcznego zaznaczenia).
+         Macieja, jeśli > 0, inaczej z `p3_root/<psr>_16`.
+         Bez P3 albo bez okna on-pulse pulsar NIE jest teraz przerabiany
+         (żaden folder nie powstaje) — trafia do `out/do_recznie.csv`
+         (pulsar, powód, obserwacja) do zrobienia osobno na końcu.
       2. psradd → debase → automat (`review_zaps(mode=:auto)`): moje zapy
          w `"zaps2"`, `"zaps"` Macieja bez zmian, porównanie S/N profilu z
          jego zapami w `"zap_cmp"`, obrazek `pulsar_autozap.png`.
@@ -1173,6 +1174,9 @@ module SpaTs
         valid(x) = x isa Number && x > 0
         readp(f) = isfile(f) ? (try Tools.read_params(f) catch; nothing end) : nothing
         n_ok = n_skip = n_err = 0
+        manual_file = joinpath(out, "do_recznie.csv")
+        tmp_params = joinpath(mktempdir(), "params.json")
+        manual = String[]
         println("AUTOMAT: $(length(psrs)) pulsarów → $out   (params/zapy Macieja: $ref_root, P3/on-pulse zapas: $p3_root)")
 
         for (k, psr) in enumerate(psrs)
@@ -1188,13 +1192,13 @@ module SpaTs
             indir, outdir = joinpath(psr_path, obs[1]) * "/", out * psr
             println("\n[$k/$(length(psrs))] ===== $psr =====")
             try
-                mkpath(outdir)
                 pf = joinpath(outdir, "params.json")
                 rp = readp(joinpath(ref_root, psr, "params.json"))
                 cp16 = something(readp(joinpath(p3_root, psr * "_16", "params.json")),
                                  readp(joinpath(p3_root, psr, "params.json")), Dict())
                 # 1. params: copy of Maciej's (same structure), else default
-                p = !isnothing(rp) ? deepcopy(rp) : Tools.default_params(pf)
+                #    (nothing is written before the checks below pass)
+                p = !isnothing(rp) ? deepcopy(rp) : Tools.default_params(tmp_params)
                 haskey(p, "zaps") || (p["zaps"] = nothing)
                 for key in ("bin_st", "bin_end")
                     isnothing(get(p, key, nothing)) && (p[key] = get(cp16, key, nothing))
@@ -1206,13 +1210,23 @@ module SpaTs
                 end
                 p3_from == "" && (p["p3"] = get(p, "p3", -1.0); valid(p["p3"]) || (p["p3"] = -1.0))
                 p["nsubint"] = nothing          # recount on the rebuilt archive
-                Tools.save_params(pf, p)
-                if isnothing(p["bin_st"]) || isnothing(p["bin_end"])
-                    println("Brak okna on-pulse (ani u Macieja, ani w $p3_root) — pomijam.")
-                    record("$psr,brak_onpulse,,,,,,,,$(fmt(p["p3"])),$p3_from,\"\"")
+                # no P3 / no on-pulse window anywhere -> not processed now,
+                # listed in out/do_recznie.csv to be done separately at the end
+                why = String[]
+                (isnothing(p["bin_st"]) || isnothing(p["bin_end"])) && push!(why, "brak_onpulse")
+                valid(p["p3"]) || push!(why, "brak_P3")
+                if !isempty(why)
+                    st = join(why, "+")
+                    println("Pomijam ($st) — dopisany do $(manual_file) do zrobienia na końcu.")
+                    record("$psr,$st,,,,,,,,$(fmt(p["p3"])),$p3_from,\"\"")
+                    isfile(manual_file) || open(f -> println(f, "pulsar,powod,obs"), manual_file, "w")
+                    open(f -> println(f, "$psr,$st,$(obs[1])"), manual_file, "a")
+                    push!(manual, psr)
                     n_skip += 1
                     continue
                 end
+                mkpath(outdir)
+                Tools.save_params(pf, p)
 
                 # 2. archive + automat (no questions, no windows)
                 outfile = joinpath(outdir, "pulsar.spCF")
@@ -1249,6 +1263,8 @@ module SpaTs
             end
         end
         println("\nAUTOMAT gotowy: ok=$n_ok  pominięte=$n_skip  błędy=$n_err   tabela: $summary_file")
+        isempty(manual) || println("Do zrobienia osobno (brak P3 / on-pulse), $(length(manual)) w tej sesji: " *
+                                   "$(join(manual, ", "))\nPełna lista: $manual_file")
     end
 
 
