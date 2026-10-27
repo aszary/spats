@@ -1050,10 +1050,10 @@ module Plot
 
     """
     pazi-like before/after view of the zapping: per column (before /
-    automat / Maciej if `mrows` given) the REMAINING pulses only, stacked
-    without gaps (as the data really looks after zapping), colour scale from
-    the 1-99.5% percentiles of those pulses (so removed dark nulls / bright
-    junk change the contrast), and the mean profile in S/N units (σ of the
+    automat / Maciej if `mrows` given) all pulses in place with the zapped
+    ones left EMPTY (white), colour scale from the 1-99.5% percentiles of the
+    remaining pulses only (so removed dark nulls / bright junk change the
+    contrast), and the mean profile in S/N units (σ of the
     off-pulse) with the "before" profile dashed. Saved as
     `<name_mod>_contrast.pdf`.
     """
@@ -1081,18 +1081,23 @@ module Plot
         rc("font", size=7.5, family="sans-serif")
         fig = figure(figsize=(9.2, 6.6), dpi=100)
         fig.patch.set_facecolor("white")
+        cmap = pyimport("copy").copy(PyPlot.get_cmap("afmhot"))
+        cmap.set_bad("white")
+        ax0 = nothing
         for (k, (name, _)) in enumerate(cols)
-            win = data[keeps[k], lo:hi]
-            n = size(win, 1)
-            fin = vec(win)
+            win = data[:, lo:hi]
+            win[.!keeps[k], :] .= NaN
+            n = count(keeps[k])
+            fin = vec(data[keeps[k], lo:hi])
             vmin, vmax = isempty(fin) ? (0.0, 1.0) : (quantile(fin, 0.01), quantile(fin, 0.995))
-            subplot2grid((4, nc), (0, k - 1), rowspan=3)
-            imshow(win, origin="lower", aspect="auto", cmap="afmhot", vmin=vmin, vmax=vmax,
-                   interpolation="nearest", extent=(lo - 0.5, hi + 0.5, -0.5, n - 0.5))
+            ax = subplot2grid((4, nc), (0, k - 1), rowspan=3, sharey=ax0)
+            isnothing(ax0) && (ax0 = ax)
+            imshow(win, origin="lower", aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax,
+                   interpolation="nearest", extent=(lo - 0.5, hi + 0.5, -0.5, N - 0.5))
             title("$name
-pozostało $n z $(count(.!empty)) imp.   S/N profilu $(round(snrs[k], digits=1))",
+zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
                   fontsize=8.5, fontweight="bold")
-            ylabel(k == 1 ? "impulsy (wszystkie)" : "pozostałe impulsy (bez przerw)")
+            k == 1 ? ylabel("pulse number (od 0)") : tick_params(labelleft=false)
             tick_params(labelbottom=false)
             subplot2grid((4, nc), (3, k - 1))
             k > 1 && plot(lo:hi, profs[1][lo:hi], color="gray", lw=0.7, ls="--", label="przed")
@@ -1101,7 +1106,7 @@ pozostało $n z $(count(.!empty)) imp.   S/N profilu $(round(snrs[k], digits=1))
             xlabel("bin")
             k == 1 ? ylabel("profil [σ off-pulse]") : (tick_params(labelleft=false); legend(fontsize=6.5, loc="upper right"))
         end
-        suptitle("$title_   — dane PO wycięciu (wycięte impulsy usunięte, skala kolorów 1–99.5% pozostałych)",
+        suptitle("$title_   — dane PO wycięciu (białe = wycięte, skala kolorów 1–99.5% pozostałych impulsów)",
                  fontsize=8.5, fontweight="bold")
         tight_layout(rect=(0, 0, 1, 0.95))
         pdf = "$outdir/$(name_mod)_contrast.pdf"
