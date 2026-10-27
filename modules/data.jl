@@ -362,6 +362,35 @@ module Data
 
 
     """
+        offpulse_bins(data, bin_st, bin_end; nsig=5.0, pad=10)
+
+    Off-pulse bins: outside the on-pulse window AND without emission in the
+    mean profile (boxcar-smoothed, > `nsig`·σ above the median baseline),
+    widened by `pad` bins. An interpulse or a wide component outside the
+    window (J1057-5226) was counted as noise: profile S/N 21 instead of
+    thousands and 1295 pulses cut as "noisy". Falls back to the whole
+    outside if less than 20% would be left.
+    """
+    function offpulse_bins(data, bin_st, bin_end; nsig=5.0, pad=10)
+        N, nb = size(data)
+        off0 = vcat(1:bin_st-1, bin_end+1:nb)
+        keep = [any(!iszero, @view data[i, :]) for i in 1:N]
+        (count(keep) == 0 || length(off0) < 10) && return off0
+        P = vec(mean(@view(data[keep, :]), dims=1))
+        μ = median(P[off0])
+        σ = 1.4826 * median(abs.(P[off0] .- μ))
+        σ > 0 || return off0
+        h = 4
+        Ps = [mean(P[mod1(j + k, nb)] for k in -h:h) for j in 1:nb]
+        em = (Ps .- μ) .> nsig * σ / sqrt(2h + 1)
+        emx = falses(nb)
+        for j in findall(em), k in -pad:pad; emx[mod1(j + k, nb)] = true; end
+        off = filter(j -> !emx[j], off0)
+        return length(off) >= 0.2 * length(off0) ? off : off0
+    end
+
+
+    """
         pulse_signal_noise(data, bin_st, bin_end) -> (s, v, good)
 
     Per pulse: on-pulse signal `s` (sum minus off-pulse baseline) and the
@@ -381,12 +410,15 @@ module Data
         N, nb = size(data)
         on = bin_st:bin_end
         n_on = length(on)
-        segs = [1:bin_st-1, bin_end+1:nb]
+        off = offpulse_bins(data, bin_st, bin_end)
+        segs = UnitRange{Int}[]
+        for j in off
+            (!isempty(segs) && last(segs[end]) == j - 1) ? (segs[end] = first(segs[end]):j) : push!(segs, j:j)
+        end
         wins = UnitRange{Int}[]
         for sg in segs, j in 0:(length(sg) ÷ n_on)-1
             push!(wins, first(sg) + j * n_on : first(sg) + (j + 1) * n_on - 1)
         end
-        off = vcat(segs...)
         good = [var(@view data[i, off]) > 0 for i in 1:N]
         base = [mean(@view data[i, off]) for i in 1:N]
         # MATCHED FILTER: on-pulse bins weighted by the mean profile (smoothed,
@@ -861,7 +893,7 @@ module Data
     """
     function profile_gate(data, bin_st, bin_end, reason)
         N, nb = size(data)
-        on, off = bin_st:bin_end, vcat(1:bin_st-1, bin_end+1:nb)
+        on, off = bin_st:bin_end, offpulse_bins(data, bin_st, bin_end)
         psnr(P) = (μ = mean(P[off]); σ = std(P[off]); σ > 0 ? sum(P[on] .- μ) / (σ * sqrt(length(on))) : -Inf)
         runs = UnitRange{Int}[]
         i = 1
@@ -1206,7 +1238,7 @@ module Data
         count(keep) == 0 && return NaN
         P = vec(sum(@view(data[keep, :]), dims=1))
         on = bin_st:bin_end
-        off = vcat(1:bin_st-1, bin_end+1:nb)
+        off = offpulse_bins(data, bin_st, bin_end)
         μ, σ = mean(P[off]), std(P[off])
         return σ > 0 ? sum(P[on] .- μ) / (σ * sqrt(length(on))) : NaN
     end
