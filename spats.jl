@@ -1159,7 +1159,7 @@ module SpaTs
         psrs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
         isnothing(only) || (psrs = filter(in(Set(only)), psrs))
         summary_file = joinpath(out, "zap_summary.csv")
-        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_none,snr_mine,snr_maciej,n_maciej,p3,p3_from,zaps2"
+        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_none,snr_mine,snr_maciej,n_maciej,p3,p3_from,n_rfi,n_null,zaps2"
         done = Set{String}()
         if isfile(summary_file)
             for line in Iterators.drop(eachline(summary_file), 1)
@@ -1186,7 +1186,7 @@ module SpaTs
             psr_path = joinpath(dataroot, psr)
             obs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
             if isempty(obs)
-                record("$psr,brak_danych,,,,,,,,,,\"\"")
+                record("$psr,brak_danych,,,,,,,,,,,,\"\"")
                 continue
             end
             indir, outdir = joinpath(psr_path, obs[1]) * "/", out * psr
@@ -1218,7 +1218,7 @@ module SpaTs
                 if !isempty(why)
                     st = join(why, "+")
                     println("Pomijam ($st) — dopisany do $(manual_file) do zrobienia na końcu.")
-                    record("$psr,$st,,,,,,,,$(fmt(p["p3"])),$p3_from,\"\"")
+                    record("$psr,$st,,,,,,,,$(fmt(p["p3"])),$p3_from,,,\"\"")
                     isfile(manual_file) || open(f -> println(f, "pulsar,powod,obs"), manual_file, "w")
                     open(f -> println(f, "$psr,$st,$(obs[1])"), manual_file, "a")
                     push!(manual, psr)
@@ -1252,14 +1252,15 @@ module SpaTs
                 pct = np > 0 ? 100 * nz / np : 0.0
                 record("$psr,ok,$np,$nz,$(round(pct, digits=2)),$(fmt(get(c, "snr_none", nothing)))," *
                        "$(fmt(get(c, "snr_mine", nothing))),$(fmt(get(c, "snr_maciej", nothing)))," *
-                       "$(fmt(get(c, "n_maciej", nothing))),$(fmt(p["p3"])),$p3_from,\"$(something(zaps, ""))\"")
+                       "$(fmt(get(c, "n_maciej", nothing))),$(fmt(p["p3"])),$p3_from,$(fmt(get(c, "n_rfi", nothing)))," *
+                       "$(fmt(get(c, "n_null", nothing))),\"$(something(zaps, ""))\"")
                 n_ok += 1
             catch e
                 e isa InterruptException && rethrow()
                 n_err += 1
                 msg = replace(sprint(showerror, e), '"' => '\'', '\n' => ' ')
                 println("BŁĄD dla $psr: $(first(msg, 300))")
-                record("$psr,blad,,,,,,,,,,\"$(first(msg, 200))\"")
+                record("$psr,blad,,,,,,,,,,,,\"$(first(msg, 200))\"")
             end
         end
         println("\nAUTOMAT gotowy: ok=$n_ok  pominięte=$n_skip  błędy=$n_err   tabela: $summary_file")

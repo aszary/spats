@@ -933,6 +933,30 @@ module Data
 
 
     """
+        split_zaps(reason) -> (rfi, null)
+
+    Automat's cuts split by kind (`auto_zap_core` reason codes): RFI/junk =
+    empty (1), single junk (2), noisy stretch (4); nulls = no signal (3).
+    Margin / fill pulses (5) go with the nearest real cut (ties: RFI).
+    """
+    function split_zaps(reason)
+        N = length(reason)
+        kind = copy(reason)
+        for i in findall(==(5), reason)
+            for d in 1:N
+                l = i - d >= 1 && reason[i-d] in (1, 2, 3, 4) ? reason[i-d] : 0
+                r = i + d <= N && reason[i+d] in (1, 2, 3, 4) ? reason[i+d] : 0
+                (l == 0 && r == 0) && continue
+                kind[i] = (l == 3 && r in (0, 3)) || (r == 3 && l == 0) ? 3 : 2
+                break
+            end
+            kind[i] == 5 && (kind[i] = 2)
+        end
+        return (rfi=findall(k -> k in (1, 2, 4), kind), null=findall(==(3), kind))
+    end
+
+
+    """
         rfi_rms(data, bin_st, bin_end; k=3.0, local_win=31) -> rows
 
     RFI rule after the MeerKAT TPA single-pulse pipeline (Keith+2026: pulse
@@ -1120,9 +1144,11 @@ module Data
         snr(rows) = profile_snr(data, bst, bend; drop=rows)
         r1(x) = round(x, digits=1)
         chans = Int[]
+        parts = nothing
 
         if mode in (:auto_pazi, :auto)
             a = auto_zap(data, bst, bend)
+            parts = split_zaps(a.reason)
             println("Automat: $(length(a.bad)) z $N impulsów ($(r1(100 * length(a.bad) / N))%)  →  " *
                     "\"$(pulses_to_zaps(a.bad))\"")
             kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
@@ -1131,6 +1157,8 @@ module Data
             println("S/N profilu: bez zapów=$(r1(s0))  po automacie=$(r1(s1))   " *
                     "(miara automatu: $(r1(a.snr_before)) → $(r1(a.snr_after)))")
             rows = copy(a.bad)
+            println("Podział: RFI/śmieci=$(length(parts.rfi))  nulle=$(length(parts.null))   " *
+                    "(S/N profilu tylko po RFI: $(r1(snr(parts.rfi))))")
             if mode == :auto
                 Plot.autozap_view(data, bst, bend, a, outdir; show_=false,
                                   title_="$(basename(rstrip(outdir, '/'))) — automat", snr_pazi=(s0, s1))
@@ -1188,12 +1216,26 @@ module Data
         zaps = pulses_to_zaps(rows)
         p["zaps2"] = isempty(zaps) ? nothing : zaps
         p["zap_chans2"] = isempty(chans) ? nothing : join(chans, " ")
+        # the same cuts split by kind: RFI/junk (always remove) vs nulls (real
+        # emission state: keep them for nulling fraction / energy statistics)
+        # — only from the automat; after a hand edit in pazi the split is unknown
+        if !isnothing(parts) && sort(rows) == sort(vcat(parts.rfi, parts.null))
+            zr, zn = pulses_to_zaps(parts.rfi), pulses_to_zaps(parts.null)
+            p["zaps2_rfi"] = isempty(zr) ? nothing : zr
+            p["zaps2_null"] = isempty(zn) ? nothing : zn
+        else
+            delete!(p, "zaps2_rfi"); delete!(p, "zaps2_null")
+        end
 
         # comparison with Maciej's zapping (same data, same window)
         sn = pulse_signal_noise(data, bst, bend)
         cmp = Dict{String,Any}("n_pulses" => N, "n_mine" => length(rows),
                                "snr_none" => snr(Int[]), "snr_mine" => snr(rows),
                                "auto_none" => zap_snr(sn, Int[]), "auto_mine" => zap_snr(sn, rows))
+        if haskey(p, "zaps2_rfi")
+            cmp["n_rfi"], cmp["n_null"] = length(parts.rfi), length(parts.null)
+            cmp["snr_rfi_only"] = snr(parts.rfi)
+        end
         ref = isnothing(ref_archive) ? nothing : zapped_rows(ref_archive, bst, bend)
         mrows = nothing
         if !isnothing(ref) && ref.N == N
@@ -1275,6 +1317,10 @@ module Data
     (Maciej's / earlier runs). `p["zaps"]` itself is never overwritten.
     """
     zaps_of(p) = haskey(p, "zaps2") ? p["zaps2"] : get(p, "zaps", nothing)
+    "Only the RFI/junk part of my zaps (nulls kept) — for nulling / energy statistics."
+    zaps_rfi_of(p) = haskey(p, "zaps2_rfi") ? p["zaps2_rfi"] : zaps_of(p)
+    "Only the null part of my zaps."
+    zaps_null_of(p) = get(p, "zaps2_null", nothing)
     zap_chans_of(p) = haskey(p, "zaps2") ? get(p, "zap_chans2", nothing) : get(p, "zap_chans", nothing)
 
 
