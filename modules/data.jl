@@ -890,7 +890,8 @@ module Data
     Veto on the automat's cuts with the standard profile S/N (`profile_snr`):
     every contiguous cut run (reasons 2-5; empty rows don't matter) is put
     back if the integrated profile has a higher S/N with it, repeated until
-    nothing changes. If the cuts still lower the S/N, all are put back.
+    nothing changes; then the good edges of the runs still cut are given
+    back (best prefix / suffix). If the cuts still lower the S/N, all are put back.
     Only removes cuts, so it can't cherry-pick faint emission. Needed
     because on 199 pulsars the cuts alone lowered the profile S/N in more
     than half of them (median -0.4%, 12% of pulses cut vs Maciej's 1%):
@@ -927,8 +928,35 @@ module Data
                 end
             end
         end
-        psnr(P) < psnr(Ptot) && (cut .= false)
-        return reduce(vcat, [collect(runs[k]) for k in findall(.!cut)]; init=Int[])
+        # Trim: a run is restored only as a whole, so a few terrible pulses kept
+        # their good neighbours cut too (J0955 Maciej 6-9, automat 0-93; J1013
+        # 535-551 vs 513-567). Give back the best prefix / suffix of each run if
+        # the profile S/N rises and the given-back part has signal of its own
+        # (≥ min_part σ, so pure-noise null edges don't come back by chance).
+        min_part = 3.0
+        trimmed = Int[]
+        for k in findall(cut)
+            lo, hi = first(runs[k]), last(runs[k])
+            for left in (true, false)
+                hi > lo || break
+                idx = left ? (lo:hi-1) : (hi:-1:lo+1)
+                Q = zeros(nb)
+                best, bk = psnr(P), 0
+                for (t, i) in enumerate(idx)
+                    Q .+= @view data[i, :]
+                    s2 = psnr(P .+ Q)
+                    s2 > best && psnr(Q) >= min_part && ((best, bk) = (s2, t))
+                end
+                bk == 0 && continue
+                for i in idx[1:bk]
+                    P .+= @view data[i, :]
+                    push!(trimmed, i)
+                end
+                left ? (lo = idx[bk] + 1) : (hi = idx[bk] - 1)
+            end
+        end
+        psnr(P) < psnr(Ptot) && return reduce(vcat, collect.(runs))
+        return sort(vcat(reduce(vcat, [collect(runs[k]) for k in findall(.!cut)]; init=Int[]), trimmed))
     end
 
 

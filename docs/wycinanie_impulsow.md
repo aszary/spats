@@ -11,7 +11,7 @@ Uruchamiane przez `autozap_all` w `spats.jl`. Wyniki trafiają do `/home/psr/dat
 
 Działają przy tym dwa bezpieczniki:
 
-- **bramka S/N** (`profile_gate`): wycięty odcinek wraca, jeśli z nim S/N profilu jest wyższe;
+- **bramka S/N** (`profile_gate`): wycięty odcinek wraca, jeśli z nim S/N profilu jest wyższe. Potem bramka oddaje dobre krawędzie odcinków, które zostały wycięte, jeśli te krawędzie mają własny sygnał (≥3σ) i podnoszą S/N. Dzięki temu kilka fatalnych impulsów nie ciągnie za sobą całego odcinka;
 - **limit dla RFI**: wycięcia RFI nie mogą obniżyć S/N profilu o więcej niż 1%.
 
 Off-pulse liczony jest bez emisji ze średniego profilu (interpuls, składowe poza oknem).
