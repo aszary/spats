@@ -795,7 +795,9 @@ module Plot
         if !isempty(py) && isfile(py)
             code = "import matplotlib; matplotlib.use('TkAgg'); import matplotlib.pyplot as plt; " *
                    "import matplotlib.image as mi, sys; im = mi.imread(sys.argv[1]); " *
-                   "h, w = im.shape[:2]; f = plt.figure(figsize=(w / 100, h / 100), dpi=100); " *
+                   "import tkinter; r = tkinter.Tk(); sw, sh = r.winfo_screenwidth(), r.winfo_screenheight(); " *
+                   "r.destroy(); h, w = im.shape[:2]; s = min(1.0, 0.95 * sw / w, 0.85 * sh / h); " *
+                   "f = plt.figure(figsize=(s * w / 100, s * h / 100), dpi=100); " *
                    "f.add_axes([0, 0, 1, 1]).imshow(im); plt.axis('off'); " *
                    "f.canvas.manager.set_window_title(sys.argv[1]); plt.show()"
             return run(pipeline(`$py -c $code $path`; stdout=devnull, stderr=devnull); wait=false)

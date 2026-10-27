@@ -549,7 +549,7 @@ module Data
     """
     function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=3, min_run=5,
                            nsigma=6.0, f_null=0.25, q_on=0.9, noise_fac=2.0, zdet=2.0,
-                           f_rel=0.15, zrel=1.0, ac_sigma=4.5,
+                           f_rel=0.15, zrel=1.0, ac_sigma=4.5, min_run_fade=30,
                            local_win=31, noise_z=nothing, kw...)
         s, v, good = sn.s, sn.v, sn.good
         N = length(s)
@@ -611,10 +611,9 @@ module Data
         # typical: a faded stretch of a fairly bright pulsar is still weakly
         # "detected" (J1110-like: window S/N ~2 vs 22 when bright), but at
         # ~8% of normal it is junk; natural faint stretches stay well above 15%
-        nulls = [Ns[i] > 0 && Vs[i] > 0 &&
-                 ((Ss[i] < zdet * sqrt(Vs[i]) && e_on * Vs[i] >= 2 * zdet * sqrt(Vs[i]) &&
-                   Ss[i] < f_null * e_on * Vs[i]) ||
-                  Ss[i] + zrel * sqrt(Vs[i]) < f_rel * e_on * Vs[i]) for i in 1:N]
+        undet = [Ns[i] > 0 && Vs[i] > 0 && Ss[i] < zdet * sqrt(Vs[i]) &&
+                 e_on * Vs[i] >= 2 * zdet * sqrt(Vs[i]) && Ss[i] < f_null * e_on * Vs[i] for i in 1:N]
+        faded = [Ns[i] > 0 && Vs[i] > 0 && Ss[i] + zrel * sqrt(Vs[i]) < f_rel * e_on * Vs[i] for i in 1:N]
         # noisy: total noise OR white noise far above typical, over a SHORT
         # window of its own (noise needs no S/N; the signal window of a weak
         # pulsar can be 100+ pulses and would dilute a bad start). White
@@ -640,13 +639,13 @@ module Data
                  ((Vn[i] / (Nn[i] * vtyp) > noise_fac && effv[i] < 0.5 * etv) ||
                   (Wn[i] / (Nn[i] * wtyp) > noise_fac && effw_[i] < 0.5 * etw)) for i in 1:N]
 
-        function runfilter(st)
+        function runfilter(st, mr=min_run)
             st = copy(st); i = 1
             while i <= N
                 if st[i]
                     j = i
                     while j < N && st[j+1]; j += 1; end
-                    (j - i + 1) < min_run && (st[i:j] .= false)
+                    (j - i + 1) < mr && (st[i:j] .= false)
                     i = j + 1
                 else
                     i += 1
@@ -684,7 +683,13 @@ module Data
             end
             return st
         end
-        nulls = runfilter(closegaps(nulls .& ok, hw) .& good)
+        # undetected (real nulls) from `min_run` pulses; merely FADED but still
+        # detected stretches only when long (`min_run_fade`): in a bright,
+        # strongly modulated pulsar (J1048-5832) short faint episodes of
+        # real emission were cut as "nulls" all over (832 pulses) - that
+        # raises the S/N but is cherry-picking; J1110-like fading is long
+        nulls = runfilter(closegaps(undet .& ok, hw) .& good) .|
+                runfilter(closegaps(faded .& ok, hw) .& good, max(min_run_fade, min_run))
         noisy = runfilter(noisy .& good)
         snr0 = snr(falses(N))
         # noisy stretches (already gated by signal/noise above) are cut
