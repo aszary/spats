@@ -931,7 +931,7 @@ module Plot
         d = gm .- gj
         col = [x > 0.5 ? "tab:blue" : x < -0.5 ? "tab:red" : "0.5" for x in d]
 
-        fig, axs = subplots(1, 3, figsize=(16, 5.2))
+        fig, axs = subplots(1, 3, figsize=(11, 4.2))
         ax = axs[1]
         lo, hi = min(minimum(gm), minimum(gj), 0.0) - 2, max(maximum(gm), maximum(gj), 0.0) + 2
         ax.plot([lo, hi], [lo, hi], color="k", lw=0.8, ls="--")
