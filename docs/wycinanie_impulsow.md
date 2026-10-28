@@ -43,3 +43,18 @@ W kodzie odpowiadają im funkcje `Data.zaps_of(p)`, `Data.zaps_rfi_of(p)` i `Dat
 - `do_recznie.csv`: pulsary bez okna on-pulse lub bez P3.
 
 **Weryfikacja:** `julia tests/zap_benchmark.jl` uruchamia benchmark na danych syntetycznych ze znaną prawdą. Porównuje automat z regułą TPA i podejściem w stylu clfd.
+
+## Do zrobienia później
+
+1. **Weryfikacja wykrywania nulli.** Dla każdego pulsara uśrednić impulsy z `zaps2_null` w profil średni i sprawdzić, czy w oknie on-pulse pojawia się sygnał (S/N profilu nulli, osobno dla wygaszeń i braków detekcji). Sygnał oznacza, że automat uznaje słabą emisję za nulle. Frakcje wyciętych nulli porównać z literaturą (np. J1727-2739 ~68%).
+2. **Przejrzeć MeerGuard** (cleaner MeerKAT TPA/MPTA) i porównać z naszą regułą `rfi_rms` oraz benchmarkiem.
+3. **Przejrzeć publikacje z przeglądu narzędzi RFI:**
+   - Lazarus i in. 2016, CoastGuard (arXiv:1601.06194);
+   - Morello i in. 2022, IQRM (arXiv:2108.12434);
+   - Morello i in. 2019, HTRU XIV / clfd (arXiv:1811.04929);
+   - Keith i in. 2026, TPA XIX, pojedyncze impulsy (arXiv:2606.10807);
+   - TPA XVIII, filtr Fouriera okresowego RFI w każdym impulsie (arXiv:2509.15949);
+   - Miles i in. 2023, MPTA DR1 (MeerGuard);
+   - Wu i in. 2022, LOFAR scintillation census (iterative_cleaner);
+   - Offringa i in. 2010, SumThreshold;
+   - metody ML: EMSCA-UNet (arXiv:2404.00277), PSRFINET, RFI-HWT (A&A 701, A81, 2025).
