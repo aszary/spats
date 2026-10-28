@@ -1270,6 +1270,125 @@ module SpaTs
 
 
     """
+    RĘCZNE dokończenie pulsarów, których `autozap_all` nie zrobił
+    (`out/do_recznie.csv`: brak okna on-pulse / P3), oraz `extra`
+    (np. J0211-8159: automat wziął tor RFI za sygnał). Dla każdego:
+      1. params jak w `autozap_all` (kopia Macieja / domyślne; P3 nie jest
+         potrzebne do wycinania — zostaje -1, jeśli nigdzie go nie ma);
+      2. okno on-pulse: jeśli jest, pytanie czy zostawić; jeśli nie ma
+         (albo `w`) — wybór myszką w pmod (`/xw`);
+      3. automat + poprawka w pazi (`review_zaps(mode=:auto_pazi)`:
+         Enter / p / r / n / s), wycięcie `zaps2` (+ kanałów) w pulsar.spCF.
+    Wiersz pulsara w `out/zap_summary.csv` jest zastępowany wierszem ze
+    statusem `reczny`; zrobione są pomijane przy ponownym uruchomieniu.
+
+      manual_zap_all()
+      manual_zap_all(only=["J0401-7608"], extra=String[])
+    """
+    function manual_zap_all(; dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
+                            ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/",
+                            only=nothing, extra=["J0211-8159"])
+        endswith(out, "/") || (out *= "/")
+        summary_file = joinpath(out, "zap_summary.csv")
+        manual_file = joinpath(out, "do_recznie.csv")
+        isfile(summary_file) || error("Brak $summary_file — najpierw autozap_all()")
+        status = Dict{String,String}()
+        for line in Iterators.drop(eachline(summary_file), 1)
+            parts = split(line, ",")
+            length(parts) >= 2 && (status[parts[1]] = parts[2])
+        end
+        psrs = isfile(manual_file) ? [split(l, ",")[1] for l in Iterators.drop(eachline(manual_file), 1)] : String[]
+        psrs = sort(unique(vcat(psrs, extra)))
+        isnothing(only) || (psrs = filter(in(Set(only)), psrs))
+        todo = filter(psr -> get(status, psr, "") != "reczny", psrs)
+        println("RĘCZNIE: $(length(todo)) z $(length(psrs)) pulsarów do zrobienia: $(join(todo, ", "))")
+
+        fmt(x) = isnothing(x) ? "" : x isa AbstractFloat ? string(round(x, digits=2)) : string(x)
+        valid(x) = x isa Number && x > 0
+        readp(f) = isfile(f) ? (try Tools.read_params(f) catch; nothing end) : nothing
+        # the pulsar's old row (pominiety / ok from the automat) is replaced
+        function record(psr, row)
+            lines = collect(eachline(summary_file))
+            keep = [l for (i, l) in enumerate(lines) if i == 1 || split(l, ",")[1] != psr]
+            open(f -> foreach(l -> println(f, l), vcat(keep, row)), summary_file, "w")
+        end
+        tmp_params = joinpath(mktempdir(), "params.json")
+
+        for (k, psr) in enumerate(todo)
+            psr_path = joinpath(dataroot, psr)
+            obs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
+            isempty(obs) && (println("$psr: brak danych w $psr_path"); continue)
+            indir, outdir = joinpath(psr_path, obs[1]) * "/", out * psr
+            println("\n[$k/$(length(todo))] ===== $psr (obs: $(obs[1])) =====")
+            try
+                pf = joinpath(outdir, "params.json")
+                rp = readp(joinpath(ref_root, psr, "params.json"))
+                cp16 = something(readp(joinpath(p3_root, psr * "_16", "params.json")),
+                                 readp(joinpath(p3_root, psr, "params.json")), Dict())
+                p = !isnothing(rp) ? deepcopy(rp) : Tools.default_params(tmp_params)
+                haskey(p, "zaps") || (p["zaps"] = nothing)
+                for key in ("bin_st", "bin_end")
+                    isnothing(get(p, key, nothing)) && (p[key] = get(cp16, key, nothing))
+                end
+                p3_from = valid(get(p, "p3", nothing)) && !isnothing(rp) ? "Maciej" : ""
+                if p3_from == "" && valid(get(cp16, "p3", nothing))
+                    p["p3"], p3_from = cp16["p3"], "Czarek7"
+                    haskey(cp16, "p3_error") && (p["p3_error"] = cp16["p3_error"])
+                end
+                p3_from == "" && (p["p3"] = get(p, "p3", -1.0); valid(p["p3"]) || (p["p3"] = -1.0))
+                p["nsubint"] = nothing
+                if !isnothing(p["bin_st"]) && !isnothing(p["bin_end"])
+                    print("Okno on-pulse $(p["bin_st"])-$(p["bin_end"]): Enter = zostaw, w = wybierz od nowa w pmod: ")
+                    strip(readline()) == "w" && (p["bin_st"] = p["bin_end"] = nothing)
+                end
+                isnothing(p["bin_st"]) && println("Wybierz okno on-pulse myszką w oknie pmod.")
+                mkpath(outdir)
+                Tools.save_params(pf, p)
+
+                outfile = joinpath(outdir, "pulsar.spCF")
+                Data.add_psrfiles(indir, outfile)
+                Data.get_nsubint(outfile, pf, p)
+                Data.debase(outfile, pf, p)          # pmod /xw if no window
+                (isnothing(p["bin_st"]) || isnothing(p["bin_end"])) && error("nie wybrano okna on-pulse")
+                ref_archive = joinpath(ref_root, psr, "pulsar.spCF")
+                ra = (!isnothing(rp) && get(rp, "zapped", false) == true && isfile(ref_archive)) ? ref_archive : nothing
+                zaps = Data.review_zaps(joinpath(outdir, "pulsar.debase.txt"), p, pf, outdir;
+                                        mode=:auto_pazi, archive=outfile, ref_archive=ra)
+                p["zapped2"] = true
+                p["zap_manual"] = true
+                Tools.save_params(pf, p)
+                chans = Data.zap_chans_of(p)
+                (isnothing(zaps) && isnothing(chans)) || Data.apply_zaps(outfile, zaps; chans=chans)
+                for f in ("pulsar.debase.gg", "pulsar.debase.txt", "pulsar_zap_review.png")
+                    rm(joinpath(outdir, f), force=true)
+                end
+
+                c = get(p, "zap_cmp", Dict())
+                np, nz = get(c, "n_pulses", 0), get(c, "n_mine", 0)
+                record(psr, "$psr,reczny,$np,$nz,$(round(np > 0 ? 100 * nz / np : 0.0, digits=2))," *
+                            "$(fmt(get(c, "snr_none", nothing))),$(fmt(get(c, "snr_mine", nothing)))," *
+                            "$(fmt(get(c, "snr_maciej", nothing))),$(fmt(get(c, "n_maciej", nothing)))," *
+                            "$(fmt(p["p3"])),$p3_from,$(fmt(get(c, "n_rfi", nothing)))," *
+                            "$(fmt(get(c, "n_null", nothing))),\"$(something(zaps, ""))\"")
+                println("$psr: zrobiony ręcznie ($nz z $np impulsów).")
+            catch e
+                e isa InterruptException && rethrow()
+                if e isa Data.SkipPulsar
+                    println("$psr — pominięty, zostaje na liście.")
+                else
+                    msg = replace(sprint(showerror, e), '"' => '\'', '\n' => ' ')
+                    println("BŁĄD dla $psr: $(first(msg, 300))  — zostaje na liście.")
+                end
+            end
+            k < length(todo) || break
+            print("Dalej? [Enter = następny, q = koniec]: ")
+            strip(readline()) == "q" && break
+        end
+        println("\nRĘCZNIE: koniec. Tabela: $summary_file")
+    end
+
+
+    """
     Końcowe porównanie: moje zapowanie (pazur2, `zaps2`) vs Macieja (pazur).
 
     Czyta `p["zap_cmp"]` z `mine/<psr>/params.json` — liczone przy
@@ -1748,8 +1867,13 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         # params kopiowane od Macieja (+ on-pulse/P3 z Czarek7 _16, gdy brak),
         # automat wycina zle impulsy -> zaps2; struktura jak w pazur.
         # Ctrl+C przerywa, ponowne uruchomienie kontynuuje.
-        autozap_all(dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
-                    ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/")
+        # (v2 zrobione 2026-10-27: ok=521, pominiete=12, bledy=0)
+        #autozap_all(dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
+        #            ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/")
+
+        # ETAP 3b — RECZNIE: do_recznie.csv (brak on-pulse/P3) + J0211-8159 (RFI zamiast
+        # pulsara): okno on-pulse w pmod, automat + poprawka w pazi. Wymaga X (VNC).
+        manual_zap_all(out="/home/psr/data/OUTPUT/pazur2/", extra=["J0211-8159"])
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)

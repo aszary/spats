@@ -1282,7 +1282,7 @@ module Data
             println("UWAGA: archiwum Macieja ma $(ref.N) impulsów, moje $N — nie porównuję.")
         end
         # pazi-like contrast before / automat / Maciej (pulsar_contrast.pdf)
-        mode == :auto && Plot.zap_contrast(data, bst, bend, rows, haskey(cmp, "n_maciej") ? mrows : nothing,
+        mode in (:auto, :auto_pazi) && Plot.zap_contrast(data, bst, bend, rows, haskey(cmp, "n_maciej") ? mrows : nothing,
                                            outdir; title_=basename(rstrip(outdir, '/')),
                                            off=offpulse_bins(data, bst, bend))
         p["zap_cmp"] = Dict(k => (v isa AbstractFloat && !isfinite(v)) ? nothing : v for (k, v) in cmp)
