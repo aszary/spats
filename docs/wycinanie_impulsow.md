@@ -46,6 +46,7 @@ W kodzie odpowiadają im funkcje `Data.zaps_of(p)`, `Data.zaps_rfi_of(p)` i `Dat
 
 ## Do zrobienia później
 
+0. **Zacząć od plików z 16 kanałami (`.spCf16`).** Najpierw przejrzeć kanały i sprawdzić, czy na jakichś częstotliwościach trzeba wyciąć kanały. Diagnostyka: `modules/chan_rfi.jl` (`chan_rfi(psrs)`, jeszcze nieuruchomiona na kopierniku). Złe kanały wyciąć (`paz -z`), dopiero potem zsumować częstotliwości (scrunch, `pam -F`) i puścić automat wycinania impulsów. Pulsar z szumem w jednym kanale nie straci wtedy całych impulsów.
 1. **Weryfikacja wykrywania nulli.** Dla każdego pulsara uśrednić impulsy z `zaps2_null` w profil średni i sprawdzić, czy w oknie on-pulse pojawia się sygnał (S/N profilu nulli, osobno dla wygaszeń i braków detekcji). Sygnał oznacza, że automat uznaje słabą emisję za nulle. Frakcje wyciętych nulli porównać z literaturą (np. J1727-2739 ~68%).
 2. **Przejrzeć MeerGuard** (cleaner MeerKAT TPA/MPTA) i porównać z naszą regułą `rfi_rms` oraz benchmarkiem.
 3. **Przejrzeć publikacje z przeglądu narzędzi RFI:**
