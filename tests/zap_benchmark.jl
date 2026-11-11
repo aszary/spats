@@ -10,7 +10,7 @@ function load(file)
     m = Module()
     Core.eval(m, :(using Statistics, Random))
     for name in ("offpulse_bins", "pulse_signal_noise", "noise_jump_z", "auto_zap_core", "pulses_to_zaps",
-                 "profile_snr", "profile_gate", "zap_snr", "rfi_rms", "split_zaps", "auto_zap")
+                 "profile_snr", "profile_gate", "zap_snr", "rfi_rms", "split_zaps", "fake_nulls_to_noisy!", "auto_zap")
         r = match(Regex("    function " * name * "\\(.*?\\n    end\\n", "s"), src)
         isnothing(r) || Core.eval(m, Meta.parse(r.match))
     end

@@ -28,7 +28,7 @@ LIT_NF = Dict(
     "J2253+1516" => (49.0, "<=49% Redman&Rankin 2009 (gorna granica)"))
 
 VERIFY_HEADER = "pulsar,status,N,n_cut,n_rfi,n_null,snr_none,snr_none_cmp,repro," *
-    "null_snr,null_frac,nf_ours,nf_energy,nf_lit," *
+    "null_snr,null_frac,nf_ours,nf_energy,nf_lit,n_null_new,null_snr_new,null_frac_new,nf_new," *
     "old_ncut,old_snr,old_snr_rfi,new_ncut,new_snr,new_snr_rfi," *
     "C,chans_bad,chans_loo,chans_cut,n_sub_bad,pair_pct," *
     "ch_all_none,ch_all_ncut,ch_all_snr,ch_good_none,ch_good_ncut,ch_good_snr,note"
@@ -259,10 +259,6 @@ function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000
         nfe = _nf_energy(D, nonrfi, on, off)
         row["nf_energy"] = 100 * nfe
         row["nf_lit"] = haskey(LIT_NF, psr) ? LIT_NF[psr][1] : NaN
-        if !isempty(rows_null) && !isempty(good)
-            fig = (psr, vec(mean(D[good, :], dims=1)), vec(mean(D[rows_null, :], dims=1)), bst, bend,
-                   row["null_snr"], row["null_frac"], length(rows_null))
-        end
 
         # C. bezpiecznik RFI: stary vs nowy na tych samych danych
         for (tag, ref) in (("old", :cut), ("new", :both))
@@ -271,6 +267,19 @@ function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000
             row["$(tag)_snr"] = _VD.profile_snr(D, bst, bend; drop=a.bad)
             row["$(tag)_snr_rfi"] = _VD.profile_snr(D, bst, bend; drop=_VD.split_zaps(a.reason).rfi)
             tag == "old" && (row["repro"] = _jacc(Set(a.bad), Set(rows_all)))
+            if tag == "new"                   # nulle wg nowego automatu (z poprawka 'nulli' z sygnalem)
+                pn = _VD.split_zaps(a.reason)
+                gn = setdiff(1:N, a.bad)
+                row["n_null_new"] = length(pn.null)
+                row["null_snr_new"] = _stack_snr(D, pn.null, on, off)
+                row["null_frac_new"] = (isempty(pn.null) || isempty(gn)) ? NaN : mean(E[pn.null]) / mean(E[gn])
+                nr = setdiff(1:N, pn.rfi)
+                row["nf_new"] = isempty(nr) ? NaN : 100 * length(pn.null) / length(nr)
+                if !isempty(pn.null) && !isempty(gn)
+                    fig = (psr, vec(mean(D[gn, :], dims=1)), vec(mean(D[pn.null, :], dims=1)), bst, bend,
+                           row["null_snr_new"], row["null_frac_new"], length(pn.null))
+                end
+            end
         end
 
         # archiwum tylko z RFI (nulle zostawione) dla badan nullingu
@@ -505,11 +514,16 @@ function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
     pr(@sprintf("energia nulli vs dobry impuls: <2%% (czyste nulle): %d,  2-10%% (domieszka emisji): %d,  >10%% (to nie nulle): %d",
                 count(<(0.02), en), count(x -> 0.02 <= x < 0.1, en), count(>=(0.1), en)))
     pr("(S/N rośnie z jasnością pulsara - o czystości nulli mówi energia)  Najwięcej energii w nullach:")
-    pr(@sprintf("  %-12s %7s %9s %8s %8s", "pulsar", "n_null", "S/N nulli", "energia", "NF nasz"))
+    pr(@sprintf("  %-12s %7s %9s %8s %8s   | po poprawce: %6s %8s %8s", "pulsar", "n_null", "S/N nulli",
+                "energia", "NF nasz", "n_null", "energia", "NF"))
     for r in sort(NR, by=r -> -num(r, "null_frac"))[1:min(25, end)]
-        pr(@sprintf("  %-12s %7s %9.1f %7.1f%% %7.1f%%", r["pulsar"], r["n_null"], num(r, "null_snr"),
-                    100num(r, "null_frac"), num(r, "nf_ours")))
+        pr(@sprintf("  %-12s %7s %9.1f %7.1f%% %7.1f%%   |              %6s %7.1f%% %7.1f%%", r["pulsar"],
+                    r["n_null"], num(r, "null_snr"), 100num(r, "null_frac"), num(r, "nf_ours"),
+                    get(r, "n_null_new", ""), 100num(r, "null_frac_new"), num(r, "nf_new")))
     end
+    en2 = fin([num(r, "null_frac_new") for r in ok])
+    pr(@sprintf("PO POPRAWCE ('nulle' z sygnałem -> zaszumione): energia <2%%: %d,  2-10%%: %d,  >10%%: %d",
+                count(<(0.02), en2), count(x -> 0.02 <= x < 0.1, en2), count(>=(0.1), en2)))
     fr = fin([num(r, "null_frac") for r in NR])
     isempty(fr) || pr(@sprintf("energia nulli jako %% dobrego impulsu: mediana %.1f%%, >10%%: %d", 100median(fr),
                                count(>(0.1), fr)))
@@ -517,8 +531,8 @@ function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
     pr("\n--- B2. Frakcja nulli: nasza vs z rozkładu energii vs literatura ---")
     pr(@sprintf("  %-12s %8s %9s %8s  %s", "pulsar", "NF nasz", "NF energ.", "NF lit.", "źródło"))
     for r in sort(filter(r -> haskey(LIT_NF, r["pulsar"]), ok), by=r -> r["pulsar"])
-        pr(@sprintf("  %-12s %7.1f%% %8.1f%% %7.1f%%  %s", r["pulsar"], num(r, "nf_ours"), num(r, "nf_energy"),
-                    num(r, "nf_lit"), LIT_NF[r["pulsar"]][2]))
+        pr(@sprintf("  %-12s %7.1f%% %8.1f%% %7.1f%%  %s  (po poprawce: %.1f%%)", r["pulsar"], num(r, "nf_ours"),
+                    num(r, "nf_energy"), num(r, "nf_lit"), LIT_NF[r["pulsar"]][2], num(r, "nf_new")))
     end
     d1 = fin([num(r, "nf_ours") - num(r, "nf_lit") for r in ok if haskey(LIT_NF, r["pulsar"])])
     d2 = fin([num(r, "nf_ours") - num(r, "nf_energy") for r in NR if num(r, "nf_ours") > 5])

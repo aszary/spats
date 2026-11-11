@@ -1031,7 +1031,8 @@ module Data
     could lower the S/N of the null-keeping (`zaps2_rfi`) data by up to 4%
     (J2253, J1252, J1838, J2037, J1055). `:cut` = the old check only.
     """
-    function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both, kw...)
+    function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both,
+                      null_max_frac=0.5, kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
         a = auto_zap_core(sn; kw...)
         reason = copy(a.reason)
@@ -1041,6 +1042,8 @@ module Data
             reason[back] .= 0
             isempty(back) || (why *= " (bramka S/N profilu przywróciła $(length(back)) imp.)")
         end
+        nfake = fake_nulls_to_noisy!(reason, sn; frac=null_max_frac)
+        nfake > 0 && (why *= " ($nfake imp. 'nulli' z sygnałem -> zaszumione)")
         if rfi
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
@@ -1064,6 +1067,41 @@ module Data
         reason == a.reason && return a
         bad = findall(>(0), reason)
         return merge(a, (bad=bad, reason=reason, snr_after=zap_snr(sn, bad), why=why))
+    end
+
+
+    """
+        fake_nulls_to_noisy!(reason, sn; frac=0.5, z=3.0) -> number relabelled
+
+    A null is a pulse WITHOUT emission. `auto_zap_core` calls a pulse a null
+    when its signal is undetected (< 2σ) — in a stretch drowned in RFI the
+    noise is so high that real emission is "undetected" too (J1812+0226: 24
+    "nulls" whose mean profile had 114% of a good pulse's energy). Each run of
+    reason 3 whose mean signal is significant (> `z` standard errors) and at
+    least `frac` of a typical kept pulse becomes reason 4 (noisy stretch, RFI).
+    Only the label changes (zaps2_rfi / zaps2_null, null fraction), not the cuts.
+    """
+    function fake_nulls_to_noisy!(reason, sn; frac=0.5, z=3.0)
+        kept = [i for i in eachindex(reason) if reason[i] == 0 && sn.good[i]]
+        isempty(kept) && return 0
+        typ = median(sn.s[kept])
+        typ > 0 || return 0
+        n, i, N = 0, 1, length(reason)
+        while i <= N
+            reason[i] == 3 || (i += 1; continue)
+            j = i
+            while j < N && reason[j+1] == 3; j += 1; end
+            r = [k for k in i:j if sn.good[k]]
+            if !isempty(r)
+                m, se = mean(sn.s[r]), sqrt(sum(sn.v[r])) / length(r)
+                if m >= frac * typ && m > z * se
+                    reason[i:j] .= 4
+                    n += j - i + 1
+                end
+            end
+            i = j + 1
+        end
+        return n
     end
 
 
