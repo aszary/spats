@@ -445,6 +445,7 @@ function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/ps
     psrs = psrs[kp:np_:end]                              # czesc kp z np_ (rownolegle procesy)
     todo = filter(!in(done), psrs)
     println("WERYFIKACJA (część $kp/$np_): $(length(todo)) pulsarów do zrobienia ($(length(done)) już zrobionych w $out)")
+    flush(stdout)                                      # log w pliku: bez flush widac go dopiero po ~kilkudziesieciu KB
     profdir = joinpath(out, "nullprof"); mkpath(profdir)
     chandir = joinpath(out, "kanaly"); mkpath(chandir)
     keys_ = split(VERIFY_HEADER, ",")
@@ -466,6 +467,7 @@ function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/ps
                 k, length(todo), psr, row["status"], _fmtv(100 * g("null_frac")), _fmtv(get(row, "chans_bad", "-")),
                 _fmtv(get(row, "chans_loo", "-")), _fmtv(get(row, "chans_cut", "-")), row["note"], el,
                 el * (length(todo) - k) / 3600)
+        flush(stdout)
         k % 50 == 0 && (try _null_pages(profdir, joinpath(out, "nulls.pdf")) catch e; println("PDF: $e"); end)
     end
     try _null_pages(profdir, joinpath(out, "nulls.pdf")) catch e; println("PDF nulli nie powstał: $e"); end
@@ -618,8 +620,15 @@ function zap_verify_parallel(; n=nothing, out="/home/psr/data/OUTPUT/zap_verify/
         push!(ios, io)
         push!(procs, run(pipeline(cmd, stdout=io, stderr=io), wait=false))
     end
-    lastline(f) = (L = filter(l -> startswith(l, "[") || occursin("BŁĄD", l) || occursin("ERROR", l), readlines(f));
-                   isempty(L) ? "(ładuje się...)" : last(L))
+    # postep z CSV (zapisywany po kazdym pulsarze) + ostatnia istotna linia logu
+    function lastline(k)
+        csv = joinpath(out, "verify_$k.csv")
+        nd = isfile(csv) ? countlines(csv) - 1 : 0
+        log = joinpath(out, "part_$k.log")
+        L = isfile(log) ? filter(l -> startswith(l, "[") || startswith(l, "WERYFIKACJA") ||
+                                      occursin("BŁĄD", l) || occursin("ERROR", l), readlines(log)) : String[]
+        return "gotowe $nd | " * (isempty(L) ? "(ładuje pakiety / liczy pierwszy pulsar)" : last(L))
+    end
     try
         t = 0
         while any(process_running, procs)
@@ -627,7 +636,7 @@ function zap_verify_parallel(; n=nothing, out="/home/psr/data/OUTPUT/zap_verify/
             if t % every == 0
                 println("--- ", Libc.strftime("%H:%M", time()), " ---")
                 for k in 1:n
-                    println("  część $k/$n: ", first(lastline(joinpath(out, "part_$k.log")), 160))
+                    println("  część $k/$n: ", first(lastline(k), 170))
                 end
             end
         end
