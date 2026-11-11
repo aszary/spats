@@ -931,13 +931,13 @@ module Plot
     diagonal = mine better. Middle: per-pulsar difference of the gains,
     sorted. Right: fraction of pulses cut by each method.
     """
-    function zap_methods_comparison(T, outdir; show_=false)
+    function zap_methods_comparison(T, outdir; show_=false, tie=1.0)
         gm = [100 * (t.mine / t.none - 1) for t in T]
         gj = [100 * (t.maciej / t.none - 1) for t in T]
         fm = [100 * t.n_mine / t.N for t in T]
         fj = [100 * t.n_maciej / t.N for t in T]
         d = gm .- gj
-        col = [x > 0.5 ? "tab:blue" : x < -0.5 ? "tab:red" : "0.5" for x in d]
+        col = [x >= tie ? "tab:blue" : x <= -tie ? "tab:red" : "0.5" for x in d]
 
         fig, axs = subplots(1, 3, figsize=(11, 4.2))
         ax = axs[1]
@@ -946,16 +946,16 @@ module Plot
         ax.scatter(gj, gm, c=col, s=18, alpha=0.8)
         ax.axhline(0, color="0.8", lw=0.6); ax.axvline(0, color="0.8", lw=0.6)
         ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
-        ax.set_xlabel("zysk S/N — Macieja [%]"); ax.set_ylabel("zysk S/N — moja metoda [%]")
-        ax.set_title("nad przekątną = moja lepsza", fontsize=9)
+        ax.set_xlabel("zysk S/N — metoda ręczna [%]"); ax.set_ylabel("zysk S/N — automat [%]")
+        ax.set_title("nad przekątną = automat lepszy", fontsize=9)
 
         ax = axs[2]
         o = sortperm(d)
         ax.bar(1:length(d), d[o], color=col[o], width=1.0)
         ax.axhline(0, color="k", lw=0.6)
-        ax.set_xlabel("pulsary (posortowane)"); ax.set_ylabel("zysk moja − Macieja [punkty %]")
-        nb, nw = count(d .> 0.5), count(d .< -0.5)
-        ax.set_title("moja lepsza: $nb   Macieja lepsza: $nw   remis: $(length(d) - nb - nw)", fontsize=9)
+        ax.set_xlabel("pulsary (posortowane)"); ax.set_ylabel("zysk automat − ręcznie [punkty %]")
+        nb, nw = count(d .>= tie), count(d .<= -tie)
+        ax.set_title("automat lepszy: $nb   ręcznie lepiej: $nw   remis: $(length(d) - nb - nw)", fontsize=9)
         if length(T) <= 40
             ax.set_xticks(1:length(d)); ax.set_xticklabels([T[i].psr for i in o], rotation=90, fontsize=6)
         end
@@ -965,11 +965,11 @@ module Plot
         ax.plot([0, m], [0, m], color="k", lw=0.8, ls="--")
         ax.scatter(fj, fm, c=col, s=18, alpha=0.8)
         ax.set_xlim(0, m); ax.set_ylim(0, m)
-        ax.set_xlabel("wycięte — Macieja [% impulsów]"); ax.set_ylabel("wycięte — moja metoda [% impulsów]")
+        ax.set_xlabel("wycięte — metoda ręczna [% impulsów]"); ax.set_ylabel("wycięte — automat [% impulsów]")
         ax.set_title("ile impulsów wycina każda metoda", fontsize=9)
 
-        fig.suptitle("Zapowanie: moja metoda vs Macieja — standardowe S/N profilu " *
-                     "($(length(T)) pulsarów; niebieskie = moja lepsza, czerwone = Macieja, szare = remis <0.5%)",
+        fig.suptitle("Wycinanie: automat vs metoda ręczna — standardowe S/N profilu " *
+                     "($(length(T)) pulsarów; niebieskie = automat lepszy, czerwone = ręcznie lepiej, szare = remis <$(tie)%)",
                      fontsize=10, fontweight="bold")
         tight_layout(rect=(0, 0, 1, 0.94))
         png = joinpath(outdir, "zap_comparison.pdf")

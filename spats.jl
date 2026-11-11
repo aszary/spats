@@ -1060,7 +1060,7 @@ module SpaTs
             ref_params = isnothing(ref_dir) ? nothing : joinpath(ref_dir, "params.json")
             ref_archive = isnothing(ref_dir) ? nothing : joinpath(ref_dir, "pulsar.spCF")
             println("\n===== $psr  (obs: $(obs_dirs[1]))" *
-                    (!isnothing(ref_params) && isfile(ref_params) ? "  [jest wynik Macieja]" : "") * " =====")
+                    (!isnothing(ref_params) && isfile(ref_params) ? "  [jest wynik metody ręcznej]" : "") * " =====")
             try
                 pf = joinpath(outdir, "params.json")
                 if !isfile(pf)
@@ -1083,7 +1083,7 @@ module SpaTs
                 ref_done = !isnothing(ref_params) && isfile(ref_params) &&
                            get(Tools.read_params(ref_params), "zapped", false) == true
                 ra = (ref_done && isfile(ref_archive)) ? ref_archive : nothing
-                ref_done && isnothing(ra) && println("UWAGA: Maciej ma \"zapped\": true, ale brak $ref_archive")
+                ref_done && isnothing(ra) && println("UWAGA: metoda ręczna ma \"zapped\": true, ale brak $ref_archive")
                 p, _, _ = Data.process_psrdata(indir, outdir; zap_mode=zap_mode, zap_nsigma=zap_nsigma,
                                                ref_archive=ra)
                 zaps = Data.zaps_of(p)
@@ -1095,7 +1095,7 @@ module SpaTs
                 println("$psr [$status]: odrzucono $nz/$np impulsów ($(round(pct, digits=1))%), " *
                         "S/N profilu: bez zapów $(fmt(get(c, "snr_none", nothing))) → moje " *
                         "$(fmt(get(c, "snr_mine", nothing)))" *
-                        (haskey(c, "snr_maciej") ? ", Macieja $(fmt(c["snr_maciej"]))" : ""))
+                        (haskey(c, "snr_maciej") ? ", ręcznie $(fmt(c["snr_maciej"]))" : ""))
                 pct > warn_pct && println("UWAGA: odrzucono ponad $(warn_pct)% impulsów — szum może " *
                                           "siedzieć w jednym kanale częstotliwości; rozważ ścieżkę _16 " *
                                           "z zapowaniem kanałów (paz -z) zamiast wyrzucania impulsów.")
@@ -1151,15 +1151,48 @@ module SpaTs
       autozap_all()
       autozap_all(only=["J0034-0721"])
     """
+    const AUTOZAP_HEADER = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_none,snr_mine,snr_maciej,n_maciej," *
+                           "p3,p3_from,n_rfi,n_null,zaps2"
+
+    """
+        chan_first_list(dir="/home/psr/data/OUTPUT/zap_verify/"; min_gain=1.0) -> Dict(psr => "kanały")
+
+    Pulsary, w których weryfikacja (`zap_verify`) wykazała, że wycięcie kanałów
+    PRZED sumowaniem częstotliwości daje po automacie S/N wyższe o >= `min_gain` %
+    (kanał wycinany tylko, gdy S/N sumy bez niego rośnie > 1%). Pusty słownik,
+    gdy brak wyników weryfikacji.
+    """
+    function chan_first_list(dir="/home/psr/data/OUTPUT/zap_verify/"; min_gain=1.0)
+        res = Dict{String,String}()
+        isdir(dir) || return res
+        for f in readdir(dir; join=true)
+            occursin(r"^verify(_\d+)?\.csv$", basename(f)) || continue
+            L = readlines(f)
+            H = split(L[1], ",")
+            ix(k) = findfirst(==(k), H)
+            any(isnothing, ix.(("chans_cut", "ch_all_snr", "ch_good_snr"))) && continue
+            for l in L[2:end]
+                r = split(l, ","; limit=length(H))
+                cut = strip(r[ix("chans_cut")])
+                isempty(cut) && continue
+                a, g = tryparse(Float64, r[ix("ch_all_snr")]), tryparse(Float64, r[ix("ch_good_snr")])
+                (isnothing(a) || isnothing(g) || a <= 0) && continue
+                100 * (g / a - 1) >= min_gain && (res[r[1]] = cut)
+            end
+        end
+        return res
+    end
+
     function autozap_all(; dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
                          ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/",
-                         only=nothing, skip_done=true, keep_png=true)
+                         only=nothing, skip_done=true, keep_png=true, keep_manual=true,
+                         chan_first=Dict{String,String}())
         endswith(out, "/") || (out *= "/")
         mkpath(out)
         psrs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
         isnothing(only) || (psrs = filter(in(Set(only)), psrs))
         summary_file = joinpath(out, "zap_summary.csv")
-        header = "pulsar,status,n_pulses,n_zapped,pct_zapped,snr_none,snr_mine,snr_maciej,n_maciej,p3,p3_from,n_rfi,n_null,zaps2"
+        header = AUTOZAP_HEADER
         done = Set{String}()
         if isfile(summary_file)
             for line in Iterators.drop(eachline(summary_file), 1)
@@ -1177,10 +1210,24 @@ module SpaTs
         manual_file = joinpath(out, "do_recznie.csv")
         tmp_params = joinpath(mktempdir(), "params.json")
         manual = String[]
-        println("AUTOMAT: $(length(psrs)) pulsarów → $out   (params/zapy Macieja: $ref_root, P3/on-pulse zapas: $p3_root)")
+        println("AUTOMAT: $(length(psrs)) pulsarów → $out   (params/wycięcia ręczne: $ref_root, P3/on-pulse zapas: $p3_root)")
 
         for (k, psr) in enumerate(psrs)
             if skip_done && psr in done
+                continue
+            end
+            # pulsar zrobiony recznie (manual_zap_all): wynik zostaje, tylko wiersz w tabeli
+            pm = keep_manual ? readp(joinpath(out, psr, "params.json")) : nothing
+            if !isnothing(pm) && get(pm, "zap_manual", false) == true
+                c = get(pm, "zap_cmp", Dict())
+                np, nz = get(c, "n_pulses", 0), get(c, "n_mine", 0)
+                record("$psr,reczny,$np,$nz,$(round(np > 0 ? 100 * nz / np : 0.0, digits=2))," *
+                       "$(fmt(get(c, "snr_none", nothing))),$(fmt(get(c, "snr_mine", nothing)))," *
+                       "$(fmt(get(c, "snr_maciej", nothing))),$(fmt(get(c, "n_maciej", nothing)))," *
+                       "$(fmt(get(pm, "p3", nothing))),,$(fmt(get(c, "n_rfi", nothing)))," *
+                       "$(fmt(get(c, "n_null", nothing))),\"$(something(get(pm, "zaps2", nothing), ""))\"")
+                println("\n[$k/$(length(psrs))] $psr — zrobiony ręcznie, zostawiam.")
+                n_skip += 1
                 continue
             end
             psr_path = joinpath(dataroot, psr)
@@ -1203,7 +1250,7 @@ module SpaTs
                 for key in ("bin_st", "bin_end")
                     isnothing(get(p, key, nothing)) && (p[key] = get(cp16, key, nothing))
                 end
-                p3_from = valid(get(p, "p3", nothing)) && !isnothing(rp) ? "Maciej" : ""
+                p3_from = valid(get(p, "p3", nothing)) && !isnothing(rp) ? "pazur" : ""
                 if p3_from == "" && valid(get(cp16, "p3", nothing))
                     p["p3"], p3_from = cp16["p3"], "Czarek7"
                     haskey(cp16, "p3_error") && (p["p3_error"] = cp16["p3_error"])
@@ -1230,7 +1277,20 @@ module SpaTs
 
                 # 2. archive + automat (no questions, no windows)
                 outfile = joinpath(outdir, "pulsar.spCF")
-                Data.add_psrfiles(indir, outfile)
+                chf = get(chan_first, psr, "")
+                if isempty(chf)
+                    Data.add_psrfiles(indir, outfile)
+                    delete!(p, "zap_chans16")
+                else
+                    # kanaly wyciete PRZED sumowaniem (zysk S/N z weryfikacji): 16 kanalow
+                    # -> 1 polaryzacja -> paz -z -> pam -F (z wagami, jak .spCF)
+                    Data.add_psrfiles(indir, outfile; sixteen=true)
+                    try run(pipeline(`pam -p -m $outfile`, stdout=devnull, stderr=devnull)) catch; end
+                    run(pipeline(`paz -m -z $chf $outfile`, stdout=devnull, stderr=devnull))
+                    run(pipeline(`pam -F -m $outfile`, stdout=devnull, stderr=devnull))
+                    p["zap_chans16"] = chf
+                    println("Kanały wycięte przed sumowaniem częstotliwości: $chf")
+                end
                 Data.get_nsubint(outfile, pf, p)
                 Data.debase(outfile, pf, p)
                 ref_archive = joinpath(ref_root, psr, "pulsar.spCF")
@@ -1255,6 +1315,7 @@ module SpaTs
                        "$(fmt(get(c, "n_maciej", nothing))),$(fmt(p["p3"])),$p3_from,$(fmt(get(c, "n_rfi", nothing)))," *
                        "$(fmt(get(c, "n_null", nothing))),\"$(something(zaps, ""))\"")
                 n_ok += 1
+                flush(stdout)
             catch e
                 e isa InterruptException && rethrow()
                 n_err += 1
@@ -1330,7 +1391,7 @@ module SpaTs
                 for key in ("bin_st", "bin_end")
                     isnothing(get(p, key, nothing)) && (p[key] = get(cp16, key, nothing))
                 end
-                p3_from = valid(get(p, "p3", nothing)) && !isnothing(rp) ? "Maciej" : ""
+                p3_from = valid(get(p, "p3", nothing)) && !isnothing(rp) ? "pazur" : ""
                 if p3_from == "" && valid(get(cp16, "p3", nothing))
                     p["p3"], p3_from = cp16["p3"], "Czarek7"
                     haskey(cp16, "p3_error") && (p["p3_error"] = cp16["p3_error"])
@@ -1401,7 +1462,7 @@ module SpaTs
       compare_zap_methods()
     """
     function compare_zap_methods(; mine="/home/psr/data/OUTPUT/pazur2/",
-                                 outdir="/home/psr/data/OUTPUT/zap_comparison/", show_=false)
+                                 outdir="/home/psr/data/OUTPUT/zap_comparison/", show_=false, tie=1.0)
         mkpath(outdir)
         T = []
         for psr in sort(readdir(mine))
@@ -1414,15 +1475,15 @@ module SpaTs
                       none=g("snr_none"), mine=g("snr_mine"), maciej=g("snr_maciej"),
                       a_none=g("auto_none"), a_mine=g("auto_mine"), a_maciej=g("auto_maciej")))
         end
-        isempty(T) && (println("Brak pulsarów z porównaniem (zap_cmp z wynikiem Macieja) w $mine"); return nothing)
+        isempty(T) && (println("Brak pulsarów z porównaniem (zap_cmp z wynikiem metody ręcznej) w $mine"); return nothing)
 
         csv = joinpath(outdir, "zap_comparison.csv")
         open(csv, "w") do f
-            println(f, "pulsar,n_pulses,n_mine,n_maciej,snr_none,snr_mine,snr_maciej,gain_mine_pct," *
-                       "gain_maciej_pct,better,auto_none,auto_mine,auto_maciej")
+            println(f, "pulsar,n_pulses,n_auto,n_manual,snr_none,snr_auto,snr_manual,gain_auto_pct," *
+                       "gain_manual_pct,better,auto_none,auto_auto,auto_manual")
             for t in T
                 gm, gj = 100 * (t.mine / t.none - 1), 100 * (t.maciej / t.none - 1)
-                better = abs(t.mine - t.maciej) <= 0.005 * t.none ? "remis" : t.mine > t.maciej ? "moja" : "Macieja"
+                better = abs(t.mine - t.maciej) < tie / 100 * t.none ? "remis" : t.mine > t.maciej ? "automat" : "reczna"
                 println(f, join([t.psr, t.N, t.n_mine, t.n_maciej, round(t.none, digits=2), round(t.mine, digits=2),
                                  round(t.maciej, digits=2), round(gm, digits=2), round(gj, digits=2), better,
                                  round(t.a_none, digits=2), round(t.a_mine, digits=2), round(t.a_maciej, digits=2)], ","))
@@ -1431,15 +1492,15 @@ module SpaTs
 
         gm = [100 * (t.mine / t.none - 1) for t in T]
         gj = [100 * (t.maciej / t.none - 1) for t in T]
-        tol = [0.5 for _ in T]   # remis: różnica < 0.5% S/N bez zapów
-        nb = count(gm .- gj .> tol); nw = count(gj .- gm .> tol); ne = length(T) - nb - nw
-        println("\n===== MOJA METODA vs MACIEJA ($(length(T)) pulsarów, standardowe S/N profilu) =====")
-        println("lepsza moja: $nb   lepsza Macieja: $nw   remis (<0.5%): $ne")
-        println("średni zysk S/N: moja $(round(mean(gm), digits=1))%   Macieja $(round(mean(gj), digits=1))%   " *
+        # remis: roznica zyskow < `tie` punktow % (S/N bez wyciec = 100%)
+        nb = count(gm .- gj .>= tie); nw = count(gj .- gm .>= tie); ne = length(T) - nb - nw
+        println("\n===== AUTOMAT vs METODA RĘCZNA ($(length(T)) pulsarów, standardowe S/N profilu) =====")
+        println("lepszy automat: $nb   lepsza metoda ręczna: $nw   remis (<$(tie)%): $ne")
+        println("średni zysk S/N: automat $(round(mean(gm), digits=1))%   ręcznie $(round(mean(gj), digits=1))%   " *
                 "(mediana: $(round(median(gm), digits=1))% / $(round(median(gj), digits=1))%)")
-        println("średnio wycięte: moja $(round(mean(t.n_mine / t.N for t in T) * 100, digits=1))%   " *
-                "Macieja $(round(mean(t.n_maciej / t.N for t in T) * 100, digits=1))%")
-        png = Plot.zap_methods_comparison(T, outdir; show_=show_)
+        println("średnio wycięte: automat $(round(mean(t.n_mine / t.N for t in T) * 100, digits=1))%   " *
+                "ręcznie $(round(mean(t.n_maciej / t.N for t in T) * 100, digits=1))%")
+        png = Plot.zap_methods_comparison(T, outdir; show_=show_, tie=tie)
         println("Tabela: $csv\nWykres: $png")
         return T
     end
@@ -1462,8 +1523,8 @@ module SpaTs
         r1(x) = isnothing(x) ? "-" : string(round(x, digits=1))
         println("
 ===== TEST: podsumowanie =====")
-        println(rpad("pulsar", 13), lpad("impulsy", 8), lpad("auto", 7), lpad("auto%", 7), lpad("Maciej", 8),
-                lpad("S/N bez", 10), lpad("auto", 9), lpad("Maciej", 9))
+        println(rpad("pulsar", 13), lpad("impulsy", 8), lpad("auto", 7), lpad("auto%", 7), lpad("ręcznie", 8),
+                lpad("S/N bez", 10), lpad("auto", 9), lpad("ręcznie", 9))
         for psr in psrs
             pf = joinpath(out, psr, "params.json")
             isfile(pf) || (println(rpad(psr, 13), "  (brak wyniku - zob. do_recznie.csv / zap_summary.csv)"); continue)
@@ -1887,9 +1948,15 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         #   J1812+0226: 'nulle' z sygnalem -> fake_nulls_to_noisy! (tylko etykieta)
         #Base.invokelatest(Main.zap_verify; out="/home/psr/data/OUTPUT/zap_verify_test3/",
         #                  only=["J1812+0226", "J0034-0721"])
-        # PELNY PRZEBIEG z jednego screena: procesy w tle (liczba z rdzeni/pamieci),
-        # postep co 5 min, na koncu summary.txt + nulls.pdf. Recznie: zap_verify_parallel(n=2)
-        Base.invokelatest(Main.zap_verify_parallel)
+        # pelna weryfikacja 2026-11-11 (zap_verify/): 533 pulsary, 0 bledow -> raport
+        #Base.invokelatest(Main.zap_verify_parallel)
+
+        # ETAP 6 — AUTOMAT v3 z poprawkami z weryfikacji (bezpiecznik RFI :both, 'nulle'
+        # z sygnalem -> zaszumione, kanaly przed sumowaniem w ~24 pulsarach, reczne
+        # zostaja), rownolegle; potem weryfikacja v3 (odswieza pulsar_rfi.spCF) i
+        # porownanie z aktualnymi recznymi wycieciami (ETAP 4). Wznawialne.
+        Base.invokelatest(Main.autozap_parallel) &&
+            Base.invokelatest(Main.zap_verify_parallel; out="/home/psr/data/OUTPUT/zap_verify_v3/")
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)

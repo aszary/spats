@@ -1327,7 +1327,7 @@ module Data
             cmp["auto_maciej"] = zap_snr(sn, mrows)
             cmp["zaps_maciej"] = pulses_to_zaps(mrows)
         elseif !isnothing(ref)
-            println("UWAGA: archiwum Macieja ma $(ref.N) impulsów, moje $N — nie porównuję.")
+            println("UWAGA: archiwum metody ręcznej ma $(ref.N) impulsów, automat $N — nie porównuję.")
         end
         # pazi-like contrast before / automat / Maciej (pulsar_contrast.pdf)
         mode in (:auto, :auto_pazi) && Plot.zap_contrast(data, bst, bend, rows, haskey(cmp, "n_maciej") ? mrows : nothing,
@@ -1336,10 +1336,10 @@ module Data
         p["zap_cmp"] = Dict(k => (v isa AbstractFloat && !isfinite(v)) ? nothing : v for (k, v) in cmp)
         Tools.save_params(params_file, p)
         println("Zapisane zaps2 = $(repr(p["zaps2"]))  zap_chans2 = $(repr(p["zap_chans2"]))   " *
-                "(zaps Macieja/stare bez zmian: $(repr(p["zaps"])))")
-        println("S/N profilu: bez zapów=$(r1(cmp["snr_none"]))  moje=$(r1(cmp["snr_mine"]))" *
-                (haskey(cmp, "snr_maciej") ? "  Macieja=$(r1(cmp["snr_maciej"])) ($(cmp["n_maciej"]) imp.)" :
-                                             "  Macieja: brak"))
+                "(zaps ręczne/stare bez zmian: $(repr(p["zaps"])))")
+        println("S/N profilu: bez zapów=$(r1(cmp["snr_none"]))  automat=$(r1(cmp["snr_mine"]))" *
+                (haskey(cmp, "snr_maciej") ? "  ręcznie=$(r1(cmp["snr_maciej"])) ($(cmp["n_maciej"]) imp.)" :
+                                             "  ręcznie: brak"))
         return p["zaps2"]
     end
 

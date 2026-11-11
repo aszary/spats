@@ -91,10 +91,17 @@ end
 
 _jacc(a, b) = (u = length(union(a, b)); u == 0 ? 1.0 : length(intersect(a, b)) / u)
 
-function _debased_spcf(indir, tmp, bst, bend)
+function _debased_spcf(indir, tmp, bst, bend; chans16="")
     ar = joinpath(tmp, "pulsar.spCF")
     redirect_stdout(devnull) do
-        _VD.add_psrfiles(indir, ar)
+        if isempty(chans16)
+            _VD.add_psrfiles(indir, ar)
+        else                                  # jak autozap_all z kanalami wycietymi przed sumowaniem
+            _VD.add_psrfiles(indir, ar; sixteen=true)
+            try run(pipeline(`pam -p -m $ar`, stdout=devnull, stderr=devnull)) catch; end
+            run(pipeline(`paz -m -z $chans16 $ar`, stdout=devnull, stderr=devnull))
+            run(pipeline(`pam -F -m $ar`, stdout=devnull, stderr=devnull))
+        end
     end
     cp(ar, joinpath(tmp, "raw.spCF"))
     run(pipeline(`pmod -onpulse "$bst $bend" -device "/NULL" -debase $ar`; stdout=devnull, stderr=devnull))
@@ -231,7 +238,7 @@ function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000
     note = String[]
     fig = nothing
     try
-        D = _debased_spcf(indir, tmp, bst, bend)
+        D = _debased_spcf(indir, tmp, bst, bend; chans16=something(get(p, "zap_chans16", nothing), ""))
         N = size(D, 1)
         row["N"] = N
         rows_all = _VD.zaps_to_rows(_VD.zaps_of(p), N)
@@ -594,40 +601,30 @@ end
 
 
 """
-    zap_verify_parallel(; n=nothing, out=...)
+    _run_parallel(codes, logdir, tag; every=300, progress=k -> "")
 
-Cała weryfikacja z JEDNEGO miejsca (jeden screen): uruchamia w tle `n`
-procesów Julii (`SPATS_NO_MAIN=1`, każdy `zap_verify(part="k/n")`, log w
-`out/part_k.log`), co `every` s pokazuje postęp każdej części, na końcu
-składa `nulls.pdf` i `summary.txt` ze wszystkich części. `n` domyślnie z
-liczby rdzeni i wolnej pamięci (~3 GB na proces). Wznawialne: po przerwaniu
-uruchom ponownie - zrobione pulsary są pomijane. Ctrl+C zatrzymuje też procesy w tle.
+Uruchamia `codes` (kod Julii, jeden proces na element) w tle z `SPATS_NO_MAIN=1`
+w katalogu repozytorium, logi w `logdir/<tag>_<k>.log` (zapisywane na bieżąco),
+co `every` s wypisuje `progress(k)` i ostatnią istotną linię logu każdej części.
+Ctrl+C zatrzymuje procesy w tle. Zwraca, czy wszystkie zakończyły się sukcesem.
 """
-function zap_verify_parallel(; n=nothing, out="/home/psr/data/OUTPUT/zap_verify/", every=300, _code=nothing)
-    mkpath(out)
-    cpu, mem = Sys.CPU_THREADS, Sys.free_memory() / 2^30
-    n = something(n, clamp(min(cpu ÷ 4, floor(Int, mem / 3)), 1, 16))   # >16: wspolny dysk hamuje
+function _run_parallel(codes, logdir, tag; every=300, progress=k -> "")
+    mkpath(logdir)
+    n = length(codes)
     repo = dirname(@__DIR__)
-    println("WERYFIKACJA RÓWNOLEGLE: $n procesów (rdzenie: $cpu, wolna pamięć: $(round(mem, digits=1)) GB)\n" *
-            "logi części: $(joinpath(out, "part_<k>.log"))   (pierwsze ~2 min to ładowanie pakietów)")
     ios, procs = IO[], Base.Process[]
-    for k in 1:n
-        code = something(_code, "include(\"spats.jl\"); Base.include(Main, \"modules/zap_verify.jl\"); " *
-                                "Base.invokelatest(Main.zap_verify; part=\"$k/$n\", out=\"$out\")")
+    for (k, code) in enumerate(codes)
         cmd = `$(Base.julia_cmd()) --project=$(Base.active_project()) -e $code`
         cmd = setenv(cmd, merge(Dict(ENV), Dict("SPATS_NO_MAIN" => "1")); dir=repo)
-        io = open(joinpath(out, "part_$k.log"), "w")
+        io = open(joinpath(logdir, "$(tag)_$k.log"), "w")
         push!(ios, io)
         push!(procs, run(pipeline(cmd, stdout=io, stderr=io), wait=false))
     end
-    # postep z CSV (zapisywany po kazdym pulsarze) + ostatnia istotna linia logu
     function lastline(k)
-        csv = joinpath(out, "verify_$k.csv")
-        nd = isfile(csv) ? countlines(csv) - 1 : 0
-        log = joinpath(out, "part_$k.log")
+        log = joinpath(logdir, "$(tag)_$k.log")
         L = isfile(log) ? filter(l -> startswith(l, "[") || startswith(l, "WERYFIKACJA") ||
                                       occursin("BŁĄD", l) || occursin("ERROR", l), readlines(log)) : String[]
-        return "gotowe $nd | " * (isempty(L) ? "(ładuje pakiety / liczy pierwszy pulsar)" : last(L))
+        return progress(k) * (isempty(L) ? "(ładuje pakiety / liczy pierwszy pulsar)" : last(L))
     end
     try
         t = 0
@@ -646,10 +643,81 @@ function zap_verify_parallel(; n=nothing, out="/home/psr/data/OUTPUT/zap_verify/
     finally
         foreach(close, ios)
     end
+    ok = true
     for (k, p) in enumerate(procs)
-        success(p) || println("UWAGA: część $k/$n zakończona błędem - zobacz $(joinpath(out, "part_$k.log"))")
+        success(p) && continue
+        ok = false
+        println("UWAGA: część $k/$n zakończona błędem - zobacz $(joinpath(logdir, "$(tag)_$k.log"))")
     end
-    isnothing(_code) || return procs
+    return ok
+end
+
+_nproc(n) = something(n, clamp(min(Sys.CPU_THREADS ÷ 4, floor(Int, Sys.free_memory() / 2^30 / 3)), 1, 16))
+
+"""
+    zap_verify_parallel(; n=nothing, out=...)
+
+Cała weryfikacja z JEDNEGO miejsca: `n` procesów Julii w tle (każdy
+`zap_verify(part="k/n")`, log `out/part_k.log`), postęp co `every` s, na końcu
+`nulls.pdf` i `summary.txt` ze wszystkich części. `n` domyślnie z liczby rdzeni
+i wolnej pamięci (~3 GB na proces, najwyżej 16). Wznawialne.
+"""
+function zap_verify_parallel(; n=nothing, out="/home/psr/data/OUTPUT/zap_verify/", every=300, _code=nothing)
+    mkpath(out)
+    n = _nproc(n)
+    println("WERYFIKACJA RÓWNOLEGLE: $n procesów (rdzenie: $(Sys.CPU_THREADS), wolna pamięć: " *
+            "$(round(Sys.free_memory() / 2^30, digits=1)) GB)  wyniki: $out")
+    codes = [something(_code, "include(\"spats.jl\"); Base.include(Main, \"modules/zap_verify.jl\"); " *
+                              "Base.invokelatest(Main.zap_verify; part=\"$k/$n\", out=\"$out\")") for k in 1:n]
+    nd(k) = (csv = joinpath(out, "verify_$k.csv"); "gotowe $(isfile(csv) ? countlines(csv) - 1 : 0) | ")
+    _run_parallel(codes, out, "part"; every=every, progress=nd)
+    isnothing(_code) || return nothing
     try _null_pages(joinpath(out, "nullprof"), joinpath(out, "nulls.pdf")) catch e; println("PDF nulli: $e"); end
     return zap_verify_summary(out=out)
+end
+
+"""
+    autozap_parallel(; n=nothing, out=pazur2, verify_dir=...)
+
+Ponowny PEŁNY przebieg automatu (`autozap_all`) w `n` procesach w tle, z
+poprawkami z weryfikacji: bezpiecznik RFI `:both`, 'nulle' z sygnałem ->
+zaszumione, kanały wycięte przed sumowaniem tam, gdzie weryfikacja w
+`verify_dir` wykazała zysk >= 1% (`SpaTs.chan_first_list`). Pulsary zrobione
+ręcznie (`zap_manual`) zostają. Stara tabela -> `zap_summary_<data>.csv`.
+Stan w `out/.autozap_v3`: brak = start od nowa, "running" = wznowienie
+(zrobione pomijane), "done" = już zrobione, nic się nie dzieje.
+"""
+function autozap_parallel(; n=nothing, out="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/psr/data/new/",
+                          verify_dir="/home/psr/data/OUTPUT/zap_verify/", every=300)
+    marker = joinpath(out, ".autozap_v3")
+    state = isfile(marker) ? strip(read(marker, String)) : ""
+    state == "done" && (println("AUTOMAT v3: już zrobiony ($marker) - pomijam."); return true)
+    summ = joinpath(out, "zap_summary.csv")
+    if state != "running"
+        stamp = Libc.strftime("%Y%m%d-%H%M", time())
+        for f in ("zap_summary.csv", "do_recznie.csv")
+            pth = joinpath(out, f)
+            isfile(pth) && mv(pth, joinpath(out, replace(f, ".csv" => "_$stamp.csv")))
+        end
+        open(f -> println(f, SpaTs.AUTOZAP_HEADER), summ, "w")
+        open(f -> println(f, "pulsar,powod,obs"), joinpath(out, "do_recznie.csv"), "w")
+        write(marker, "running")
+    end
+    psrs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
+    cf = SpaTs.chan_first_list(verify_dir)
+    n = _nproc(n)
+    println("AUTOMAT v3 RÓWNOLEGLE: $n procesów, $(length(psrs)) pulsarów" *
+            (state == "running" ? " (wznowienie)" : "") * ";  kanały przed sumowaniem w $(length(cf)) pulsarach")
+    codes = ["include(\"spats.jl\"); Base.invokelatest(SpaTs.autozap_all; only=$(repr(psrs[k:n:end])), " *
+             "chan_first=$(repr(cf)))" for k in 1:n]
+    tot() = (isfile(summ) ? countlines(summ) - 1 : 0)
+    ok = _run_parallel(codes, joinpath(out, "logs_v3"), "automat"; every=every,
+                       progress=k -> "razem gotowe $(tot())/$(length(psrs)) | ")
+    st = Dict{String,Int}()
+    for l in Iterators.drop(eachline(summ), 1)
+        r = split(l, ","); length(r) >= 2 && (st[r[2]] = get(st, r[2], 0) + 1)
+    end
+    println("AUTOMAT v3 gotowy: ", join(["$k=$v" for (k, v) in sort(collect(st))], "  "))
+    ok && tot() >= length(psrs) && write(marker, "done")
+    return ok
 end
