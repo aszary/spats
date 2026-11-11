@@ -1881,16 +1881,15 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         # RFI, kanaly .spCf16; + pazur2/<psr>/pulsar_rfi.spCF (nulle zostawione).
         # Wyniki: /home/psr/data/OUTPUT/zap_verify/summary.txt (wklej), nulls.pdf, verify.csv
         Base.include(Main, "modules/zap_verify.jl")
-        # TEST na 7 pulsarach (osobny folder) - po akceptacji: pelny przebieg (linia nizej)
-        Base.invokelatest(Main.zap_verify; out="/home/psr/data/OUTPUT/zap_verify_test/",
-                          only=["J1727-2739",    # nuller, NF z literatury 52%
-                                "J2253+1516",    # stary bezpiecznik: dane tylko po RFI -4.1%
-                                "J1055-6905",    # stary bezpiecznik: -1.2%
-                                "J1812+0226",    # 40% wyciete, 396 RFI
-                                "J0034-0721",    # nuller, NF 44%
-                                "J1946+1805",    # jasny nuller, NF 55%
-                                "J1645-0317"])   # bardzo jasny, czysty (kontrola)
-        #Base.invokelatest(Main.zap_verify)
+        # test na 7 pulsarach 2026-11-11 (zap_verify_test/): A-C dobrze, D zawyzone (suma
+        # kanalow bez wag) -> poprawione na sume przez PSRCHIVE. TEST 2 tylko tam:
+        Base.invokelatest(Main.zap_verify; out="/home/psr/data/OUTPUT/zap_verify_test2/",
+                          only=["J1812+0226",    # 9 zlych kanalow, "nulle" z energia 114%
+                                "J0034-0721"])   # kanaly 6 14, zysk S/N byl zawyzony
+        # PELNY PRZEBIEG (po tescie 2). Rownolegle: w 3 screenach  ZV_PART=1/3 julia,
+        # ZV_PART=2/3 julia, ZV_PART=3/3 julia  i w kazdym include("spats.jl");
+        # bez ZV_PART = jeden proces. Podsumowanie wszystkich czesci: Main.zap_verify_summary()
+        #Base.invokelatest(Main.zap_verify; part=get(ENV, "ZV_PART", nothing))
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)

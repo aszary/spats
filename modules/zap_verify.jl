@@ -30,7 +30,7 @@ const LIT_NF = Dict(
 const VERIFY_HEADER = "pulsar,status,N,n_cut,n_rfi,n_null,snr_none,snr_none_cmp,repro," *
     "null_snr,null_frac,nf_ours,nf_energy,nf_lit," *
     "old_ncut,old_snr,old_snr_rfi,new_ncut,new_snr,new_snr_rfi," *
-    "C,chans_bad,n_sub_bad,pair_pct,ch_all_ncut,ch_all_snr,ch_good_ncut,ch_good_snr,note"
+    "C,chans_bad,n_sub_bad,pair_pct,ch_all_none,ch_all_ncut,ch_all_snr,ch_good_none,ch_good_ncut,ch_good_snr,note"
 
 # --- szybki odczyt `pdv -t` (16 kanalow = ~16 mln linii; split() byl za wolny) ---
 @inline function _pint(buf, j)
@@ -111,8 +111,21 @@ function _cube16(indir, tmp)
     txt = joinpath(tmp, "p16.txt")
     run(pipeline(`pdv -t $ar`, stdout=txt, stderr=devnull))
     d = _load_cube_fast(txt)
-    rm(txt, force=true); rm(ar, force=true)
-    return d
+    rm(txt, force=true)
+    return d, ar
+end
+
+# suma czestotliwosci PRZEZ PSRCHIVE (z wagami kanalow, jak .spCF): opcjonalnie
+# `paz -z` zlych kanalow, `pam -F`, debase z oknem -> macierz (impuls, bin)
+function _fsum_debased(ar16, tmp, chans, bst, bend, tag)
+    a = joinpath(tmp, "f_$tag.spCF")
+    cp(ar16, a; force=true)
+    isempty(chans) || run(pipeline(`paz -m -z $(join(chans, " ")) $a`, stdout=devnull, stderr=devnull))
+    run(pipeline(`pam -F -m $a`, stdout=devnull, stderr=devnull))
+    run(pipeline(`pmod -onpulse "$bst $bend" -device "/NULL" -debase $a`; stdout=devnull, stderr=devnull))
+    txt = joinpath(tmp, "f_$tag.debase.txt")
+    _VD.convert_psrfit_ascii(joinpath(tmp, "f_$tag.debase.gg"), txt)
+    return _VD.load_ascii(txt)
 end
 
 function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000, save_rfi=true)
@@ -172,38 +185,40 @@ function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000
             end
         end
 
-        # D. kanaly
+        # D. kanaly (blad tutaj nie kasuje A-C)
         if chans && N <= max_chan_pulses
-            d = _cube16(indir, tmp)
-            if isnothing(d)
+          try
+            dc = _cube16(indir, tmp)
+            if isnothing(dc)
                 push!(note, "brak .spCf16")
             else
+                d, ar16 = dc
                 Nc, C, nb = size(d)
                 row["C"] = C
                 if Nc != N || nb != size(D, 2)
                     push!(note, "16ch: $Nc imp./$nb binow vs $N/$(size(D, 2))")
                 else
-                    offc = _VD.offpulse_bins(dropdims(sum(d, dims=2), dims=2), bst, bend)
-                    for i in 1:Nc, ch in 1:C          # baseline per (impuls, kanal) jak debase
-                        x = @view d[i, ch, :]
-                        any(!iszero, x) && (x .-= mean(@view x[offc]))
-                    end
                     a = chan_rfi_core(d, bst, bend)
                     row["chans_bad"] = join(a.chan_all .- 1, " ")
                     row["n_sub_bad"] = length(a.sub_all)
                     live = count(.!a.dead)
                     row["pair_pct"] = 100 * length(a.pairs) / max(count(a.g) * live, 1)
+                    d = nothing                       # kostka niepotrzebna (pamiec)
                     if !isempty(a.chan_all)
-                        for (tag, keep) in (("ch_all", findall(.!a.dead)),
-                                            ("ch_good", setdiff(findall(.!a.dead), a.chan_all)))
-                            S = Float64.(dropdims(sum(d[:, keep, :], dims=2), dims=2))
+                        for (tag, zc) in (("ch_all", Int[]), ("ch_good", a.chan_all .- 1))
+                            S = _fsum_debased(ar16, tmp, zc, bst, bend, tag)
                             z = _VD.auto_zap(S, bst, bend)
+                            row["$(tag)_none"] = _VD.profile_snr(S, bst, bend)
                             row["$(tag)_ncut"] = length(z.bad)
                             row["$(tag)_snr"] = _VD.profile_snr(S, bst, bend; drop=z.bad)
                         end
                     end
                 end
             end
+          catch e
+            e isa InterruptException && rethrow()
+            push!(note, "kanaly: " * first(replace(sprint(showerror, e), '"' => '\'', '\n' => ' ', ',' => ';'), 120))
+          end
         elseif chans
             push!(note, "kanaly pominiete (N>$max_chan_pulses)")
         end
@@ -276,15 +291,16 @@ Pełna weryfikacja (patrz nagłówek pliku). Wznawialna: pulsary już w
 podejrzane, potem reszta. Na końcu `zap_verify_summary`.
 """
 function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/psr/data/new/",
-                    out="/home/psr/data/OUTPUT/zap_verify/", only=nothing, chans=true, save_rfi=true)
+                    out="/home/psr/data/OUTPUT/zap_verify/", only=nothing, chans=true, save_rfi=true,
+                    part=nothing)
     mkpath(out)
-    csv = joinpath(out, "verify.csv")
+    kp, np_ = isnothing(part) ? (1, 1) : parse.(Int, split(part, "/"))
+    csv = joinpath(out, np_ == 1 ? "verify.csv" : "verify_$kp.csv")
     done = Set{String}()
-    if isfile(csv)
-        for l in Iterators.drop(eachline(csv), 1); push!(done, split(l, ",")[1]); end
-    else
-        open(f -> println(f, VERIFY_HEADER), csv, "w")
+    for f in _verify_csvs(out), l in Iterators.drop(eachline(f), 1)
+        push!(done, split(l, ",")[1])
     end
+    isfile(csv) || open(f -> println(f, VERIFY_HEADER), csv, "w")
     summ = joinpath(pazur2, "zap_summary.csv")
     st = Dict{String,String}(); prio = Dict{String,Float64}()
     for l in Iterators.drop(eachline(summ), 1)
@@ -296,8 +312,9 @@ function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/ps
     end
     psrs = sort([k for (k, s) in st if s in ("ok", "reczny")], by=k -> -prio[k])
     isnothing(only) || (psrs = filter(in(Set(only)), psrs))
+    psrs = psrs[kp:np_:end]                              # czesc kp z np_ (rownolegle procesy)
     todo = filter(!in(done), psrs)
-    println("WERYFIKACJA: $(length(todo)) pulsarów do zrobienia ($(length(done)) już w $csv)")
+    println("WERYFIKACJA (część $kp/$np_): $(length(todo)) pulsarów do zrobienia ($(length(done)) już zrobionych w $out)")
     profdir = joinpath(out, "nullprof"); mkpath(profdir)
     keys_ = split(VERIFY_HEADER, ",")
     t0 = time()
@@ -313,9 +330,10 @@ function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/ps
         isnothing(fig) || _save_nullprof(profdir, fig)
         open(f -> println(f, join([_fmtv(get(row, kk, nothing)) for kk in keys_], ",")), csv, "a")
         el = (time() - t0) / k
-        @printf("[%d/%d] %-12s %s  null S/N=%s  kanały: %s   (%.0f s/pulsar, zostało ~%.1f h)\n", k, length(todo),
-                psr, row["status"], _fmtv(get(row, "null_snr", nothing)), _fmtv(get(row, "chans_bad", "-")),
-                el, el * (length(todo) - k) / 3600)
+        g(x) = (v = get(row, x, nothing); v isa Number ? v : NaN)
+        @printf("[%d/%d] %-12s %s  nulle: energia %s%%  kanały: %s (S/N %.0f -> %.0f)  %s  (%.0f s/pulsar, zostało ~%.1f h)\n",
+                k, length(todo), psr, row["status"], _fmtv(100 * g("null_frac")), _fmtv(get(row, "chans_bad", "-")),
+                g("ch_all_snr"), g("ch_good_snr"), row["note"], el, el * (length(todo) - k) / 3600)
         k % 50 == 0 && (try _null_pages(profdir, joinpath(out, "nulls.pdf")) catch e; println("PDF: $e"); end)
     end
     try _null_pages(profdir, joinpath(out, "nulls.pdf")) catch e; println("PDF nulli nie powstał: $e"); end
@@ -326,11 +344,15 @@ end
 Podsumowanie z `verify.csv` (działa w każdej chwili, także w trakcie
 przebiegu). Wypisuje i zapisuje `summary.txt` — to wklej.
 """
+_verify_csvs(out) = sort(filter(f -> occursin(r"^verify(_\d+)?\.csv$", basename(f)),
+                                readdir(out; join=true)))
+
 function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
-    csv = joinpath(out, "verify.csv")
-    L = collect(eachline(csv))
-    H = split(L[1], ",")
-    R = [Dict(zip(H, split(l, ","; limit=length(H)))) for l in L[2:end]]
+    H = split(VERIFY_HEADER, ",")
+    R = Dict{SubString{String},SubString{String}}[]
+    for f in _verify_csvs(out), l in Iterators.drop(eachline(f), 1)
+        push!(R, Dict(zip(H, split(l, ","; limit=length(H)))))
+    end
     num(r, k) = (x = tryparse(Float64, get(r, k, "")); isnothing(x) ? NaN : x)
     ok = filter(r -> r["status"] != "blad", R)
     io = IOBuffer()
@@ -352,11 +374,14 @@ function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
     pr("\n--- B. Nulle: czy w profilu średnim wyciętych nulli jest sygnał ---")
     NR = filter(r -> isfinite(num(r, "null_snr")), ok)
     s = [num(r, "null_snr") for r in NR]
-    pr(@sprintf("pulsary z nullami: %d;  S/N profilu nulli <3: %d,  3-5: %d,  >5: %d", length(NR),
-                count(<(3), s), count(x -> 3 <= x < 5, s), count(>=(5), s)))
-    pr("S/N>5 = w 'nullach' jest emisja (słaby stan wzięty za null). Najsilniejsze:")
+    en = [num(r, "null_frac") for r in NR]
+    pr(@sprintf("pulsary z nullami: %d;  S/N profilu nulli <3 (nic): %d,  >=3 (coś jest): %d", length(NR),
+                count(<(3), s), count(>=(3), s)))
+    pr(@sprintf("energia nulli vs dobry impuls: <2%% (czyste nulle): %d,  2-10%% (domieszka emisji): %d,  >10%% (to nie nulle): %d",
+                count(<(0.02), en), count(x -> 0.02 <= x < 0.1, en), count(>=(0.1), en)))
+    pr("(S/N rośnie z jasnością pulsara - o czystości nulli mówi energia)  Najwięcej energii w nullach:")
     pr(@sprintf("  %-12s %7s %9s %8s %8s", "pulsar", "n_null", "S/N nulli", "energia", "NF nasz"))
-    for r in sort(NR, by=r -> -num(r, "null_snr"))[1:min(20, end)]
+    for r in sort(NR, by=r -> -num(r, "null_frac"))[1:min(25, end)]
         pr(@sprintf("  %-12s %7s %9.1f %7.1f%% %7.1f%%", r["pulsar"], r["n_null"], num(r, "null_snr"),
                     100num(r, "null_frac"), num(r, "nf_ours")))
     end
@@ -401,6 +426,8 @@ function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
     pp = fin([num(r, "pair_pct") for r in CR])
     isempty(pp) || pr(@sprintf("pojedyncze pary (impuls×kanał): mediana %.2f%%, >1%%: %d", median(pp), count(>(1), pp)))
     gain(r) = 100 * (num(r, "ch_good_snr") / num(r, "ch_all_snr") - 1)
+    san = fin([num(r, "ch_all_none") / num(r, "snr_none") for r in BC])
+    isempty(san) || pr(@sprintf("kontrola: suma kanałów przez PSRCHIVE vs .spCF (S/N bez wycięć): mediana %.3f", median(san)))
     help = filter(r -> isfinite(gain(r)) && (gain(r) > 1 || num(r, "ch_all_ncut") - num(r, "ch_good_ncut") >=
                   max(5, 0.01 * num(r, "N"))), BC)
     pr("kanały najpierw POMAGAJĄ (S/N +>1% albo mniej wyciętych impulsów): $(length(help)) z $(length(BC))")
