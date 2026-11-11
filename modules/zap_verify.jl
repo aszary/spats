@@ -12,12 +12,12 @@
 # nulls.pdf (profile nulli), summary.txt (do wklejenia). Uruchamiane z main().
 using Statistics, Printf
 isdefined(Main, :SpaTs) || error("Najpierw include(\"spats.jl\").")
-isdefined(Main, :chan_rfi_core) || include(joinpath(@__DIR__, "chan_rfi.jl"))
-const _VD, _VT, _VP = SpaTs.Data, SpaTs.Tools, SpaTs.Plot
+include(joinpath(@__DIR__, "chan_rfi.jl"))   # zawsze: po ponownym include("spats.jl") SpaTs jest nowym modulem
+_VD, _VT, _VP = SpaTs.Data, SpaTs.Tools, SpaTs.Plot
 
 # frakcje nullingu z literatury (przeglad Claude online, 2026-11-11); rozne
 # teleskopy/metody - porownanie orientacyjne
-const LIT_NF = Dict(
+LIT_NF = Dict(
     "J0034-0721" => (44.0, "44±1% Gajjar 2017"), "J1049-5833" => (47.0, "47±3% Wang+2007"),
     "J1255-6131" => (75.0, "~70-80% (10-100% miedzy obs.) Burke-Spolaor+2012"),
     "J1537-4912" => (20.0, "dlugie nulle do ~20% TPA XVIII"), "J1727-2739" => (52.0, "52±3% Wang+2007"),
@@ -27,7 +27,7 @@ const LIT_NF = Dict(
     "J2037+1942" => (44.0, "44±4% Herfindal&Rankin 2009 (albo 24%)"),
     "J2253+1516" => (49.0, "<=49% Redman&Rankin 2009 (gorna granica)"))
 
-const VERIFY_HEADER = "pulsar,status,N,n_cut,n_rfi,n_null,snr_none,snr_none_cmp,repro," *
+VERIFY_HEADER = "pulsar,status,N,n_cut,n_rfi,n_null,snr_none,snr_none_cmp,repro," *
     "null_snr,null_frac,nf_ours,nf_energy,nf_lit," *
     "old_ncut,old_snr,old_snr_rfi,new_ncut,new_snr,new_snr_rfi," *
     "C,chans_bad,n_sub_bad,pair_pct,ch_all_none,ch_all_ncut,ch_all_snr,ch_good_none,ch_good_ncut,ch_good_snr,note"

@@ -8,7 +8,7 @@
 # (oflagowane pary) i chan_rfi.png. Numery impulsow i kanalow od 0 (jak w pazi/paz).
 using Statistics
 isdefined(Main, :SpaTs) || error("Najpierw include(\"spats.jl\") (moze byc przerwane Ctrl+C po starcie).")
-const _CD, _CT, _CP = SpaTs.Data, SpaTs.Tools, SpaTs.Plot
+_CD, _CT, _CP = SpaTs.Data, SpaTs.Tools, SpaTs.Plot
 
 "Kostka (impuls, kanal, bin) z `pdv -t` archiwum o jednej polaryzacji."
 function _load_cube(txt)
