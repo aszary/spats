@@ -604,7 +604,7 @@ uruchom ponownie - zrobione pulsary są pomijane. Ctrl+C zatrzymuje też procesy
 function zap_verify_parallel(; n=nothing, out="/home/psr/data/OUTPUT/zap_verify/", every=300, _code=nothing)
     mkpath(out)
     cpu, mem = Sys.CPU_THREADS, Sys.free_memory() / 2^30
-    n = something(n, clamp(min(cpu ÷ 2, floor(Int, mem / 3)), 1, 4))
+    n = something(n, clamp(min(cpu ÷ 4, floor(Int, mem / 3)), 1, 16))   # >16: wspolny dysk hamuje
     repo = dirname(@__DIR__)
     println("WERYFIKACJA RÓWNOLEGLE: $n procesów (rdzenie: $cpu, wolna pamięć: $(round(mem, digits=1)) GB)\n" *
             "logi części: $(joinpath(out, "part_<k>.log"))   (pierwsze ~2 min to ładowanie pakietów)")
