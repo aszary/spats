@@ -12,7 +12,7 @@ Uruchamiane przez `autozap_all` w `spats.jl`. Wyniki trafiają do `/home/psr/dat
 Działają przy tym dwa bezpieczniki:
 
 - **bramka S/N** (`profile_gate`): wycięty odcinek wraca, jeśli z nim S/N profilu jest wyższe. Potem bramka oddaje dobre krawędzie odcinków, które zostały wycięte, jeśli te krawędzie mają własny sygnał (≥3σ) i podnoszą S/N. Dzięki temu kilka fatalnych impulsów nie ciągnie za sobą całego odcinka;
-- **limit dla RFI**: wycięcia RFI nie mogą obniżyć S/N profilu o więcej niż 1%.
+- **limit dla RFI**: wycięcia RFI nie mogą obniżyć S/N profilu o więcej niż 1%, liczone zarówno po wycięciu nulli, jak i na danych z samym RFI (nulle zostawione, `rfi_ref=:both`).
 
 Off-pulse liczony jest bez emisji ze średniego profilu (interpuls, składowe poza oknem).
 
@@ -43,6 +43,23 @@ W kodzie odpowiadają im funkcje `Data.zaps_of(p)`, `Data.zaps_rfi_of(p)` i `Dat
 - `do_recznie.csv`: pulsary bez okna on-pulse lub bez P3.
 
 **Weryfikacja:** `julia tests/zap_benchmark.jl` uruchamia benchmark na danych syntetycznych ze znaną prawdą. Porównuje automat z regułą TPA i podejściem w stylu clfd.
+
+## Weryfikacja na prawdziwych danych
+
+`zap_verify()` (`modules/zap_verify.jl`, uruchamiane z `main()`, wznawialne). Wyniki w `/home/psr/data/OUTPUT/zap_verify/`:
+
+- `summary.txt`: podsumowanie do wklejenia;
+- `nulls.pdf`: profil średni nulli vs dobrych impulsów;
+- `verify.csv`: wyniki dla każdego pulsara.
+
+Sprawdza:
+
+- spójność z zapisanymi wynikami;
+- sygnał w nullach i frakcję nulli: nasza vs rozkład energii vs literatura;
+- nowy bezpiecznik RFI vs stary;
+- kanały `.spCf16`: czy wycięcie złych kanałów przed sumowaniem pomaga.
+
+Przy okazji zapisuje `pazur2/<psr>/pulsar_rfi.spCF` z wyciętym tylko RFI, do badań nullingu.
 
 ## Do zrobienia później
 

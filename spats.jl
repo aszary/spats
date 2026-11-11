@@ -1873,7 +1873,15 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
 
         # ETAP 3b — RECZNIE: do_recznie.csv (brak on-pulse/P3) + J0211-8159 (RFI zamiast
         # pulsara): okno on-pulse w pmod, automat + poprawka w pazi. Wymaga X (VNC).
-        manual_zap_all(out="/home/psr/data/OUTPUT/pazur2/", extra=["J0211-8159"])
+        # (interaktywne - uruchamiaj osobno w REPL: SpaTs.manual_zap_all())
+        #manual_zap_all(out="/home/psr/data/OUTPUT/pazur2/", extra=["J0211-8159"])
+
+        # ETAP 5 — WERYFIKACJA w jednym przebiegu (screen, bez okien; wznawialna):
+        # nulle (profil sredni zaps2_null, NF vs energia vs literatura), nowy bezpiecznik
+        # RFI, kanaly .spCf16; + pazur2/<psr>/pulsar_rfi.spCF (nulle zostawione).
+        # Wyniki: /home/psr/data/OUTPUT/zap_verify/summary.txt (wklej), nulls.pdf, verify.csv
+        Base.include(Main, "modules/zap_verify.jl")
+        Base.invokelatest(Main.zap_verify)
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)

@@ -1025,8 +1025,13 @@ module Data
     cuts would lower the profile S/N by more than `rfi_tol` (real RFI costs
     ~0.5% in the benchmark), the threshold is raised (k × 1.5, 2, 3) —
     on real data a noisy-but-good stretch must not go.
+    `rfi_ref=:both` (default) checks that against the data with the cuts
+    so far AND against the data with only the RFI/junk cuts (nulls kept):
+    measured only after the nulls were gone, RFI cuts in nulling pulsars
+    could lower the S/N of the null-keeping (`zaps2_rfi`) data by up to 4%
+    (J2253, J1252, J1838, J2037, J1055). `:cut` = the old check only.
     """
-    function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, kw...)
+    function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both, kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
         a = auto_zap_core(sn; kw...)
         reason = copy(a.reason)
@@ -1038,12 +1043,17 @@ module Data
         end
         if rfi
             cut0 = findall(>(0), reason)
+            rfi0 = split_zaps(reason).rfi
             s_ref = profile_snr(data, bin_st, bin_end; drop=cut0)
+            s_ref_rfi = profile_snr(data, bin_st, bin_end; drop=rfi0)
+            ok(cand) = isempty(cand) ||
+                (!(profile_snr(data, bin_st, bin_end; drop=vcat(cut0, cand)) < (1 - rfi_tol) * s_ref) &&
+                 (rfi_ref == :cut ||
+                  !(profile_snr(data, bin_st, bin_end; drop=vcat(rfi0, cand)) < (1 - rfi_tol) * s_ref_rfi)))
             new = Int[]
             for kk in rfi_k .* (1.0, 1.5, 2.0, 3.0)
                 cand = filter(i -> reason[i] == 0, rfi_rms(data, bin_st, bin_end; k=kk))
-                if isempty(cand) || !(profile_snr(data, bin_st, bin_end; drop=vcat(cut0, cand)) <
-                                      (1 - rfi_tol) * s_ref)
+                if ok(cand)
                     new = cand
                     break
                 end

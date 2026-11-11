@@ -73,13 +73,18 @@ function chan_rfi_core(d, bst, bend; q=4.0, nmin=2, fchan=0.3, fsub=0.5, margin=
     lv = findall(.!dead)
     ma = median(acfc[lv]); sa = max(1.4826 * median(abs.(acfc[lv] .- ma)), 1 / sqrt(length(off)))
     acf_bad = [!dead[c] && (acfc[c] - ma) / sa > q for c in 1:C]
+    # kanal zaszumiony przez cala obserwacje (wzdluz czasu tez nic nie odstaje):
+    # off-pulse rms kanalu > Q3 + 1.5 IQR wsrod kanalow (TPA XIX, Keith+2026)
+    rmsc = [dead[c] ? NaN : median(F[g, c, 1]) for c in 1:C]
+    rq1, rq3 = length(lv) >= 4 ? (quantile(rmsc[lv], 0.25), quantile(rmsc[lv], 0.75)) : (Inf, Inf)
+    rms_bad = [!dead[c] && rmsc[c] > rq3 + 1.5 * (rq3 - rq1) for c in 1:C]
     flag = falses(N, C)
     for i in findall(g), c in findall(.!dead)
         flag[i, c] = count(abs.(Z[i, c, :]) .> q) >= nmin || fz[i, c] > 0.5
     end
     live = count(.!dead)
     fch = [count(flag[g, c]) / max(count(g), 1) for c in 1:C]
-    chan_all = findall(((fch .> fchan) .| acf_bad) .& .!dead)
+    chan_all = findall(((fch .> fchan) .| acf_bad .| rms_bad) .& .!dead)
     fsb = [count(flag[i, .!dead]) / max(live, 1) for i in 1:N]
     sub_all = findall(g .& (fsb .> fsub))
     pairs = [(i, c) for i in findall(g) for c in 1:C if flag[i, c] && !(c in chan_all) && !(i in sub_all)]

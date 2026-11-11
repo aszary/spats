@@ -10,7 +10,7 @@ function load(file)
     m = Module()
     Core.eval(m, :(using Statistics, Random))
     for name in ("offpulse_bins", "pulse_signal_noise", "noise_jump_z", "auto_zap_core", "pulses_to_zaps",
-                 "profile_snr", "profile_gate", "zap_snr", "rfi_rms", "auto_zap")
+                 "profile_snr", "profile_gate", "zap_snr", "rfi_rms", "split_zaps", "auto_zap")
         r = match(Regex("    function " * name * "\\(.*?\\n    end\\n", "s"), src)
         isnothing(r) || Core.eval(m, Meta.parse(r.match))
     end
@@ -139,4 +139,25 @@ println("\n=== ŚREDNIO po scenariuszach ===")
 for (m, _) in methods
     v = agg[m]; fc = v[1:2:end]; vi = v[2:2:end]
     @printf("%-20s  fałszywe cięcia %.1f%%   S/N jako %% ideału %.1f%%\n", m, 100mean(fc), mean(vi))
+end
+
+# RFI-only data (nulls kept = zaps2_rfi, for nulling studies) must not lose S/N
+# against no cuts; old safety (rfi_ref=:cut) measured it only after the nulls
+println("
+=== Dane tylko po RFI (nulle zostawione) vs bez wycięć: S/N zmiana ===")
+@printf("%-34s %12s %12s
+", "scenariusz", "stary (:cut)", "nowy (:both)")
+for (sc, lab) in scen
+    sc in (:nulls, :faded, :mixed, :bright) || continue
+    r = zeros(2)
+    for s in seeds
+        d, _, _ = gen(sc, s)
+        s0 = snr(d, Int[])
+        for (k, ref) in enumerate((:cut, :both))
+            a = Base.invokelatest(D.auto_zap, d, first(ON), last(ON); rfi_ref=ref)
+            r[k] += 100(snr(d, Base.invokelatest(D.split_zaps, a.reason).rfi) / s0 - 1) / length(seeds)
+        end
+    end
+    @printf("%-34s %+11.2f%% %+11.2f%%
+", lab, r[1], r[2])
 end

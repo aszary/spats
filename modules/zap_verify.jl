@@ -1,0 +1,415 @@
+# Weryfikacja automatu wycinania w JEDNYM przebiegu (tylko odczyt surowych danych;
+# w pazur2 dopisywany jest jedynie pulsar_rfi.spCF = archiwum z wycietym tylko RFI,
+# nulle zostawione - do badan nullingu). Dla kazdego pulsara z pazur2:
+#   A. spojnosc: S/N bez wyciec vs zap_cmp, czy automat odtwarza zapisane zaps2;
+#   B. nulle: profil sredni z impulsow zaps2_null -> czy jest w nim sygnal
+#      (S/N stosu, ulamek energii dobrego impulsu); frakcja nulli: nasza vs
+#      estymator z rozkladu energii (N(E_on<0)/N(E_off<0)) vs literatura;
+#   C. nowy bezpiecznik RFI (rfi_ref=:both) vs stary (:cut) na tych samych danych;
+#   D. kanaly (.spCf16): chan_rfi_core -> kanaly do wyciecia; automat na danych
+#      zsumowanych ze wszystkich kanalow vs bez zlych kanalow (czy najpierw kanaly).
+# Wyniki: /home/psr/data/OUTPUT/zap_verify/verify.csv (dopisywane, wznawialne),
+# nulls.pdf (profile nulli), summary.txt (do wklejenia). Uruchamiane z main().
+using Statistics, Printf
+isdefined(Main, :SpaTs) || error("Najpierw include(\"spats.jl\").")
+isdefined(Main, :chan_rfi_core) || include(joinpath(@__DIR__, "chan_rfi.jl"))
+const _VD, _VT, _VP = SpaTs.Data, SpaTs.Tools, SpaTs.Plot
+
+# frakcje nullingu z literatury (przeglad Claude online, 2026-11-11); rozne
+# teleskopy/metody - porownanie orientacyjne
+const LIT_NF = Dict(
+    "J0034-0721" => (44.0, "44±1% Gajjar 2017"), "J1049-5833" => (47.0, "47±3% Wang+2007"),
+    "J1255-6131" => (75.0, "~70-80% (10-100% miedzy obs.) Burke-Spolaor+2012"),
+    "J1537-4912" => (20.0, "dlugie nulle do ~20% TPA XVIII"), "J1727-2739" => (52.0, "52±3% Wang+2007"),
+    "J1850-0006" => (48.0, "48±3% Yan+2026 FAST"), "J1851-0053" => (45.0, "47±4% / 42±4% Yan+2026"),
+    "J1926-0652" => (75.0, "~75% (b. niepewne) Zhang+2019"), "J1931+1439" => (42.0, "~42% Yan+2026"),
+    "J1944+1755" => (60.0, ">=60% Lorimer+2002; FAST ~48%"), "J1946+1805" => (55.0, "55±5% Yang+2014"),
+    "J2037+1942" => (44.0, "44±4% Herfindal&Rankin 2009 (albo 24%)"),
+    "J2253+1516" => (49.0, "<=49% Redman&Rankin 2009 (gorna granica)"))
+
+const VERIFY_HEADER = "pulsar,status,N,n_cut,n_rfi,n_null,snr_none,snr_none_cmp,repro," *
+    "null_snr,null_frac,nf_ours,nf_energy,nf_lit," *
+    "old_ncut,old_snr,old_snr_rfi,new_ncut,new_snr,new_snr_rfi," *
+    "C,chans_bad,n_sub_bad,pair_pct,ch_all_ncut,ch_all_snr,ch_good_ncut,ch_good_snr,note"
+
+# --- szybki odczyt `pdv -t` (16 kanalow = ~16 mln linii; split() byl za wolny) ---
+@inline function _pint(buf, j)
+    while buf[j] == UInt8(' ') || buf[j] == UInt8('\t'); j += 1; end
+    v = 0
+    while UInt8('0') <= buf[j] <= UInt8('9'); v = 10v + (buf[j] - UInt8('0')); j += 1; end
+    return v, j
+end
+function _load_cube_fast(txt)
+    buf = read(txt); n = length(buf); pos = 1
+    data = nothing
+    GC.@preserve buf begin
+        p0 = pointer(buf)
+        while pos <= n
+            e = something(findnext(==(UInt8('\n')), buf, pos), n + 1)
+            c = buf[pos]
+            if !isnothing(data) && UInt8('0') <= c <= UInt8('9')
+                i, j = _pint(buf, pos); ch, j = _pint(buf, j); b, j = _pint(buf, j)
+                v = ccall(:strtod, Float64, (Ptr{UInt8}, Ptr{Ptr{UInt8}}), p0 + j - 1, C_NULL)
+                data[i+1, ch+1, b+1] = v
+            elseif isnothing(data) && c == UInt8('F')
+                r = split(String(buf[pos:e-1]))
+                if r[1] == "File:"
+                    data = zeros(Float32, parse(Int, r[6]), parse(Int, r[8]), parse(Int, r[12]))
+                end
+            end
+            pos = e + 1
+        end
+    end
+    return data
+end
+
+# S/N profilu zlozonego z `rows` (off-pulse z calych danych)
+function _stack_snr(D, rows, on, off)
+    isempty(rows) && return NaN
+    P = vec(sum(@view(D[rows, :]), dims=1))
+    μ, σ = mean(P[off]), std(P[off])
+    return σ > 0 ? sum(P[on] .- μ) / (σ * sqrt(length(on))) : NaN
+end
+
+"Frakcja nulli z rozkładu energii: N(E_on<0)/N(E_off<0), okno off tej samej szerokości."
+function _nf_energy(D, rows, on, off)
+    n_on = length(on)
+    segs = UnitRange{Int}[]
+    for j in off
+        (!isempty(segs) && last(segs[end]) == j - 1) ? (segs[end] = first(segs[end]):j) : push!(segs, j:j)
+    end
+    sg = segs[argmax(length.(segs))]
+    length(sg) >= n_on || return NaN
+    w = first(sg):first(sg)+n_on-1
+    Eon = [sum(@view D[i, on]) for i in rows]
+    Eoff = [sum(@view D[i, w]) for i in rows]
+    k = count(<(0), Eoff)
+    return k >= 10 ? clamp(count(<(0), Eon) / k, 0.0, 1.0) : NaN
+end
+
+_jacc(a, b) = (u = length(union(a, b)); u == 0 ? 1.0 : length(intersect(a, b)) / u)
+
+function _debased_spcf(indir, tmp, bst, bend)
+    ar = joinpath(tmp, "pulsar.spCF")
+    redirect_stdout(devnull) do
+        _VD.add_psrfiles(indir, ar)
+    end
+    cp(ar, joinpath(tmp, "raw.spCF"))
+    run(pipeline(`pmod -onpulse "$bst $bend" -device "/NULL" -debase $ar`; stdout=devnull, stderr=devnull))
+    txt = joinpath(tmp, "pulsar.debase.txt")
+    _VD.convert_psrfit_ascii(joinpath(tmp, "pulsar.debase.gg"), txt)
+    return _VD.load_ascii(txt)
+end
+
+function _cube16(indir, tmp)
+    any(f -> endswith(f, ".spCf16"), readdir(indir)) || return nothing
+    ar = joinpath(tmp, "p16.ar")
+    redirect_stdout(devnull) do
+        _VD.add_psrfiles(indir, ar; sixteen=true)
+    end
+    try run(pipeline(`pam -p -m $ar`, stdout=devnull, stderr=devnull)) catch; end
+    txt = joinpath(tmp, "p16.txt")
+    run(pipeline(`pdv -t $ar`, stdout=txt, stderr=devnull))
+    d = _load_cube_fast(txt)
+    rm(txt, force=true); rm(ar, force=true)
+    return d
+end
+
+function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000, save_rfi=true)
+    bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+    on = bst:bend
+    tmp = mktempdir()
+    row = Dict{String,Any}("pulsar" => psr, "status" => st)
+    note = String[]
+    fig = nothing
+    try
+        D = _debased_spcf(indir, tmp, bst, bend)
+        N = size(D, 1)
+        row["N"] = N
+        rows_all = _VD.zaps_to_rows(_VD.zaps_of(p), N)
+        rows_rfi = _VD.zaps_to_rows(_VD.zaps_rfi_of(p), N)
+        has_split = haskey(p, "zaps2_rfi") || haskey(p, "zaps2_null")
+        rows_null = has_split ? _VD.zaps_to_rows(_VD.zaps_null_of(p), N) : Int[]
+        has_split || push!(note, "brak podzialu rfi/null")
+        row["n_cut"], row["n_rfi"], row["n_null"] = length(rows_all), length(rows_rfi), length(rows_null)
+        c = get(p, "zap_cmp", Dict())
+        get(c, "n_pulses", N) == N || push!(note, "N inne niz w zap_cmp ($(c["n_pulses"]))")
+        row["snr_none"] = _VD.profile_snr(D, bst, bend)
+        row["snr_none_cmp"] = something(get(c, "snr_none", nothing), NaN)
+
+        # B. nulle
+        off = _VD.offpulse_bins(D, bst, bend)
+        good = setdiff(1:N, rows_all)
+        base = [mean(@view D[i, off]) for i in 1:N]
+        E = [sum(@view D[i, on]) - length(on) * base[i] for i in 1:N]
+        row["null_snr"] = _stack_snr(D, rows_null, on, off)
+        row["null_frac"] = (isempty(rows_null) || isempty(good)) ? NaN : mean(E[rows_null]) / mean(E[good])
+        nonrfi = setdiff(1:N, rows_rfi)
+        row["nf_ours"] = has_split && !isempty(nonrfi) ? 100 * length(rows_null) / length(nonrfi) : NaN
+        nfe = _nf_energy(D, nonrfi, on, off)
+        row["nf_energy"] = 100 * nfe
+        row["nf_lit"] = haskey(LIT_NF, psr) ? LIT_NF[psr][1] : NaN
+        if !isempty(rows_null) && !isempty(good)
+            fig = (psr, vec(mean(D[good, :], dims=1)), vec(mean(D[rows_null, :], dims=1)), bst, bend,
+                   row["null_snr"], row["null_frac"], length(rows_null))
+        end
+
+        # C. bezpiecznik RFI: stary vs nowy na tych samych danych
+        for (tag, ref) in (("old", :cut), ("new", :both))
+            a = _VD.auto_zap(D, bst, bend; rfi_ref=ref)
+            row["$(tag)_ncut"] = length(a.bad)
+            row["$(tag)_snr"] = _VD.profile_snr(D, bst, bend; drop=a.bad)
+            row["$(tag)_snr_rfi"] = _VD.profile_snr(D, bst, bend; drop=_VD.split_zaps(a.reason).rfi)
+            tag == "old" && (row["repro"] = _jacc(Set(a.bad), Set(rows_all)))
+        end
+
+        # archiwum tylko z RFI (nulle zostawione) dla badan nullingu
+        if save_rfi && has_split && !isempty(rows_null)
+            out = joinpath(outpsr, "pulsar_rfi.spCF")
+            cp(joinpath(tmp, "raw.spCF"), out; force=true)
+            redirect_stdout(devnull) do
+                _VD.apply_zaps(out, _VD.zaps_rfi_of(p); chans=_VD.zap_chans_of(p))
+            end
+        end
+
+        # D. kanaly
+        if chans && N <= max_chan_pulses
+            d = _cube16(indir, tmp)
+            if isnothing(d)
+                push!(note, "brak .spCf16")
+            else
+                Nc, C, nb = size(d)
+                row["C"] = C
+                if Nc != N || nb != size(D, 2)
+                    push!(note, "16ch: $Nc imp./$nb binow vs $N/$(size(D, 2))")
+                else
+                    offc = _VD.offpulse_bins(dropdims(sum(d, dims=2), dims=2), bst, bend)
+                    for i in 1:Nc, ch in 1:C          # baseline per (impuls, kanal) jak debase
+                        x = @view d[i, ch, :]
+                        any(!iszero, x) && (x .-= mean(@view x[offc]))
+                    end
+                    a = chan_rfi_core(d, bst, bend)
+                    row["chans_bad"] = join(a.chan_all .- 1, " ")
+                    row["n_sub_bad"] = length(a.sub_all)
+                    live = count(.!a.dead)
+                    row["pair_pct"] = 100 * length(a.pairs) / max(count(a.g) * live, 1)
+                    if !isempty(a.chan_all)
+                        for (tag, keep) in (("ch_all", findall(.!a.dead)),
+                                            ("ch_good", setdiff(findall(.!a.dead), a.chan_all)))
+                            S = Float64.(dropdims(sum(d[:, keep, :], dims=2), dims=2))
+                            z = _VD.auto_zap(S, bst, bend)
+                            row["$(tag)_ncut"] = length(z.bad)
+                            row["$(tag)_snr"] = _VD.profile_snr(S, bst, bend; drop=z.bad)
+                        end
+                    end
+                end
+            end
+        elseif chans
+            push!(note, "kanaly pominiete (N>$max_chan_pulses)")
+        end
+    catch e
+        e isa InterruptException && rethrow()
+        row["status"] = "blad"
+        push!(note, first(replace(sprint(showerror, e), '"' => '\'', '\n' => ' ', ',' => ';'), 150))
+    finally
+        rm(tmp; recursive=true, force=true)
+    end
+    row["note"] = join(note, "; ")
+    return row, fig
+end
+
+function _fmtv(x)
+    (isnothing(x) || (x isa AbstractFloat && !isfinite(x))) && return ""
+    x isa AbstractFloat && return string(round(x, digits=3))
+    return string(x)
+end
+
+function _save_nullprof(dir, fig)
+    psr, Pg, Pn, bst, bend, s, f, nn = fig
+    open(joinpath(dir, "$psr.txt"), "w") do io
+        println(io, join([psr, bst, bend, s, f, nn], " "))
+        foreach(j -> println(io, Pg[j], " ", Pn[j]), eachindex(Pg))
+    end
+end
+
+function _null_pages(dir, path)
+    files = isdir(dir) ? sort(filter(f -> endswith(f, ".txt"), readdir(dir))) : String[]
+    isempty(files) && return
+    figs = map(files) do f
+        L = readlines(joinpath(dir, f))
+        h = split(L[1])
+        v = [parse.(Float64, split(l)) for l in L[2:end]]
+        (h[1], first.(v), last.(v), parse(Int, h[2]), parse(Int, h[3]), parse(Float64, h[4]),
+         parse(Float64, h[5]), parse(Int, h[6]))
+    end
+    sort!(figs, by=x -> -x[6])                       # najsilniejszy sygnal w nullach najpierw
+    plt = _VP.PyPlot
+    PdfPages = _VP.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
+    pdf = PdfPages(path)
+    for k in 1:12:length(figs)
+        fig, axs = plt.subplots(4, 3, figsize=(15, 16))
+        for (t, ax) in enumerate(vec(permutedims(axs)))
+            idx = k + t - 1
+            if idx > length(figs); ax.axis("off"); continue; end
+            psr, Pg, Pn, bst, bend, s, f, nn = figs[idx]
+            w = bend - bst + 1
+            lo, hi = max(1, bst - w), min(length(Pg), bend + w)
+            x = lo:hi
+            ax.plot(x, Pg[x], color="0.6", lw=1, label="dobre (średnia)")
+            ax.plot(x, Pn[x], color="C0", lw=1, label="nulle (średnia, $nn imp.)")
+            ax.axvspan(bst, bend, color="C1", alpha=0.08)
+            ax.set_title(@sprintf("%s  S/N nulli=%.1f  energia=%.1f%%", psr, s, 100f), fontsize=9)
+            ax.legend(fontsize=7)
+        end
+        fig.suptitle("Profile średnie (posortowane: najwięcej sygnału w nullach najpierw): impulsy dobre vs wycięte jako nulle (okno on-pulse na pomarańczowo)")
+        fig.tight_layout()
+        pdf.savefig(fig); plt.close(fig)
+    end
+    pdf.close()
+end
+
+"""
+    zap_verify(; pazur2, out, only, chans=true)
+
+Pełna weryfikacja (patrz nagłówek pliku). Wznawialna: pulsary już w
+`out/verify.csv` są pomijane. Kolejność: najpierw pulsary z nullami i
+podejrzane, potem reszta. Na końcu `zap_verify_summary`.
+"""
+function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/psr/data/new/",
+                    out="/home/psr/data/OUTPUT/zap_verify/", only=nothing, chans=true, save_rfi=true)
+    mkpath(out)
+    csv = joinpath(out, "verify.csv")
+    done = Set{String}()
+    if isfile(csv)
+        for l in Iterators.drop(eachline(csv), 1); push!(done, split(l, ",")[1]); end
+    else
+        open(f -> println(f, VERIFY_HEADER), csv, "w")
+    end
+    summ = joinpath(pazur2, "zap_summary.csv")
+    st = Dict{String,String}(); prio = Dict{String,Float64}()
+    for l in Iterators.drop(eachline(summ), 1)
+        r = split(l, ",")
+        length(r) < 13 && continue
+        st[r[1]] = r[2]
+        v(i) = (x = tryparse(Float64, r[i]); isnothing(x) ? 0.0 : x)
+        prio[r[1]] = v(13) + v(12) + 10 * v(5)          # nulle, RFI, % wycietych
+    end
+    psrs = sort([k for (k, s) in st if s in ("ok", "reczny")], by=k -> -prio[k])
+    isnothing(only) || (psrs = filter(in(Set(only)), psrs))
+    todo = filter(!in(done), psrs)
+    println("WERYFIKACJA: $(length(todo)) pulsarów do zrobienia ($(length(done)) już w $csv)")
+    profdir = joinpath(out, "nullprof"); mkpath(profdir)
+    keys_ = split(VERIFY_HEADER, ",")
+    t0 = time()
+    for (k, psr) in enumerate(todo)
+        pf = joinpath(pazur2, psr, "params.json")
+        isfile(pf) || continue
+        p = _VT.read_params(pf)
+        psr_path = joinpath(dataroot, psr)
+        obs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
+        isempty(obs) && continue
+        row, fig = _verify_one(psr, p, st[psr], joinpath(psr_path, obs[1]) * "/", joinpath(pazur2, psr);
+                               chans=chans, save_rfi=save_rfi)
+        isnothing(fig) || _save_nullprof(profdir, fig)
+        open(f -> println(f, join([_fmtv(get(row, kk, nothing)) for kk in keys_], ",")), csv, "a")
+        el = (time() - t0) / k
+        @printf("[%d/%d] %-12s %s  null S/N=%s  kanały: %s   (%.0f s/pulsar, zostało ~%.1f h)\n", k, length(todo),
+                psr, row["status"], _fmtv(get(row, "null_snr", nothing)), _fmtv(get(row, "chans_bad", "-")),
+                el, el * (length(todo) - k) / 3600)
+        k % 50 == 0 && (try _null_pages(profdir, joinpath(out, "nulls.pdf")) catch e; println("PDF: $e"); end)
+    end
+    try _null_pages(profdir, joinpath(out, "nulls.pdf")) catch e; println("PDF nulli nie powstał: $e"); end
+    return zap_verify_summary(out=out)
+end
+
+"""
+Podsumowanie z `verify.csv` (działa w każdej chwili, także w trakcie
+przebiegu). Wypisuje i zapisuje `summary.txt` — to wklej.
+"""
+function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
+    csv = joinpath(out, "verify.csv")
+    L = collect(eachline(csv))
+    H = split(L[1], ",")
+    R = [Dict(zip(H, split(l, ","; limit=length(H)))) for l in L[2:end]]
+    num(r, k) = (x = tryparse(Float64, get(r, k, "")); isnothing(x) ? NaN : x)
+    ok = filter(r -> r["status"] != "blad", R)
+    io = IOBuffer()
+    pr(s="") = (println(s); println(io, s))
+    fin(v) = filter(isfinite, v)
+    pr("===== WERYFIKACJA AUTOMATU: $(length(R)) pulsarów (błędy: $(length(R) - length(ok))) =====")
+    for r in R
+        r["status"] == "blad" && pr("  BŁĄD $(r["pulsar"]): $(r["note"])")
+    end
+
+    pr("\n--- A. Spójność ---")
+    rat = fin([num(r, "snr_none") / num(r, "snr_none_cmp") for r in ok])
+    rep = fin([num(r, "repro") for r in ok if r["status"] == "ok"])
+    pr(@sprintf("S/N bez wycięć vs zapisane: mediana %.3f, |różnica|>2%%: %d z %d", median(rat),
+                count(x -> abs(x - 1) > 0.02, rat), length(rat)))
+    pr(@sprintf("automat odtwarza zapisane zaps2 (Jaccard): mediana %.3f, <0.9: %d z %d", median(rep),
+                count(<(0.9), rep), length(rep)))
+
+    pr("\n--- B. Nulle: czy w profilu średnim wyciętych nulli jest sygnał ---")
+    NR = filter(r -> isfinite(num(r, "null_snr")), ok)
+    s = [num(r, "null_snr") for r in NR]
+    pr(@sprintf("pulsary z nullami: %d;  S/N profilu nulli <3: %d,  3-5: %d,  >5: %d", length(NR),
+                count(<(3), s), count(x -> 3 <= x < 5, s), count(>=(5), s)))
+    pr("S/N>5 = w 'nullach' jest emisja (słaby stan wzięty za null). Najsilniejsze:")
+    pr(@sprintf("  %-12s %7s %9s %8s %8s", "pulsar", "n_null", "S/N nulli", "energia", "NF nasz"))
+    for r in sort(NR, by=r -> -num(r, "null_snr"))[1:min(20, end)]
+        pr(@sprintf("  %-12s %7s %9.1f %7.1f%% %7.1f%%", r["pulsar"], r["n_null"], num(r, "null_snr"),
+                    100num(r, "null_frac"), num(r, "nf_ours")))
+    end
+    fr = fin([num(r, "null_frac") for r in NR])
+    isempty(fr) || pr(@sprintf("energia nulli jako %% dobrego impulsu: mediana %.1f%%, >10%%: %d", 100median(fr),
+                               count(>(0.1), fr)))
+
+    pr("\n--- B2. Frakcja nulli: nasza vs z rozkładu energii vs literatura ---")
+    pr(@sprintf("  %-12s %8s %9s %8s  %s", "pulsar", "NF nasz", "NF energ.", "NF lit.", "źródło"))
+    for r in sort(filter(r -> haskey(LIT_NF, r["pulsar"]), ok), by=r -> r["pulsar"])
+        pr(@sprintf("  %-12s %7.1f%% %8.1f%% %7.1f%%  %s", r["pulsar"], num(r, "nf_ours"), num(r, "nf_energy"),
+                    num(r, "nf_lit"), LIT_NF[r["pulsar"]][2]))
+    end
+    d1 = fin([num(r, "nf_ours") - num(r, "nf_lit") for r in ok if haskey(LIT_NF, r["pulsar"])])
+    d2 = fin([num(r, "nf_ours") - num(r, "nf_energy") for r in NR if num(r, "nf_ours") > 5])
+    isempty(d1) || pr(@sprintf("nasz - literatura: mediana %+.1f pp (z %d)", median(d1), length(d1)))
+    isempty(d2) || pr(@sprintf("nasz - energia (pulsary z NF>5%%): mediana %+.1f pp (z %d)", median(d2), length(d2)))
+
+    pr("\n--- C. Bezpiecznik RFI: stary (:cut) vs nowy (:both), te same dane ---")
+    drop(r, t) = 100 * (num(r, "$(t)_snr_rfi") / num(r, "snr_none") - 1)
+    for t in ("old", "new")
+        v = fin([drop(r, t) for r in ok])
+        pr(@sprintf("%s: dane tylko po RFI tracą >1%% S/N: %d pulsarów; >2%%: %d", t == "old" ? "stary" : "nowy ",
+                    count(<(-1), v), count(<(-2), v)))
+    end
+    ch = filter(r -> num(r, "old_ncut") != num(r, "new_ncut"), ok)
+    pr("zmienione przez nowy bezpiecznik: $(length(ch))")
+    for r in ch[1:min(25, end)]
+        pr(@sprintf("  %-12s cięć %4d -> %4d   S/N %.1f -> %.1f   tylko-RFI vs bez: %+.1f%% -> %+.1f%%", r["pulsar"],
+                    num(r, "old_ncut"), num(r, "new_ncut"), num(r, "old_snr"), num(r, "new_snr"),
+                    drop(r, "old"), drop(r, "new")))
+    end
+
+    pr("\n--- D. Kanały (.spCf16): czy najpierw wycinać kanały ---")
+    CR = filter(r -> isfinite(num(r, "C")), ok)
+    BC = filter(r -> !isempty(strip(get(r, "chans_bad", ""))), CR)
+    pr("sprawdzone: $(length(CR));  z kanałami do wycięcia: $(length(BC))")
+    cnt = Dict{String,Int}()
+    for r in BC, c in split(r["chans_bad"]); cnt[c] = get(cnt, c, 0) + 1; end
+    isempty(cnt) || pr("najczęstsze złe kanały: " *
+                       join(["$c ($(n)x)" for (c, n) in sort(collect(cnt), by=x -> -x[2])[1:min(8, end)]], ", "))
+    pp = fin([num(r, "pair_pct") for r in CR])
+    isempty(pp) || pr(@sprintf("pojedyncze pary (impuls×kanał): mediana %.2f%%, >1%%: %d", median(pp), count(>(1), pp)))
+    gain(r) = 100 * (num(r, "ch_good_snr") / num(r, "ch_all_snr") - 1)
+    help = filter(r -> isfinite(gain(r)) && (gain(r) > 1 || num(r, "ch_all_ncut") - num(r, "ch_good_ncut") >=
+                  max(5, 0.01 * num(r, "N"))), BC)
+    pr("kanały najpierw POMAGAJĄ (S/N +>1% albo mniej wyciętych impulsów): $(length(help)) z $(length(BC))")
+    pr(@sprintf("  %-12s %-16s %13s %17s", "pulsar", "kanały", "cięć wsz->bez", "S/N wsz->bez"))
+    for r in sort(help, by=r -> -gain(r))[1:min(30, end)]
+        pr(@sprintf("  %-12s %-16s %5d -> %5d   %7.1f -> %7.1f (%+.1f%%)", r["pulsar"], r["chans_bad"],
+                    num(r, "ch_all_ncut"), num(r, "ch_good_ncut"), num(r, "ch_all_snr"), num(r, "ch_good_snr"),
+                    gain(r)))
+    end
+    write(joinpath(out, "summary.txt"), String(take!(io)))
+    println("\nZapisane: $(joinpath(out, "summary.txt"))  (wklej),  profile nulli: $(joinpath(out, "nulls.pdf"))")
+end
