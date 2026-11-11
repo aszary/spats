@@ -1882,12 +1882,14 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         # Wyniki: /home/psr/data/OUTPUT/zap_verify/summary.txt (wklej), nulls.pdf, verify.csv
         Base.include(Main, "modules/zap_verify.jl")
         # test na 7 pulsarach 2026-11-11 (zap_verify_test/): A-C dobrze, D zawyzone (suma
-        # kanalow bez wag) -> poprawione na sume przez PSRCHIVE. TEST 2 tylko tam:
+        # kanalow bez wag) -> poprawione na sume przez PSRCHIVE; test 2 i
         #   test 3 (2026-11-11, zap_verify_test3/): kanaly = S/N sumy bez kanalu (PSRCHIVE) OK;
         #   J1812+0226: 'nulle' z sygnalem -> fake_nulls_to_noisy! (tylko etykieta)
         #Base.invokelatest(Main.zap_verify; out="/home/psr/data/OUTPUT/zap_verify_test3/",
         #                  only=["J1812+0226", "J0034-0721"])
-        Base.invokelatest(Main.zap_verify; part=get(ENV, "ZV_PART", nothing))
+        # PELNY PRZEBIEG z jednego screena: procesy w tle (liczba z rdzeni/pamieci),
+        # postep co 5 min, na koncu summary.txt + nulls.pdf. Recznie: zap_verify_parallel(n=2)
+        Base.invokelatest(Main.zap_verify_parallel)
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)
@@ -2039,6 +2041,7 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
 
 end # module
 
-SpaTs.main()
+# SPATS_NO_MAIN=1: tylko zaladowanie modulu (procesy w tle zap_verify_parallel)
+isempty(get(ENV, "SPATS_NO_MAIN", "")) && SpaTs.main()
 
 println("Bye")

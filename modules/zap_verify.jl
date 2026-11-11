@@ -40,8 +40,9 @@ VERIFY_HEADER = "pulsar,status,N,n_cut,n_rfi,n_null,snr_none,snr_none_cmp,repro,
     while UInt8('0') <= buf[j] <= UInt8('9'); v = 10v + (buf[j] - UInt8('0')); j += 1; end
     return v, j
 end
-function _load_cube_fast(txt)
-    buf = read(txt); n = length(buf); pos = 1
+_load_cube_fast(txt::AbstractString) = _load_cube_fast(read(txt))
+function _load_cube_fast(buf::Vector{UInt8})
+    n = length(buf); pos = 1
     data = nothing
     GC.@preserve buf begin
         p0 = pointer(buf)
@@ -109,10 +110,7 @@ function _cube16(indir, tmp)
         _VD.add_psrfiles(indir, ar; sixteen=true)
     end
     try run(pipeline(`pam -p -m $ar`, stdout=devnull, stderr=devnull)) catch; end
-    txt = joinpath(tmp, "p16.txt")
-    run(pipeline(`pdv -t $ar`, stdout=txt, stderr=devnull))
-    d = _load_cube_fast(txt)
-    rm(txt, force=true)
+    d = _load_cube_fast(read(pipeline(`pdv -t $ar`, stderr=devnull)))   # prosto do pamieci, bez pliku
     return d, ar
 end
 
@@ -590,4 +588,59 @@ function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
     pr("Wykresy z uzasadnieniem dla każdego pulsara: $(joinpath(out, "kanaly"))/<pulsar>.pdf")
     write(joinpath(out, "summary.txt"), String(take!(io)))
     println("\nZapisane: $(joinpath(out, "summary.txt"))  (wklej),  profile nulli: $(joinpath(out, "nulls.pdf"))")
+end
+
+
+"""
+    zap_verify_parallel(; n=nothing, out=...)
+
+Cała weryfikacja z JEDNEGO miejsca (jeden screen): uruchamia w tle `n`
+procesów Julii (`SPATS_NO_MAIN=1`, każdy `zap_verify(part="k/n")`, log w
+`out/part_k.log`), co `every` s pokazuje postęp każdej części, na końcu
+składa `nulls.pdf` i `summary.txt` ze wszystkich części. `n` domyślnie z
+liczby rdzeni i wolnej pamięci (~3 GB na proces). Wznawialne: po przerwaniu
+uruchom ponownie - zrobione pulsary są pomijane. Ctrl+C zatrzymuje też procesy w tle.
+"""
+function zap_verify_parallel(; n=nothing, out="/home/psr/data/OUTPUT/zap_verify/", every=300, _code=nothing)
+    mkpath(out)
+    cpu, mem = Sys.CPU_THREADS, Sys.free_memory() / 2^30
+    n = something(n, clamp(min(cpu ÷ 2, floor(Int, mem / 3)), 1, 4))
+    repo = dirname(@__DIR__)
+    println("WERYFIKACJA RÓWNOLEGLE: $n procesów (rdzenie: $cpu, wolna pamięć: $(round(mem, digits=1)) GB)\n" *
+            "logi części: $(joinpath(out, "part_<k>.log"))   (pierwsze ~2 min to ładowanie pakietów)")
+    ios, procs = IO[], Base.Process[]
+    for k in 1:n
+        code = something(_code, "include(\"spats.jl\"); Base.include(Main, \"modules/zap_verify.jl\"); " *
+                                "Base.invokelatest(Main.zap_verify; part=\"$k/$n\", out=\"$out\")")
+        cmd = `$(Base.julia_cmd()) --project=$(Base.active_project()) -e $code`
+        cmd = setenv(cmd, merge(Dict(ENV), Dict("SPATS_NO_MAIN" => "1")); dir=repo)
+        io = open(joinpath(out, "part_$k.log"), "w")
+        push!(ios, io)
+        push!(procs, run(pipeline(cmd, stdout=io, stderr=io), wait=false))
+    end
+    lastline(f) = (L = filter(l -> startswith(l, "[") || occursin("BŁĄD", l) || occursin("ERROR", l), readlines(f));
+                   isempty(L) ? "(ładuje się...)" : last(L))
+    try
+        t = 0
+        while any(process_running, procs)
+            sleep(10); t += 10
+            if t % every == 0
+                println("--- ", Libc.strftime("%H:%M", time()), " ---")
+                for k in 1:n
+                    println("  część $k/$n: ", first(lastline(joinpath(out, "part_$k.log")), 160))
+                end
+            end
+        end
+    catch e
+        e isa InterruptException && (println("Przerywam procesy w tle..."); foreach(kill, procs))
+        rethrow()
+    finally
+        foreach(close, ios)
+    end
+    for (k, p) in enumerate(procs)
+        success(p) || println("UWAGA: część $k/$n zakończona błędem - zobacz $(joinpath(out, "part_$k.log"))")
+    end
+    isnothing(_code) || return procs
+    try _null_pages(joinpath(out, "nullprof"), joinpath(out, "nulls.pdf")) catch e; println("PDF nulli: $e"); end
+    return zap_verify_summary(out=out)
 end
