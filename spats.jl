@@ -1883,7 +1883,7 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         Base.include(Main, "modules/zap_verify.jl")
         # test na 7 pulsarach 2026-11-11 (zap_verify_test/): A-C dobrze, D zawyzone (suma
         # kanalow bez wag) -> poprawione na sume przez PSRCHIVE. TEST 2 tylko tam:
-        Base.invokelatest(Main.zap_verify; out="/home/psr/data/OUTPUT/zap_verify_test2/",
+        Base.invokelatest(Main.zap_verify; out="/home/psr/data/OUTPUT/zap_verify_test3/",
                           only=["J1812+0226",    # 9 zlych kanalow, "nulle" z energia 114%
                                 "J0034-0721"])   # kanaly 6 14, zysk S/N byl zawyzony
         # PELNY PRZEBIEG (po tescie 2). Rownolegle: w 3 screenach  ZV_PART=1/3 julia,

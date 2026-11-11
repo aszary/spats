@@ -30,7 +30,8 @@ LIT_NF = Dict(
 VERIFY_HEADER = "pulsar,status,N,n_cut,n_rfi,n_null,snr_none,snr_none_cmp,repro," *
     "null_snr,null_frac,nf_ours,nf_energy,nf_lit," *
     "old_ncut,old_snr,old_snr_rfi,new_ncut,new_snr,new_snr_rfi," *
-    "C,chans_bad,n_sub_bad,pair_pct,ch_all_none,ch_all_ncut,ch_all_snr,ch_good_none,ch_good_ncut,ch_good_snr,note"
+    "C,chans_bad,chans_loo,chans_cut,n_sub_bad,pair_pct," *
+    "ch_all_none,ch_all_ncut,ch_all_snr,ch_good_none,ch_good_ncut,ch_good_snr,note"
 
 # --- szybki odczyt `pdv -t` (16 kanalow = ~16 mln linii; split() byl za wolny) ---
 @inline function _pint(buf, j)
@@ -128,7 +129,103 @@ function _fsum_debased(ar16, tmp, chans, bst, bend, tag)
     return _VD.load_ascii(txt)
 end
 
-function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000, save_rfi=true)
+"Środkowe częstotliwości kanałów (MHz) z `psredit -c freq,bw`; `nothing`, gdy się nie uda."
+function _chan_freqs(ar, C)
+    try
+        o = read(pipeline(`psredit -c freq,bw $ar`, stderr=devnull), String)
+        f = parse(Float64, match(r"freq=\s*([-+0-9.eE]+)", o).captures[1])
+        bw = parse(Float64, match(r"bw=\s*([-+0-9.eE]+)", o).captures[1])
+        return [f + (c - (C + 1) / 2) * bw / C for c in 1:C]
+    catch
+        return nothing
+    end
+end
+
+"""
+PDF z uzasadnieniem decyzji o kanałach dla jednego pulsara (strona 1: cechy
+każdego kanału z progami reguł + S/N kanału + zmiana S/N sumy bez kanału;
+strona 2: stosy impulsów oznaczonych kanałów obok najlepszego kanału).
+"""
+function _chan_pdf(path, psr, d, a, bst, bend, freqs, snr_c, loo, snr_all, cut)
+    plt = _VP.PyPlot
+    PdfPages = _VP.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
+    N, C, nb = size(d)
+    g, off = a.g, a.off
+    chl = [isnothing(freqs) ? "$(c-1)" : @sprintf("%d\n%.0f", c - 1, freqs[c]) for c in 1:C]
+    col = [c in cut ? "C3" : c in a.chan_all ? "C1" : a.dead[c] ? "0.8" : "C0" for c in 1:C]
+    x = 0:C-1
+    pdf = PdfPages(path)
+
+    fig, ax = plt.subplots(2, 3, figsize=(17, 10.5))
+    # 1. czestotliwosc x faza: profil sredni kazdego kanalu w jednostkach szumu
+    w = bend - bst + 1
+    lo, hi = max(1, bst - 2w), min(nb, bend + 2w)
+    M = zeros(C, hi - lo + 1)
+    for c in 1:C
+        a.dead[c] && continue
+        P = vec(sum(Float64.(@view d[g, c, :]), dims=1))
+        σ = std(P[off]); σ > 0 && (M[c, :] = (P[lo:hi] .- median(P[off])) ./ σ)
+    end
+    ax[1, 1].imshow(M, aspect="auto", origin="lower", cmap="viridis", extent=(lo, hi, -0.5, C - 0.5),
+                    vmin=-3, vmax=max(5, quantile(vec(M), 0.995)), interpolation="nearest")
+    ax[1, 1].axvline(bst, color="w", lw=0.6, ls="--"); ax[1, 1].axvline(bend, color="w", lw=0.6, ls="--")
+    ax[1, 1].set_yticks(x); ax[1, 1].set_yticklabels(chl, fontsize=6)
+    ax[1, 1].set_title("profil każdego kanału [σ szumu]; kanał / MHz", fontsize=9); ax[1, 1].set_xlabel("bin")
+    # 2. S/N kanalu
+    ax[1, 2].bar(x, snr_c, color=col)
+    ax[1, 2].set_title("S/N profilu kanału (sygnał pulsara w kanale)", fontsize=9)
+    # 3. zmiana S/N sumy bez kanalu (PSRCHIVE, z wagami) - KRYTERIUM wyciecia
+    lv = [isnan(v) ? 0.0 : v for v in loo]
+    ax[1, 3].bar(x, lv, color=col); ax[1, 3].axhline(1.0, color="C3", ls="--", lw=1)
+    ax[1, 3].axhline(0, color="k", lw=0.5)
+    ax[1, 3].set_title("zmiana S/N sumy BEZ kanału [%] (tylko oznaczone)\n" *
+                       "wycinamy, gdy > +1% (czerwona linia)", fontsize=9)
+    # 4-6. reguly detektora z progami
+    ax[2, 1].bar(x, 100 .* a.fch, color=col); ax[2, 1].axhline(100 * a.fchan, color="C3", ls="--", lw=1)
+    ax[2, 1].set_title("reguła 'czas': % impulsów z zakłóceniem w kanale (próg $(round(Int, 100a.fchan))%)", fontsize=9)
+    ax[2, 2].bar(x, [isnan(v) ? 0.0 : v for v in a.rmsc], color=col)
+    isfinite(a.rms_thr) && ax[2, 2].axhline(a.rms_thr, color="C3", ls="--", lw=1)
+    ax[2, 2].set_title("reguła 'rms': szum off-pulse kanału (próg Q3+1.5 IQR)\n" *
+                       "surowe dane: zależy też od wzmocnienia kanału", fontsize=9)
+    ax[2, 3].bar(x, [isnan(v) ? 0.0 : v for v in a.acfc], color=col)
+    ax[2, 3].axhline(a.acf_thr, color="C3", ls="--", lw=1)
+    ax[2, 3].set_title("reguła 'acf': |ACF1| off-pulse (paski, próg mediana+4σ)", fontsize=9)
+    for k in (ax[1, 2], ax[1, 3], ax[2, 1], ax[2, 2], ax[2, 3])
+        k.set_xticks(x); k.set_xticklabels(chl, fontsize=6); k.set_xlabel("kanał / MHz", fontsize=8)
+    end
+    oz = join(["$(c-1)($(a.why[c]))" for c in a.chan_all], " ")
+    fig.suptitle("$psr — kanały.  niebieski = OK, pomarańczowy = oznaczony przez detektor, czerwony = wycięcie " *
+                 "uzasadnione (S/N sumy rośnie > 1%)\noznaczone: $(isempty(oz) ? "brak" : oz)   →   " *
+                 "do wycięcia: $(isempty(cut) ? "BRAK (wycięcie obniżyłoby S/N)" : join(cut .- 1, " "))   " *
+                 @sprintf("(S/N sumy wszystkich kanałów: %.1f)", snr_all), fontsize=10)
+    fig.tight_layout(rect=(0, 0, 1, 0.93)); pdf.savefig(fig); plt.close(fig)
+
+    # strona 2: stosy impulsow
+    ref = argmax([a.dead[c] || c in a.chan_all ? -Inf : snr_c[c] for c in 1:C])
+    show = vcat(a.chan_all[1:min(5, end)], ref)
+    fig, ax = plt.subplots(1, length(show), figsize=(3.4 * length(show), 9), squeeze=false)
+    for (k, c) in enumerate(show)
+        A = Float64.(d[:, c, lo:hi]) .- a.F[:, c, 4]
+        A[.!g, :] .= NaN
+        v = filter(isfinite, vec(A))
+        vmin, vmax = isempty(v) ? (0.0, 1.0) : (quantile(v, 0.01), quantile(v, 0.995))
+        ax[1, k].imshow(A, aspect="auto", origin="lower", cmap="viridis", vmin=vmin, vmax=vmax,
+                        extent=(lo, hi, 0, N), interpolation="nearest")
+        lab = c == ref ? "najlepszy kanał (wzór)" : "oznaczony: $(a.why[c])"
+        fr = isnothing(freqs) ? "" : @sprintf(" (%.0f MHz)", freqs[c])
+        ax[1, k].set_title(@sprintf("kanał %d%s\n%s\nS/N kanału %.1f%s", c - 1, fr, lab, snr_c[c],
+                           isnan(loo[c]) ? "" : @sprintf("\nS/N sumy bez niego %+.1f%%", loo[c])), fontsize=8)
+        ax[1, k].set_xlabel("bin")
+    end
+    ax[1, 1].set_ylabel("impuls")
+    fig.suptitle("$psr — impulsy w oznaczonych kanałach obok najlepszego kanału (skala 1-99.5% każdego panelu)",
+                 fontsize=10)
+    fig.tight_layout(rect=(0, 0, 1, 0.95)); pdf.savefig(fig); plt.close(fig)
+    pdf.close()
+end
+
+function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000, save_rfi=true,
+                     chan_pdf_dir=nothing)
     bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
     on = bst:bend
     tmp = mktempdir()
@@ -199,19 +296,45 @@ function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000
                     push!(note, "16ch: $Nc imp./$nb binow vs $N/$(size(D, 2))")
                 else
                     a = chan_rfi_core(d, bst, bend)
-                    row["chans_bad"] = join(a.chan_all .- 1, " ")
+                    row["chans_bad"] = join(["$(c-1):$(a.why[c])" for c in a.chan_all], " ")
                     row["n_sub_bad"] = length(a.sub_all)
                     live = count(.!a.dead)
                     row["pair_pct"] = 100 * length(a.pairs) / max(count(a.g) * live, 1)
-                    d = nothing                       # kostka niepotrzebna (pamiec)
-                    if !isempty(a.chan_all)
-                        for (tag, zc) in (("ch_all", Int[]), ("ch_good", a.chan_all .- 1))
-                            S = _fsum_debased(ar16, tmp, zc, bst, bend, tag)
-                            z = _VD.auto_zap(S, bst, bend)
-                            row["$(tag)_none"] = _VD.profile_snr(S, bst, bend)
-                            row["$(tag)_ncut"] = length(z.bad)
-                            row["$(tag)_snr"] = _VD.profile_snr(S, bst, bend; drop=z.bad)
+                    # S/N kazdego kanalu (niezalezne od wzmocnienia)
+                    snr_c = fill(NaN, C)
+                    for c in findall(.!a.dead)
+                        P = vec(sum(Float64.(@view d[a.g, c, :]), dims=1))
+                        σ = std(P[a.off])
+                        σ > 0 && (snr_c[c] = sum(P[on] .- mean(P[a.off])) / (σ * sqrt(length(on))))
+                    end
+                    # KRYTERIUM: S/N sumy (PSRCHIVE, z wagami) bez kanalu; wycinamy, gdy > +1%
+                    S_all = _fsum_debased(ar16, tmp, Int[], bst, bend, "all")
+                    s_all = _VD.profile_snr(S_all, bst, bend)
+                    row["ch_all_none"] = s_all
+                    loo = fill(NaN, C)
+                    for c in a.chan_all
+                        loo[c] = 100 * (_VD.profile_snr(_fsum_debased(ar16, tmp, [c - 1], bst, bend, "loo"),
+                                                        bst, bend) / s_all - 1)
+                    end
+                    cut = [c for c in a.chan_all if loo[c] > 1.0]
+                    row["chans_loo"] = join([@sprintf("%d:%+.1f", c - 1, loo[c]) for c in a.chan_all], " ")
+                    row["chans_cut"] = join(cut .- 1, " ")
+                    if !isnothing(chan_pdf_dir)
+                        try
+                            _chan_pdf(joinpath(chan_pdf_dir, "$psr.pdf"), psr, d, a, bst, bend,
+                                      _chan_freqs(ar16, C), snr_c, loo, s_all, cut)
+                        catch e
+                            push!(note, "pdf kanalow: " * first(replace(sprint(showerror, e), ',' => ';', '\n' => ' '), 80))
                         end
+                    end
+                    d = nothing                       # kostka niepotrzebna (pamiec)
+                    if !isempty(cut)                  # automat: wszystkie kanaly vs bez uzasadnionych
+                        z = _VD.auto_zap(S_all, bst, bend)
+                        row["ch_all_ncut"], row["ch_all_snr"] = length(z.bad), _VD.profile_snr(S_all, bst, bend; drop=z.bad)
+                        S = _fsum_debased(ar16, tmp, cut .- 1, bst, bend, "good")
+                        z = _VD.auto_zap(S, bst, bend)
+                        row["ch_good_none"] = _VD.profile_snr(S, bst, bend)
+                        row["ch_good_ncut"], row["ch_good_snr"] = length(z.bad), _VD.profile_snr(S, bst, bend; drop=z.bad)
                     end
                 end
             end
@@ -316,6 +439,7 @@ function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/ps
     todo = filter(!in(done), psrs)
     println("WERYFIKACJA (część $kp/$np_): $(length(todo)) pulsarów do zrobienia ($(length(done)) już zrobionych w $out)")
     profdir = joinpath(out, "nullprof"); mkpath(profdir)
+    chandir = joinpath(out, "kanaly"); mkpath(chandir)
     keys_ = split(VERIFY_HEADER, ",")
     t0 = time()
     for (k, psr) in enumerate(todo)
@@ -326,14 +450,15 @@ function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/ps
         obs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
         isempty(obs) && continue
         row, fig = _verify_one(psr, p, st[psr], joinpath(psr_path, obs[1]) * "/", joinpath(pazur2, psr);
-                               chans=chans, save_rfi=save_rfi)
+                               chans=chans, save_rfi=save_rfi, chan_pdf_dir=chandir)
         isnothing(fig) || _save_nullprof(profdir, fig)
         open(f -> println(f, join([_fmtv(get(row, kk, nothing)) for kk in keys_], ",")), csv, "a")
         el = (time() - t0) / k
         g(x) = (v = get(row, x, nothing); v isa Number ? v : NaN)
-        @printf("[%d/%d] %-12s %s  nulle: energia %s%%  kanały: %s (S/N %.0f -> %.0f)  %s  (%.0f s/pulsar, zostało ~%.1f h)\n",
+        @printf("[%d/%d] %-12s %s  nulle: energia %s%%  kanały oznaczone: %s  zmiana S/N bez: %s  wyciąć: %s  %s  (%.0f s/pulsar, zostało ~%.1f h)\n",
                 k, length(todo), psr, row["status"], _fmtv(100 * g("null_frac")), _fmtv(get(row, "chans_bad", "-")),
-                g("ch_all_snr"), g("ch_good_snr"), row["note"], el, el * (length(todo) - k) / 3600)
+                _fmtv(get(row, "chans_loo", "-")), _fmtv(get(row, "chans_cut", "-")), row["note"], el,
+                el * (length(todo) - k) / 3600)
         k % 50 == 0 && (try _null_pages(profdir, joinpath(out, "nulls.pdf")) catch e; println("PDF: $e"); end)
     end
     try _null_pages(profdir, joinpath(out, "nulls.pdf")) catch e; println("PDF nulli nie powstał: $e"); end
@@ -416,27 +541,39 @@ function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
     end
 
     pr("\n--- D. Kanały (.spCf16): czy najpierw wycinać kanały ---")
+    pr("Kryterium: kanał wycinamy tylko, gdy S/N sumy (PSRCHIVE, z wagami jak .spCF) BEZ niego rośnie > 1%.")
     CR = filter(r -> isfinite(num(r, "C")), ok)
     BC = filter(r -> !isempty(strip(get(r, "chans_bad", ""))), CR)
-    pr("sprawdzone: $(length(CR));  z kanałami do wycięcia: $(length(BC))")
+    JC = filter(r -> !isempty(strip(get(r, "chans_cut", ""))), CR)
+    san = fin([num(r, "ch_all_none") / num(r, "snr_none") for r in CR])
+    isempty(san) || pr(@sprintf("kontrola: suma przez PSRCHIVE vs .spCF (S/N bez wycięć): mediana %.3f", median(san)))
+    pr("sprawdzone: $(length(CR));  z kanałami oznaczonymi przez detektor: $(length(BC));  " *
+       "z UZASADNIONYM wycięciem: $(length(JC))")
+    rs = Dict{String,Vector{Float64}}()
+    for r in BC, (t, l) in zip(split(r["chans_bad"]), split(get(r, "chans_loo", "")))
+        for why in split(split(t, ":")[2], "+")
+            push!(get!(rs, why, Float64[]), parse(Float64, split(l, ":")[2]))
+        end
+    end
+    for (why, v) in sort(collect(rs))
+        pr(@sprintf("  reguła %-5s oznaczyła %3d kanałów; S/N sumy bez nich: mediana %+.1f%%, rośnie >1%%: %d",
+                    why, length(v), median(v), count(>(1), v)))
+    end
     cnt = Dict{String,Int}()
-    for r in BC, c in split(r["chans_bad"]); cnt[c] = get(cnt, c, 0) + 1; end
-    isempty(cnt) || pr("najczęstsze złe kanały: " *
+    for r in JC, c in split(r["chans_cut"]); cnt[c] = get(cnt, c, 0) + 1; end
+    isempty(cnt) || pr("najczęściej uzasadnione kanały: " *
                        join(["$c ($(n)x)" for (c, n) in sort(collect(cnt), by=x -> -x[2])[1:min(8, end)]], ", "))
     pp = fin([num(r, "pair_pct") for r in CR])
     isempty(pp) || pr(@sprintf("pojedyncze pary (impuls×kanał): mediana %.2f%%, >1%%: %d", median(pp), count(>(1), pp)))
     gain(r) = 100 * (num(r, "ch_good_snr") / num(r, "ch_all_snr") - 1)
-    san = fin([num(r, "ch_all_none") / num(r, "snr_none") for r in BC])
-    isempty(san) || pr(@sprintf("kontrola: suma kanałów przez PSRCHIVE vs .spCF (S/N bez wycięć): mediana %.3f", median(san)))
-    help = filter(r -> isfinite(gain(r)) && (gain(r) > 1 || num(r, "ch_all_ncut") - num(r, "ch_good_ncut") >=
-                  max(5, 0.01 * num(r, "N"))), BC)
-    pr("kanały najpierw POMAGAJĄ (S/N +>1% albo mniej wyciętych impulsów): $(length(help)) z $(length(BC))")
-    pr(@sprintf("  %-12s %-16s %13s %17s", "pulsar", "kanały", "cięć wsz->bez", "S/N wsz->bez"))
-    for r in sort(help, by=r -> -gain(r))[1:min(30, end)]
-        pr(@sprintf("  %-12s %-16s %5d -> %5d   %7.1f -> %7.1f (%+.1f%%)", r["pulsar"], r["chans_bad"],
-                    num(r, "ch_all_ncut"), num(r, "ch_good_ncut"), num(r, "ch_all_snr"), num(r, "ch_good_snr"),
-                    gain(r)))
+    pr(@sprintf("  %-12s %-14s %-24s %13s %24s", "pulsar", "wyciąć", "zmiany S/N bez kanału", "cięć wsz->bez",
+                "S/N po automacie wsz->bez"))
+    for r in sort(JC, by=r -> -gain(r))[1:min(30, end)]
+        pr(@sprintf("  %-12s %-14s %-24s %5d -> %5d   %7.1f -> %7.1f (%+.1f%%)", r["pulsar"], r["chans_cut"],
+                    r["chans_loo"], num(r, "ch_all_ncut"), num(r, "ch_good_ncut"), num(r, "ch_all_snr"),
+                    num(r, "ch_good_snr"), gain(r)))
     end
+    pr("Wykresy z uzasadnieniem dla każdego pulsara: $(joinpath(out, "kanaly"))/<pulsar>.pdf")
     write(joinpath(out, "summary.txt"), String(take!(io)))
     println("\nZapisane: $(joinpath(out, "summary.txt"))  (wklej),  profile nulli: $(joinpath(out, "nulls.pdf"))")
 end

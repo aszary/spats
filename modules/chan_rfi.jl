@@ -89,8 +89,12 @@ function chan_rfi_core(d, bst, bend; q=4.0, nmin=2, fchan=0.3, fsub=0.5, margin=
     sub_all = findall(g .& (fsb .> fsub))
     pairs = [(i, c) for i in findall(g) for c in 1:C if flag[i, c] && !(c in chan_all) && !(i in sub_all)]
 
+    # powod oznaczenia kazdego kanalu (do wykresow / tabel)
+    why = [join(filter(!isempty, [fch[c] > fchan ? "czas" : "", acf_bad[c] ? "acf" : "",
+                                  rms_bad[c] ? "rms" : ""]), "+") for c in 1:C]
     return (F=F, Z=Z, fz=fz, flag=flag, g=g, dead=dead, fch=fch, chan_all=chan_all, sub_all=sub_all,
-            pairs=pairs, off=off)
+            pairs=pairs, off=off, why=why, fchan=fchan, rmsc=rmsc, rms_thr=rq3 + 1.5 * (rq3 - rq1),
+            acfc=acfc, acf_thr=ma + q * sa)
 end
 
 """
