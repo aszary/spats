@@ -1881,7 +1881,16 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         # RFI, kanaly .spCf16; + pazur2/<psr>/pulsar_rfi.spCF (nulle zostawione).
         # Wyniki: /home/psr/data/OUTPUT/zap_verify/summary.txt (wklej), nulls.pdf, verify.csv
         Base.include(Main, "modules/zap_verify.jl")
-        Base.invokelatest(Main.zap_verify)
+        # TEST na 7 pulsarach (osobny folder) - po akceptacji: pelny przebieg (linia nizej)
+        Base.invokelatest(Main.zap_verify; out="/home/psr/data/OUTPUT/zap_verify_test/",
+                          only=["J1727-2739",    # nuller, NF z literatury 52%
+                                "J2253+1516",    # stary bezpiecznik: dane tylko po RFI -4.1%
+                                "J1055-6905",    # stary bezpiecznik: -1.2%
+                                "J1812+0226",    # 40% wyciete, 396 RFI
+                                "J0034-0721",    # nuller, NF 44%
+                                "J1946+1805",    # jasny nuller, NF 55%
+                                "J1645-0317"])   # bardzo jasny, czysty (kontrola)
+        #Base.invokelatest(Main.zap_verify)
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)
