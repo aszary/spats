@@ -993,7 +993,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         #Data.remove_notinteresting("input/pulsars_interesting.txt", vpmout)
 
         #Tools.clean_all(vpmout)
-        analyse_all("/home/psr/data/new/", vpmout)
+        #nalyse_all("/home/psr/data/new/", vpmout)
 
         #Data.analyse_p3folds_16_new(vpmout*"J1539-6322_16", "norefine", n_comp=2)
 
@@ -1026,8 +1026,8 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         
         
         
-        #phase_modulation3(vpmout*"J1750-3503"; show_=true)
-        #phase_modes(vpmout*"J1750-3503")
+        phase_modulation3(vpmout*"J1750-3503"; show_=true)
+        phase_modes(vpmout*"J1750-3503")
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
         #Travel.travel_test(vpmout*"J1750-3503")
 
