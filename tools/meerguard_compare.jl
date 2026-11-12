@@ -33,7 +33,9 @@ prf(a, ref) = (tp = length(intersect(a, ref));
                 prec = isempty(a) ? NaN : tp / length(a), rec = isempty(ref) ? NaN : tp / length(ref)))
 
 function mg_compare()
-    meta = JSON.parsefile(joinpath(MGROOT, "meta.json"))
+    mf = joinpath(MGROOT, "meta.json")
+    isfile(mf) || (println("Brak $mf — najpierw python3 tools/meerguard_test.py (bez błędu STOP)."); return)
+    meta = JSON.parsefile(mf)
     rows = Dict{String,Any}[]
     notes = String[]
     plt = _VP.PyPlot
