@@ -81,12 +81,34 @@ def zaps_ranges(z):
 
 
 # ---------------------------------------------------------------- 1. srodowisko
+def find_psrchive_path():
+    """Katalog z psrchive.py + _psrchive.so dla TEJ wersji Pythona (PSRCHIVE instaluje
+    do .../site-packages, a Debian/Ubuntu szuka w dist-packages)."""
+    ver = "python%d.%d" % sys.version_info[:2]
+    for base in ("/usr/local/lib", "/usr/lib", os.path.expanduser("~/.local/lib")):
+        d = os.path.join(base, ver, "site-packages")
+        if os.path.isfile(os.path.join(d, "psrchive.py")) and glob.glob(os.path.join(d, "_psrchive*.so")):
+            return d
+    return None
+
+
 def step_env(meta):
     os.makedirs(ROOT, exist_ok=True)
     try:
         import psrchive
     except Exception as e:
-        stop("brak bindingow PSRCHIVE dla Pythona (import psrchive: %s). MeerGuard ich wymaga." % e)
+        d = find_psrchive_path()
+        if d is None:
+            stop("brak bindingow PSRCHIVE dla Pythona %d.%d (import psrchive: %s; nie ma ich tez w "
+                 "/usr/local/lib/python%d.%d/site-packages). MeerGuard ich wymaga." % (sys.version_info[:2] + (e,) + sys.version_info[:2]))
+        sys.path.insert(0, d)
+        os.environ["PYTHONPATH"] = d + os.pathsep + os.environ.get("PYTHONPATH", "")   # dla procesow MeerGuard
+        meta["pythonpath_added"] = d
+        log("psrchive nie byl na sciezce Pythona - dodaje %s (sys.path i PYTHONPATH dla MeerGuard)" % d)
+        try:
+            import psrchive
+        except Exception as e2:
+            stop("psrchive z %s nie laduje sie: %s" % (d, e2))
     meta["psrchive"] = psrchive.__file__
     meta["python"] = sys.version.split()[0]
     for mod in ("numpy", "scipy"):
