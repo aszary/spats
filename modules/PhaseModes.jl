@@ -545,8 +545,6 @@ function detect_mode_periodicity(mode_states::AbstractVector{<:Real};
     x .-= mean(x)   # remove DC
 
     n_fft  = oversampling * N
-    X      = rfft(x, 1; flags=FFTW.ESTIMATE, nthreads=1) # returns complex vector from FFTW
-    # Actually rfft on 1-D works as rfft(x):
     X      = rfft(vcat(x, zeros(n_fft - N)))
     power  = abs2.(X)
     power[1] = 0.0  # zero DC
