@@ -25,7 +25,7 @@ Exported API
 """
 module PhaseModes
 
-using Statistics, LinearAlgebra, FFTW, DSP, StatsBase, Distributions, SavitzkyGolay
+using Statistics, LinearAlgebra, FFTW, DSP, StatsBase, Distributions, SavitzkyGolay, Random
 
 export compute_pulse_snr,
        generalized_bimodal_pdf,

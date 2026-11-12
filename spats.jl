@@ -15,6 +15,7 @@ module SpaTs
     include("modules/drift_batch.jl")
     include("modules/LrfsDiagnostics.jl")
     include("modules/lrfs_batch.jl")
+    include("modules/PhaseModes.jl")
 
 
 
@@ -401,6 +402,72 @@ module SpaTs
                             name_mod="pulsar_norefine_compare", show_=show_, repeat_num=4,
                             label="psrsalsa norefine")
         return (folded_norefine=folded_norefine, folded_const=folded_const)
+    end
+
+    """
+    Mode-changing analysis for a single pulsar (Miles et al. 2022).
+    Reads pulsar.debase.txt and params.json from outdir, computes single-pulse S/N,
+    evaluates Bayes factor (bimodal vs unimodal), builds strong/weak templates,
+    and detects mode modulation periodicity.
+
+    Typical call after process_psrdata:
+      phase_modes(vpmout*"J1110-5637")
+    """
+    function phase_modes(outdir; threshold=nothing, fap_nreal=500)
+        p    = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+
+        bin_st  = Int(p["bin_st"])
+        bin_end = Int(p["bin_end"])
+        on_bins = collect(bin_st:bin_end)
+
+        nbins = size(data, 2)
+        buf = max(5, Int(round(0.05 * length(on_bins))))
+        guard_range = max(1, bin_st - buf):min(nbins, bin_end + buf)
+        off_bins = setdiff(1:nbins, guard_range)
+
+        psr_name = basename(rstrip(outdir, ['/', '\\']))
+        println("\n=== PhaseModes Analysis for $psr_name ===")
+        println("Data dimensions: $(size(data, 1)) pulses × $nbins phase bins")
+        println("On-pulse window: bins $bin_st to $bin_end ($(length(on_bins)) bins)")
+        println("Off-pulse bins:  $(length(off_bins)) bins")
+
+        # 1. Single-Pulse S/N extraction
+        snr = PhaseModes.compute_pulse_snr(data, on_bins, off_bins)
+        println("Single-pulse S/N: mean = $(round(mean(snr), digits=2)), std = $(round(std(snr), digits=2)), max = $(round(maximum(snr), digits=2))")
+
+        # 2. Bimodal vs Unimodal Bayesian evidence (ln B)
+        println("\nEvaluating bimodal vs unimodal distribution (ln B)...")
+        bf = PhaseModes.compute_bayes_factor(snr, 1.0)
+        println("ln B (bimodal / unimodal): $(round(bf.ln_B, digits=2))")
+        if bf.ln_B > 5.0
+            println("→ Evidence: STRONG bimodality / mode-changing detected (ln B > 5)")
+        elseif bf.ln_B > 0.0
+            println("→ Evidence: Moderate / weak indication of bimodality (0 < ln B ≤ 5)")
+        else
+            println("→ Evidence: Favours unimodal / no mode-changing (ln B ≤ 0)")
+        end
+        println("Best-fit bimodal parameters: f=$(round(bf.bim_result.params.f, digits=3)), μ1=$(round(bf.bim_result.params.μ1, digits=2)), μ2=$(round(bf.bim_result.params.μ2, digits=2))")
+
+        # 3. Threshold classification and template generation
+        f_mode = clamp(bf.bim_result.params.f, 0.01, 0.99)
+        thresh = isnothing(threshold) ? quantile(snr, f_mode) : Float64(threshold)
+        println("\nClassifying pulses with S/N threshold = $(round(thresh, digits=2))...")
+        templates = PhaseModes.classify_and_build_templates(data, snr, thresh, on_bins, off_bins)
+        println("Weak pulses:   $(templates.n_weak) ($(round(100*templates.n_weak/length(snr), digits=1))%)")
+        println("Strong pulses: $(templates.n_strong) ($(round(100*templates.n_strong/length(snr), digits=1))%)")
+        println("Relative phase shift (Δφ): $(templates.delta_phi) bins")
+
+        # 4. Mode transition periodicity
+        println("\nSearching for mode modulation periodicity...")
+        mode_states = [s < thresh ? 1.0 : 0.0 for s in snr]
+        period_res = PhaseModes.detect_mode_periodicity(mode_states; fap_nreal=fap_nreal)
+        println("Dominant modulation frequency: $(round(period_res.freq_mod, digits=4)) cycles/pulse")
+        println("Characteristic period:        $(round(period_res.period_pulses, digits=2)) pulses")
+        println("False-Alarm Probability (FAP): $(period_res.fap)")
+
+        return (snr=snr, bayes_factor=bf, templates=templates, periodicity=period_res)
     end
 
 
@@ -960,6 +1027,7 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         
         
         #phase_modulation3(vpmout*"J1750-3503"; show_=true)
+        #phase_modes(vpmout*"J1750-3503")
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
         #Travel.travel_test(vpmout*"J1750-3503")
 
