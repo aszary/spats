@@ -508,7 +508,7 @@ function phase_modes(outdir; threshold=nothing, fap_nreal=500)
     mode_states[valid_idx] .= [s < thresh ? 1.0 : 0.0 for s in snr_valid]
     if n_zapped > 0
         mean_state = mean(mode_states[valid_idx])
-        zapped_idx = findall(!is_valid)
+        zapped_idx = setdiff(1:total_pulses, valid_idx)
         mode_states[zapped_idx] .= mean_state
     end
 
