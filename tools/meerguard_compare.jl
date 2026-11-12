@@ -62,26 +62,36 @@ function mg_compare()
             ar_in = joinpath(MGROOT, psr, psr * ".ar")
             s_pairs_none = _VD.profile_snr(_mg_fsum(ar_in, tmp, bst, bend, "in"), bst, bend)
             chans16 = [parse(Int, c) for c in split(something(get(p, "zap_chans16", nothing), ""))]
+            live = readdlm(joinpath(MGROOT, psr, "live_in.txt"), Int)
             fl = Dict{String,Any}()
             for v in ("A", "B", "C")
                 f = st["flags"][v]
                 haskey(f, "error") && (push!(notes, "$psr $v: $(f["error"])"); continue)
                 full = Int.(f["subints_full"]) .+ 1
-                anyf = Int.(f["subints_any"]) .+ 1
                 cfrac = Float64.(f["chan_frac"])
                 nz = readdlm(joinpath(MGROOT, psr, v, "newzero.txt"), Int)
+                # kanaly wyciete przez MeerGuard w CALOSCI nie mowia nic o impulsach:
+                # bez nich "impuls z flaga" (anyf) i "impuls zly" (half: >= polowa
+                # zywych kanalow oflagowana) - inaczej kazdy impuls ma flage (J0630)
+                chfull = Int.(f["chans_full"]) .+ 1
+                nzx = copy(nz); nzx[:, chfull] .= 0
+                nlive = vec(sum(live, dims=2))
+                anyf = findall(vec(any(nzx .> 0, dims=2)))
+                half = findall(i -> nlive[i] > 0 && sum(@view nzx[i, :]) >= 0.5 * nlive[i], 1:size(nzx, 1))
                 s_pairs = _VD.profile_snr(_mg_fsum(joinpath(MGROOT, psr, v, psr * ".mg"), tmp, bst, bend, v), bst, bend)
-                mf, ma = prf(full, rfi), prf(anyf, rfi)
+                mf, ma, mh = prf(full, rfi), prf(anyf, rfi), prf(half, rfi)
                 top = sortperm(cfrac, rev=true)[1:3] .- 1
-                only_auto = setdiff(rfi, anyf)
-                only_mg = sort(setdiff(anyf, auto), by=i -> -sum(nz[i, :]))
+                only_auto = setdiff(rfi, half)
+                only_mg = sort(setdiff(anyf, auto), by=i -> -sum(nzx[i, :]))
                 r = Dict{String,Any}(
                     "pulsar" => psr, "wariant" => v, "N" => N, "n_rfi_auto" => length(rfi), "n_null_auto" => length(null),
                     "frac_pairs_pct" => 100 * f["frac_pairs"], "n_subints_full" => length(full),
                     "n_subints_any" => length(anyf), "chans_full" => join(Int.(f["chans_full"]), " "),
                     "jac_full" => mf.jac, "prec_full" => mf.prec, "rec_full" => mf.rec,
                     "jac_any" => ma.jac, "prec_any" => ma.prec, "rec_any" => ma.rec,
+                    "n_subints_half" => length(half), "jac_half" => mh.jac, "prec_half" => mh.prec, "rec_half" => mh.rec,
                     "null_in_full" => count(in(Set(full)), null), "null_in_any" => count(in(Set(anyf)), null),
+                    "null_in_half" => count(in(Set(half)), null), "snr_mg_half" => snr(half),
                     "top3_chans" => join(top, " "), "zap_chans16" => join(chans16, " "),
                     "chans16_in_top3" => count(in(Set(top)), chans16),
                     "snr_none" => s_none, "snr_auto" => s_auto, "snr_mg_full" => snr(full), "snr_mg_any" => snr(anyf),
@@ -92,9 +102,10 @@ function mg_compare()
                     "input_unchanged" => get(st, "input_unchanged", false))
                 push!(rows, r)
                 fl[v] = (nz=nz, cfrac=cfrac, only_auto=only_auto, only_mg=only_mg)
-                @printf("   %s: pary %.2f%%, subinty pełne %d / z flagą %d, nulle trafione %d/%d (pełne) %d (z flagą), Jaccard pełne %.2f\n",
-                        v, r["frac_pairs_pct"], length(full), length(anyf), r["null_in_full"], length(null),
-                        r["null_in_any"], mf.jac)
+                @printf("   %s: pary %.2f%%, kanały całe: %s | impulsy pełne %d / ≥połowa kanałów %d / z flagą %d | nulle (z %d): %d / %d / %d | Jaccard z RFI automatu (≥połowa): %.2f | S/N bez %.1f, automat %.1f, MG ≥połowa %.1f, MG pary %.1f (bez %.1f)\n",
+                        v, r["frac_pairs_pct"], isempty(chfull) ? "-" : join(chfull .- 1, " "), length(full), length(half),
+                        length(anyf), length(null), r["null_in_full"], r["null_in_half"], r["null_in_any"], mh.jac,
+                        s_none, s_auto, r["snr_mg_half"], s_pairs, s_pairs_none)
             end
             haskey(fl, "A") || continue
             # ---- PDF
@@ -155,8 +166,8 @@ function mg_compare()
     end
 
     cols = ["pulsar", "wariant", "N", "n_rfi_auto", "n_null_auto", "frac_pairs_pct", "n_subints_full", "n_subints_any",
-            "chans_full", "jac_full", "prec_full", "rec_full", "jac_any", "prec_any", "rec_any", "null_in_full",
-            "null_in_any", "top3_chans", "zap_chans16", "chans16_in_top3", "snr_none", "snr_auto", "snr_mg_full",
+            "chans_full", "jac_full", "prec_full", "rec_full", "jac_any", "prec_any", "rec_any",
+            "n_subints_half", "jac_half", "prec_half", "rec_half", "null_in_full", "null_in_half", "null_in_any", "snr_mg_half", "top3_chans", "zap_chans16", "chans16_in_top3", "snr_none", "snr_auto", "snr_mg_full",
             "snr_mg_any", "snr_pairs_none", "snr_mg_pairs", "only_auto", "only_mg", "input_unchanged",
             "chan_frac", "only_auto_list", "only_mg_list"]
     f2(x) = x isa AbstractFloat ? (isfinite(x) ? @sprintf("%.3f", x) : "") : string(x)
@@ -191,23 +202,28 @@ function write_report(meta, rows, notes)
     p()
     p("## Wyniki")
     p()
-    p("| pulsar | war. | pary % | subinty pełne / z flagą | Jaccard pełne / z flagą | nulle trafione: pełne / z flagą (z n_null) | top-3 kanały | zap_chans16 | S/N: bez / automat / MG pełne / MG pary (bez wycięć w tej sumie) |")
-    p("|---|---|---|---|---|---|---|---|---|")
+    p("Impuls „zły według MeerGuard” = oflagowana co najmniej połowa jego kanałów (bez kanałów wyciętych przez MeerGuard w całości). „Z flagą” = choć jedna para.")
+    p()
+    p("| pulsar | war. | pary % | kanały całe | impulsy pełne / ≥połowa / z flagą | Jaccard z RFI automatu (≥połowa) | nulle trafione: pełne / ≥połowa / z flagą (z n_null) | top-3 kanały | zap_chans16 | S/N: bez / automat / MG ≥połowa / MG pary (bez wycięć w tej sumie) |")
+    p("|---|---|---|---|---|---|---|---|---|---|")
     for r in rows
-        p(@sprintf("| %s | %s | %.2f | %d / %d | %.2f / %.2f | %d / %d (z %d) | %s | %s | %.1f / %.1f / %.1f / %.1f (%.1f) |",
-                   r["pulsar"], r["wariant"], r["frac_pairs_pct"], r["n_subints_full"], r["n_subints_any"],
-                   g(r, "jac_full"), g(r, "jac_any"), r["null_in_full"], r["null_in_any"], r["n_null_auto"],
+        p(@sprintf("| %s | %s | %.2f | %s | %d / %d / %d | %.2f | %d / %d / %d (z %d) | %s | %s | %.1f / %.1f / %.1f / %.1f (%.1f) |",
+                   r["pulsar"], r["wariant"], r["frac_pairs_pct"], isempty(r["chans_full"]) ? "-" : r["chans_full"],
+                   r["n_subints_full"], r["n_subints_half"], r["n_subints_any"], g(r, "jac_half"),
+                   r["null_in_full"], r["null_in_half"], r["null_in_any"], r["n_null_auto"],
                    r["top3_chans"], isempty(r["zap_chans16"]) ? "-" : r["zap_chans16"],
-                   r["snr_none"], r["snr_auto"], r["snr_mg_full"], r["snr_mg_pairs"], r["snr_pairs_none"]))
+                   r["snr_none"], r["snr_auto"], r["snr_mg_half"], r["snr_mg_pairs"], r["snr_pairs_none"]))
     end
     p()
     p("## Odpowiedzi (z liczb)")
     A = filter(r -> r["wariant"] == "A", rows)
     B = Dict(r["pulsar"] => r for r in rows if r["wariant"] == "B")
-    p("1. **Czy MeerGuard rusza nulle?** " * join([@sprintf("%s: %d/%d pełnych, %d z jakąkolwiek flagą",
-            r["pulsar"], r["null_in_full"], r["n_null_auto"], r["null_in_any"]) for r in A if r["n_null_auto"] > 0], "; ") * " (wariant A).")
-    p("2. **Te same impulsy RFI?** Jaccard subintów pełnych z `zaps2_rfi` (A): " *
-      join([@sprintf("%s %.2f", r["pulsar"], g(r, "jac_full")) for r in A], ", ") *
+    p("1. **Czy MeerGuard rusza nulle?** Wariant A: " * join([@sprintf("%s: %d/%d pełnych, %d ≥połowa kanałów, %d z jakąkolwiek flagą",
+            r["pulsar"], r["null_in_full"], r["n_null_auto"], r["null_in_half"], r["null_in_any"]) for r in A if r["n_null_auto"] > 0], "; ") *
+      ". Wariant B (domyślny): " * join([@sprintf("%s: %d ≥połowa, %d z flagą", r["pulsar"], r["null_in_half"], r["null_in_any"])
+            for r in rows if r["wariant"] == "B" && r["n_null_auto"] > 0], "; ") * ".")
+    p("2. **Te same impulsy RFI?** Jaccard impulsów ≥połowa kanałów z `zaps2_rfi` (A): " *
+      join([@sprintf("%s %.2f (precyzja %.2f, czułość %.2f)", r["pulsar"], g(r, "jac_half"), g(r, "prec_half"), g(r, "rec_half")) for r in A], ", ") *
       ". Kanały: zap_chans16 w top-3 kanałów MeerGuard: " *
       join([string(r["pulsar"], " ", r["chans16_in_top3"], "/", length(split(r["zap_chans16"]))) for r in A if !isempty(r["zap_chans16"])], ", ") * ".")
     p("3. **Domyślne ustawienia (B) wobec A, odsetek oflagowanych par:** " *
