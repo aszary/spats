@@ -708,7 +708,6 @@ Acceptance criteria (from the spec):
 Returns `true` if all criteria pass.
 """
 function selftest(; verbose::Bool=true, n_pulses::Int=50_000, seed::Int=42)
-    import Random
     Random.seed!(seed)
 
     println("PhaseModes selftest — PSR J1909-3744 synthetic data")
