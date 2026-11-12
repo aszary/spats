@@ -415,32 +415,74 @@ from S/N and bimodal likelihood calculations, and reconstructs mode templates.
 Typical call:
   phase_modes(vpmout*"J1110-5637")
 """
-function phase_modes(outdir; threshold=nothing, fap_nreal=500)
-    params_file = joinpath(outdir, "params.json")
-    isfile(params_file) || error("params.json not found in $outdir")
-    p = Tools.read_params(params_file)
-
-    txt_file  = joinpath(outdir, "pulsar.debase.txt")
+function phase_modes(target_path; threshold=nothing, fap_nreal=500)
+# Accept either output directory or directly the combined pulsar.spCF file
+target_path = normpath(target_path)
+if isfile(target_path)
+    spcf_file = target_path
+    outdir = dirname(target_path)
+elseif isdir(target_path)
+    outdir = target_path
     spcf_file = joinpath(outdir, "pulsar.spCF")
-
-    # Auto-convert/debase pulsar.spCF if pulsar.debase.txt is missing
-    if !isfile(txt_file) && isfile(spcf_file)
-        println("pulsar.debase.txt not found. Attempting to debase and convert $spcf_file ...")
-        debase_gg = replace(spcf_file, ".spCF" => ".debase.gg")
-        try
-            if haskey(p, "bin_st") && !isnothing(p["bin_st"]) && haskey(p, "bin_end") && !isnothing(p["bin_end"])
-                run(pipeline(`pmod -onpulse "$(p["bin_st"]) $(p["bin_end"])" -device "/NULL" -debase $spcf_file`))
-            else
-                run(pipeline(`pmod -device "/NULL" -debase $spcf_file`))
+    if !isfile(spcf_file)
+        for f in readdir(outdir)
+            if lowercase(f) in ("pulsar.spcf", "pulsar.spcf16")
+                spcf_file = joinpath(outdir, f)
+                break
             end
-            Data.convert_psrfit_ascii(debase_gg, txt_file)
-        catch e
-            @warn "pmod debase failed ($e), attempting direct pdv conversion of $spcf_file ..."
-            Data.convert_psrfit_ascii(spcf_file, txt_file)
         end
     end
+else
+    error("Path does not exist: $target_path")
+end
 
-    isfile(txt_file) || error("Could not locate or generate $txt_file from $spcf_file")
+params_file = joinpath(outdir, "params.json")
+p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
+
+txt_file  = joinpath(outdir, "pulsar.debase.txt")
+debase_gg = joinpath(outdir, "pulsar.debase.gg")
+
+# If debased ASCII doesn't exist, use project methods to create it
+if !isfile(txt_file)
+    println("Debased text file ($txt_file) not found. Checking existing project files...")
+
+    # Case 1: pulsar.debase.gg already exists -> convert with Data.convert_psrfit_ascii
+    if isfile(debase_gg)
+        println("Found $debase_gg, converting to ASCII via Data.convert_psrfit_ascii...")
+        Data.convert_psrfit_ascii(debase_gg, txt_file)
+    else
+        # Case 2: pulsar.spCF exists or individual .spCF files can be combined
+        if !isfile(spcf_file)
+            spcf_list = filter(f -> endswith(f, ".spCF") && !startswith(f, "pulsar."), readdir(outdir))
+            if !isempty(spcf_list)
+                println("Found $(length(spcf_list)) .spCF files in $outdir. Combining via Data.add_psrfiles...")
+                Data.add_psrfiles(outdir, spcf_file)
+            end
+        end
+
+        if isfile(spcf_file)
+            println("Found $spcf_file. Running Data.debase...")
+            # Ensure bin_st/bin_end keys exist for Data.debase
+            haskey(p, "bin_st") || (p["bin_st"] = nothing)
+            haskey(p, "bin_end") || (p["bin_end"] = nothing)
+
+            try
+                Data.debase(spcf_file, params_file, p)
+                # Reload params in case Data.debase updated bin_st/bin_end
+                p = Tools.read_params(params_file)
+            catch e
+                @warn "Data.debase encountered an issue ($e). Attempting fallback conversion via Data.convert_psrfit_ascii..."
+                if isfile(debase_gg)
+                    Data.convert_psrfit_ascii(debase_gg, txt_file)
+                else
+                    Data.convert_psrfit_ascii(spcf_file, txt_file)
+                end
+            end
+        end
+    end
+end
+
+isfile(txt_file) || error("Could not find or generate debase file ($txt_file). Ensure pulsar.spCF or pulsar.debase.gg exists in $outdir.")
 
     data = Data.load_ascii(txt_file)
     nbins = size(data, 2)
