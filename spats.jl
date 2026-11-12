@@ -434,87 +434,152 @@ data = Data.load_ascii(txt_file)
 
         debase_gg   = joinpath(outdir, "pulsar.debase.gg")
         spcf_file   = joinpath(outdir, "pulsar.spCF")
+        params_file = joinpath(outdir, "params.json")
+        p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
+
+        println("pulsar.debase.txt not found in $outdir. Auto-generating debase file...")
+
+        if isfile(debase_gg)
+            println("Found $debase_gg. Converting to ASCII via Data.convert_psrfit_ascii...")
+            Data.convert_psrfit_ascii(debase_gg, txt_file)
+        else
+            if !isfile(spcf_file)
+                for f in readdir(outdir)
+                    if lowercase(f) in ("pulsar.spcf", "pulsar.spcf16")
+                        spcf_file = joinpath(outdir, f)
+                        break
+                    end
+                end
+            end
+            if !isfile(spcf_file)
+                spcf_list = filter(f -> endswith(f, ".spCF") && !startswith(f, "pulsar."), readdir(outdir))
+                if !isempty(spcf_list)
+                    println("Found $(length(spcf_list)) .spCF files in $outdir. Combining via Data.add_psrfiles...")
+                    Data.add_psrfiles(outdir, spcf_file)
+                end
+            end
+
+            if isfile(spcf_file)
+                println("Found $spcf_file. Running Data.debase...")
+                haskey(p, "bin_st") || (p["bin_st"] = nothing)
+                haskey(p, "bin_end") || (p["bin_end"] = nothing)
+
+                try
+                    Data.debase(spcf_file, params_file, p)
+                catch e
+                    @warn "Data.debase encountered an issue ($e). Attempting direct conversion via Data.convert_psrfit_ascii..."
+                    if isfile(debase_gg)
+                        Data.convert_psrfit_ascii(debase_gg, txt_file)
+                    else
+                        Data.convert_psrfit_ascii(spcf_file, txt_file)
+                    end
+                end
+            end
+        end
+
+        isfile(txt_file) || error("Could not find or generate debase file ($txt_file). Ensure pulsar.spCF exists in $outdir.")
+        return txt_file
+    end
+
+
+    """
+    Mode-changing analysis for a single pulsar (Miles et al. 2022).
+    Reads pulsar.spCF / pulsar.debase.txt and params.json from outdir.
+    Automatically applies zaps from params.json, excises zapped subintegrations
+    from S/N and bimodal likelihood calculations, and reconstructs mode templates.
+
+    Typical call:
+      phase_modes(vpmout*"J1110-5637")
+    """
+    function phase_modes(target_path; threshold=nothing, fap_nreal=500)
+        outdir = normpath(target_path)
+        if isfile(outdir)
+            outdir = dirname(outdir)
+        end
+        isdir(outdir) || error("Directory does not exist: $outdir")
+
         txt_file = ensure_debase_file(outdir)
-params_file = joinpath(outdir, "params.json")
-p = Tools.read_params(params_file)
+        params_file = joinpath(outdir, "params.json")
+        p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
 
-    data = Data.load_ascii(txt_file)
-    nbins = size(data, 2)
-    total_pulses = size(data, 1)
+        data = Data.load_ascii(txt_file)
+        nbins = size(data, 2)
+        total_pulses = size(data, 1)
 
-    # On-pulse bins
-    bin_st  = haskey(p, "bin_st") && !isnothing(p["bin_st"]) ? Int(p["bin_st"]) : max(1, nbins ÷ 4)
-    bin_end = haskey(p, "bin_end") && !isnothing(p["bin_end"]) ? Int(p["bin_end"]) : min(nbins, 3 * nbins ÷ 4)
-    on_bins = collect(bin_st:bin_end)
+        # On-pulse bins
+        bin_st  = haskey(p, "bin_st") && !isnothing(p["bin_st"]) ? Int(p["bin_st"]) : max(1, nbins ÷ 4)
+        bin_end = haskey(p, "bin_end") && !isnothing(p["bin_end"]) ? Int(p["bin_end"]) : min(nbins, 3 * nbins ÷ 4)
+        on_bins = collect(bin_st:bin_end)
 
-    # Off-pulse bins with guard bands
-    buf = max(5, Int(round(0.05 * length(on_bins))))
-    guard_range = max(1, bin_st - buf):min(nbins, bin_end + buf)
-    off_bins = setdiff(1:nbins, guard_range)
+        # Off-pulse bins with guard bands
+        buf = max(5, Int(round(0.05 * length(on_bins))))
+        guard_range = max(1, bin_st - buf):min(nbins, bin_end + buf)
+        off_bins = setdiff(1:nbins, guard_range)
 
-    # Apply zaps from params.json
-    zaps_str = haskey(p, "zaps") ? p["zaps"] : nothing
-    Data.zap!(data; ranges=zaps_str)
+        # Apply zaps from params.json
+        zaps_str = haskey(p, "zaps") ? p["zaps"] : nothing
+        Data.zap!(data; ranges=zaps_str)
 
-    # Identify valid (unzapped) pulses vs zapped pulses
-    is_valid   = [any(data[i, :] .!= 0) for i in 1:total_pulses]
-    valid_idx  = findall(is_valid)
-    n_zapped   = total_pulses - length(valid_idx)
+        # Identify valid (unzapped) pulses vs zapped pulses
+        is_valid   = [any(data[i, :] .!= 0) for i in 1:total_pulses]
+        valid_idx  = findall(is_valid)
+        n_zapped   = total_pulses - length(valid_idx)
 
-    psr_name = basename(rstrip(outdir, ['/', '\\']))
-    println("\n=== PhaseModes Analysis for $psr_name ===")
-    println("Total pulses:    $total_pulses (Valid: $(length(valid_idx)), Zapped: $n_zapped)")
-    println("Phase bins:      $nbins")
-    println("On-pulse window: bins $bin_st to $bin_end ($(length(on_bins)) bins)")
-    println("Off-pulse bins:  $(length(off_bins)) bins")
-    if !isnothing(zaps_str) && !isempty(strip(string(zaps_str)))
-        println("Zaps applied:    \"$zaps_str\"")
+        psr_name = basename(rstrip(outdir, ['/', '\\']))
+        println("\n=== PhaseModes Analysis for $psr_name ===")
+        println("Total pulses:    $total_pulses (Valid: $(length(valid_idx)), Zapped: $n_zapped)")
+        println("Phase bins:      $nbins")
+        println("On-pulse window: bins $bin_st to $bin_end ($(length(on_bins)) bins)")
+        println("Off-pulse bins:  $(length(off_bins)) bins")
+        if !isnothing(zaps_str) && !isempty(strip(string(zaps_str)))
+            println("Zaps applied:    \"$zaps_str\"")
+        end
+
+        # Work exclusively with unzapped pulses for S/N & likelihood fitting
+        data_clean = data[valid_idx, :]
+        snr_valid  = PhaseModes.compute_pulse_snr(data_clean, on_bins, off_bins)
+        println("Single-pulse S/N (unzapped): mean = $(round(mean(snr_valid), digits=2)), std = $(round(std(snr_valid), digits=2)), max = $(round(maximum(snr_valid), digits=2))")
+
+        # 2. Bimodal vs Unimodal Bayesian evidence (ln B)
+        println("\nEvaluating bimodal vs unimodal distribution (ln B)...")
+        bf = PhaseModes.compute_bayes_factor(snr_valid, 1.0)
+        println("ln B (bimodal / unimodal): $(round(bf.ln_B, digits=2))")
+        if bf.ln_B > 5.0
+            println("→ Evidence: STRONG bimodality / mode-changing detected (ln B > 5)")
+        elseif bf.ln_B > 0.0
+            println("→ Evidence: Moderate / weak indication of bimodality (0 < ln B ≤ 5)")
+        else
+            println("→ Evidence: Favours unimodal / no mode-changing (ln B ≤ 0)")
+        end
+        println("Best-fit bimodal parameters: f=$(round(bf.bim_result.params.f, digits=3)), μ1=$(round(bf.bim_result.params.μ1, digits=2)), μ2=$(round(bf.bim_result.params.μ2, digits=2))")
+
+        # 3. Threshold classification and template generation
+        f_mode = clamp(bf.bim_result.params.f, 0.01, 0.99)
+        thresh = isnothing(threshold) ? quantile(snr_valid, f_mode) : Float64(threshold)
+        println("\nClassifying pulses with S/N threshold = $(round(thresh, digits=2))...")
+        templates = PhaseModes.classify_and_build_templates(data_clean, snr_valid, thresh, on_bins, off_bins)
+        println("Weak pulses:   $(templates.n_weak) ($(round(100*templates.n_weak/length(snr_valid), digits=1))%)")
+        println("Strong pulses: $(templates.n_strong) ($(round(100*templates.n_strong/length(snr_valid), digits=1))%)")
+        println("Relative phase shift (Δφ): $(templates.delta_phi) bins")
+
+        # 4. Mode transition periodicity (preserves timing timeline across zapped gaps)
+        println("\nSearching for mode modulation periodicity...")
+        mode_states = zeros(total_pulses)
+        mode_states[valid_idx] .= [s < thresh ? 1.0 : 0.0 for s in snr_valid]
+        if n_zapped > 0
+            mean_state = mean(mode_states[valid_idx])
+            zapped_idx = setdiff(1:total_pulses, valid_idx)
+            mode_states[zapped_idx] .= mean_state
+        end
+
+        period_res = PhaseModes.detect_mode_periodicity(mode_states; fap_nreal=fap_nreal)
+        println("Dominant modulation frequency: $(round(period_res.freq_mod, digits=4)) cycles/pulse")
+        println("Characteristic period:        $(round(period_res.period_pulses, digits=2)) pulses")
+        println("False-Alarm Probability (FAP): $(period_res.fap)")
+
+        return (snr=snr_valid, valid_idx=valid_idx, bayes_factor=bf, templates=templates, periodicity=period_res)
     end
 
-    # Work exclusively with unzapped pulses for S/N & likelihood fitting
-    data_clean = data[valid_idx, :]
-    snr_valid  = PhaseModes.compute_pulse_snr(data_clean, on_bins, off_bins)
-    println("Single-pulse S/N (unzapped): mean = $(round(mean(snr_valid), digits=2)), std = $(round(std(snr_valid), digits=2)), max = $(round(maximum(snr_valid), digits=2))")
-
-    # 2. Bimodal vs Unimodal Bayesian evidence (ln B)
-    println("\nEvaluating bimodal vs unimodal distribution (ln B)...")
-    bf = PhaseModes.compute_bayes_factor(snr_valid, 1.0)
-    println("ln B (bimodal / unimodal): $(round(bf.ln_B, digits=2))")
-    if bf.ln_B > 5.0
-        println("→ Evidence: STRONG bimodality / mode-changing detected (ln B > 5)")
-    elseif bf.ln_B > 0.0
-        println("→ Evidence: Moderate / weak indication of bimodality (0 < ln B ≤ 5)")
-    else
-        println("→ Evidence: Favours unimodal / no mode-changing (ln B ≤ 0)")
-    end
-    println("Best-fit bimodal parameters: f=$(round(bf.bim_result.params.f, digits=3)), μ1=$(round(bf.bim_result.params.μ1, digits=2)), μ2=$(round(bf.bim_result.params.μ2, digits=2))")
-
-    # 3. Threshold classification and template generation
-    f_mode = clamp(bf.bim_result.params.f, 0.01, 0.99)
-    thresh = isnothing(threshold) ? quantile(snr_valid, f_mode) : Float64(threshold)
-    println("\nClassifying pulses with S/N threshold = $(round(thresh, digits=2))...")
-    templates = PhaseModes.classify_and_build_templates(data_clean, snr_valid, thresh, on_bins, off_bins)
-    println("Weak pulses:   $(templates.n_weak) ($(round(100*templates.n_weak/length(snr_valid), digits=1))%)")
-    println("Strong pulses: $(templates.n_strong) ($(round(100*templates.n_strong/length(snr_valid), digits=1))%)")
-    println("Relative phase shift (Δφ): $(templates.delta_phi) bins")
-
-    # 4. Mode transition periodicity (preserves timing timeline across zapped gaps)
-    println("\nSearching for mode modulation periodicity...")
-    mode_states = zeros(total_pulses)
-    mode_states[valid_idx] .= [s < thresh ? 1.0 : 0.0 for s in snr_valid]
-    if n_zapped > 0
-        mean_state = mean(mode_states[valid_idx])
-        zapped_idx = setdiff(1:total_pulses, valid_idx)
-        mode_states[zapped_idx] .= mean_state
-    end
-
-    period_res = PhaseModes.detect_mode_periodicity(mode_states; fap_nreal=fap_nreal)
-    println("Dominant modulation frequency: $(round(period_res.freq_mod, digits=4)) cycles/pulse")
-    println("Characteristic period:        $(round(period_res.period_pulses, digits=2)) pulses")
-    println("False-Alarm Probability (FAP): $(period_res.fap)")
-
-    return (snr=snr_valid, valid_idx=valid_idx, bayes_factor=bf, templates=templates, periodicity=period_res)
-end
 
 
     """
