@@ -120,8 +120,9 @@ module SpaTs
       phase_modulation(vpmout*"J1110-5637")
     """
     function phase_modulation(outdir; nreal=6000, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
         result = PhaseDrift.drift_test(
@@ -161,8 +162,9 @@ module SpaTs
       phase_modulation2(vpmout*"J1110-5637")
     """
     function phase_modulation2(outdir; nreal=6000, snr_min=3.0, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
         result = PhaseDrift.drift_test(
@@ -224,8 +226,9 @@ module SpaTs
     """
     function phase_modulation2a(outdir; window=32, stride=1, nreal=500,
                                 pulse_st=nothing, pulse_end=nothing, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         result = PhaseDrift.drift_test_profile(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
@@ -271,8 +274,9 @@ module SpaTs
       phase_modulation3(vpmout*"J1750-3503")
     """
     function phase_modulation3(outdir; window=32, stride=1, nreal=1000, sig_min=3.0, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         result = PhaseDrift.drift_test_sliding(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
@@ -310,8 +314,9 @@ module SpaTs
       p3fold_refine(vpmout*"J1110-5637")
     """
     function p3fold_refine(outdir; ybins=nothing, n_iter=5, continuity_weight=0.2, darkness=1.0, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
@@ -346,8 +351,9 @@ module SpaTs
       p3fold_coherent(vpmout*"J1110-5637")
     """
     function p3fold_coherent(outdir; ybins=nothing, lowpass_cutoff=1/300, filter_order=6, n_groups=4, darkness=1.0, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         yb   = isnothing(ybins) ? Int(p["p3_ybins"]) : ybins
         p3   = Float64(p["p3"])
@@ -407,82 +413,30 @@ module SpaTs
     end
 
     """
-Mode-changing analysis for a single pulsar (Miles et al. 2022).
-Reads pulsar.spCF / pulsar.debase.txt and params.json from outdir.
-Automatically applies zaps from params.json, excises zapped subintegrations
-from S/N and bimodal likelihood calculations, and reconstructs mode templates.
-
-Typical call:
-  phase_modes(vpmout*"J1110-5637")
-"""
-function phase_modes(target_path; threshold=nothing, fap_nreal=500)
-# Accept either output directory or directly the combined pulsar.spCF file
-target_path = normpath(target_path)
-if isfile(target_path)
-    spcf_file = target_path
-    outdir = dirname(target_path)
-elseif isdir(target_path)
-    outdir = target_path
-    spcf_file = joinpath(outdir, "pulsar.spCF")
-    if !isfile(spcf_file)
-        for f in readdir(outdir)
-            if lowercase(f) in ("pulsar.spcf", "pulsar.spcf16")
-                spcf_file = joinpath(outdir, f)
-                break
-            end
+    Ensure `pulsar.debase.txt` exists in `outdir`.
+    If missing:
+      1. Converts `pulsar.debase.gg` via `Data.convert_psrfit_ascii` if present.
+      2. Or runs `Data.debase(pulsar.spCF, params.json, p)` to produce `pulsar.debase.gg` and `.txt`.
+      3. If only individual .spCF files exist, combines them first via `Data.add_psrfiles`.
+    Returns the path to `pulsar.debase.txt`.
+    """
+    function ensure_debase_file(outdir)
+        outdir = normpath(outdir)
+        if isfile(outdir)
+            outdir = dirname(outdir)
         end
-    end
-else
-    error("Path does not exist: $target_path")
-end
+        isdir(outdir) || error("Directory does not exist: $outdir")
 
+        txt_file  = joinpath(outdir, "pulsar.debase.txt")
+        if isfile(txt_file)
+            return txt_file
+        end
+
+        debase_gg   = joinpath(outdir, "pulsar.debase.gg")
+        spcf_file   = joinpath(outdir, "pulsar.spCF")
+        txt_file = ensure_debase_file(outdir)
 params_file = joinpath(outdir, "params.json")
-p = isfile(params_file) ? Tools.read_params(params_file) : Tools.default_params(params_file)
-
-txt_file  = joinpath(outdir, "pulsar.debase.txt")
-debase_gg = joinpath(outdir, "pulsar.debase.gg")
-
-# If debased ASCII doesn't exist, use project methods to create it
-if !isfile(txt_file)
-    println("Debased text file ($txt_file) not found. Checking existing project files...")
-
-    # Case 1: pulsar.debase.gg already exists -> convert with Data.convert_psrfit_ascii
-    if isfile(debase_gg)
-        println("Found $debase_gg, converting to ASCII via Data.convert_psrfit_ascii...")
-        Data.convert_psrfit_ascii(debase_gg, txt_file)
-    else
-        # Case 2: pulsar.spCF exists or individual .spCF files can be combined
-        if !isfile(spcf_file)
-            spcf_list = filter(f -> endswith(f, ".spCF") && !startswith(f, "pulsar."), readdir(outdir))
-            if !isempty(spcf_list)
-                println("Found $(length(spcf_list)) .spCF files in $outdir. Combining via Data.add_psrfiles...")
-                Data.add_psrfiles(outdir, spcf_file)
-            end
-        end
-
-        if isfile(spcf_file)
-            println("Found $spcf_file. Running Data.debase...")
-            # Ensure bin_st/bin_end keys exist for Data.debase
-            haskey(p, "bin_st") || (p["bin_st"] = nothing)
-            haskey(p, "bin_end") || (p["bin_end"] = nothing)
-
-            try
-                Data.debase(spcf_file, params_file, p)
-                # Reload params in case Data.debase updated bin_st/bin_end
-                p = Tools.read_params(params_file)
-            catch e
-                @warn "Data.debase encountered an issue ($e). Attempting fallback conversion via Data.convert_psrfit_ascii..."
-                if isfile(debase_gg)
-                    Data.convert_psrfit_ascii(debase_gg, txt_file)
-                else
-                    Data.convert_psrfit_ascii(spcf_file, txt_file)
-                end
-            end
-        end
-    end
-end
-
-isfile(txt_file) || error("Could not find or generate debase file ($txt_file). Ensure pulsar.spCF or pulsar.debase.gg exists in $outdir.")
+p = Tools.read_params(params_file)
 
     data = Data.load_ascii(txt_file)
     nbins = size(data, 2)
@@ -803,8 +757,9 @@ Phase-drift vs amplitude-modulation test on already-processed data.
       phase_modulation(vpmout*"J1110-5637")
     """
     function phase_modulation(outdir; nreal=6000, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
         result = PhaseDrift.drift_test(
@@ -844,8 +799,9 @@ Phase-drift vs amplitude-modulation test on already-processed data.
       phase_modulation2(vpmout*"J1110-5637")
     """
     function phase_modulation2(outdir; nreal=6000, snr_min=3.0, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         p3_error = haskey(p, "p3_error") ? Float64(p["p3_error"]) : 0.0
         result = PhaseDrift.drift_test(
@@ -907,8 +863,9 @@ Phase-drift vs amplitude-modulation test on already-processed data.
     """
     function phase_modulation2a(outdir; window=32, stride=1, nreal=500,
                                 pulse_st=nothing, pulse_end=nothing, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         result = PhaseDrift.drift_test_profile(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
@@ -954,8 +911,9 @@ Phase-drift vs amplitude-modulation test on already-processed data.
       phase_modulation3(vpmout*"J1750-3503")
     """
     function phase_modulation3(outdir; window=32, stride=1, nreal=1000, sig_min=3.0, show_=true)
-        p    = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(joinpath(outdir, "pulsar.debase.txt"))
+        txt_file = ensure_debase_file(outdir)
+p    = Tools.read_params(joinpath(outdir, "params.json"))
+data = Data.load_ascii(txt_file)
         Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
         result = PhaseDrift.drift_test_sliding(
             data, Float64(p["p3"]), Int(p["bin_st"]), Int(p["bin_end"]);
@@ -1118,8 +1076,8 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         
         
         
-        phase_modulation3(vpmout*"J1750-3503"; show_=true)
-        phase_modes(vpmout*"J1750-3503")
+        #phase_modulation3(vpmout*"J1750-3503"; show_=true)
+        #phase_modes(vpmout*"J1750-3503")
         phase_modulation3(vpmout*"J1921+1419"; show_=true)
         phase_modes(vpmout*"J1921+1419")
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
