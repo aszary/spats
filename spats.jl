@@ -2,6 +2,8 @@ module SpaTs
     using ArgParse
     using Glob
     using JSON
+    using Statistics
+    using StatsBase
 
 
     include("modules/data.jl")
