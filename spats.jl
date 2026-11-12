@@ -1078,6 +1078,8 @@ Phase-drift vs amplitude-modulation test on already-processed data.
         
         phase_modulation3(vpmout*"J1750-3503"; show_=true)
         phase_modes(vpmout*"J1750-3503")
+        phase_modulation3(vpmout*"J1921+1419"; show_=true)
+        phase_modes(vpmout*"J1921+1419")
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
         #Travel.travel_test(vpmout*"J1750-3503")
 
