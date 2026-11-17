@@ -84,9 +84,11 @@ function chan_rfi_core(d, bst, bend; q=4.0, nmin=2, fchan=0.3, fsub=0.5, margin=
     end
     live = count(.!dead)
     fch = [count(flag[g, c]) / max(count(g), 1) for c in 1:C]
-    # rms_bad tylko informacyjnie: na surowych danych porownuje wzmocnienia kanalow
-    # (weryfikacja 533 pulsarow: wyciecie uzasadnione w 21 z 480 oznaczonych)
-    chan_all = findall(((fch .> fchan) .| acf_bad) .& .!dead)
+    # rms_bad oznacza tylko KANDYDATOW (na surowych danych porownuje tez wzmocnienia
+    # kanalow: wyciecie uzasadnione w 21 z 480); o wycieciu decyduje test S/N sumy bez
+    # kanalu (zap_verify). Bez niej ginelo 6 pulsarow z realnym zyskiem (J1910 +4.5%,
+    # J1946 +3.7%, J1627 +3.3%, J1901+0511, J0401, J0304)
+    chan_all = findall(((fch .> fchan) .| acf_bad .| rms_bad) .& .!dead)
     fsb = [count(flag[i, .!dead]) / max(live, 1) for i in 1:N]
     sub_all = findall(g .& (fsb .> fsub))
     pairs = [(i, c) for i in findall(g) for c in 1:C if flag[i, c] && !(c in chan_all) && !(i in sub_all)]

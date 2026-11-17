@@ -1164,6 +1164,11 @@ module SpaTs
     """
     function chan_first_list(dir="/home/psr/data/OUTPUT/zap_verify/"; min_gain=1.0)
         res = Dict{String,String}()
+        # kilka katalogow weryfikacji: suma list (pierwszy wygrywa przy konflikcie)
+        if dir isa AbstractVector
+            for d in reverse(dir); merge!(res, chan_first_list(d; min_gain=min_gain)); end
+            return res
+        end
         isdir(dir) || return res
         for f in readdir(dir; join=true)
             occursin(r"^verify(_\d+)?\.csv$", basename(f)) || continue
@@ -1979,7 +1984,9 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         #  3) model nullingu na etykietach v4 -> nulling_model_v4/RAPORT_nulle.md
         #  4) diagnostyka otwartych spraw -> zap_checks/checks.txt
         #  5) porownanie z metoda reczna (ETAP 4 nizej)
-        if Base.invokelatest(Main.autozap_parallel; tag="v4", verify_dir="/home/psr/data/OUTPUT/zap_verify_v3/")
+        # kanaly: lista z weryfikacji v2 (z regula rms) + v3; razem 24 pulsary
+        if Base.invokelatest(Main.autozap_parallel; tag="v4",
+                             verify_dir=["/home/psr/data/OUTPUT/zap_verify_v3/", "/home/psr/data/OUTPUT/zap_verify/"])
             Base.invokelatest(Main.zap_verify_parallel; out="/home/psr/data/OUTPUT/zap_verify_v4/")
             ENV["NULLING_OUT"] = "/home/psr/data/OUTPUT/nulling_model_v4/"
             Base.include(Main, "tools/nulling_energies.jl")
