@@ -272,12 +272,20 @@ def plot(psr, res):
 
 def work(path):
     psr = os.path.basename(path)[:-4]
+    cache = os.path.join(OUT, "fits", psr + ".json")       # gotowy pulsar: wynik z pliku (wznawianie)
+    if os.path.isfile(cache):
+        return json.load(open(cache, encoding="utf-8"))
     try:
         res = analyse(path)
-        if "error" not in res:
-            plot(psr, res)
     except Exception as e:
         res = {"pulsar": psr, "error": repr(e)}
+    if "error" not in res:
+        try:
+            plot(psr, res)
+        except Exception as e:                              # np. brak matplotlib: wynik zostaje
+            res["plot_error"] = repr(e)
+        with open(cache, "w", encoding="utf-8") as fh:
+            json.dump(res, fh)
     print("  %s: %s" % (psr, res.get("error") or "NF model %.3f [%s] 3σ %.3f automat %.3f  model %s" % (
         res["NF_model"], "%.3f-%.3f" % (res.get("NF_model_lo", float("nan")), res.get("NF_model_hi", float("nan"))),
         res["NF_3sigma"], res["NF_auto"], res["model"])), flush=True)

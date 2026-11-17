@@ -1955,8 +1955,18 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         # z sygnalem -> zaszumione, kanaly przed sumowaniem w ~24 pulsarach, reczne
         # zostaja), rownolegle; potem weryfikacja v3 (odswieza pulsar_rfi.spCF) i
         # porownanie z aktualnymi recznymi wycieciami (ETAP 4). Wznawialne.
-        Base.invokelatest(Main.autozap_parallel) &&
-            Base.invokelatest(Main.zap_verify_parallel; out="/home/psr/data/OUTPUT/zap_verify_v3/")
+        # (zrobione 2026-11-11: automat v3 ok=520 reczny=13, weryfikacja v3 bez bledow)
+        #Base.invokelatest(Main.autozap_parallel) &&
+        #    Base.invokelatest(Main.zap_verify_parallel; out="/home/psr/data/OUTPUT/zap_verify_v3/")
+
+        # ETAP 7 — MODEL NULLINGU (metodyka TPA XIX): energie impulsow na danych
+        # automatu (rownolegle), potem model mieszaniny energii w Pythonie: NF z
+        # modelu, P_null kazdego impulsu vs zaps2_null, NF 3 sigma, literatura,
+        # kontrola na pulsarach bez nulli. Wznawialne (gotowe pulsary pomijane).
+        # Wynik: /home/psr/data/OUTPUT/nulling_model/RAPORT_nulle.md, plots/<psr>.pdf
+        Base.include(Main, "tools/nulling_energies.jl")
+        Base.invokelatest(Main.nulling_energies_parallel)
+        run(`python3 tools/nulling_model.py`)
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)
