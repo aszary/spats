@@ -317,7 +317,8 @@ def degenerate(r):
     o sredniej energii zgodnej z zerem (< 3 bledy sredniej szumu; J1947+0915: 86 nulli, E -0.03,
     NF model 0, NF 3 sigma 0.57). Szeroki rozklad emisji obejmuje wtedy zero i 'zjada' skladnik null."""
     n = r.get("n_null_auto", 0)
-    if r.get("control") or n < 5 or r["NF_model"] >= 0.02:
+    # model musi byc wyraznie ponizej automatu: przy NF ~2% model i automat zgodne (J1820-0427: 1.9% / 1.9%)
+    if r.get("control") or n < 5 or r["NF_model"] >= 0.02 or r["NF_model"] >= 0.5 * r["NF_auto"]:
         return False
     m = r.get("mean_E_auto_nulls", float("nan"))
     return bool(np.isfinite(m) and m < 3 * r["s0"] / math.sqrt(n))
