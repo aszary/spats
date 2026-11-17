@@ -28,6 +28,8 @@ from scipy import optimize, special
 
 OUT = os.environ.get("NULLING_OUT", "/home/psr/data/OUTPUT/nulling_model").rstrip("/")
 NBOOT = 30
+KMED = 0.5          # mediana kazdego skladnika emisji >= KMED x szum energii impulsu (s0)
+MODEL_VERSION = 2   # zmiana modelu -> stare wyniki z fits/ nie sa uzywane
 MODELS = [("G",), ("LN",), ("G", "G"), ("G", "LN"), ("LN", "LN"), ("LN", "PL")]
 NPAR = {"G": 2, "LN": 2, "PL": 2}
 LIT_NF = {"J0034-0721": 44.0, "J1049-5833": 47.0, "J1255-6131": 75.0, "J1537-4912": 20.0, "J1727-2739": 52.0,
@@ -68,8 +70,14 @@ def unpack(model, th):
     return mu0, s0, nf, comps, w
 
 
-def prior_ok(comps):
+def prior_ok(comps, s0=0.0):
+    """Keith+2026: mu_N > 2.5 sigma_N. Do tego mediana kazdego skladnika emisji >= KMED*s0:
+    skladnik z emisja ~0 po splocie z szumem wyglada jak null i przejmuje jego wage
+    (J0034-0721, J1931+1439, J1901-0312: NF = 0 przy NF z literatury ~40%)."""
     for kind, q in comps:
+        med = q[0] if kind == "G" else math.exp(q[0])
+        if med < KMED * s0:
+            return False
         if kind == "G" and q[0] < 2.5 * math.exp(q[1]):        # Keith+2026: mu_N > 2.5 sigma_N
             return False
         if kind == "LN" and not (-8 < q[0] < 4 and -4 < q[1] < 2):
@@ -101,8 +109,8 @@ def f_on(model, th, E):
 
 def nll(th, model, Eon, Eoff):
     try:
-        _, _, _, comps, _ = unpack(model, th)
-        if not prior_ok(comps):
+        _, s0u, _, comps, _ = unpack(model, th)
+        if not prior_ok(comps, s0u):
             return 1e12
         f, _ = f_on(model, th, Eon)
         if f is None:
@@ -201,10 +209,11 @@ def analyse(path, nboot=NBOOT, seed=1):
     res.update(model="N+" + bestname, NF_model=nf, mu0=mu0, s0=s0,
                dbic={("N+" + m): round(fits[m]["dbic"], 2) for m in fits},
                nf_by_model={("N+" + m): round(float(special.expit(fits[m]["x"][2])), 4) for m in fits})
-    # bootstrap po impulsach (pary on/off razem), najlepszy model
+    # bootstrap po impulsach (pary on/off razem), najlepszy model; dlugie obserwacje
+    # (np. J1057-5226, ~22 tys. impulsow) - mniej losowan, inaczej liczy sie godzinami
     rng = np.random.default_rng(seed)
     bs = []
-    for _ in range(nboot):
+    for _ in range(nboot if n <= 5000 else min(nboot, 8)):
         j = rng.integers(0, n, n)
         rb = fit(b["model"], e_on[j], e_off[j], x0s=[th])
         bs.append(float(special.expit(rb.x[2])))
@@ -274,10 +283,13 @@ def plot(psr, res):
 
 def work(path):
     psr = os.path.basename(path)[:-4]
-    cache = os.path.join(OUT, "fits", psr + ".json")       # gotowy pulsar: wynik z pliku (wznawianie)
+    cache = os.path.join(OUT, "fits", "%s.v%d.json" % (psr, MODEL_VERSION))   # gotowy pulsar: wynik z pliku
     if os.path.isfile(cache):
         return json.load(open(cache, encoding="utf-8"))
     try:
+        nlines = sum(1 for _ in open(path))
+        if nlines > 5000:
+            print("  %s: długa obserwacja (%d impulsów) - to potrwa dłużej" % (psr, nlines - 9), flush=True)
         res = analyse(path)
     except Exception as e:
         res = {"pulsar": psr, "error": repr(e)}
