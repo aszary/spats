@@ -29,7 +29,9 @@ function ne_pulsars(; ncontrol=20)
         length(r) >= 13 && r[2] in ("ok", "reczny") || continue
         nn = something(tryparse(Int, r[13]), 0)
         s = something(tryparse(Float64, r[6]), 0.0)
-        nn > 0 ? push!(nul, r[1]) : (s > 50 && push!(ctl, (r[1], s)))
+        # kontrolne tylko z automatu: pulsary zrobione recznie nie maja podzialu na nulle
+        # (n_null = 0 nie znaczy "bez nulli"; J2111+2106 dal w kontroli NF 46%)
+        nn > 0 ? push!(nul, r[1]) : (s > 50 && r[2] == "ok" && push!(ctl, (r[1], s)))
     end
     # kontrolne: rozlozone po S/N (od slabych do jasnych)
     sort!(ctl, by=last)
