@@ -145,6 +145,60 @@ function rfi_v5(; root=V5_ROOT, n=16)
             (time() - t0) / 60, root)
 end
 
+"""
+Szybka wersja kroków 2-4 (skan musi być już zrobiony): automat v5 i weryfikacja równolegle w `n`
+procesach; weryfikacja bez części o kanałach (nie zależą od bezpiecznika RFI, sprawdzone w v4).
+Wznawialna: pulsary już przeliczone do pazur2_v5 / zap_verify_v5 są pomijane.
+"""
+function rfi_v5_fast(; root=V5_ROOT, n=32)
+    t0 = time()
+    Base.include(Main, "modules/zap_verify.jl")
+    changed = rfi_v5_scan_summary(root=root)
+    isempty(changed) && return
+    n = min(n, length(changed))
+    chg = repr(changed)
+    pre = "include(\"spats.jl\"); SpaTs.Data.RFI_GREEDY[] = true; "
+    println("\n===== 2. AUTOMAT v5: $(length(changed)) pulsarów, $n procesów → $(root)pazur2_v5/ =====")
+    codes = [pre * "ch = $chg; cf = SpaTs.chan_first_list([\"$(root)zap_verify_v3/\", \"$(root)zap_verify/\"]); " *
+             "SpaTs.autozap_all(out=\"$(root)pazur2_v5/\", only=ch[$k:$n:end], skip_done=true, keep_manual=false, " *
+             "reuse_window=true, window_root=\"$(root)pazur2/\", chan_first=cf)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, root * "pazur2_v5/logs", "auto"; every=60)
+    println("\n===== 3. WERYFIKACJA v5 (bez kanałów): $n procesów → $(root)zap_verify_v5/ =====")
+    codes = [pre * "Base.include(Main, \"modules/zap_verify.jl\"); " *
+             "Base.invokelatest(Main.zap_verify; pazur2=\"$(root)pazur2_v5/\", out=\"$(root)zap_verify_v5/\", " *
+             "only=$chg, part=\"$k/$n\", chans=false, save_rfi=true)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, root * "zap_verify_v5/logs", "verify"; every=60)
+    Base.invokelatest(Main.zap_verify_summary; out=root * "zap_verify_v5/")
+    _v5_tail(root, changed)
+    @printf("\nKONIEC rfi_v5_fast (%.0f min). pazur2 (v4) bez zmian; v5 w %spazur2_v5/. Wklej: summary weryfikacji v5, tabelę v4 vs v5, blok AUTOMAT vs METODA RĘCZNA (v5) i część o J2111+2106.\n",
+            (time() - t0) / 60, root)
+end
+
+"Porównanie z metodą ręczną dla v5, tabela v4 vs v5 i diagnostyka J2111+2106."
+function _v5_tail(root, changed)
+    SpaTs.compare_zap_methods(mine=root * "pazur2_v5/", outdir=root * "zap_comparison_v5/")
+    println("\n===== v4 (pazur2) vs v5 (pazur2_v5), ta sama miara S/N =====")
+    r1(x) = x isa Number ? @sprintf("%.1f", x) : "-"
+    d = Float64[]; worse = String[]
+    for psr in changed
+        c4 = get(SpaTs.Tools.read_params(joinpath(root, "pazur2", psr, "params.json")), "zap_cmp", Dict())
+        f5 = joinpath(root, "pazur2_v5", psr, "params.json")
+        isfile(f5) || (println(rpad(psr, 13), " brak wyniku v5"); continue)
+        c5 = get(SpaTs.Tools.read_params(f5), "zap_cmp", Dict())
+        a, b = get(c4, "snr_mine", NaN), get(c5, "snr_mine", NaN)
+        x = 100 * (b - a) / abs(a); push!(d, x)
+        x < -0.5 && push!(worse, @sprintf("%s (%+.2f%%)", psr, x))
+    end
+    isempty(d) && return
+    @printf("S/N v5 względem v4 w %d pulsarach: mediana %+.2f%%, średnia %+.2f%%, maks. %+.2f%%, min. %+.2f%%; lepiej >1%%: %d, gorzej <-0.5%%: %d\n",
+            length(d), median(d), mean(d), maximum(d), minimum(d), count(>(1), d), length(worse))
+    isempty(worse) || println("gorzej: ", join(worse, ", "))
+    println("\n===== 4. DIAGNOSTYKA J2111+2106 =====")
+    Base.include(Main, "tools/zap_checks.jl")
+    Base.invokelatest(Main.zap_checks; verify_dir=root * "zap_verify_v4_manual/", out=root * "zap_checks_j2111/",
+                      psrs=["J2111+2106"])
+end
+
 "Przyjęcie v5: tylko dla pulsarów z pazur2_v5. Kopia v4 w pazur2_v4_backup/. Potem energie i model nulli od nowa."
 function rfi_v5_adopt(; root=V5_ROOT)
     v5, pz, bk = root * "pazur2_v5/", root * "pazur2/", root * "pazur2_v4_backup/"
