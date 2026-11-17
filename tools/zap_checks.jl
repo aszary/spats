@@ -86,7 +86,7 @@ function zap_checks(; verify_dir="/home/psr/data/OUTPUT/zap_verify_v4/", out="/h
     num(r, k) = (x = tryparse(Float64, get(r, k, "")); isnothing(x) ? NaN : x)
     println(io, "\n--- 2. Dane tylko po RFI tracą > 2% S/N (z $verify_dir, $(length(R)) pulsarów) ---")
     for r in R
-        d = 100 * (num(r, "new_snr_rfi") / num(r, "snr_none") - 1)
+        d = 100 * (num(r, "new_snr_rfi") - num(r, "snr_none")) / abs(num(r, "snr_none"))
         isfinite(d) && d < -2 && println(io, @sprintf("   %-12s %+.1f%%   wycięte RFI %s, nulle %s, S/N bez %.1f, tylko po RFI %.1f",
                                                      r["pulsar"], d, r["n_rfi"], r["n_null"], num(r, "snr_none"), num(r, "new_snr_rfi")))
     end

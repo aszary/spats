@@ -932,8 +932,8 @@ module Plot
     sorted. Right: fraction of pulses cut by each method.
     """
     function zap_methods_comparison(T, outdir; show_=false, tie=1.0)
-        gm = [100 * (t.mine / t.none - 1) for t in T]
-        gj = [100 * (t.maciej / t.none - 1) for t in T]
+        gm = [100 * (t.mine - t.none) / abs(t.none) for t in T]
+        gj = [100 * (t.maciej - t.none) / abs(t.none) for t in T]
         fm = [100 * t.n_mine / t.N for t in T]
         fj = [100 * t.n_maciej / t.N for t in T]
         d = gm .- gj
@@ -941,9 +941,10 @@ module Plot
 
         fig, axs = subplots(1, 3, figsize=(11, 4.2))
         ax = axs[1]
-        lo, hi = min(minimum(gm), minimum(gj), 0.0) - 2, max(maximum(gm), maximum(gj), 0.0) + 2
+        sc = [t.none >= 3 for t in T]    # S/N bez wyciec ~0 (sam RFI) daje procenty bez sensu - poza wykresem
+        lo, hi = min(minimum(gm[sc]), minimum(gj[sc]), 0.0) - 2, max(maximum(gm[sc]), maximum(gj[sc]), 0.0) + 2
         ax.plot([lo, hi], [lo, hi], color="k", lw=0.8, ls="--")
-        ax.scatter(gj, gm, c=col, s=18, alpha=0.8)
+        ax.scatter(gj[sc], gm[sc], c=col[sc], s=18, alpha=0.8)
         ax.axhline(0, color="0.8", lw=0.6); ax.axvline(0, color="0.8", lw=0.6)
         ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
         ax.set_xlabel("zysk S/N — metoda ręczna [%]"); ax.set_ylabel("zysk S/N — automat [%]")
@@ -951,13 +952,14 @@ module Plot
 
         ax = axs[2]
         o = sortperm(d)
-        ax.bar(1:length(d), d[o], color=col[o], width=1.0)
+        o = o[sc[o]]
+        ax.bar(1:length(o), d[o], color=col[o], width=1.0)
         ax.axhline(0, color="k", lw=0.6)
         ax.set_xlabel("pulsary (posortowane)"); ax.set_ylabel("zysk automat − ręcznie [punkty %]")
         nb, nw = count(d .>= tie), count(d .<= -tie)
         ax.set_title("automat lepszy: $nb   ręcznie lepiej: $nw   remis: $(length(d) - nb - nw)", fontsize=9)
         if length(T) <= 40
-            ax.set_xticks(1:length(d)); ax.set_xticklabels([T[i].psr for i in o], rotation=90, fontsize=6)
+            ax.set_xticks(1:length(o)); ax.set_xticklabels([T[i].psr for i in o], rotation=90, fontsize=6)
         end
 
         ax = axs[3]

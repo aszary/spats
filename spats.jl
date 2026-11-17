@@ -1487,22 +1487,30 @@ module SpaTs
             println(f, "pulsar,n_pulses,n_auto,n_manual,snr_none,snr_auto,snr_manual,gain_auto_pct," *
                        "gain_manual_pct,better,auto_none,auto_auto,auto_manual")
             for t in T
-                gm, gj = 100 * (t.mine / t.none - 1), 100 * (t.maciej / t.none - 1)
-                better = abs(t.mine - t.maciej) < tie / 100 * t.none ? "remis" : t.mine > t.maciej ? "automat" : "reczna"
+                # |S/N bez| w mianowniku: przy S/N bez <= 0 (sam RFI, np. J1844-0433: -1.0) zwykly iloraz zmienia znak
+                gm, gj = 100 * (t.mine - t.none) / abs(t.none), 100 * (t.maciej - t.none) / abs(t.none)
+                better = abs(t.mine - t.maciej) < tie / 100 * abs(t.none) ? "remis" : t.mine > t.maciej ? "automat" : "reczna"
                 println(f, join([t.psr, t.N, t.n_mine, t.n_maciej, round(t.none, digits=2), round(t.mine, digits=2),
                                  round(t.maciej, digits=2), round(gm, digits=2), round(gj, digits=2), better,
                                  round(t.a_none, digits=2), round(t.a_mine, digits=2), round(t.a_maciej, digits=2)], ","))
             end
         end
 
-        gm = [100 * (t.mine / t.none - 1) for t in T]
-        gj = [100 * (t.maciej / t.none - 1) for t in T]
+        gm = [100 * (t.mine - t.none) / abs(t.none) for t in T]
+        gj = [100 * (t.maciej - t.none) / abs(t.none) for t in T]
         # remis: roznica zyskow < `tie` punktow % (S/N bez wyciec = 100%)
         nb = count(gm .- gj .>= tie); nw = count(gj .- gm .>= tie); ne = length(T) - nb - nw
         println("\n===== AUTOMAT vs METODA RĘCZNA ($(length(T)) pulsarów, standardowe S/N profilu) =====")
         println("lepszy automat: $nb   lepsza metoda ręczna: $nw   remis (<$(tie)%): $ne")
-        println("średni zysk S/N: automat $(round(mean(gm), digits=1))%   ręcznie $(round(mean(gj), digits=1))%   " *
-                "(mediana: $(round(median(gm), digits=1))% / $(round(median(gj), digits=1))%)")
+        # srednia w % tylko gdy S/N bez wyciec >= 3 - przy S/N ~0 procent nic nie znaczy (J1844-0433: -1.0 -> 151.4)
+        okm = [t.none >= 3 for t in T]
+        println("średni zysk S/N (S/N bez wycięć ≥ 3, $(count(okm)) pulsarów): automat $(round(mean(gm[okm]), digits=1))%   " *
+                "ręcznie $(round(mean(gj[okm]), digits=1))%   (mediana: $(round(median(gm), digits=1))% / $(round(median(gj), digits=1))%)")
+        for t in T[.!okm]
+            println("   S/N bez wycięć < 3 (sam szum/RFI): $(t.psr)  bez $(round(t.none, digits=1)) -> automat " *
+                    "$(round(t.mine, digits=1)), ręcznie $(round(t.maciej, digits=1))")
+        end
+        println("lepsza metoda ręczna: ", join([t.psr for (t, a, b) in zip(T, gm, gj) if b - a >= tie], " "))
         println("średnio wycięte: automat $(round(mean(t.n_mine / t.N for t in T) * 100, digits=1))%   " *
                 "ręcznie $(round(mean(t.n_maciej / t.N for t in T) * 100, digits=1))%")
         png = Plot.zap_methods_comparison(T, outdir; show_=show_, tie=tie)

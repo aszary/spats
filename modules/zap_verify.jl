@@ -547,7 +547,7 @@ function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
     isempty(d2) || pr(@sprintf("nasz - energia (pulsary z NF>5%%): mediana %+.1f pp (z %d)", median(d2), length(d2)))
 
     pr("\n--- C. Bezpiecznik RFI: stary (:cut) vs nowy (:both), te same dane ---")
-    drop(r, t) = 100 * (num(r, "$(t)_snr_rfi") / num(r, "snr_none") - 1)
+    drop(r, t) = 100 * (num(r, "$(t)_snr_rfi") - num(r, "snr_none")) / abs(num(r, "snr_none"))
     for t in ("old", "new")
         v = fin([drop(r, t) for r in ok])
         pr(@sprintf("%s: dane tylko po RFI tracą >1%% S/N: %d pulsarów; >2%%: %d", t == "old" ? "stary" : "nowy ",
