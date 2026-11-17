@@ -1191,7 +1191,7 @@ module SpaTs
     function autozap_all(; dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
                          ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/",
                          only=nothing, skip_done=true, keep_png=true, keep_manual=true,
-                         chan_first=Dict{String,String}())
+                         chan_first=Dict{String,String}(), reuse_window=false)
         endswith(out, "/") || (out *= "/")
         mkpath(out)
         psrs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
@@ -1262,11 +1262,21 @@ module SpaTs
                 end
                 p3_from == "" && (p["p3"] = get(p, "p3", -1.0); valid(p["p3"]) || (p["p3"] = -1.0))
                 p["nsubint"] = nothing          # recount on the rebuilt archive
+                # reuse_window: okno on-pulse wybrane recznie przy manual_zap_all (zapisane w pazur2)
+                # ma pierwszenstwo (J0211-8159: okno z pazur wskazywalo tor RFI); stare reczne
+                # wyciecia zostaja w params jako zaps2_manual_old (porownanie). P3 do wycinania
+                # nie jest potrzebne, wiec brak P3 nie blokuje.
+                pold = reuse_window ? readp(pf) : nothing
+                if !isnothing(pold) && !isnothing(get(pold, "bin_st", nothing)) && !isnothing(get(pold, "bin_end", nothing))
+                    p["bin_st"], p["bin_end"] = pold["bin_st"], pold["bin_end"]
+                    get(pold, "zap_manual", false) == true && (p["zaps2_manual_old"] = get(pold, "zaps2", nothing))
+                    println("Okno on-pulse z poprzedniego (ręcznego) przerobienia: $(p["bin_st"])-$(p["bin_end"])")
+                end
                 # no P3 / no on-pulse window anywhere -> not processed now,
                 # listed in out/do_recznie.csv to be done separately at the end
                 why = String[]
                 (isnothing(p["bin_st"]) || isnothing(p["bin_end"])) && push!(why, "brak_onpulse")
-                valid(p["p3"]) || push!(why, "brak_P3")
+                valid(p["p3"]) || reuse_window || push!(why, "brak_P3")
                 if !isempty(why)
                     st = join(why, "+")
                     println("Pomijam ($st) — dopisany do $(manual_file) do zrobienia na końcu.")
