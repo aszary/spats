@@ -967,26 +967,30 @@ module Data
 
 
     """
-        split_zaps(reason) -> (rfi, null)
+        split_zaps(reason) -> (rfi, null, other)
 
     Automat's cuts split by kind (`auto_zap_core` reason codes): RFI/junk =
-    empty (1), single junk (2), noisy stretch (4); nulls = no signal (3).
-    Margin / fill pulses (5) go with the nearest real cut (ties: RFI).
+    empty (1), single junk (2), noisy stretch (4); nulls = no signal (3) ONLY;
+    other = faded emission (6) and margin / fill pulses (5) next to nulls or
+    faded stretches. Margins go with the nearest real cut (ties: RFI); next to
+    a null they are not counted as nulls: boundary pulses often carry part of
+    the emission (J0034: the 1.9% energy in stacked "nulls"). `rfi` is what
+    the null-keeping data (`zaps2_rfi`, pulsar_rfi.spCF) has cut.
     """
     function split_zaps(reason)
         N = length(reason)
         kind = copy(reason)
         for i in findall(==(5), reason)
             for d in 1:N
-                l = i - d >= 1 && reason[i-d] in (1, 2, 3, 4) ? reason[i-d] : 0
-                r = i + d <= N && reason[i+d] in (1, 2, 3, 4) ? reason[i+d] : 0
+                l = i - d >= 1 && reason[i-d] in (1, 2, 3, 4, 6) ? reason[i-d] : 0
+                r = i + d <= N && reason[i+d] in (1, 2, 3, 4, 6) ? reason[i+d] : 0
                 (l == 0 && r == 0) && continue
-                kind[i] = (l == 3 && r in (0, 3)) || (r == 3 && l == 0) ? 3 : 2
+                kind[i] = (l in (3, 6) && r in (0, 3, 6)) || (r in (3, 6) && l == 0) ? 6 : 2
                 break
             end
             kind[i] == 5 && (kind[i] = 2)
         end
-        return (rfi=findall(k -> k in (1, 2, 4), kind), null=findall(==(3), kind))
+        return (rfi=findall(k -> k in (1, 2, 4), kind), null=findall(==(3), kind), other=findall(==(6), kind))
     end
 
 
@@ -1032,7 +1036,7 @@ module Data
     (J2253, J1252, J1838, J2037, J1055). `:cut` = the old check only.
     """
     function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both,
-                      null_max_frac=0.5, kw...)
+                      null_max_frac=0.5, null_faded_frac=0.15, kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
         a = auto_zap_core(sn; kw...)
         reason = copy(a.reason)
@@ -1042,8 +1046,8 @@ module Data
             reason[back] .= 0
             isempty(back) || (why *= " (bramka S/N profilu przywróciła $(length(back)) imp.)")
         end
-        nfake = fake_nulls_to_noisy!(reason, sn; frac=null_max_frac)
-        nfake > 0 && (why *= " ($nfake imp. 'nulli' z sygnałem -> zaszumione)")
+        nfake = fake_nulls_to_noisy!(reason, sn; frac=null_max_frac, faded_frac=null_faded_frac)
+        nfake > 0 && (why *= " ($nfake imp. 'nulli' z sygnałem -> zaszumione / wygaszona emisja)")
         if rfi
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
@@ -1071,20 +1075,26 @@ module Data
 
 
     """
-        fake_nulls_to_noisy!(reason, sn; frac=0.5, z=3.0) -> number relabelled
+        fake_nulls_to_noisy!(reason, sn; frac=0.5, faded_frac=0.15, z=3.0) -> number relabelled
 
     A null is a pulse WITHOUT emission. `auto_zap_core` calls a pulse a null
     when its signal is undetected (< 2σ) — in a stretch drowned in RFI the
     noise is so high that real emission is "undetected" too (J1812+0226: 24
     "nulls" whose mean profile had 114% of a good pulse's energy). Each run of
     reason 3 whose mean signal is significant (> `z` standard errors) and at
-    least `frac` of a typical kept pulse becomes reason 4 (noisy stretch, RFI).
+    least `faded_frac` of a typical kept pulse is not a null: if its noise is
+    elevated (variance > `noise_k` x typical, or > 1.3x with signal >= `frac`)
+    it is reason 4 (noisy stretch, RFI), otherwise faded emission (the core's own null definition is < 15% of
+    typical; verification: ~12 pulsars with 27-54% energy in "nulls") ->
+    reason 6: still cut (the S/N gate kept it cut), but neither in
+    zaps2_null nor in zaps2_rfi, so the null-keeping data keeps it.
     Only the label changes (zaps2_rfi / zaps2_null, null fraction), not the cuts.
     """
-    function fake_nulls_to_noisy!(reason, sn; frac=0.5, z=3.0)
+    function fake_nulls_to_noisy!(reason, sn; frac=0.5, faded_frac=0.15, z=3.0, noise_k=2.0)
         kept = [i for i in eachindex(reason) if reason[i] == 0 && sn.good[i]]
         isempty(kept) && return 0
         typ = median(sn.s[kept])
+        typv = median(sn.v[kept])
         typ > 0 || return 0
         n, i, N = 0, 1, length(reason)
         while i <= N
@@ -1094,8 +1104,12 @@ module Data
             r = [k for k in i:j if sn.good[k]]
             if !isempty(r)
                 m, se = mean(sn.s[r]), sqrt(sum(sn.v[r])) / length(r)
-                if m >= frac * typ && m > z * se
-                    reason[i:j] .= 4
+                if m > z * se && m >= faded_frac * typ
+                    # zaszumiony = sygnal zagluszony szumem (wariancja odcinka > noise_k x typowa,
+                    # J1812); wysokosc sygnalu tego nie rozstrzyga: w slabym pulsarze prog
+                    # istotnosci przechodza tylko odcinki podbite szumem w gore
+                    noisy = mean(sn.v[r]) > noise_k * typv || (m >= frac * typ && mean(sn.v[r]) > 1.3 * typv)
+                    reason[i:j] .= noisy ? 4 : 6
                     n += j - i + 1
                 end
             end
@@ -1233,13 +1247,13 @@ module Data
             parts = split_zaps(a.reason)
             println("Automat: $(length(a.bad)) z $N impulsów ($(r1(100 * length(a.bad) / N))%)  →  " *
                     "\"$(pulses_to_zaps(a.bad))\"")
-            kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
-            println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
+            kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines", "wygaszona emisja"]
+            println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:6], "  "))
             s0, s1 = snr(Int[]), snr(a.bad)
             println("S/N profilu: bez zapów=$(r1(s0))  po automacie=$(r1(s1))   " *
                     "(miara automatu: $(r1(a.snr_before)) → $(r1(a.snr_after)))")
             rows = copy(a.bad)
-            println("Podział: RFI/śmieci=$(length(parts.rfi))  nulle=$(length(parts.null))   " *
+            println("Podział: RFI/śmieci=$(length(parts.rfi))  nulle=$(length(parts.null))  inne=$(length(parts.other))   " *
                     "(S/N profilu tylko po RFI: $(r1(snr(parts.rfi))))")
             if mode == :auto
                 Plot.autozap_view(data, bst, bend, a, outdir; show_=false,
@@ -1301,12 +1315,13 @@ module Data
         # the same cuts split by kind: RFI/junk (always remove) vs nulls (real
         # emission state: keep them for nulling fraction / energy statistics)
         # — only from the automat; after a hand edit in pazi the split is unknown
-        if !isnothing(parts) && sort(rows) == sort(vcat(parts.rfi, parts.null))
-            zr, zn = pulses_to_zaps(parts.rfi), pulses_to_zaps(parts.null)
+        if !isnothing(parts) && sort(rows) == sort(vcat(parts.rfi, parts.null, parts.other))
+            zr, zn, zo = pulses_to_zaps(parts.rfi), pulses_to_zaps(parts.null), pulses_to_zaps(parts.other)
             p["zaps2_rfi"] = isempty(zr) ? nothing : zr
             p["zaps2_null"] = isempty(zn) ? nothing : zn
+            p["zaps2_other"] = isempty(zo) ? nothing : zo     # wygaszona emisja + marginesy przy nullach
         else
-            delete!(p, "zaps2_rfi"); delete!(p, "zaps2_null")
+            delete!(p, "zaps2_rfi"); delete!(p, "zaps2_null"); delete!(p, "zaps2_other")
         end
 
         # comparison with Maciej's zapping (same data, same window)
@@ -1315,7 +1330,7 @@ module Data
                                "snr_none" => snr(Int[]), "snr_mine" => snr(rows),
                                "auto_none" => zap_snr(sn, Int[]), "auto_mine" => zap_snr(sn, rows))
         if haskey(p, "zaps2_rfi")
-            cmp["n_rfi"], cmp["n_null"] = length(parts.rfi), length(parts.null)
+            cmp["n_rfi"], cmp["n_null"], cmp["n_other"] = length(parts.rfi), length(parts.null), length(parts.other)
             cmp["snr_rfi_only"] = snr(parts.rfi)
         end
         ref = isnothing(ref_archive) ? nothing : zapped_rows(ref_archive, bst, bend)
@@ -1403,6 +1418,8 @@ module Data
     zaps_rfi_of(p) = haskey(p, "zaps2_rfi") ? p["zaps2_rfi"] : zaps_of(p)
     "Only the null part of my zaps."
     zaps_null_of(p) = get(p, "zaps2_null", nothing)
+    "Cut, but neither RFI nor null: faded emission and margins next to nulls (since automat v4)."
+    zaps_other_of(p) = get(p, "zaps2_other", nothing)
     zap_chans_of(p) = haskey(p, "zaps2") ? get(p, "zap_chans2", nothing) : get(p, "zap_chans", nothing)
 
 

@@ -24,6 +24,7 @@ Off-pulse liczony jest bez emisji ze średniego profilu (interpuls, składowe po
 | `zaps2` | wszystkie moje wycięcia (RFI + nulle); wycięte w `pulsar.spCF` | profil, S/N, P3, LRFS/2DFS, foldy |
 | `zaps2_rfi` | tylko RFI i śmieci | frakcja nulli, rozkład energii, wszystko, co dotyczy nullingu |
 | `zaps2_null` | tylko nulle | analiza samych nulli |
+| `zaps2_other` | wygaszona emisja i marginesy przy nullach (od automatu v4) | wycięte do profilu, ale ani RFI, ani null |
 | `zap_cmp` | S/N profilu: bez wycięć / moje / tylko RFI / Macieja; liczby impulsów | porównania |
 
 W kodzie odpowiadają im funkcje `Data.zaps_of(p)`, `Data.zaps_rfi_of(p)` i `Data.zaps_null_of(p)`.
@@ -43,6 +44,17 @@ W kodzie odpowiadają im funkcje `Data.zaps_of(p)`, `Data.zaps_rfi_of(p)` i `Dat
 - `do_recznie.csv`: pulsary bez okna on-pulse lub bez P3.
 
 **Weryfikacja:** `julia tests/zap_benchmark.jl` uruchamia benchmark na danych syntetycznych ze znaną prawdą. Porównuje automat z regułą TPA i podejściem w stylu clfd.
+
+## Automat v4: czyste nulle
+
+Do listy `zaps2_null` trafiają tylko impulsy bez sygnału.
+
+- Odcinek oznaczony jako null, w którym średni sygnał jest istotny (>3σ) i wynosi co najmniej 15% typowego impulsu, to:
+  - **zaszumiony odcinek** (RFI), jeśli szum w nim jest wyraźnie podwyższony; tak było w J1812+0226;
+  - **wygaszona emisja** (powód 6) w pozostałych przypadkach.
+- Marginesy przy nullach nie liczą się jako nulle, bo impulsy na brzegach często mają część emisji.
+- Wycięcia i S/N się nie zmieniają (benchmark syntetyczny bez zmian); zmienia się tylko podział na `zaps2_rfi` / `zaps2_null` / `zaps2_other`.
+- Test syntetyczny: prawdziwe nulle zostają nullami we wszystkich przypadkach; odcinek z 30% emisji w jasnym pulsarze zawsze dostaje etykietę wygaszonej emisji.
 
 ## Weryfikacja na prawdziwych danych
 

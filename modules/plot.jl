@@ -859,9 +859,9 @@ module Plot
         fin = filter(isfinite, vec(win))
         vmin, vmax = isempty(fin) ? (0.0, 1.0) : (quantile(fin, 0.01), quantile(fin, 0.995))
         ext = (lo - 0.5, hi + 0.5, -0.5, N - 0.5)
-        cols = Dict(1 => "#000000", 2 => "#ff7f00", 3 => "#1f78b4", 4 => "#e31a1c", 5 => "#9e9e9e")
+        cols = Dict(1 => "#000000", 2 => "#ff7f00", 3 => "#1f78b4", 4 => "#e31a1c", 5 => "#9e9e9e", 6 => "#6a3d9a")
         names_ = Dict(1 => "pusty", 2 => "pojedynczy śmieć", 3 => "null / brak sygnału",
-                      4 => "zaszumiony odcinek", 5 => "margines / domknięcie")
+                      4 => "zaszumiony odcinek", 5 => "margines / domknięcie", 6 => "wygaszona emisja")
 
         rc("font", size=7.5, family="sans-serif")
         fig = figure(figsize=(9.2, 6.6), dpi=100)
@@ -896,15 +896,15 @@ module Plot
         ax3 = subplot2grid((1, 21), (0, 20), sharey=ax1)
         strip = fill(NaN, N, 1)
         for i in 1:N; a.reason[i] > 0 && (strip[i, 1] = a.reason[i]); end
-        cmap = pyimport("matplotlib.colors").ListedColormap([cols[k] for k in 1:5])
-        imshow(strip, origin="lower", aspect="auto", cmap=cmap, vmin=0.5, vmax=5.5,
+        cmap = pyimport("matplotlib.colors").ListedColormap([cols[k] for k in 1:6])
+        imshow(strip, origin="lower", aspect="auto", cmap=cmap, vmin=0.5, vmax=6.5,
                interpolation="nearest", extent=(0, 1, -0.5, N - 0.5))
         axis("off")
 
         present = sort(unique(filter(>(0), a.reason)))
         handles = [patch.Patch(color=cols[k],
                    label="$(names_[k]) ($(count(==(k), a.reason)))") for k in present]
-        isempty(handles) || fig.legend(handles=handles, loc="lower center", ncol=min(5, length(handles)),
+        isempty(handles) || fig.legend(handles=handles, loc="lower center", ncol=min(6, length(handles)),
                                        fontsize=7.5, frameon=false)
         n = length(a.bad)
         # given S/N pair (standard profile S/N, `Data.profile_snr`), else the automat's own measure

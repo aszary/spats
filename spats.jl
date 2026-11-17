@@ -883,8 +883,8 @@ module SpaTs
                         (isnothing(user) ? "" : ", Twoje=$(f(snr_u))") * ")")
                 println("Decyzja: $(a.why)   [okno=$(a.w), podejrzane pojedyncze=$(a.n_single), " *
                         "progi z odcinkami=$(a.n_cand), okna off: $(sn.nwin) użyte / $(sn.nleak) z emisją pulsara]")
-                kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines"]
-                println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:5], "  "))
+                kinds = ["pusty", "pojedynczy śmieć", "null/brak sygnału", "zaszumiony odcinek", "margines", "wygaszona emisja"]
+                println("Powody: " * join(["$(kinds[k])=$(count(==(k), a.reason))" for k in 1:6], "  "))
                 push!(summary, "$(rpad(psr, 12)) wycięte=$(lpad(length(a.bad), 4)) z $(lpad(N, 4))  " *
                                "S/N profilu: $(f(sp0)) → $(f(sp1))   (miara automatu: " *
                                "$(f(a.snr_before)) → $(f(a.snr_after)))")
@@ -1964,9 +1964,36 @@ Obrazki po kolei (Enter = następny, s + Enter = koniec oglądania).")
         # modelu, P_null kazdego impulsu vs zaps2_null, NF 3 sigma, literatura,
         # kontrola na pulsarach bez nulli. Wznawialne (gotowe pulsary pomijane).
         # Wynik: /home/psr/data/OUTPUT/nulling_model/RAPORT_nulle.md, plots/<psr>.pdf
-        Base.include(Main, "tools/nulling_energies.jl")
-        Base.invokelatest(Main.nulling_energies_parallel)
-        run(`python3 tools/nulling_model.py`)
+        # (pierwszy przebieg na etykietach v3 -> /home/psr/data/OUTPUT/nulling_model/)
+        #Base.include(Main, "tools/nulling_energies.jl")
+        #Base.invokelatest(Main.nulling_energies_parallel)
+        #run(`python3 tools/nulling_model.py`)
+
+        # ETAP 8 — AUTOMAT v4 + WSZYSTKIE TESTY (jeden include; kazdy krok wznawialny):
+        #  v4 = v3 + czyste nulle: 'null' ze znaczacym sygnalem 15-50% typowego impulsu ->
+        #  "wygaszona emisja" (powod 6), marginesy przy nullach poza lista nulli
+        #  (zaps2_other); wyciecia i S/N bez zmian (benchmark syntetyczny), zmienia sie
+        #  tylko podzial zaps2_rfi / zaps2_null / zaps2_other.
+        #  1) automat v4 (kanaly przed sumowaniem z weryfikacji v3, reczne zostaja)
+        #  2) weryfikacja v4 -> zap_verify_v4/summary.txt (odswieza pulsar_rfi.spCF)
+        #  3) model nullingu na etykietach v4 -> nulling_model_v4/RAPORT_nulle.md
+        #  4) diagnostyka otwartych spraw -> zap_checks/checks.txt
+        #  5) porownanie z metoda reczna (ETAP 4 nizej)
+        if Base.invokelatest(Main.autozap_parallel; tag="v4", verify_dir="/home/psr/data/OUTPUT/zap_verify_v3/")
+            Base.invokelatest(Main.zap_verify_parallel; out="/home/psr/data/OUTPUT/zap_verify_v4/")
+            ENV["NULLING_OUT"] = "/home/psr/data/OUTPUT/nulling_model_v4/"
+            Base.include(Main, "tools/nulling_energies.jl")
+            Base.invokelatest(Main.nulling_energies_parallel)
+            try
+                run(addenv(`python3 tools/nulling_model.py`, "NULLING_OUT" => ENV["NULLING_OUT"]))
+            catch e
+                println("MODEL NULLI: błąd ($(sprint(showerror, e))) — dalsze kroki idą dalej")
+            end
+            Base.include(Main, "tools/zap_checks.jl")
+            Base.invokelatest(Main.zap_checks; verify_dir="/home/psr/data/OUTPUT/zap_verify_v4/")
+        else
+            println("AUTOMAT v4 nie skończył się poprawnie — testy pominięte, zobacz pazur2/logs_v4/")
+        end
 
         # ETAP 4 — porownanie moja vs Macieja (tabela + wykres poza
         # folderami wynikow: /home/psr/data/OUTPUT/zap_comparison/)

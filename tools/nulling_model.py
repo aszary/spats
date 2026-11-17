@@ -9,10 +9,12 @@ Model:   f(E_on) = NF * f_off(E) + (1-NF) * (f_int (*) f_off)(E),  f_off = N(mu0
 Roznica wobec Keith+2026: najwieksza wiarygodnosc (Nelder-Mead, kilka startow) +
 bootstrap po impulsach zamiast nested sampling (dynesty); szum gaussowski, nie empiryczny.
 Impulsy wyciete przez automat jako RFI sa pomijane; nulle automatu zostaja w danych.
+Etykiety: 0 zostaje, 1 RFI, 2 null automatu, 3 inne wyciete (wygaszona emisja, marginesy; v4).
 
     python3 tools/nulling_model.py              # wszystkie pliki energii, rownolegle
     python3 tools/nulling_model.py J0034-0721   # wybrane
     python3 tools/nulling_model.py --test       # test na danych syntetycznych ze znanym NF
+    NULLING_OUT=/home/psr/data/OUTPUT/nulling_model_v4 python3 tools/nulling_model.py   # inny katalog
 """
 import glob
 import json
@@ -24,7 +26,7 @@ from multiprocessing import Pool
 import numpy as np
 from scipy import optimize, special
 
-OUT = "/home/psr/data/OUTPUT/nulling_model"
+OUT = os.environ.get("NULLING_OUT", "/home/psr/data/OUTPUT/nulling_model").rstrip("/")
 NBOOT = 30
 MODELS = [("G",), ("LN",), ("G", "G"), ("G", "LN"), ("LN", "LN"), ("LN", "PL")]
 NPAR = {"G": 2, "LN": 2, "PL": 2}

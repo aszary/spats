@@ -688,10 +688,10 @@ Stan w `out/.autozap_v3`: brak = start od nowa, "running" = wznowienie
 (zrobione pomijane), "done" = już zrobione, nic się nie dzieje.
 """
 function autozap_parallel(; n=nothing, out="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/psr/data/new/",
-                          verify_dir="/home/psr/data/OUTPUT/zap_verify/", every=300)
-    marker = joinpath(out, ".autozap_v3")
+                          verify_dir="/home/psr/data/OUTPUT/zap_verify/", every=300, tag="v3")
+    marker = joinpath(out, ".autozap_$tag")
     state = isfile(marker) ? strip(read(marker, String)) : ""
-    state == "done" && (println("AUTOMAT v3: już zrobiony ($marker) - pomijam."); return true)
+    state == "done" && (println("AUTOMAT $tag: już zrobiony ($marker) - pomijam."); return true)
     summ = joinpath(out, "zap_summary.csv")
     if state != "running"
         stamp = Libc.strftime("%Y%m%d-%H%M", time())
@@ -706,18 +706,18 @@ function autozap_parallel(; n=nothing, out="/home/psr/data/OUTPUT/pazur2/", data
     psrs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
     cf = SpaTs.chan_first_list(verify_dir)
     n = _nproc(n)
-    println("AUTOMAT v3 RÓWNOLEGLE: $n procesów, $(length(psrs)) pulsarów" *
+    println("AUTOMAT $tag RÓWNOLEGLE: $n procesów, $(length(psrs)) pulsarów" *
             (state == "running" ? " (wznowienie)" : "") * ";  kanały przed sumowaniem w $(length(cf)) pulsarach")
     codes = ["include(\"spats.jl\"); Base.invokelatest(SpaTs.autozap_all; only=$(repr(psrs[k:n:end])), " *
              "chan_first=$(repr(cf)))" for k in 1:n]
     tot() = (isfile(summ) ? countlines(summ) - 1 : 0)
-    ok = _run_parallel(codes, joinpath(out, "logs_v3"), "automat"; every=every,
+    ok = _run_parallel(codes, joinpath(out, "logs_$tag"), "automat"; every=every,
                        progress=k -> "razem gotowe $(tot())/$(length(psrs)) | ")
     st = Dict{String,Int}()
     for l in Iterators.drop(eachline(summ), 1)
         r = split(l, ","); length(r) >= 2 && (st[r[2]] = get(st, r[2], 0) + 1)
     end
-    println("AUTOMAT v3 gotowy: ", join(["$k=$v" for (k, v) in sort(collect(st))], "  "))
+    println("AUTOMAT $tag gotowy: ", join(["$k=$v" for (k, v) in sort(collect(st))], "  "))
     ok && tot() >= length(psrs) && write(marker, "done")
     return ok
 end

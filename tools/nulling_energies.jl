@@ -5,7 +5,8 @@
 # bierze cale off-pulse, wiec W musi byc wyjete z linii bazowej).
 #   E_on  = suma (I - baza_B) w oknie on-pulse (n_on binow)
 #   E_off = suma (I - baza_B) w oknie W (n_on binow, najdalej od impulsu)
-# Etykiety automatu: 0 = zostaje, 1 = RFI (zaps2_rfi), 2 = null (zaps2_null).
+# Etykiety automatu: 0 = zostaje, 1 = RFI (zaps2_rfi), 2 = null (zaps2_null),
+# 3 = inne wyciete (zaps2_other: wygaszona emisja, marginesy przy nullach; od automatu v4).
 # Nic nie zmienia w pazur2. Wyniki: /home/psr/data/OUTPUT/nulling_model/energies/<psr>.csv
 #
 #     cd ~/software/spats && SPATS_NO_MAIN=1 julia --project=. tools/nulling_energies.jl
@@ -16,9 +17,9 @@ if !isdefined(Main, :SpaTs)
 end
 isdefined(Main, :_debased_spcf) || Base.include(Main, joinpath(@__DIR__, "..", "modules", "zap_verify.jl"))
 
-const NE_OUT = "/home/psr/data/OUTPUT/nulling_model/"
-const NE_PAZUR2 = "/home/psr/data/OUTPUT/pazur2/"
-const NE_DATA = "/home/psr/data/new/"
+NE_OUT = get(ENV, "NULLING_OUT", "/home/psr/data/OUTPUT/nulling_model/")   # katalog wynikow (wersja automatu)
+NE_PAZUR2 = "/home/psr/data/OUTPUT/pazur2/"
+NE_DATA = "/home/psr/data/new/"
 
 "Pulsary: wszystkie z nullami w zap_summary.csv + `ncontrol` kontrolnych bez nulli (NF powinno wyjść ~0)."
 function ne_pulsars(; ncontrol=20)
@@ -67,6 +68,7 @@ function ne_one(psr)
         lab = zeros(Int, N)
         lab[_VD.zaps_to_rows(_VD.zaps_rfi_of(p), N)] .= 1
         lab[_VD.zaps_to_rows(_VD.zaps_null_of(p), N)] .= 2
+        isdefined(_VD, :zaps_other_of) && (lab[_VD.zaps_to_rows(_VD.zaps_other_of(p), N)] .= 3)
         base = [mean(@view D[i, B]) for i in 1:N]
         Eon = [sum(@view D[i, on]) - length(on) * base[i] for i in 1:N]
         Eoff = [sum(@view D[i, W]) - length(on) * base[i] for i in 1:N]
@@ -119,7 +121,8 @@ end
 "Równolegle (jak zap_verify_parallel): n procesów w tle, logi w nulling_model/energie_k.log."
 function nulling_energies_parallel(; n=nothing, every=60)
     n = _nproc(n)
-    codes = ["include(\"tools/nulling_energies.jl\"); Base.invokelatest(Main.nulling_energies; part=\"$k/$n\")" for k in 1:n]
+    codes = ["ENV[\"NULLING_OUT\"] = \"$NE_OUT\"; include(\"tools/nulling_energies.jl\"); " *
+             "Base.invokelatest(Main.nulling_energies; part=\"$k/$n\")" for k in 1:n]
     cnt() = (d = joinpath(NE_OUT, "energies"); isdir(d) ? length(readdir(d)) : 0)
     _run_parallel(codes, NE_OUT, "energie"; every=every, progress=k -> "pliki energii: $(cnt()) | ")
     println("ENERGIE gotowe: $(cnt()) pulsarów w $(joinpath(NE_OUT, "energies"))")
