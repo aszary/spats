@@ -1052,8 +1052,10 @@ module Data
     (J2253, J1252, J1838, J2037, J1055). `:cut` = the old check only.
     """
     # automat v5 (nowy bezpiecznik RFI) - przelacznik dla calego potoku (autozap_all, review_zaps,
-    # zap_verify wolaja auto_zap bez tego argumentu); domyslnie v4. tools/rfi_v5.jl ustawia true.
-    RFI_GREEDY = Ref(false)
+    # zap_verify wolaja auto_zap bez tego argumentu). Od 2026-11-17 domyslnie v5 (true): na 533 pulsarach
+    # zmienia 288, S/N lepsze w 238 (>1%), gorsze najwyzej o 0.35%; metoda reczna lepsza w 0 z 287.
+    # false = automat v4.
+    RFI_GREEDY = Ref(true)
 
     function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both,
                       rfi_greedy=RFI_GREEDY[], null_max_frac=0.5, null_faded_frac=0.15, kw...)
