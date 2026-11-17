@@ -29,7 +29,8 @@ from scipy import optimize, special
 OUT = os.environ.get("NULLING_OUT", "/home/psr/data/OUTPUT/nulling_model").rstrip("/")
 NBOOT = 30
 KMED = 0.5          # mediana kazdego skladnika emisji >= KMED x szum energii impulsu (s0)
-MODEL_VERSION = 2   # zmiana modelu -> stare wyniki z fits/ nie sa uzywane
+MODEL_VERSION = 3   # zmiana modelu -> stare wyniki z fits/ nie sa uzywane
+FI3_MIN = 0.3       # TPA XIX: NF wiarygodne tylko, gdy > 3 sigma jest >= 30% impulsow (f_i3)
 MODELS = [("G",), ("LN",), ("G", "G"), ("G", "LN"), ("LN", "LN"), ("LN", "PL")]
 NPAR = {"G": 2, "LN": 2, "PL": 2}
 LIT_NF = {"J0034-0721": 44.0, "J1049-5833": 47.0, "J1255-6131": 75.0, "J1537-4912": 20.0, "J1727-2739": 52.0,
@@ -191,6 +192,11 @@ def analyse(path, nboot=NBOOT, seed=1):
     nn3 = int((e_on < 3 * sE).sum())
     res.update(NF_3sigma=nn3 / n, NF_3sigma_err=math.sqrt(nn3) / n, NF_auto=res["n_null_auto"] / n,
                s0_over_sE=float(np.std(e_off)) / sE)
+    # f_i3: odsetek impulsow > 3 sigma szumu. Ponizej FI3_MIN emisji nie da sie odroznic od
+    # szumu i "null" znaczy tylko "niewykryty" (J1755-2025, J1652-1400: NF 67-81% przy
+    # ogonie kilku jasnych impulsow) - NF raportowane, ale oznaczone jako niewiarygodne
+    res["f_i3"] = float((e_on > 3 * sE).mean())
+    res["reliable"] = res["f_i3"] >= FI3_MIN
     # modele
     fits = {}
     for model in MODELS:
@@ -311,7 +317,7 @@ def report(results, control):
     for r in ok:
         r["control"] = r["pulsar"] in control
     cols = ["pulsar", "control", "N", "n_fit", "n_rfi_auto", "n_null_auto", "n_null_model", "NF_auto", "NF_3sigma",
-            "NF_3sigma_err", "NF_model", "NF_model_lo", "NF_model_hi", "NF_lit", "model", "ambiguous_frac",
+            "NF_3sigma_err", "NF_model", "NF_model_lo", "NF_model_hi", "NF_lit", "model", "f_i3", "reliable", "ambiguous_frac",
             "auto_null_with_p_lt_005", "auto_null_with_p_ge_05", "model_null_not_cut", "mean_E_auto_nulls",
             "mean_E_model_nulls", "s0_over_sE"]
     with open(os.path.join(OUT, "summary.csv"), "w", encoding="utf-8") as fh:
@@ -319,7 +325,9 @@ def report(results, control):
         for r in sorted(ok, key=lambda r: r["pulsar"]):
             fh.write(",".join("" if r.get(c) is None else (("%.4f" % r[c]) if isinstance(r.get(c), float) else str(r[c]))
                               for c in cols) + ',"%s"\n' % json.dumps(r["dbic"]).replace('"', "'"))
-    nul = [r for r in ok if not r["control"]]
+    allnul = [r for r in ok if not r["control"]]
+    unrel = [r for r in allnul if not r.get("reliable", True)]
+    nul = [r for r in allnul if r.get("reliable", True)]
     ctl = [r for r in ok if r["control"]]
     L = []
     p = L.append
@@ -329,7 +337,10 @@ def report(results, control):
       "wybór rozkładu przez BIC, niepewność z bootstrapu po impulsach (%d losowań). Impulsy wycięte przez automat jako RFI "
       "pominięte. Energie: okno E_off rozłączne z oknem linii bazowej." % NBOOT)
     p("")
-    p("- pulsary z nullami: %d, kontrolne bez nulli: %d, błędy: %d" % (len(nul), len(ctl), len(results) - len(ok)))
+    p("- pulsary z nullami: %d, w tym %d z wiarygodnym NF (f_i3 ≥ %.1f: co najmniej %.0f%% impulsów > 3σ, kryterium TPA XIX); "
+      "kontrolne bez nulli: %d; błędy: %d" % (len(allnul), len(nul), FI3_MIN, 100 * FI3_MIN, len(ctl), len(results) - len(ok)))
+    p("- **dalsze liczby tylko dla pulsarów z wiarygodnym NF.** Niewiarygodne (za słabe, emisji nie da się odróżnić od szumu): %s" %
+      ", ".join("%s (f_i3 %.2f)" % (r["pulsar"], r["f_i3"]) for r in sorted(unrel, key=lambda r: r["f_i3"])))
     for r in results:
         if "error" in r:
             p("  - %s: %s" % (r["pulsar"], r["error"]))
@@ -355,12 +366,13 @@ def report(results, control):
         p("")
         p("## Pulsary z literaturą")
         p("")
-        p("| pulsar | NF automat | NF 3σ | NF model [16–84%] | literatura | model |")
-        p("|---|---|---|---|---|---|")
-        for r in sorted([r for r in nul if r["NF_lit"] is not None], key=lambda r: r["pulsar"]):
-            p("| %s | %.1f%% | %.1f%% | %.1f%% [%.1f–%.1f] | %.0f%% | %s |" % (
+        p("| pulsar | NF automat | NF 3σ | NF model [16–84%] | literatura | model | f_i3 |")
+        p("|---|---|---|---|---|---|---|")
+        for r in sorted([r for r in allnul if r["NF_lit"] is not None], key=lambda r: r["pulsar"]):
+            p("| %s | %.1f%% | %.1f%% | %.1f%% [%.1f–%.1f]%s | %.0f%% | %s | %.2f |" % (
                 r["pulsar"], 100 * r["NF_auto"], 100 * r["NF_3sigma"], 100 * r["NF_model"],
-                100 * r.get("NF_model_lo", float("nan")), 100 * r.get("NF_model_hi", float("nan")), r["NF_lit"], r["model"]))
+                100 * r.get("NF_model_lo", float("nan")), 100 * r.get("NF_model_hi", float("nan")),
+                "" if r.get("reliable", True) else " (niewiarygodne)", r["NF_lit"], r["model"], r["f_i3"]))
         lit = [r for r in nul if r["NF_lit"] is not None]
         if lit:
             p("")
