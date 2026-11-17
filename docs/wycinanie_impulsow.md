@@ -73,18 +73,17 @@ Sprawdza:
 
 Przy okazji zapisuje `pazur2/<psr>/pulsar_rfi.spCF` z wyciętym tylko RFI, do badań nullingu.
 
-## Do zrobienia później
+## Stan (2026-11-17, automat v4)
 
-0. **Zacząć od plików z 16 kanałami (`.spCf16`).** Najpierw przejrzeć kanały i sprawdzić, czy na jakichś częstotliwościach trzeba wyciąć kanały. Diagnostyka: `modules/chan_rfi.jl` (`chan_rfi(psrs)`, jeszcze nieuruchomiona na kopierniku). Złe kanały wyciąć (`paz -z`), dopiero potem zsumować częstotliwości (scrunch, `pam -F`) i puścić automat wycinania impulsów. Pulsar z szumem w jednym kanale nie straci wtedy całych impulsów.
-1. **Weryfikacja wykrywania nulli.** Dla każdego pulsara uśrednić impulsy z `zaps2_null` w profil średni i sprawdzić, czy w oknie on-pulse pojawia się sygnał (S/N profilu nulli, osobno dla wygaszeń i braków detekcji). Sygnał oznacza, że automat uznaje słabą emisję za nulle. Frakcje wyciętych nulli porównać z literaturą (np. J1727-2739 ~68%).
-2. **Przejrzeć MeerGuard** (cleaner MeerKAT TPA/MPTA) i porównać z naszą regułą `rfi_rms` oraz benchmarkiem.
-3. **Przejrzeć publikacje z przeglądu narzędzi RFI:**
-   - Lazarus i in. 2016, CoastGuard (arXiv:1601.06194);
-   - Morello i in. 2022, IQRM (arXiv:2108.12434);
-   - Morello i in. 2019, HTRU XIV / clfd (arXiv:1811.04929);
-   - Keith i in. 2026, TPA XIX, pojedyncze impulsy (arXiv:2606.10807);
-   - TPA XVIII, filtr Fouriera okresowego RFI w każdym impulsie (arXiv:2509.15949);
-   - Miles i in. 2023, MPTA DR1 (MeerGuard);
-   - Wu i in. 2022, LOFAR scintillation census (iterative_cleaner);
-   - Offringa i in. 2010, SumThreshold;
-   - metody ML: EMSCA-UNet (arXiv:2404.00277), PSRFINET, RFI-HWT (A&A 701, A81, 2025).
+Zrobione: kanały przed sumowaniem (24 pulsary), weryfikacja nulli (145 ze 183 pulsarów z czystymi nullami),
+test MeerGuard (tylko do sprawdzania kanałów), model frakcji nullingu (`tools/nulling_energies.jl` +
+`tools/nulling_model.py`, zgodność z literaturą −0,2 pp), przegląd literatury, diagnostyka (`tools/zap_checks.jl`).
+Porównanie z metodą ręczną: 262 : 6 : 256 (524 pulsary).
+
+Dokończenie po pełnym przebiegu: `tools/finish_v4.jl` (diagnostyka pulsarów z lepszą metodą ręczną,
+kanały dla długich obserwacji, raport modelu nulli z oznaczeniem „model nie rozróżnia”, porównanie).
+
+Frakcja nullingu: brać `NF_model` z `nulling_model_v4/summary.csv` tylko przy `reliable` = prawda.
+Liczba wyciętych nulli automatu nie jest frakcją nullingu (automat zostawia krótkie nulle).
+
+Dalej: P3 i dryf (P3-fold, klasyfikator dryf/modulacja amplitudy, diagram P–Pdot).

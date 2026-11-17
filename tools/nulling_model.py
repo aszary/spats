@@ -312,12 +312,26 @@ def work(path):
     return res
 
 
+def degenerate(r):
+    """Model nie odroznia nulli od slabej emisji: NF_model ~0, choc automat wycial >=5 nulli
+    o sredniej energii zgodnej z zerem (< 3 bledy sredniej szumu; J1947+0915: 86 nulli, E -0.03,
+    NF model 0, NF 3 sigma 0.57). Szeroki rozklad emisji obejmuje wtedy zero i 'zjada' skladnik null."""
+    n = r.get("n_null_auto", 0)
+    if r.get("control") or n < 5 or r["NF_model"] >= 0.02:
+        return False
+    m = r.get("mean_E_auto_nulls", float("nan"))
+    return bool(np.isfinite(m) and m < 3 * r["s0"] / math.sqrt(n))
+
+
 def report(results, control):
     ok = [r for r in results if "error" not in r]
     for r in ok:
         r["control"] = r["pulsar"] in control
+        r["degenerate"] = degenerate(r)          # liczone z wynikow (cache), bez ponownego dopasowania
+        if r["degenerate"]:
+            r["reliable"] = False
     cols = ["pulsar", "control", "N", "n_fit", "n_rfi_auto", "n_null_auto", "n_null_model", "NF_auto", "NF_3sigma",
-            "NF_3sigma_err", "NF_model", "NF_model_lo", "NF_model_hi", "NF_lit", "model", "f_i3", "reliable", "ambiguous_frac",
+            "NF_3sigma_err", "NF_model", "NF_model_lo", "NF_model_hi", "NF_lit", "model", "f_i3", "reliable", "degenerate", "ambiguous_frac",
             "auto_null_with_p_lt_005", "auto_null_with_p_ge_05", "model_null_not_cut", "mean_E_auto_nulls",
             "mean_E_model_nulls", "s0_over_sE"]
     with open(os.path.join(OUT, "summary.csv"), "w", encoding="utf-8") as fh:
@@ -326,7 +340,8 @@ def report(results, control):
             fh.write(",".join("" if r.get(c) is None else (("%.4f" % r[c]) if isinstance(r.get(c), float) else str(r[c]))
                               for c in cols) + ',"%s"\n' % json.dumps(r["dbic"]).replace('"', "'"))
     allnul = [r for r in ok if not r["control"]]
-    unrel = [r for r in allnul if not r.get("reliable", True)]
+    unrel = [r for r in allnul if not r.get("reliable", True) and not r["degenerate"]]
+    degen = [r for r in allnul if r["degenerate"]]
     nul = [r for r in allnul if r.get("reliable", True)]
     ctl = [r for r in ok if r["control"]]
     L = []
@@ -341,6 +356,10 @@ def report(results, control):
       "kontrolne bez nulli: %d; błędy: %d" % (len(allnul), len(nul), FI3_MIN, 100 * FI3_MIN, len(ctl), len(results) - len(ok)))
     p("- **dalsze liczby tylko dla pulsarów z wiarygodnym NF.** Niewiarygodne (za słabe, emisji nie da się odróżnić od szumu): %s" %
       ", ".join("%s (f_i3 %.2f)" % (r["pulsar"], r["f_i3"]) for r in sorted(unrel, key=lambda r: r["f_i3"])))
+    p("- **model nie odróżnia nulli od słabej emisji** (NF model < 0.02, choć nulle automatu mają energię zgodną z zerem; "
+      "NF jest tu co najmniej NF automatu): %d pulsarów: %s" % (len(degen), ", ".join(
+          "%s (automat %.1f%%, 3σ %.1f%%)" % (r["pulsar"], 100 * r["NF_auto"], 100 * r["NF_3sigma"])
+          for r in sorted(degen, key=lambda r: -r["NF_auto"]))))
     for r in results:
         if "error" in r:
             p("  - %s: %s" % (r["pulsar"], r["error"]))
@@ -372,7 +391,7 @@ def report(results, control):
             p("| %s | %.1f%% | %.1f%% | %.1f%% [%.1f–%.1f]%s | %.0f%% | %s | %.2f |" % (
                 r["pulsar"], 100 * r["NF_auto"], 100 * r["NF_3sigma"], 100 * r["NF_model"],
                 100 * r.get("NF_model_lo", float("nan")), 100 * r.get("NF_model_hi", float("nan")),
-                "" if r.get("reliable", True) else " (niewiarygodne)", r["NF_lit"], r["model"], r["f_i3"]))
+                "" if r.get("reliable", True) else " (model nie rozróżnia)" if r["degenerate"] else " (niewiarygodne)", r["NF_lit"], r["model"], r["f_i3"]))
         lit = [r for r in nul if r["NF_lit"] is not None]
         if lit:
             p("")

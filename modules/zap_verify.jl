@@ -429,7 +429,7 @@ podejrzane, potem reszta. Na końcu `zap_verify_summary`.
 """
 function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/psr/data/new/",
                     out="/home/psr/data/OUTPUT/zap_verify/", only=nothing, chans=true, save_rfi=true,
-                    part=nothing)
+                    part=nothing, max_chan_pulses=4000)
     mkpath(out)
     kp, np_ = isnothing(part) ? (1, 1) : parse.(Int, split(part, "/"))
     csv = joinpath(out, np_ == 1 ? "verify.csv" : "verify_$kp.csv")
@@ -465,7 +465,8 @@ function zap_verify(; pazur2="/home/psr/data/OUTPUT/pazur2/", dataroot="/home/ps
         obs = sort(filter(d -> isdir(joinpath(psr_path, d)), readdir(psr_path)))
         isempty(obs) && continue
         row, fig = _verify_one(psr, p, st[psr], joinpath(psr_path, obs[1]) * "/", joinpath(pazur2, psr);
-                               chans=chans, save_rfi=save_rfi, chan_pdf_dir=chandir)
+                               chans=chans, save_rfi=save_rfi, chan_pdf_dir=chandir,
+                               max_chan_pulses=max_chan_pulses)
         isnothing(fig) || _save_nullprof(profdir, fig)
         open(f -> println(f, join([_fmtv(get(row, kk, nothing)) for kk in keys_], ",")), csv, "a")
         el = (time() - t0) / k
