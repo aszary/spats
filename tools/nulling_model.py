@@ -413,6 +413,69 @@ def report(results, control):
     with open(os.path.join(OUT, "RAPORT_nulle.md"), "w", encoding="utf-8") as fh:
         fh.write("\n".join(L) + "\n")
     print("\n".join(L))
+    export_nulls(ok)
+
+
+def to_ranges(ix):
+    """[3,4,5,9] -> '3-5 9' (jak zaps2, numeracja impulsow od 0)."""
+    ix = sorted(int(i) for i in ix)
+    out, k = [], 0
+    while k < len(ix):
+        j = k
+        while j + 1 < len(ix) and ix[j + 1] == ix[j] + 1:
+            j += 1
+        out.append(str(ix[k]) if j == k else "%d-%d" % (ix[k], ix[j]))
+        k = j + 1
+    return " ".join(out)
+
+
+def export_nulls(ok):
+    """Lista nulli wg modelu (P_null >= 0.5) dla kazdego pulsara - do badan nullingu (dlugosci
+    nulli, granice, R1-R3). nulls_model/<psr>.csv: impuls po impulsie (E_on, P_null, null, niejednoznaczny,
+    etykieta automatu); nulls_model.csv: zbiorczo (NF, liczba i srednia dlugosc odcinkow nulli,
+    nulle w zakresach jak zaps2). Impulsy wyciete jako RFI nie sa w listach (brak energii)."""
+    d = os.path.join(OUT, "nulls_model")
+    os.makedirs(d, exist_ok=True)
+    rows = []
+    for r in sorted(ok, key=lambda r: r["pulsar"]):
+        f = os.path.join(OUT, "fits", r["pulsar"] + ".npz")
+        if not os.path.isfile(f):
+            continue
+        z = np.load(f)
+        idx, pn, e_on, lab = z["idx"], z["pnull"], z["e_on"], z["lab"]
+        isn = pn >= 0.5
+        with open(os.path.join(d, r["pulsar"] + ".csv"), "w", encoding="utf-8") as fh:
+            fh.write("i,E_on,P_null,null,ambiguous,label_auto\n")
+            for i, e, p, l in zip(idx, e_on, pn, lab):
+                fh.write("%d,%.5f,%.4f,%d,%d,%d\n" % (i, e, p, p >= 0.5, 0.05 < p < 0.95, l))
+        # odcinki nulli (kolejne impulsy; impuls wyciety jako RFI przerywa odcinek)
+        runs, cur, prev = [], 0, None
+        for i, s in zip(idx, isn):
+            if s and prev is not None and i == prev + 1 and cur > 0:
+                cur += 1
+            elif s:
+                if cur:
+                    runs.append(cur)
+                cur = 1
+            else:
+                if cur:
+                    runs.append(cur)
+                cur = 0
+            prev = i
+        if cur:
+            runs.append(cur)
+        status = "kontrolny" if r.get("control") else ("model_nie_rozroznia" if r.get("degenerate") else
+                                                       ("za_slaby" if not r.get("reliable", True) else "ok"))
+        rows.append([r["pulsar"], status, len(idx), int(isn.sum()), "%.4f" % r["NF_model"],
+                     len(runs), "%.2f" % (np.mean(runs) if runs else 0.0), max(runs) if runs else 0,
+                     int(((pn > 0.05) & (pn < 0.95)).sum()), '"%s"' % to_ranges(idx[isn])])
+    with open(os.path.join(OUT, "nulls_model.csv"), "w", encoding="utf-8") as fh:
+        fh.write("pulsar,status,n_pulses,n_null,NF_model,n_null_runs,mean_null_len,max_null_len,n_ambiguous,nulls\n")
+        for row in rows:
+            fh.write(",".join(str(x) for x in row) + "\n")
+    nok = [x for x in rows if x[1] == "ok"]
+    print("\nLISTY NULLI WG MODELU: %d pulsarów (%d z wiarygodnym NF) -> %s/nulls_model.csv, nulls_model/<psr>.csv"
+          % (len(rows), len(nok), OUT))
 
 
 # ------------------------------------------------------------------ test syntetyczny
