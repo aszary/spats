@@ -9,8 +9,9 @@ function load(file)
     src = replace(read(file, String), "\r\n" => "\n")
     m = Module()
     Core.eval(m, :(using Statistics, Random))
+    Core.eval(m, :(RFI_GREEDY = Ref(false)))
     for name in ("offpulse_bins", "pulse_signal_noise", "noise_jump_z", "auto_zap_core", "pulses_to_zaps",
-                 "profile_snr", "profile_gate", "zap_snr", "rfi_rms", "split_zaps", "fake_nulls_to_noisy!", "auto_zap")
+                 "profile_snr", "profile_gate", "zap_snr", "rfi_rms", "rfi_rms_z", "split_zaps", "fake_nulls_to_noisy!", "auto_zap")
         r = match(Regex("    function " * name * "\\(.*?\\n    end\\n", "s"), src)
         isnothing(r) || Core.eval(m, Meta.parse(r.match))
     end
@@ -65,6 +66,15 @@ function gen(sc, seed; N=1000)
             j0 = rand(rng, [50:350; 650:950]); d[i, j0:j0+4] .+= 8; push!(junk, i)
         end
     end
+    if sc == :rfimany                                    # J2136-1606: duzo RFI roznej sily + jasne impulsy
+        idx = randperm(rng, N)                           # z lekko podwyzszonym szumem i dobrym sygnalem
+        for i in idx[1:40]                               # (te NIE sa smieciami - ich wyciecie obniza S/N)
+            d[i, :] .*= 1.25; d[i, 440:600] .+= [4amp[i] * prof(j) for j in 440:600]
+        end
+        for (k, i) in enumerate(idx[41:100])             # impulsowe RFI w off-pulse, od slabego do silnego
+            j0 = rand(rng, [50:350; 650:950]); d[i, j0:j0+9] .+= 1.0 + 4.0 * k / 60; push!(junk, i)
+        end
+    end
     if sc == :mixed                                      # correlated baseline everywhere
         for i in 1:N; d[i, :] .+= 0.5 .* sin.(2pi .* (1:NB) ./ rand(rng, 80:400) .+ 6rand(rng)); end
     end
@@ -96,6 +106,7 @@ end
 
 methods = [
     ("automat", d -> Base.invokelatest(D.auto_zap, d, first(ON), last(ON)).bad),
+    ("automat, nowy bezp.", d -> Base.invokelatest(D.auto_zap, d, first(ON), last(ON); rfi_greedy=true).bad),
     ("automat bez RFI", d -> Base.invokelatest(D.auto_zap, d, first(ON), last(ON); rfi=false).bad),
     ("TPA-like (rms)", tpa_like),
     ("clfd-like (cechy)", clfd_like),
@@ -105,6 +116,7 @@ scen = [(:clean, "czysty (nic do cięcia)"), (:bright, "jasny, silna modulacja (
         (:stripes, "paski RFI"), (:weakstripes, "słabe paski, słaby pulsar (J1750)"),
         (:badstart, "zły początek"), (:impulse, "impulsowe RFI w off-pulse"),
         (:mixed, "mieszany realistyczny"),
+        (:rfimany, "dużo RFI różnej siły + jasne zaszumione impulsy (J2136)"),
         (:slownoise, "dłuższy odcinek z wyższym szumem, dobry sygnał (J1110/J1057)")]
 seeds = 1:4
 snr(d, rows) = Base.invokelatest(D.profile_snr, d, first(ON), last(ON); drop=rows)

@@ -1020,6 +1020,22 @@ module Data
         return g[res .> k * sd]
     end
 
+    "Like `rfi_rms`, but returns the z-score (residual / robust sd) of every pulse (NaN for empty ones)."
+    function rfi_rms_z(data, bin_st, bin_end; local_win=31)
+        N = size(data, 1)
+        z = fill(NaN, N)
+        off = offpulse_bins(data, bin_st, bin_end)
+        g = findall(i -> any(!iszero, @view data[i, :]), 1:N)
+        length(g) < 10 && return z
+        r = [std(@view data[i, off]) for i in g]
+        hw = local_win ÷ 2
+        res = [r[t] - median(@view r[max(1, t - hw):min(length(g), t + hw)]) for t in eachindex(g)]
+        sd = 1.4826 * median(abs.(res .- median(res)))
+        sd > 0 || return z
+        z[g] .= res ./ sd
+        return z
+    end
+
 
     """
     Convenience: `auto_zap_core` on a data matrix, then (`gate=true`) the
@@ -1035,8 +1051,12 @@ module Data
     could lower the S/N of the null-keeping (`zaps2_rfi`) data by up to 4%
     (J2253, J1252, J1838, J2037, J1055). `:cut` = the old check only.
     """
+    # automat v5 (nowy bezpiecznik RFI) - przelacznik dla calego potoku (autozap_all, review_zaps,
+    # zap_verify wolaja auto_zap bez tego argumentu); domyslnie v4. tools/rfi_v5.jl ustawia true.
+    RFI_GREEDY = Ref(false)
+
     function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both,
-                      null_max_frac=0.5, null_faded_frac=0.15, kw...)
+                      rfi_greedy=RFI_GREEDY[], null_max_frac=0.5, null_faded_frac=0.15, kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
         a = auto_zap_core(sn; kw...)
         reason = copy(a.reason)
@@ -1058,11 +1078,36 @@ module Data
                  (rfi_ref == :cut ||
                   !(profile_snr(data, bin_st, bin_end; drop=vcat(rfi0, cand)) < (1 - rfi_tol) * s_ref_rfi)))
             new = Int[]
-            for kk in rfi_k .* (1.0, 1.5, 2.0, 3.0)
-                cand = filter(i -> reason[i] == 0, rfi_rms(data, bin_st, bin_end; k=kk))
+            if rfi_greedy
+                # nowy bezpiecznik: gdy caly zestaw (> rfi_k) przechodzi - jak dotad; gdy nie - zamiast
+                # odrzucac wszystkich (podnoszac prog), dokladamy od najbardziej odstajacych i pomijamy
+                # tych, z ktorymi spadek S/N przekroczylby rfi_tol (J2136-1606: ~30 impulsow RFI zostawalo)
+                z = rfi_rms_z(data, bin_st, bin_end)
+                cand = filter(i -> reason[i] == 0 && z[i] > rfi_k, 1:length(z))
                 if ok(cand)
                     new = cand
-                    break
+                else
+                    # kolejnosc: najpierw te, ktorych wyciecie najmniej szkodzi S/N (pewne smieci); kolejnosc
+                    # wg z stawiala na poczatku jasne impulsy z lekko wyzszym szumem (test syntetyczny)
+                    # dokladamy tylko impulsy, ktore same nie obnizaja S/N (inaczej limit 1% "zuzywaly" jasne
+                    # dobre impulsy z lekko wyzszym szumem: test syntetyczny J2136, falszywe 0.5% -> 2.2%)
+                    gain = Dict(i => profile_snr(data, bin_st, bin_end; drop=vcat(cut0, i)) for i in cand)
+                    cur = s_ref
+                    for i in sort(cand, by=i -> -gain[i])
+                        s_new = profile_snr(data, bin_st, bin_end; drop=vcat(cut0, new, i))
+                        if s_new >= cur && ok(vcat(new, i))
+                            push!(new, i); cur = s_new
+                        end
+                    end
+                    sort!(new)
+                end
+            else
+                for kk in rfi_k .* (1.0, 1.5, 2.0, 3.0)
+                    cand = filter(i -> reason[i] == 0, rfi_rms(data, bin_st, bin_end; k=kk))
+                    if ok(cand)
+                        new = cand
+                        break
+                    end
                 end
             end
             reason[new] .= 2

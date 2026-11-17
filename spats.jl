@@ -1191,7 +1191,7 @@ module SpaTs
     function autozap_all(; dataroot="/home/psr/data/new/", out="/home/psr/data/OUTPUT/pazur2/",
                          ref_root="/home/psr/data/OUTPUT/pazur/", p3_root="/home/psr/data/OUTPUT/Czarek7/",
                          only=nothing, skip_done=true, keep_png=true, keep_manual=true,
-                         chan_first=Dict{String,String}(), reuse_window=false)
+                         chan_first=Dict{String,String}(), reuse_window=false, window_root=nothing)
         endswith(out, "/") || (out *= "/")
         mkpath(out)
         psrs = sort(filter(d -> isdir(joinpath(dataroot, d)), readdir(dataroot)))
@@ -1266,7 +1266,8 @@ module SpaTs
                 # ma pierwszenstwo (J0211-8159: okno z pazur wskazywalo tor RFI); stare reczne
                 # wyciecia zostaja w params jako zaps2_manual_old (porownanie). P3 do wycinania
                 # nie jest potrzebne, wiec brak P3 nie blokuje.
-                pold = reuse_window ? readp(pf) : nothing
+                # window_root: okno z innego katalogu wynikow (np. pazur2 przy liczeniu wersji v5 do pazur2_v5)
+                pold = reuse_window ? readp(isnothing(window_root) ? pf : joinpath(window_root, psr, "params.json")) : nothing
                 if !isnothing(pold) && !isnothing(get(pold, "bin_st", nothing)) && !isnothing(get(pold, "bin_end", nothing))
                     p["bin_st"], p["bin_end"] = pold["bin_st"], pold["bin_end"]
                     get(pold, "zap_manual", false) == true && (p["zaps2_manual_old"] = get(pold, "zaps2", nothing))
