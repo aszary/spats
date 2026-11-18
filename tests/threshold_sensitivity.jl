@@ -1,11 +1,8 @@
 # Czułość progów automatu (v5) na danych syntetycznych z benchmarku: julia tests/threshold_sensitivity.jl
 using Statistics, Random, Printf
-src = replace(read(joinpath(@__DIR__, "zap_benchmark.jl"), String), "\r\n" => "\n")
-src = src[1:findfirst("methods = [", src).start-1]
-src = replace(src, "joinpath(@__DIR__, \"..\", \"modules\", \"data.jl\")" => repr(joinpath(@__DIR__, "..", "modules", "data.jl")))
-src = replace(src, "RFI_GREEDY = Ref(false)" => "RFI_GREEDY = Ref(true)")
-src = replace(src, "NULL_MARGIN = Ref(true)" => "NULL_MARGIN = Ref(true)")
-include_string(Main, src)
+include(joinpath(@__DIR__, "zap_synth.jl"))
+D.RFI_GREEDY[] = true
+D.NULL_MARGIN[] = true
 
 snr(d, rows) = Base.invokelatest(D.profile_snr, d, first(ON), last(ON); drop=rows)
 scen = [:clean, :bright, :nulls, :faded, :noisy, :stripes, :weakstripes, :badstart, :impulse, :mixed, :rfimany, :slownoise]

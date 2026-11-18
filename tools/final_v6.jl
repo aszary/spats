@@ -23,6 +23,7 @@ using Printf, Statistics, LinearAlgebra, FFTW, JSON
 F6_ROOT = "/home/psr/data/OUTPUT/"
 F6_DIR = F6_ROOT * "final_v6/"
 F6_DATA = "/home/psr/data/new/"
+F6_GP = Ref(false)          # v7: linia bazowa GP jako dodatkowa opcja (domyslnie jak v6)
 # nazwa => (margines przy nullach, tryb, prog P_null). Tryb :auto = nulle automatu, :model = JEDNA REGULA
 # (tylko model energii, jak w publikacji), :union = automat + model. Bez wiarygodnego modelu -> automat.
 F6_VARIANTS = [
@@ -97,17 +98,30 @@ function _f6_energy_core(D, on, W, B, lab, good)
     φ = 2π .* (0:nb-1) ./ nb
     Xs = [("srednia", ones(nb, 1)), ("fourier1", hcat(ones(nb), cos.(φ), sin.(φ))),
           ("fourier2", hcat(ones(nb), cos.(φ), sin.(φ), cos.(2φ), sin.(2φ)))]
+    # linia bazowa impulsu = P * (dane w binach B), P liniowe (nb x |B|): Fourier = rzut na harmoniki,
+    # GP (F6_GP[]) = srednia warunkowa procesu gaussowskiego (jadro SE na okregu fazy + stala) ze stalymi
+    # parametrami - ten sam operator dla wszystkich impulsow pulsara, wiec szybko. Wybor jedna regula:
+    # najmniejszy rozrzut E_off w oknie W, ktore nie bierze udzialu w dopasowaniu.
+    Ps = [(name, X * pinv(X[B, :])) for (name, X) in Xs]
+    if F6_GP[]
+        dist = [min(abs(i - j), nb - abs(i - j)) for i in 1:nb, j in 1:nb]
+        for ell in (nb / 16, nb / 8, nb / 4), lam in (0.3, 3.0)
+            K = exp.(-dist .^ 2 ./ (2ell^2)) .+ 10.0
+            push!(Ps, (@sprintf("gp_l%d_s%.1f", round(Int, ell), lam), K[:, B] / (K[B, B] + lam * I)))
+        end
+    end
     best, sds = nothing, String[]
-    for (name, X) in Xs
-        C = D[:, B] * pinv(X[B, :])'                       # wspolczynniki linii bazowej kazdego impulsu
-        Eon = vec(sum(D[:, on], dims=2)) .- C * vec(sum(X[on, :], dims=1))
-        Eoff = vec(sum(D[:, W], dims=2)) .- C * vec(sum(X[W, :], dims=1))
+    DB = D[:, B]
+    for (name, P) in Ps
+        pon, pw = vec(sum(P[on, :], dims=1)), vec(sum(P[W, :], dims=1))
+        Eon = vec(sum(D[:, on], dims=2)) .- DB * pon
+        Eoff = vec(sum(D[:, W], dims=2)) .- DB * pw
         sd = std(Eoff[good])
         push!(sds, @sprintf("%s=%.4g", name, sd))
-        (isnothing(best) || sd < best[2]) && (best = (name, sd, Eon, Eoff, C, X))
+        (isnothing(best) || sd < best[2]) && (best = (name, sd, Eon, Eoff, P))
     end
-    name, sdE, Eon, Eoff, C, X = best
-    R = D .- C * X'                                        # dane po odjeciu linii bazowej
+    name, sdE, Eon, Eoff, P = best
+    R = D .- DB * P'                                       # dane po odjeciu linii bazowej
     σb = std(vec(R[good, W]))
     # faza z filtra dopasowanego (CHIME, Ng+2020): przesuniecie maksimum korelacji z szablonem
     tmpl = vec(mean(R[good .& (lab .== 0), :], dims=1))
@@ -140,11 +154,11 @@ function _f6_energies_part(k, n; labels_root=F6_ROOT * "pazur2/", out=F6_DIR * "
     end
 end
 
-function _f6_parallel(fn, n, tag; args="")
+function _f6_parallel(fn, n, tag; args="", extra="", logs=F6_DIR * "logs")
     pre = "include(\"spats.jl\"); Base.include(Main, \"modules/zap_verify.jl\"); ENV[\"NULLING_OUT\"]=\"$(F6_DIR)model/\"; " *
-          "Base.include(Main, \"tools/nulling_energies.jl\"); include(\"tools/final_v6.jl\"); "
+          "Base.include(Main, \"tools/nulling_energies.jl\"); include(\"tools/final_v6.jl\"); " * extra
     codes = [pre * "Base.invokelatest($fn, $k, $n$args)" for k in 1:n]
-    Base.invokelatest(Main._run_parallel, codes, F6_DIR * "logs", tag; every=120)
+    Base.invokelatest(Main._run_parallel, codes, logs, tag; every=120)
 end
 
 # ---------------------------------------------------------------- etap 4: skan wariantow

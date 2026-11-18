@@ -556,7 +556,9 @@ module Data
     function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=3, min_run=5,
                            nsigma=6.0, f_null=0.25, q_on=0.9, noise_fac=2.0, zdet=2.0,
                            f_rel=0.15, zrel=1.0, ac_sigma=4.5, min_run_fade=30,
-                           local_win=31, noise_z=nothing, kw...)
+                           local_win=31, noise_z=nothing, use_junk=true, use_jump=true, use_null1=true,
+                           use_faded=true, use_noisy=true, use_closegaps=true, kw...)
+        # use_*: wylaczanie krokow do testu, ktore sa potrzebne (tools/final_v7.jl); domyslnie wszystkie
         s, v, good = sn.s, sn.v, sn.good
         N = length(s)
         gi = findall(good)
@@ -578,8 +580,8 @@ module Data
         # stripes / wiggles seen as off-pulse autocorrelation far above its
         # typical value here (also when there are too few windows for zc)
         zac = hasproperty(sn, :ac1) ? robz(sn.ac1) : zeros(N)
-        junk = good .& ((zc .> nsigma) .| (zac .> ac_sigma))
-        jump = good .& (nz .> nsigma) .& .!junk .& [!worth(i) for i in 1:N]
+        junk = use_junk ? good .& ((zc .> nsigma) .| (zac .> ac_sigma)) : falses(N)
+        jump = use_jump ? good .& (nz .> nsigma) .& .!junk .& [!worth(i) for i in 1:N] : falses(N)
         single = junk .| jump
         # single null pulse (an empty line in a steadily bright pulsar,
         # J1901): no signal at all (< zdet/2·σ; a real null is 0 ± 1σ) where
@@ -590,7 +592,7 @@ module Data
         snr1 = [vone(i) > 0 ? s[i] / sqrt(vone(i)) : 0.0 for i in 1:N]
         rest = good .& .!single
         q10 = count(rest) > 0 ? quantile(snr1[rest], 0.1) : 0.0
-        null1 = q10 >= 3 * zdet ? rest .& (snr1 .< zdet / 2) : falses(N)
+        null1 = use_null1 && q10 >= 3 * zdet ? rest .& (snr1 .< zdet / 2) : falses(N)
 
         # 2./3. stretches, smoothed over the typical pulses
         ok = count(good .& .!single) > count(good) ÷ 2 ? (good .& .!single) : copy(good)
@@ -682,6 +684,7 @@ module Data
         # in the middle of a faded stretch is a noise fluctuation (J1110-like)
         function closegaps(st, maxgap)
             st = copy(st)
+            use_closegaps || return st
             idx = findall(st)
             for k in 1:length(idx)-1
                 g = idx[k+1] - idx[k] - 1
@@ -694,9 +697,9 @@ module Data
         # strongly modulated pulsar (J1048-5832) short faint episodes of
         # real emission were cut as "nulls" all over (832 pulses) - that
         # raises the S/N but is cherry-picking; J1110-like fading is long
-        nulls = runfilter(closegaps(undet .& ok, hw) .& good) .|
-                runfilter(closegaps(faded .& ok, hw) .& good, max(min_run_fade, min_run))
-        noisy = runfilter(noisy .& good)
+        nulls = runfilter(closegaps(undet .& ok, hw) .& good)
+        use_faded && (nulls .|= runfilter(closegaps(faded .& ok, hw) .& good, max(min_run_fade, min_run)))
+        noisy = use_noisy ? runfilter(noisy .& good) : falses(N)
         snr0 = snr(falses(N))
         # noisy stretches (already gated by signal/noise above) are cut
         # directly — the window-based S/N barely sees a white-noise burst
@@ -1064,6 +1067,9 @@ module Data
     # laduja sie same z NULL_MODEL_DIR (lista modelu nulli) przy pierwszym uzyciu; pulsar bez wiarygodnego
     # modelu -> sam automat (jak v5). Wersja v5: NULL_MODE[] = :auto.
     NULL_MARGIN = Ref(true)
+    # v7 (tools/final_v7.jl): wylaczone kroki automatu dla calego potoku, np. (use_null1=false, gate=false);
+    # pusty = wszystkie kroki (v6)
+    ZAP_STEPS = Ref{Any}(NamedTuple())
     NULL_MODE = Ref(:union)         # :auto | :union | :model (jedna regula z modelu energii)
     NULL_THR = Ref(0.95)            # prog P_null dla nulli z modelu
     NULL_MODEL_DIR = Ref("/home/psr/data/OUTPUT/final_v6/model/")
@@ -1100,11 +1106,12 @@ module Data
         get(NULL_EXTRA, psr, nothing)
     end
 
-    function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both,
+    function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
+                      rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
                       rfi_greedy=RFI_GREEDY[], null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
-        a = auto_zap_core(sn; kw...)
+        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0))..., kw...)
         reason = copy(a.reason)
         why = a.why
         if gate

@@ -4,11 +4,8 @@
 #   julia tests/null_rule_gen.jl <katalog>
 #   python3 tests/null_rule_eval.py <katalog>      (krok 2: model energii + porownanie wariantow)
 using Statistics, Random, Printf
-src = replace(read(joinpath(@__DIR__, "zap_benchmark.jl"), String), "\r\n" => "\n")
-src = src[1:findfirst("# returns data, junk", src).start-1]
-src = replace(src, "joinpath(@__DIR__, \"..\", \"modules\", \"data.jl\")" => repr(joinpath(@__DIR__, "..", "modules", "data.jl")))
-src = replace(src, "RFI_GREEDY = Ref(false)" => "RFI_GREEDY = Ref(true)")
-include_string(Main, src)
+include(joinpath(@__DIR__, "zap_synth.jl"))
+D.RFI_GREEDY[] = true
 
 out = ARGS[1]; mkpath(joinpath(out, "energies"))
 # scenariusz => (N, amplituda (S/N impulsu), sigma lognormalna, NF, dlugosci nulli)
