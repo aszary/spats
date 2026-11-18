@@ -10,6 +10,9 @@ function load(file)
     m = Module()
     Core.eval(m, :(using Statistics, Random))
     Core.eval(m, :(RFI_GREEDY = Ref(false)))
+    Core.eval(m, :(NULL_MARGIN = Ref(true)))
+    Core.eval(m, :(NULL_MODE = Ref(:auto)))
+    Core.eval(m, :(NULL_EXTRA_CUR = Ref{Any}(nothing)))
     for name in ("offpulse_bins", "pulse_signal_noise", "noise_jump_z", "auto_zap_core", "pulses_to_zaps",
                  "profile_snr", "profile_gate", "zap_snr", "rfi_rms", "rfi_rms_z", "split_zaps", "fake_nulls_to_noisy!", "auto_zap")
         r = match(Regex("    function " * name * "\\(.*?\\n    end\\n", "s"), src)
@@ -107,6 +110,7 @@ end
 methods = [
     ("automat", d -> Base.invokelatest(D.auto_zap, d, first(ON), last(ON)).bad),
     ("automat, nowy bezp.", d -> Base.invokelatest(D.auto_zap, d, first(ON), last(ON); rfi_greedy=true).bad),
+    ("automat v6 (bez marg.)", d -> Base.invokelatest(D.auto_zap, d, first(ON), last(ON); rfi_greedy=true, null_margin=false).bad),
     ("automat bez RFI", d -> Base.invokelatest(D.auto_zap, d, first(ON), last(ON); rfi=false).bad),
     ("TPA-like (rms)", tpa_like),
     ("clfd-like (cechy)", clfd_like),

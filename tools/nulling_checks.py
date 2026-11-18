@@ -25,7 +25,7 @@ _spec = importlib.util.spec_from_file_location("nm", os.path.join(os.path.dirnam
 nm = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(nm)
 OUT = nm.OUT
-BLOCK = 20
+BLOCK = int(os.environ.get("NC_BLOCK", "20"))   # porownanie z przedzialem z summary.csv (v4: juz blokowy 20)
 NB = 30
 
 

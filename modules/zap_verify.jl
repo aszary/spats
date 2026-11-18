@@ -233,6 +233,7 @@ function _verify_one(psr, p, st, indir, outpsr; chans=true, max_chan_pulses=4000
                      chan_pdf_dir=nothing)
     bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
     on = bst:bend
+    isdefined(_VD, :NULL_EXTRA_CUR) && (_VD.NULL_EXTRA_CUR[] = get(_VD.NULL_EXTRA, psr, nothing))   # v6
     tmp = mktempdir()
     row = Dict{String,Any}("pulsar" => psr, "status" => st)
     note = String[]

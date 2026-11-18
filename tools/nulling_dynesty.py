@@ -12,8 +12,10 @@ Wejscie: fits/<psr>.npz z nulling_model.py (te same energie, RFI pominiete).
     python3 tools/nulling_dynesty.py --test                                                       # dane syntetyczne
 Wyniki: $NULLING_OUT/dynesty/summary.csv, RAPORT_dynesty.md
 """
+import csv
 import importlib.util
 import json
+import time
 import math
 import os
 import sys
@@ -61,6 +63,7 @@ def make_prior(model, e_off):
 
 def run_one(args):
     psr, model, e_on, e_off, seed = args
+    t0 = time.time()
     transform, nd = make_prior(model, e_off)
 
     def loglike(th):
@@ -76,7 +79,7 @@ def run_one(args):
     nf = special.expit(post[:, 2])
     return {"pulsar": psr, "model": "N+" + "+".join(model), "lnZ": float(r.logz[-1]), "lnZ_err": float(r.logzerr[-1]),
             "NF_med": float(np.median(nf)), "NF_lo": float(np.percentile(nf, 16)), "NF_hi": float(np.percentile(nf, 84)),
-            "neval": int(sum(r.ncall))}
+            "neval": int(sum(r.ncall)), "sec": time.time() - t0, "n": len(e_on)}
 
 
 def analyse(psrs):
@@ -91,10 +94,19 @@ def analyse(psrs):
         ml[psr] = json.load(open(c, encoding="utf-8"))
         for k, model in enumerate(nm.MODELS):
             jobs.append((psr, model, z["e_on"], z["e_off"], 1000 + k))
-    print("DYNESTY: %d pulsarów x %d modeli = %d przebiegów, %d procesów" %
-          (len(ml), len(nm.MODELS), len(jobs), min(32, os.cpu_count() or 1)), flush=True)
-    with Pool(min(32, os.cpu_count() or 1)) as pool:
-        res = pool.map(run_one, jobs)
+    nproc = int(os.environ.get("NULLING_NPROC", "32"))
+    jobs.sort(key=lambda j: -len(j[2]))                     # dlugie obserwacje najpierw (nie blokuja konca)
+    print("DYNESTY: %d pulsarów x %d modeli = %d przebiegów, %d procesów" % (len(ml), len(nm.MODELS), len(jobs), nproc),
+          flush=True)
+    res, t0 = [], time.time()
+    with Pool(nproc) as pool:
+        for k, r in enumerate(pool.imap_unordered(run_one, jobs, chunksize=1), 1):
+            res.append(r)
+            if k % 20 == 0 or k == len(jobs):
+                el = time.time() - t0
+                print("  %d/%d przebiegów, %.0f min, zostało ~%.0f min (ostatni: %s %s, %d imp., %.0f s)" % (
+                    k, len(jobs), el / 60, el / k * (len(jobs) - k) / 60, r["pulsar"], r["model"], r["n"], r["sec"]),
+                    flush=True)
     return ml, res
 
 
@@ -164,6 +176,10 @@ def main():
         selftest()
         return
     want = [a for a in sys.argv[1:] if not a.startswith("-")] or DEFAULT
+    if "--all" in sys.argv:                                  # wszystkie pulsary z wiarygodnym NF
+        rows = list(csv.DictReader(open(os.path.join(OUT, "summary.csv"), encoding="utf-8")))
+        want = [r["pulsar"] for r in rows if float(r.get("f_i3") or 0) >= nm.FI3_MIN and r.get("degenerate") != "True"
+                and float(r.get("NF_model") or 0) > 0.005]
     ml, res = analyse(want)
     if res:
         report(ml, res, os.path.join(OUT, "dynesty"))

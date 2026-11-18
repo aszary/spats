@@ -1056,9 +1056,17 @@ module Data
     # zmienia 288, S/N lepsze w 238 (>1%), gorsze najwyzej o 0.35%; metoda reczna lepsza w 0 z 287.
     # false = automat v4.
     RFI_GREEDY = Ref(true)
+    # automat v6 (tools/final_v6.jl): NULL_MARGIN[]=false - bez marginesu przy nullach; NULL_EXTRA -
+    # pewne nulle z modelu energii (wiersze od 1) dla pulsara, wstawiane do NULL_EXTRA_CUR[] przez
+    # review_zaps / zap_verify przed wywolaniem auto_zap. Domyslnie jak v5.
+    NULL_MARGIN = Ref(true)
+    NULL_MODE = Ref(:auto)          # :auto | :union | :model (jedna regula z modelu energii)
+    NULL_EXTRA = Dict{String,Vector{Int}}()
+    NULL_EXTRA_CUR = Ref{Union{Nothing,Vector{Int}}}(nothing)
 
     function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], null_max_frac=0.5, null_faded_frac=0.15, kw...)
+                      rfi_greedy=RFI_GREEDY[], null_max_frac=0.5, null_faded_frac=0.15,
+                      null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
         a = auto_zap_core(sn; kw...)
         reason = copy(a.reason)
@@ -1114,6 +1122,32 @@ module Data
             end
             reason[new] .= 2
             isempty(new) || (why *= " + RFI (skok szumu off-pulse): $(length(new)) imp.")
+        end
+        # v6: bez marginesu przy nullach (impuls na brzegu nulla z czescia emisji to emisja; margines
+        # zostaje tylko przy RFI / zaszumionych odcinkach) + pewne nulle z modelu energii (P_null >= 0.95),
+        # takze krotkie i pojedyncze (test syntetyczny: automat 0% krotkich nulli, model 99%)
+        # null_mode: :auto - nulle automatu (v5); :union - automat + nulle z modelu (null_extra);
+        # :model - JEDNA REGULA jak w publikacji: nulle tylko z modelu (null_extra), nulle, wygaszenia
+        # i marginesy automatu wracaja (RFI bez zmian). Bez null_extra (model niewiarygodny) -> :auto.
+        mode_ = isnothing(null_extra) ? :auto : null_mode
+        marg = Int[]
+        for i in findall(==(5), reason)
+            nb = [reason[j] for j in max(1, i - 1):min(length(reason), i + 1) if j != i]
+            any(x -> x in (3, 6), nb) && !any(x -> x in (1, 2, 4), nb) && push!(marg, i)
+        end
+        if !null_margin || mode_ == :model
+            reason[marg] .= 0
+            !isempty(marg) && mode_ != :model && (why *= " (bez marginesu przy nullach: $(length(marg)) imp. zostaje)")
+        end
+        if mode_ == :model
+            n0 = count(x -> x in (3, 6), reason)
+            for i in eachindex(reason); reason[i] in (3, 6) && (reason[i] = 0); end
+            for i in null_extra; 1 <= i <= length(reason) && reason[i] == 0 && (reason[i] = 3); end
+            why *= " | nulle z modelu energii (jedna reguła): $(count(==(3), reason)) imp. zamiast $n0 automatu"
+        elseif mode_ == :union
+            ne_ = 0
+            for i in null_extra; 1 <= i <= length(reason) && reason[i] == 0 && (reason[i] = 3; ne_ += 1); end
+            ne_ > 0 && (why *= " + nulle z modelu energii: $ne_ imp.")
         end
         reason == a.reason && return a
         bad = findall(>(0), reason)
@@ -1290,6 +1324,7 @@ module Data
         parts = nothing
 
         if mode in (:auto_pazi, :auto)
+            NULL_EXTRA_CUR[] = get(NULL_EXTRA, basename(rstrip(outdir, '/')), nothing)    # v6: pewne nulle z modelu
             a = auto_zap(data, bst, bend)
             parts = split_zaps(a.reason)
             println("Automat: $(length(a.bad)) z $N impulsów ($(r1(100 * length(a.bad) / N))%)  →  " *

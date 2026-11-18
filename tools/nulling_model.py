@@ -29,7 +29,11 @@ from scipy import optimize, special
 OUT = os.environ.get("NULLING_OUT", "/home/psr/data/OUTPUT/nulling_model").rstrip("/")
 NBOOT = 30
 KMED = 0.5          # mediana kazdego skladnika emisji >= KMED x szum energii impulsu (s0)
-MODEL_VERSION = 3   # zmiana modelu -> stare wyniki z fits/ nie sa uzywane
+MODEL_VERSION = 4   # zmiana modelu -> stare wyniki z fits/ nie sa uzywane
+# v4: sigma energii empiryczne (std E_off) w f_i3 i NF_3sigma (s0/sE ~2 na danych TPA - rozrzut z samego
+#     szumu odbiornika zanizal sigma), bootstrap blokowy (nulle seriami), test fazy (filtr dopasowany,
+#     CHIME Ng+2020), dolna granica NF (CHIME/Esamdin), tryb NULLING_RELABEL=1 (nowe etykiety automatu)
+BLOCK = int(os.environ.get("NULLING_BLOCK", "20"))   # dlugosc bloku bootstrapu (impulsy); 1 = zwykly
 FI3_MIN = 0.3       # TPA XIX: NF wiarygodne tylko, gdy > 3 sigma jest >= 30% impulsow (f_i3)
 MODELS = [("G",), ("LN",), ("G", "G"), ("G", "LN"), ("LN", "LN"), ("LN", "PL")]
 NPAR = {"G": 2, "LN": 2, "PL": 2}
@@ -172,14 +176,45 @@ def load(path):
         elif not line.startswith("i,"):
             rows.append([float(x) for x in line.split(",")])
     a = np.array(rows)
-    return meta, a[:, 0].astype(int), a[:, 1], a[:, 2], a[:, 3].astype(int)
+    dphi = a[:, 4] if a.shape[1] > 4 else np.full(len(a), np.nan)   # przesuniecie fazy z filtra dopasowanego
+    return meta, a[:, 0].astype(int), a[:, 1], a[:, 2], a[:, 3].astype(int), dphi
+
+
+def auto_compare(res, e_on, lab_k, pnull):
+    """porownanie impuls po impulsie: nulle automatu (etykieta 2) a P_null z modelu."""
+    an = lab_k == 2
+    mn = pnull >= 0.5
+    res.update(n_null_auto=int(an.sum()), NF_auto=float(an.sum()) / len(an),
+               n_null_model=int(mn.sum()), ambiguous_frac=float(((pnull > 0.05) & (pnull < 0.95)).mean()),
+               auto_null_with_p_lt_005=int((an & (pnull < 0.05)).sum()),
+               auto_null_with_p_ge_05=int((an & mn).sum()),
+               model_null_cut_by_auto=int((mn & an).sum()), model_null_not_cut=int((mn & ~an).sum()),
+               mean_E_auto_nulls=float(e_on[an].mean()) if an.any() else float("nan"),
+               mean_E_model_nulls=float(e_on[mn].mean()) if mn.any() else float("nan"))
+
+
+def relabel(path, res):
+    """NULLING_RELABEL=1: nowe etykiety automatu (te same impulsy RFI) bez ponownego dopasowania.
+    Zwraca None, gdy zbior impulsow sie zmienil (inne RFI) - wtedy trzeba dopasowac od nowa."""
+    meta, idx, Eon, Eoff, lab, dphi = load(path)
+    keep = lab != 1
+    f = os.path.join(OUT, "fits", res["pulsar"] + ".npz")
+    if not os.path.isfile(f):
+        return None
+    z = dict(np.load(f))
+    if len(z["idx"]) != keep.sum() or not np.array_equal(z["idx"], idx[keep]):
+        return None
+    z["lab"] = lab[keep]
+    np.savez(f, **z)
+    auto_compare(res, z["e_on"], z["lab"], z["pnull"])
+    return res
 
 
 def analyse(path, nboot=NBOOT, seed=1):
-    meta, idx, Eon, Eoff, lab = load(path)
+    meta, idx, Eon, Eoff, lab, dphi = load(path)
     psr = meta["pulsar"]
     keep = lab != 1                                   # bez RFI wycietego przez automat
-    Eon_k, Eoff_k, lab_k, idx_k = Eon[keep], Eoff[keep], lab[keep], idx[keep]
+    Eon_k, Eoff_k, lab_k, idx_k, dphi_k = Eon[keep], Eoff[keep], lab[keep], idx[keep], dphi[keep]
     norm = float(np.mean(Eon_k))                      # <E_on> razem z nullami
     if not norm > 0:
         return {"pulsar": psr, "error": "<E_on> <= 0"}
@@ -187,11 +222,14 @@ def analyse(path, nboot=NBOOT, seed=1):
     n = len(e_on)
     res = {"pulsar": psr, "N": int(len(Eon)), "n_fit": n, "n_rfi_auto": int((lab == 1).sum()),
            "n_null_auto": int((lab == 2).sum()), "control": False}
-    # NF z progu 3 sigma (Bhattacharyya+2010): E_on < 3 sqrt(n_on) sigma_bin
-    sE = math.sqrt(float(meta["n_on"])) * float(meta["sigma_bin"]) / norm
+    # NF z progu 3 sigma (Bhattacharyya+2010). sigma energii: EMPIRYCZNE std(E_off) (v4); rozrzut z samego
+    # szumu odbiornika sqrt(n_on)*sigma_bin zanizal je ~2x (linia bazowa / skorelowany szum)
+    sE_rad = math.sqrt(float(meta["n_on"])) * float(meta["sigma_bin"]) / norm
+    sE = float(np.std(e_off))
     nn3 = int((e_on < 3 * sE).sum())
     res.update(NF_3sigma=nn3 / n, NF_3sigma_err=math.sqrt(nn3) / n, NF_auto=res["n_null_auto"] / n,
-               s0_over_sE=float(np.std(e_off)) / sE)
+               s0_over_sE=float(np.std(e_off)) / sE_rad, baseline=meta.get("baseline", "srednia"),
+               NF_low=float(meta["NF_low"]) if "NF_low" in meta else float("nan"))
     # f_i3: odsetek impulsow > 3 sigma szumu. Ponizej FI3_MIN emisji nie da sie odroznic od
     # szumu i "null" znaczy tylko "niewykryty" (J1755-2025, J1652-1400: NF 67-81% przy
     # ogonie kilku jasnych impulsow) - NF raportowane, ale oznaczone jako niewiarygodne
@@ -219,22 +257,30 @@ def analyse(path, nboot=NBOOT, seed=1):
     # (np. J1057-5226, ~22 tys. impulsow) - mniej losowan, inaczej liczy sie godzinami
     rng = np.random.default_rng(seed)
     bs = []
+    nblk = int(math.ceil(n / BLOCK))
     for _ in range(nboot if n <= 5000 else min(nboot, 8)):
-        j = rng.integers(0, n, n)
+        if BLOCK <= 1:
+            j = rng.integers(0, n, n)
+        else:                                   # bootstrap blokowy: nulle wystepuja seriami
+            st = rng.integers(0, max(n - BLOCK, 1), nblk)
+            j = np.concatenate([np.arange(a, min(a + BLOCK, n)) for a in st])[:n]
         rb = fit(b["model"], e_on[j], e_off[j], x0s=[th])
         bs.append(float(special.expit(rb.x[2])))
     if bs:
         res.update(NF_model_lo=float(np.percentile(bs, 16)), NF_model_hi=float(np.percentile(bs, 84)))
-    # porownanie impuls po impulsie z automatem
-    an = lab_k == 2
-    mn = pnull >= 0.5
-    res.update(n_null_model=int(mn.sum()), ambiguous_frac=float(((pnull > 0.05) & (pnull < 0.95)).mean()),
-               auto_null_with_p_lt_005=int((an & (pnull < 0.05)).sum()),
-               auto_null_with_p_ge_05=int((an & mn).sum()),
-               model_null_cut_by_auto=int((mn & an).sum()), model_null_not_cut=int((mn & ~an).sum()),
-               mean_E_auto_nulls=float(e_on[an].mean()) if an.any() else float("nan"),
-               mean_E_model_nulls=float(e_on[mn].mean()) if mn.any() else float("nan"))
+    auto_compare(res, e_on, lab_k, pnull)
+    res["boot_block"] = BLOCK
+    # test fazy (CHIME, Ng+2020): filtr dopasowany - w nullu faza dopasowania jest losowa, w emisji ~0.
+    # Odsetek impulsow z |dphi| <= polowa okna on-pulse; losowo ~ n_on/nbin
+    if np.isfinite(dphi_k).any() and "nbin" in meta:
+        hw, nbin = float(meta["n_on"]) / 2, float(meta["nbin"])
+        inw = np.abs(dphi_k) <= hw
+        g = {"P95": pnull >= 0.95, "P50": pnull >= 0.5, "auto": lab_k == 2, "emisja": pnull < 0.05}
+        res["phase_random"] = 2 * hw / nbin
+        for k, m in g.items():
+            res["phase_in_" + k] = float(inw[m].mean()) if m.sum() >= 5 else float("nan")
     res["NF_lit"] = LIT_NF.get(psr)
+    res["n_on"], res["nbin"] = int(meta["n_on"]), int(meta.get("nbin", 0))
     # dane do wykresow
     os.makedirs(os.path.join(OUT, "fits"), exist_ok=True)
     np.savez(os.path.join(OUT, "fits", psr + ".npz"), idx=idx_k, e_on=e_on, e_off=e_off, lab=lab_k, pnull=pnull,
@@ -291,7 +337,14 @@ def work(path):
     psr = os.path.basename(path)[:-4]
     cache = os.path.join(OUT, "fits", "%s.v%d.json" % (psr, MODEL_VERSION))   # gotowy pulsar: wynik z pliku
     if os.path.isfile(cache):
-        return json.load(open(cache, encoding="utf-8"))
+        res = json.load(open(cache, encoding="utf-8"))
+        if os.environ.get("NULLING_RELABEL") != "1":
+            return res
+        r2 = relabel(path, res)
+        if r2 is not None:
+            with open(cache, "w", encoding="utf-8") as fh:
+                json.dump(r2, fh)
+            return r2
     try:
         nlines = sum(1 for _ in open(path))
         if nlines > 5000:
@@ -334,7 +387,8 @@ def report(results, control):
     cols = ["pulsar", "control", "N", "n_fit", "n_rfi_auto", "n_null_auto", "n_null_model", "NF_auto", "NF_3sigma",
             "NF_3sigma_err", "NF_model", "NF_model_lo", "NF_model_hi", "NF_lit", "model", "f_i3", "reliable", "degenerate", "ambiguous_frac",
             "auto_null_with_p_lt_005", "auto_null_with_p_ge_05", "model_null_not_cut", "mean_E_auto_nulls",
-            "mean_E_model_nulls", "s0_over_sE"]
+            "mean_E_model_nulls", "s0_over_sE", "baseline", "NF_low", "phase_random", "phase_in_P95", "phase_in_P50",
+            "phase_in_auto", "phase_in_emisja"]
     with open(os.path.join(OUT, "summary.csv"), "w", encoding="utf-8") as fh:
         fh.write(",".join(cols) + ",dbic\n")
         for r in sorted(ok, key=lambda r: r["pulsar"]):
@@ -383,6 +437,30 @@ def report(results, control):
           sum(r["model_null_not_cut"] for r in nul))
         p("- impulsy niejednoznaczne (0.05 < P_null < 0.95): mediana %.0f%% na pulsar" %
           (100 * np.median([r["ambiguous_frac"] for r in nul])))
+        p("- **sigma energii:** empiryczne std(E_off); rozrzut E_off / rozrzut z samego szumu odbiornika: mediana %.2f "
+          "(1 = stabilna linia bazowa)" % np.median([r["s0_over_sE"] for r in ok]))
+        bl = {}
+        for r in ok:
+            bl[r.get("baseline", "srednia")] = bl.get(r.get("baseline", "srednia"), 0) + 1
+        p("- **linia bazowa** (wybrana w każdym pulsarze: najmniejszy rozrzut E_off): " +
+          ", ".join("%s %d" % kv for kv in sorted(bl.items())))
+        p("- **niepewność NF:** bootstrap blokowy, bloki po %d impulsów (nulle występują seriami)" % BLOCK)
+        lo = [(r["NF_low"], r["NF_model"]) for r in nul if np.isfinite(r.get("NF_low", float("nan")))]
+        if lo:
+            d = np.array([100 * (a - b) for a, b in lo])
+            p("- **NF metodą CHIME (Ng+2020):** najwięcej najsłabszych impulsów bez wykrywalnej emisji w sumie (< 3σ); "
+              "NF CHIME − NF model: mediana %+.1f pp; różnica > 5 pp: %d. Uwaga: na danych syntetycznych ta metoda "
+              "ZAWYŻA NF (0.35 przy prawdziwym 0.30), bo najsłabsze impulsy z emisją też nie dają wykrywalnej sumy" %
+              (np.median(d), int((np.abs(d) > 5).sum())))
+        ph = [r for r in nul if np.isfinite(r.get("phase_in_P95", float("nan")))]
+        if ph:
+            p("- **test fazy (filtr dopasowany, CHIME):** odsetek impulsów z fazą dopasowania w oknie on-pulse; "
+              "losowo mediana %.2f. Nulle P≥0.95: %.2f, P≥0.5: %.2f, nulle automatu: %.2f, emisja: %.2f "
+              "(prawdziwe nulle ≈ losowo, emisja ≈ 1)" % (
+                  np.median([r["phase_random"] for r in ph]), np.nanmedian([r["phase_in_P95"] for r in ph]),
+                  np.nanmedian([r.get("phase_in_P50", np.nan) for r in ph]),
+                  np.nanmedian([r.get("phase_in_auto", np.nan) for r in ph]),
+                  np.nanmedian([r.get("phase_in_emisja", np.nan) for r in ph])))
         p("")
         p("## Pulsary z literaturą")
         p("")
@@ -464,8 +542,9 @@ def export_nulls(ok):
             prev = i
         if cur:
             runs.append(cur)
-        status = "kontrolny" if r.get("control") else ("model_nie_rozroznia" if r.get("degenerate") else
-                                                       ("za_slaby" if not r.get("reliable", True) else "ok"))
+        # status: czy P_null z modelu nadaje sie do wycinania (kontrolne tez, np. J2111+2106 - automat bez nulli)
+        status = ("model_nie_rozroznia" if r.get("degenerate") else
+                  "za_slaby" if r.get("f_i3", 1.0) < FI3_MIN else "ok")
         rows.append([r["pulsar"], status, len(idx), int(isn.sum()), "%.4f" % r["NF_model"],
                      len(runs), "%.2f" % (np.mean(runs) if runs else 0.0), max(runs) if runs else 0,
                      int(((pn > 0.05) & (pn < 0.95)).sum()), '"%s"' % to_ranges(idx[isn])])
