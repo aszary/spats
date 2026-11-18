@@ -87,3 +87,11 @@ Frakcja nullingu: brać `NF_model` z `nulling_model_v4/summary.csv` tylko przy `
 Liczba wyciętych nulli automatu nie jest frakcją nullingu (automat zostawia krótkie nulle).
 
 Dalej: P3 i dryf (P3-fold, klasyfikator dryf/modulacja amplitudy, diagram P–Pdot).
+
+## Do zrobienia (decyzja 2026-11-18)
+
+- **Nie wycinać marginesu przy nullach.** Teraz każdy wycięty odcinek dostaje po 1 impulsie z każdej
+  strony (`auto_zap_core(pad=1)`, powód 5 „margines”, od v4 w `zaps2_other`). Przy nullach nie jest to
+  potrzebne: impuls na brzegu nulla z częścią emisji to nadal emisja. Margines zostawić tylko przy
+  odcinkach RFI / zaszumionych (brzegi zakłócenia). Przed zmianą: skan wszystkich pulsarów obiema
+  wersjami (jak `tools/rfi_v5.jl`) i test syntetyczny; zmieni się tylko profil (nulle bez zmian).
