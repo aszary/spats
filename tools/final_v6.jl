@@ -319,7 +319,14 @@ function final_v6_build(variant=nothing; n=32)
              for k in 1:n]
     Base.invokelatest(Main._run_parallel, codes, F6_DIR * "logs", "verify"; every=120)
     Base.invokelatest(Main.zap_verify_summary; out=vd)
-    SpaTs.compare_zap_methods(mine=out, outdir=F6_DIR * "zap_comparison_final/")
+    txt = mktemp() do path, io                     # wynik na ekran i do pliku (do WYNIK.txt)
+        redirect_stdout(io) do
+            SpaTs.compare_zap_methods(mine=out, outdir=F6_DIR * "zap_comparison_final/")
+        end
+        flush(io); read(path, String)
+    end
+    print(txt); mkpath(F6_DIR * "zap_comparison_final/")
+    write(F6_DIR * "zap_comparison_final/summary.txt", txt)
     # model nulli z koncowymi etykietami (te same impulsy RFI -> bez ponownego dopasowania)
     _f6_parallel("_f6_energies_part", n, "energie_final"; args=", labels_root=\"$out\", force=true")
     try
@@ -333,7 +340,10 @@ end
 function final_v6_adopt()
     src, dst, bk = F6_DIR * "pazur2_final", F6_ROOT * "pazur2", F6_ROOT * "pazur2_przed_v6"
     isdir(src) || error("brak $src - najpierw final_v6() albo final_v6_build()")
-    isdir(bk) && error("$bk już istnieje - przenieś go ręcznie, żeby niczego nie nadpisać")
+    k = 1
+    while isdir(bk)                      # nic nie nadpisujemy: kolejna kopia dostaje numer
+        k += 1; bk = F6_ROOT * "pazur2_przed_v6_$k"
+    end
     v = strip(read(src * "/.wariant", String))
     mv(dst, bk); mv(src, dst)
     println("Przyjęte: $v. Stara wersja: $bk. Domyślnie w kodzie: Data.NULL_MODE[] = :union, NULL_THR[] = 0.95 (v5: NULL_MODE[] = :auto).")
@@ -409,9 +419,38 @@ function final_v6(; n=32, dynesty=true, build=true)
         py("tools/nulling_dynesty.py", "--all"; env=Dict("NULLING_NPROC" => "64")) ? _f6_set("8_dynesty") :
             println("ETAP 8 NIEUDANY - nie oznaczam jako zrobiony; po naprawie uruchom final_v6() ponownie")
     end
-    println(@sprintf("\nKONIEC final_v6 (%.1f h). pazur2 (v5) bez zmian.", (time() - t0) / 3600))
-    println("Wklej wynik w bashu: cat $(F6_DIR)RAPORT_ranking.md; grep '^- ' $(F6_DIR)model/RAPORT_nulle.md; " *
-            "cat $(F6_DIR)model/checks/RAPORT_checks_blok10.md $(F6_DIR)model/checks/RAPORT_checks_blok50.md; " *
-            "tail -4 $(F6_DIR)model/dynesty/RAPORT_dynesty.md; grep -A9 ŚREDNIO $(F6_DIR)tests/null_rule/null_rule.txt " *
-            "oraz blok AUTOMAT vs METODA RĘCZNA z etapu 6.")
+    if isfile("input/tpa19_nf.csv")
+        println("\n===== 9. PORÓWNANIE Z TPA XIX (Keith+2026) =====")
+        py("tools/compare_tpa19.py")
+    end
+    # wszystko do wklejenia w jednym pliku
+    rd(f, n=10^6) = isfile(f) ? join(first(readlines(f), n), "\n") : "(brak $f)"
+    md = F6_DIR * "model/"
+    wyn = join(["=== RANKING", rd(F6_DIR * "RAPORT_ranking.md"),
+                "=== MODEL", join(filter(l -> startswith(l, "- "), split(rd(md * "RAPORT_nulle.md"), "\n")), "\n"),
+                "=== BLOK 10", rd(md * "checks/RAPORT_checks_blok10.md", 30), "=== BLOK 50", rd(md * "checks/RAPORT_checks_blok50.md", 30),
+                "=== DYNESTY", join(last(split(rd(md * "dynesty/RAPORT_dynesty.md"), "\n"), 4), "\n"),
+                "=== PORÓWNANIE Z METODĄ RĘCZNĄ", rd(F6_DIR * "zap_comparison_final/summary.txt", 20),
+                "=== TPA XIX", rd(md * "RAPORT_tpa19.md", 70)], "\n")
+    write(F6_DIR * "WYNIK.txt", wyn * "\n")
+    println(@sprintf("\nKONIEC final_v6 (%.1f h). pazur2 bez zmian.", (time() - t0) / 3600))
+    println("Do wklejenia (całość): cat $(F6_DIR)WYNIK.txt  oraz blok AUTOMAT vs METODA RĘCZNA z etapu 6, jeśli był.")
+end
+
+"""Ponowne przejście po poprawce f_i3 (2026-11-18: f_i3 liczone z rozkładu emisji bez nulli, jak w TPA XIX;
+wcześniej razem z nullami, co zaniżało f_i3 pulsarom z dużym NF). Energie i testy syntetyczne zostają
+(nie zależą od f_i3); od nowa: model nulli (bez ponownego dopasowania - tylko f_i3), skan wariantów, ranking,
+wersja końcowa (final_v6/pazur2_final), bootstrap blokowy, dynesty. Stary skan -> final_v6/scan_przed_fi3/.
+pazur2 bez zmian; potem final_v6_adopt()."""
+function final_v6_redo(; kw...)
+    sc = F6_DIR * "scan/"
+    if isdir(sc)
+        dst = F6_DIR * "scan_przed_fi3/"
+        isdir(dst) || mv(sc, dst)
+        isdir(sc) && rm(sc; recursive=true)
+    end
+    for s in ("2_model", "4_skan", "6_build", "7_niepewnosc", "8_dynesty")
+        rm(_f6_mark(s); force=true)
+    end
+    final_v6(; kw...)
 end

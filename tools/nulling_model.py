@@ -63,6 +63,23 @@ def comp_pdf(kind, q, x):
     raise ValueError(kind)
 
 
+def fi3_intrinsic(model, th, sE):
+    """f_i3 jak w TPA XIX: czesc rozkladu emisji (bez nulli i bez szumu) powyzej 3 sigma szumu (analitycznie)."""
+    mu0, s0, nf, comps, w = unpack(model, th)
+    t = 3.0 * sE
+    out = 0.0
+    for wi, (kind, q) in zip(w, comps):
+        if kind == "G":
+            sf = special.ndtr((q[0] - t) / math.exp(q[1]))
+        elif kind == "LN":
+            sf = 1.0 if t <= 0 else special.ndtr((q[0] - math.log(t)) / math.exp(q[1]))
+        else:                                                   # PL: x >= xmin, indeks a
+            xmin, a = math.exp(q[0]), 1.0 + math.exp(q[1])
+            sf = 1.0 if t <= xmin else (t / xmin) ** (1.0 - a)
+        out += wi * sf
+    return float(out)
+
+
 def unpack(model, th):
     mu0, s0, nf = th[0], math.exp(th[1]), special.expit(th[2])
     k = 3
@@ -230,11 +247,9 @@ def analyse(path, nboot=NBOOT, seed=1):
     res.update(NF_3sigma=nn3 / n, NF_3sigma_err=math.sqrt(nn3) / n, NF_auto=res["n_null_auto"] / n,
                s0_over_sE=float(np.std(e_off)) / sE_rad, baseline=meta.get("baseline", "srednia"),
                NF_low=float(meta["NF_low"]) if "NF_low" in meta else float("nan"))
-    # f_i3: odsetek impulsow > 3 sigma szumu. Ponizej FI3_MIN emisji nie da sie odroznic od
-    # szumu i "null" znaczy tylko "niewykryty" (J1755-2025, J1652-1400: NF 67-81% przy
-    # ogonie kilku jasnych impulsow) - NF raportowane, ale oznaczone jako niewiarygodne
-    res["f_i3"] = float((e_on > 3 * sE).mean())
-    res["reliable"] = res["f_i3"] >= FI3_MIN
+    # f_3sigma: odsetek WSZYSTKICH impulsow > 3 sigma (razem z nullami). f_i3 (kryterium TPA XIX)
+    # liczone nizej z dopasowanego rozkladu emisji - bez nulli
+    res["f_3sigma"] = float((e_on > 3 * sE).mean())
     # modele
     fits = {}
     for model in MODELS:
@@ -250,6 +265,12 @@ def analyse(path, nboot=NBOOT, seed=1):
     mu0, s0, nf, comps, w = unpack(b["model"], th)
     f, fn = f_on(b["model"], th, e_on)
     pnull = fn / np.maximum(f, 1e-300)
+    # f_i3 (Keith+2026): czesc dopasowanego rozkladu emisji (bez nulli) > 3 sigma. Ponizej FI3_MIN emisji
+    # nie da sie odroznic od szumu i "null" znaczy tylko "niewykryty" - NF raportowane, ale niewiarygodne.
+    # (do 2026-11-18 liczone z wszystkich impulsow razem z nullami = f_3sigma, co zanizalo f_i3 pulsarom
+    # z duzym NF: J1255-6131 0.18, J1926-0652 0.12 przy f_i3 z TPA XIX > 0.3)
+    res["f_i3"] = fi3_intrinsic(b["model"], th, sE)
+    res["reliable"] = res["f_i3"] >= FI3_MIN
     res.update(model="N+" + bestname, NF_model=nf, mu0=mu0, s0=s0,
                dbic={("N+" + m): round(fits[m]["dbic"], 2) for m in fits},
                nf_by_model={("N+" + m): round(float(special.expit(fits[m]["x"][2])), 4) for m in fits})
@@ -338,6 +359,14 @@ def work(path):
     cache = os.path.join(OUT, "fits", "%s.v%d.json" % (psr, MODEL_VERSION))   # gotowy pulsar: wynik z pliku
     if os.path.isfile(cache):
         res = json.load(open(cache, encoding="utf-8"))
+        fz = os.path.join(OUT, "fits", psr + ".npz")
+        if "error" not in res and "f_3sigma" not in res and os.path.isfile(fz):   # stary wynik: popraw f_i3 bez dopasowania
+            z = np.load(fz)
+            res["f_3sigma"] = res["f_i3"]
+            res["f_i3"] = fi3_intrinsic(tuple(str(m) for m in z["model"]), z["th"], float(z["sE"]))
+            res["reliable"] = res["f_i3"] >= FI3_MIN
+            with open(cache, "w", encoding="utf-8") as fh:
+                json.dump(res, fh)
         if os.environ.get("NULLING_RELABEL") != "1":
             return res
         r2 = relabel(path, res)
@@ -385,7 +414,7 @@ def report(results, control):
         if r["degenerate"]:
             r["reliable"] = False
     cols = ["pulsar", "control", "N", "n_fit", "n_rfi_auto", "n_null_auto", "n_null_model", "NF_auto", "NF_3sigma",
-            "NF_3sigma_err", "NF_model", "NF_model_lo", "NF_model_hi", "NF_lit", "model", "f_i3", "reliable", "degenerate", "ambiguous_frac",
+            "NF_3sigma_err", "NF_model", "NF_model_lo", "NF_model_hi", "NF_lit", "model", "f_i3", "f_3sigma", "reliable", "degenerate", "ambiguous_frac",
             "auto_null_with_p_lt_005", "auto_null_with_p_ge_05", "model_null_not_cut", "mean_E_auto_nulls",
             "mean_E_model_nulls", "s0_over_sE", "baseline", "NF_low", "phase_random", "phase_in_P95", "phase_in_P50",
             "phase_in_auto", "phase_in_emisja"]
@@ -407,7 +436,7 @@ def report(results, control):
       "wybór rozkładu przez BIC, niepewność z bootstrapu po impulsach (%d losowań). Impulsy wycięte przez automat jako RFI "
       "pominięte. Energie: okno E_off rozłączne z oknem linii bazowej." % NBOOT)
     p("")
-    p("- pulsary z nullami: %d, w tym %d z wiarygodnym NF (f_i3 ≥ %.1f: co najmniej %.0f%% impulsów > 3σ, kryterium TPA XIX); "
+    p("- pulsary z nullami: %d, w tym %d z wiarygodnym NF (f_i3 ≥ %.1f: co najmniej %.0f%% impulsów z emisją > 3σ, kryterium TPA XIX); "
       "kontrolne bez nulli: %d; błędy: %d" % (len(allnul), len(nul), FI3_MIN, 100 * FI3_MIN, len(ctl), len(results) - len(ok)))
     p("- **dalsze liczby tylko dla pulsarów z wiarygodnym NF.** Niewiarygodne (za słabe, emisji nie da się odróżnić od szumu): %s" %
       ", ".join("%s (f_i3 %.2f)" % (r["pulsar"], r["f_i3"]) for r in sorted(unrel, key=lambda r: r["f_i3"])))
