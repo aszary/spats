@@ -565,8 +565,17 @@ function zap_verify_summary(; out="/home/psr/data/OUTPUT/zap_verify/")
     end
 
     pr("\n--- D. Kanały (.spCf16): czy najpierw wycinać kanały ---")
-    pr("Kryterium: kanał wycinamy tylko, gdy S/N sumy (PSRCHIVE, z wagami jak .spCF) BEZ niego rośnie > 1%.")
     CR = filter(r -> isfinite(num(r, "C")), ok)
+    if isempty(CR)
+        # zap_verify(chans=false): decyzja o kanalach zalezy tylko od surowych danych 16-kanalowych
+        # (S/N sumy bez kanalu, bez wyciec impulsow), wiec zmiany automatu jej nie zmieniaja
+        pr("pominięte (chans=false): kanały wzięte z wcześniejszego sprawdzenia (chan_first_list); " *
+           "kryterium nie zależy od wycinania impulsów, więc nie trzeba go powtarzać")
+        write(joinpath(out, "summary.txt"), String(take!(io)))
+        println("\nZapisane: $(joinpath(out, "summary.txt"))  (wklej),  profile nulli: $(joinpath(out, "nulls.pdf"))")
+        return
+    end
+    pr("Kryterium: kanał wycinamy tylko, gdy S/N sumy (PSRCHIVE, z wagami jak .spCF) BEZ niego rośnie > 1%.")
     BC = filter(r -> !isempty(strip(get(r, "chans_bad", ""))), CR)
     JC = filter(r -> !isempty(strip(get(r, "chans_cut", ""))), CR)
     san = fin([num(r, "ch_all_none") / num(r, "snr_none") for r in CR])
