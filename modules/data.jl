@@ -544,7 +544,8 @@ module Data
          (cutting that raised S/N on clean J0304 but is cherry-picking);
       3. noisy stretches: mean noise of the window > `noise_fac` × typical;
       4. stretches shorter than `min_run` are ignored (pulse-to-pulse
-         modulation); kept islands < `min_keep` between cuts are cut; every
+         modulation); kept islands < `min_keep` between cuts are cut (v7:
+         min_keep=0, step off - no effect on synthetic or real data); every
          cut region gets `pad` pulses on each side;
       5. safety: stretch cuts are dropped if they would lower the S/N.
 
@@ -553,7 +554,7 @@ module Data
     snr_after, why, n_single, n_cand). reason per pulse: 0 kept, 1 empty,
     2 single junk, 3 null/no signal, 4 noisy stretch, 5 margin/fill.
     """
-    function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=3, min_run=5,
+    function auto_zap_core(sn; target=8.0, w=nothing, zsig=3.0, pad=1, min_keep=0, min_run=5,
                            nsigma=6.0, f_null=0.25, q_on=0.9, noise_fac=2.0, zdet=2.0,
                            f_rel=0.15, zrel=1.0, ac_sigma=4.5, min_run_fade=30,
                            local_win=31, noise_z=nothing, use_junk=true, use_jump=true, use_null1=true,
@@ -1068,11 +1069,13 @@ module Data
     # modelu -> sam automat (jak v5). Wersja v5: NULL_MODE[] = :auto.
     NULL_MARGIN = Ref(true)
     # v7 (tools/final_v7.jl): wylaczone kroki automatu dla calego potoku, np. (use_null1=false, gate=false);
-    # pusty = wszystkie kroki (v6)
+    # pusty = wszystkie kroki. Od v7 (2026-11-18) wypelnianie krotkich wysp wylaczone na stale
+    # (auto_zap_core min_keep=0; bez wplywu na wyniki), model nulli z linia bazowa GP (final_v7/model).
+    # Powrot do v6: NULL_MODEL_DIR[] = ".../final_v6/model/" i ZAP_STEPS[] = (min_keep=3,)
     ZAP_STEPS = Ref{Any}(NamedTuple())
     NULL_MODE = Ref(:union)         # :auto | :union | :model (jedna regula z modelu energii)
     NULL_THR = Ref(0.95)            # prog P_null dla nulli z modelu
-    NULL_MODEL_DIR = Ref("/home/psr/data/OUTPUT/final_v6/model/")
+    NULL_MODEL_DIR = Ref("/home/psr/data/OUTPUT/final_v7/model/")
     NULL_EXTRA = Dict{String,Vector{Int}}()
     NULL_EXTRA_CUR = Ref{Union{Nothing,Vector{Int}}}(nothing)
     const _NULL_EXTRA_LOADED = Ref(false)

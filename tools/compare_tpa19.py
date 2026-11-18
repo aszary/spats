@@ -11,7 +11,7 @@ import sys
 
 import numpy as np
 
-OUT = os.environ.get("NULLING_OUT", "/home/psr/data/OUTPUT/final_v6/model/")
+OUT = os.environ.get("NULLING_OUT", "/home/psr/data/OUTPUT/final_v7/model/")
 HERE = os.path.dirname(os.path.abspath(__file__))
 TPA = os.path.join(HERE, "..", "input", "tpa19_nf.csv")
 FI3 = 0.3

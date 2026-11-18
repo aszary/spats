@@ -106,3 +106,22 @@ prawdziwe dane: lepszy od metody ręcznej w 336 pulsarach, gorszy w 2. Dynesty (
 NF modelu: mediana różnicy +0.1 pp. Domyślnie w kodzie: `Data.NULL_MODE[] = :union`, `NULL_THR[] = 0.95`,
 lista nulli z `NULL_MODEL_DIR` (final_v6/model/). Powrót do v5: `Data.NULL_MODE[] = :auto`.
 Kopia poprzedniej wersji: `/home/psr/data/OUTPUT/pazur2_przed_v6`.
+
+## Stan v7 (2026-11-18)
+
+`tools/final_v7.jl`: każdy krok automatu wyłączany osobno (12 wariantów), dane syntetyczne
+(`tests/zap_ablation.jl`) i wszystkie pulsary. Jedna reguła: krok zostaje, jeśli bez niego cokolwiek się
+pogarsza. Zbędne okazało się tylko wypełnianie krótkich wysp między cięciami (bez zmian na obu rodzajach
+danych) — wyłączone na stałe (`auto_zap_core(min_keep=0)`). Skoki szumu i pojedyncze nulle są zbędne
+syntetycznie, ale potrzebne na prawdziwych danych (8 i 14 pulsarów gorzej), więc zostają.
+
+Linia bazowa GP (jądro SE na okręgu fazy, siatka ell × λ) jako dodatkowa opcja w energiach, wybierana tą
+samą regułą co średnia/Fourier (najmniejszy rozrzut E_off): wybrana w 129 z 514 pulsarów, tam rozrzut
+mediana 0.92× (najlepiej 0.62×). Zgodność z TPA XIX bez zmian (|różnica| mediana 0.21 pp wobec 0.22,
+w 2σ 94.8% wobec 95.3%, wspólnych wiarygodnych 364 wobec 358). Model nulli: `final_v7/model/`.
+
+Nulle w 16 kanałach: nulle modelu (P≥0.95, 99 pulsarów) bez emisji w żadnym kanale; nulle automatu: emisja
+w jednym kanale tylko w J0034−0721 (kanał 6, 11%) i J1104−6103 (kanał 7, 46%) — do sprawdzenia.
+
+Wynik końcowy: lepszy od metody ręcznej w 337, gorszy w 2, remis 192; średni zysk S/N +18.3%, wycięte
+7.6%. Kopia v6: `/home/psr/data/OUTPUT/pazur2_przed_v7`.
