@@ -15,7 +15,7 @@ F7_SCAN_HEADER = "pulsar,variant,N,n_cut,n_null,snr_none,snr,snr_manual,snr_rfi,
 _f7_mark(s) = F7_DIR * ".etap_$s"
 _f7_done(s) = isfile(_f7_mark(s))
 _f7_set(s) = (mkpath(F7_DIR); write(_f7_mark(s), Libc.strftime("%Y-%m-%d %H:%M", time())))
-const F7_PRE = "include(\"spats.jl\"); Base.include(Main, \"modules/zap_verify.jl\"); include(\"tools/final_v7.jl\"); "
+const F7_PRE = "using LinearAlgebra; BLAS.set_num_threads(1); include(\"spats.jl\"); Base.include(Main, \"modules/zap_verify.jl\"); include(\"tools/final_v7.jl\"); "
 
 # ---------------------------------------------------------------- etap 2/3: skan krokow
 function _f7_scan_part(k, n; variants=V7_STEPS, tag="scan")
