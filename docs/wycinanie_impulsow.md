@@ -95,3 +95,14 @@ Dalej: P3 i dryf (P3-fold, klasyfikator dryf/modulacja amplitudy, diagram P–Pd
   potrzebne: impuls na brzegu nulla z częścią emisji to nadal emisja. Margines zostawić tylko przy
   odcinkach RFI / zaszumionych (brzegi zakłócenia). Przed zmianą: skan wszystkich pulsarów obiema
   wersjami (jak `tools/rfi_v5.jl`) i test syntetyczny; zmieni się tylko profil (nulle bez zmian).
+
+## Stan v6 (2026-11-18)
+
+Przyjęty wariant **automat + P≥0.95**: nulle automatu (jak v5) plus impulsy, które model energii
+(TPA XIX) uznaje za pewne nulle (P_null ≥ 0.95, tylko pulsary z wiarygodnym modelem). Wybrany w
+`tools/final_v6.jl` spośród 8 wariantów (w tym jednej reguły z publikacji, P_null ≥ 0.5, która wycina
+3% emisji i zniekształca profil o 3.6%). Syntetycznie: kompletność nulli 97.9%, bias profilu ≤ 0.7%;
+prawdziwe dane: lepszy od metody ręcznej w 336 pulsarach, gorszy w 2. Dynesty (167 pulsarów) potwierdza
+NF modelu: mediana różnicy +0.1 pp. Domyślnie w kodzie: `Data.NULL_MODE[] = :union`, `NULL_THR[] = 0.95`,
+lista nulli z `NULL_MODEL_DIR` (final_v6/model/). Powrót do v5: `Data.NULL_MODE[] = :auto`.
+Kopia poprzedniej wersji: `/home/psr/data/OUTPUT/pazur2_przed_v6`.

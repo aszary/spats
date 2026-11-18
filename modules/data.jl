@@ -1058,11 +1058,47 @@ module Data
     RFI_GREEDY = Ref(true)
     # automat v6 (tools/final_v6.jl): NULL_MARGIN[]=false - bez marginesu przy nullach; NULL_EXTRA -
     # pewne nulle z modelu energii (wiersze od 1) dla pulsara, wstawiane do NULL_EXTRA_CUR[] przez
-    # review_zaps / zap_verify przed wywolaniem auto_zap. Domyslnie jak v5.
+    # review_zaps / zap_verify przed wywolaniem auto_zap.
+    # Od 2026-11-18 domyslnie v6 = "automat + P>=0.95" (wybrany w final_v6: syntetycznie kompletnosc nulli
+    # 97.9%, bias profilu <=0.7%; na 533 pulsarach lepszy od metody recznej w 336, gorszy w 2). Pewne nulle
+    # laduja sie same z NULL_MODEL_DIR (lista modelu nulli) przy pierwszym uzyciu; pulsar bez wiarygodnego
+    # modelu -> sam automat (jak v5). Wersja v5: NULL_MODE[] = :auto.
     NULL_MARGIN = Ref(true)
-    NULL_MODE = Ref(:auto)          # :auto | :union | :model (jedna regula z modelu energii)
+    NULL_MODE = Ref(:union)         # :auto | :union | :model (jedna regula z modelu energii)
+    NULL_THR = Ref(0.95)            # prog P_null dla nulli z modelu
+    NULL_MODEL_DIR = Ref("/home/psr/data/OUTPUT/final_v6/model/")
     NULL_EXTRA = Dict{String,Vector{Int}}()
     NULL_EXTRA_CUR = Ref{Union{Nothing,Vector{Int}}}(nothing)
+    const _NULL_EXTRA_LOADED = Ref(false)
+
+    "Pewne nulle z modelu energii (P_null >= thr, tylko status ok) dla wszystkich pulsarow -> NULL_EXTRA."
+    function load_null_extra!(dir=NULL_MODEL_DIR[]; thr=NULL_THR[])
+        _NULL_EXTRA_LOADED[] = true
+        f = joinpath(dir, "nulls_model.csv")
+        isfile(f) || (println("NULL_EXTRA: brak $f - nulle tylko z automatu (jak v5)"); return NULL_EXTRA)
+        n = 0
+        for l in Iterators.drop(eachline(f), 1)
+            r = split(l, ",")
+            (length(r) >= 2 && r[2] == "ok") || continue
+            pf = joinpath(dir, "nulls_model", r[1] * ".csv")
+            isfile(pf) || continue
+            rows = Int[]
+            for q in Iterators.drop(eachline(pf), 1)
+                c = split(q, ",")
+                parse(Float64, c[3]) >= thr && push!(rows, parse(Int, c[1]) + 1)
+            end
+            NULL_EXTRA[r[1]] = rows; n += 1
+        end
+        println("NULL_EXTRA: pewne nulle z modelu (P_null >= $thr) dla $n pulsarów z $dir")
+        NULL_EXTRA
+    end
+
+    "Nulle z modelu dla pulsara (nothing = sam automat). Laduje liste przy pierwszym uzyciu."
+    function null_extra_for(psr)
+        NULL_MODE[] == :auto && return nothing
+        (_NULL_EXTRA_LOADED[] || !isempty(NULL_EXTRA)) || load_null_extra!()
+        get(NULL_EXTRA, psr, nothing)
+    end
 
     function auto_zap(data, bin_st, bin_end; gate=true, rfi=true, rfi_k=3.0, rfi_tol=0.01, rfi_ref=:both,
                       rfi_greedy=RFI_GREEDY[], null_max_frac=0.5, null_faded_frac=0.15,
@@ -1324,7 +1360,7 @@ module Data
         parts = nothing
 
         if mode in (:auto_pazi, :auto)
-            NULL_EXTRA_CUR[] = get(NULL_EXTRA, basename(rstrip(outdir, '/')), nothing)    # v6: pewne nulle z modelu
+            NULL_EXTRA_CUR[] = null_extra_for(basename(rstrip(outdir, '/')))    # v6: pewne nulle z modelu
             a = auto_zap(data, bst, bend)
             parts = split_zaps(a.reason)
             println("Automat: $(length(a.bad)) z $N impulsów ($(r1(100 * length(a.bad) / N))%)  →  " *

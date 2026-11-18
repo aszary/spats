@@ -336,7 +336,7 @@ function final_v6_adopt()
     isdir(bk) && error("$bk już istnieje - przenieś go ręcznie, żeby niczego nie nadpisać")
     v = strip(read(src * "/.wariant", String))
     mv(dst, bk); mv(src, dst)
-    println("Przyjęte: $v. Stara wersja: $bk. W kodzie ustaw na stałe ten wariant (Data.NULL_MODE / NULL_MARGIN) - napisz Claude.")
+    println("Przyjęte: $v. Stara wersja: $bk. Domyślnie w kodzie: Data.NULL_MODE[] = :union, NULL_THR[] = 0.95 (v5: NULL_MODE[] = :auto).")
 end
 
 # ---------------------------------------------------------------- calosc
