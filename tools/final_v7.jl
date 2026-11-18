@@ -219,8 +219,7 @@ function _f7_chan_summary(; pr=println)
         nc = [parse(Int, r[4]) for r in R]
         # bez emisji max z z ~16 kanalow ~ maksimum 16 N(0,1): > 3.5 w ok. 0.4% pulsarow
         bad = [r for r in R if parse(Float64, r[8]) > 3.5 && parse(Float64, r[6]) > 0.1]
-        pr(@sprintf("- %s: %d pulsarów; energia nulli we wszystkich kanałach razem: mediana %+.1f%% emisji; " *
-                    "najjaśniejszy kanał: mediana %.1f%%; kanał z emisją w nullach (z > 3.5 i > 10%%): %d pulsarów",
+        pr(@sprintf("- %s: %d pulsarów; energia nulli we wszystkich kanałach razem: mediana %+.1f%% emisji; najjaśniejszy kanał: mediana %.1f%%; kanał z emisją w nullach (z > 3.5 i > 10%%): %d pulsarów",
                     nm, length(R), 100 * median(fs), 100 * median(mf), length(bad)))
         isempty(bad) || pr("  - " * join([@sprintf("%s (kanał %s: %.0f%%, z %.1f)", r[1], r[7], 100 * parse(Float64, r[6]), parse(Float64, r[8]))
                                           for r in sort(bad, by=r -> -parse(Float64, r[8]))[1:min(20, end)]], ", "))
