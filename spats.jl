@@ -1143,8 +1143,8 @@ data = Data.load_ascii(txt_file)
         
         #phase_modulation3(vpmout*"J1750-3503"; show_=true)
         #phase_modes(vpmout*"J1750-3503")
-        phase_modulation3(vpmout*"J1843-0211"; show_=true)
-        phase_modes(vpmout*"J1843-0211")
+        phase_modulation3(vpmout*"J1418-3921"; show_=true)
+        phase_modes(vpmout*"J1418-3921")
 
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
         #Travel.travel_test(vpmout*"J1750-3503")
