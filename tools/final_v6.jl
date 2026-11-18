@@ -345,9 +345,9 @@ function final_v6(; n=32, dynesty=true, build=true)
     mkpath(F6_DIR)
     Base.include(Main, "modules/zap_verify.jl")
     py(args...; env=Dict{String,String}()) = try
-        run(addenv(`python3 $args`, merge(Dict("NULLING_OUT" => F6_DIR * "model/"), env)...))
+        run(addenv(`python3 $args`, merge(Dict("NULLING_OUT" => F6_DIR * "model/"), env)...)); true
     catch e
-        println("python: ", e)
+        println("python: ", e); false
     end
     if !_f6_done("1_energie")
         println("\n===== 1. ENERGIE wszystkich pulsarów ($n procesów) =====")
@@ -406,8 +406,8 @@ function final_v6(; n=32, dynesty=true, build=true)
     end
     if dynesty && !_f6_done("8_dynesty")
         println("\n===== 8. NESTED SAMPLING (dynesty): wszystkie pulsary z wiarygodnym NF, 64 procesy =====")
-        py("tools/nulling_dynesty.py", "--all"; env=Dict("NULLING_NPROC" => "64"))
-        _f6_set("8_dynesty")
+        py("tools/nulling_dynesty.py", "--all"; env=Dict("NULLING_NPROC" => "64")) ? _f6_set("8_dynesty") :
+            println("ETAP 8 NIEUDANY - nie oznaczam jako zrobiony; po naprawie uruchom final_v6() ponownie")
     end
     println(@sprintf("\nKONIEC final_v6 (%.1f h). pazur2 (v5) bez zmian.", (time() - t0) / 3600))
     println("Wklej wynik w bashu: cat $(F6_DIR)RAPORT_ranking.md; grep '^- ' $(F6_DIR)model/RAPORT_nulle.md; " *
