@@ -16,7 +16,7 @@
 #      reczna, model nulli z koncowymi etykietami)
 #   7. niepewnosc NF: wrazliwosc na dlugosc bloku (10 / 50) i nested sampling (dynesty) na wszystkich
 #      pulsarach z wiarygodnym NF - najdluzszy etap, na koncu
-# Potem (po decyzji): final_v6_adopt()  ->  pazur2 -> pazur2_v5, final_v6/pazur2_final -> pazur2
+# Potem (po decyzji): final_v6_adopt()  ->  pazur2 -> pazur2_przed_v6, final_v6/pazur2_final -> pazur2
 # Inny wariant zamiast zalecanego:  final_v6_build("automat bez marg. + P>=0.95")
 using Printf, Statistics, LinearAlgebra, FFTW, JSON
 
@@ -329,9 +329,9 @@ function final_v6_build(variant=nothing; n=32)
     end
 end
 
-"Przyjęcie wersji końcowej: pazur2 → pazur2_v5, final_v6/pazur2_final → pazur2."
+"Przyjęcie wersji końcowej: pazur2 → pazur2_przed_v6, final_v6/pazur2_final → pazur2."
 function final_v6_adopt()
-    src, dst, bk = F6_DIR * "pazur2_final", F6_ROOT * "pazur2", F6_ROOT * "pazur2_v5"
+    src, dst, bk = F6_DIR * "pazur2_final", F6_ROOT * "pazur2", F6_ROOT * "pazur2_przed_v6"
     isdir(src) || error("brak $src - najpierw final_v6() albo final_v6_build()")
     isdir(bk) && error("$bk już istnieje - przenieś go ręcznie, żeby niczego nie nadpisać")
     v = strip(read(src * "/.wariant", String))
