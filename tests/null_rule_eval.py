@@ -24,7 +24,7 @@ nm = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(nm)
 nm.OUT = out
 VARIANTS = ["automat (v5)", "automat bez marg.", "model P>=0.5 (jedna reguła)", "model P>=0.8", "model P>=0.95",
-            "automat + P>=0.95", "automat bez marg. + P>=0.95", "automat bez marg. + P>=0.8"]
+            "automat + P>=0.95", "automat bez marg. + P>=0.95", "automat bez marg. + P>=0.8", "automat + P>=0.8"]
 
 
 def one(f):
@@ -36,7 +36,7 @@ def one(f):
     isn, amp, am, an = tr[:, 0] > 0.5, tr[:, 1], tr[:, 2] > 0.5, tr[:, 3] > 0.5
     weak = (~isn) & (amp < 0.3)
     cuts = dict(zip(VARIANTS, [am, an, pn >= 0.5, pn >= 0.8, pn >= 0.95, am | (pn >= 0.95), an | (pn >= 0.95),
-                               an | (pn >= 0.8)]))
+                               an | (pn >= 0.8), am | (pn >= 0.8)]))
     res = {"psr": psr, "nf_true": float(isn.mean()), "nf_model": r["NF_model"], "f_i3": r["f_i3"]}
     for name, cut in cuts.items():
         res[name] = dict(kompletnosc=float((cut & isn).sum() / max(isn.sum(), 1)),
