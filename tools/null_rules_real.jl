@@ -90,8 +90,8 @@ function null_rules_real_summary()
     pr("# Reguły nulli na PRAWDZIWYCH danych: ile emisji i ile nulli wycinają (z P_null modelu)\n")
     pr("Pulsary z wiarygodnym modelem: $npsr. Wycięta emisja = Σ(1−P) wyciętych / Σ(1−P) wszystkich (bez RFI); " *
        "kompletność = ΣP wyciętych / ΣP wszystkich; zmiana profilu = energia impulsów, które zostały / energia samej emisji − 1.\n")
-    pr("| reguła | wycięta emisja (razem) | kompletność nulli (razem) | zmiana profilu: mediana | zmiana profilu: najgorzej | pulsary ze zmianą >1% | średni zysk S/N |")
-    pr("|---|---|---|---|---|---|---|")
+    pr("| reguła | wycięta emisja (razem) | kompletność nulli (razem) | zmiana profilu: mediana | profil jaśniejszy >1% (wycięta emisja) | najgorzej (+) | profil ciemniejszy >1% (zostały nulle) | najgorzej (−) | średni zysk S/N |")
+    pr("|---|---|---|---|---|---|---|---|---|")
     for (name, _, _, _) in F6_VARIANTS
         rr = get(R, name, Dict{String,Float64}[]); isempty(rr) && continue
         ec = sum(r["emis_cut"] for r in rr) / sum(r["emis_all"] for r in rr)
@@ -99,9 +99,10 @@ function null_rules_real_summary()
         # zmiana profilu tylko tam, gdzie sa nulle (>= 5 oczekiwanych) i emisja jest wyrazna
         b = [100 * (r["E_kept"] / r["E_emis"] - 1) for r in rr if r["null_all"] >= 5 && r["E_emis"] > 0 && isfinite(r["E_kept"])]
         g = [100 * (r["snr"] / r["snr_none"] - 1) for r in rr if r["snr_none"] >= 3 && isfinite(r["snr"])]
-        bw = isempty(b) ? NaN : b[argmax(abs.(b))]
-        pr(@sprintf("| %s | %.2f%% | %.1f%% | %+.2f%% | %+.1f%% | %d z %d | %+.1f%% |", name, 100ec, 100nc,
-                    isempty(b) ? NaN : median(b), bw, count(x -> abs(x) > 1, b), length(b), isempty(g) ? NaN : mean(g)))
+        bp = isempty(b) ? NaN : maximum(b); bn = isempty(b) ? NaN : minimum(b)
+        pr(@sprintf("| %s | %.2f%% | %.1f%% | %+.2f%% | %d z %d | %+.1f%% | %d z %d | %+.1f%% | %+.1f%% |", name, 100ec, 100nc,
+                    isempty(b) ? NaN : median(b), count(>(1), b), length(b), bp, count(<(-1), b), length(b), bn,
+                    isempty(g) ? NaN : mean(g)))
     end
     write(NR_DIR * "WYNIK.txt", join(L, "\n") * "\n")
     println("\nZapisane: $(NR_DIR)WYNIK.txt")

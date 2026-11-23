@@ -43,7 +43,10 @@ def one(f):
                          czystosc=float((cut & isn).sum() / max(cut.sum(), 1)) if cut.sum() else float("nan"),
                          emisja_wycieta=float((cut & ~isn).sum() / max((~isn).sum(), 1)),
                          slabe_wyciete=float((cut & weak).sum() / max(weak.sum(), 1)),
-                         bias=float(amp[~cut & ~isn].mean() / amp[~isn].mean() - 1))
+                         bias=float(amp[~cut & ~isn].mean() / amp[~isn].mean() - 1),
+                         # to samo oszacowane z P_null modelu (jak tools/null_rules_real.jl na prawdziwych danych)
+                         kompletnosc_szac=float(pn[cut].sum() / max(pn.sum(), 1e-12)),
+                         emisja_szac=float((1 - pn[cut]).sum() / max((1 - pn).sum(), 1e-12)))
     return res
 
 
@@ -51,7 +54,7 @@ def main():
     files = sorted(glob.glob(os.path.join(out, "energies", "*.csv")))
     with Pool(min(16, os.cpu_count() or 1)) as p:
         R = p.map(one, files)
-    keys = ["kompletnosc", "czystosc", "emisja_wycieta", "slabe_wyciete", "bias"]
+    keys = ["kompletnosc", "czystosc", "emisja_wycieta", "slabe_wyciete", "bias", "kompletnosc_szac", "emisja_szac"]
     L, summ = [], {}
     scen = sorted(set(r["psr"].rsplit("_", 1)[0] for r in R))
     for s in scen:
@@ -70,7 +73,11 @@ def main():
         k = np.mean([sc[s]["kompletnosc"] for s in sc if s != "modulowany"])
         e = np.mean([sc[s]["emisja_wycieta"] for s in sc]); b = max(sc[s]["bias"] for s in sc)
         summ[v]["_srednio"] = {"kompletnosc": float(k), "emisja_wycieta": float(e), "bias_max": float(b)}
-        L.append("   %-30s kompletność %5.1f%%  emisja wycięta %.2f%%  największy bias profilu %+.2f%%" % (v, 100 * k, 100 * e, 100 * b))
+        ks = np.mean([sc[s]["kompletnosc_szac"] for s in sc if s not in ("modulowany", "_srednio")])
+        es = np.mean([sc[s]["emisja_szac"] for s in sc if s != "_srednio"])
+        summ[v]["_srednio"].update({"kompletnosc_szac": float(ks), "emisja_szac": float(es)})
+        L.append("   %-30s kompletność %5.1f%% (z modelu %5.1f%%)  emisja wycięta %.2f%% (z modelu %.2f%%)  największy bias profilu %+.2f%%" %
+                 (v, 100 * k, 100 * ks, 100 * e, 100 * es, 100 * b))
     txt = "\n".join(L)
     print(txt)
     open(os.path.join(out, "null_rule.txt"), "w", encoding="utf-8").write(txt + "\n")
