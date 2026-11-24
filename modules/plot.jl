@@ -3503,7 +3503,11 @@ szczytu, co najmniej 10 binow od siebie). Faza przez przerwe miedzy skladowymi j
     profile peak (as in the paper) and unwrapped outwards from it. Per window a straight line is fitted
     to the significant phases (slope in deg/deg) - its spread is the temporal variation of the drift.
     """
-    function sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0, p3=nothing, per_bin=false)
+    function sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0, p3=nothing, per_bin=false,
+                                 common_unwrap=true)
+        # V2 (dokladnie jak Basu & Mitra 2018): per_bin=true, common_unwrap=false - w kazdym binie najsilniejsza
+        # czestotliwosc w fp +- 3df, faza 0 w szczycie profilu, rozwijana w kazdym oknie od szczytu profilu.
+        # V1 (nasza): jedna czestotliwosc na okno + rozwiniecie wzgledem wspolnej sciezki (bez kopii o 360°).
         # per_bin=true: jak w publikacji - w kazdym binie dlugosci osobno najsilniejsza czestotliwosc w fp +- 3df
         # (Basu & Mitra 2018); false: jedna czestotliwosc na okno (bez skokow fazy miedzy binami)
         N, nb = size(data)
@@ -3591,7 +3595,7 @@ szczytu, co najmniej 10 binow od siebie). Faza przez przerwe miedzy skladowymi j
         # skladowymi pelny obrot, wiec czesc okien lądowala w rownoleglych "kopiach", a srednia wypadala miedzy
         # nimi (J1555). Sciezka odniesienia = srednia kolowa po oknach w kazdym binie, rozwinieta od szczytu
         # profilu; kazdy punkt przesuwany o wielokrotnosc 360° najblizej tej sciezki; nachylenia od nowa.
-        if any(isfinite, Φ)
+        if common_unwrap && any(isfinite, Φ)
             ref = [let v = filter(isfinite, Φ[:, j]); length(v) < 0.2 * size(Φ, 1) ? NaN : rad2deg(angle(sum(cis.(deg2rad.(v))))) end
                    for j in axes(Φ, 2)]
             for dir in (1, -1)
@@ -3731,9 +3735,10 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         N, nb = size(data)
         p3 = get(p, "p3", nothing)
         r = sliding_lrfs_compute(data, bst, bend; window=window, step=step)
-        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3)
+        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3, per_bin=basu, common_unwrap=!basu)
         f2 = _second_peak(t1.spec, t1.freq, round(Int, t1.fp * window), t1.fwhm, window)
-        t2 = isnothing(f2) ? nothing : sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=1 / f2)
+        t2 = isnothing(f2) ? nothing : sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=1 / f2,
+                                                           per_bin=basu, common_unwrap=!basu)
         q = sliding_lrfs_phase(data, t1.fp, bst, bend; window=window, step=step, nsig=nsig)
         mkpath(outdir)
         open(joinpath(outdir, "$(name_mod)_$(tag)_sliding.csv"), "w") do io
