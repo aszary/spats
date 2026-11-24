@@ -8,6 +8,8 @@
 #   <psr>_lrfs_tracks.pdf     amplituda i faza przy fp w każdym oknie (jak Basu & Mitra 2018, Fig. 2)
 # Na koniec wszystko w jednym pliku: sliding_lrfs/wszystkie.pdf (pdfunite).
 isdefined(Main, :F7_DIR) || include(joinpath(@__DIR__, "final_v7.jl"))
+# wczytane tutaj (na poziomie pliku), nie wewnatrz funkcji: inaczej "method too new" (world age)
+isdefined(Main, :_debased_spcf) || Base.include(Main, joinpath(@__DIR__, "..", "modules", "zap_verify.jl"))
 SL_DIR = F6_ROOT * "sliding_lrfs/"
 # cztery pulsary z Basu & Mitra (2018) do porównania + znane dryfujące / z nullami / zmianami P3
 SL_PSRS = ["J0820-1350", "J1034-3224", "J1555-3134", "J1720-2933",
@@ -25,13 +27,13 @@ function _sl_data(psr)
 end
 
 function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, outdir=SL_DIR)
-    isdefined(Main, :_debased_spcf) || Base.include(Main, "modules/zap_verify.jl")
+    mkpath(outdir)
     PL = SpaTs.Plot
     pdfs = String[]; summary = String[]
     for psr in psrs
         t0 = time()
         try
-            D, p = _sl_data(psr)
+            D, p = Base.invokelatest(_sl_data, psr)
             od = joinpath(outdir, psr); mkpath(od)
             N = size(D, 1)
             # LRFS z całej obserwacji (układ jak plik pspec: wiersze 0..0.5 cykla/P, pol 1/2 = Re/Im)
