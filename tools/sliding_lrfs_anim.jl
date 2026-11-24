@@ -218,7 +218,7 @@ krok; Odtwórz po pauzie kontynuuje od miejsca suwaka, na koncu zaczyna od pocza
 miedzy klatkami (ms). Animacje napedza petla w Julii (timer okna graficznego przez PyCall/VNC bywa martwy);
 funkcja trzyma konsole, dopoki okno jest otwarte - zamknij okno, zeby wrocic.
 """
-function sliding_lrfs_player(psr="J1555-3134"; window=256, speed=2, interval=30, size=(9.5, 5.2), dpi=80, thr=5.0)
+function sliding_lrfs_player_julia(psr="J1555-3134"; window=256, speed=2, interval=30, size=(9.5, 5.2), dpi=80, thr=5.0)
     D, p = Base.invokelatest(_sl_data, psr)
     d = _anim_prepare(D, p; window=window, step=1, thr=thr)
     widgets = pyimport("matplotlib.widgets"); plt = pyimport("matplotlib.pyplot")
@@ -291,4 +291,39 @@ function sliding_lrfs_player(psr="J1555-3134"; window=256, speed=2, interval=30,
         fig.canvas.start_event_loop(interval / 1000)          # zdarzenia okna bez pelnego przerysowania
     end
     return nothing
+end
+
+"""
+    sliding_lrfs_export(psr; window=256, thr=5.0) -> katalog
+
+Liczy klatki (krok 1 impuls, cechy wykrywane w kazdym oknie) i zapisuje je dla odtwarzacza w Pythonie
+(tools/lrfs_player.py): meta.json + tablice Float32 (kolumnowo, jak w Julii).
+"""
+function sliding_lrfs_export(psr="J1555-3134"; window=256, thr=5.0, outdir=SL_DIR)
+    D, p = Base.invokelatest(_sl_data, psr)
+    d = _anim_prepare(D, p; window=window, step=1, thr=thr)
+    od = joinpath(outdir, psr, "player"); mkpath(od)
+    for (name, x) in (("A", d.A), ("spec", d.spec), ("Ph", d.Ph), ("Fq", d.Fq), ("prof", d.prof), ("profall", d.profall))
+        open(io -> write(io, Float32.(x)), joinpath(od, name * ".f32"), "w")
+    end
+    nw, nf, non = size(d.A)
+    meta = Dict("psr" => psr, "nw" => nw, "nf" => nf, "non" => non, "nlab" => size(d.Fq, 1), "window" => d.window,
+                "lon" => d.lon, "freq" => d.freq, "starts" => d.starts)
+    open(io -> SpaTs.JSON.print(io, meta), joinpath(od, "meta.json"), "w")
+    println("Zapisane: $od")
+    return od
+end
+
+"""
+    sliding_lrfs_player(psr; window=256, speed=2, interval=30, thr=5.0)
+
+Interaktywna animacja sliding LRFS (wymaga ekranu, np. VNC): liczy klatki w Julii i otwiera odtwarzacz
+tools/lrfs_player.py w zwyklym python3 + matplotlib (bez PyCall - tam timery okna bywaly martwe).
+Odtwórz / Pauza: przycisk albo spacja; w pauzie suwak albo strzalki; predkosc + / -.
+"""
+function sliding_lrfs_player(psr="J1555-3134"; window=256, speed=2, interval=30, thr=5.0)
+    od = sliding_lrfs_export(psr; window=window, thr=thr)
+    py = joinpath(@__DIR__, "lrfs_player.py")
+    println("Uruchamiam: python3 $py $od --speed $speed --interval $interval")
+    run(`python3 $py $od --speed $speed --interval $interval`)
 end
