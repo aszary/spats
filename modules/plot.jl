@@ -1424,9 +1424,20 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
     ##########################################################################
 
 
+    """
+        lrfs(data, outdir, params; pulses=nothing, nsig=3.0, ...)
+
+    LRFS plot from PSRSALSA `pspec -lrfs` output (rows = fluctuation frequency 0..0.5 cycles/P,
+    pol 1/2 = real/imag). Phase panel (2026-11-24 fix): phase of the LRFS at the peak frequency,
+    shown only where |L| > `nsig` σ of the off-pulse LRFS at that frequency, unwrapped along
+    longitude, with errors σ/|L|. With `pulses` (the debased pulse stack, pulses × bins) the phase is
+    computed coherently from ALL pulses at the peak frequency (PSRSALSA averages blocks of nfft
+    pulses, so its complex phase can be smeared); sign convention as PhaseDrift: kernel e^(+2πi f n),
+    rising phase = drift towards later longitudes.
+    """
     function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME",
-              show_=false)
-        
+              show_=false, pulses=nothing, nsig=3.0)
+
         # === Parameters and shape ===
         p = params
         bin_st = p["bin_st"]
@@ -1447,18 +1458,36 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
         amp = abs.(lrfs_complex)
 
         # === Mean profile (bottom panel) ===
-        profile = mean(real.(lrfs_complex), dims=1)[1, :]
+        profile = if isnothing(pulses)
+            mean(real.(lrfs_complex), dims=1)[1, :]
+        else
+            live = _live_rows(pulses)
+            vec(mean(Float64.(pulses[live, bin_st:bin_end]), dims=1))
+        end
 
         # === Power spectrum (left panel) ===
         spectrum = sum(amp, dims=2)[:, 1]
 
         # === Frequency axis ===
-        freq = collect(0:(num-1)) ./ num
+        # rows run from 0 to 0.5 cycles/P (nfft/2+1 rows); the old (0:num-1)/num ran to ~1 and the
+        # printed P3 came out ~2x too small
+        freq = collect(0:(num-1)) .* (0.5 / max(num - 1, 1))
         peak = argmax(spectrum[2:end]) + 1  # skip DC component at freq=0
+        # znane P3 (params): szczyt szukany przy 1/P3 (±10%) - powolne zmiany / nulle nie przejmuja szczytu
+        p3_ = get(p, "p3", nothing)
+        if p3_ isa Number && p3_ > 0
+            w = findall(f -> abs(f - 1 / p3_) <= 0.1 / p3_, freq)
+            isempty(w) || (peak = w[argmax(spectrum[w])])
+        end
         println("\tPeak freq: $(freq[peak]), P3 = $(1/freq[peak])")
 
         # === Phase at peak frequency ===
-        phase_ = rad2deg.(angle.(lrfs_complex[peak, :]))
+        Lrow = if isnothing(pulses)
+            ComplexF64.(data[peak, :, 1] .+ im .* data[peak, :, 2])
+        else
+            _coherent_lrfs_row(pulses, freq[peak])
+        end
+        ph = _lrfs_phase_track(Lrow, bin_st, bin_end; nsig=nsig)
 
         # === Longitude axis ===
         # The longitude axis has the same length as signal_width and is centered around zero
@@ -1495,12 +1524,18 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
             vmax=darkness * maximum(amp))
         tick_params(labelleft=false, labelbottom=false)
 
-        # --- TOP PANEL: phase ---
+        # --- TOP PANEL: phase (only significant bins, unwrapped, with errors) ---
         ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
-        #ax_phase = axes([0.17, 0.94, 0.82, 0.05])
-        scatter(longitude, phase_, s=2, c="grey")
+        if any(ph.sig)
+            s = ph.sig
+            errorbar(longitude[s], ph.phase[s], yerr=ph.err[s], fmt=".", ms=2, c="black", elinewidth=0.4, capsize=0)
+            lo, hi = extrema(ph.phase[s])
+            ylim(lo - 30, hi + 30)
+        else
+            text(0.5, 0.5, "no significant phase (|L| < $(nsig)σ)", transform=ax_phase.transAxes, ha="center", va="center")
+        end
+        xlim(longitude[1], longitude[end])
         xticks([])
-        yticks([-180, -90, 0, 90, 180])
         ylabel("Phase (°)", labelpad=10)
 
         # --- BOTTOM PANEL: mean profile ---
@@ -3315,6 +3350,315 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
                            offsets=normpath(joinpath(@__DIR__, "..", "input", "offsets.csv")),
                            name_mod="offsets", kwargs...)
         _ppdot(outdir; kwargs..., offsets=offsets, name_mod=name_mod)
+    end
+
+
+    # ------------------------------------------------------------------ LRFS: faza i sliding LRFS
+    "Rows that hold data (zapped pulses are all-zero rows)."
+    _live_rows(X) = [any(!iszero, @view X[i, :]) for i in 1:size(X, 1)]
+
+    "Pulse stack with the per-bin mean removed; zapped (all-zero) rows set to 0 after demeaning."
+    function _demeaned(X)
+        good = _live_rows(X)
+        Y = Float64.(X)
+        any(good) || return Y, good
+        m = mean(Y[good, :], dims=1)
+        Y .-= m
+        Y[.!good, :] .= 0.0
+        return Y, good
+    end
+
+    "Coherent complex LRFS at frequency f [cycles/P] from all pulses, kernel e^(+2πi f n) (as PhaseDrift)."
+    function _coherent_lrfs_row(pulses, f)
+        Y, _ = _demeaned(pulses)
+        carrier = [exp(2im * π * f * (n - 1)) for n in 1:size(Y, 1)]
+        return vec(sum(Y .* carrier, dims=1))
+    end
+
+    """
+    Phase track of one complex LRFS row L (all bins): on-pulse phase in degrees, unwrapped along longitude
+    over significant bins (|L| > nsig·σ, σ = std of Re/Im of the off-pulse bins), errors σ/|L| [deg].
+    """
+    function _lrfs_phase_track(L, bin_st, bin_end; nsig=3.0)
+        nb = length(L)
+        off = vcat(1:bin_st-1, bin_end+1:nb)
+        σ = isempty(off) ? NaN : std(vcat(real.(L[off]), imag.(L[off])))
+        Lon = L[bin_st:bin_end]
+        amp = abs.(Lon)
+        sig = isfinite(σ) ? amp .> nsig * σ : falses(length(Lon))
+        ph = rad2deg.(angle.(Lon))
+        prev = NaN
+        for j in eachindex(ph)
+            sig[j] || continue
+            if isfinite(prev)
+                while ph[j] - prev > 180; ph[j] -= 360; end
+                while ph[j] - prev < -180; ph[j] += 360; end
+            end
+            prev = ph[j]
+        end
+        err = rad2deg.(σ ./ max.(amp, eps()))
+        return (phase=ph, err=err, sig=sig, amp=amp, sigma=σ)
+    end
+
+    "Off-pulse bins (as many as on-pulse) farthest from the pulse window, on the phase circle."
+    function _far_offpulse(nb, bin_st, bin_end)
+        c = (bin_st + bin_end) / 2
+        dist(j) = min(abs(j - c), nb - abs(j - c))
+        cand = setdiff(1:nb, max(1, bin_st - 20):min(nb, bin_end + 20))
+        n = min(bin_end - bin_st + 1, length(cand))
+        return sort(sort(cand, by=j -> -dist(j))[1:n])
+    end
+
+    """
+        sliding_lrfs_compute(data, bin_st, bin_end; window=256, step=1)
+
+    Sliding LRFS as the S2DFS of Serylak, Stappers & Weltevrede (2009, A&A 506, 865): a window of
+    `window` pulses moved by `step` pulses (1 = every pulse); in each window the LRFS (FFT along the
+    pulses of every on-pulse bin, window mean removed) is collapsed over longitude (Σ|F|²). The same
+    for an equal number of off-pulse bins gives the noise level, so `snr` = on/off power per frequency.
+    Returns (snr, freq, centres, fpeak, peak_snr): rows = windows (centre pulse, 1-based), columns =
+    fluctuation frequency k/window, k = 1..window/2.
+    """
+    function sliding_lrfs_compute(data, bin_st, bin_end; window=256, step=1)
+        N, nb = size(data)
+        N < window && error("za mało impulsów ($N) na okno $window")
+        X, _ = _demeaned(data)
+        on = collect(bin_st:bin_end); off = _far_offpulse(nb, bin_st, bin_end)
+        starts = collect(1:step:N-window+1)
+        nf = window ÷ 2
+        S = zeros(length(starts), nf); So = zeros(length(starts), nf)
+        Bon = zeros(window, length(on)); Boff = zeros(window, length(off))
+        Pon = plan_rfft(Bon, 1); Poff = plan_rfft(Boff, 1)
+        for (b, s) in enumerate(starts)
+            r = s:s+window-1
+            Bon .= @view X[r, on];  Bon .-= mean(Bon, dims=1)
+            Boff .= @view X[r, off]; Boff .-= mean(Boff, dims=1)
+            Fo = Pon * Bon; Ff = Poff * Boff
+            @inbounds for k in 1:nf
+                S[b, k] = sum(abs2, @view Fo[k + 1, :])
+                So[b, k] = sum(abs2, @view Ff[k + 1, :])
+            end
+        end
+        noise = vec(mean(So, dims=2)) .* length(on) ./ max(length(off), 1)
+        snr = S ./ max.(noise, eps())
+        freq = collect(1:nf) ./ window
+        kmin = 2                                      # pomijamy najnizsza czestotliwosc (powolne zmiany)
+        fpeak = [freq[kmin - 1 + argmax(@view snr[b, kmin:end])] for b in eachindex(starts)]
+        peak_snr = [maximum(@view snr[b, kmin:end]) for b in eachindex(starts)]
+        centres = starts .+ (window - 1) / 2
+        return (snr=snr, freq=freq, centres=centres, fpeak=fpeak, peak_snr=peak_snr, window=window, step=step)
+    end
+
+    """
+        sliding_lrfs_phase(data, f3, bin_st, bin_end; window=256, step=1, nsig=3.0)
+
+    Phase of the LRFS at f3 in every sliding window (kernel e^(+2πi f3 n) with the ABSOLUTE pulse number, so
+    a steady drift gives the same phase pattern in every window; a P3 change tilts it, a drift reversal
+    flips the slope). Cumulative sums: O(N·bins). Insignificant bins (|L| < nsig·σ_off) are NaN.
+    """
+    function sliding_lrfs_phase(data, f3, bin_st, bin_end; window=256, step=1, nsig=3.0)
+        N, nb = size(data)
+        X, _ = _demeaned(data)
+        on = collect(bin_st:bin_end); off = _far_offpulse(nb, bin_st, bin_end)
+        carrier = [exp(2im * π * f3 * (n - 1)) for n in 1:N]
+        Con = cumsum(X[:, on] .* carrier, dims=1); Coff = cumsum(X[:, off] .* carrier, dims=1)
+        starts = collect(1:step:N-window+1)
+        ph = fill(NaN, length(starts), length(on))
+        for (b, s) in enumerate(starts)
+            e = s + window - 1
+            Lon = s == 1 ? Con[e, :] : Con[e, :] .- Con[s-1, :]
+            Lof = s == 1 ? Coff[e, :] : Coff[e, :] .- Coff[s-1, :]
+            σ = std(vcat(real.(Lof), imag.(Lof)))
+            ok = abs.(Lon) .> nsig * σ
+            ph[b, ok] .= rad2deg.(angle.(Lon[ok]))
+        end
+        return (phase=ph, centres=starts .+ (window - 1) / 2)
+    end
+
+    """
+        sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0)
+
+    Method of Basu & Mitra (2018, MNRAS 475, 5098), with a step of `step` pulses (they used 50): the peak
+    frequency fp and its width δf = FWHM/2.355 come from the time-averaged collapsed LRFS; then in every
+    window and at every on-pulse longitude the largest LRFS amplitude within fp ± 3δf is taken, kept only
+    if > nsig × the off-pulse rms, with its phase (kernel e^(+2πi f n): rising phase = drift to later
+    longitudes). The window start is arbitrary w.r.t. P3, so each window's phases are set to 0 at the
+    profile peak (as in the paper) and unwrapped outwards from it. Per window a straight line is fitted
+    to the significant phases (slope in deg/deg) - its spread is the temporal variation of the drift.
+    """
+    function sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0)
+        N, nb = size(data)
+        X, good = _demeaned(data)
+        on = collect(bin_st:bin_end); off = _far_offpulse(nb, bin_st, bin_end)
+        nf = window ÷ 2
+        freq = collect(1:nf) ./ window
+        starts = collect(1:step:N-window+1)
+        Bon = zeros(window, length(on)); Boff = zeros(window, length(off))
+        Pon = plan_rfft(Bon, 1); Poff = plan_rfft(Boff, 1)
+        # 1. srednie widmo (zlozone po dlugosci) -> fp, FWHM
+        S = zeros(nf); So = zeros(nf)
+        for s in starts
+            r = s:s+window-1
+            Bon .= @view X[r, on]; Bon .-= mean(Bon, dims=1)
+            Boff .= @view X[r, off]; Boff .-= mean(Boff, dims=1)
+            Fo = Pon * Bon; Ff = Poff * Boff
+            for k in 1:nf
+                S[k] += sum(abs2, @view Fo[k + 1, :]); So[k] += sum(abs2, @view Ff[k + 1, :])
+            end
+        end
+        spec = S ./ max.(So .* length(on) ./ max(length(off), 1), eps())
+        kp = 1 + argmax(@view spec[2:end])
+        base = median(spec); half = base + (spec[kp] - base) / 2
+        lo = kp; while lo > 1 && spec[lo - 1] > half; lo -= 1; end
+        hi = kp; while hi < nf && spec[hi + 1] > half; hi += 1; end
+        fwhm = (hi - lo + 1) / window
+        δf = fwhm / 2.355
+        band = [k for k in 1:nf if abs(freq[k] - freq[kp]) <= 3δf + 0.5 / window]
+        Sfac = (spec[kp] - base) / max(fwhm, eps())
+        # 2. amplituda i faza w kazdym oknie przy fp
+        prof = vec(mean(Float64.(data[good, on]), dims=1))
+        jref = argmax(prof)
+        A = fill(NaN, length(starts), length(on)); Φ = fill(NaN, length(starts), length(on))
+        slope = fill(NaN, length(starts))
+        dlon = 360 / nb
+        for (b, s) in enumerate(starts)
+            r = s:s+window-1
+            Bon .= @view X[r, on]; Bon .-= mean(Bon, dims=1)
+            Boff .= @view X[r, off]; Boff .-= mean(Boff, dims=1)
+            Fo = Pon * Bon; Ff = Poff * Boff
+            rms = std(vcat(real.(vec(Ff[band .+ 1, :])), imag.(vec(Ff[band .+ 1, :]))))
+            # jedna czestotliwosc na okno (najsilniejsza w pasmie po calym oknie impulsu): rozne k w sasiednich
+            # binach daja skoki fazy (sasiednie biny DFT maja przesunieta faze) - test syntetyczny
+            k = band[argmax([sum(abs2, @view Fo[k + 1, :]) for k in band])]
+            amp = zeros(length(on)); ph = zeros(length(on))
+            for j in eachindex(on)
+                c = conj(Fo[k + 1, j])                       # conj: kernel e^(+2πi f n)
+                amp[j] = abs(c); ph[j] = rad2deg(angle(c))
+            end
+            sig = amp .> nsig * rms
+            sig[jref] || continue                            # brak odniesienia w tym oknie
+            ph .-= ph[jref]
+            for dir in (1, -1)                               # rozwiniecie od szczytu profilu na zewnatrz
+                prev = 0.0
+                j = jref + dir
+                while 1 <= j <= length(on)
+                    if sig[j]
+                        while ph[j] - prev > 180; ph[j] -= 360; end
+                        while ph[j] - prev < -180; ph[j] += 360; end
+                        prev = ph[j]
+                    end
+                    j += dir
+                end
+            end
+            A[b, sig] .= amp[sig] ./ rms; Φ[b, sig] .= ph[sig]
+            js = findall(sig)
+            if length(js) >= 3
+                x = (js .- jref) .* dlon; y = ph[js]
+                slope[b] = sum((x .- mean(x)) .* (y .- mean(y))) / max(sum((x .- mean(x)) .^ 2), eps())
+            end
+        end
+        return (amp=A, phase=Φ, slope=slope, fp=freq[kp], fwhm=fwhm, S=Sfac, jref=jref, spec=spec, freq=freq,
+                starts=starts, window=window, step=step)
+    end
+
+    "Plot like Basu & Mitra (2018) Fig. 2 right: amplitude and phase at fp vs longitude for all windows + mean."
+    function sliding_lrfs_tracks_plot(t, prof, lon, outfile; title_="", maxpts=3000)
+        rows = findall(b -> any(isfinite, @view t.phase[b, :]), eachindex(t.starts))
+        sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
+        mA = [let v = filter(isfinite, t.amp[rows, j]); isempty(v) ? NaN : mean(v) end for j in eachindex(lon)]
+        mΦ = [let v = filter(isfinite, t.phase[rows, j]); isempty(v) ? NaN : mean(v) end for j in eachindex(lon)]
+        rc("font", size=7); rc("axes", linewidth=0.5)
+        figure(figsize=(4.5, 7))
+        subplots_adjust(left=0.16, bottom=0.07, right=0.97, top=0.93, hspace=0.0)
+        suptitle(title_, fontsize=7)
+        subplot2grid((5, 1), (0, 0), rowspan=2)
+        for b in sel; scatter(lon, t.amp[b, :], s=0.5, c="red", alpha=0.15, lw=0); end
+        scatter(lon, mA, s=3, c="black"); ylabel("amplitude at fp (× rms)")
+        xlim(lon[1], lon[end]); tick_params(labelbottom=false)
+        subplot2grid((5, 1), (2, 0), rowspan=2)
+        for b in sel; scatter(lon, t.phase[b, :], s=0.5, c="red", alpha=0.15, lw=0); end
+        scatter(lon, mΦ, s=3, c="black"); ylabel("phase at fp (°, 0 at profile peak)")
+        xlim(lon[1], lon[end]); tick_params(labelbottom=false)
+        subplot2grid((5, 1), (4, 0))
+        plot(lon, prof ./ maximum(prof), c="grey"); xlim(lon[1], lon[end]); xlabel("longitude (°)"); yticks([])
+        savefig(outfile); println(outfile)
+        close("all")
+    end
+
+    """
+        sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false)
+
+    Plot: left - pulse energy (nulls), middle - sliding LRFS (on/off power, fluctuation frequency vs pulse
+    number; dots = strongest frequency where it is ≥ 5× noise), right - phase at f3 = 1/P3 (params "p3",
+    else the strongest frequency of the whole observation) per window vs longitude (cyclic colours, white =
+    not significant). Bottom: mean spectrum and mean profile. Writes <name_mod>_sliding_lrfs.pdf and
+    <name_mod>_sliding_lrfs.csv (window centre, strongest frequency, its P3, power ratio).
+    """
+    function sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false, nsig=3.0)
+        p = params
+        bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+        N, nb = size(data)
+        r = sliding_lrfs_compute(data, bst, bend; window=window, step=step)
+        p3 = get(p, "p3", nothing)
+        f3 = (p3 isa Number && p3 > 0) ? 1 / p3 : r.freq[argmax(vec(mean(r.snr, dims=1)))]
+        q = sliding_lrfs_phase(data, f3, bst, bend; window=window, step=step, nsig=nsig)
+        mkpath(outdir)
+        open(joinpath(outdir, "$(name_mod)_sliding_lrfs.csv"), "w") do io
+            println(io, "centre_pulse,f_peak,P3_peak,peak_snr")
+            for b in eachindex(r.centres)
+                @printf(io, "%.1f,%.6f,%.4f,%.3f\n", r.centres[b] - 1, r.fpeak[b], 1 / r.fpeak[b], r.peak_snr[b])
+            end
+        end
+        Y, good = _demeaned(data)
+        E = vec(sum(Float64.(data[:, bst:bend]), dims=2)); E[.!good] .= NaN
+        prof = vec(mean(Float64.(data[good, bst:bend]), dims=1))
+        dl = 360 * (bend - bst + 1) / nb
+        lon = range(-dl / 2, dl / 2, length=bend - bst + 1)
+        c1, c2 = r.centres[1] - 1, r.centres[end] - 1
+
+        rc("font", size=7); rc("axes", linewidth=0.5); rc("lines", linewidth=0.5)
+        figure(figsize=(7.5, 7))
+        subplots_adjust(left=0.08, bottom=0.08, right=0.92, top=0.95, wspace=0.0, hspace=0.0)
+        suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step", fontsize=8)
+        ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
+        plot(E, 0:N-1, c="grey", lw=0.3)
+        ylim(c1, c2); xticks([]); ylabel("pulse number (window centre)")
+        ax1 = subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
+        img = r.snr
+        imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
+               extent=[0, r.freq[end], c1, c2], vmin=0, vmax=quantile(vec(img), 0.995))
+        s = r.peak_snr .>= 5
+        any(s) && scatter(r.fpeak[s], r.centres[s] .- 1, s=0.2, c="red", alpha=0.4, lw=0)
+        tick_params(labelleft=false, labelbottom=false)
+        ax2 = subplot2grid((5, 7), (0, 4), rowspan=4, colspan=3, sharey=ax0)
+        imshow(q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
+               extent=[lon[1], lon[end], c1, c2], vmin=-180, vmax=180)
+        tick_params(labelleft=false, labelbottom=false)
+        title(@sprintf("faza LRFS przy P3 = %.2f P", 1 / f3), fontsize=7)
+        ax3 = subplot2grid((5, 7), (4, 1), colspan=3)
+        plot(r.freq, vec(mean(r.snr, dims=1)), c="grey")
+        xlim(0, r.freq[end]); xlabel("fluctuation frequency (P/P₃)"); yticks([])
+        ax4 = subplot2grid((5, 7), (4, 4), colspan=3)
+        plot(lon, prof, c="grey"); xlim(lon[1], lon[end]); xlabel("longitude (°)"); yticks([])
+        f = joinpath(outdir, "$(name_mod)_sliding_lrfs.pdf")
+        savefig(f); println(f)
+        show_ && (show(); println("Enter - dalej"); readline(stdin; keep=false))
+        close("all")
+        # amplituda i faza przy fp w kazdym oknie (Basu & Mitra 2018)
+        t = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig)
+        sl = filter(isfinite, t.slope)
+        info = @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą: %d z %d, nachylenie fazy %.2f ± %.2f °/°",
+                        t.fp, 1 / t.fp, t.fwhm, t.S, length(sl), length(t.starts),
+                        isempty(sl) ? NaN : mean(sl), length(sl) > 1 ? std(sl) : NaN)
+        println("  ", info)
+        sliding_lrfs_tracks_plot(t, prof, lon, joinpath(outdir, "$(name_mod)_lrfs_tracks.pdf");
+                                 title_="$(name_mod): okno $window, krok $step\n" * info)
+        open(joinpath(outdir, "$(name_mod)_lrfs_tracks.txt"), "w") do io
+            println(io, info)
+            println(io, "window_start,slope_deg_per_deg")
+            for b in eachindex(t.starts); @printf(io, "%d,%.5f\n", t.starts[b] - 1, t.slope[b]); end
+        end
+        return (spectrum=r, tracks=t, info=info)
     end
 
 
