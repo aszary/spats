@@ -3571,60 +3571,87 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
                 starts=starts, window=window, step=step)
     end
 
-    "Plot like Basu & Mitra (2018) Fig. 2 right: amplitude and phase at fp vs longitude for all windows + mean."
-    function sliding_lrfs_tracks_plot(t, prof, lon, outfile; title_="", maxpts=3000)
-        rows = findall(b -> any(isfinite, @view t.phase[b, :]), eachindex(t.starts))
-        sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
-        mA = [let v = filter(isfinite, t.amp[rows, j]); isempty(v) ? NaN : mean(v) end for j in eachindex(lon)]
-        mΦ = [let v = filter(isfinite, t.phase[rows, j]); isempty(v) ? NaN : mean(v) end for j in eachindex(lon)]
+    """
+Plot like Basu & Mitra (2018) Fig. 2 right: amplitude (top) and phase (middle) at fp vs longitude for all
+windows (dots) + mean (black), profile (bottom). Longitude 0 = profile peak, as in the paper. Phase in the
+paper's convention (= minus ours): rising phase = subpulses move towards EARLIER longitudes ("negative
+drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4 for J1555-3134.
+"""
+    function sliding_lrfs_tracks_plot(ts, labels, prof, lon, outfile; title_="", maxpts=3000)
+        cols = ["red", "royalblue", "darkgreen"]; mcols = ["black", "navy", "olive"]
         rc("font", size=7); rc("axes", linewidth=0.5)
         figure(figsize=(4.5, 7))
-        subplots_adjust(left=0.16, bottom=0.07, right=0.97, top=0.93, hspace=0.0)
-        suptitle(title_, fontsize=7)
-        subplot2grid((5, 1), (0, 0), rowspan=2)
-        for b in sel; scatter(lon, t.amp[b, :], s=0.5, c="red", alpha=0.15, lw=0); end
-        scatter(lon, mA, s=3, c="black"); ylabel("amplitude at fp (× rms)")
-        xlim(lon[1], lon[end]); tick_params(labelbottom=false)
-        subplot2grid((5, 1), (2, 0), rowspan=2)
-        for b in sel; scatter(lon, t.phase[b, :], s=0.5, c="red", alpha=0.15, lw=0); end
-        scatter(lon, mΦ, s=3, c="black"); ylabel("phase at fp (°, 0 at profile peak)")
-        xlim(lon[1], lon[end]); tick_params(labelbottom=false)
+        subplots_adjust(left=0.16, bottom=0.07, right=0.97, top=0.92, hspace=0.0)
+        suptitle(title_, fontsize=6.5)
+        for (panel, key, lab) in ((0, :amp, "amplitude at fp (× rms)"), (2, :phase, "phase at fp (°), 0 at profile peak\n(Basu & Mitra convention)"))
+            subplot2grid((5, 1), (panel, 0), rowspan=2)
+            for (i, t) in enumerate(ts)
+                M = key == :amp ? t.amp : -t.phase
+                rows = findall(b -> any(isfinite, @view M[b, :]), axes(M, 1))
+                sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
+                for b in sel; scatter(lon, M[b, :], s=0.5, c=cols[mod1(i, 3)], alpha=0.12, lw=0); end
+                m = [let v = filter(isfinite, M[rows, j]); isempty(v) ? NaN : mean(v) end for j in axes(M, 2)]
+                scatter(lon, m, s=3, c=mcols[mod1(i, 3)], label=labels[i])
+            end
+            ylabel(lab); xlim(lon[1], lon[end]); tick_params(labelbottom=false)
+            panel == 0 && length(ts) > 1 && legend(fontsize=6, markerscale=2)
+        end
         subplot2grid((5, 1), (4, 0))
-        plot(lon, prof ./ maximum(prof), c="grey"); xlim(lon[1], lon[end]); xlabel("longitude (°)"); yticks([])
+        plot(lon, prof ./ maximum(prof), c="grey"); xlim(lon[1], lon[end]); xlabel("longitude (°), 0 = profile peak"); yticks([])
         savefig(outfile); println(outfile)
         close("all")
+    end
+
+    "Second peak of the mean spectrum (Basu & Mitra 2018, J1555-3134): local maximum away from fp (> 3 FWHM,
+    > 4 bins), not at the lowest frequencies (nulls), at least `frac` of the main peak height above the floor."
+    function _second_peak(spec, freq, kp, fwhm, window; frac=0.3)
+        base = median(spec); nf = length(spec)
+        sep = max(4, ceil(Int, 3 * fwhm * window))
+        cand = [k for k in 3:nf-1 if abs(k - kp) > sep && spec[k] >= spec[k-1] && spec[k] >= spec[k+1] &&
+                spec[k] - base >= frac * (spec[kp] - base)]
+        isempty(cand) && return nothing
+        return freq[cand[argmax(spec[cand])]]
     end
 
     """
         sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false)
 
-    Plot: left - pulse energy (nulls), middle - sliding LRFS (on/off power, fluctuation frequency vs pulse
-    number; dots = strongest frequency where it is ≥ 5× noise), right - phase at f3 = 1/P3 (params "p3",
-    else the strongest frequency of the whole observation) per window vs longitude (cyclic colours, white =
-    not significant). Bottom: mean spectrum and mean profile. Writes <name_mod>_sliding_lrfs.pdf and
-    <name_mod>_sliding_lrfs.csv (window centre, strongest frequency, its P3, power ratio).
+    Like Basu & Mitra (2018, MNRAS 475, 5098) Figs. 2-5, with the window moved by `step` pulses (1 =
+    continuous; they used 50, which they note makes horizontal stripes). Page 1 (left figure of the paper):
+    LRFS averaged over the pulse window vs window START pulse, normalised so that the time-averaged peak = 1;
+    extra panels: pulse energy (nulls) on the left, phase at fp per window on the right, mean spectrum and
+    profile at the bottom. Page 2 (right figure): amplitude and phase at fp for every window vs longitude
+    (0 = profile peak) - for each peak if the spectrum has a second one. Files: <name_mod>_sliding_lrfs.pdf,
+    _lrfs_tracks.pdf, _sliding_lrfs.csv (window, strongest frequency), _lrfs_tracks.txt (slopes).
     """
     function sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false, nsig=3.0)
         p = params
         bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
         N, nb = size(data)
-        r = sliding_lrfs_compute(data, bst, bend; window=window, step=step)
         p3 = get(p, "p3", nothing)
-        f3 = (p3 isa Number && p3 > 0) ? 1 / p3 : r.freq[argmax(vec(mean(r.snr, dims=1)))]
-        q = sliding_lrfs_phase(data, f3, bst, bend; window=window, step=step, nsig=nsig)
+        r = sliding_lrfs_compute(data, bst, bend; window=window, step=step)
+        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3)
+        f2 = _second_peak(t1.spec, t1.freq, round(Int, t1.fp * window), t1.fwhm, window)
+        t2 = isnothing(f2) ? nothing : sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=1 / f2)
+        q = sliding_lrfs_phase(data, t1.fp, bst, bend; window=window, step=step, nsig=nsig)
         mkpath(outdir)
         open(joinpath(outdir, "$(name_mod)_sliding_lrfs.csv"), "w") do io
-            println(io, "centre_pulse,f_peak,P3_peak,peak_snr")
+            println(io, "window_start,f_peak,P3_peak,peak_snr")
             for b in eachindex(r.centres)
-                @printf(io, "%.1f,%.6f,%.4f,%.3f\n", r.centres[b] - 1, r.fpeak[b], 1 / r.fpeak[b], r.peak_snr[b])
+                @printf(io, "%d,%.6f,%.4f,%.3f\n", round(Int, r.centres[b] - (window - 1) / 2) - 1, r.fpeak[b], 1 / r.fpeak[b], r.peak_snr[b])
             end
         end
-        Y, good = _demeaned(data)
+        _, good = _demeaned(data)
         E = vec(sum(Float64.(data[:, bst:bend]), dims=2)); E[.!good] .= NaN
         prof = vec(mean(Float64.(data[good, bst:bend]), dims=1))
         dl = 360 * (bend - bst + 1) / nb
-        lon = range(-dl / 2, dl / 2, length=bend - bst + 1)
-        c1, c2 = r.centres[1] - 1, r.centres[end] - 1
+        lon = collect(range(-dl / 2, dl / 2, length=bend - bst + 1))
+        lon0 = lon .- lon[t1.jref]                               # 0 = szczyt profilu (jak w publikacji)
+        st0 = r.centres .- (window - 1) / 2 .- 1                 # pierwszy impuls okna (od 0)
+        c1, c2 = st0[1], st0[end]
+        avg = vec(mean(r.snr, dims=1))
+        kp = clamp(round(Int, t1.fp * window), 1, length(avg))
+        img = r.snr ./ max(avg[kp], eps())                       # sredni szczyt = 1 (jak w publikacji)
 
         rc("font", size=7); rc("axes", linewidth=0.5); rc("lines", linewidth=0.5)
         figure(figsize=(7.5, 7))
@@ -3632,43 +3659,49 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
         suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step", fontsize=8)
         ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
         plot(E, 0:N-1, c="grey", lw=0.3)
-        ylim(c1, c2); xticks([]); ylabel("pulse number (window centre)")
-        ax1 = subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
-        img = r.snr
+        ylim(c1, c2); xticks([]); ylabel("start period of the window")
+        subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
         imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
-               extent=[0, r.freq[end], c1, c2], vmin=0, vmax=quantile(vec(img), 0.995))
-        s = r.peak_snr .>= 5
-        any(s) && scatter(r.fpeak[s], r.centres[s] .- 1, s=0.2, c="red", alpha=0.4, lw=0)
+               extent=[0, r.freq[end], c1, c2], vmin=0, vmax=max(1.5, quantile(vec(img), 0.995)))
         tick_params(labelleft=false, labelbottom=false)
-        ax2 = subplot2grid((5, 7), (0, 4), rowspan=4, colspan=3, sharey=ax0)
-        imshow(q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
-               extent=[lon[1], lon[end], c1, c2], vmin=-180, vmax=180)
+        subplot2grid((5, 7), (0, 4), rowspan=4, colspan=3, sharey=ax0)
+        imshow(-q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
+               extent=[lon0[1], lon0[end], c1, c2], vmin=-180, vmax=180)
         tick_params(labelleft=false, labelbottom=false)
-        title(@sprintf("faza LRFS przy P3 = %.2f P", 1 / f3), fontsize=7)
-        ax3 = subplot2grid((5, 7), (4, 1), colspan=3)
-        plot(r.freq, vec(mean(r.snr, dims=1)), c="grey")
-        xlim(0, r.freq[end]); xlabel("fluctuation frequency (P/P₃)"); yticks([])
-        ax4 = subplot2grid((5, 7), (4, 4), colspan=3)
-        plot(lon, prof, c="grey"); xlim(lon[1], lon[end]); xlabel("longitude (°)"); yticks([])
+        title(@sprintf("faza przy fp = %.4f (P3 = %.2f P)", t1.fp, 1 / t1.fp), fontsize=7)
+        subplot2grid((5, 7), (4, 1), colspan=3)
+        plot(r.freq, avg ./ max(avg[kp], eps()), c="grey")
+        isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.6)
+        axvline(t1.fp, c="red", ls=":", lw=0.6)
+        xlim(0, r.freq[end]); xlabel("fluctuation frequency (cycles/P)"); ylabel("mean")
+        subplot2grid((5, 7), (4, 4), colspan=3)
+        plot(lon0, prof ./ maximum(prof), c="grey"); xlim(lon0[1], lon0[end]); xlabel("longitude (°), 0 = profile peak"); yticks([])
         f = joinpath(outdir, "$(name_mod)_sliding_lrfs.pdf")
         savefig(f); println(f)
         show_ && (show(); println("Enter - dalej"); readline(stdin; keep=false))
         close("all")
-        # amplituda i faza przy fp w kazdym oknie (Basu & Mitra 2018)
-        t = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3)
-        sl = filter(isfinite, t.slope)
-        info = @sprintf("fp = %.4f (P3 = %.2f P; params %s), FWHM = %.4f, S = %.1f, okien z fazą: %d z %d, nachylenie fazy %.2f ± %.2f °/° (+ = dryf ku późniejszym długościom)",
-                        t.fp, 1 / t.fp, (p3 isa Number && p3 > 0) ? @sprintf("%.2f", p3) : "brak", t.fwhm, t.S,
-                        length(sl), length(t.starts), isempty(sl) ? NaN : mean(sl), length(sl) > 1 ? std(sl) : NaN)
+
+        function _info(t)
+            sl = filter(isfinite, t.slope)
+            @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą %d z %d, nachylenie fazy %.1f ± %.1f °/° (konwencja Basu & Mitra; nasza = minus)",
+                     t.fp, 1 / t.fp, t.fwhm, t.S, length(sl), length(t.starts),
+                     isempty(sl) ? NaN : -mean(sl), length(sl) > 1 ? std(sl) : NaN)
+        end
+        ts = isnothing(t2) ? [t1] : [t1, t2]
+        labs = [@sprintf("P3 = %.2f P", 1 / t.fp) for t in ts]
+        info = "params P3 = " * ((p3 isa Number && p3 > 0) ? @sprintf("%.2f", p3) : "brak") * " | " *
+               join(["szczyt $i: " * _info(t) for (i, t) in enumerate(ts)], " | ")
         println("  ", info)
-        sliding_lrfs_tracks_plot(t, prof, lon, joinpath(outdir, "$(name_mod)_lrfs_tracks.pdf");
-                                 title_="$(name_mod): okno $window, krok $step\n" * info)
+        sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_lrfs_tracks.pdf");
+                                 title_="$(name_mod): okno $window, krok $step\n" * join([_info(t) for t in ts], "\n"))
         open(joinpath(outdir, "$(name_mod)_lrfs_tracks.txt"), "w") do io
             println(io, info)
-            println(io, "window_start,slope_deg_per_deg")
-            for b in eachindex(t.starts); @printf(io, "%d,%.5f\n", t.starts[b] - 1, t.slope[b]); end
+            println(io, "peak,window_start,slope_deg_per_deg_BasuMitra")
+            for (i, t) in enumerate(ts), b in eachindex(t.starts)
+                @printf(io, "%d,%d,%.5f\n", i, t.starts[b] - 1, -t.slope[b])
+            end
         end
-        return (spectrum=r, tracks=t, info=info)
+        return (spectrum=r, tracks=ts, info=info)
     end
 
 
