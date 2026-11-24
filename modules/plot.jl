@@ -3595,7 +3595,9 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                 rows = findall(b -> any(isfinite, @view M[b, :]), axes(M, 1))
                 sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
                 for b in sel; scatter(lon, M[b, :], s=0.5, c=cols[mod1(i, 3)], alpha=0.12, lw=0); end
-                m = [let v = filter(isfinite, M[rows, j]); isempty(v) ? NaN : mean(v) end for j in axes(M, 2)]
+                # srednia tylko tam, gdzie bin jest istotny w >= polowie okien (inaczej pojedyncze szumowe
+                # przekroczenia 3 sigma daja czarne punkty poza oknem impulsu - J0820, J1034)
+                m = [let v = filter(isfinite, M[rows, j]); length(v) < 0.5 * length(rows) ? NaN : mean(v) end for j in axes(M, 2)]
                 scatter(lon, m, s=3, c=mcols[mod1(i, 3)], label=labels[i])
             end
             ylabel(lab); xlim(lon[1], lon[end]); tick_params(labelbottom=false)
@@ -3665,7 +3667,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
 
         rc("font", size=7); rc("axes", linewidth=0.5); rc("lines", linewidth=0.5)
         figure(figsize=(7.5, 7))
-        subplots_adjust(left=0.08, bottom=0.08, right=0.92, top=0.95, wspace=0.0, hspace=0.0)
+        subplots_adjust(left=0.08, bottom=0.08, right=0.97, top=0.9, wspace=0.0, hspace=0.0)
         suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step" * (basu ? " (jak Basu & Mitra 2018)" : " (nasza wersja)"), fontsize=8)
         ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
         plot(E, 0:N-1, c="grey", lw=0.3)
@@ -3678,7 +3680,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         imshow(basu ? -q.phase : q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
                extent=[lon0[1], lon0[end], c1, c2], vmin=-180, vmax=180)
         tick_params(labelleft=false, labelbottom=false)
-        title(@sprintf("faza przy fp = %.4f (P3 = %.2f P)", t1.fp, 1 / t1.fp), fontsize=7)
+        title(@sprintf("faza przy fp = %.4f\n(P3 = %.2f P)", t1.fp, 1 / t1.fp), fontsize=6.5)
         subplot2grid((5, 7), (4, 1), colspan=3)
         plot(r.freq, basu ? avg ./ max(avg[kp], eps()) : avg, c="grey")
         isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.6)
