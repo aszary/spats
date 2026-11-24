@@ -15,6 +15,8 @@ S8_VARIANTS = [
     ("bez marginesu", (pad=0,), :union, 0.95),
     ("nulle tylko z modelu P>=0.8", NamedTuple(), :model, 0.8),
     ("prosty (wszystko naraz)", (rfi_win=0, pad=0), :model, 0.8),
+    ("nulle tylko z modelu P>=0.5 (publikacja)", NamedTuple(), :model, 0.5),
+    ("publikacja P>=0.5 + RFI z całości + bez marginesu", (rfi_win=0, pad=0), :model, 0.5),
 ]
 S8_HEADER = "pulsar,variant,N,n_cut,n_rfi,n_null,snr_none,snr,snr_manual,snr_rfi,kept_z3_local,kept_z3_global," *
             "emis_cut,emis_all,null_cut,null_all,E_kept,E_emis"
@@ -117,6 +119,44 @@ function simple_v8_summary(; tie=1.0)
     end
     write(S8_DIR * "WYNIK.txt", join(L, "\n") * "\n")
     println("\nZapisane: $(S8_DIR)WYNIK.txt")
+end
+
+"""
+Wersja końcowa wybranego wariantu w final_v7/simple_v8/pazur2_final (pazur2 bez zmian) + weryfikacja
+i porównanie z metodą ręczną. Domyślnie: publikacja P>=0.5 + RFI z całości + bez marginesu. ~30-40 min.
+"""
+function simple_v8_build(variant="publikacja P>=0.5 + RFI z całości + bez marginesu"; n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    i = findfirst(v -> v[1] == variant, S8_VARIANTS)
+    isnothing(i) && error("nieznany wariant: $variant; dostępne: $(join(first.(S8_VARIANTS), " | "))")
+    _, kw, mode, thr = S8_VARIANTS[i]
+    out = S8_DIR * "pazur2_final/"; mkpath(out)
+    write(out * ".wariant", "$variant: ustawienia=$(repr(kw)) nulle=$mode P>=$thr")
+    println("\n===== WERSJA v8: $variant → $out =====")
+    cfg = "SpaTs.Data.ZAP_STEPS[] = $(repr(kw)); SpaTs.Data.NULL_MODE[] = :$mode; SpaTs.Data.NULL_THR[] = $thr; " *
+          "SpaTs.Data.NULL_MODEL_DIR[] = \"$(F7_DIR)model/\"; "
+    cf = "SpaTs.chan_first_list([\"$(F6_ROOT)zap_verify_v3/\", \"$(F6_ROOT)zap_verify/\"])"
+    codes = [F7_PRE * cfg * "SpaTs.autozap_all(out=\"$out\", only=$(repr(_f6_psrs()[k:n:end])), skip_done=true, keep_manual=false, " *
+             "reuse_window=true, window_root=\"$(F6_ROOT)pazur2/\", chan_first=$cf)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "build"; every=120)
+    vd = S8_DIR * "zap_verify_final/"
+    codes = [F7_PRE * cfg * "Base.invokelatest(Main.zap_verify; pazur2=\"$out\", out=\"$vd\", part=\"$k/$n\", chans=false, save_rfi=true)"
+             for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "verify"; every=120)
+    Base.invokelatest(Main.zap_verify_summary; out=vd)
+    SpaTs.compare_zap_methods(mine=out, outdir=S8_DIR * "zap_comparison_final/")
+    println("Potem, po decyzji: simple_v8_adopt()")
+end
+
+"Przyjęcie v8: pazur2 → pazur2_przed_v8 (albo _2...), simple_v8/pazur2_final → pazur2."
+function simple_v8_adopt()
+    src, dst, bk = S8_DIR * "pazur2_final", F6_ROOT * "pazur2", F6_ROOT * "pazur2_przed_v8"
+    isdir(src) || error("brak $src - najpierw simple_v8_build()")
+    k = 1
+    while isdir(bk); k += 1; bk = F6_ROOT * "pazur2_przed_v8_$k"; end
+    mv(dst, bk); mv(src, dst)
+    println("Przyjęte v8: $(strip(read(dst * "/.wariant", String))). Stara wersja: $bk.")
+    println("Domyślne w kodzie trzeba jeszcze zmienić (napisz Claude'owi).")
 end
 
 function simple_v8(; n=32)

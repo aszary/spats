@@ -1109,7 +1109,9 @@ module Data
     function null_extra_for(psr)
         NULL_MODE[] == :auto && return nothing
         (_NULL_EXTRA_LOADED[] || !isempty(NULL_EXTRA)) || load_null_extra!()
-        get(NULL_EXTRA, psr, nothing)
+        # :model = jedna regula z modelu: pulsar bez wiarygodnego modelu -> zadnych nulli (pusta lista),
+        # a nie nulle automatu
+        get(NULL_EXTRA, psr, NULL_MODE[] == :model ? Int[] : nothing)
     end
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
