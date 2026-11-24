@@ -3574,16 +3574,30 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
                 starts=starts, window=window, step=step)
     end
 
+    # Styl wykresow odtwarzanych z publikacji (V2, V3): ramka z kreskami do srodka na wszystkich bokach, czcionka
+    # szeryfowa jak w MNRAS. PUB_CMAP_BASU: mapa kolorow lewego rysunku Basu & Mitra (do ustawienia wg publikacji).
+    const PUB_CMAP_BASU = Ref("Greys")
+    function _pub_style()
+        rc("font", family="serif", size=8)
+        rc("mathtext", fontset="dejavuserif")
+        rc("axes", linewidth=0.7)
+        rc("xtick", direction="in", top=true); rc("ytick", direction="in", right=true)
+        rc("xtick.minor", visible=true); rc("ytick.minor", visible=true)
+        rc("lines", linewidth=0.8)
+    end
+    _pub_style_off() = PyPlot.matplotlib.rcdefaults()
+
     """
 Plot like Basu & Mitra (2018) Fig. 2 right: amplitude (top) and phase (middle) at fp vs longitude for all
 windows (dots) + mean (black), profile (bottom). Longitude 0 = profile peak, as in the paper. Phase in the
 paper's convention (= minus ours): rising phase = subpulses move towards EARLIER longitudes ("negative
 drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4 for J1555-3134.
 """
-    function sliding_lrfs_tracks_plot(ts, labels, prof, lon, outfile; title_="", maxpts=3000, sign=-1)
+    function sliding_lrfs_tracks_plot(ts, labels, prof, lon, outfile; title_="", maxpts=3000, sign=-1, pub=false)
+        pub && _pub_style()
         # sign = -1: konwencja Basu & Mitra (rosnaca faza = dryf ku wczesniejszym dlugosciom); +1: nasza
         cols = ["red", "royalblue", "darkgreen"]; mcols = ["black", "navy", "olive"]
-        rc("font", size=7); rc("axes", linewidth=0.5)
+        pub || (rc("font", size=7); rc("axes", linewidth=0.5))
         figure(figsize=(4.5, 7))
         subplots_adjust(left=0.16, bottom=0.07, right=0.97, top=0.92, hspace=0.0)
         suptitle(title_, fontsize=6.5)
@@ -3606,7 +3620,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         subplot2grid((5, 1), (4, 0))
         plot(lon, prof ./ maximum(prof), c="grey"); xlim(lon[1], lon[end]); xlabel("longitude (°), 0 = profile peak"); yticks([])
         savefig(outfile); println(outfile)
-        close("all")
+        close("all"); pub && _pub_style_off()
     end
 
     "Second peak of the mean spectrum (Basu & Mitra 2018, J1555-3134): local maximum away from fp (> 3 FWHM,
@@ -3665,32 +3679,47 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         yv = basu ? st0 : r.centres .- 1
         c1, c2 = yv[1], yv[end]
 
-        rc("font", size=7); rc("axes", linewidth=0.5); rc("lines", linewidth=0.5)
-        figure(figsize=(7.5, 7))
-        subplots_adjust(left=0.08, bottom=0.08, right=0.97, top=0.9, wspace=0.0, hspace=0.0)
-        suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step" * (basu ? " (jak Basu & Mitra 2018)" : " (nasza wersja)"), fontsize=8)
-        ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
-        plot(E, 0:N-1, c="grey", lw=0.3)
-        ylim(c1, c2); xticks([]); ylabel(basu ? "start period of the window" : "pulse number (window centre)")
-        subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
-        imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
-               extent=[0, r.freq[end], c1, c2], vmin=0, vmax=basu ? max(1.5, quantile(vec(img), 0.995)) : quantile(vec(img), 0.995))
-        tick_params(labelleft=false, labelbottom=false)
-        subplot2grid((5, 7), (0, 4), rowspan=4, colspan=3, sharey=ax0)
-        imshow(basu ? -q.phase : q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
-               extent=[lon0[1], lon0[end], c1, c2], vmin=-180, vmax=180)
-        tick_params(labelleft=false, labelbottom=false)
-        title(@sprintf("faza przy fp = %.4f\n(P3 = %.2f P)", t1.fp, 1 / t1.fp), fontsize=6.5)
-        subplot2grid((5, 7), (4, 1), colspan=3)
-        plot(r.freq, basu ? avg ./ max(avg[kp], eps()) : avg, c="grey")
-        isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.6)
-        axvline(t1.fp, c="red", ls=":", lw=0.6)
-        xlim(0, r.freq[end]); xlabel("fluctuation frequency (cycles/P)"); ylabel(basu ? "mean" : "mean (S/N)")
-        subplot2grid((5, 7), (4, 4), colspan=3)
-        plot(lon0, prof ./ maximum(prof), c="grey"); xlim(lon0[1], lon0[end]); xlabel("longitude (°), 0 = profile peak"); yticks([])
-        f = joinpath(outdir, "$(name_mod)_$(tag)_sliding.pdf")
-        savefig(f); println(f)
-        show_ && (show(); println("Enter - dalej"); readline(stdin; keep=false))
+        if basu
+            # jak Basu & Mitra (2018) rys. 2 lewy: sama mapa - LRFS usrednione po oknie impulsu vs pierwszy impuls okna
+            _pub_style()
+            figure(figsize=(3.4, 4.6))
+            subplots_adjust(left=0.2, bottom=0.11, right=0.82, top=0.93)
+            title("$(name_mod)", fontsize=8)
+            imshow(img, origin="lower", aspect="auto", cmap=PUB_CMAP_BASU[], interpolation="nearest",
+                   extent=[0, r.freq[end], c1, c2], vmin=0, vmax=max(1.0, quantile(vec(img), 0.995)))
+            cb = colorbar(fraction=0.08, pad=0.03); cb.ax.tick_params(labelsize=7)
+            xlabel("Frequency (cycles/P)"); ylabel("Start period")
+            f = joinpath(outdir, "$(name_mod)_$(tag)_sliding.pdf")
+            savefig(f); println(f)
+            close("all"); _pub_style_off()
+        else
+            rc("font", size=7); rc("axes", linewidth=0.5); rc("lines", linewidth=0.5)
+            figure(figsize=(7.5, 7))
+            subplots_adjust(left=0.08, bottom=0.08, right=0.97, top=0.9, wspace=0.0, hspace=0.0)
+            suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step" * (basu ? " (jak Basu & Mitra 2018)" : " (nasza wersja)"), fontsize=8)
+            ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
+            plot(E, 0:N-1, c="grey", lw=0.3)
+            ylim(c1, c2); xticks([]); ylabel(basu ? "start period of the window" : "pulse number (window centre)")
+            subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
+            imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
+                   extent=[0, r.freq[end], c1, c2], vmin=0, vmax=basu ? max(1.5, quantile(vec(img), 0.995)) : quantile(vec(img), 0.995))
+            tick_params(labelleft=false, labelbottom=false)
+            subplot2grid((5, 7), (0, 4), rowspan=4, colspan=3, sharey=ax0)
+            imshow(basu ? -q.phase : q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
+                   extent=[lon0[1], lon0[end], c1, c2], vmin=-180, vmax=180)
+            tick_params(labelleft=false, labelbottom=false)
+            title(@sprintf("faza przy fp = %.4f\n(P3 = %.2f P)", t1.fp, 1 / t1.fp), fontsize=6.5)
+            subplot2grid((5, 7), (4, 1), colspan=3)
+            plot(r.freq, basu ? avg ./ max(avg[kp], eps()) : avg, c="grey")
+            isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.6)
+            axvline(t1.fp, c="red", ls=":", lw=0.6)
+            xlim(0, r.freq[end]); xlabel("fluctuation frequency (cycles/P)"); ylabel(basu ? "mean" : "mean (S/N)")
+            subplot2grid((5, 7), (4, 4), colspan=3)
+            plot(lon0, prof ./ maximum(prof), c="grey"); xlim(lon0[1], lon0[end]); xlabel("longitude (°), 0 = profile peak"); yticks([])
+            f = joinpath(outdir, "$(name_mod)_$(tag)_sliding.pdf")
+            savefig(f); println(f)
+            show_ && (show(); println("Enter - dalej"); readline(stdin; keep=false))
+        end
         close("all")
 
         function _info(t)
@@ -3706,7 +3735,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         info = "params P3 = " * ((p3 isa Number && p3 > 0) ? @sprintf("%.2f", p3) : "brak") * " | " *
                join(["szczyt $i: " * _info(t) for (i, t) in enumerate(ts)], " | ")
         println("  ", info)
-        sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_$(tag)_tracks.pdf"); sign=basu ? -1 : 1,
+        sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_$(tag)_tracks.pdf"); sign=basu ? -1 : 1, pub=basu,
                                  title_="$(name_mod): okno $window, krok $step" *
                                         (basu ? " (jak Basu & Mitra 2018, rys. 2)" : " (nasza: jedna częstotliwość na okno, nasza konwencja)") *
                                         "\n" * join([_info(t) for t in ts], "\n"))
@@ -3819,7 +3848,8 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
     averaged over blocks, the DC row (1/P3 = 0) set to zero, normalised so that the maximum = 1, logarithmic
     grey scale; profile on top. Longitude 0 = profile peak.
     """
-    function lrfs_tpa_plot(data, bin_st, bin_end, outfile; nfft=200, title_="")
+    function lrfs_tpa_plot(data, bin_st, bin_end, outfile; nfft=200, title_="", pub=true)
+        pub && _pub_style()
         N, nb = size(data)
         X, good = _demeaned(data)
         on = bin_st:bin_end
@@ -3835,7 +3865,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         prof = vec(mean(Float64.(data[good, on]), dims=1))
         lon = (collect(on) .- 1) .* (360 / nb)                  # dlugosc bezwzgledna w stopniach (jak w TPA XX)
         f = collect(0:nfft÷2) ./ nfft
-        rc("font", size=7); rc("axes", linewidth=0.5)
+        pub || (rc("font", size=7); rc("axes", linewidth=0.5))
         figure(figsize=(4.0, 5.5))
         subplots_adjust(left=0.16, bottom=0.08, right=0.97, top=0.9, hspace=0.0)
         suptitle(title_, fontsize=6.5)
@@ -3846,7 +3876,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                extent=[lon[1], lon[end], 0, f[end]], vmin=-3, vmax=0)
         xlabel("pulse longitude (°)"); ylabel("1/P₃ (cpp)")
         savefig(outfile); println(outfile)
-        close("all")
+        close("all"); pub && _pub_style_off()
         return (nblocks=nblk,)
     end
 
@@ -3859,7 +3889,8 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
     (their convention, see H25). Side panels: horizontally (left) and vertically (bottom) integrated power.
     1/P2 in cycles per period: column m of an n-bin window -> m·nbin/n cpp.
     """
-    function tdfs_tpa_plot(data, bin_st, bin_end, outfile; nfft=200, title_="")
+    function tdfs_tpa_plot(data, bin_st, bin_end, outfile; nfft=200, title_="", pub=true)
+        pub && _pub_style()
         N, nb = size(data)
         X, _ = _demeaned(data)
         on = bin_st:bin_end; n = length(on)
@@ -3877,7 +3908,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         m = collect(-(n ÷ 2):(n - 1 - n ÷ 2))
         x = reverse(m) .* (nb / n)                                # 1/P2 (cpp) po odbiciu
         f = collect(0:nfft÷2) ./ nfft
-        rc("font", size=7); rc("axes", linewidth=0.5)
+        pub || (rc("font", size=7); rc("axes", linewidth=0.5))
         figure(figsize=(4.5, 4.5))
         subplots_adjust(left=0.16, bottom=0.12, right=0.97, top=0.9, wspace=0.0, hspace=0.0)
         suptitle(title_, fontsize=6.5)
@@ -3890,16 +3921,17 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         subplot2grid((4, 4), (3, 1), colspan=3)
         plot(x, vec(sum(P, dims=1)), c="black"); xlim(x[end], x[1]); yticks([]); xlabel("1/P₂ (cpp)")
         savefig(outfile); println(outfile)
-        close("all")
+        close("all"); pub && _pub_style_off()
         return (nblocks=nblk,)
     end
 
     "Plot like TPA XX Fig. 4: profile + modulation amplitudes, phase histograms per feature with block-averaged
     phases and bootstrap errors, beat residual (if 3 features). Longitude 0 = profile peak."
-    function lrfs_phase_blocks_plot(res, lon, outfile; title_="", xlab="longitude (°), 0 = profile peak")
+    function lrfs_phase_blocks_plot(res, lon, outfile; title_="", xlab="longitude (°), 0 = profile peak", pub=false)
+        pub && _pub_style()
         nf = length(res.feats); nrow = 1 + nf + (isnothing(res.beat) ? 0 : 1)
         cols = ["royalblue", "green", "red"]; cmaps = ["Blues", "Greens", "Reds"]
-        rc("font", size=7); rc("axes", linewidth=0.5)
+        pub || (rc("font", size=7); rc("axes", linewidth=0.5))
         figure(figsize=(4.5, 1.6 * nrow + 0.6))
         subplots_adjust(left=0.15, bottom=0.06, right=0.97, top=0.93, hspace=0.0)
         suptitle(title_, fontsize=6.5)
@@ -3933,13 +3965,14 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                 v = res.beat[b, j]; isfinite(v) || continue
                 H[clamp(searchsortedlast(edges, v), 1, length(edges) - 1), j] += 1
             end
-            imshow(H ./ max(size(res.beat, 1), 1), origin="lower", aspect="auto", cmap="Oranges", extent=[lon[1], lon[end], -180, 180])   # biale = 0 (jak pozostale panele)
+            imshow(H ./ max(size(res.beat, 1), 1), origin="lower", aspect="auto", cmap=pub ? PyPlot.matplotlib.colors.LinearSegmentedColormap.from_list("brown", ["white", "#7b3f00"]) : "Oranges",
+                   extent=[lon[1], lon[end], -180, 180])   # TPA XX: brazowa mapa, biale = 0
             axhline(0, c="grey", ls="--", lw=0.5); ylim(-180, 180); yticks([-180, 0, 180]); xlim(lon[1], lon[end])
             ylabel("φ1 − (φ2 + φ3) (°)")
         end
         xlabel(xlab)
         savefig(outfile); println(outfile)
-        close("all")
+        close("all"); pub && _pub_style_off()
     end
 
 

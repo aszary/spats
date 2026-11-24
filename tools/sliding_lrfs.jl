@@ -91,7 +91,7 @@ function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, basu_step=50, outdir
                 tl = "$psr: jak TPA XX rys. 4 - bloki $(bl.block) impulsów, użyte $(bl.nblocks) (S/N ≥ 7 w ≥ 60/64)\n" *
                      "faza: konwencja TPA XX (rosnąca = dryf ku późniejszym długościom)" *
                      (length(p3s) == 3 ? (bl.beat_ok ? ", dół: reszta dudnień φ1−(φ2+φ3)" : ", biny k1 ≠ k2+k3 - bez reszty dudnień") : "")
-                Base.invokelatest(PL.lrfs_phase_blocks_plot, bl, lon, joinpath(od, "$(psr)_v3_tpa_phase.pdf"); title_=tl,
+                Base.invokelatest(PL.lrfs_phase_blocks_plot, bl, lon, joinpath(od, "$(psr)_v3_tpa_phase.pdf"); title_=tl, pub=true,
                                   xlab="pulse longitude (°)")
                 push!(pdfs, joinpath(od, "$(psr)_v3_tpa_phase.pdf"))
                 bs = isnothing(bl.beat) ? "" : @sprintf(", reszta dudnień: mediana |φ1−(φ2+φ3)| = %.0f° (losowo 90°)", median(abs.(filter(isfinite, bl.beat))))
