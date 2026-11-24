@@ -3919,7 +3919,8 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             end
             H ./= max(size(f.aligned, 1), 1)
             imshow(H, origin="lower", aspect="auto", cmap=cmaps[mod1(i, 3)], extent=[lon[1], lon[end], -180, 180])
-            ok = isfinite.(f.mean)
+            # srednia tylko w binach istotnych w >= polowie blokow (bez pojedynczych punktow szumu poza impulsem)
+            ok = isfinite.(f.mean) .& [mean(isfinite, @view f.aligned[:, j]) >= 0.5 for j in eachindex(lon)]
             m = mod.(f.mean .+ 180, 360) .- 180
             errorbar(lon[ok], m[ok], yerr=f.err[ok], fmt=".", ms=2, c="black", elinewidth=0.4, capsize=0)
             ylim(-180, 180); yticks([-180, 0, 180]); xlim(lon[1], lon[end]); tick_params(labelbottom=false)
@@ -3932,7 +3933,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                 v = res.beat[b, j]; isfinite(v) || continue
                 H[clamp(searchsortedlast(edges, v), 1, length(edges) - 1), j] += 1
             end
-            imshow(H ./ max(size(res.beat, 1), 1), origin="lower", aspect="auto", cmap="copper_r", extent=[lon[1], lon[end], -180, 180])
+            imshow(H ./ max(size(res.beat, 1), 1), origin="lower", aspect="auto", cmap="Oranges", extent=[lon[1], lon[end], -180, 180])   # biale = 0 (jak pozostale panele)
             axhline(0, c="grey", ls="--", lw=0.5); ylim(-180, 180); yticks([-180, 0, 180]); xlim(lon[1], lon[end])
             ylabel("φ1 − (φ2 + φ3) (°)")
         end
