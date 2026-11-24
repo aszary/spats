@@ -3705,6 +3705,37 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         close("all"); _pub_style_off()
     end
 
+    # V2 tracks tak jak w wersji 8b46134 (zaakceptowany wyglad): male, blade punkty wszystkich okien, srednie czarne/
+    # granatowe, opisy osi i tytul z liczbami, konwencja Basu & Mitra.
+    function sliding_lrfs_tracks_plot_v2(ts, labels, prof, lon, outfile; title_="", maxpts=3000, sign=-1)
+        # sign = -1: konwencja Basu & Mitra (rosnaca faza = dryf ku wczesniejszym dlugosciom); +1: nasza
+        cols = ["red", "royalblue", "darkgreen"]; mcols = ["black", "navy", "olive"]
+        rc("font", size=7); rc("axes", linewidth=0.5)
+        figure(figsize=(4.5, 7))
+        subplots_adjust(left=0.16, bottom=0.07, right=0.97, top=0.92, hspace=0.0)
+        suptitle(title_, fontsize=6.5)
+        for (panel, key, lab) in ((0, :amp, "amplitude at fp (× rms)"), (2, :phase, sign < 0 ? "phase at fp (°), 0 at profile peak\n(Basu & Mitra convention)" :
+                                                                                 "phase at fp (°), 0 at profile peak\n(ours: rising = later longitudes)"))
+            subplot2grid((5, 1), (panel, 0), rowspan=2)
+            for (i, t) in enumerate(ts)
+                M = key == :amp ? t.amp : sign .* t.phase
+                rows = findall(b -> any(isfinite, @view M[b, :]), axes(M, 1))
+                sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
+                for b in sel; scatter(lon, M[b, :], s=0.5, c=cols[mod1(i, 3)], alpha=0.12, lw=0); end
+                # srednia tylko tam, gdzie bin jest istotny w >= polowie okien (inaczej pojedyncze szumowe
+                # przekroczenia 3 sigma daja czarne punkty poza oknem impulsu - J0820, J1034)
+                m = [let v = filter(isfinite, M[rows, j]); length(v) < 0.5 * length(rows) ? NaN : mean(v) end for j in axes(M, 2)]
+                scatter(lon, m, s=3, c=mcols[mod1(i, 3)], label=labels[i])
+            end
+            ylabel(lab); xlim(lon[1], lon[end]); tick_params(labelbottom=false)
+            panel == 0 && length(ts) > 1 && legend(fontsize=6, markerscale=2)
+        end
+        subplot2grid((5, 1), (4, 0))
+        plot(lon, prof ./ maximum(prof), c="grey"); xlim(lon[1], lon[end]); xlabel("longitude (°), 0 = profile peak"); yticks([])
+        savefig(outfile); println(outfile)
+        close("all")
+    end
+
     "Second peak of the mean spectrum (Basu & Mitra 2018, J1555-3134): local maximum away from fp (> 3 FWHM,
     > 4 bins), not at the lowest frequencies (nulls), at least `frac` of the main peak height above the floor."
     function _second_peak(spec, freq, kp, fwhm, window; frac=0.3)
@@ -3737,10 +3768,10 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         N, nb = size(data)
         p3 = get(p, "p3", nothing)
         r = sliding_lrfs_compute(data, bst, bend; window=window, step=step)
-        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3, per_bin=basu)
+        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3, per_bin=basu, common_unwrap=!basu)
         f2 = _second_peak(t1.spec, t1.freq, round(Int, t1.fp * window), t1.fwhm, window)
         t2 = isnothing(f2) ? nothing : sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=1 / f2,
-                                                           per_bin=basu)
+                                                           per_bin=basu, common_unwrap=!basu)
         q = sliding_lrfs_phase(data, t1.fp, bst, bend; window=window, step=step, nsig=nsig)
         mkpath(outdir)
         open(joinpath(outdir, "$(name_mod)_$(tag)_sliding.csv"), "w") do io
@@ -3829,7 +3860,13 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         info = "params P3 = " * ((p3 isa Number && p3 > 0) ? @sprintf("%.2f", p3) : "brak") * " | " *
                join(["szczyt $i: " * _info(t) for (i, t) in enumerate(ts)], " | ")
         println("  ", info)
-        sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_$(tag)_tracks.pdf"); sign=basu ? -1 : 1,
+        basu && sliding_lrfs_tracks_plot_v2([t1; isnothing(t2) ? [] : [t2]], labs, prof, lon0,
+                                            joinpath(outdir, "$(name_mod)_$(tag)_tracks.pdf"); sign=-1,
+                                            title_="$(name_mod): okno $window, krok $step (jak Basu & Mitra 2018, rys. 2)
+" *
+                                                   join([_info(t) for t in ts], "
+"))
+        basu || sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_$(tag)_tracks.pdf"); sign=1,
                                  note=basu ? "" : "rising phase = drift to later longitudes",
                                  title_="PSR $(name_mod)   nfft=$window   Nperiod=$N" * (basu ? "" : "   (krok $step)"))
         open(joinpath(outdir, "$(name_mod)_$(tag)_tracks.txt"), "w") do io
