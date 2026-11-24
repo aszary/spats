@@ -3476,6 +3476,23 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
     end
 
     """
+Podzial okna impulsu na skladowe: minimum profilu (wygladzonego) miedzy dwoma najwyzszymi maksimami (> 20%
+szczytu, co najmniej 10 binow od siebie). Faza przez przerwe miedzy skladowymi jest niejednoznaczna o 360°
+(Basu & Mitra 2018; TPA XX), wiec nachylenia liczymy osobno w kazdej skladowej (jak ich tabela 2).
+"""
+    function _profile_components(prof)
+        ps = [mean(prof[max(1, j - 2):min(length(prof), j + 2)]) for j in eachindex(prof)]
+        mx = [j for j in 2:length(ps)-1 if ps[j] >= ps[j-1] && ps[j] >= ps[j+1] && ps[j] > 0.2maximum(ps)]
+        length(mx) < 2 && return [1:length(prof)]
+        top = sort(mx, by=j -> -ps[j])
+        q = findfirst(j -> abs(j - top[1]) >= 10, top[2:end])
+        isnothing(q) && return [1:length(prof)]
+        lo, hi = minmax(top[1], top[1 + q])
+        cut = lo - 1 + argmin(ps[lo:hi])
+        return [1:cut, cut+1:length(prof)]
+    end
+
+    """
         sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0)
 
     Method of Basu & Mitra (2018, MNRAS 475, 5098), with a step of `step` pulses (they used 50): the peak
@@ -3570,7 +3587,46 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
                 slope[b] = sum((x .- mean(x)) .* (y .- mean(y))) / max(sum((x .- mean(x)) .^ 2), eps())
             end
         end
-        return (amp=A, phase=Φ, slope=slope, fp=freq[kp], fwhm=fwhm, S=Sfac, jref=jref, spec=spec, freq=freq,
+        # Rozwiniecie wzgledem WSPOLNEJ sciezki: kazde okno rozwijane osobno gubilo w slabym miejscu miedzy
+        # skladowymi pelny obrot, wiec czesc okien lądowala w rownoleglych "kopiach", a srednia wypadala miedzy
+        # nimi (J1555). Sciezka odniesienia = srednia kolowa po oknach w kazdym binie, rozwinieta od szczytu
+        # profilu; kazdy punkt przesuwany o wielokrotnosc 360° najblizej tej sciezki; nachylenia od nowa.
+        if any(isfinite, Φ)
+            ref = [let v = filter(isfinite, Φ[:, j]); length(v) < 0.2 * size(Φ, 1) ? NaN : rad2deg(angle(sum(cis.(deg2rad.(v))))) end
+                   for j in axes(Φ, 2)]
+            for dir in (1, -1)
+                prev = isfinite(ref[jref]) ? ref[jref] : 0.0
+                j = jref + dir
+                while 1 <= j <= length(ref)
+                    if isfinite(ref[j])
+                        ref[j] -= 360 * round((ref[j] - prev) / 360); prev = ref[j]
+                    end
+                    j += dir
+                end
+            end
+            for j in axes(Φ, 2)
+                isfinite(ref[j]) || continue
+                for b in axes(Φ, 1)
+                    isfinite(Φ[b, j]) && (Φ[b, j] += 360 * round((ref[j] - Φ[b, j]) / 360))
+                end
+            end
+            for b in axes(Φ, 1)
+                js = findall(isfinite, @view Φ[b, :])
+                length(js) >= 3 || (slope[b] = NaN; continue)
+                x = (js .- jref) .* dlon; y = Φ[b, js]
+                slope[b] = sum((x .- mean(x)) .* (y .- mean(y))) / max(sum((x .- mean(x)) .^ 2), eps())
+            end
+        end
+        # nachylenia osobno w kazdej skladowej (przez przerwe faza niejednoznaczna o 360°)
+        comps = _profile_components(prof)
+        cslope = fill(NaN, length(starts), length(comps))
+        for (c, r) in enumerate(comps), b in axes(Φ, 1)
+            js = [j for j in r if isfinite(Φ[b, j])]
+            length(js) >= 3 || continue
+            x = js .* dlon; y = Φ[b, js]
+            cslope[b, c] = sum((x .- mean(x)) .* (y .- mean(y))) / max(sum((x .- mean(x)) .^ 2), eps())
+        end
+        return (amp=A, phase=Φ, slope=slope, cslope=cslope, comps=comps, fp=freq[kp], fwhm=fwhm, S=Sfac, jref=jref, spec=spec, freq=freq,
                 starts=starts, window=window, step=step)
     end
 
@@ -3613,6 +3669,9 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                 # przekroczenia 3 sigma daja czarne punkty poza oknem impulsu - J0820, J1034)
                 m = [let v = filter(isfinite, M[rows, j]); length(v) < 0.5 * length(rows) ? NaN : mean(v) end for j in axes(M, 2)]
                 scatter(lon, m, s=3, c=mcols[mod1(i, 3)], label=labels[i])
+            end
+            for t in ts[1:1], r in t.comps[1:end-1]
+                axvline(lon[last(r)] + (lon[2] - lon[1]) / 2, c="grey", ls="--", lw=0.6)    # granica skladowych
             end
             ylabel(lab); xlim(lon[1], lon[end]); tick_params(labelbottom=false)
             panel == 0 && length(ts) > 1 && legend(fontsize=6, markerscale=2)
@@ -3725,9 +3784,10 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         function _info(t)
             sl = filter(isfinite, t.slope)
             sg = basu ? -1 : 1
-            @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą %d z %d, nachylenie fazy %.1f ± %.1f °/° (%s)",
-                     t.fp, 1 / t.fp, t.fwhm, t.S, length(sl), length(t.starts),
-                     isempty(sl) ? NaN : sg * mean(sl), length(sl) > 1 ? std(sl) : NaN,
+            cs = join([let v = filter(isfinite, t.cslope[:, c]); length(v) < 3 ? "skł.$c -" : @sprintf("skł.%d %.1f ± %.1f", c, sg * mean(v), std(v)) end
+                       for c in axes(t.cslope, 2)], ", ")
+            @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą %d z %d, nachylenie fazy w składowych: %s °/° (%s)",
+                     t.fp, 1 / t.fp, t.fwhm, t.S, length(sl), length(t.starts), cs,
                      basu ? "konwencja Basu & Mitra: + = dryf ku wcześniejszym długościom" : "nasza: + = dryf ku późniejszym długościom")
         end
         ts = isnothing(t2) ? [t1] : [t1, t2]
