@@ -3649,7 +3649,7 @@ windows (dots) + mean (black), profile (bottom). Longitude 0 = profile peak, as 
 paper's convention (= minus ours): rising phase = subpulses move towards EARLIER longitudes ("negative
 drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4 for J1555-3134.
 """
-    function sliding_lrfs_tracks_plot(ts, labels, prof, lon, outfile; title_="", maxpts=3000, sign=-1, pub=true, note="")
+    function sliding_lrfs_tracks_plot(ts, labels, prof, lon, outfile; title_="", maxpts=150, sign=-1, pub=true, note="")
         # wyglad jak Basu & Mitra (2018) rys. 4 (dla V1 i V2): chmury punktow okien w kolorach pikow (czerwony, zielony),
         # srednie czarne (pik 1: pelne kola, pik 2: puste kwadraty), opis pikow kolorowym tekstem, profil pod spodem.
         # sign = -1: konwencja Basu & Mitra (rosnaca faza = dryf ku wczesniejszym dlugosciom); +1: nasza
@@ -3668,9 +3668,15 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             for (i, t) in enumerate(ts)
                 M = key == :amp ? t.amp ./ amax : sign .* t.phase
                 rows = findall(b -> any(isfinite, @view M[b, :]), axes(M, 1))
-                sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
-                for b in sel; scatter(lon, M[b, :], s=1.2, c=cols[mod1(i, 3)], alpha=0.3, lw=0); end
+                # srednia i punkty okien tylko w binach, gdzie faza jest mierzalna w >= polowie okien (jak w publikacji:
+                # pusto miedzy skladowymi i poza impulsem); rysowane najwyzej `maxpts` okien (srednia ze wszystkich)
                 m = [let v = filter(isfinite, M[rows, j]); length(v) < 0.5 * length(rows) ? NaN : mean(v) end for j in axes(M, 2)]
+                keep = isfinite.(m)
+                sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
+                for b in sel
+                    v = M[b, :]; v[.!keep] .= NaN
+                    scatter(lon, v, s=1.5, c=cols[mod1(i, 3)], alpha=0.5, lw=0)
+                end
                 k = mk[mod1(i, 3)]
                 scatter(lon, m, s=k.m == "o" ? 7 : 12, marker=k.m, facecolors=k.fc, edgecolors="black", lw=0.6, zorder=3)
             end
