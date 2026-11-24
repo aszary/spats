@@ -3505,8 +3505,10 @@ szczytu, co najmniej 10 binow od siebie). Faza przez przerwe miedzy skladowymi j
     """
     function sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0, p3=nothing, per_bin=false,
                                  common_unwrap=true)
-        # V2 (dokladnie jak Basu & Mitra 2018): per_bin=true, common_unwrap=false - w kazdym binie najsilniejsza
-        # czestotliwosc w fp +- 3df, faza 0 w szczycie profilu, rozwijana w kazdym oknie od szczytu profilu.
+        # V2 (jak Basu & Mitra 2018): per_bin=true - w kazdym binie najsilniejsza czestotliwosc w fp +- 3df, faza 0
+        # w szczycie profilu; obrot fazy najblizszy sredniej (publikacja tego nie opisuje, ale ich zwarte chmury
+        # punktow tego wymagaja; rozwijanie osobno w kazdym oknie dawalo rozrzut 124-152° zamiast 15-43° - test
+        # syntetyczny). common_unwrap=false zostaje jako opcja.
         # V1 (nasza): jedna czestotliwosc na okno + rozwiniecie wzgledem wspolnej sciezki (bez kopii o 360°).
         # per_bin=true: jak w publikacji - w kazdym binie dlugosci osobno najsilniejsza czestotliwosc w fp +- 3df
         # (Basu & Mitra 2018); false: jedna czestotliwosc na okno (bez skokow fazy miedzy binami)
@@ -3735,10 +3737,10 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         N, nb = size(data)
         p3 = get(p, "p3", nothing)
         r = sliding_lrfs_compute(data, bst, bend; window=window, step=step)
-        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3, per_bin=basu, common_unwrap=!basu)
+        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3, per_bin=basu)
         f2 = _second_peak(t1.spec, t1.freq, round(Int, t1.fp * window), t1.fwhm, window)
         t2 = isnothing(f2) ? nothing : sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=1 / f2,
-                                                           per_bin=basu, common_unwrap=!basu)
+                                                           per_bin=basu)
         q = sliding_lrfs_phase(data, t1.fp, bst, bend; window=window, step=step, nsig=nsig)
         mkpath(outdir)
         open(joinpath(outdir, "$(name_mod)_$(tag)_sliding.csv"), "w") do io
