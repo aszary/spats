@@ -3486,7 +3486,9 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
     profile peak (as in the paper) and unwrapped outwards from it. Per window a straight line is fitted
     to the significant phases (slope in deg/deg) - its spread is the temporal variation of the drift.
     """
-    function sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0, p3=nothing)
+    function sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0, p3=nothing, per_bin=false)
+        # per_bin=true: jak w publikacji - w kazdym binie dlugosci osobno najsilniejsza czestotliwosc w fp +- 3df
+        # (Basu & Mitra 2018); false: jedna czestotliwosc na okno (bez skokow fazy miedzy binami)
         N, nb = size(data)
         X, good = _demeaned(data)
         on = collect(bin_st:bin_end); off = _far_offpulse(nb, bin_st, bin_end)
@@ -3542,7 +3544,8 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
             k = band[argmax([sum(abs2, @view Fo[k + 1, :]) for k in band])]
             amp = zeros(length(on)); ph = zeros(length(on))
             for j in eachindex(on)
-                c = conj(Fo[k + 1, j])                       # conj: kernel e^(+2πi f n)
+                kj = per_bin ? band[argmax([abs(Fo[kk + 1, j]) for kk in band])] : k
+                c = conj(Fo[kj + 1, j])                      # conj: kernel e^(+2πi f n)
                 amp[j] = abs(c); ph[j] = rad2deg(angle(c))
             end
             sig = amp .> nsig * rms
@@ -3577,16 +3580,18 @@ windows (dots) + mean (black), profile (bottom). Longitude 0 = profile peak, as 
 paper's convention (= minus ours): rising phase = subpulses move towards EARLIER longitudes ("negative
 drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4 for J1555-3134.
 """
-    function sliding_lrfs_tracks_plot(ts, labels, prof, lon, outfile; title_="", maxpts=3000)
+    function sliding_lrfs_tracks_plot(ts, labels, prof, lon, outfile; title_="", maxpts=3000, sign=-1)
+        # sign = -1: konwencja Basu & Mitra (rosnaca faza = dryf ku wczesniejszym dlugosciom); +1: nasza
         cols = ["red", "royalblue", "darkgreen"]; mcols = ["black", "navy", "olive"]
         rc("font", size=7); rc("axes", linewidth=0.5)
         figure(figsize=(4.5, 7))
         subplots_adjust(left=0.16, bottom=0.07, right=0.97, top=0.92, hspace=0.0)
         suptitle(title_, fontsize=6.5)
-        for (panel, key, lab) in ((0, :amp, "amplitude at fp (× rms)"), (2, :phase, "phase at fp (°), 0 at profile peak\n(Basu & Mitra convention)"))
+        for (panel, key, lab) in ((0, :amp, "amplitude at fp (× rms)"), (2, :phase, sign < 0 ? "phase at fp (°), 0 at profile peak\n(Basu & Mitra convention)" :
+                                                                                 "phase at fp (°), 0 at profile peak\n(ours: rising = later longitudes)"))
             subplot2grid((5, 1), (panel, 0), rowspan=2)
             for (i, t) in enumerate(ts)
-                M = key == :amp ? t.amp : -t.phase
+                M = key == :amp ? t.amp : sign .* t.phase
                 rows = findall(b -> any(isfinite, @view M[b, :]), axes(M, 1))
                 sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
                 for b in sel; scatter(lon, M[b, :], s=0.5, c=cols[mod1(i, 3)], alpha=0.12, lw=0); end
@@ -3634,9 +3639,9 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         N, nb = size(data)
         p3 = get(p, "p3", nothing)
         r = sliding_lrfs_compute(data, bst, bend; window=window, step=step)
-        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3)
+        t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3, per_bin=basu)
         f2 = _second_peak(t1.spec, t1.freq, round(Int, t1.fp * window), t1.fwhm, window)
-        t2 = isnothing(f2) ? nothing : sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=1 / f2)
+        t2 = isnothing(f2) ? nothing : sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=1 / f2, per_bin=basu)
         q = sliding_lrfs_phase(data, t1.fp, bst, bend; window=window, step=step, nsig=nsig)
         mkpath(outdir)
         open(joinpath(outdir, "$(name_mod)_$(tag)_sliding.csv"), "w") do io
@@ -3688,22 +3693,26 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
 
         function _info(t)
             sl = filter(isfinite, t.slope)
-            @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą %d z %d, nachylenie fazy %.1f ± %.1f °/° (konwencja Basu & Mitra; nasza = minus)",
+            sg = basu ? -1 : 1
+            @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą %d z %d, nachylenie fazy %.1f ± %.1f °/° (%s)",
                      t.fp, 1 / t.fp, t.fwhm, t.S, length(sl), length(t.starts),
-                     isempty(sl) ? NaN : -mean(sl), length(sl) > 1 ? std(sl) : NaN)
+                     isempty(sl) ? NaN : sg * mean(sl), length(sl) > 1 ? std(sl) : NaN,
+                     basu ? "konwencja Basu & Mitra: + = dryf ku wcześniejszym długościom" : "nasza: + = dryf ku późniejszym długościom")
         end
         ts = isnothing(t2) ? [t1] : [t1, t2]
         labs = [@sprintf("P3 = %.2f P", 1 / t.fp) for t in ts]
         info = "params P3 = " * ((p3 isa Number && p3 > 0) ? @sprintf("%.2f", p3) : "brak") * " | " *
                join(["szczyt $i: " * _info(t) for (i, t) in enumerate(ts)], " | ")
         println("  ", info)
-        basu && sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_v2_basu_mitra_tracks.pdf");
-                                 title_="$(name_mod): okno $window, krok $step (jak Basu & Mitra 2018, rys. 2)\n" * join([_info(t) for t in ts], "\n"))
+        sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_$(tag)_tracks.pdf"); sign=basu ? -1 : 1,
+                                 title_="$(name_mod): okno $window, krok $step" *
+                                        (basu ? " (jak Basu & Mitra 2018, rys. 2)" : " (nasza: jedna częstotliwość na okno, nasza konwencja)") *
+                                        "\n" * join([_info(t) for t in ts], "\n"))
         open(joinpath(outdir, "$(name_mod)_$(tag)_tracks.txt"), "w") do io
             println(io, info)
-            println(io, "peak,window_start,slope_deg_per_deg_BasuMitra")
+            println(io, basu ? "peak,window_start,slope_deg_per_deg_BasuMitra" : "peak,window_start,slope_deg_per_deg_ours")
             for (i, t) in enumerate(ts), b in eachindex(t.starts)
-                @printf(io, "%d,%d,%.5f\n", i, t.starts[b] - 1, -t.slope[b])
+                @printf(io, "%d,%d,%.5f\n", i, t.starts[b] - 1, (basu ? -1 : 1) * t.slope[b])
             end
         end
         return (spectrum=r, tracks=ts, info=info)
@@ -3822,9 +3831,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         P[1, :] .= 0.0
         P ./= maximum(P)
         prof = vec(mean(Float64.(data[good, on]), dims=1))
-        jref = argmax(prof)
-        dl = 360 * length(on) / nb
-        lon = collect(range(-dl / 2, dl / 2, length=length(on))); lon .-= lon[jref]
+        lon = (collect(on) .- 1) .* (360 / nb)                  # dlugosc bezwzgledna w stopniach (jak w TPA XX)
         f = collect(0:nfft÷2) ./ nfft
         rc("font", size=7); rc("axes", linewidth=0.5)
         figure(figsize=(4.0, 5.5))
@@ -3835,7 +3842,51 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         subplot2grid((4, 1), (1, 0), rowspan=3)
         imshow(log10.(max.(P, 1e-4)), origin="lower", aspect="auto", cmap="Greys",
                extent=[lon[1], lon[end], 0, f[end]], vmin=-3, vmax=0)
-        xlabel("longitude (°), 0 = profile peak"); ylabel("1/P₃ (cpp)")
+        xlabel("pulse longitude (°)"); ylabel("1/P₃ (cpp)")
+        savefig(outfile); println(outfile)
+        close("all")
+        return (nblocks=nblk,)
+    end
+
+    """
+        tdfs_tpa_plot(data, bin_st, bin_end, outfile; nfft=200, title_="")
+
+    Magnitude 2DFS like TPA XX (Hsu+2026) Fig. 3 for the whole on-pulse window: continuous blocks of
+    `nfft` pulses, power averaged over blocks, magnitude = sqrt(power), DC row (1/P3 = 0) set to zero,
+    normalised to max = 1, grey scale capped at 50%; horizontally FLIPPED w.r.t. the mathematical 2D FFT
+    (their convention, see H25). Side panels: horizontally (left) and vertically (bottom) integrated power.
+    1/P2 in cycles per period: column m of an n-bin window -> m·nbin/n cpp.
+    """
+    function tdfs_tpa_plot(data, bin_st, bin_end, outfile; nfft=200, title_="")
+        N, nb = size(data)
+        X, _ = _demeaned(data)
+        on = bin_st:bin_end; n = length(on)
+        nblk = N ÷ nfft
+        nblk >= 1 || return nothing
+        P = zeros(nfft, n)
+        for b in 1:nblk
+            B = X[(b-1)*nfft+1:b*nfft, on]; B .-= mean(B, dims=1)
+            P .+= abs2.(fft(B))
+        end
+        P = fftshift(P, 2)[1:nfft÷2+1, :]                        # 1/P3 od 0 do 0.5, 1/P2 od ujemnych do dodatnich
+        P[1, :] .= 0.0
+        P = reverse(P, dims=2)                                    # konwencja TPA XX: odbicie w poziomie
+        M = sqrt.(P); M ./= maximum(M)
+        m = collect(-(n ÷ 2):(n - 1 - n ÷ 2))
+        x = reverse(m) .* (nb / n)                                # 1/P2 (cpp) po odbiciu
+        f = collect(0:nfft÷2) ./ nfft
+        rc("font", size=7); rc("axes", linewidth=0.5)
+        figure(figsize=(4.5, 4.5))
+        subplots_adjust(left=0.16, bottom=0.12, right=0.97, top=0.9, wspace=0.0, hspace=0.0)
+        suptitle(title_, fontsize=6.5)
+        subplot2grid((4, 4), (0, 0), rowspan=3)
+        plot(vec(sum(P, dims=2)), f, c="black"); ylim(0, f[end]); xticks([]); ylabel("1/P₃ (cpp)")
+        gca().invert_xaxis()
+        subplot2grid((4, 4), (0, 1), rowspan=3, colspan=3)
+        imshow(M, origin="lower", aspect="auto", cmap="Greys", extent=[x[end], x[1], 0, f[end]], vmin=0, vmax=0.5)
+        tick_params(labelleft=false, labelbottom=false)
+        subplot2grid((4, 4), (3, 1), colspan=3)
+        plot(x, vec(sum(P, dims=1)), c="black"); xlim(x[end], x[1]); yticks([]); xlabel("1/P₂ (cpp)")
         savefig(outfile); println(outfile)
         close("all")
         return (nblocks=nblk,)
@@ -3843,7 +3894,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
 
     "Plot like TPA XX Fig. 4: profile + modulation amplitudes, phase histograms per feature with block-averaged
     phases and bootstrap errors, beat residual (if 3 features). Longitude 0 = profile peak."
-    function lrfs_phase_blocks_plot(res, lon, outfile; title_="")
+    function lrfs_phase_blocks_plot(res, lon, outfile; title_="", xlab="longitude (°), 0 = profile peak")
         nf = length(res.feats); nrow = 1 + nf + (isnothing(res.beat) ? 0 : 1)
         cols = ["royalblue", "green", "red"]; cmaps = ["Blues", "Greens", "Reds"]
         rc("font", size=7); rc("axes", linewidth=0.5)
@@ -3883,7 +3934,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             axhline(0, c="grey", ls="--", lw=0.5); ylim(-180, 180); yticks([-180, 0, 180]); xlim(lon[1], lon[end])
             ylabel("φ1 − (φ2 + φ3) (°)")
         end
-        xlabel("longitude (°), 0 = profile peak")
+        xlabel(xlab)
         savefig(outfile); println(outfile)
         close("all")
     end

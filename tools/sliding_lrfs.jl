@@ -3,11 +3,13 @@
 # Dane: surowe impulsy (kanały jak w pazur2), wycięte TYLKO RFI (zaps2_rfi), nulle zostają (jak w publikacjach).
 # Dla każdego pulsara w /home/psr/data/OUTPUT/sliding_lrfs/<psr>/:
 # trzy wersje:
-#   V1 nasza:       <psr>_v1_nasza_lrfs.pdf (LRFS, poprawiony panel fazy), _v1_nasza_psrsalsa_lrfs.pdf (plik pspec),
-#                   _v1_nasza_sliding.pdf (sliding LRFS krok 1: moc/szum, jasność impulsów, faza przy P3 w oknach)
+#   V1 nasza (te same rodzaje wykresów, nasze założenia): _v1_nasza_lrfs.pdf (LRFS, poprawiony panel fazy),
+#                   _v1_nasza_psrsalsa_lrfs.pdf (plik pspec), _v1_nasza_sliding.pdf (sliding LRFS krok 1: moc/szum,
+#                   jasność impulsów, faza przy P3), _v1_nasza_tracks.pdf (amplituda i faza przy fp, krok 1, jedna
+#                   częstotliwość na okno), _v1_nasza_phase.pdf (histogram faz, bloki 64 bez selekcji S/N)
 #   V2 Basu&Mitra:  _v2_basu_mitra_sliding.pdf (rys. 2 lewy: okno 256, krok 50, średni szczyt = 1),
 #                   _v2_basu_mitra_tracks.pdf (rys. 2 prawy: amplituda i faza przy fp dla okien, 0 w szczycie profilu)
-#   V3 TPA XX:      _v3_tpa_lrfs.pdf (rys. 2: FFT 200, DC = 0, max = 1, skala log),
+#   V3 TPA XX:      _v3_tpa_lrfs.pdf (rys. 2: FFT 200, DC = 0, max = 1, skala log), _v3_tpa_2dfs.pdf (rys. 3),
 #                   _v3_tpa_phase.pdf (rys. 4: fazy w blokach 64, wyrównane, histogram + średnia, reszta dudnień)
 # Na koniec wszystko w jednym pliku: sliding_lrfs/wszystkie.pdf (pdfunite).
 isdefined(Main, :F7_DIR) || include(joinpath(@__DIR__, "final_v7.jl"))
@@ -57,25 +59,40 @@ function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, basu_step=50, outdir
                 push!(pdfs, joinpath(od, "$(psr)_v1_nasza_psrsalsa_lrfs.pdf"))
             end
             N > window || (push!(summary, "    za mało impulsów na okno $window"); continue)
-            Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=step, name_mod=psr, style=:nasza)
-            push!(pdfs, joinpath(od, "$(psr)_v1_nasza_sliding.pdf"))
+            r1 = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=step, name_mod=psr, style=:nasza)
+            push!(pdfs, joinpath(od, "$(psr)_v1_nasza_sliding.pdf"), joinpath(od, "$(psr)_v1_nasza_tracks.pdf"))
+            push!(summary, "    V1 nasza: " * r1.info)
+            # histogram faz jak w TPA XX, ale po naszemu: bloki 64 bez selekcji S/N, 0 w szczycie profilu
+            p3s1 = get(SL_P3S, psr, [1 / t.fp for t in r1.tracks])
+            b1 = Base.invokelatest(PL.lrfs_phase_blocks, D, bst, bend, p3s1; snr_min=-Inf)
+            if b1.nblocks >= 3
+                dl = 360 * (bend - bst + 1) / size(D, 2)
+                lon1 = collect(range(-dl / 2, dl / 2, length=bend - bst + 1)); lon1 .-= lon1[b1.jref]
+                Base.invokelatest(PL.lrfs_phase_blocks_plot, b1, lon1, joinpath(od, "$(psr)_v1_nasza_phase.pdf");
+                                  title_="$psr: nasza wersja - bloki 64 impulsów, wszystkie ($(b1.nblocks)), bez selekcji S/N
+" *
+                                         "faza: nasza konwencja (rosnąca = dryf ku późniejszym długościom), 0 w szczycie profilu")
+                push!(pdfs, joinpath(od, "$(psr)_v1_nasza_phase.pdf"))
+            end
             # ---------- V2: jak Basu & Mitra (2018) - okno 256, krok jak u nich (50), rys. 2 lewy i prawy
             res = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=basu_step, name_mod=psr, style=:basu)
             push!(pdfs, joinpath(od, "$(psr)_v2_basu_mitra_sliding.pdf"), joinpath(od, "$(psr)_v2_basu_mitra_tracks.pdf"))
             push!(summary, "    V2 Basu & Mitra: " * res.info)
             # ---------- V3: jak TPA XX (Hsu+2026) - LRFS (FFT 200, rys. 2) + fazy w blokach 64 (rys. 4)
             Base.invokelatest(PL.lrfs_tpa_plot, D, bst, bend, joinpath(od, "$(psr)_v3_tpa_lrfs.pdf");
-                              nfft=200, title_="$psr: LRFS jak TPA XX (FFT 200, DC = 0, max = 1, skala log)")
-            push!(pdfs, joinpath(od, "$(psr)_v3_tpa_lrfs.pdf"))
+                              nfft=200, title_="$psr: LRFS jak TPA XX rys. 2b (FFT 200, DC = 0, max = 1, skala log)")
+            Base.invokelatest(PL.tdfs_tpa_plot, D, bst, bend, joinpath(od, "$(psr)_v3_tpa_2dfs.pdf");
+                              nfft=200, title_="$psr: 2DFS jak TPA XX rys. 3 (FFT 200, |F|, DC = 0, max = 1, skala do 50%, odbite w poziomie)")
+            push!(pdfs, joinpath(od, "$(psr)_v3_tpa_lrfs.pdf"), joinpath(od, "$(psr)_v3_tpa_2dfs.pdf"))
             p3s = get(SL_P3S, psr, [1 / t.fp for t in res.tracks])
             bl = Base.invokelatest(PL.lrfs_phase_blocks, D, bst, bend, p3s)
             if bl.nblocks >= 3
-                dl = 360 * (bend - bst + 1) / size(D, 2)
-                lon = collect(range(-dl / 2, dl / 2, length=bend - bst + 1)); lon .-= lon[bl.jref]
+                lon = (collect(bst:bend) .- 1) .* (360 / size(D, 2))     # dlugosc bezwzgledna, jak w TPA XX
                 tl = "$psr: jak TPA XX rys. 4 - bloki $(bl.block) impulsów, użyte $(bl.nblocks) (S/N ≥ 7 w ≥ 60/64)\n" *
                      "faza: konwencja TPA XX (rosnąca = dryf ku późniejszym długościom)" *
                      (length(p3s) == 3 ? (bl.beat_ok ? ", dół: reszta dudnień φ1−(φ2+φ3)" : ", biny k1 ≠ k2+k3 - bez reszty dudnień") : "")
-                Base.invokelatest(PL.lrfs_phase_blocks_plot, bl, lon, joinpath(od, "$(psr)_v3_tpa_phase.pdf"); title_=tl)
+                Base.invokelatest(PL.lrfs_phase_blocks_plot, bl, lon, joinpath(od, "$(psr)_v3_tpa_phase.pdf"); title_=tl,
+                                  xlab="pulse longitude (°)")
                 push!(pdfs, joinpath(od, "$(psr)_v3_tpa_phase.pdf"))
                 bs = isnothing(bl.beat) ? "" : @sprintf(", reszta dudnień: mediana |φ1−(φ2+φ3)| = %.0f° (losowo 90°)", median(abs.(filter(isfinite, bl.beat))))
                 push!(summary, "    V3 TPA XX: bloki 64: $(bl.nblocks) użytych, cechy P3 = " *
