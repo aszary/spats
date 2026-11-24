@@ -6,6 +6,8 @@
 # Pliki: /home/psr/data/OUTPUT/sliding_lrfs/<psr>/<psr>_lrfs_anim.pdf i .gif
 isdefined(Main, :_sl_data) || include(joinpath(@__DIR__, "sliding_lrfs.jl"))
 using PyPlot, PyCall
+# wycinek Pythona (slice) do indeksowania GridSpec, np. gs[0, 1:4] -> get(gs, (0, _ps(1, 4)))
+_ps(a, b) = pybuiltin("slice")(a, b)
 
 "Dane klatek: dla kazdego okna |LRFS| (czestotliwosc x dlugosc), widmo, faza przy fp, profil okna."
 function _anim_prepare(D, p; window=256, step=8, nsig=3.0)
@@ -66,31 +68,31 @@ function _anim_setup(fig, d, psr; bottom=0.08)
     ttl = fig.suptitle("", fontsize=9)
     gs = fig.add_gridspec(5, 6, hspace=0.0, wspace=0.0, left=0.08, right=0.92, bottom=bottom, top=0.9)
     # faza przy fp w oknie (nasza konwencja, 0 w szczycie profilu)
-    axp = fig.add_subplot(get(gs, (0, pyslice(1, 4))))
+    axp = fig.add_subplot(get(gs, (0, _ps(1, 4))))
     sc = axp.scatter(d.lon, d.Ph[1, :], s=6, c="black")
     axp.set_ylim(-190, 190); axp.set_yticks([-180, 0, 180]); axp.set_xlim(d.lon[1], d.lon[end])
     axp.set_ylabel("faza (°)", fontsize=7); axp.tick_params(labelbottom=false, labelsize=7)
     # widmo okna (czarne) i srednie z calej obserwacji (szare)
-    axs = fig.add_subplot(get(gs, (pyslice(1, 4), 0)))
+    axs = fig.add_subplot(get(gs, (_ps(1, 4), 0)))
     ls, = axs.plot(d.spec[1, :], d.freq, c="black", lw=0.7)
     axs.plot(d.ms, d.freq, c="grey", lw=0.6, ls="--")
     axs.set_ylim(0, 0.5); axs.set_xlim(1.05 * maximum(d.spec), 0); axs.set_ylabel("częstotliwość (1/P)", fontsize=7)
     axs.tick_params(labelsize=7); axs.set_xticks([])
     # mapa |LRFS| w oknie
-    axm = fig.add_subplot(get(gs, (pyslice(1, 4), pyslice(1, 4))))
+    axm = fig.add_subplot(get(gs, (_ps(1, 4), _ps(1, 4))))
     im = axm.imshow(d.A[1, :, :], origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
                     extent=[d.lon[1], d.lon[end], d.freq[1], d.freq[end]], vmin=0, vmax=vmax)
     axm.axhline(d.fp, c="red", lw=0.5, ls=":")
     axm.tick_params(labelleft=false, labelbottom=false)
     # profil okna (czarny) i calej obserwacji (szary)
-    axb = fig.add_subplot(get(gs, (4, pyslice(1, 4))))
+    axb = fig.add_subplot(get(gs, (4, _ps(1, 4))))
     pm = max(maximum(d.profall), eps())
     lp, = axb.plot(d.lon, d.prof[1, :] ./ pm, c="black", lw=0.8)
     axb.plot(d.lon, d.profall ./ pm, c="grey", lw=0.6, ls="--")
     axb.set_xlim(d.lon[1], d.lon[end]); axb.set_ylim(-0.1, 1.05 * maximum(d.prof) / pm)
     axb.set_xlabel("długość (°), 0 = szczyt profilu", fontsize=7); axb.tick_params(labelsize=7); axb.set_yticks([])
     # podglad calej obserwacji z zaznaczonym oknem
-    axo = fig.add_subplot(get(gs, (pyslice(0, 5), pyslice(4, 6))))
+    axo = fig.add_subplot(get(gs, (_ps(0, 5), _ps(4, 6))))
     axo.imshow(d.spec, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
                extent=[0, 0.5, d.starts[1] - 1, d.starts[end] - 1], vmin=0, vmax=quantile(vec(d.spec), 0.995))
     hl = axo.axhline(d.starts[1] - 1, c="red", lw=1.2)
