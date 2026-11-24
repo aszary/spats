@@ -3624,7 +3624,11 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
     (0 = profile peak) - for each peak if the spectrum has a second one. Files: <name_mod>_sliding_lrfs.pdf,
     _lrfs_tracks.pdf, _sliding_lrfs.csv (window, strongest frequency), _lrfs_tracks.txt (slopes).
     """
-    function sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false, nsig=3.0)
+    function sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false, nsig=3.0, style=:nasza)
+        # style = :nasza (moc wzgledem szumu, srodek okna, nasza konwencja fazy) albo :basu (Basu & Mitra 2018:
+        # sredni szczyt = 1, pierwszy impuls okna, ich konwencja fazy, + strona z amplituda i faza przy fp)
+        basu = style == :basu
+        tag = basu ? "v2_basu_mitra" : "v1_nasza"
         p = params
         bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
         N, nb = size(data)
@@ -3635,7 +3639,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         t2 = isnothing(f2) ? nothing : sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=1 / f2)
         q = sliding_lrfs_phase(data, t1.fp, bst, bend; window=window, step=step, nsig=nsig)
         mkpath(outdir)
-        open(joinpath(outdir, "$(name_mod)_sliding_lrfs.csv"), "w") do io
+        open(joinpath(outdir, "$(name_mod)_$(tag)_sliding.csv"), "w") do io
             println(io, "window_start,f_peak,P3_peak,peak_snr")
             for b in eachindex(r.centres)
                 @printf(io, "%d,%.6f,%.4f,%.3f\n", round(Int, r.centres[b] - (window - 1) / 2) - 1, r.fpeak[b], 1 / r.fpeak[b], r.peak_snr[b])
@@ -3648,35 +3652,36 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         lon = collect(range(-dl / 2, dl / 2, length=bend - bst + 1))
         lon0 = lon .- lon[t1.jref]                               # 0 = szczyt profilu (jak w publikacji)
         st0 = r.centres .- (window - 1) / 2 .- 1                 # pierwszy impuls okna (od 0)
-        c1, c2 = st0[1], st0[end]
         avg = vec(mean(r.snr, dims=1))
         kp = clamp(round(Int, t1.fp * window), 1, length(avg))
-        img = r.snr ./ max(avg[kp], eps())                       # sredni szczyt = 1 (jak w publikacji)
+        img = basu ? r.snr ./ max(avg[kp], eps()) : r.snr        # basu: sredni szczyt = 1; nasza: moc / szum
+        yv = basu ? st0 : r.centres .- 1
+        c1, c2 = yv[1], yv[end]
 
         rc("font", size=7); rc("axes", linewidth=0.5); rc("lines", linewidth=0.5)
         figure(figsize=(7.5, 7))
         subplots_adjust(left=0.08, bottom=0.08, right=0.92, top=0.95, wspace=0.0, hspace=0.0)
-        suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step", fontsize=8)
+        suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step" * (basu ? " (jak Basu & Mitra 2018)" : " (nasza wersja)"), fontsize=8)
         ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
         plot(E, 0:N-1, c="grey", lw=0.3)
-        ylim(c1, c2); xticks([]); ylabel("start period of the window")
+        ylim(c1, c2); xticks([]); ylabel(basu ? "start period of the window" : "pulse number (window centre)")
         subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
         imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
-               extent=[0, r.freq[end], c1, c2], vmin=0, vmax=max(1.5, quantile(vec(img), 0.995)))
+               extent=[0, r.freq[end], c1, c2], vmin=0, vmax=basu ? max(1.5, quantile(vec(img), 0.995)) : quantile(vec(img), 0.995))
         tick_params(labelleft=false, labelbottom=false)
         subplot2grid((5, 7), (0, 4), rowspan=4, colspan=3, sharey=ax0)
-        imshow(-q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
+        imshow(basu ? -q.phase : q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
                extent=[lon0[1], lon0[end], c1, c2], vmin=-180, vmax=180)
         tick_params(labelleft=false, labelbottom=false)
         title(@sprintf("faza przy fp = %.4f (P3 = %.2f P)", t1.fp, 1 / t1.fp), fontsize=7)
         subplot2grid((5, 7), (4, 1), colspan=3)
-        plot(r.freq, avg ./ max(avg[kp], eps()), c="grey")
+        plot(r.freq, basu ? avg ./ max(avg[kp], eps()) : avg, c="grey")
         isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.6)
         axvline(t1.fp, c="red", ls=":", lw=0.6)
-        xlim(0, r.freq[end]); xlabel("fluctuation frequency (cycles/P)"); ylabel("mean")
+        xlim(0, r.freq[end]); xlabel("fluctuation frequency (cycles/P)"); ylabel(basu ? "mean" : "mean (S/N)")
         subplot2grid((5, 7), (4, 4), colspan=3)
         plot(lon0, prof ./ maximum(prof), c="grey"); xlim(lon0[1], lon0[end]); xlabel("longitude (°), 0 = profile peak"); yticks([])
-        f = joinpath(outdir, "$(name_mod)_sliding_lrfs.pdf")
+        f = joinpath(outdir, "$(name_mod)_$(tag)_sliding.pdf")
         savefig(f); println(f)
         show_ && (show(); println("Enter - dalej"); readline(stdin; keep=false))
         close("all")
@@ -3692,9 +3697,9 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         info = "params P3 = " * ((p3 isa Number && p3 > 0) ? @sprintf("%.2f", p3) : "brak") * " | " *
                join(["szczyt $i: " * _info(t) for (i, t) in enumerate(ts)], " | ")
         println("  ", info)
-        sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_lrfs_tracks.pdf");
-                                 title_="$(name_mod): okno $window, krok $step\n" * join([_info(t) for t in ts], "\n"))
-        open(joinpath(outdir, "$(name_mod)_lrfs_tracks.txt"), "w") do io
+        basu && sliding_lrfs_tracks_plot(ts, labs, prof, lon0, joinpath(outdir, "$(name_mod)_v2_basu_mitra_tracks.pdf");
+                                 title_="$(name_mod): okno $window, krok $step (jak Basu & Mitra 2018, rys. 2)\n" * join([_info(t) for t in ts], "\n"))
+        open(joinpath(outdir, "$(name_mod)_$(tag)_tracks.txt"), "w") do io
             println(io, info)
             println(io, "peak,window_start,slope_deg_per_deg_BasuMitra")
             for (i, t) in enumerate(ts), b in eachindex(t.starts)
@@ -3702,6 +3707,185 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             end
         end
         return (spectrum=r, tracks=ts, info=info)
+    end
+
+    """
+        lrfs_phase_blocks(data, bin_st, bin_end, p3s; block=64, snr_min=7.0, frac_min=60/64, nboot=200, nsig=3.0)
+
+    Subpulse phase and modulation amplitude as in TPA XX (Hsu+2026, MNRAS 553, stag1935; Edwards &
+    Stappers 2002/2003, Weltevrede 2016): independent blocks of `block` pulses; only blocks where at least
+    `frac_min` of the pulses have S/N >= `snr_min` (TPA XX: 60 of 64 with S/N >= 7). For each feature
+    (P3 in `p3s`) the FFT bin nearest to block/P3 (± 1 bin, strongest in the mean spectrum) is used.
+    Phases of different blocks are aligned with one constant offset per block (iteratively, to the
+    amplitude-weighted mean track, as Edwards & Stappers 2003); mean track = circular mean over blocks,
+    errors from a bootstrap over blocks. Modulation amplitude = 2|F|/block, so a pure sinusoid has the
+    amplitude of the mean profile. Sign: kernel e^(+2πi f n), rising phase = drift to LATER longitudes
+    (the TPA XX convention: negative gradient = negative drift). With three features the beat residual
+    φ1 − (φ2 + φ3) per block uses the raw (not aligned) phases (TPA XX Fig. 4 bottom).
+    """
+    function lrfs_phase_blocks(data, bin_st, bin_end, p3s; block=64, snr_min=7.0, frac_min=60 / 64, nboot=200, nsig=3.0)
+        N, nb = size(data)
+        X, good = _demeaned(data)
+        on = collect(bin_st:bin_end); off = _far_offpulse(nb, bin_st, bin_end)
+        # S/N impulsu: energia w oknie / (sigma poza impulsem * sqrt(liczba binow))
+        σb = [std(@view data[i, off]) for i in 1:N]
+        snr1 = [good[i] && σb[i] > 0 ? (sum(@view data[i, on]) - length(on) * mean(@view data[i, off])) / (σb[i] * sqrt(length(on))) : 0.0 for i in 1:N]
+        starts = [s for s in 1:block:N-block+1 if count(>=(snr_min), @view snr1[s:s+block-1]) >= frac_min * block]
+        nbk = length(starts)
+        F = Array{ComplexF64}(undef, nbk, block ÷ 2 + 1, length(on)); Fo = Array{ComplexF64}(undef, nbk, block ÷ 2 + 1, length(off))
+        for (b, s) in enumerate(starts)
+            Bn = X[s:s+block-1, on]; Bn .-= mean(Bn, dims=1)
+            Bf = X[s:s+block-1, off]; Bf .-= mean(Bf, dims=1)
+            F[b, :, :] = conj.(rfft(Bn, 1)); Fo[b, :, :] = conj.(rfft(Bf, 1))      # conj: kernel e^(+2πi f n)
+        end
+        prof = vec(mean(Float64.(data[good, on]), dims=1))
+        jref = argmax(prof)
+        spec = nbk > 0 ? vec(sum(abs2.(F), dims=(1, 3)))[2:end] : Float64[]
+        feats = []
+        for p3 in p3s
+            nbk == 0 && break
+            k0 = round(Int, block / p3)
+            ks = [k for k in k0-1:k0+1 if 1 <= k <= block ÷ 2]
+            k = ks[argmax(spec[ks])]
+            raw = fill(NaN, nbk, length(on)); amp = zeros(nbk, length(on))
+            for b in 1:nbk
+                σ = std(vcat(real.(Fo[b, k + 1, :]), imag.(Fo[b, k + 1, :])))
+                c = F[b, k + 1, :]
+                amp[b, :] = 2 .* abs.(c) ./ block
+                ok = abs.(c) .> nsig * σ
+                raw[b, ok] .= angle.(c[ok])
+            end
+            # wyrownanie: jedna stala na blok, iteracyjnie do sredniej wazonej amplituda
+            off_b = zeros(nbk)
+            T = zeros(length(on))
+            for it in 1:5
+                T = [let z = sum((amp[b, j] * cis(raw[b, j] - off_b[b]) for b in 1:nbk if isfinite(raw[b, j])); init=0.0im); angle(z) end
+                     for j in eachindex(on)]
+                for b in 1:nbk
+                    z = sum((amp[b, j] * cis(raw[b, j] - T[j]) for j in eachindex(on) if isfinite(raw[b, j])); init=0.0im)
+                    off_b[b] = angle(z)                      # przesuniecie bloku wzgledem sredniej sciezki
+                end
+            end
+            al = raw .- off_b
+            # srednia kolowa + bootstrap po blokach; odniesienie 0 w szczycie profilu
+            cm(rows, j) = (v = [al[b, j] for b in rows if isfinite(al[b, j])]; isempty(v) ? NaN : angle(sum(cis.(v))))
+            mean_ph = [cm(1:nbk, j) for j in eachindex(on)]
+            ref = isfinite(mean_ph[jref]) ? mean_ph[jref] : 0.0
+            boots = [[cm(rand(1:nbk, nbk), j) for j in eachindex(on)] for _ in 1:nboot]
+            err = [let d = [angle(cis(bt[j] - mean_ph[j])) for bt in boots if isfinite(bt[j])]; length(d) > 2 ? rad2deg(std(d)) : NaN end
+                   for j in eachindex(on)]
+            # rozwiniecie sredniej od szczytu profilu
+            mdeg = rad2deg.(angle.(cis.(mean_ph .- ref)))
+            for dir in (1, -1)
+                prev = 0.0; j = jref + dir
+                while 1 <= j <= length(on)
+                    if isfinite(mdeg[j])
+                        while mdeg[j] - prev > 180; mdeg[j] -= 360; end
+                        while mdeg[j] - prev < -180; mdeg[j] += 360; end
+                        prev = mdeg[j]
+                    end
+                    j += dir
+                end
+            end
+            aldeg = rad2deg.(angle.(cis.(al .- ref)))                  # do histogramu (-180..180)
+            push!(feats, (p3=p3, k=k, f=k / block, raw=raw, aligned=aldeg, mean=mdeg, err=err,
+                          amp=vec(mean(amp, dims=1))))
+        end
+        # reszta dudnien tylko gdy biny spelniaja k1 = k2 + k3 (inaczej faza surowa nie znosi sie miedzy blokami)
+        beat = nothing; beat_ok = false
+        if length(feats) == 3
+            beat_ok = feats[1].k == feats[2].k + feats[3].k
+            r = feats[1].raw .- (feats[2].raw .+ feats[3].raw)
+            beat = beat_ok ? rad2deg.(angle.(cis.(r))) : nothing
+        end
+        return (feats=feats, beat=beat, beat_ok=beat_ok, nblocks=nbk, block=block, prof=prof, jref=jref, spec=spec)
+    end
+
+    """
+        lrfs_tpa_plot(data, bin_st, bin_end, outfile; nfft=200, title_="")
+
+    Power LRFS like TPA XX (Hsu+2026) Fig. 2a-b: continuous blocks of `nfft` pulses (they used 200), power
+    averaged over blocks, the DC row (1/P3 = 0) set to zero, normalised so that the maximum = 1, logarithmic
+    grey scale; profile on top. Longitude 0 = profile peak.
+    """
+    function lrfs_tpa_plot(data, bin_st, bin_end, outfile; nfft=200, title_="")
+        N, nb = size(data)
+        X, good = _demeaned(data)
+        on = bin_st:bin_end
+        nblk = N ÷ nfft
+        nblk >= 1 || return nothing
+        P = zeros(nfft ÷ 2 + 1, length(on))
+        for b in 1:nblk
+            B = X[(b-1)*nfft+1:b*nfft, on]; B .-= mean(B, dims=1)
+            P .+= abs2.(rfft(B, 1))
+        end
+        P[1, :] .= 0.0
+        P ./= maximum(P)
+        prof = vec(mean(Float64.(data[good, on]), dims=1))
+        jref = argmax(prof)
+        dl = 360 * length(on) / nb
+        lon = collect(range(-dl / 2, dl / 2, length=length(on))); lon .-= lon[jref]
+        f = collect(0:nfft÷2) ./ nfft
+        rc("font", size=7); rc("axes", linewidth=0.5)
+        figure(figsize=(4.0, 5.5))
+        subplots_adjust(left=0.16, bottom=0.08, right=0.97, top=0.9, hspace=0.0)
+        suptitle(title_, fontsize=6.5)
+        subplot2grid((4, 1), (0, 0))
+        plot(lon, prof ./ maximum(prof), c="black"); xlim(lon[1], lon[end]); tick_params(labelbottom=false); ylabel("I (norm.)")
+        subplot2grid((4, 1), (1, 0), rowspan=3)
+        imshow(log10.(max.(P, 1e-4)), origin="lower", aspect="auto", cmap="Greys",
+               extent=[lon[1], lon[end], 0, f[end]], vmin=-3, vmax=0)
+        xlabel("longitude (°), 0 = profile peak"); ylabel("1/P₃ (cpp)")
+        savefig(outfile); println(outfile)
+        close("all")
+        return (nblocks=nblk,)
+    end
+
+    "Plot like TPA XX Fig. 4: profile + modulation amplitudes, phase histograms per feature with block-averaged
+    phases and bootstrap errors, beat residual (if 3 features). Longitude 0 = profile peak."
+    function lrfs_phase_blocks_plot(res, lon, outfile; title_="")
+        nf = length(res.feats); nrow = 1 + nf + (isnothing(res.beat) ? 0 : 1)
+        cols = ["royalblue", "green", "red"]; cmaps = ["Blues", "Greens", "Reds"]
+        rc("font", size=7); rc("axes", linewidth=0.5)
+        figure(figsize=(4.5, 1.6 * nrow + 0.6))
+        subplots_adjust(left=0.15, bottom=0.06, right=0.97, top=0.93, hspace=0.0)
+        suptitle(title_, fontsize=6.5)
+        subplot(nrow, 1, 1)
+        plot(lon, res.prof, c="black", lw=0.8, label="profile")
+        for (i, f) in enumerate(res.feats)
+            plot(lon, f.amp, c=cols[mod1(i, 3)], ls=["--", "-.", ":"][mod1(i, 3)], lw=0.8, label=@sprintf("P3 = %.2f", 1 / f.f))
+        end
+        legend(fontsize=5.5); xlim(lon[1], lon[end]); tick_params(labelbottom=false); yticks([])
+        edges = range(-180, 180, length=37)
+        for (i, f) in enumerate(res.feats)
+            subplot(nrow, 1, 1 + i)
+            H = zeros(length(edges) - 1, length(lon))
+            for j in eachindex(lon), b in axes(f.aligned, 1)
+                v = f.aligned[b, j]; isfinite(v) || continue
+                H[clamp(searchsortedlast(edges, v), 1, length(edges) - 1), j] += 1
+            end
+            H ./= max(size(f.aligned, 1), 1)
+            imshow(H, origin="lower", aspect="auto", cmap=cmaps[mod1(i, 3)], extent=[lon[1], lon[end], -180, 180])
+            ok = isfinite.(f.mean)
+            m = mod.(f.mean .+ 180, 360) .- 180
+            errorbar(lon[ok], m[ok], yerr=f.err[ok], fmt=".", ms=2, c="black", elinewidth=0.4, capsize=0)
+            ylim(-180, 180); yticks([-180, 0, 180]); xlim(lon[1], lon[end]); tick_params(labelbottom=false)
+            ylabel(@sprintf("phase (°)\nP3 = %.2f", 1 / f.f))
+        end
+        if !isnothing(res.beat)
+            subplot(nrow, 1, nrow)
+            H = zeros(length(edges) - 1, length(lon))
+            for j in eachindex(lon), b in axes(res.beat, 1)
+                v = res.beat[b, j]; isfinite(v) || continue
+                H[clamp(searchsortedlast(edges, v), 1, length(edges) - 1), j] += 1
+            end
+            imshow(H ./ max(size(res.beat, 1), 1), origin="lower", aspect="auto", cmap="copper_r", extent=[lon[1], lon[end], -180, 180])
+            axhline(0, c="grey", ls="--", lw=0.5); ylim(-180, 180); yticks([-180, 0, 180]); xlim(lon[1], lon[end])
+            ylabel("φ1 − (φ2 + φ3) (°)")
+        end
+        xlabel("longitude (°), 0 = profile peak")
+        savefig(outfile); println(outfile)
+        close("all")
     end
 
 
