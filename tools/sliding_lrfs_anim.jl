@@ -209,19 +209,19 @@ function sliding_lrfs_anim(psr="J1555-3134"; window=256, step=8, outdir=SL_DIR, 
 end
 
 """
-    sliding_lrfs_player(psr; window=256, step=1, interval=50, size=(9.5, 5.2), dpi=80, thr=5.0)
+    sliding_lrfs_player(psr; window=256, speed=2, interval=30, size=(9.5, 5.2), dpi=80, thr=5.0)
 
-Interaktywna animacja w jednym oknie (wymaga ekranu, np. VNC): przycisk Odtwórz / Pauza (albo spacja) -
-okno samo przesuwa sie od poczatku do konca obserwacji; w pauzie suwak przesuwa okno recznie, strzalki <- ->
-o jeden krok; Odtwórz po pauzie kontynuuje od miejsca suwaka, na koncu zaczyna od poczatku.
-`interval` = czas klatki (ms), `step` = przesuniecie okna miedzy klatkami (impulsy), `size` (cale) i `dpi` =
-wielkosc okna (domyslnie ok. 760 x 420 pikseli), `thr` = prog wykrycia cechy (moc/szum).
-Plynnosc: blitting - stale elementy rysowane raz, w klatce tylko ruchome.
+Interaktywna animacja w jednym oknie (wymaga ekranu, np. VNC): Odtwórz / Pauza (przycisk albo spacja) - okno
+samo przesuwa sie od poczatku do konca obserwacji; w pauzie suwak przesuwa okno recznie, strzalki <- -> o jeden
+krok; Odtwórz po pauzie kontynuuje od miejsca suwaka, na koncu zaczyna od poczatku. Predkosc: klawisze + / -
+(albo strzalki gora / dol) - ile impulsow okno przesuwa sie na klatke (`speed`, 1-32). `interval` = przerwa
+miedzy klatkami (ms). Animacje napedza petla w Julii (timer okna graficznego przez PyCall/VNC bywa martwy);
+funkcja trzyma konsole, dopoki okno jest otwarte - zamknij okno, zeby wrocic.
 """
-function sliding_lrfs_player(psr="J1555-3134"; window=256, step=1, interval=50, size=(9.5, 5.2), dpi=80, thr=5.0)
+function sliding_lrfs_player(psr="J1555-3134"; window=256, speed=2, interval=30, size=(9.5, 5.2), dpi=80, thr=5.0)
     D, p = Base.invokelatest(_sl_data, psr)
-    d = _anim_prepare(D, p; window=window, step=step, thr=thr)
-    widgets = pyimport("matplotlib.widgets")
+    d = _anim_prepare(D, p; window=window, step=1, thr=thr)
+    widgets = pyimport("matplotlib.widgets"); plt = pyimport("matplotlib.pyplot")
     pygui(true)
     fig = figure(figsize=size, dpi=dpi)
     art = _anim_setup(fig, d, psr; bottom=0.17, animated=true)
@@ -231,8 +231,7 @@ function sliding_lrfs_player(psr="J1555-3134"; window=256, step=1, interval=50, 
     sl = widgets.Slider(axsl, "", 1, nb, valinit=1, valstep=1)
     sl.drawon = false                                          # suwak nie przerysowuje calej figury
     bt = widgets.Button(axbt, "Odtwórz")
-    state = Dict(:playing => false)
-    timer = fig.canvas.new_timer(interval=interval)
+    state = Dict{Symbol,Any}(:playing => false, :speed => clamp(speed, 1, 32))
     # blitting: tlo (bez ruchomych elementow) zapamietane po pelnym rysowaniu; klatka = tlo + ruchome elementy
     bg = Ref{Any}(nothing)
     function blit_frame()
@@ -241,7 +240,7 @@ function sliding_lrfs_player(psr="J1555-3134"; window=256, step=1, interval=50, 
         c.restore_region(bg[])
         for a in art[:dyn]; fig.draw_artist(a); end
         fig.draw_artist(axsl); fig.draw_artist(axbt)
-        c.blit(fig.bbox); c.flush_events()
+        c.blit(fig.bbox)
     end
     function ondraw(_)
         bg[] = fig.canvas.copy_from_bbox(fig.bbox)
@@ -252,22 +251,12 @@ function sliding_lrfs_player(psr="J1555-3134"; window=256, step=1, interval=50, 
     _anim_update!(art, d, 1)
     show_frame(v) = (_anim_update!(art, d, clamp(round(Int, v), 1, nb)); blit_frame())
     sl.on_changed(show_frame)
-    function tick()
-        state[:playing] || return
-        v = round(Int, sl.val)
-        if v >= nb
-            state[:playing] = false; timer.stop(); bt.label.set_text("Odtwórz"); blit_frame()
-        else
-            sl.set_val(v + 1)                                  # przesuwa suwak i rysuje klatke
-        end
-    end
-    timer.add_callback(tick)
     function toggle(_...)
         if state[:playing]
-            state[:playing] = false; timer.stop(); bt.label.set_text("Odtwórz")
+            state[:playing] = false; bt.label.set_text("Odtwórz")
         else
             round(Int, sl.val) >= nb && sl.set_val(1)          # od poczatku, jesli doszlo do konca
-            state[:playing] = true; timer.start(); bt.label.set_text("Pauza")
+            state[:playing] = true; bt.label.set_text("Pauza")
         end
         blit_frame()
     end
@@ -276,14 +265,30 @@ function sliding_lrfs_player(psr="J1555-3134"; window=256, step=1, interval=50, 
         k = ev.key
         if k == " "
             toggle()
+        elseif k in ("+", "=", "up")
+            state[:speed] = min(32, 2 * state[:speed]); println("prędkość: $(state[:speed]) imp./klatkę")
+        elseif k in ("-", "down")
+            state[:speed] = max(1, state[:speed] ÷ 2); println("prędkość: $(state[:speed]) imp./klatkę")
         elseif k in ("right", "left") && !state[:playing]
             sl.set_val(clamp(round(Int, sl.val) + (k == "right" ? 1 : -1), 1, nb))
         end
     end
     fig.canvas.mpl_connect("key_press_event", onkey)
-    # referencje, zeby Python nie usunal suwaka / przycisku / timera / funkcji zwrotnych
-    global _SL_PLAYER = (fig=fig, sl=sl, bt=bt, timer=timer, tick=tick, toggle=toggle, onkey=onkey, ondraw=ondraw)
-    show()
-    println("Odtwórz / Pauza: przycisk albo spacja; w pauzie suwak albo strzałki ← →. Zamknij okno, żeby skończyć.")
-    return fig
+    global _SL_PLAYER = (fig=fig, sl=sl, bt=bt, toggle=toggle, onkey=onkey, ondraw=ondraw, show_frame=show_frame)
+    show(); fig.canvas.draw()
+    println("Odtwórz / Pauza: przycisk albo spacja; w pauzie suwak albo strzałki ← →; prędkość: + / - (↑ ↓).")
+    println("Zamknij okno, żeby wrócić do konsoli.")
+    # petla animacji: przesuwa okno i obsluguje zdarzenia okna (klikniecia, klawisze) miedzy klatkami
+    while plt.fignum_exists(fig.number)
+        if state[:playing]
+            v = round(Int, sl.val)
+            if v >= nb
+                state[:playing] = false; bt.label.set_text("Odtwórz"); blit_frame()
+            else
+                sl.set_val(min(nb, v + state[:speed]))         # przesuwa suwak i rysuje klatke (blitting)
+            end
+        end
+        fig.canvas.start_event_loop(interval / 1000)          # zdarzenia okna bez pelnego przerysowania
+    end
+    return nothing
 end
