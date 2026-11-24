@@ -3486,7 +3486,7 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
     profile peak (as in the paper) and unwrapped outwards from it. Per window a straight line is fitted
     to the significant phases (slope in deg/deg) - its spread is the temporal variation of the drift.
     """
-    function sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0)
+    function sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0, p3=nothing)
         N, nb = size(data)
         X, good = _demeaned(data)
         on = collect(bin_st:bin_end); off = _far_offpulse(nb, bin_st, bin_end)
@@ -3508,13 +3508,23 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
         end
         spec = S ./ max.(So .* length(on) ./ max(length(off), 1), eps())
         kp = 1 + argmax(@view spec[2:end])
+        # znane P3: szczyt przy 1/P3 (±10%, co najmniej ±1 bin) - inaczej nulle / powolne zmiany jasnosci
+        # wygrywaja najnizsza czestotliwoscia (J0034, J1727, J0304: "P3 = 128")
+        if p3 isa Number && p3 > 0
+            w = [k for k in 1:nf if abs(freq[k] - 1 / p3) <= max(0.1 / p3, 1 / window)]
+            isempty(w) || (kp = w[argmax(spec[w])])
+        end
         base = median(spec); half = base + (spec[kp] - base) / 2
         lo = kp; while lo > 1 && spec[lo - 1] > half; lo -= 1; end
         hi = kp; while hi < nf && spec[hi + 1] > half; hi += 1; end
-        fwhm = (hi - lo + 1) / window
+        # FWHM z liniowa interpolacja przejsc przez polowe wysokosci (inaczej najmniej 1 bin = 1/window)
+        xl = lo > 1 ? (lo - 1) + (half - spec[lo - 1]) / max(spec[lo] - spec[lo - 1], eps()) : Float64(lo)
+        xh = hi < nf ? hi + (spec[hi] - half) / max(spec[hi] - spec[hi + 1], eps()) : Float64(hi)
+        fwhm = (xh - xl) / window
         δf = fwhm / 2.355
         band = [k for k in 1:nf if abs(freq[k] - freq[kp]) <= 3δf + 0.5 / window]
-        Sfac = (spec[kp] - base) / max(fwhm, eps())
+        # S jak w Basu+2016: widmo znormalizowane do 1 w szczycie, S = (szczyt - tlo) / FWHM
+        Sfac = (1 - base / spec[kp]) / max(fwhm, eps())
         # 2. amplituda i faza w kazdym oknie przy fp
         prof = vec(mean(Float64.(data[good, on]), dims=1))
         jref = argmax(prof)
@@ -3645,11 +3655,11 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
         show_ && (show(); println("Enter - dalej"); readline(stdin; keep=false))
         close("all")
         # amplituda i faza przy fp w kazdym oknie (Basu & Mitra 2018)
-        t = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig)
+        t = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3)
         sl = filter(isfinite, t.slope)
-        info = @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą: %d z %d, nachylenie fazy %.2f ± %.2f °/°",
-                        t.fp, 1 / t.fp, t.fwhm, t.S, length(sl), length(t.starts),
-                        isempty(sl) ? NaN : mean(sl), length(sl) > 1 ? std(sl) : NaN)
+        info = @sprintf("fp = %.4f (P3 = %.2f P; params %s), FWHM = %.4f, S = %.1f, okien z fazą: %d z %d, nachylenie fazy %.2f ± %.2f °/° (+ = dryf ku późniejszym długościom)",
+                        t.fp, 1 / t.fp, (p3 isa Number && p3 > 0) ? @sprintf("%.2f", p3) : "brak", t.fwhm, t.S,
+                        length(sl), length(t.starts), isempty(sl) ? NaN : mean(sl), length(sl) > 1 ? std(sl) : NaN)
         println("  ", info)
         sliding_lrfs_tracks_plot(t, prof, lon, joinpath(outdir, "$(name_mod)_lrfs_tracks.pdf");
                                  title_="$(name_mod): okno $window, krok $step\n" * info)
