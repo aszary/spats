@@ -89,12 +89,32 @@ function beat_test_core(X0, bin_st, bin_end, f1, f2; W=64, nperm=1000)
     Eraw = vec(sum(Float64.(X0[:, on]), dims=2)); cE = cumsum(Eraw)
     Ew = [b == 1 ? cE[W] : cE[b + W - 1] - cE[b - 1] for b in 1:N-W+1]
     t1n = _bt_corr(P1 ./ max.(Ew, eps()) .^ 2, P2 ./ max.(Ew, eps()) .^ 2, W; nperm=nperm)
-    s1 = _bt_slopes(L1, O1); s2 = _bt_slopes(L2, O2)
+    # T3 osobno w kazdej skladowej profilu (przez przerwe miedzy skladowymi faza moze zgubic pelny obrot -
+    # J1901: F1 i F3 wychodzily 3x rozne, choc w TPA XX i na naszym wykresie V3 sa podobne); podzial w minimum
+    # profilu miedzy dwoma najwyzszymi maksimami
+    prof = vec(mean(Float64.(X0[good, on]), dims=1))
+    ps = [mean(prof[max(1, j - 2):min(end, j + 2)]) for j in eachindex(prof)]
+    mx = [j for j in 2:length(ps)-1 if ps[j] >= ps[j-1] && ps[j] >= ps[j+1] && ps[j] > 0.2maximum(ps)]
+    comps = [1:length(on)]
+    if length(mx) >= 2
+        top = sort(mx, by=j -> -ps[j])
+        a = top[1]; bq = findfirst(j -> abs(j - a) >= 10, top[2:end])
+        if !isnothing(bq)
+            b2 = top[1 + bq]; lo, hi = minmax(a, b2)
+            cut = lo - 1 + argmin(ps[lo:hi])
+            comps = [1:cut, cut+1:length(on)]
+        end
+    end
     neff = max(1, (N - W + 1) ÷ W)                         # niezalezne okna
-    v1 = filter(isfinite, s1); v2 = filter(isfinite, s2)
-    m1, m2 = mean(v1), mean(v2)
-    e1, e2 = std(v1) / sqrt(neff), std(v2) / sqrt(neff)
-    zs = (m1 - m2) / sqrt(e1^2 + e2^2)
+    function sl(L, O, r)
+        v = filter(isfinite, _bt_slopes(L[:, r], O))
+        length(v) < 3 ? (NaN, NaN) : (mean(v), std(v) / sqrt(neff))
+    end
+    T3 = [(c=k, s1=sl(L1, O1, r), s2=sl(L2, O2, r)) for (k, r) in enumerate(comps)]
+    zz = [(t.s1[1] - t.s2[1]) / sqrt(t.s1[2]^2 + t.s2[2]^2) for t in T3]
+    zs = isempty(filter(isfinite, zz)) ? NaN : filter(isfinite, zz)[argmax(abs.(filter(isfinite, zz)))]
+    m1, e1 = T3[1].s1; m2, e2 = T3[1].s2
+    snrP = mean(P1 .+ P2) / (n1 + n2)                      # sila pikow wzgledem szumu (do dopasowania syntetycznych)
     A1 = vec(mean(abs.(L1), dims=1)); A2 = vec(mean(abs.(L2), dims=1))
     a1 = A1 ./ sum(A1); a2 = A2 ./ sum(A2)
     rA = cor(a1, a2)
@@ -118,10 +138,12 @@ function beat_test_core(X0, bin_st, bin_end, f1, f2; W=64, nperm=1000)
         base = median(spec[loc]); mad = 1.4826 * median(abs.(spec[loc] .- base))
         maximum(spec[max(1, q - 1):min(length(fr), q + 1)]) > 0 ? (maximum(spec[max(1, q - 1):min(length(fr), q + 1)]) - base) / max(mad, eps()) : NaN
     end
-    return (D=D, M=M, t1=t1, t1n=t1n, slope1=(m1, e1), slope2=(m2, e2), zslope=zs, rA=rA, dA=dA,
+    return (D=D, M=M, t1=t1, t1n=t1n, slope1=(m1, e1), slope2=(m2, e2), zslope=zs, T3=T3, snrP=snrP, rA=rA, dA=dA,
             snrM=snr_at(M), snrD=snr_at(D), W=W, N=N, P1=P1, P2=P2, a1=a1, a2=a2,
             spec=spec, fr=fr)
 end
+
+beat_test_core(X0, bin_st, bin_end; f1, f2, kw...) = beat_test_core(X0, bin_st, bin_end, f1, f2; kw...)
 
 "Syntetyczny pulsar: :beat (D z modulacja amplitudy M, bez nosnej), :indep (dwa niezalezne dryfy),
 :indep_scint (to samo + wspolne wolne zmiany jasnosci calego pulsara, jak scyntylacja), :modes (przelaczanie
@@ -160,8 +182,9 @@ end
 function _bt_line(name, r)
     v = r.t1.p < 0.05 ? (r.t1.r > 0 ? "razem (jak dudnienia)" : "naprzemiennie (jak przełączanie trybów)") : "bez związku (jak niezależne)"
     vn = r.t1n.p < 0.05 ? (r.t1n.r > 0 ? "razem" : "naprzemiennie") : "bez związku"
-    @sprintf("%-22s T1 moc obu pików: r=%+.2f (p=%.3f) -> %s; po podzieleniu przez jasność: r=%+.2f (p=%.3f) -> %s | T3 nachylenia: %.2f±%.2f vs %.2f±%.2f °/bin (z=%.1f) | T4 kształt amplitudy: r=%.2f, max różnica %.0f%% | T5 S/N przy M=%.4f: %.1f, przy D=%.4f: %.1f",
-             name, r.t1.r, r.t1.p, v, r.t1n.r, r.t1n.p, vn, r.slope1..., r.slope2..., r.zslope, r.rA, 100r.dA, r.M, r.snrM, r.D, r.snrD)
+    @sprintf("%-22s T1 moc obu pików: r=%+.2f (p=%.3f) -> %s; po podzieleniu przez jasność: r=%+.2f (p=%.3f) -> %s | T3 nachylenia w składowych: %s (największe |z|=%.1f) | T4 kształt amplitudy: r=%.2f, max różnica %.0f%% | T5 S/N przy M=%.4f: %.1f, przy D=%.4f: %.1f",
+             name, r.t1.r, r.t1.p, v, r.t1n.r, r.t1n.p, vn,
+             join([@sprintf("skł.%d %.2f±%.2f vs %.2f±%.2f", t.c, t.s1..., t.s2...) for t in r.T3], "; ") * " °/bin", r.zslope, r.rA, 100r.dA, r.M, r.snrM, r.D, r.snrD)
 end
 
 "Tylko dane syntetyczne (dziala lokalnie, bez danych pulsarow)."
@@ -195,6 +218,18 @@ function beat_test_run(; W=64, outdir="/home/psr/data/OUTPUT/beat_test/")
             D, p = Base.invokelatest(_sl_data, psr)
             r = beat_test_core(D, Int(p["bin_st"]), Int(p["bin_end"]), f1, f2; W=W)
             push!(L, _bt_line(psr, r)); println(L[end])
+            # czulosc testu przy TEJ jasnosci pikow, liczbie impulsow i czestotliwosciach: syntetyczne dudnienia
+            # i niezalezne dryfy z sila pikow (moc/szum) dopasowana do pulsara
+            N = size(D, 1)
+            cand = [(sn, beat_test_core(beat_synth(:beat; N=N, f1=f1, f2=f2, snr=sn, seed=99)...; f1=f1, f2=f2, W=W, nperm=100).snrP)
+                    for sn in (0.03, 0.05, 0.08, 0.12, 0.2, 0.3, 0.5, 0.8, 1.2)]
+            sn = cand[argmin([abs(log(max(c[2], 1e-6) / max(r.snrP, 1e-6))) for c in cand])][1]
+            for kind in (:beat, :indep)
+                rs = [beat_test_core(beat_synth(kind; N=N, f1=f1, f2=f2, snr=sn, seed=s)...; f1=f1, f2=f2, W=W, nperm=300).t1n for s in 1:5]
+                push!(L, @sprintf("    czułość: syntetyczne %-6s przy sile pików jak w %s (moc/szum %.1f, snr=%.2f): T1 po podzieleniu r = %s; p = %s",
+                                  kind, psr, r.snrP, sn, join([@sprintf("%+.2f", x.r) for x in rs], ", "), join([@sprintf("%.3f", x.p) for x in rs], ", ")))
+                println(L[end])
+            end
         catch e
             e isa InterruptException && rethrow()
             push!(L, "$psr BŁĄD: " * first(sprint(showerror, e), 200))
