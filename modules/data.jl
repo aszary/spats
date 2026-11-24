@@ -1017,8 +1017,9 @@ module Data
         g = findall(i -> any(!iszero, @view data[i, :]), 1:N)
         length(g) < 10 && return Int[]
         r = [std(@view data[i, off]) for i in g]
-        hw = local_win ÷ 2
-        res = [r[t] - median(@view r[max(1, t - hw):min(length(g), t + hw)]) for t in eachindex(g)]
+        hw = local_win <= 0 ? length(g) : local_win ÷ 2
+        res = local_win <= 0 ? r .- median(r) :
+              [r[t] - median(@view r[max(1, t - hw):min(length(g), t + hw)]) for t in eachindex(g)]
         sd = 1.4826 * median(abs.(res .- median(res)))
         sd > 0 || return Int[]
         return g[res .> k * sd]
@@ -1032,8 +1033,10 @@ module Data
         g = findall(i -> any(!iszero, @view data[i, :]), 1:N)
         length(g) < 10 && return z
         r = [std(@view data[i, off]) for i in g]
-        hw = local_win ÷ 2
-        res = [r[t] - median(@view r[max(1, t - hw):min(length(g), t + hw)]) for t in eachindex(g)]
+        # local_win <= 0: odniesienie z CALEJ obserwacji (mediana wszystkich impulsow), nie z sasiadow
+        hw = local_win <= 0 ? length(g) : local_win ÷ 2
+        res = local_win <= 0 ? r .- median(r) :
+              [r[t] - median(@view r[max(1, t - hw):min(length(g), t + hw)]) for t in eachindex(g)]
         sd = 1.4826 * median(abs.(res .- median(res)))
         sd > 0 || return z
         z[g] .= res ./ sd
@@ -1111,10 +1114,10 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
-        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0))..., kw...)
+        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0))..., kw...)
         reason = copy(a.reason)
         why = a.why
         if gate
@@ -1138,7 +1141,7 @@ module Data
                 # nowy bezpiecznik: gdy caly zestaw (> rfi_k) przechodzi - jak dotad; gdy nie - zamiast
                 # odrzucac wszystkich (podnoszac prog), dokladamy od najbardziej odstajacych i pomijamy
                 # tych, z ktorymi spadek S/N przekroczylby rfi_tol (J2136-1606: ~30 impulsow RFI zostawalo)
-                z = rfi_rms_z(data, bin_st, bin_end)
+                z = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win)
                 cand = filter(i -> reason[i] == 0 && z[i] > rfi_k, 1:length(z))
                 if ok(cand)
                     new = cand
@@ -1159,7 +1162,7 @@ module Data
                 end
             else
                 for kk in rfi_k .* (1.0, 1.5, 2.0, 3.0)
-                    cand = filter(i -> reason[i] == 0, rfi_rms(data, bin_st, bin_end; k=kk))
+                    cand = filter(i -> reason[i] == 0, rfi_rms(data, bin_st, bin_end; k=kk, local_win=rfi_win))
                     if ok(cand)
                         new = cand
                         break
