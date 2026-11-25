@@ -3872,12 +3872,18 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             subplots_adjust(left=0.08, bottom=0.08, right=0.97, top=0.9, wspace=0.0, hspace=0.0)
             suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step" * (basu ? " (jak Basu & Mitra 2018)" : " (nasza wersja)"), fontsize=8)
             ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
-            plot(E, 0:N-1, c="grey", lw=0.3)
-            if !isempty(nulls)                                     # nulle: czerwone kreski przy lewej krawedzi
-                xe = minimum(filter(isfinite, E))
-                scatter(fill(xe, length(nulls)), nulls, marker="_", c="red", s=12, lw=0.8)
+            # suma rzedow LRFS: moc fluktuacji w kazdym oknie (wiersz mapy obok), po odjeciu poziomu szumu
+            # (1 na bin), znormalizowana do 1; os odwrocona jak w LRFS (1 przy mapie)
+            rowsum = vec(sum(r.snr[:, 2:end] .- 1, dims=2)); rowsum = max.(rowsum, 0.0)
+            rowsum ./= max(maximum(rowsum), eps())
+            plot(rowsum, yv, c="grey", lw=0.8)
+            xlim(1.05, 0)
+            if !isempty(nulls)                                     # nulle: czerwone kreski przy zewnetrznej krawedzi
+                scatter(fill(1.0, length(nulls)), nulls, marker="_", c="red", s=12, lw=0.8)
             end
-            ylim(c1, c2); xticks([]); ylabel(basu ? "start period of the window" : "pulse number (window centre)")
+            ylim(c1, c2); xticks([1.0, 0.5, 0.0]); tick_params(axis="x", labelsize=6)
+            xlabel("suma LRFS\n(norm.)", fontsize=6)
+            ylabel(basu ? "start period of the window" : "pulse number (window centre)")
             subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
             imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
                    extent=[0, r.freq[end], c1, c2], vmin=0, vmax=basu ? max(1.5, quantile(vec(img), 0.995)) : quantile(vec(img), 0.995))
