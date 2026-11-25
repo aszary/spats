@@ -1251,7 +1251,7 @@ data = Data.load_ascii(txt_file)
         #DriftBatch.plot_drift_results("drift_classifications_olddrift.csv", "drift_chart_olddrift.pdf")
 
         # LRFS Fig 4 according to Basu & Mitra (2018) for J1555-3134
-        lrfs_basu(vpmout*"J1555-3134"; show_=false)
+        #lrfs_basu(vpmout*"J1555-3134"; show_=false)
         lrfs(vpmout*"J1555-3134"; show_=false)
 
         # FFT length diagnostic (spectra overlay and FWHM vs 1.44/N) for J1555-3134
