@@ -3493,6 +3493,38 @@ szczytu, co najmniej 10 binow od siebie). Faza przez przerwe miedzy skladowymi j
     end
 
     """
+Mapa fazy (okna x biny, stopnie, NaN = nieistotne) rozwinieta: w kazdym oknie 0 w binie `jref` (szczyt profilu),
+potem kazdy punkt w obrocie najblizszym wspolnej sciezki (srednia kolowa po oknach, rozwinieta od szczytu profilu).
+Okna bez fazy w szczycie profilu - puste.
+"""
+    function _unwrap_phase_map(P, jref)
+        U = fill(NaN, size(P))
+        for b in axes(P, 1)
+            isfinite(P[b, jref]) || continue
+            for j in axes(P, 2)
+                isfinite(P[b, j]) && (U[b, j] = mod(P[b, j] - P[b, jref] + 180, 360) - 180)
+            end
+        end
+        ref = [let v = filter(isfinite, U[:, j]); length(v) < 0.2 * size(U, 1) ? NaN : rad2deg(angle(sum(cis.(deg2rad.(v))))) end
+               for j in axes(U, 2)]
+        for dir in (1, -1)
+            prev = 0.0; j = jref + dir
+            while 1 <= j <= length(ref)
+                if isfinite(ref[j]); ref[j] -= 360 * round((ref[j] - prev) / 360); prev = ref[j]; end
+                j += dir
+            end
+        end
+        isfinite(ref[jref]) || (ref[jref] = 0.0)
+        for j in axes(U, 2)
+            isfinite(ref[j]) || continue
+            for b in axes(U, 1)
+                isfinite(U[b, j]) && (U[b, j] += 360 * round((ref[j] - U[b, j]) / 360))
+            end
+        end
+        return U
+    end
+
+    """
         sliding_lrfs_tracks(data, bin_st, bin_end; window=256, step=1, nsig=3.0)
 
     Method of Basu & Mitra (2018, MNRAS 475, 5098), with a step of `step` pulses (they used 50): the peak
@@ -3837,11 +3869,24 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
                    extent=[0, r.freq[end], c1, c2], vmin=0, vmax=basu ? max(1.5, quantile(vec(img), 0.995)) : quantile(vec(img), 0.995))
             tick_params(labelleft=false, labelbottom=false)
-            subplot2grid((5, 7), (0, 4), rowspan=4, colspan=3, sharey=ax0)
-            imshow(basu ? -q.phase : q.phase, origin="lower", aspect="auto", cmap="twilight", interpolation="nearest",   # NaN = puste (białe)
-                   extent=[lon0[1], lon0[end], c1, c2], vmin=-180, vmax=180)
+            axph = subplot2grid((5, 7), (0, 4), rowspan=4, colspan=3, sharey=ax0)
+            # faza ROZWINIETA: w kazdym oknie 0 w szczycie profilu, bez zawijania co 360° (wspolna sciezka jak w tracks);
+            # skala niebieski (-) / czerwony (+), poziomice co 180° - ich gestosc = nachylenie fazy (P2 = 360°/nachylenie)
+            U = _unwrap_phase_map(q.phase, t1.jref)
+            vm = let v = filter(isfinite, U); isempty(v) ? 180.0 : max(180.0, quantile(abs.(v), 0.99)) end
+            imu = imshow(U, origin="lower", aspect="auto", cmap="coolwarm", interpolation="nearest",   # NaN = puste (biale)
+                         extent=[lon0[1], lon0[end], c1, c2], vmin=-vm, vmax=vm)
+            if count(isfinite, U) > 10
+                lv = collect(-ceil(vm / 180) * 180:180:ceil(vm / 180) * 180)
+                try
+                    contour(lon0, yv, U, levels=lv, colors="k", linewidths=0.3, alpha=0.6)
+                catch
+                end
+            end
             tick_params(labelleft=false, labelbottom=false)
-            title(@sprintf("faza przy fp = %.4f\n(P3 = %.2f P)", t1.fp, 1 / t1.fp), fontsize=6.5)
+            title(@sprintf("faza przy fp = %.4f (P3 = %.2f P)\n0 w szczycie profilu, rozwinięta", t1.fp, 1 / t1.fp), fontsize=6.5)
+            cax = axph.inset_axes([0.88, 0.62, 0.04, 0.33])
+            cb = colorbar(imu, cax=cax); cb.ax.tick_params(labelsize=5); cb.set_label("faza (°)", fontsize=5)
             subplot2grid((5, 7), (4, 1), colspan=3)
             plot(r.freq, basu ? avg ./ max(avg[kp], eps()) : avg, c="grey")
             isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.6)
