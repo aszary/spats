@@ -108,19 +108,6 @@ module SpaTs
     end
 
 
-    function lrfs(outdir; start=1, number=nothing, darkness=0.3, show_=true)
-        txt_file = ensure_debase_file(outdir)
-        p = Tools.read_params(joinpath(outdir, "params.json"))
-        data = Data.load_ascii(txt_file)
-        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
-        bin_st = Int(p["bin_st"])
-        bin_end = Int(p["bin_end"])
-        psr_name = basename(rstrip(outdir, ['/', '\\']))
-        return Plot.lrfs_obsolete(data, outdir; start=start, number=number,
-                                  bin_st=bin_st, bin_end=bin_end,
-                                  darkness=darkness, name_mod=psr_name, show_=show_)
-    end
-
     """
     Phase-drift vs amplitude-modulation test on already-processed data.
 
@@ -1138,9 +1125,6 @@ data = Data.load_ascii(txt_file)
 
 
 
-
-
-
         # P-Pdot diagram based on the ATNF catalogue (input/psrcat.db)
         #Plot.ppdot("output")
         # the same diagram with the component offsets (input/offsets.csv)
@@ -1159,11 +1143,13 @@ data = Data.load_ascii(txt_file)
 
 
 
-        phase_modulation3(vpmout*"J1555-3134"; show_=true)
-        phase_modes(vpmout*"J1555-3134")
-        lrfs(vpmout*"J1539-6322"; show_=true)
+        #phase_modulation3(vpmout*"J1555-3134"; show_=true)
+        #phase_modes(vpmout*"J1555-3134")
+        
+        
         #phase_modulation3_list(vpmout, "input/pulsars.txt")
         #Travel.travel_test(vpmout*"J1750-3503")
+        
 
 
         #list_file = "input/drift_pulsars_P3.txt"
@@ -1174,7 +1160,7 @@ data = Data.load_ascii(txt_file)
         # 3. Generate the chart!
         #DriftBatch.plot_drift_results("drift_classifications_olddrift.csv", "drift_chart_olddrift.pdf")
 
-
+        lrfs(vpmout*"J1539-6322"; show_=true)
 
 
 
