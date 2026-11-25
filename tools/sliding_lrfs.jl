@@ -116,3 +116,52 @@ function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, basu_step=50, outdir
         run(`pdfunite $ex $all_`); println("\nWszystko w jednym pliku: $all_")
     end
 end
+
+"""
+    sliding_lrfs_final(psrs=SL_PSRS; window=256)
+
+Wersja koncowa: dla kazdego pulsara 2 strony - sliding LRFS w naszej wersji (krok 1, jasnosc impulsow z
+nullami automatu, mapa widma, mapa fazy przy fp, srednie widmo, profil) i tracks jak Basu & Mitra 2018
+(okno 256, krok 50, najsilniejsza czestotliwosc w kazdym binie, faza 0 w szczycie profilu, nachylenia
+w skladowych). Wynik: sliding_lrfs/<psr>/<psr>_final.pdf, wszystko razem: sliding_lrfs/final.pdf,
+liczby: sliding_lrfs/final.txt.
+"""
+function sliding_lrfs_final(psrs=SL_PSRS; window=256, outdir=SL_DIR)
+    mkpath(outdir)
+    PL = SpaTs.Plot
+    pdfs = String[]; summary = String[]
+    for psr in psrs
+        t0 = time()
+        try
+            D, p = Base.invokelatest(_sl_data, psr)
+            od = joinpath(outdir, psr); mkpath(od)
+            N = size(D, 1)
+            N > window || (push!(summary, "$psr  N=$N  za mało impulsów na okno $window"); continue)
+            nul = Int[]
+            for (a, b) in SpaTs.Data.zaps_to_ranges(SpaTs.Data.zaps_null_of(p)); append!(nul, a:b); end
+            Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=1, name_mod=psr, style=:nasza, nulls=nul)
+            res = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=50, name_mod=psr, style=:basu)
+            f1 = joinpath(od, "$(psr)_v1_nasza_sliding.pdf"); f2 = joinpath(od, "$(psr)_v2_basu_mitra_tracks.pdf")
+            fo = joinpath(od, "$(psr)_final.pdf")
+            ex = filter(isfile, [f1, f2])
+            if !isempty(ex) && Sys.which("pdfunite") !== nothing
+                run(`pdfunite $ex $fo`); push!(pdfs, fo)
+            else
+                append!(pdfs, ex)
+            end
+            push!(summary, "$psr  N=$N  nulli: $(length(nul))  " * res.info)
+            @printf("%-12s ok (%.0f s)\n", psr, time() - t0)
+        catch e
+            e isa InterruptException && rethrow()
+            println("$psr BŁĄD: ", first(sprint(showerror, e), 300))
+            push!(summary, "$psr  BŁĄD: " * first(sprint(showerror, e), 200))
+        end
+        flush(stdout)
+    end
+    write(joinpath(outdir, "final.txt"), join(summary, "\n") * "\n")
+    println("\n", join(summary, "\n"))
+    all_ = joinpath(outdir, "final.pdf")
+    if !isempty(pdfs) && Sys.which("pdfunite") !== nothing
+        run(`pdfunite $pdfs $all_`); println("\nWszystko w jednym pliku: $all_")
+    end
+end

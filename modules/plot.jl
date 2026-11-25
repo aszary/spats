@@ -3727,6 +3727,9 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                 m = [let v = filter(isfinite, M[rows, j]); length(v) < 0.5 * length(rows) ? NaN : mean(v) end for j in axes(M, 2)]
                 scatter(lon, m, s=3, c=mcols[mod1(i, 3)], label=labels[i])
             end
+            for r in ts[1].comps[1:end-1]
+                axvline(lon[last(r)] + (lon[2] - lon[1]) / 2, c="grey", ls="--", lw=0.6)    # granica skladowych
+            end
             ylabel(lab); xlim(lon[1], lon[end]); tick_params(labelbottom=false)
             panel == 0 && length(ts) > 1 && legend(fontsize=6, markerscale=2)
         end
@@ -3758,7 +3761,9 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
     (0 = profile peak) - for each peak if the spectrum has a second one. Files: <name_mod>_sliding_lrfs.pdf,
     _lrfs_tracks.pdf, _sliding_lrfs.csv (window, strongest frequency), _lrfs_tracks.txt (slopes).
     """
-    function sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false, nsig=3.0, style=:nasza)
+    function sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false, nsig=3.0, style=:nasza,
+                          nulls=Int[])
+        # nulls: numery impulsow (od 0) uznanych za nulle - czerwone kreski na panelu jasnosci (wersja :nasza)
         # style = :nasza (moc wzgledem szumu, srodek okna, nasza konwencja fazy) albo :basu (Basu & Mitra 2018:
         # sredni szczyt = 1, pierwszy impuls okna, ich konwencja fazy, + strona z amplituda i faza przy fp)
         basu = style == :basu
@@ -3823,6 +3828,10 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step" * (basu ? " (jak Basu & Mitra 2018)" : " (nasza wersja)"), fontsize=8)
             ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
             plot(E, 0:N-1, c="grey", lw=0.3)
+            if !isempty(nulls)                                     # nulle: czerwone kreski przy lewej krawedzi
+                xe = minimum(filter(isfinite, E))
+                scatter(fill(xe, length(nulls)), nulls, marker="_", c="red", s=12, lw=0.8)
+            end
             ylim(c1, c2); xticks([]); ylabel(basu ? "start period of the window" : "pulse number (window centre)")
             subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
             imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
