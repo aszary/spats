@@ -191,6 +191,12 @@ function batch_analyze_drift(vpmout::String, list_file::String, out_csv::String=
                 @warn "[$i/$(length(names))] Skipping $name — failed to parse debase file $debase_file."
                 continue
             end
+
+            # Apply pulse zapping if defined in params.json
+            zaps_str = haskey(params, "zaps") ? params["zaps"] : nothing
+            if isdefined(@__MODULE__, :Data) && isdefined(Data, :zap!)
+                Data.zap!(X; ranges=zaps_str)
+            end
             
             if bin_end === nothing
                 bin_end = size(X, 2)

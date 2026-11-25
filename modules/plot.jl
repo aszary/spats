@@ -141,7 +141,7 @@ module Plot
 
         num, bins = size(data)
         if number == nothing
-            number = num - start  # missing one?
+            number = num - start + 1
         end
         if bin_st == nothing bin_st = 1 end
         if bin_end == nothing bin_end = bins end
@@ -150,18 +150,22 @@ module Plot
         lrfs, intensity, freq, peak = Tools.lrfs(da)
         println("\tpeak freq $(freq[peak]) ")
         println("\tpeak P3 $(1/freq[peak])")
-        phase_ = rad2deg.(angle.(view(lrfs, peak, :)))  # fft phase variation  # view used! lrfs[peak, :] -> copies data
+        # Conjugate forward-FFT slice so e^(+2πi f3 n) matches positive-drift convention (dψ/dφ > 0)
+        phase_ = rad2deg.(angle.(conj.(view(lrfs, peak, :))))
         # skip freq = 0 and normalize intensity to 1
         inten = intensity[2:end]
         inten .-= minimum(inten)
-        inten ./= maximum(inten)
+        max_inten = maximum(inten)
+        if max_inten > 0
+            inten ./= max_inten
+        end
         fre = freq[2:end]
-        pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak-1])  # skip zero freq
+        pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak])  # fre[peak-1] == freq[peak]
         fr = pars[2]
-        frer = pars[3]  # errs[2] # yeap
+        frer = errs[2]
 
         println("\tFrequency (gaussian fit): $fr, P3: $(1/fr)")
-        println("\tFrequency error (gaussian fit): $frer, P3 error: $(1/fr - 1/(fr +frer))")  # TODO err ok?
+        println("\tFrequency error (gaussian fit): $frer, P3 error: $(abs(1/fr - 1/(fr + frer)))")
 
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1
@@ -174,7 +178,6 @@ module Plot
         println("Longitude resolution = ", dl, " (deg.)")
         if change_fftphase == true
             for i in 1:length(phase_)-1
-                global dp
                 changed = true
                 while changed
                     changed = false
@@ -184,14 +187,12 @@ module Plot
                     if dpp < dp
                         phase_[i+1] += 360
                         changed = true
-                    end
-                    if dpm < dp
+                    elseif dpm < dp
                         phase_[i+1] -= 360
                         changed = true
                     end
                 end
-                dphase[i] = dp
-                #println("$i $(longitude[i])  $dp")
+                dphase[i] = phase_[i+1] - phase_[i]
             end
         end
         # longitude vs. FFT phase analysis
@@ -219,6 +220,7 @@ module Plot
         minorticks_on()
         #plot(longitude, phase_, c="grey")
         scatter(longitude, phase_, marker=".", c="grey", s=3.)
+        xlim(longitude[1], longitude[end])
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         for l in lin
@@ -228,7 +230,7 @@ module Plot
         #xlim(-1, 2)
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
-        if change_fftphase == true
+        if change_fftphase == true && length(longitude) > 16
             ax2 = ax.twinx()
             minorticks_on()
             plot(longitude[7:end-9], dphase[6:end-9])
@@ -247,7 +249,9 @@ module Plot
         ylabel("frequency \$(1/P)\$")
 
         subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
-        imshow(abs.(lrfs), origin="lower", cmap=cmap, interpolation="none", aspect="auto", vmax=darkness*maximum(abs.(lrfs)))
+        imshow(abs.(lrfs), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+               extent=[longitude[1], longitude[end], freq[1], freq[end]],
+               vmax=darkness*maximum(abs.(lrfs)))
         #println(size(lrfs))
         #return
 
@@ -539,11 +543,11 @@ module Plot
         ]
 
         # Intensywność i częstotliwości (zakładam, że oś 1 to puls, oś 2 to longitude)
-        intensity = sum(abs.(lrfs_complex), dims=2)[:]
-        freq = collect(0:length(intensity)-1) ./ length(intensity)
+        intensity = sum(abs2.(lrfs_complex), dims=2)[:]
+        freq = collect(range(0.0, 0.5, length=length(intensity)))
 
-        # Znajdź peak i P3
-        peak = argmax(intensity)
+        # Znajdź peak i P3 (skip DC at index 1)
+        peak = argmax(intensity[2:end]) + 1
         println("\tpeak freq $(freq[peak])")
         println("\tpeak P3 $(1/freq[peak])")
 
@@ -557,12 +561,11 @@ module Plot
 
         # Unwrap fazy (korekta ciągłości)
         for i in 1:length(phase_)-1
-            while abs(phase_[i+1] - phase_[i]) > 180
-                if phase_[i+1] > phase_[i]
-                    phase_[i+1] -= 360
-                else
-                    phase_[i+1] += 360
-                end
+            while phase_[i+1] - phase_[i] > 180
+                phase_[i+1:end] .-= 360
+            end
+            while phase_[i+1] - phase_[i] < -180
+                phase_[i+1:end] .+= 360
             end
         end
 
@@ -577,47 +580,28 @@ module Plot
         # Górny panel: faza FFT
         ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
         scatter(longitude, phase_, marker=".", c="grey", s=3)
+        xlim(longitude[1], longitude[end])
         ax_phase.xaxis.set_label_position("top")
         ax_phase.xaxis.set_ticks_position("top")
-        xlabel("Phase \$(^\\circ)\$")
-        #ylabel("FFT phase \$(^\\circ)\$")
-
-        # Pobierz aktualny zakres osi Y
-        ylims = ax_phase.get_ylim()
-        ymin, ymax = ylims
-
-        # Ustal pozycje ticków równomiernie od ymin do ymax
-        nticks = 9  # bo mamy 9 wartości od -180 do 180 co 45 stopni
-        ytick_positions = range(ymin, ymax, length=nticks)
-
-        # Ustaw ticki na tych pozycjach, ale etykiety -180, -135, ..., 180
-        ytick_labels = string.(-180:45:180)
-
-        ax_phase.set_yticks(collect(ytick_positions))
-        ax_phase.set_yticklabels(ytick_labels)
-
+        xlabel("longitude \$(^\\circ)\$")
+        ylabel("Phase \$(^\\circ)\$")
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
-
-
         # --- LEWY PANEL: intensywność vs częstotliwość ---
-        pulses = collect(start:start+number-1)
-        average_y = sum(abs.(lrfs_complex[start:start+number-1, :]), dims=2)[:,1]
+        freq_sub = freq[start:start+number-1]
+        average_y = sum(abs2.(lrfs_complex[start:start+number-1, :]), dims=2)[:, 1]
 
         ax_intensity = subplot2grid((5, 3), (1, 0), rowspan=3)
-        plot(average_y, pulses, color="grey")
-        ylim(pulses[1], pulses[end])
+        plot(average_y, freq_sub, color="grey")
+        ylim(freq_sub[1], freq_sub[end])
         xticks([])
+        yticks(0.0:0.1:0.5)
         ylabel("Fluctuation frequency (P/P₃)")
-
-        # Tick marks Y (0.0 do 0.5 co 0.1)
-        ytick_values = 0.0:0.1:0.5
-        ytick_positions = pulses[1] .+ ytick_values .* (pulses[end] - pulses[1]) / 0.5
-        yticks(ytick_positions, string.(ytick_values))
 
         # --- GŁÓWNY PANEL: mapa LRFS ---
         ax_lrfs = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
         imshow(abs.(lrfs_complex), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
+            extent=[longitude[1], longitude[end], freq[1], freq[end]],
             vmax=darkness * maximum(abs.(lrfs_complex)))
         tick_params(labelleft=false, labelbottom=false)
 
@@ -649,16 +633,44 @@ module Plot
     ##########################################################################
 
 
+    function _unwrap_deg_outward(phase_deg::AbstractVector{<:Real}, weights::AbstractVector{<:Real})
+        out = Float64.(phase_deg)
+        n = length(out)
+        n <= 1 && return out
+        imax = argmax(weights)
+        for i in (imax+1):n
+            d = out[i] - out[i-1]
+            if d > 180.0
+                out[i:end] .-= 360.0
+            elseif d < -180.0
+                out[i:end] .+= 360.0
+            end
+        end
+        for i in (imax-1):-1:1
+            d = out[i] - out[i+1]
+            if d > 180.0
+                out[1:i] .-= 360.0
+            elseif d < -180.0
+                out[1:i] .+= 360.0
+            end
+        end
+        return out
+    end
+
+
     function lrfs(data, outdir, params; cmap="viridis", darkness=0.5, name_mod="PSR_NAME",
-              show_=false)
+              show_=false, profile=nothing, p3=nothing, use_known_p3::Bool=true,
+              conj_phase::Bool=false, unwrap_phase::Bool=false, amp_thresh::Real=0.1)
         
         # === Parameters and shape ===
         p = params
-        bin_st = p["bin_st"]
-        bin_end = p["bin_end"]
-        num, bins = size(data)
-
-        #@assert bin_st >= 1 && bin_end <= bins "bin_st and bin_end are out of bounds"
+        bin_st = Int(p["bin_st"])
+        bin_end = Int(p["bin_end"])
+        ndims(data) >= 3 && size(data, 3) >= 2 ||
+            error("Expected 3D LRFS array (freq × bins × >=2), got size $(size(data))")
+        num, bins = size(data, 1), size(data, 2)
+        @assert 1 <= bin_st <= bin_end <= bins "bin_st ($bin_st) and bin_end ($bin_end) are out of bounds (1:$bins)"
+        @assert num >= 2 "LRFS frequency axis must have at least 2 rows (got $num)"
 
         signal_width = bin_end - bin_st + 1
 
@@ -668,22 +680,43 @@ module Plot
         imag_part = data[:, bin_st:bin_end, 2]  # imaginary part
         lrfs_complex = ComplexF64.(real_part .+ imag_part .* im)  # complex LRFS matrix
 
-        # === Amplitude (main panel) ===
+        # === Amplitude (main panel) & Power spectrum (left panel) ===
         amp = abs.(lrfs_complex)
+        power = abs2.(lrfs_complex)
+        spectrum = vec(sum(power, dims=2))
 
         # === Mean profile (bottom panel) ===
-        profile = mean(real.(lrfs_complex), dims=1)[1, :]
+        prof = if !isnothing(profile)
+            length(profile) == bins ? Float64.(profile[bin_st:bin_end]) : Float64.(profile)
+        else
+            vec(mean(real.(lrfs_complex), dims=1))
+        end
 
-        # === Power spectrum (left panel) ===
-        spectrum = sum(amp, dims=2)[:, 1]
+        # === Frequency axis (one-sided: 0.0 to Nyquist 0.5 cycles/pulse) ===
+        freq = collect(range(0.0, 0.5, length=num))
 
-        # === Frequency axis ===
-        freq = collect(0:(num-1)) ./ num
-        peak = argmax(spectrum[2:end]) + 1  # skip DC component at freq=0
-        println("\tPeak freq: $(freq[peak]), P3 = $(1/freq[peak])")
+        p3_target = if !isnothing(p3) && Float64(p3) > 1.0
+            Float64(p3)
+        elseif use_known_p3 && haskey(p, "p3") && !isnothing(p["p3"]) && Float64(p["p3"]) > 1.0
+            Float64(p["p3"])
+        else
+            nothing
+        end
+
+        peak = if !isnothing(p3_target)
+            argmin(abs.(freq[2:end] .- 1.0 / p3_target)) + 1
+        else
+            argmax(spectrum[2:end]) + 1  # skip DC component at freq=0
+        end
+        println("\tPeak freq: $(freq[peak]), P3 = $(freq[peak] > 0 ? 1 / freq[peak] : Inf)")
 
         # === Phase at peak frequency ===
-        phase_ = rad2deg.(angle.(lrfs_complex[peak, :]))
+        amp_row = vec(amp[peak, :])
+        phase_slice = conj_phase ? conj.(vec(lrfs_complex[peak, :])) : vec(lrfs_complex[peak, :])
+        phase_ = rad2deg.(angle.(phase_slice))
+        if unwrap_phase
+            phase_ = _unwrap_deg_outward(phase_, amp_row)
+        end
 
         # === Longitude axis ===
         # The longitude axis has the same length as signal_width and is centered around zero
@@ -691,27 +724,21 @@ module Plot
         longitude = range(-dl/2, dl/2, length=signal_width)
         println("Longitude resolution = $(longitude[2] - longitude[1]) deg")
 
-
-
         # === Plotting settings ===
         rc("font", size=7)
         rc("axes", linewidth=0.5)
         rc("lines", linewidth=0.5)
 
         figure(figsize=(6, 7))  # figure size in inches (~15.24 cm × 17.78 cm)
-        subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
+        subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.97, wspace=0., hspace=0.)
 
-        # --- LEFT PANEL: intensity vs frequency ---
+        # --- LEFT PANEL: intensity vs frequency (skip DC row when scaling) ---
         ax_left = subplot2grid((5, 3), (1, 0), rowspan=3)
-        plot(spectrum, freq, color="grey")
+        plot(spectrum[2:end], freq[2:end], color="grey")
         ylim(freq[1], freq[end])
         xticks([])
+        yticks(collect(0.0:0.1:0.5))
         ylabel("Fluctuation frequency (P/P₃)")
-
-        # --- Custom Y ticks (0.0 to 0.5 every 0.1) ---
-        ytick_values = 0.0:0.1:0.5
-        ytick_positions = freq[1] .+ ytick_values .* (freq[end] - freq[1]) / 0.5
-        yticks(ytick_positions, string.(ytick_values))
 
         # --- MAIN PANEL: LRFS map ---
         ax_main = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
@@ -722,15 +749,25 @@ module Plot
 
         # --- TOP PANEL: phase ---
         ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
-        #ax_phase = axes([0.17, 0.94, 0.82, 0.05])
-        scatter(longitude, phase_, s=2, c="grey")
+        max_amp_row = maximum(amp_row)
+        good = max_amp_row > 0 ? (amp_row .>= amp_thresh * max_amp_row) : trues(length(amp_row))
+        if any(.!good)
+            scatter(longitude[.!good], phase_[.!good], s=2, c="lightgrey", zorder=2)
+        end
+        if any(good)
+            scatter(longitude[good], phase_[good], s=3, c="black", zorder=3)
+        end
+        xlim(longitude[1], longitude[end])
         xticks([])
-        yticks([-180, -90, 0, 90, 180])
+        if !unwrap_phase
+            ylim(-185, 185)
+            yticks([-180, -90, 0, 90, 180])
+        end
         ylabel("Phase (°)", labelpad=10)
 
         # --- BOTTOM PANEL: mean profile ---
         ax_bottom = subplot2grid((5, 3), (4, 1), colspan=2)
-        plot(longitude, profile, color="grey")
+        plot(longitude, prof, color="grey")
         axvline(x=0.0, ls=":", c="black")
         yticks([])
         xlim(longitude[1], longitude[end])

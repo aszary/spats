@@ -64,9 +64,11 @@ module Tools
         return (intensity, pulses)
     end
 
-    function fftfreq(n, d=1.0)
-        # one side (positive) frequancy range
-        if iseven(n)
+    function fftfreq(n, d=1.0; include_nyquist::Bool=false)
+        # one side (positive) frequency range
+        if include_nyquist
+            rf = 0:(n ÷ 2)
+        elseif iseven(n)
             rf = range(0, convert(Int, n/2 - 1), step=1)
         else
             rf = range(0, convert(Int, (n-1)/2 - 1), step=1)  # -1 added to match size
@@ -77,18 +79,12 @@ module Tools
 
 
     function lrfs(data)
-        da = transpose(data)
-        bins, pulse_num = size(da)
-        half = floor(Int, pulse_num / 2) # one side frequency range?
-        lrfs = fft(da, 2)[:, 1:half] # second dim! important!
-        lrfs = transpose(lrfs)
-        freq = fftfreq(pulse_num)
-        intensity = zeros(half)
-        ab = abs.(lrfs)
-        for i in 1:half
-            intensity[i] = sum(ab[i,:]) # this is important!
-        end
-        pk = peaks(intensity)
+        data_prep = data .- mean(data, dims=1)
+        pulse_num = size(data_prep, 1)
+        lrfs = collect(rfft(data_prep, 1))
+        freq = fftfreq(pulse_num; include_nyquist=true)
+        intensity = vec(sum(abs.(lrfs), dims=2))
+        pk = length(intensity) >= 2 ? (peaks(intensity[2:end]) + 1) : 1
         return lrfs, intensity, freq, pk
     end
 
@@ -125,8 +121,11 @@ module Tools
     function peaks(intensity)
         y = intensity
         pks, vals = findmaxima(y)
+        if isempty(pks)
+            return argmax(y)
+        end
         pks, proms = peakproms(pks, y)
-        maxprom , ind = findmax(proms)
+        maxprom, ind = findmax(proms)
         return pks[ind] # index of peak with maximum prominence
     end
 
@@ -168,7 +167,7 @@ module Tools
             μ = xdata[ind]
         end
         if σ == nothing
-            σ = xdata[20] - xdata[1]
+            σ = length(xdata) >= 2 ? (xdata[min(20, length(xdata))] - xdata[1]) : 1.0
         end
         # how to use gauss here? done!
         #@. model(x, p) = p[1] * exp(-0.5*((x-p[2])/p[3])^2) + p[4]

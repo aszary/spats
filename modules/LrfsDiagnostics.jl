@@ -10,18 +10,18 @@ export lrfs_phase_track
     _lrfs(X) -> (F::Matrix{ComplexF64}, intensity::Vector{Float64})
 
 Self-contained LRFS computation matching Tools.lrfs logic:
-- FFT along the pulse axis for each longitude bin
-- Returns the complex spectrum matrix and summed power per frequency row.
+- Real FFT (rfft) along the pulse axis for each longitude bin, which includes the
+  Nyquist bin and avoids the half-range truncation of the old `fft(…)[:,1:half]` approach.
+- Returns the complex spectrum matrix F (half_freqs × bins) and summed power per row.
 """
 function _lrfs(X::AbstractMatrix{<:Real})
-    da = collect(transpose(X))        # (bins × pulses)
-    bins, pulse_num = size(da)
-    half = floor(Int, pulse_num / 2)
+    da = collect(transpose(X))   # (bins × pulses)
 
-    raw = fft(da, 2)[:, 1:half]       # (bins × half_freqs)
-    F   = collect(transpose(raw))     # (half_freqs × bins)  — same layout as Tools.lrfs
+    # rfft along the pulse dimension: output shape (bins × (pulse_num÷2 + 1))
+    raw = rfft(da, 2)            # includes Nyquist; no manual slicing needed
+    F   = collect(transpose(raw))  # (half_freqs × bins) — same layout as Tools.lrfs
 
-    intensity = vec(sum(abs.(F), dims=2))  # sum across bins per freq row
+    intensity = vec(sum(abs2.(F), dims=2))  # sum power (abs²) across bins per freq row
     return F, intensity
 end
 
@@ -85,42 +85,42 @@ function lrfs_phase_track(X::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int;
     # 3. Determine which frequency row to analyse
     peak_idx, p3_source = if !isnothing(known_p3) && known_p3 > 1.0
         # Convert known P3 (in pulses) to the nearest LRFS frequency index.
-        # The k-th row (1-based) corresponds to frequency k/N cycles/pulse → P3 = N/k.
-        # So k = round(N / known_p3), clamped to valid range [2, length(intensity)].
-        k = clamp(round(Int, N / known_p3), 2, length(intensity))
+        # The k-th bin of rfft output (1-based) corresponds to frequency (k-1)/N
+        # cycles/pulse, so P3 = N/(k-1).  Solving: k = round(N/known_p3) + 1.
+        # Clamp to valid range [2, length(intensity)] (index 1 is DC).
+        k = clamp(round(Int, N / known_p3) + 1, 2, length(intensity))
         k, :known_p3
     else
         # Fallback: find dominant power peak, skipping DC (index 1)
         argmax(view(intensity, 2:length(intensity))) + 1, :auto_detected
     end
 
-    # P3 actually used (may differ slightly from known_p3 due to frequency quantisation)
+    # P3 actually used (may differ slightly from known_p3 due to frequency quantisation).
+    # rfft bin k (1-based) ↔ frequency (k-1)/N → P3 = N/(k-1).
     p3_value = N / (peak_idx - 1)
 
-    # 4. Extract phase track at the chosen frequency row
-    p3_complex_row = vec(F[peak_idx, :])
-    phase_track = angle.(p3_complex_row)
+    # 4. Extract the complex row at the chosen frequency.
+    # Conjugate to match the PhaseDrift sign convention (e^{+2πi f₃ n}):
+    # positive phase slope → positive drift (later subpulses arrive at later longitudes).
+    Z = conj.(vec(F[peak_idx, :]))
+
+    # Phase track for diagnostic output (unwrap from bin 1 outward)
+    phase_track = angle.(Z)
     unwrap!(phase_track)
 
-    # 5. Weighted linear regression for phase slope (radians per bin)
-    # Weight by amplitude so noisy off-pulse bins contribute little
-    weights = abs.(p3_complex_row)
-    sum_w   = sum(weights)
-
-    if sum_w == 0.0
+    # 5. Coherent slope estimator — robust against phase-unwrap failures in
+    # low-SNR off-pulse bins.  g = Σ conj(Z[j])·Z[j+1]; slope = arg(g) in rad/bin.
+    # This is equivalent to the amplitude-weighted mean phase increment and does
+    # not rely on unwrapping.
+    if length(Z) < 2
         return (p3_pulses = p3_value, phase_slope = 0.0,
                 classification = :undetermined, phase_track = phase_track,
                 p3_source = p3_source)
     end
 
-    x     = collect(1:M)
-    x_bar = sum(weights .* x)          / sum_w
-    y_bar = sum(weights .* phase_track) / sum_w
+    g = sum(conj(Z[j]) * Z[j+1] for j in 1:(length(Z)-1))
 
-    cov_xy = sum(weights .* (x .- x_bar) .* (phase_track .- y_bar))
-    var_x  = sum(weights .* (x .- x_bar).^2)
-
-    slope = var_x > 0 ? cov_xy / var_x : 0.0
+    slope = abs(g) > 0 ? angle(g) : 0.0   # radians per longitude bin
 
     # 6. Classification: flat phase → amplitude modulation; sloped → drift
     classification = abs(slope) > 0.05 ? :pure_drift : :amplitude_modulation

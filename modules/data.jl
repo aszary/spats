@@ -264,14 +264,16 @@ module Data
                 p3_value = parse(Float64, last_match.captures[1])
                 p3_error = parse(Float64, last_match.captures[2])
                 println("Found P3 = $p3_value ± $p3_error P0")
-            end
 
-            ybins = Functions.find_ybins(p3_value)
-            println("Number of ybins: $ybins")
-            p["p3"] = p3_value
-            p["p3_error"] = p3_error
-            p["p3_ybins"] = ybins
-            Tools.save_params(params_file, p)
+                ybins = Functions.find_ybins(p3_value)
+                println("Number of ybins: $ybins")
+                p["p3"] = p3_value
+                p["p3_error"] = p3_error
+                p["p3_ybins"] = ybins
+                Tools.save_params(params_file, p)
+            else
+                @warn "pspecDetect: no P3 matches found in output for $debased_file"
+            end
         end
     end
 
