@@ -140,7 +140,8 @@ function sliding_lrfs_final(psrs=SL_PSRS; window=256, outdir=SL_DIR)
             nul = Int[]
             for (a, b) in SpaTs.Data.zaps_to_ranges(SpaTs.Data.zaps_null_of(p)); append!(nul, a:b); end
             Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=1, name_mod=psr, style=:nasza, nulls=nul)
-            res = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=50, name_mod=psr, style=:basu)
+            res = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=50, name_mod=psr, style=:basu,
+                                    track_sign=1)          # faza w naszej konwencji, jak na mapie fazy
             f1 = joinpath(od, "$(psr)_v1_nasza_sliding.pdf"); f2 = joinpath(od, "$(psr)_v2_basu_mitra_tracks.pdf")
             fo = joinpath(od, "$(psr)_final.pdf")
             ex = filter(isfile, [f1, f2])

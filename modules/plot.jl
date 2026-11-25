@@ -3794,7 +3794,9 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
     _lrfs_tracks.pdf, _sliding_lrfs.csv (window, strongest frequency), _lrfs_tracks.txt (slopes).
     """
     function sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false, nsig=3.0, style=:nasza,
-                          nulls=Int[])
+                          nulls=Int[], track_sign=nothing)
+        # track_sign: konwencja fazy na wykresie tracks i w nachyleniach (-1 Basu & Mitra, +1 nasza = jak mapa fazy);
+        # domyslnie -1 dla :basu, +1 dla :nasza; wersja koncowa: +1
         # nulls: numery impulsow (od 0) uznanych za nulle - czerwone kreski na panelu jasnosci (wersja :nasza)
         # style = :nasza (moc wzgledem szumu, srodek okna, nasza konwencja fazy) albo :basu (Basu & Mitra 2018:
         # sredni szczyt = 1, pierwszy impuls okna, ich konwencja fazy, + strona z amplituda i faza przy fp)
@@ -3900,14 +3902,14 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         end
         close("all")
 
+        sg = isnothing(track_sign) ? (basu ? -1 : 1) : track_sign
         function _info(t)
             sl = filter(isfinite, t.slope)
-            sg = basu ? -1 : 1
             cs = join([let v = filter(isfinite, t.cslope[:, c]); length(v) < 3 ? "skł.$c -" : @sprintf("skł.%d %.1f ± %.1f", c, sg * mean(v), std(v)) end
                        for c in axes(t.cslope, 2)], ", ")
             @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą %d z %d, nachylenie fazy w składowych: %s °/° (%s)",
                      t.fp, 1 / t.fp, t.fwhm, t.S, length(sl), length(t.starts), cs,
-                     basu ? "konwencja Basu & Mitra: + = dryf ku wcześniejszym długościom" : "nasza: + = dryf ku późniejszym długościom")
+                     sg < 0 ? "konwencja Basu & Mitra: + = dryf ku wcześniejszym długościom" : "nasza: + = dryf ku późniejszym długościom")
         end
         ts = isnothing(t2) ? [t1] : [t1, t2]
         labs = [@sprintf("P3 = %.2f P", 1 / t.fp) for t in ts]
@@ -3915,7 +3917,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                join(["szczyt $i: " * _info(t) for (i, t) in enumerate(ts)], " | ")
         println("  ", info)
         basu && sliding_lrfs_tracks_plot_v2([t1; isnothing(t2) ? [] : [t2]], labs, prof, lon0,
-                                            joinpath(outdir, "$(name_mod)_$(tag)_tracks.pdf"); sign=-1,
+                                            joinpath(outdir, "$(name_mod)_$(tag)_tracks.pdf"); sign=sg,
                                             title_="$(name_mod): okno $window, krok $step (jak Basu & Mitra 2018, rys. 2)
 " *
                                                    join([_info(t) for t in ts], "
@@ -3925,9 +3927,9 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                                  title_="PSR $(name_mod)   nfft=$window   Nperiod=$N" * (basu ? "" : "   (krok $step)"))
         open(joinpath(outdir, "$(name_mod)_$(tag)_tracks.txt"), "w") do io
             println(io, info)
-            println(io, basu ? "peak,window_start,slope_deg_per_deg_BasuMitra" : "peak,window_start,slope_deg_per_deg_ours")
+            println(io, sg < 0 ? "peak,window_start,slope_deg_per_deg_BasuMitra" : "peak,window_start,slope_deg_per_deg_ours")
             for (i, t) in enumerate(ts), b in eachindex(t.starts)
-                @printf(io, "%d,%d,%.5f\n", i, t.starts[b] - 1, (basu ? -1 : 1) * t.slope[b])
+                @printf(io, "%d,%d,%.5f\n", i, t.starts[b] - 1, sg * t.slope[b])
             end
         end
         return (spectrum=r, tracks=ts, info=info)
