@@ -1,6 +1,6 @@
 # Animowany sliding LRFS: okno `window` impulsow przesuwane po obserwacji; dla kazdego polozenia pelny LRFS
 # (mapa |LRFS|, widmo, fazy cech, profil okna) + podglad calej obserwacji z zaznaczonym oknem.
-# Cechy (szczyty widma, do 3) wykrywane OSOBNO W KAZDYM OKNIE i sledzone w czasie (ten sam kolor, dopoki szczyt
+# Cechy: domyslnie 2 STALE - najsilniejsze szczyty sredniego widma calej obserwacji (fixed=true); fixed=false: wykrywane w kazdym oknie i sledzone (ten sam kolor, dopoki szczyt
 # jest blisko poprzedniego) - linie w widmie i fazy zmieniaja sie razem z danymi.
 #   ENV["SPATS_NO_MAIN"]="1"; include("spats.jl"); include("tools/sliding_lrfs_anim.jl")
 #   sliding_lrfs_player("J1555-3134")            # interaktywna animacja: Odtwórz/Pauza, suwak, strzałki (VNC)
@@ -11,7 +11,7 @@ using PyPlot, PyCall
 # wycinek Pythona (slice) do indeksowania GridSpec, np. gs[0, 1:4] -> get(gs, (0, _ps(1, 4)))
 _ps(a, b) = pybuiltin("slice")(a, b)
 
-const _ANIM_COLS = ["royalblue", "green", "crimson"]
+const _ANIM_COLS = ["darkorange", "royalblue", "green"]      # F1 pomaranczowy, F2 niebieski - dobrze sie rozdzielaja
 const _ANIM_MARK = ["o", "^", "s"]
 
 """
@@ -57,7 +57,9 @@ function _anim_track(peaks; nlab=3, tol=4)
 end
 
 "Dane klatek: |LRFS| okna, widmo, cechy okna (sledzone) z fazami, profil okna."
-function _anim_prepare(D, p; window=256, step=8, nsig=3.0, thr=5.0)
+function _anim_prepare(D, p; window=256, step=8, nsig=3.0, thr=5.0, fixed=true, nfix=2)
+    # fixed=true: cechy = `nfix` najsilniejszych szczytow SREDNIEGO widma calej obserwacji (calego sliding LRFS),
+    # stale przez cala animacje - patrzymy tylko, jak sie zmienia ich sila i faza; false: wykrywane w kazdym oknie
     PL = SpaTs.Plot
     N, nb = size(D)
     bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
@@ -87,8 +89,14 @@ function _anim_prepare(D, p; window=256, step=8, nsig=3.0, thr=5.0)
         prof[b, :] = isempty(gr) ? zeros(length(on)) : vec(mean(Float64.(D[gr, on]), dims=1))
     end
     snr = spec ./ noise
-    K = _anim_track([_anim_peaks(snr[b, :]; thr=thr) for b in 1:nw])
+    if fixed
+        ks = _anim_peaks(vec(mean(snr, dims=1)); thr=1.5, nmax=nfix)     # srednie widmo: szum ~1
+        K = isempty(ks) ? zeros(Int, 1, nw) : repeat(ks, 1, nw)
+    else
+        K = _anim_track([_anim_peaks(snr[b, :]; thr=thr) for b in 1:nw])
+    end
     nlab = size(K, 1)
+    Sw = [K[l, b] > 0 ? snr[b, K[l, b]] : NaN for l in 1:nlab, b in 1:nw]   # sila cechy w oknie (moc / szum)
     Ph = fill(NaN, nlab, nw, length(on)); Fq = fill(NaN, nlab, nw)
     for l in 1:nlab, b in 1:nw
         k = K[l, b]; k == 0 && continue
@@ -100,7 +108,7 @@ function _anim_prepare(D, p; window=256, step=8, nsig=3.0, thr=5.0)
     profall = vec(mean(Float64.(D[good, on]), dims=1))
     lon = collect(range(-180 * length(on) / nb, 180 * length(on) / nb, length=length(on)))
     lon .-= lon[argmax(profall)]
-    return (A=A, Ph=Ph, Fq=Fq, spec=snr, ms=vec(mean(snr, dims=1)), prof=prof, freq=freq, starts=starts,
+    return (A=A, Ph=Ph, Fq=Fq, Sw=Sw, spec=snr, ms=vec(mean(snr, dims=1)), prof=prof, freq=freq, starts=starts,
             window=window, lon=lon, N=N, profall=profall)
 end
 
@@ -170,7 +178,7 @@ function _anim_update!(art, d, b)
     art[:ls].set_xdata(d.spec[b, :] ./ max(maximum(d.spec[b, :]), eps()))
     art[:im].set_data(d.A[b, :, :])
     art[:lp].set_ydata(d.prof[b, :] ./ max(maximum(d.profall), eps()))
-    fs = [@sprintf("F%d=%.3f cpp (P3=%.1f)", l, d.Fq[l, b], 1 / d.Fq[l, b]) for l in axes(d.Fq, 1) if isfinite(d.Fq[l, b])]
+    fs = [@sprintf("F%d=%.3f cpp (P3=%.1f) siła %.0f", l, d.Fq[l, b], 1 / d.Fq[l, b], d.Sw[l, b]) for l in axes(d.Fq, 1) if isfinite(d.Fq[l, b])]
     art[:status].set_text(@sprintf("%s   okno: impulsy %d–%d   |   ", art[:psr], s - 1, s + d.window - 2) *
                           (isempty(fs) ? "brak wyraźnych cech" : join(fs, "   ")))
 end
@@ -303,7 +311,7 @@ function sliding_lrfs_export(psr="J1555-3134"; window=256, thr=5.0, outdir=SL_DI
     D, p = Base.invokelatest(_sl_data, psr)
     d = _anim_prepare(D, p; window=window, step=1, thr=thr)
     od = joinpath(outdir, psr, "player"); mkpath(od)
-    for (name, x) in (("A", d.A), ("spec", d.spec), ("Ph", d.Ph), ("Fq", d.Fq), ("prof", d.prof), ("profall", d.profall))
+    for (name, x) in (("A", d.A), ("spec", d.spec), ("Ph", d.Ph), ("Fq", d.Fq), ("Sw", d.Sw), ("prof", d.prof), ("profall", d.profall))
         open(io -> write(io, Float32.(x)), joinpath(od, name * ".f32"), "w")
     end
     nw, nf, non = size(d.A)

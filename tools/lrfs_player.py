@@ -37,7 +37,8 @@ Fq = load("Fq", (nlab, nw))
 prof = load("prof", (nw, non))
 profall = load("profall", (non,))
 lon = np.array(m["lon"]); freq = np.array(m["freq"]); starts = np.array(m["starts"]); W = m["window"]; psr = m["psr"]
-cols = ["royalblue", "green", "crimson"]; marks = ["o", "^", "s"]
+Sw = load("Sw", (nlab, nw)) if os.path.exists(os.path.join(a.dir, "Sw.f32")) else np.full((nlab, nw), np.nan)
+cols = ["darkorange", "royalblue", "green"]; marks = ["o", "^", "s"]   # F1 pomarańczowy, F2 niebieski
 
 fig = plt.figure(figsize=tuple(a.size), dpi=a.dpi)
 gs = GridSpec(6, 12, figure=fig, hspace=0.0, wspace=0.0, left=0.07, right=0.98, bottom=0.17, top=0.94)
@@ -102,7 +103,7 @@ def draw(i):
     ls.set_xdata(spec[i] / max(spec[i].max(), 1e-12))
     im.set_data(A[i])
     lp.set_ydata(prof[i] / pm)
-    fs = ["F%d=%.3f cpp (P3=%.1f)" % (l + 1, Fq[l, i], 1 / Fq[l, i]) for l in range(nlab) if np.isfinite(Fq[l, i])]
+    fs = ["F%d=%.3f cpp (P3=%.1f) siła %.0f" % (l + 1, Fq[l, i], 1 / Fq[l, i], Sw[l, i]) for l in range(nlab) if np.isfinite(Fq[l, i])]
     status.set_text("%s   okno: impulsy %d-%d   |   %s   |   prędkość %d imp./klatkę" %
                     (psr, s - 1, s + W - 2, "   ".join(fs) if fs else "brak wyraźnych cech", st["speed"]))
 

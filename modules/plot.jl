@@ -3744,7 +3744,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
     # granatowe, opisy osi i tytul z liczbami, konwencja Basu & Mitra.
     function sliding_lrfs_tracks_plot_v2(ts, labels, prof, lon, outfile; title_="", maxpts=3000, sign=-1)
         # sign = -1: konwencja Basu & Mitra (rosnaca faza = dryf ku wczesniejszym dlugosciom); +1: nasza
-        cols = ["red", "royalblue", "darkgreen"]; mcols = ["black", "navy", "olive"]
+        cols = ["darkorange", "royalblue", "darkgreen"]; mcols = ["#a34700", "navy", "olive"]     # pomaranczowy / niebieski - lepiej sie rozdzielaja
         rc("font", size=7); rc("axes", linewidth=0.5)
         figure(figsize=(4.5, 7))
         subplots_adjust(left=0.16, bottom=0.07, right=0.97, top=0.92, hspace=0.0)
@@ -3915,8 +3915,8 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             subplot2grid((5, 7), (4, 1), colspan=3)
             # srednie widmo jak lewy panel LRFS: intensity (max = 1) vs frequency (1/P)
             plot(r.freq, avg ./ max(maximum(avg), eps()), c="grey")
-            isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.6)
-            axvline(t1.fp, c="red", ls=":", lw=0.6)
+            isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.8)
+            axvline(t1.fp, c="darkorange", ls=":", lw=0.8)
             xlim(0, 0.5); ylim(0, 1.05); xticks(0.0:0.1:0.5); yticks([0.0, 0.5, 1.0])
             xlabel("frequency (1/P)"); ylabel("intensity")
             subplot2grid((5, 7), (4, 4), colspan=3)
