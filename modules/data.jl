@@ -1076,8 +1076,12 @@ module Data
     # (auto_zap_core min_keep=0; bez wplywu na wyniki), model nulli z linia bazowa GP (final_v7/model).
     # Powrot do v6: NULL_MODEL_DIR[] = ".../final_v6/model/" i ZAP_STEPS[] = (min_keep=3,)
     ZAP_STEPS = Ref{Any}(NamedTuple())
-    NULL_MODE = Ref(:union)         # :auto | :union | :model (jedna regula z modelu energii)
-    NULL_THR = Ref(0.95)            # prog P_null dla nulli z modelu
+    # Od v8 (2026-11-25, decyzja): nulle JEDNA REGULA z publikacji (TPA XIX) - impuls z P_null >= 0.5 w pulsarach
+    # z wiarygodnym modelem; bez wiarygodnego modelu nulle automatu (NULL_MODEL_FALLBACK). Wynik na 531 pulsarach:
+    # 346:2:183 wobec metody recznej, S/N +19.1%, wyciete 8.9%, NF a literatura +0.5 pp (mediana).
+    # Powrot do v7: NULL_MODE[] = :union; NULL_THR[] = 0.95 (kopia v7: /home/psr/data/OUTPUT/pazur2_przed_v8)
+    NULL_MODE = Ref(:model)         # :auto | :union | :model (jedna regula z modelu energii)
+    NULL_THR = Ref(0.5)             # prog P_null dla nulli z modelu
     # :model, pulsar bez wiarygodnego modelu: :auto - nulle automatu (jak ranking v6, "model P>=0.5" 344:3:184);
     # :none - zadnych nulli (czysta jedna regula; J1931+1439: S/N -41%)
     NULL_MODEL_FALLBACK = Ref(:auto)

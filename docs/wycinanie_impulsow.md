@@ -125,3 +125,16 @@ w jednym kanale tylko w J0034−0721 (kanał 6, 11%) i J1104−6103 (kanał 7, 4
 
 Wynik końcowy: lepszy od metody ręcznej w 337, gorszy w 2, remis 192; średni zysk S/N +18.3%, wycięte
 7.6%. Kopia v6: `/home/psr/data/OUTPUT/pazur2_przed_v7`.
+
+## Stan v8 (2026-11-25)
+
+Nulle wycinane jedną regułą z publikacji (TPA XIX, Keith+2026): w pulsarach z wiarygodnym modelem energii null
+to impuls z P_null ≥ 0,5; w pulsarach bez wiarygodnego modelu nulle wycina automat jak w v7
+(`Data.NULL_MODEL_FALLBACK[] = :auto`; `:none` = bez nulli). Reszta automatu (RFI, kanały, bezpiecznik,
+margines przy RFI) bez zmian. Domyślnie w kodzie: `NULL_MODE = :model`, `NULL_THR = 0.5`, model nulli z
+`final_v7/model/`. Wybrane jako prostsze (jedna reguła zamiast kilku) mimo znanego kosztu: w ok. 1 na 5
+pulsarów z nullami reguła wycina też słabą emisję (profil jaśniejszy o >1% w 33 z 174, najgorzej +22%).
+
+Wynik (531 pulsarów): lepszy od metody ręcznej w 346, gorszy w 2 (J1843+2024, J2111+2106), remis 183;
+średni zysk S/N +19,1%, wycięte 8,9%; pulsary z nullami 247 (czyste <2% energii: 189, domieszka 2–10%: 41,
+>10%: 17, głównie po kilka nulli); NF a literatura: mediana +0,5 pp. Kopia v7: `/home/psr/data/OUTPUT/pazur2_przed_v8`.
