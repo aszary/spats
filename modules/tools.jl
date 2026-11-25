@@ -78,14 +78,120 @@ module Tools
     end
 
 
-    function lrfs(data)
-        data_prep = data .- mean(data, dims=1)
-        pulse_num = size(data_prep, 1)
+    """
+        determine_optimum_nfft(data; min_nfft=32, nsigma=3.0, min_sig_fraction=0.25, off_pulse_bins=nothing) -> Int
+
+    Determines the optimum FFT length (nfft) by progressively reducing the length by factors of two,
+    matching the Weltevrede et al. methodology:
+    - Starts with the largest power-of-two <= number of pulses N (or maximum available).
+    - For each candidate nfft:
+      - Computes sliding/blocked LRFS segments of length nfft across the pulse series and averages power (or tests blocks).
+      - For each pulse longitude bin in the on-pulse region, counts the number of significant spectral points
+        (amplitude > nsigma * noise_rms, with noise rms estimated from off-pulse bins or off-peak baseline).
+      - If there exists AT LEAST ONE pulse longitude bin for which at least a quarter (`min_sig_fraction = 0.25`)
+        of the spectral points is significant, this nfft has adequate SNR/spectral feature support.
+      - If NO pulse longitude bins have >= 25% significant spectral points, the spectral resolution is reduced
+        further by a factor of 2 (i.e. nfft -> nfft ÷ 2) to concentrate power and increase S/N per bin.
+    - Halts when a suitable nfft is found, or when `min_nfft` is reached.
+    """
+    function determine_optimum_nfft(data::AbstractMatrix{<:Real};
+                                   min_nfft::Int=32,
+                                   nsigma::Float64=3.0,
+                                   min_sig_fraction::Float64=0.25,
+                                   off_pulse_bins=nothing)
+        N_pulses, N_bins = size(data)
+        if N_pulses < min_nfft
+            return max(4, nextpow(2, N_pulses ÷ 2))
+        end
+
+        # Start from highest power of 2 <= N_pulses
+        current_nfft = prevpow(2, N_pulses)
+
+        # Baseline noise estimate across bins
+        # If off_pulse_bins is provided, measure standard deviation of raw off-pulse data
+        noise_sigma_per_bin = zeros(Float64, N_bins)
+        if !isnothing(off_pulse_bins) && !isempty(off_pulse_bins)
+            off_std = std(data[:, off_pulse_bins])
+            noise_sigma_per_bin .= (off_std > 0 ? off_std : 1.0)
+        end
+
+        while current_nfft >= min_nfft
+            # Number of spectral frequency points (excluding DC) in real FFT
+            n_freq_pts = current_nfft ÷ 2
+            if n_freq_pts < 2
+                break
+            end
+
+            # Split into non-overlapping blocks of length current_nfft
+            n_blocks = N_pulses ÷ current_nfft
+            if n_blocks < 1
+                current_nfft ÷= 2
+                continue
+            end
+
+            # Accumulate averaged spectrum across blocks: (n_freq_pts, N_bins)
+            spec_accum = zeros(Float64, n_freq_pts, N_bins)
+            for b_idx in 1:n_blocks
+                st = (b_idx - 1) * current_nfft + 1
+                block_data = data[st:st+current_nfft-1, :]
+                block_sub = block_data .- mean(block_data, dims=1)
+                F = rfft(block_sub, 1) # (n_freq_pts + 1, N_bins)
+                # Take amplitudes excluding DC
+                spec_accum .+= abs.(view(F, 2:(n_freq_pts+1), :))
+            end
+            spec_avg = spec_accum ./ n_blocks
+
+            # Test criterion: check if ANY pulse longitude bin has >= min_sig_fraction (25%) significant (3σ) spectral points
+            has_qualifying_bin = false
+            for b in 1:N_bins
+                spec_b = spec_avg[:, b]
+                # Robust baseline noise level for this bin
+                med_b = median(spec_b)
+                mad_b = median(abs.(spec_b .- med_b))
+                sigma_b = mad_b > 0 ? 1.4826 * mad_b : std(spec_b)
+                if sigma_b <= 0
+                    sigma_b = 1.0
+                end
+
+                # Count points exceeding 3σ
+                sig_pts_count = count(val -> (val - med_b) > nsigma * sigma_b, spec_b)
+                fraction_sig = sig_pts_count / n_freq_pts
+
+                if fraction_sig >= min_sig_fraction
+                    has_qualifying_bin = true
+                    break
+                end
+            end
+
+            if has_qualifying_bin
+                return current_nfft
+            else
+                # No bin has >= 25% significant points; reduce spectral resolution by factor of 2
+                current_nfft ÷= 2
+            end
+        end
+
+        return max(min_nfft, current_nfft)
+    end
+
+    function lrfs(data; nfft=nothing, manual_nfft=nothing)
+        N_pulses, N_bins = size(data)
+        eff_nfft = if !isnothing(manual_nfft) && manual_nfft > 0
+            manual_nfft
+        elseif !isnothing(nfft) && nfft > 0
+            nfft
+        else
+            determine_optimum_nfft(data)
+        end
+
+        # Use eff_nfft: either truncate or take blocks
+        actual_pulses = min(N_pulses, eff_nfft)
+        data_prep = data[1:actual_pulses, :] .- mean(data[1:actual_pulses, :], dims=1)
         lrfs = collect(rfft(data_prep, 1))
-        freq = fftfreq(pulse_num; include_nyquist=true)
+        freq = fftfreq(actual_pulses; include_nyquist=true)
         intensity = vec(sum(abs.(lrfs), dims=2))
         pk = length(intensity) >= 2 ? (peaks(intensity[2:end]) + 1) : 1
-        return lrfs, intensity, freq, pk
+        return lrfs, intensity, freq, pk, eff_nfft
     end
 
 

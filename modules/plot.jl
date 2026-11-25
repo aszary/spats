@@ -462,7 +462,7 @@ module Plot
     end
 
 
-    function lrfs_obsolete(data, outdir; start=1, number=nothing, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true, show_=false)
+    function lrfs_obsolete(data, outdir; start=1, number=nothing, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true, show_=false, nfft=nothing, manual_nfft=nothing)
 
         num, bins = size(data)
         if number == nothing
@@ -472,7 +472,8 @@ module Plot
         if bin_end == nothing bin_end = bins end
         da = data[start:start+number-1,bin_st:bin_end]
         average = Tools.average_profile(da)
-        lrfs, intensity, freq, _ = Tools.lrfs(da)
+        lrfs, intensity, freq, _, eff_nfft = Tools.lrfs(da; nfft=nfft, manual_nfft=manual_nfft)
+        println("\tUsing FFT length: $eff_nfft pulses")
 
         # Pulse longitude
         db = (bin_end + 1) - bin_st  # yes +1

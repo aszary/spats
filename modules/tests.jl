@@ -93,7 +93,32 @@ function test_find_frequency_peaks()
     return true
 end
 
+function test_determine_optimum_nfft()
+    println("Running test_determine_optimum_nfft...")
+    # Case 1: Strong modulation with many significant spectral points at length 512
+    N = 1024
+    M = 32
+    data_strong = randn(N, M) .* 0.2
+    # Add strong broadband or multi-harmonic periodic modulation to bin 16
+    for k in 1:6
+        data_strong[:, 16] .+= 1.5 .* cos.(2π * (0.05 * k) .* (1:N))
+    end
+    opt_nfft_1 = Tools.determine_optimum_nfft(data_strong; min_nfft=32, min_sig_fraction=0.15)
+    @test opt_nfft_1 >= 64
+    @test ispow2(opt_nfft_1)
+
+    # Case 2: Pure noise (no bin has >= 25% significant points at high nfft) -> progressively reduced to min_nfft
+    data_noise = randn(N, M)
+    opt_nfft_noise = Tools.determine_optimum_nfft(data_noise; min_nfft=32, min_sig_fraction=0.25)
+    @test opt_nfft_noise == 32
+    @test ispow2(opt_nfft_noise)
+
+    println("test_determine_optimum_nfft passed successfully!")
+    return true
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     test_basu_fig4_synthetic()
     test_find_frequency_peaks()
+    test_determine_optimum_nfft()
 end

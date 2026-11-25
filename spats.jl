@@ -1067,7 +1067,7 @@ data = Data.load_ascii(txt_file)
 
 
 
- function lrfs(outdir; start=1, number=nothing, darkness=0.3, show_=true)
+ function lrfs(outdir; start=1, number=nothing, darkness=0.3, show_=true, nfft=nothing, manual_nfft=nothing)
         txt_file = ensure_debase_file(outdir)
         p = Tools.read_params(joinpath(outdir, "params.json"))
         data = Data.load_ascii(txt_file)
@@ -1075,9 +1075,20 @@ data = Data.load_ascii(txt_file)
         bin_st = Int(p["bin_st"])
         bin_end = Int(p["bin_end"])
         psr_name = basename(rstrip(outdir, ['/', '\\']))
+        # Check if nfft is specified in params.json (e.g. manual override)
+        chosen_nfft = if !isnothing(manual_nfft)
+            manual_nfft
+        elseif !isnothing(nfft)
+            nfft
+        elseif haskey(p, "nfft") && !isnothing(p["nfft"])
+            Int(p["nfft"])
+        else
+            nothing
+        end
         return Plot.lrfs_obsolete(data, outdir; start=start, number=number,
                                   bin_st=bin_st, bin_end=bin_end,
-                                  darkness=darkness, name_mod=psr_name, show_=show_)
+                                  darkness=darkness, name_mod=psr_name, show_=show_,
+                                  manual_nfft=chosen_nfft)
     end
 
     """
