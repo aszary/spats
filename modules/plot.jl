@@ -1506,16 +1506,18 @@ zostało $n/$(count(.!empty))   S/N $(round(snrs[k], digits=1))",
         subplots_adjust(left=0.17, bottom=0.08, right=0.99, top=0.99, wspace=0., hspace=0.)
 
         # --- LEFT PANEL: intensity vs frequency ---
+        # os pionowa: czestotliwosc (1/P) 0-0.5 (os freq juz poprawna); pozioma: intensywnosc widma (bez skladowej
+        # stalej), znormalizowana do 1, odwrocona (1 przy zewnetrznej krawedzi), z podzialka - jak w typowym LRFS
         ax_left = subplot2grid((5, 3), (1, 0), rowspan=3)
-        plot(spectrum, freq, color="grey")
-        ylim(freq[1], freq[end])
-        xticks([])
-        ylabel("Fluctuation frequency (P/P₃)")
-
-        # --- Custom Y ticks (0.0 to 0.5 every 0.1) ---
-        ytick_values = 0.0:0.1:0.5
-        ytick_positions = freq[1] .+ ytick_values .* (freq[end] - freq[1]) / 0.5
-        yticks(ytick_positions, string.(ytick_values))
+        sp = copy(spectrum); sp[1] = NaN
+        spn = sp ./ maximum(filter(isfinite, sp))
+        plot(spn, freq, color="grey")
+        ylim(0, 0.5)
+        xlim(1.05, max(0.0, minimum(filter(isfinite, spn)) - 0.05))
+        xticks([1.0, 0.5])
+        xlabel("intensity")
+        ylabel("frequency (1/P)")
+        yticks(0.0:0.1:0.5)
 
         # --- MAIN PANEL: LRFS map ---
         ax_main = subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
