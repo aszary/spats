@@ -472,12 +472,16 @@ module Plot
         if bin_end == nothing bin_end = bins end
         da = data[start:start+number-1,bin_st:bin_end]
         average = Tools.average_profile(da)
-        lrfs, intensity, freq, peak = Tools.lrfs(da)
-        println("\tpeak freq $(freq[peak]) ")
-        println("\tpeak P3 $(1/freq[peak])")
-        # Conjugate forward-FFT slice so e^(+2πi f3 n) matches positive-drift convention (dψ/dφ > 0)
-        phase_ = rad2deg.(angle.(conj.(view(lrfs, peak, :))))
-        # skip freq = 0 and normalize intensity to 1
+        lrfs, intensity, freq, _ = Tools.lrfs(da)
+
+        # Pulse longitude
+        db = (bin_end + 1) - bin_st  # yes +1
+        dl = 360. * db / bins
+        longitude = collect(range(-dl/2., dl/2., length=db))
+        res_deg = longitude[2] - longitude[1]
+        println("Longitude resolution = ", res_deg, " (deg.)")
+
+        # skip freq = 0 (DC) and normalize intensity to 1
         inten = intensity[2:end]
         inten .-= minimum(inten)
         max_inten = maximum(inten)
@@ -485,54 +489,63 @@ module Plot
             inten ./= max_inten
         end
         fre = freq[2:end]
-        pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak])  # fre[peak-1] == freq[peak]
-        fr = pars[2]
-        frer = errs[2]
 
-        println("\tFrequency (gaussian fit): $fr, P3: $(1/fr)")
-        println("\tFrequency error (gaussian fit): $frer, P3 error: $(abs(1/fr - 1/(fr + frer)))")
+        # Multi-peak detection in frequency spectrum (1/P)
+        detected_peaks_rel = Tools.find_frequency_peaks(inten, fre; min_prominence=0.04, min_snr=2.5, max_peaks=4)
+        detected_peaks = detected_peaks_rel .+ 1 # back to 1-based index in `freq` / `intensity`
 
-        # Pulse longitude
-        db = (bin_end + 1) - bin_st  # yes +1
-        dl = 360. * db / bins
-        longitude = collect(range(-dl/2., dl/2., length=db))
+        println("\tDetected $(length(detected_peaks)) frequency peak(s):")
+        for (idx, pk) in enumerate(detected_peaks)
+            f_pk = freq[pk]
+            p3_pk = f_pk > 0 ? 1.0 / f_pk : Inf
+            println("\t  [$idx] freq = $f_pk cy/P, P3 = $p3_pk P")
+        end
 
-        # fixing phase continuity, estimating phase change
-        dl = longitude[2]-longitude[1]
-        dphase = zeros(length(phase_)-1)
-        println("Longitude resolution = ", dl, " (deg.)")
-        if change_fftphase == true
-            for i in 1:length(phase_)-1
-                changed = true
-                while changed
-                    changed = false
-                    dp = abs(phase_[i+1] - phase_[i])
-                    dpp = abs(phase_[i+1]+360. - phase_[i])
-                    dpm = abs(phase_[i+1]-360. - phase_[i])
-                    if dpp < dp
-                        phase_[i+1] += 360
-                        changed = true
-                    elseif dpm < dp
-                        phase_[i+1] -= 360
-                        changed = true
-                    end
-                end
-                dphase[i] = phase_[i+1] - phase_[i]
+        # Gaussian fits for detected peaks (if any)
+        gauss_fits = []
+        for pk in detected_peaks
+            try
+                pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[pk])
+                push!(gauss_fits, (pars=pars, errs=errs, pk=pk))
+                fr = pars[2]
+                frer = errs[2]
+                println("\t  Peak at $(freq[pk]): Gaussian fit freq=$fr, P3=$(1/fr), err=$frer")
+            catch e
+                # Gaussian fit fallback if fit fails
             end
         end
-        # longitude vs. FFT phase analysis
 
-        #=
-        lin, incs = Tools.find_inclination(longitude, phase_)
-        for (i,inc) in enumerate(incs)
-            println("($i) Δ FFT phase / Δ longitude ", round(inc[2], digits=2))
-            println("($i) sigma Δ FFT phase / Δ longitude ", round(inc[3], digits=2))
+        # Primary peak is the most prominent
+        peak = detected_peaks[1]
+
+        # Extract unwrapped FFT phase for each detected frequency peak
+        colors = ["black", "tab:red", "tab:green", "tab:blue", "tab:purple", "tab:orange"]
+        peak_phases = []
+
+        for (p_i, pk) in enumerate(detected_peaks)
+            # Conjugate forward-FFT slice so e^(+2πi f3 n) matches positive-drift convention (dψ/dφ > 0)
+            ph = rad2deg.(angle.(conj.(view(lrfs, pk, :))))
+            if change_fftphase == true
+                for i in 1:length(ph)-1
+                    changed = true
+                    while changed
+                        changed = false
+                        dp = abs(ph[i+1] - ph[i])
+                        dpp = abs(ph[i+1]+360. - ph[i])
+                        dpm = abs(ph[i+1]-360. - ph[i])
+                        if dpp < dp
+                            ph[i+1] += 360
+                            changed = true
+                        elseif dpm < dp
+                            ph[i+1] -= 360
+                            changed = true
+                        end
+                    end
+                end
+            end
+            p_color = colors[mod1(p_i, length(colors))]
+            push!(peak_phases, (peak=pk, freq=freq[pk], phase=ph, color=p_color))
         end
-        =#
-
-        lin, inc = Tools.find_inclination2(longitude, phase_)
-        println(" Δ FFT phase / Δ longitude ", round(inc[1][2], digits=2))
-        println("sigma Δ FFT phase / Δ longitude ", round(inc[1][3], digits=2))
 
         rc("font", size=7.)
         rc("axes", linewidth=0.5)
@@ -541,35 +554,47 @@ module Plot
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
+        # TOP PANEL: Phase for each detected peak
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
-        scatter(longitude, phase_, marker=".", c="grey", s=3.)
+        for pp in peak_phases
+            f_str = @sprintf("%.3f", pp.freq)
+            scatter(longitude, pp.phase, marker=".", c=pp.color, s=3.5, label="$f_str cy/P", alpha=0.85)
+        end
         xlim(longitude[1], longitude[end])
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
+        if length(peak_phases) > 1
+            legend(loc="upper right", fontsize=5.5, framealpha=0.6, handletextpad=0.2, borderpad=0.2)
+        end
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
+        # LEFT PANEL: Spectrum with gaussian fits and markers for each detected peak
         subplot2grid((5, 3), (1, 0), rowspan=3)
         minorticks_on()
         plot(inten, fre, c="grey")
-        plot(Tools.gauss(fre, pars), fre, c="red", ls=":", lw=0.3)
+        for gf in gauss_fits
+            plot(Tools.gauss(fre, gf.pars), fre, c="red", ls=":", lw=0.3)
+        end
+        for pp in peak_phases
+            axhline(y=pp.freq, color=pp.color, ls="--", lw=0.5, alpha=0.7)
+        end
         ylim(freq[1], freq[end])
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
         xlabel("intensity")
         ylabel("frequency \$(1/P)\$")
 
+        # MAIN PANEL: LRFS map
         subplot2grid((5, 3), (1, 1), rowspan=3, colspan=2)
         imshow(abs.(lrfs), origin="lower", cmap=cmap, interpolation="none", aspect="auto",
                extent=[longitude[1], longitude[end], freq[1], freq[end]],
                vmax=darkness*maximum(abs.(lrfs)))
-        #println(size(lrfs))
-        #return
-
         tick_params(labelleft=false, labelbottom=false)
 
+        # BOTTOM PANEL: Profile
         subplot2grid((5, 3), (4, 1), colspan=2)
         minorticks_on()
         plot(longitude, average, c="grey")
@@ -1016,20 +1041,44 @@ module Plot
             nothing
         end
 
-        peak = if !isnothing(p3_target)
-            argmin(abs.(freq[2:end] .- 1.0 / p3_target)) + 1
-        else
-            argmax(spectrum[2:end]) + 1  # skip DC component at freq=0
-        end
-        println("\tPeak freq: $(freq[peak]), P3 = $(freq[peak] > 0 ? 1 / freq[peak] : Inf)")
+        # Detect significant frequency peaks in the spectrum (1/P)
+        detected_peaks_rel = Tools.find_frequency_peaks(spectrum[2:end], freq[2:end]; min_prominence=0.04, min_snr=2.5, max_peaks=4)
+        detected_peaks = detected_peaks_rel .+ 1 # back to 1-based index in freq/spectrum
 
-        # === Phase at peak frequency ===
-        amp_row = vec(amp[peak, :])
-        phase_slice = conj_phase ? conj.(vec(lrfs_complex[peak, :])) : vec(lrfs_complex[peak, :])
-        phase_ = rad2deg.(angle.(phase_slice))
-        if unwrap_phase
-            phase_ = _unwrap_deg_outward(phase_, amp_row)
+        if !isnothing(p3_target)
+            target_pk = argmin(abs.(freq[2:end] .- 1.0 / p3_target)) + 1
+            if !(target_pk in detected_peaks)
+                pushfirst!(detected_peaks, target_pk)
+            end
         end
+
+        println("\tDetected $(length(detected_peaks)) frequency peak(s):")
+        for (idx, pk) in enumerate(detected_peaks)
+            f_pk = freq[pk]
+            p3_pk = f_pk > 0 ? 1.0 / f_pk : Inf
+            println("\t  [$idx] freq = $f_pk cy/P, P3 = $p3_pk P")
+        end
+
+        # Colors for multiple peak phases
+        colors = ["black", "tab:red", "tab:green", "tab:blue", "tab:purple", "tab:orange"]
+        peak_phases = []
+        for (p_i, pk) in enumerate(detected_peaks)
+            amp_row = vec(amp[pk, :])
+            phase_slice = conj_phase ? conj.(vec(lrfs_complex[pk, :])) : vec(lrfs_complex[pk, :])
+            ph = rad2deg.(angle.(phase_slice))
+            if unwrap_phase
+                ph = _unwrap_deg_outward(ph, amp_row)
+            end
+            max_amp = maximum(amp_row)
+            good_mask = max_amp > 0 ? (amp_row .>= amp_thresh * max_amp) : trues(length(amp_row))
+            p_color = colors[mod1(p_i, length(colors))]
+            push!(peak_phases, (peak=pk, freq=freq[pk], phase=ph, good=good_mask, color=p_color))
+        end
+
+        # Primary peak for single-value prints
+        peak = detected_peaks[1]
+        amp_row = vec(amp[peak, :])
+        phase_ = peak_phases[1].phase
 
         # === Longitude axis ===
         # The longitude axis has the same length as signal_width and is centered around zero
@@ -1048,6 +1097,9 @@ module Plot
         # --- LEFT PANEL: intensity vs frequency (skip DC row when scaling) ---
         ax_left = subplot2grid((5, 3), (1, 0), rowspan=3)
         plot(spectrum[2:end], freq[2:end], color="grey")
+        for pp in peak_phases
+            axhline(y=pp.freq, color=pp.color, ls="--", lw=0.5, alpha=0.7)
+        end
         ylim(freq[1], freq[end])
         xticks([])
         yticks(collect(0.0:0.1:0.5))
@@ -1060,15 +1112,17 @@ module Plot
             vmax=darkness * maximum(amp))
         tick_params(labelleft=false, labelbottom=false)
 
-        # --- TOP PANEL: phase ---
+        # --- TOP PANEL: phase for each detected peak ---
         ax_phase = subplot2grid((5, 3), (0, 1), colspan=2)
-        max_amp_row = maximum(amp_row)
-        good = max_amp_row > 0 ? (amp_row .>= amp_thresh * max_amp_row) : trues(length(amp_row))
-        if any(.!good)
-            scatter(longitude[.!good], phase_[.!good], s=2, c="lightgrey", zorder=2)
-        end
-        if any(good)
-            scatter(longitude[good], phase_[good], s=3, c="black", zorder=3)
+        for pp in peak_phases
+            f_str = @sprintf("%.3f", pp.freq)
+            if any(.!pp.good)
+                scatter(longitude[.!pp.good], pp.phase[.!pp.good], s=2, c="lightgrey", zorder=2, alpha=0.4)
+            end
+            if any(pp.good)
+                scatter(longitude[pp.good], pp.phase[pp.good], s=3, c=pp.color, zorder=3,
+                        label="$f_str cy/P", alpha=0.85)
+            end
         end
         xlim(longitude[1], longitude[end])
         xticks([])
@@ -1077,6 +1131,9 @@ module Plot
             yticks([-180, -90, 0, 90, 180])
         end
         ylabel("Phase (°)", labelpad=10)
+        if length(peak_phases) > 1
+            legend(loc="upper right", fontsize=6, framealpha=0.6, handletextpad=0.2, borderpad=0.2)
+        end
 
         # --- BOTTOM PANEL: mean profile ---
         ax_bottom = subplot2grid((5, 3), (4, 1), colspan=2)

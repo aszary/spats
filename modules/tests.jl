@@ -76,6 +76,24 @@ function test_basu_fig4_synthetic()
     return true
 end
 
+function test_find_frequency_peaks()
+    println("Running test_find_frequency_peaks...")
+    # Generate a frequency grid and a spectrum with two known peaks
+    freq = collect(range(0.001, 0.5, length=500))
+    # Peak 1 at index 100 (~0.1 cy/P), Peak 2 at index 250 (~0.25 cy/P)
+    spec = 0.05 .* randn(length(freq)) .+ 0.2
+    spec .+= 1.5 .* exp.(-0.5 .* ((freq .- freq[100]) ./ 0.005).^2)
+    spec .+= 0.8 .* exp.(-0.5 .* ((freq .- freq[250]) ./ 0.005).^2)
+
+    pks = Tools.find_frequency_peaks(spec, freq; min_prominence=0.05, min_snr=3.0, max_peaks=5)
+    @test length(pks) >= 2
+    @test any(abs(pk - 100) <= 2 for pk in pks)
+    @test any(abs(pk - 250) <= 2 for pk in pks)
+    println("test_find_frequency_peaks passed successfully!")
+    return true
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     test_basu_fig4_synthetic()
+    test_find_frequency_peaks()
 end

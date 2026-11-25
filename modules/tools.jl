@@ -129,6 +129,95 @@ module Tools
         return pks[ind] # index of peak with maximum prominence
     end
 
+    """
+        find_frequency_peaks(intensity, freq; min_prominence=0.05, min_snr=3.0, max_peaks=5, min_dist_bins=3)
+
+    Finds significant spectral peaks in the LRFS fluctuation spectrum (1/P):
+    - Identifies all local maxima via `findmaxima`.
+    - Computes peak prominences via `peakproms`.
+    - Estimates baseline noise rms outside candidate peaks.
+    - Filters by minimum prominence and SNR (peak_height - baseline) / rms > min_snr.
+    - Sorts peaks by prominence/height and returns indices in 1-based spectrum array.
+    """
+    function find_frequency_peaks(intensity::AbstractVector{<:Real}, freq::AbstractVector{<:Real};
+                                  min_prominence::Float64=0.05, min_snr::Float64=3.0,
+                                  max_peaks::Int=5, min_dist_bins::Int=2)
+        n = length(intensity)
+        if n < 3
+            return [argmax(intensity)]
+        end
+
+        # Find all local maxima
+        pks, vals = findmaxima(intensity)
+        if isempty(pks)
+            return [argmax(intensity)]
+        end
+
+        # Calculate prominence
+        pks, proms = peakproms(pks, intensity)
+        if isempty(pks)
+            return [argmax(intensity)]
+        end
+
+        # Estimate baseline noise level using robust median / MAD
+        base_med = median(intensity)
+        base_mad = median(abs.(intensity .- base_med))
+        base_rms = base_mad > 0 ? 1.4826 * base_mad : std(intensity)
+        if iszero(base_rms) || isnan(base_rms)
+            base_rms = std(intensity) > 0 ? std(intensity) : 1e-6
+        end
+
+        # Filter peaks by relative prominence and SNR above baseline
+        norm_scale = maximum(intensity) - minimum(intensity)
+        if norm_scale <= 0
+            norm_scale = 1.0
+        end
+
+        valid_indices = Int[]
+        for i in 1:length(pks)
+            k = pks[i]
+            prom = proms[i]
+            h = intensity[k]
+            snr = (h - base_med) / base_rms
+            rel_prom = prom / norm_scale
+
+            if (rel_prom >= min_prominence || snr >= min_snr) && h > base_med
+                push!(valid_indices, i)
+            end
+        end
+
+        if isempty(valid_indices)
+            # Fallback to the single most prominent peak
+            maxprom, ind = findmax(proms)
+            return [pks[ind]]
+        end
+
+        # Sort selected peaks by prominence descending
+        selected_pks = pks[valid_indices]
+        selected_proms = proms[valid_indices]
+        sort_order = sortperm(selected_proms, rev=true)
+        sorted_pks = selected_pks[sort_order]
+
+        # Enforce minimum distance between peaks
+        kept_pks = Int[]
+        for pk in sorted_pks
+            if all(abs(pk - k) >= min_dist_bins for k in kept_pks)
+                push!(kept_pks, pk)
+                if length(kept_pks) >= max_peaks
+                    break
+                end
+            end
+        end
+
+        if isempty(kept_pks)
+            push!(kept_pks, sorted_pks[1])
+        end
+
+        # Return sorted by frequency (ascending)
+        sort!(kept_pks)
+        return kept_pks
+    end
+
 
     """
     module Peaks changed? No Maxima()?
