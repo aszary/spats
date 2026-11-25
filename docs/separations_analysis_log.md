@@ -3918,3 +3918,12 @@ Wykluczony J0211-8159 (wędrowanie fazy, efemeryda). IP poza oknem: J0905-5127, 
 J1402-5124 bez p3fold (p3=-1). Zmiany params: nfft 256→128 (nsubint < 256: J0421-0345, J0932-3217, J1046-5813,
 J1502-6128; stary LRFS J0421 też miał 128), J1720-0212 p3_ybins 5.8→11 (find_ybins). Kopia params:
 `~/claude/work/pazur_params_backup_2026-10-22_all/`. Wykresy okien: `~/claude/work/figures/pazur_onpulse/windows/`.
+
+## 2026-11-25 — pazur: wykresy porównania okien ręcznych z regułą Song+23 ±20
+
+Skrypt `~/claude/work/scripts/pazur_window_compare_figs.py` → `~/claude/work/figures/pazur_onpulse/compare/01..05`
+(z logów `pazur_window_conv.log`, `pazur_edge_emission.log`; okna ręczne z oryginału `~/output/pazur/*/params.json`, odczyt).
+Marginesy ręczne względem zasięgu 3σ: przód mediana 17, tył 26 binów. Jasne próbki (> 5σ) poza rdzeniem: nadwyżka tylko
+w 1–10 binach z przodu (168/bin wobec ~115 tła), dalej płasko → ±20 wystarcza. „Okno ucina emisję” bywa artefaktem
+miary 3σ (niewygładzona, skrajne biny w ±100): J1914+0219 (−99) — szum. J0630-2834: bardzo jasny, poziom ~0.3% maks.
+ciągnie się za pulsem do > bin 730, poza oba okna — emisja albo artefakt linii bazowej, nierozstrzygnięte.
