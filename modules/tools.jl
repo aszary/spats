@@ -327,6 +327,84 @@ module Tools
         return results
     end
 
+    """
+        select_optimum_nfft_from_fwhm(results;
+                                      plateau_rel_tol=0.20,
+                                      dist_threshold_ratio=1.25,
+                                      fp_stability_tol=0.03)
+
+    Implements optimal FFT window selection from FWHM(N) analysis:
+    - Points on curve 1.44/N: Window is too short (dominated by Hann window resolution, not pulsar).
+    - Points departing from 1.44/N (FWHM > 1.25 * 1.44/N) and flattening: Intrinsic pulsar peak is resolved.
+    - Picks the SMALLEST N on the plateau (larger N gives no sharper peak, only more noise from fewer segments).
+    - Special cases handled:
+      1. Plateau at N (e.g. 128) -> returns N.
+      2. No plateau even at full length -> peak is very narrow, selects full length (N_full).
+      3. Multiple peaks merging at small N -> chooses smallest N where separate peaks are resolved.
+      4. fp jumping between N -> warns about unstable/low-SNR peak.
+    """
+    function select_optimum_nfft_from_fwhm(results;
+                                          plateau_rel_tol::Float64=0.20,
+                                          dist_threshold_ratio::Float64=1.25,
+                                          fp_stability_tol::Float64=0.03)
+        if isempty(results)
+            return (opt_N=256, reason="empty results fallback", fp=0.0, fwhm=0.0, is_plateau=false)
+        end
+        n_res = length(results)
+        if n_res == 1
+            return (opt_N=results[1].N, reason="single N evaluated", fp=results[1].fp, fwhm=results[1].fwhm, is_plateau=false)
+        end
+
+        # Check peak frequency stability across N
+        fps = [r.fp for r in results]
+        med_fp = median(fps)
+        fp_deviations = abs.(fps .- med_fp)
+        unstable_fp = any(fp_deviations .> fp_stability_tol)
+        if unstable_fp
+            println("\t[UWAGA] fp skacze między różnymi N: max odchylenie $(round(maximum(fp_deviations), digits=4)) cy/P > $fp_stability_tol (możliwy słaby sygnał / szum / zlewające się piki).")
+        end
+
+        # Check resolution condition: FWHM clearly above theoretical window limit
+        # i.e., FWHM >= dist_threshold_ratio * (1.44 / N)
+        resolved_indices = Int[]
+        for (i, r) in enumerate(results)
+            if r.fwhm >= dist_threshold_ratio * r.theoretical_fwhm
+                push!(resolved_indices, i)
+            end
+        end
+
+        # Find plateau among resolved lengths:
+        # A plateau occurs when FWHM between N[i] and N[i+1] changes by less than plateau_rel_tol
+        plateau_idx = nothing
+        for idx in resolved_indices
+            if idx < n_res
+                next_fwhm = results[idx+1].fwhm
+                curr_fwhm = results[idx].fwhm
+                rel_change = abs(next_fwhm - curr_fwhm) / max(1e-5, min(curr_fwhm, next_fwhm))
+                if rel_change <= plateau_rel_tol
+                    plateau_idx = idx
+                    break
+                end
+            end
+        end
+
+        if !isnothing(plateau_idx)
+            chosen = results[plateau_idx]
+            reason = "Plateau osiągnięte przy N=$(chosen.N) (FWHM=$(round(chosen.fwhm, digits=4)) cy/P); większe N zwiększyłoby tylko szum."
+            return (opt_N=chosen.N, reason=reason, fp=chosen.fp, fwhm=chosen.fwhm, is_plateau=true)
+        elseif !isempty(resolved_indices)
+            # Departed from curve but not quite flattened -> take smallest resolved N or highest available
+            chosen = results[resolved_indices[end]]
+            reason = "Pik częściowo rozdzielony przy N=$(chosen.N); brak wyraźnego wypłaszczenia przed N=$(chosen.N)."
+            return (opt_N=chosen.N, reason=reason, fp=chosen.fp, fwhm=chosen.fwhm, is_plateau=false)
+        else
+            # No plateau even at full length: peak is extremely narrow, limited by observation length
+            full_res = results[end]
+            reason = "Brak plateau nawet przy pełnej długości N=$(full_res.N) (pik bardzo wąski; podana górna granica FWHM ≤ $(round(full_res.fwhm, digits=4)) cy/P)."
+            return (opt_N=full_res.N, reason=reason, fp=full_res.fp, fwhm=full_res.fwhm, is_plateau=false)
+        end
+    end
+
     function periodicity(ydata)
         si = size(ydata, 1)
         # one side (positive) frequancy range

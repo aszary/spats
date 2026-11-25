@@ -556,7 +556,50 @@ module Plot
         end
         close()
 
-        return results
+        # Selection of optimum N
+        selection = Tools.select_optimum_nfft_from_fwhm(results)
+        println("  ==> Rekomendowane optymalne okno: N = $(selection.opt_N)")
+        println("      Uzasadnienie: $(selection.reason)\n")
+
+        return (results=results, selection=selection)
+    end
+
+    """
+        lrfs_optimal(data, outdir;
+                     N_list=[32, 64, 128, 256, 512, nothing],
+                     bin_st=nothing, bin_end=nothing,
+                     cmap="viridis", darkness=0.5, name_mod="pulsar",
+                     change_fftphase=true, show_=false)
+
+    Creates an LRFS with the optimum FFT length chosen automatically from the FWHM(N) plateau test:
+    1. Runs the FWHM(N) diagnostic across candidate lengths N.
+    2. Identifies the smallest N on the plateau (where intrinsic pulsar peak is resolved without excess noise).
+    3. Computes and plots the complete LRFS map and phase panel using this optimal N.
+    """
+    function lrfs_optimal(data::AbstractMatrix{<:Real}, outdir::String;
+                          N_list=[32, 64, 128, 256, 512, nothing],
+                          bin_st=nothing, bin_end=nothing,
+                          cmap="viridis", darkness=0.5, name_mod="pulsar",
+                          change_fftphase=true, show_=false)
+        num_pulses, num_bins = size(data)
+        if isnothing(bin_st) bin_st = 1 end
+        if isnothing(bin_end) bin_end = num_bins end
+        bin_st = max(1, bin_st)
+        bin_end = min(num_bins, bin_end)
+        on_data = data[:, bin_st:bin_end]
+
+        # Step 1: Run FWHM(N) diagnostic to find optimal N
+        diag_res = fft_length_diagnostic(data, outdir; N_list=N_list,
+                                         bin_st=bin_st, bin_end=bin_end,
+                                         name_mod=name_mod, show_=false)
+        opt_N = diag_res.selection.opt_N
+        println("\n>>> Generowanie LRFS z optymalnym oknem N = $opt_N <<<")
+
+        # Step 2: Generate the LRFS plot with this chosen N
+        return lrfs_obsolete(data, outdir; bin_st=bin_st, bin_end=bin_end,
+                             manual_nfft=opt_N, cmap=cmap, darkness=darkness,
+                             name_mod="$(name_mod)_optN$(opt_N)",
+                             change_fftphase=change_fftphase, show_=show_)
     end
 
 

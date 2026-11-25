@@ -1139,6 +1139,25 @@ data = Data.load_ascii(txt_file)
                                           name_mod=psr_name, show_=show_)
     end
 
+    """
+        lrfs_optimal(outdir; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+
+    Performs the FWHM(N) plateau diagnostic to pick the optimal N, then creates
+    the LRFS map and phase plot using that selected N.
+    """
+    function lrfs_optimal(outdir; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+        txt_file = ensure_debase_file(outdir)
+        p = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(txt_file)
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        bin_st = Int(p["bin_st"])
+        bin_end = Int(p["bin_end"])
+        psr_name = basename(rstrip(outdir, ['/', '\\']))
+        return Plot.lrfs_optimal(data, outdir; N_list=N_list,
+                                 bin_st=bin_st, bin_end=bin_end,
+                                 name_mod=psr_name, show_=show_)
+    end
+
 
 
 
@@ -1237,6 +1256,9 @@ data = Data.load_ascii(txt_file)
 
         # FFT length diagnostic (spectra overlay and FWHM vs 1.44/N) for J1555-3134
         fft_length_diagnostic(vpmout*"J1555-3134"; N_list=[32, 64, 128, 256, 512, nothing], show_=false)
+
+        # LRFS with optimal N automatically selected from FWHM(N) plateau
+        lrfs_optimal(vpmout*"J1555-3134"; N_list=[32, 64, 128, 256, 512, nothing], show_=false)
 
 
 

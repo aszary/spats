@@ -146,9 +146,39 @@ function test_welch_lrfs_and_diagnostic()
     return true
 end
 
+function test_select_optimum_nfft_from_fwhm()
+    println("Running test_select_optimum_nfft_from_fwhm...")
+    # Case 1: Plateau at N=128 (FWHM stays around 0.025 between N=128, 256, 512, while 1.44/128 = 0.01125)
+    mock_results_plateau = [
+        (N=32, fp=0.1, fwhm=0.045, theoretical_fwhm=1.44/32),   # on curve (1.44/32 = 0.045)
+        (N=64, fp=0.1, fwhm=0.026, theoretical_fwhm=1.44/64),   # on curve (1.44/64 = 0.0225)
+        (N=128, fp=0.1, fwhm=0.025, theoretical_fwhm=1.44/128), # departs & plateau begins
+        (N=256, fp=0.1, fwhm=0.024, theoretical_fwhm=1.44/256), # plateau continues
+        (N=512, fp=0.1, fwhm=0.024, theoretical_fwhm=1.44/512), # plateau continues
+    ]
+    sel = Tools.select_optimum_nfft_from_fwhm(mock_results_plateau)
+    @test sel.opt_N == 128
+    @test sel.is_plateau == true
+
+    # Case 2: No plateau (very sharp peak, FWHM follows 1.44/N down to the end)
+    mock_results_narrow = [
+        (N=32, fp=0.1, fwhm=1.44/32, theoretical_fwhm=1.44/32),
+        (N=64, fp=0.1, fwhm=1.44/64, theoretical_fwhm=1.44/64),
+        (N=128, fp=0.1, fwhm=1.44/128, theoretical_fwhm=1.44/128),
+        (N=256, fp=0.1, fwhm=1.44/256, theoretical_fwhm=1.44/256),
+    ]
+    sel_narrow = Tools.select_optimum_nfft_from_fwhm(mock_results_narrow)
+    @test sel_narrow.opt_N == 256
+    @test sel_narrow.is_plateau == false
+
+    println("test_select_optimum_nfft_from_fwhm passed successfully!")
+    return true
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     test_basu_fig4_synthetic()
     test_find_frequency_peaks()
     test_determine_optimum_nfft()
     test_welch_lrfs_and_diagnostic()
+    test_select_optimum_nfft_from_fwhm()
 end
