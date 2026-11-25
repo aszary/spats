@@ -3878,13 +3878,15 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             # (1 na bin), znormalizowana do 1; os odwrocona jak w LRFS (1 przy mapie)
             rowsum = vec(sum(r.snr[:, 2:end] .- 1, dims=2)); rowsum = max.(rowsum, 0.0)
             rowsum ./= max(maximum(rowsum), eps())
-            plot(rowsum, yv, c="grey", lw=0.8)
-            xlim(1.05, 0)
+            # styl Basu & Mitra 2018 (Fig. 3-5): niebieska linia, podzialka 1 / 0.5 / 0 u gory, 0 przy mapie
+            plot(rowsum, yv, c="blue", lw=0.8)
+            xlim(1.2, -0.3)
             if !isempty(nulls)                                     # nulle: czerwone kreski przy zewnetrznej krawedzi
-                scatter(fill(1.0, length(nulls)), nulls, marker="_", c="red", s=12, lw=0.8)
+                scatter(fill(1.12, length(nulls)), nulls, marker="_", c="red", s=12, lw=0.8)
             end
             ylim(c1, c2); xticks([1.0, 0.5, 0.0]); tick_params(axis="x", labelsize=6)
-            xlabel("intensity\n(suma LRFS)", fontsize=6)
+            ax0.xaxis.set_ticks_position("top"); ax0.xaxis.set_label_position("top")
+            xlabel("intensity", fontsize=6)
             ylabel(basu ? "start period of the window" : "pulse number (window centre)")
             subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
             imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
