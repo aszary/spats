@@ -461,6 +461,104 @@ module Plot
         #clf()
     end
 
+    """
+        fft_length_diagnostic(data, outdir;
+                              N_list=[32, 64, 128, 256, 512, nothing],
+                              bin_st=nothing, bin_end=nothing,
+                              name_mod="pulsar", show_=false)
+
+    Performs FFT length resolution vs noise diagnostic:
+    1. Computes 1D LRFS spectrum for each candidate N with 50% overlapping Hann windows.
+    2. Overlays all normalized spectra on a single panel.
+    3. Measures peak frequency fp and FWHM for each N.
+    4. Plots measured FWHM(N) together with the theoretical Hann limit 1.44 / N.
+    """
+    function fft_length_diagnostic(data::AbstractMatrix{<:Real}, outdir::String;
+                                   N_list=[32, 64, 128, 256, 512, nothing],
+                                   bin_st=nothing, bin_end=nothing,
+                                   name_mod="pulsar", show_=false)
+        num_pulses, num_bins = size(data)
+        if isnothing(bin_st) bin_st = 1 end
+        if isnothing(bin_end) bin_end = num_bins end
+        bin_st = max(1, bin_st)
+        bin_end = min(num_bins, bin_end)
+        on_data = data[:, bin_st:bin_end]
+
+        results = Tools.analyze_fft_lengths(on_data; N_list=N_list)
+
+        rc("font", size=8.0)
+        rc("axes", linewidth=0.6)
+        rc("lines", linewidth=0.8)
+
+        figure(figsize=(7.5, 4.2))
+        subplots_adjust(left=0.10, bottom=0.14, right=0.96, top=0.90, wspace=0.28)
+
+        # Palette for different N
+        colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "black"]
+
+        # Left panel: Overlay of normalized spectra
+        subplot(1, 2, 1)
+        minorticks_on()
+        for (i, res) in enumerate(results)
+            c = colors[mod1(i, length(colors))]
+            lbl = res.is_full ? "N = $(res.N) (full)" : "N = $(res.N)"
+            plot(res.freq, res.spec, color=c, label=lbl, alpha=0.85)
+        end
+        xlim(0.0, 0.5)
+        ylim(-0.02, 1.05)
+        xlabel(raw"Fluctuation frequency $(1/P)$")
+        ylabel("Normalized spectral intensity")
+        title("LRFS spectra for various window lengths N")
+        legend(loc="upper right", fontsize=7.0, framealpha=0.75)
+
+        # Right panel: FWHM vs N alongside theoretical Hann resolution limit (1.44 / N)
+        subplot(1, 2, 2)
+        minorticks_on()
+        Ns = [r.N for r in results]
+        measured_fwhms = [r.fwhm for r in results]
+
+        # Continuous curve for 1.44 / N
+        N_grid = 10 .^ range(log10(max(16, minimum(Ns))), log10(maximum(Ns)), length=200)
+        fwhm_theory = 1.44 ./ N_grid
+
+        plot(N_grid, fwhm_theory, color="grey", ls="--", lw=1.2, label=raw"Hann limit: $1.44 / N$")
+        scatter(Ns, measured_fwhms, color="black", s=25, zorder=5, label="Measured FWHM")
+        plot(Ns, measured_fwhms, color="black", ls="-", lw=0.7, alpha=0.6)
+
+        xscale("log")
+        yscale("log")
+        xticks(Ns, [string(n) for n in Ns])
+        xlabel("FFT window length N")
+        ylabel("Peak FWHM (cycles / P)")
+        title("Resolution & Intrinsic Width vs N")
+        legend(loc="upper right", fontsize=7.5, framealpha=0.75)
+
+        mkpath(outdir)
+        fig_base = joinpath(outdir, "$(name_mod)_fft_length_diagnostic")
+        savefig("$(fig_base).pdf")
+        savefig("$(fig_base).png")
+        println("Saved FFT diagnostic to $(fig_base).pdf and $(fig_base).png")
+
+        # Summary printout
+        println("\n--- FFT Window Length Diagnostic Summary ---")
+        println("  N       Peak fp (cy/P)   FWHM (cy/P)    Hann limit 1.44/N")
+        for r in results
+            tag = r.is_full ? " (full)" : ""
+            @printf("  %-5d%-7s  %8.4f        %8.4f         %8.4f\n",
+                    r.N, tag, r.fp, r.fwhm, r.theoretical_fwhm)
+        end
+        println("--------------------------------------------\n")
+
+        if show_
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+
+        return results
+    end
+
 
     function lrfs_obsolete(data, outdir; start=1, number=nothing, cmap="viridis", bin_st=nothing, bin_end=nothing, darkness=0.5, name_mod="0", change_fftphase=true, show_=false, nfft=nothing, manual_nfft=nothing)
 
@@ -491,61 +589,45 @@ module Plot
         end
         fre = freq[2:end]
 
-        # Multi-peak detection in frequency spectrum (1/P)
-        detected_peaks_rel = Tools.find_frequency_peaks(inten, fre; min_prominence=0.04, min_snr=2.5, max_peaks=4)
+        # Single dominant peak detection in frequency spectrum (1/P)
+        detected_peaks_rel = Tools.find_frequency_peaks(inten, fre; min_prominence=0.04, min_snr=2.5, max_peaks=1)
         detected_peaks = detected_peaks_rel .+ 1 # back to 1-based index in `freq` / `intensity`
-
-        println("\tDetected $(length(detected_peaks)) frequency peak(s):")
-        for (idx, pk) in enumerate(detected_peaks)
-            f_pk = freq[pk]
-            p3_pk = f_pk > 0 ? 1.0 / f_pk : Inf
-            println("\t  [$idx] freq = $f_pk cy/P, P3 = $p3_pk P")
-        end
-
-        # Gaussian fits for detected peaks (if any)
-        gauss_fits = []
-        for pk in detected_peaks
-            try
-                pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[pk])
-                push!(gauss_fits, (pars=pars, errs=errs, pk=pk))
-                fr = pars[2]
-                frer = errs[2]
-                println("\t  Peak at $(freq[pk]): Gaussian fit freq=$fr, P3=$(1/fr), err=$frer")
-            catch e
-                # Gaussian fit fallback if fit fails
-            end
-        end
-
-        # Primary peak is the most prominent
         peak = detected_peaks[1]
 
-        # Extract unwrapped FFT phase for each detected frequency peak
-        colors = ["black", "tab:red", "tab:green", "tab:blue", "tab:purple", "tab:orange"]
-        peak_phases = []
+        println("\tPeak freq: $(freq[peak]), P3 = $(freq[peak] > 0 ? 1.0 / freq[peak] : Inf)")
 
-        for (p_i, pk) in enumerate(detected_peaks)
-            # Conjugate forward-FFT slice so e^(+2πi f3 n) matches positive-drift convention (dψ/dφ > 0)
-            ph = rad2deg.(angle.(conj.(view(lrfs, pk, :))))
-            if change_fftphase == true
-                for i in 1:length(ph)-1
-                    changed = true
-                    while changed
-                        changed = false
-                        dp = abs(ph[i+1] - ph[i])
-                        dpp = abs(ph[i+1]+360. - ph[i])
-                        dpm = abs(ph[i+1]-360. - ph[i])
-                        if dpp < dp
-                            ph[i+1] += 360
-                            changed = true
-                        elseif dpm < dp
-                            ph[i+1] -= 360
-                            changed = true
-                        end
+        # Gaussian fit for dominant peak
+        pars = Float64[]
+        errs = Float64[]
+        try
+            pars, errs = Tools.fit_gaussian(fre, inten; μ=freq[peak])
+            fr = pars[2]
+            frer = errs[2]
+            println("\tFrequency (gaussian fit): $fr, P3: $(1/fr)")
+            println("\tFrequency error (gaussian fit): $frer, P3 error: $(abs(1/fr - 1/(fr + frer)))")
+        catch e
+            # fallback
+        end
+
+        # Conjugate forward-FFT slice so e^(+2πi f3 n) matches positive-drift convention (dψ/dφ > 0)
+        phase_ = rad2deg.(angle.(conj.(view(lrfs, peak, :))))
+        if change_fftphase == true
+            for i in 1:length(phase_)-1
+                changed = true
+                while changed
+                    changed = false
+                    dp = abs(phase_[i+1] - phase_[i])
+                    dpp = abs(phase_[i+1]+360. - phase_[i])
+                    dpm = abs(phase_[i+1]-360. - phase_[i])
+                    if dpp < dp
+                        phase_[i+1] += 360
+                        changed = true
+                    elseif dpm < dp
+                        phase_[i+1] -= 360
+                        changed = true
                     end
                 end
             end
-            p_color = colors[mod1(p_i, length(colors))]
-            push!(peak_phases, (peak=pk, freq=freq[pk], phase=ph, color=p_color))
         end
 
         rc("font", size=7.)
@@ -555,34 +637,29 @@ module Plot
         figure(figsize=(3.14961, 4.33071))  # 8cm x 11cm
         subplots_adjust(left=0.17, bottom=0.08, right=0.90, top=0.92, wspace=0., hspace=0.)
 
-        # TOP PANEL: Phase for each detected peak
+        # TOP PANEL: Single peak FFT Phase
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
-        for pp in peak_phases
-            f_str = @sprintf("%.3f", pp.freq)
-            scatter(longitude, pp.phase, marker=".", c=pp.color, s=3.5, label="$f_str cy/P", alpha=0.85)
-        end
+        scatter(longitude, phase_, marker=".", c="grey", s=3.)
         xlim(longitude[1], longitude[end])
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
-        if length(peak_phases) > 1
-            legend(loc="upper right", fontsize=5.5, framealpha=0.6, handletextpad=0.2, borderpad=0.2)
-        end
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
-        # LEFT PANEL: Spectrum with gaussian fits and markers for each detected peak
+        # LEFT PANEL: Spectrum with gaussian fit
         subplot2grid((5, 3), (1, 0), rowspan=3)
         minorticks_on()
         plot(inten, fre, c="grey")
-        for gf in gauss_fits
-            plot(Tools.gauss(fre, gf.pars), fre, c="red", ls=":", lw=0.3)
-        end
-        for pp in peak_phases
-            axhline(y=pp.freq, color=pp.color, ls="--", lw=0.5, alpha=0.7)
+        if !isempty(pars)
+            plot(Tools.gauss(fre, pars), fre, c="red", ls=":", lw=0.3)
         end
         ylim(freq[1], freq[end])
+        xticks([0.5, 1.0])
+        xlim(1.1, -0.1)
+        xlabel("intensity")
+        ylabel("frequency \$(1/P)\$")
         xticks([0.5, 1.0])
         xlim(1.1, -0.1)
         xlabel("intensity")

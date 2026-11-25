@@ -117,8 +117,38 @@ function test_determine_optimum_nfft()
     return true
 end
 
+function test_welch_lrfs_and_diagnostic()
+    println("Running test_welch_lrfs_and_diagnostic...")
+    N_pulses = 1000
+    N_bins = 20
+    data = 0.2 .* randn(N_pulses, N_bins)
+    # Add sinusoidal modulation at 0.1 cy/P in bin 10
+    fp_true = 0.10
+    for n in 1:N_pulses
+        data[n, 10] += 3.0 * cos(2π * fp_true * n)
+    end
+
+    res32 = Tools.welch_lrfs_1d(data, 32; overlap_fraction=0.5)
+    res128 = Tools.welch_lrfs_1d(data, 128; overlap_fraction=0.5)
+
+    @test abs(res32.fp - fp_true) < 0.03
+    @test abs(res128.fp - fp_true) < 0.015
+    # Window with N=128 should have smaller FWHM than N=32
+    @test res128.fwhm < res32.fwhm
+
+    all_res = Tools.analyze_fft_lengths(data; N_list=[32, 64, 128])
+    @test length(all_res) == 3
+    for r in all_res
+        @test r.theoretical_fwhm ≈ 1.44 / r.N
+    end
+
+    println("test_welch_lrfs_and_diagnostic passed successfully!")
+    return true
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     test_basu_fig4_synthetic()
     test_find_frequency_peaks()
     test_determine_optimum_nfft()
+    test_welch_lrfs_and_diagnostic()
 end

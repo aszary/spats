@@ -195,6 +195,138 @@ module Tools
     end
 
 
+    """
+        welch_lrfs_1d(data, N; overlap_fraction=0.5) -> (freq, spec_norm, fp, fwhm)
+
+    Computes 1D LRFS spectrum for a given window length N:
+    - Segments data into slices of length N with Hann window, overlapping by 50% (step = N ÷ 2).
+    - Computes rfft of each windowed slice (with mean profile subtracted).
+    - Averages spectral power across all slices and sums across on-pulse longitude bins.
+    - Measures peak frequency fp and FWHM (using half-maximum width and/or Gaussian fit).
+    """
+    function welch_lrfs_1d(data::AbstractMatrix{<:Real}, N::Int; overlap_fraction::Float64=0.5)
+        N_pulses, N_bins = size(data)
+        N = min(N, N_pulses)
+        if N < 4
+            return (freq=Float64[], spec=Float64[], fp=0.0, fwhm=0.0)
+        end
+
+        step = max(1, round(Int, N * (1.0 - overlap_fraction)))
+        starts = collect(1:step:(N_pulses - N + 1))
+        if isempty(starts)
+            starts = [1]
+            N = N_pulses
+        end
+
+        # Hann window: w[n] = 0.5 * (1 - cos(2π*(n-1)/(N-1)))
+        hann = [0.5 * (1.0 - cos(2π * (n - 1) / max(1, N - 1))) for n in 1:N]
+        # Window normalization factor to preserve power
+        w_norm = sum(hann .^ 2)
+
+        n_freqs = N ÷ 2 + 1
+        spec_accum = zeros(Float64, n_freqs)
+
+        for st in starts
+            seg = data[st:st+N-1, :]
+            seg_sub = seg .- mean(seg, dims=1)
+            # Apply Hann window along pulse dimension
+            seg_win = seg_sub .* hann
+            F = rfft(seg_win, 1) # (n_freqs, N_bins)
+            # Power spectrum summed across all bins: (n_freqs,)
+            seg_power = vec(sum(abs2.(F), dims=2))
+            spec_accum .+= seg_power
+        end
+
+        spec_avg = spec_accum ./ (length(starts) * max(w_norm, 1e-12))
+        freq = collect(range(0.0, 0.5, length=n_freqs))
+
+        # Exclude DC (freq = 0)
+        fre = freq[2:end]
+        spec_pos = spec_avg[2:end]
+
+        # Normalize spectrum to [0, 1]
+        spec_pos .-= minimum(spec_pos)
+        max_s = maximum(spec_pos)
+        if max_s > 0
+            spec_pos ./= max_s
+        end
+
+        # Find peak
+        pk_idx = argmax(spec_pos)
+        fp = fre[pk_idx]
+
+        # Calculate FWHM at half maximum
+        half_max = 0.5
+        # Search left boundary
+        left_idx = pk_idx
+        while left_idx > 1 && spec_pos[left_idx] >= half_max
+            left_idx -= 1
+        end
+        f_left = if left_idx < pk_idx && spec_pos[left_idx+1] > spec_pos[left_idx]
+            # Linear interpolation
+            fre[left_idx] + (half_max - spec_pos[left_idx]) / (spec_pos[left_idx+1] - spec_pos[left_idx]) * (fre[left_idx+1] - fre[left_idx])
+        else
+            fre[left_idx]
+        end
+
+        # Search right boundary
+        right_idx = pk_idx
+        while right_idx < length(spec_pos) && spec_pos[right_idx] >= half_max
+            right_idx += 1
+        end
+        f_right = if right_idx > pk_idx && spec_pos[right_idx-1] > spec_pos[right_idx]
+            fre[right_idx-1] + (half_max - spec_pos[right_idx-1]) / (spec_pos[right_idx] - spec_pos[right_idx-1]) * (fre[right_idx] - fre[right_idx-1])
+        else
+            fre[right_idx]
+        end
+
+        fwhm_halfmax = max(1e-5, abs(f_right - f_left))
+
+        # Optional refinement via Gaussian fit
+        fwhm = fwhm_halfmax
+        try
+            pars, errs = fit_gaussian(fre, spec_pos; μ=fp, σ=fwhm_halfmax / 2.355)
+            # FWHM = 2.355 * sigma
+            fwhm_gauss = 2.355 * abs(pars[3])
+            if fwhm_gauss > 0 && fwhm_gauss < 0.4
+                fwhm = fwhm_gauss
+                fp = pars[2]
+            end
+        catch
+            # Keep half-max FWHM
+        end
+
+        return (freq=fre, spec=spec_pos, fp=fp, fwhm=fwhm)
+    end
+
+    """
+        analyze_fft_lengths(data; N_list=[32, 64, 128, 256, 512, nothing])
+
+    Evaluates LRFS across candidate window lengths N with 50% overlapping Hann windows.
+    Returns:
+      - `results`: Vector of NamedTuples (N, freq, spec, fp, fwhm, theoretical_fwhm)
+    """
+    function analyze_fft_lengths(data::AbstractMatrix{<:Real}; N_list=[32, 64, 128, 256, 512, nothing])
+        N_pulses = size(data, 1)
+        resolved_Ns = Int[]
+        for item in N_list
+            n_val = isnothing(item) ? N_pulses : Int(item)
+            if n_val <= N_pulses && !(n_val in resolved_Ns)
+                push!(resolved_Ns, n_val)
+            end
+        end
+        sort!(resolved_Ns)
+
+        results = []
+        for N in resolved_Ns
+            res = welch_lrfs_1d(data, N; overlap_fraction=0.5)
+            th_fwhm = 1.44 / N
+            push!(results, (N=N, freq=res.freq, spec=res.spec, fp=res.fp, fwhm=res.fwhm,
+                            theoretical_fwhm=th_fwhm, is_full=(N == N_pulses)))
+        end
+        return results
+    end
+
     function periodicity(ydata)
         si = size(ydata, 1)
         # one side (positive) frequancy range

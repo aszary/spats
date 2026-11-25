@@ -1120,6 +1120,25 @@ data = Data.load_ascii(txt_file)
                                    name_mod=psr_name, show_=show_)
     end
 
+    """
+        fft_length_diagnostic(outdir; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+
+    Diagnostic tool comparing LRFS spectra for different window lengths N (32, 64, 128, 256, 512, full)
+    with Hann windows and 50% overlap. Plots overlaid spectra and FWHM(N) vs 1.44/N.
+    """
+    function fft_length_diagnostic(outdir; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+        txt_file = ensure_debase_file(outdir)
+        p = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(txt_file)
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        bin_st = Int(p["bin_st"])
+        bin_end = Int(p["bin_end"])
+        psr_name = basename(rstrip(outdir, ['/', '\\']))
+        return Plot.fft_length_diagnostic(data, outdir; N_list=N_list,
+                                          bin_st=bin_st, bin_end=bin_end,
+                                          name_mod=psr_name, show_=show_)
+    end
+
 
 
 
@@ -1215,6 +1234,9 @@ data = Data.load_ascii(txt_file)
         # LRFS Fig 4 according to Basu & Mitra (2018) for J1555-3134
         lrfs_basu(vpmout*"J1555-3134"; show_=false)
         lrfs(vpmout*"J1555-3134"; show_=false)
+
+        # FFT length diagnostic (spectra overlay and FWHM vs 1.44/N) for J1555-3134
+        fft_length_diagnostic(vpmout*"J1555-3134"; N_list=[32, 64, 128, 256, 512, nothing], show_=false)
 
 
 
