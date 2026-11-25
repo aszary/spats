@@ -1078,6 +1078,9 @@ module Data
     ZAP_STEPS = Ref{Any}(NamedTuple())
     NULL_MODE = Ref(:union)         # :auto | :union | :model (jedna regula z modelu energii)
     NULL_THR = Ref(0.95)            # prog P_null dla nulli z modelu
+    # :model, pulsar bez wiarygodnego modelu: :auto - nulle automatu (jak ranking v6, "model P>=0.5" 344:3:184);
+    # :none - zadnych nulli (czysta jedna regula; J1931+1439: S/N -41%)
+    NULL_MODEL_FALLBACK = Ref(:auto)
     NULL_MODEL_DIR = Ref("/home/psr/data/OUTPUT/final_v7/model/")
     NULL_EXTRA = Dict{String,Vector{Int}}()
     NULL_EXTRA_CUR = Ref{Union{Nothing,Vector{Int}}}(nothing)
@@ -1109,9 +1112,9 @@ module Data
     function null_extra_for(psr)
         NULL_MODE[] == :auto && return nothing
         (_NULL_EXTRA_LOADED[] || !isempty(NULL_EXTRA)) || load_null_extra!()
-        # :model = jedna regula z modelu: pulsar bez wiarygodnego modelu -> zadnych nulli (pusta lista),
-        # a nie nulle automatu
-        get(NULL_EXTRA, psr, NULL_MODE[] == :model ? Int[] : nothing)
+        # :model = jedna regula z modelu; pulsar bez wiarygodnego modelu: nulle automatu (nothing, NULL_MODEL_FALLBACK
+        # = :auto) albo zadnych nulli (pusta lista, :none)
+        get(NULL_EXTRA, psr, NULL_MODE[] == :model && NULL_MODEL_FALLBACK[] == :none ? Int[] : nothing)
     end
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),

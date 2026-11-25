@@ -18,6 +18,9 @@ S8_VARIANTS = [
     ("nulle tylko z modelu P>=0.5 (publikacja)", NamedTuple(), :model, 0.5),
     ("publikacja P>=0.5 + RFI z całości + bez marginesu", (rfi_win=0, pad=0), :model, 0.5),
 ]
+# wersja koncowa (decyzja 2026-11-25): nulle regula z publikacji P>=0.5, bez modelu - nulle automatu; reszta jak v7
+S8_FINAL = "model P>=0.5 (publikacja), bez modelu: automat"
+push!(S8_VARIANTS, (S8_FINAL, NamedTuple(), :model, 0.5))
 S8_HEADER = "pulsar,variant,N,n_cut,n_rfi,n_null,snr_none,snr,snr_manual,snr_rfi,kept_z3_local,kept_z3_global," *
             "emis_cut,emis_all,null_cut,null_all,E_kept,E_emis"
 
@@ -125,7 +128,7 @@ end
 Wersja końcowa wybranego wariantu w final_v7/simple_v8/pazur2_final (pazur2 bez zmian) + weryfikacja
 i porównanie z metodą ręczną. Domyślnie: publikacja P>=0.5 + RFI z całości + bez marginesu. ~30-40 min.
 """
-function simple_v8_build(variant="publikacja P>=0.5 + RFI z całości + bez marginesu"; n=32)
+function simple_v8_build(variant=S8_FINAL; n=32)
     isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
     i = findfirst(v -> v[1] == variant, S8_VARIANTS)
     isnothing(i) && error("nieznany wariant: $variant; dostępne: $(join(first.(S8_VARIANTS), " | "))")
@@ -133,7 +136,9 @@ function simple_v8_build(variant="publikacja P>=0.5 + RFI z całości + bez marg
     out = S8_DIR * "pazur2_final/"; mkpath(out)
     write(out * ".wariant", "$variant: ustawienia=$(repr(kw)) nulle=$mode P>=$thr")
     println("\n===== WERSJA v8: $variant → $out =====")
+    fb = variant == S8_FINAL ? ":auto" : ":none"           # bez modelu: automat (wersja koncowa) albo bez nulli
     cfg = "SpaTs.Data.ZAP_STEPS[] = $(repr(kw)); SpaTs.Data.NULL_MODE[] = :$mode; SpaTs.Data.NULL_THR[] = $thr; " *
+          "SpaTs.Data.NULL_MODEL_FALLBACK[] = $fb; " *
           "SpaTs.Data.NULL_MODEL_DIR[] = \"$(F7_DIR)model/\"; "
     cf = "SpaTs.chan_first_list([\"$(F6_ROOT)zap_verify_v3/\", \"$(F6_ROOT)zap_verify/\"])"
     codes = [F7_PRE * cfg * "SpaTs.autozap_all(out=\"$out\", only=$(repr(_f6_psrs()[k:n:end])), skip_done=true, keep_manual=false, " *
