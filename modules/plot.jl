@@ -3884,7 +3884,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
                 scatter(fill(1.0, length(nulls)), nulls, marker="_", c="red", s=12, lw=0.8)
             end
             ylim(c1, c2); xticks([1.0, 0.5, 0.0]); tick_params(axis="x", labelsize=6)
-            xlabel("suma LRFS\n(norm.)", fontsize=6)
+            xlabel("intensity\n(suma LRFS)", fontsize=6)
             ylabel(basu ? "start period of the window" : "pulse number (window centre)")
             subplot2grid((5, 7), (0, 1), rowspan=4, colspan=3, sharey=ax0)
             imshow(img, origin="lower", aspect="auto", cmap="viridis", interpolation="nearest",
@@ -3909,10 +3909,12 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             cax = axph.inset_axes([0.88, 0.62, 0.04, 0.33])
             cb = colorbar(imu, cax=cax); cb.ax.tick_params(labelsize=5); cb.set_label("faza (°)", fontsize=5)
             subplot2grid((5, 7), (4, 1), colspan=3)
-            plot(r.freq, basu ? avg ./ max(avg[kp], eps()) : avg, c="grey")
+            # srednie widmo jak lewy panel LRFS: intensity (max = 1) vs frequency (1/P)
+            plot(r.freq, avg ./ max(maximum(avg), eps()), c="grey")
             isnothing(f2) || axvline(f2, c="royalblue", ls=":", lw=0.6)
             axvline(t1.fp, c="red", ls=":", lw=0.6)
-            xlim(0, r.freq[end]); xlabel("fluctuation frequency (cycles/P)"); ylabel(basu ? "mean" : "mean (S/N)")
+            xlim(0, 0.5); ylim(0, 1.05); xticks(0.0:0.1:0.5); yticks([0.0, 0.5, 1.0])
+            xlabel("frequency (1/P)"); ylabel("intensity")
             subplot2grid((5, 7), (4, 4), colspan=3)
             plot(lon0, prof ./ maximum(prof), c="grey"); xlim(lon0[1], lon0[end]); xlabel("longitude (°), 0 = profile peak"); yticks([])
             f = joinpath(outdir, "$(name_mod)_$(tag)_sliding.pdf")
