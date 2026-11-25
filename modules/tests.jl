@@ -1,6 +1,81 @@
+# Unit tests for Basu & Mitra (2018) Fig 4 peak tracking implementation
+using Test
+using Statistics
+using FFTW
 
-for i in 1:10
-    global a 
-    a = i
+# Include required modules if not already defined
+if !isdefined(@__MODULE__, :Plot)
+    include("plot.jl")
 end
-println(a)
+
+function test_basu_fig4_synthetic()
+    println("Running test_basu_fig4_synthetic...")
+    # Synthetic parameters
+    N_periods = 1000
+    N_bins = 64
+    bin_st = 20
+    bin_end = 45
+    n_on = bin_end - bin_st + 1
+
+    # Frequencies matching Basu & Mitra (2018) J1555-3134
+    fp1 = 0.057
+    fp2 = 0.098
+
+    # Create synthetic data matrix: pulses x bins
+    data = zeros(Float64, N_periods, N_bins)
+
+    # In on-pulse region, add two modulated sinusoidal signals:
+    # Bin 25 has Peak 1, Bin 35 has Peak 2, Bin 40 has both, Bin 10 (off-pulse) has pure noise
+    for n in 1:N_periods
+        # Peak 1 on bin 25
+        data[n, 25] += 5.0 * cos(2π * fp1 * n)
+        # Peak 2 on bin 35
+        data[n, 35] += 4.0 * cos(2π * fp2 * n)
+        # Both on bin 40
+        data[n, 40] += 3.0 * cos(2π * fp1 * n) + 2.5 * cos(2π * fp2 * n)
+    end
+
+    # Add Gaussian noise across all bins (σ = 0.3)
+    rng_noise = 0.3 .* randn(N_periods, N_bins)
+    data .+= rng_noise
+
+    peaks = [
+        (name="Peak 1", fp=0.057, fwhm=0.027, color="red"),
+        (name="Peak 2", fp=0.098, fwhm=0.025, color="green")
+    ]
+
+    # Run sliding FFT peak extraction
+    res = Plot.find_sliding_lrfs_peaks(data, bin_st, bin_end;
+                                       nfft=256, shift=50, nsigma=3.0, peaks=peaks)
+
+    amps = res.amps
+    valid = res.valid
+    b_idx_25 = 25 - bin_st + 1
+    b_idx_35 = 35 - bin_st + 1
+
+    # 1. Check detection of Peak 1 in bin 25
+    @test count(valid[1, :, b_idx_25]) > 0.8 * size(amps, 2)
+    # Peak 1 amplitude should be recovered significantly above zero
+    mean_amp_p1 = mean(amps[1, valid[1, :, b_idx_25], b_idx_25])
+    @test mean_amp_p1 > 3.0
+
+    # 2. Check detection of Peak 2 in bin 35
+    @test count(valid[2, :, b_idx_35]) > 0.8 * size(amps, 2)
+    mean_amp_p2 = mean(amps[2, valid[2, :, b_idx_35], b_idx_35])
+    @test mean_amp_p2 > 2.5
+
+    # 3. Check 3-sigma noise rejection: on a bin with pure noise (e.g. bin 21 inside on-pulse)
+    b_idx_noise = 21 - bin_st + 1
+    # Pure noise should have 0 or very few false positive detections (< 10%)
+    false_pos_1 = count(valid[1, :, b_idx_noise]) / size(amps, 2)
+    false_pos_2 = count(valid[2, :, b_idx_noise]) / size(amps, 2)
+    @test false_pos_1 < 0.10
+    @test false_pos_2 < 0.10
+
+    println("All test_basu_fig4_synthetic tests passed successfully!")
+    return true
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    test_basu_fig4_synthetic()
+end

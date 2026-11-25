@@ -28,6 +28,118 @@ module Plot
     include("GaussianFit.jl")
 
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # Basu & Mitra (2018), MNRAS 475, 5098–5107, Section 2 & 3.3, Figure 4
+    # Default parameters for sliding LRFS subpulse fluctuation analysis:
+    # - NFFT = 256 consecutive pulses per window
+    # - SHIFT = 50 pulses step size
+    # - NSIGMA = 3.0 detection threshold above baseline rms
+    # - FWHM / 2.355 = Gaussian sigma δf of spectral peak
+    # - Peak window: [fp - 3δf, fp + 3δf]
+    # ──────────────────────────────────────────────────────────────────────────
+    const BASU_NFFT_DEFAULT   = 256
+    const BASU_SHIFT_DEFAULT  = 50
+    const BASU_NSIGMA_DEFAULT = 3.0
+    const BASU_PEAKS_DEFAULT  = [
+        (name="Peak 1", fp=0.057, fwhm=0.027, color="red"),
+        (name="Peak 2", fp=0.098, fwhm=0.025, color="green")
+    ]
+
+    """
+        find_sliding_lrfs_peaks(data, bin_st, bin_end;
+                                nfft=256, shift=50, nsigma=3.0, peaks=BASU_PEAKS_DEFAULT)
+
+    Sliding FFT peak extraction matching Basu & Mitra (2018), Section 2 & 3.3.
+    Returns:
+      - `amps`: Array{Float64, 3} of size (n_peaks, n_windows, n_bins)
+      - `phases`: Array{Float64, 3} of size (n_peaks, n_windows, n_bins) [in degrees, unwrapped / continuous]
+      - `valid`: BitArray{3} indicating detections > nsigma * rms_baseline
+      - `freq_grid`: Frequency grid (cycles/pulse) for an nfft window
+      - `window_starts`: Vector of 1-based start indices for each sliding window
+    """
+    function find_sliding_lrfs_peaks(data::AbstractMatrix{<:Real}, bin_st::Int, bin_end::Int;
+                                     nfft::Int=BASU_NFFT_DEFAULT,
+                                     shift::Int=BASU_SHIFT_DEFAULT,
+                                     nsigma::Float64=BASU_NSIGMA_DEFAULT,
+                                     peaks=BASU_PEAKS_DEFAULT)
+        num_pulses, num_bins = size(data)
+        bin_st = max(1, bin_st)
+        bin_end = min(num_bins, bin_end)
+        n_on_bins = bin_end - bin_st + 1
+
+        window_starts = collect(1:shift:(num_pulses - nfft + 1))
+        n_windows = length(window_starts)
+        n_peaks = length(peaks)
+
+        amps = fill(NaN, n_peaks, n_windows, n_on_bins)
+        phases = fill(NaN, n_peaks, n_windows, n_on_bins)
+        valid = falses(n_peaks, n_windows, n_on_bins)
+
+        freq_grid = collect(range(0.0, 0.5, length=(nfft ÷ 2 + 1)))
+
+        # Precompute search windows [fp - 3δf, fp + 3δf] and off-peak mask for baseline rms
+        peak_windows = []
+        off_peak_mask = trues(length(freq_grid))
+        off_peak_mask[1] = false # exclude DC
+
+        for p in peaks
+            fp = p.fp
+            delta_f = p.fwhm / 2.355
+            f_low = max(0.0, fp - 3.0 * delta_f)
+            f_high = min(0.5, fp + 3.0 * delta_f)
+            idx_range = findall(f -> (f >= f_low && f <= f_high), freq_grid)
+            push!(peak_windows, (f_low=f_low, f_high=f_high, idx_range=idx_range))
+            for idx in idx_range
+                off_peak_mask[idx] = false
+            end
+        end
+
+        # Ensure at least some bins remain for off-peak baseline estimation
+        if count(off_peak_mask) < 5
+            off_peak_mask = trues(length(freq_grid))
+            off_peak_mask[1] = false
+        end
+
+        for (w_idx, st) in enumerate(window_starts)
+            w_data = data[st:st+nfft-1, bin_st:bin_end]
+            # Mean profile subtraction for the window
+            w_sub = w_data .- mean(w_data, dims=1)
+            # Real FFT along pulse axis
+            # rfft(w_sub, 1) has size (nfft ÷ 2 + 1, n_on_bins)
+            F = rfft(w_sub, 1)
+            F_amp = abs.(F)
+
+            for b in 1:n_on_bins
+                spec_b = F_amp[:, b]
+                # Estimate baseline rms from spectral regions outside the peaks and DC
+                rms_base = std(spec_b[off_peak_mask])
+                if iszero(rms_base) || isnan(rms_base)
+                    rms_base = std(spec_b[2:end])
+                end
+
+                for (p_idx, pw) in enumerate(peak_windows)
+                    if isempty(pw.idx_range)
+                        continue
+                    end
+                    local_amps = spec_b[pw.idx_range]
+                    max_val, local_pos = findmax(local_amps)
+                    best_k = pw.idx_range[local_pos]
+
+                    # Basu & Mitra condition: max > nsigma * rms_baseline
+                    if max_val > nsigma * rms_base
+                        valid[p_idx, w_idx, b] = true
+                        amps[p_idx, w_idx, b] = max_val
+                        # Conjugate forward-FFT coefficient so dψ/dφ > 0 corresponds to positive drift
+                        phases[p_idx, w_idx, b] = rad2deg(angle(conj(F[best_k, b])))
+                    end
+                end
+            end
+        end
+
+        return (amps=amps, phases=phases, valid=valid,
+                freq_grid=freq_grid, window_starts=window_starts)
+    end
+
     function average(data, outdir; start=1, number=100, bin_st=nothing, bin_end=nothing, name_mod="0", show_=false)
         num, bins = size(data)
         if number == nothing
@@ -64,7 +176,220 @@ module Plot
             readline(stdin; keep=false)
         end
         close()
-        #clf()
+    end
+
+    """
+        lrfs_basu_fig4(data, outdir;
+                       nfft=BASU_NFFT_DEFAULT, shift=BASU_SHIFT_DEFAULT,
+                       nsigma=BASU_NSIGMA_DEFAULT, peaks=BASU_PEAKS_DEFAULT,
+                       bin_st=nothing, bin_end=nothing, name_mod="pulsar", show_=false)
+
+    Reproduces Figure 4 from Basu & Mitra (2018), MNRAS 475, 5098–5107 (Sections 2 & 3.3):
+    - Top panel: Peak amplitude as a function of pulse longitude for each 256-period sliding LRFS window.
+      Small dots (red for Peak 1, green for Peak 2) show individual realizations.
+      Black symbols show the realization-averaged amplitude at each longitude bin (averaging significant detections only).
+    - Middle panel: Peak phase as a function of pulse longitude, unwrapped and zeroed at the pulse peak.
+      Small dots (red/green) for individual realizations, black points for mean phase.
+    - Bottom panel: Average total-intensity profile normalized to 1.0 at maximum.
+    """
+    function lrfs_basu_fig4(data::AbstractMatrix{<:Real}, outdir::String;
+                            nfft::Int=BASU_NFFT_DEFAULT,
+                            shift::Int=BASU_SHIFT_DEFAULT,
+                            nsigma::Float64=BASU_NSIGMA_DEFAULT,
+                            peaks=BASU_PEAKS_DEFAULT,
+                            bin_st=nothing, bin_end=nothing,
+                            name_mod="pulsar", show_=false)
+        num_pulses, num_bins = size(data)
+        if isnothing(bin_st) bin_st = 1 end
+        if isnothing(bin_end) bin_end = num_bins end
+        bin_st = max(1, bin_st)
+        bin_end = min(num_bins, bin_end)
+        n_on_bins = bin_end - bin_st + 1
+
+        # Longitude axis centered around profile peak or mid-window
+        db = n_on_bins
+        dl = 360.0 * db / num_bins
+        longitude = collect(range(-dl/2.0, dl/2.0, length=db))
+
+        # Average profile normalized to 1.0
+        on_data = data[:, bin_st:bin_end]
+        avg_prof = vec(mean(on_data, dims=1))
+        avg_prof .-= minimum(avg_prof)
+        max_p = maximum(avg_prof)
+        if max_p > 0
+            avg_prof ./= max_p
+        end
+        # Find index of pulse peak for phase zeroing (Basu & Mitra 2018 Sec 2)
+        peak_long_idx = argmax(avg_prof)
+
+        # Run sliding peak extraction
+        extracted = find_sliding_lrfs_peaks(data, bin_st, bin_end;
+                                            nfft=nfft, shift=shift,
+                                            nsigma=nsigma, peaks=peaks)
+        amps = extracted.amps     # (n_peaks, n_windows, n_bins)
+        phases = extracted.phases # (n_peaks, n_windows, n_bins)
+        valid = extracted.valid   # (n_peaks, n_windows, n_bins)
+
+        n_peaks, n_windows, _ = size(amps)
+
+        # Phase alignment and unwrapping per peak and realization
+        # Basu & Mitra: phase is set to 0° at the pulse peak longitude
+        aligned_phases = copy(phases)
+        for p_idx in 1:n_peaks
+            for w in 1:n_windows
+                if valid[p_idx, w, peak_long_idx]
+                    ref_ph = aligned_phases[p_idx, w, peak_long_idx]
+                    aligned_phases[p_idx, w, :] .-= ref_ph
+                elseif any(valid[p_idx, w, :])
+                    # Fallback reference: first valid bin
+                    first_v = findfirst(valid[p_idx, w, :])
+                    ref_ph = aligned_phases[p_idx, w, first_v]
+                    aligned_phases[p_idx, w, :] .-= ref_ph
+                end
+
+                # Unwrap across longitude bins for continuous track
+                for b in 1:(n_on_bins-1)
+                    if valid[p_idx, w, b] && valid[p_idx, w, b+1]
+                        dp = aligned_phases[p_idx, w, b+1] - aligned_phases[p_idx, w, b]
+                        while dp > 180.0
+                            aligned_phases[p_idx, w, b+1:end] .-= 360.0
+                            dp = aligned_phases[p_idx, w, b+1] - aligned_phases[p_idx, w, b]
+                        end
+                        while dp < -180.0
+                            aligned_phases[p_idx, w, b+1:end] .+= 360.0
+                            dp = aligned_phases[p_idx, w, b+1] - aligned_phases[p_idx, w, b]
+                        end
+                    end
+                end
+            end
+        end
+
+        # Compute realization averages across significant detections only
+        mean_amps = fill(NaN, n_peaks, n_on_bins)
+        mean_phases = fill(NaN, n_peaks, n_on_bins)
+
+        for p_idx in 1:n_peaks
+            for b in 1:n_on_bins
+                v_mask = valid[p_idx, :, b]
+                if any(v_mask)
+                    mean_amps[p_idx, b] = mean(amps[p_idx, v_mask, b])
+                    # Circular/vector mean for phase to avoid jump distortion
+                    v_rad = deg2rad.(aligned_phases[p_idx, v_mask, b])
+                    mean_phases[p_idx, b] = rad2deg(atan(mean(sin.(v_rad)), mean(cos.(v_rad))))
+                end
+            end
+
+            # Unwrap mean phase relative to peak_long_idx
+            if !isnan(mean_phases[p_idx, peak_long_idx])
+                ref_m = mean_phases[p_idx, peak_long_idx]
+                mean_phases[p_idx, :] .-= ref_m
+            end
+            for b in 1:(n_on_bins-1)
+                if !isnan(mean_phases[p_idx, b]) && !isnan(mean_phases[p_idx, b+1])
+                    dp = mean_phases[p_idx, b+1] - mean_phases[p_idx, b]
+                    while dp > 180.0
+                        mean_phases[p_idx, b+1:end] .-= 360.0
+                        dp = mean_phases[p_idx, b+1] - mean_phases[p_idx, b]
+                    end
+                    while dp < -180.0
+                        mean_phases[p_idx, b+1:end] .+= 360.0
+                        dp = mean_phases[p_idx, b+1] - mean_phases[p_idx, b]
+                    end
+                end
+            end
+        end
+
+        # Plot 3-panel figure
+        rc("font", size=8.0)
+        rc("axes", linewidth=0.6)
+        rc("lines", linewidth=0.6)
+
+        figure(figsize=(4.5, 6.0))
+        subplots_adjust(left=0.18, bottom=0.10, right=0.92, top=0.95, hspace=0.08)
+
+        # TOP PANEL: Peak Amplitudes vs Longitude
+        ax1 = subplot(3, 1, 1)
+        minorticks_on()
+        for p_idx in 1:n_peaks
+            p_info = peaks[p_idx]
+            p_color = haskey(p_info, :color) ? p_info.color : (p_idx == 1 ? "red" : "green")
+            p_name = haskey(p_info, :name) ? p_info.name : "Peak $p_idx"
+            p_lbl = @sprintf("%s = %.3f cy/P", p_name, p_info.fp)
+
+            first_dot = true
+            for w in 1:n_windows
+                v_mask = valid[p_idx, w, :]
+                if any(v_mask)
+                    scatter(longitude[v_mask], amps[p_idx, w, v_mask],
+                            s=2.5, c=p_color, alpha=0.35, edgecolors="none",
+                            label=first_dot ? p_lbl : "")
+                    first_dot = false
+                end
+            end
+
+            # Black points for realization mean
+            valid_m = .!isnan.(mean_amps[p_idx, :])
+            if any(valid_m)
+                scatter(longitude[valid_m], mean_amps[p_idx, valid_m],
+                        s=8.0, c="black", marker="o", zorder=5)
+            end
+        end
+        xlim(longitude[1], longitude[end])
+        ylabel("Peak amplitude")
+        legend(loc="upper right", fontsize=7.0, framealpha=0.8)
+        tick_params(labelbottom=false)
+
+        # MIDDLE PANEL: Peak Phase vs Longitude
+        ax2 = subplot(3, 1, 2, sharex=ax1)
+        minorticks_on()
+        for p_idx in 1:n_peaks
+            p_info = peaks[p_idx]
+            p_color = haskey(p_info, :color) ? p_info.color : (p_idx == 1 ? "red" : "green")
+            for w in 1:n_windows
+                v_mask = valid[p_idx, w, :]
+                if any(v_mask)
+                    scatter(longitude[v_mask], aligned_phases[p_idx, w, v_mask],
+                            s=2.5, c=p_color, alpha=0.35, edgecolors="none")
+                end
+            end
+
+            valid_pm = .!isnan.(mean_phases[p_idx, :])
+            if any(valid_pm)
+                scatter(longitude[valid_pm], mean_phases[p_idx, valid_pm],
+                        s=8.0, c="black", marker="o", zorder=5)
+            end
+        end
+        xlim(longitude[1], longitude[end])
+        ylabel("Peak phase \$(^\\circ)\$")
+        tick_params(labelbottom=false)
+
+        # BOTTOM PANEL: Normalized Average Profile
+        ax3 = subplot(3, 1, 3, sharex=ax1)
+        minorticks_on()
+        plot(longitude, avg_prof, c="black", lw=1.0)
+        axvline(x=0.0, ls=":", c="grey", lw=0.8)
+        xlim(longitude[1], longitude[end])
+        ylim(-0.05, 1.1)
+        yticks([0.0, 0.5, 1.0])
+        xlabel("longitude \$(^\\circ)\$")
+        ylabel("Intensity")
+
+        mkpath(outdir)
+        fig_base = joinpath(outdir, "$(name_mod)_basu_fig4")
+        savefig("$(fig_base).pdf")
+        savefig("$(fig_base).png")
+        println("Saved Fig 4 to $(fig_base).pdf and $(fig_base).png")
+
+        if show_
+            show()
+            println("Press Enter to close the figure.")
+            readline(stdin; keep=false)
+        end
+        close()
+
+        return (mean_amps=mean_amps, mean_phases=mean_phases,
+                amps=amps, phases=aligned_phases, valid=valid,
+                longitude=longitude, avg_prof=avg_prof)
     end
 
 
@@ -218,24 +543,12 @@ module Plot
 
         ax = subplot2grid((5, 3), (0, 1), colspan=2)
         minorticks_on()
-        #plot(longitude, phase_, c="grey")
         scatter(longitude, phase_, marker=".", c="grey", s=3.)
         xlim(longitude[1], longitude[end])
         ax.xaxis.set_label_position("top")
         ax.xaxis.set_ticks_position("top")
-        for l in lin
-            plot(l[1], l[2])
-        end
-        #ylim(-500, 0)
-        #xlim(-1, 2)
         xlabel("longitude \$(^\\circ)\$")
         ylabel("FFT phase \$(^\\circ)\$")
-        if change_fftphase == true && length(longitude) > 16
-            ax2 = ax.twinx()
-            minorticks_on()
-            plot(longitude[7:end-9], dphase[6:end-9])
-            ax2.xaxis.set_label_position("top")
-        end
         tick_params(labeltop=true, labelbottom=false, which="both", bottom=false, top=true)
 
         subplot2grid((5, 3), (1, 0), rowspan=3)

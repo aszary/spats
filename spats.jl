@@ -1080,6 +1080,35 @@ data = Data.load_ascii(txt_file)
                                   darkness=darkness, name_mod=psr_name, show_=show_)
     end
 
+    """
+        lrfs_basu(outdir; nfft=256, shift=50, nsigma=3.0, peaks=nothing, show_=true)
+
+    Wrapper reproducing Fig. 4 from Basu & Mitra (2018), MNRAS 475, 5098–5107.
+    """
+    function lrfs_basu(outdir; nfft=Plot.BASU_NFFT_DEFAULT, shift=Plot.BASU_SHIFT_DEFAULT,
+                       nsigma=Plot.BASU_NSIGMA_DEFAULT, peaks=nothing, show_=true)
+        txt_file = ensure_debase_file(outdir)
+        p = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(txt_file)
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        bin_st = Int(p["bin_st"])
+        bin_end = Int(p["bin_end"])
+        psr_name = basename(rstrip(outdir, ['/', '\\']))
+        peak_list = if isnothing(peaks)
+            if haskey(p, "p3") && !isnothing(p["p3"]) && Float64(p["p3"]) > 1.0
+                fp = 1.0 / Float64(p["p3"])
+                [(name="Peak 1", fp=fp, fwhm=0.025, color="red")]
+            else
+                Plot.BASU_PEAKS_DEFAULT
+            end
+        else
+            peaks
+        end
+        return Plot.lrfs_basu_fig4(data, outdir; nfft=nfft, shift=shift, nsigma=nsigma,
+                                   peaks=peak_list, bin_st=bin_st, bin_end=bin_end,
+                                   name_mod=psr_name, show_=show_)
+    end
+
 
 
 
@@ -1172,7 +1201,9 @@ data = Data.load_ascii(txt_file)
         # 3. Generate the chart!
         #DriftBatch.plot_drift_results("drift_classifications_olddrift.csv", "drift_chart_olddrift.pdf")
 
-        lrfs(vpmout*"J1555-3134"; show_=true)
+        # LRFS Fig 4 according to Basu & Mitra (2018) for J1555-3134
+        lrfs_basu(vpmout*"J1555-3134"; show_=false)
+        lrfs(vpmout*"J1555-3134"; show_=false)
 
 
 
