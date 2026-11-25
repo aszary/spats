@@ -1262,6 +1262,16 @@ data = Data.load_ascii(txt_file)
 
 
 
+    lrfs(vpmout*"J1901−0906"; show_=true)
+
+        # FFT length diagnostic (spectra overlay and FWHM vs 1.44/N) for J1555-3134
+        fft_length_diagnostic(vpmout*"J1901−0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+
+        # LRFS with optimal N automatically selected from FWHM(N) plateau
+        lrfs_optimal(vpmout*"J1901−0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+
+
+
 
         # LRFS Phase-Track batch — mirrors DriftBatch above
         #LrfsBatch.batch_analyze_lrfs(vpmout, list_file, "lrfs_classifications_olddriftfix.csv")
