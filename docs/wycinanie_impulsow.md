@@ -138,3 +138,8 @@ pulsarów z nullami reguła wycina też słabą emisję (profil jaśniejszy o >1
 Wynik (531 pulsarów): lepszy od metody ręcznej w 346, gorszy w 2 (J1843+2024, J2111+2106), remis 183;
 średni zysk S/N +19,1%, wycięte 8,9%; pulsary z nullami 247 (czyste <2% energii: 189, domieszka 2–10%: 41,
 >10%: 17, głównie po kilka nulli); NF a literatura: mediana +0,5 pp. Kopia v7: `/home/psr/data/OUTPUT/pazur2_przed_v8`.
+
+Marginesy w v8 (decyzja 2026-11-25: zostają): przy nullach z modelu brak marginesu; przy RFI, zaszumionych
+odcinkach i śmieciach margines 1 impulsu; przy nullach automatu (pulsary bez modelu) margines zostaje
+(`NULL_MARGIN[] = true`). Usunięcie marginesu wszędzie (`pad=0`) pogorszyło 59 pulsarów i wykrywanie RFI (−32 pp).
+Punkt „Nie wycinać marginesu przy nullach” z 2026-11-18 zamknięty.
