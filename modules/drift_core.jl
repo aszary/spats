@@ -69,8 +69,20 @@ end
 function dc_width(D, freq, i, k, N)
     sm = dc_box(D, k)
     cap = max(5, 3k)
-    lo = i; while lo > max(1, i - cap) && sm[lo-1] > 0; lo -= 1; end
-    hi = i; while hi < min(length(D), i + cap) && sm[hi+1] > 0; hi += 1; end
+    # obszar cechy: do zejscia do tla ALBO do dolka (gdy wygladzone widmo znow rosnie - sasiednia cecha;
+    # J1555: dwie cechy 0.057 i 0.098 zlewaly sie w jedna o P3 = 12.5)
+    # (sasiednia cecha = wzrost o > 30% wysokosci szczytu ponad dotychczasowe minimum; drobne wahania szumu nie tna)
+    function edge(dir)
+        e = i; mn = sm[i]
+        while true
+            n = e + dir
+            (1 <= n <= length(D) && abs(n - i) <= cap && sm[n] > 0) || break
+            sm[n] > mn + 0.3 * (sm[i] - mn) && sm[n] > sm[e] && break
+            e = n; mn = min(mn, sm[n])
+        end
+        e
+    end
+    lo = edge(-1); hi = edge(1)
     P = D[lo:hi]; mn = minimum(P); mn < 0 && (P = P .- mn)
     s = sum(P)
     s > 0 || return (mu=freq[i], sigma=1 / N, lo=lo, hi=hi)
@@ -283,14 +295,16 @@ function dc_classify(X, bins, f, σf, nfft, nb, perms; nboot=100, rng_idx=nothin
     P, f3, q = dc_2dfs(X, bins, nfft, nb)
     nbk = size(P, 3)
     nbk >= 1 || return nothing
-    Sh = zeros(size(P, 1), size(P, 2)); pas_sh = Float64[]
+    Sh = zeros(size(P, 1), size(P, 2)); Sh2 = zeros(size(Sh)); pas_sh = Float64[]
     for p in perms
         Ps, _, _ = dc_2dfs(X[p, :], bins, nfft, nb)
         Ss = dropdims(mean(Ps, dims=3), dims=3)
-        Sh .+= Ss
+        Sh .+= Ss; Sh2 .+= Ss .^ 2
         push!(pas_sh, dc_pasym(Ss, q))
     end
-    Sh ./= max(length(perms), 1)
+    np = max(length(perms), 1)
+    Sh ./= np
+    σcell = sqrt.(max.(Sh2 ./ np .- Sh .^ 2, 0.0))       # rms komorki w widmach przetasowanych (jak TPA VIII 2.3.4)
     S = dropdims(mean(P, dims=3), dims=3)
     pas = dc_pasym(S, q)
     pas_err = length(pas_sh) >= 2 ? std(pas_sh) : NaN
@@ -310,7 +324,16 @@ function dc_classify(X, bins, f, σf, nfft, nb, perms; nboot=100, rng_idx=nothin
         end
     end
     berr = length(bs) >= 5 ? std(bs) : 0.0
-    err = (isfinite(syst) ? syst : 0.0) + berr
+    # szum srodka ciezkosci z rms komorek widm przetasowanych (zmiennosc stochastyczna + szum; przy 2 blokach
+    # bootstrap blokow prawie nic nie mowi - szumowa cecha dostawala klase dryf)
+    nerr = 0.0
+    if isfinite(c0)
+        rows = findall(x -> abs(x - f) <= h0, f3)
+        w = vec(sum(max.(Sd[rows, :], 0.0), dims=1)); sw = sum(w)
+        σcol2 = vec(sum(σcell[rows, :] .^ 2, dims=1))
+        sw > 0 && (nerr = sqrt(sum((q .- c0) .^ 2 .* σcol2)) / sw)
+    end
+    err = (isfinite(syst) ? syst : 0.0) + sqrt(berr^2 + nerr^2)
     drift = isfinite(c0) && !isempty(cs) && all(sign.(cs) .== sign(c0)) && abs(c0) > err
     return (inv_p2=c0, err=err, P2=isfinite(c0) && c0 != 0 ? 360 / c0 : NaN, drift=drift,
             sign=drift ? (c0 > 0 ? "+" : "-") : "0", pasym=pas, pasym_err=pas_err, nblocks=nbk)

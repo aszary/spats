@@ -97,8 +97,11 @@ function _dt_one(psr, D, p; lit=Dict(), seed=11)
         end
         tr, hs, cl = _dt_feature(X, on, off, nb, ft.mu, ft.sigma, nfft, comps, jref, perms, rng)
         # klasa: dryf, gdy w ktorejkolwiek skladowej znak 1/P2 jest wyznaczony
-        isdrift = any(c -> !isnothing(c) && c.drift, cl)
-        klasa = isdrift ? "dryf" : "tylko P3"
+        # cecha wolna (P3 > 100, nulle / zmiany jasnosci) nie jest dryfem, nawet z wyznaczonym znakiem: przy samym
+        # zerze 1/P3 maly 1/P2 (J0034: -0.7±0.2, P2 ~ 500°) to asymetria zmian jasnosci, nie wedrowka podimpulsow;
+        # dryf wymaga tez |1/P2| > 1 cyklu/P (P2 < 360°)
+        isdrift = !slow && any(c -> !isnothing(c) && c.drift && abs(c.inv_p2) > 1, cl)
+        klasa = isdrift ? "dryf" : slow ? "tylko P3 (wolna)" : "tylko P3"
         dirs = join([isnothing(c) ? "?" : c.sign for c in cl], "")
         for (c, cc) in enumerate(cl)
             isnothing(cc) && continue
@@ -139,7 +142,7 @@ function _dt_one(psr, D, p; lit=Dict(), seed=11)
             j = argmin(d)
             if d[j] <= 3 || abs(rows[j].P3 / P - 1) <= 0.05
                 litflag = @sprintf("literatura P3=%.3g(%.2g) %s: zgodna cecha %d, klasa %s", P, e, lcl, rows[j].q,
-                                   rows[j].klasa == lcl ? "zgodna" : "INNA ($(rows[j].klasa))")
+                                   startswith(rows[j].klasa, lcl) ? "zgodna" : "INNA ($(rows[j].klasa))")
             else
                 litflag = @sprintf("literatura P3=%.3g(%.2g) %s: NIEZGODNA (najbliższa P3=%.3g, %.1fσ)", P, e, lcl, rows[j].P3, d[j])
             end
