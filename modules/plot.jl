@@ -16,6 +16,7 @@ module Plot
     using SmoothingSplines
     using DataFrames, GLM
     using Distributions
+    include("drift_core.jl")      # analiza dryfu bez PyPlot (dc_*): tlo, σ_1/P3, nfft, sciezka srednia, 2DFS / klasa
 
     #using RCall
     using HypothesisTests
@@ -3927,10 +3928,15 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         close("all")
 
         sg = isnothing(track_sign) ? (basu ? -1 : 1) : track_sign
+        Xdc, _ = dc_demean(data); offdc = _far_offpulse(nb, bst, bend)
         function _info(t)
             sl = filter(isfinite, t.slope)
-            cs = join([let v = filter(isfinite, t.cslope[:, c]); length(v) < 3 ? "skł.$c -" : @sprintf("skł.%d %.1f ± %.1f", c, sg * mean(v), std(v)) end
-                       for c in axes(t.cslope, 2)], ", ")
+            # nachylenie ze SCIEZKI SREDNIEJ (spojna suma faz z okien, rozwijanie w skladowej, prosta wazona) - srednia
+            # z nachylen okien psula sie od okien ze skokiem o 360° i od slabych skladowych (J1901: -86 zamiast ~0)
+            tr = dc_track(Xdc, bst:bend, offdc, t.fp, t.window; hw=3 * t.fwhm / 2.355, step=max(1, t.window ÷ 4),
+                          comps=t.comps, jref=t.jref, nsig=nsig, dlon=360 / nb)
+            cs = join([isfinite(tr.slopes[c]) ? @sprintf("skł.%d %.1f ± %.1f", c, sg * tr.slopes[c], tr.errs[c]) : "skł.$c -"
+                       for c in eachindex(tr.slopes)], ", ")
             @sprintf("fp = %.4f (P3 = %.2f P), FWHM = %.4f, S = %.1f, okien z fazą %d z %d, nachylenie fazy w składowych: %s °/° (%s)",
                      t.fp, 1 / t.fp, t.fwhm, t.S, length(sl), length(t.starts), cs,
                      sg < 0 ? "konwencja Basu & Mitra: + = dryf ku wcześniejszym długościom" : "nasza: + = dryf ku późniejszym długościom")
