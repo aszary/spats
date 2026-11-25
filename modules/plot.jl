@@ -3749,15 +3749,26 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         for (panel, key, lab) in ((0, :amp, "amplitude at fp (× rms)"), (2, :phase, sign < 0 ? "phase at fp (°), 0 at profile peak\n(Basu & Mitra convention)" :
                                                                                  "phase at fp (°), 0 at profile peak\n(ours: rising = later longitudes)"))
             subplot2grid((5, 1), (panel, 0), rowspan=2)
+            mall = Float64[]
             for (i, t) in enumerate(ts)
                 M = key == :amp ? t.amp : sign .* t.phase
                 rows = findall(b -> any(isfinite, @view M[b, :]), axes(M, 1))
                 sel = length(rows) > maxpts ? rows[round.(Int, range(1, length(rows), length=maxpts))] : rows
-                for b in sel; scatter(lon, M[b, :], s=0.5, c=cols[mod1(i, 3)], alpha=0.12, lw=0); end
                 # srednia tylko tam, gdzie bin jest istotny w >= polowie okien (inaczej pojedyncze szumowe
                 # przekroczenia 3 sigma daja czarne punkty poza oknem impulsu - J0820, J1034)
                 m = [let v = filter(isfinite, M[rows, j]); length(v) < 0.5 * length(rows) ? NaN : mean(v) end for j in axes(M, 2)]
-                scatter(lon, m, s=3, c=mcols[mod1(i, 3)], label=labels[i])
+                keep = isfinite.(m)                               # kropki okien tylko tam, gdzie jest srednia
+                for b in sel
+                    v = M[b, :]; v[.!keep] .= NaN
+                    scatter(lon, v, s=1.2, c=cols[mod1(i, 3)], alpha=0.25, lw=0)
+                end
+                scatter(lon, m, s=6, c=mcols[mod1(i, 3)], label=labels[i], zorder=3)
+                append!(mall, filter(isfinite, m))
+            end
+            # faza: zakres dopasowany do srednich (+-180° zapasu), a nie do pojedynczych odstajacych okien
+            if key == :phase && !isempty(mall)
+                lo_, hi_ = extrema(mall)
+                ylim(lo_ - 180, hi_ + 180)
             end
             for r in ts[1].comps[1:end-1]
                 axvline(lon[last(r)] + (lon[2] - lon[1]) / 2, c="grey", ls="--", lw=0.6)    # granica skladowych
