@@ -3874,17 +3874,18 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
             subplots_adjust(left=0.08, bottom=0.08, right=0.97, top=0.9, wspace=0.0, hspace=0.0)
             suptitle("$(name_mod): sliding LRFS, okno $window impulsów, krok $step" * (basu ? " (jak Basu & Mitra 2018)" : " (nasza wersja)"), fontsize=8)
             ax0 = subplot2grid((5, 7), (0, 0), rowspan=4)
-            # suma rzedow LRFS: moc fluktuacji w kazdym oknie (wiersz mapy obok), po odjeciu poziomu szumu
-            # (1 na bin), znormalizowana do 1; os odwrocona jak w LRFS (1 przy mapie)
-            rowsum = vec(sum(r.snr[:, 2:end] .- 1, dims=2)); rowsum = max.(rowsum, 0.0)
-            rowsum ./= max(maximum(rowsum), eps())
-            # styl Basu & Mitra 2018 (Fig. 3-5): niebieska linia, podzialka 1 / 0.5 / 0 u gory, 0 przy mapie
-            plot(rowsum, yv, c="blue", lw=0.8)
-            xlim(1.2, -0.3)
+            # jak Basu & Mitra 2018 (Fig. 4): srednie LRFS w oknie (wiersz mapy obok), bez odejmowania tla,
+            # max = 1; os od 1 (lewa) do minimum danych (przy mapie), podzialka u gory, niebieska linia
+            rowm = vec(mean(r.snr[:, 2:end], dims=2)); rowm ./= max(maximum(rowm), eps())
+            lo = clamp(floor(minimum(rowm) * 10) / 10, 0.0, 0.9)  # np. 0.4 jak u nich
+            hi = 1 + 0.08 * (1 - lo)
+            plot(rowm, yv, c="blue", lw=0.8)
+            xlim(hi, lo)
             if !isempty(nulls)                                     # nulle: czerwone kreski przy zewnetrznej krawedzi
-                scatter(fill(1.12, length(nulls)), nulls, marker="_", c="red", s=12, lw=0.8)
+                scatter(fill(1 + 0.05 * (1 - lo), length(nulls)), nulls, marker="_", c="red", s=12, lw=0.8)
             end
-            ylim(c1, c2); xticks([1.0, 0.5, 0.0]); tick_params(axis="x", labelsize=6)
+            dt = (1 - lo) > 0.45 ? 0.2 : (1 - lo) > 0.2 ? 0.1 : 0.05
+            ylim(c1, c2); xticks(collect(1.0:-dt:lo+1e-9)); tick_params(axis="x", labelsize=6)
             ax0.xaxis.set_ticks_position("top"); ax0.xaxis.set_label_position("top")
             xlabel("intensity", fontsize=6)
             ylabel(basu ? "start period of the window" : "pulse number (window centre)")
