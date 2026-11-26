@@ -156,15 +156,18 @@ one_rule_margin_summary() = (_or_margin_setup!(); simple_v8_summary(; title="Reg
 #   include("tools/one_rule.jl"); one_rule_build()                # margines przy RFI jak dotad (margin=false: bez)
 #   one_rule_adopt()                                              # pazur2 -> pazur2_przed_v9, nowa wersja -> pazur2
 OR_OUT = F7_DIR * "one_rule/"
-function one_rule_build(; margin=true, n=32)
+function one_rule_build(; rule=:model_ok, margin=true, n=32)
+    # rule = :model_ok (opcja 3, decyzja 2026-11-26): nulle z modelu tylko w pulsarach z wiarygodnym modelem, reszta
+    # bez nulli; :model_all (B): model kazdego pulsara z dopasowaniem
     isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
     out = OR_OUT * "pazur2_final/"; mkpath(out)
     kw = margin ? NamedTuple() : (pad=0,)
-    write(out * ".wariant", "v9: nulle = model energii P>=0.5 dla wszystkich pulsarow (bez modelu: bez nulli); RFI jak v8" *
-                            (margin ? ", margines przy RFI" : ", bez marginesu przy RFI"))
-    println("\n===== WERSJA v9 (reguła B) → $out =====")
+    anym = rule == :model_all
+    write(out * ".wariant", "v9: nulle = model energii P>=0.5 " * (anym ? "dla wszystkich pulsarow z modelem" : "tylko gdy model wiarygodny") *
+                            " (reszta bez nulli); RFI jak v8" * (margin ? ", margines przy RFI" : ", bez marginesu przy RFI"))
+    println("\n===== WERSJA v9 (" * (anym ? "reguła B" : "opcja 3: model tylko pewny") * ") → $out =====")
     cfg = "SpaTs.Data.ZAP_STEPS[] = $(repr(kw)); SpaTs.Data.NULL_MODE[] = :model; SpaTs.Data.NULL_THR[] = 0.5; " *
-          "SpaTs.Data.NULL_MODEL_ANY[] = true; SpaTs.Data.NULL_MODEL_FALLBACK[] = :none; " *
+          "SpaTs.Data.NULL_MODEL_ANY[] = $anym; SpaTs.Data.NULL_MODEL_FALLBACK[] = :none; " *
           "SpaTs.Data.NULL_MODEL_DIR[] = \"$(F7_DIR)model/\"; "
     cf = "SpaTs.chan_first_list([\"$(F6_ROOT)zap_verify_v3/\", \"$(F6_ROOT)zap_verify/\"])"
     codes = [F7_PRE * cfg * "SpaTs.autozap_all(out=\"$out\", only=$(repr(_f6_psrs()[k:n:end])), skip_done=true, keep_manual=false, " *
@@ -261,3 +264,10 @@ function one_rule_three(; n=32)
 end
 
 one_rule_three_summary() = (_or_three_setup!(); simple_v8_summary(; title="Trzy opcje wycinania nulli: v8, B, 3", basename_="v8"))
+
+"Po przyjeciu v9 (one_rule_adopt): wykresy koncowe sliding LRFS i tabela dryfu na nowych danych."
+function one_rule_replot()
+    Base.include(Main, joinpath(@__DIR__, "sliding_lrfs.jl")); Base.include(Main, joinpath(@__DIR__, "drift_table.jl"))
+    Base.invokelatest(Main.sliding_lrfs_final)
+    Base.invokelatest(Main.drift_table_run)
+end

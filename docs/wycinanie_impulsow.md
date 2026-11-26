@@ -143,3 +143,23 @@ Marginesy w v8 (decyzja 2026-11-25: zostają): przy nullach z modelu brak margin
 odcinkach i śmieciach margines 1 impulsu; przy nullach automatu (pulsary bez modelu) margines zostaje
 (`NULL_MARGIN[] = true`). Usunięcie marginesu wszędzie (`pad=0`) pogorszyło 59 pulsarów i wykrywanie RFI (−32 pp).
 Punkt „Nie wycinać marginesu przy nullach” z 2026-11-18 zamknięty.
+
+## Stan v9 (2026-11-26): jedna zasada dla wszystkich pulsarów
+
+Nulle wycinamy tylko tam, gdzie model energii (TPA XIX) pewnie odróżnia je od emisji: w pulsarach z wiarygodnym
+modelem null to impuls z P_null ≥ 0,5; w pozostałych (model niepewny albo brak modelu) nulli nie wycinamy wcale.
+RFI bez zmian (z marginesem 1 impulsu). Domyślnie w kodzie: `NULL_MODE = :model`, `NULL_THR = 0.5`,
+`NULL_MODEL_FALLBACK = :none`, `NULL_MODEL_ANY = false`.
+
+Wybór (`tools/one_rule.jl`, wszystkie pulsary, te same dane):
+
+| opcja | wobec metody ręcznej | średni zysk S/N | wycięte | uwagi |
+|---|---|---|---|---|
+| v8: model pewny + automat | 345 : 2 : 184 | +20,4% | 8,1% | dwie metody |
+| B: model wszędzie | 343 : 4 : 184 | +20,4% | 8,5% | w słabych pulsarach wycina prawdziwą emisję (J1549: 71% impulsów) |
+| **3: model tylko pewny (przyjęta)** | 333 : 6 : 192 | +19,2% | 7,3% | jedna zasada, nic nie fałszuje; nulle zostają w 40 słabszych pulsarach (J1931 −41%) |
+| automat dla wszystkich | 323 : 2 : 206 | +18,2% | 5,6% | znajduje tylko 40% nulli |
+| impuls E < 3σ / seria 5 < 3σ | 231 : 220 / 276 : 117 | +6,7% / +11,3% | 43% / 26% | wycinają dużo emisji |
+
+Margines przy RFI zostaje: bez niego 31 pulsarów traci >1% S/N (J1148 −9,4%). Budowa i przyjęcie:
+`one_rule_build()`, `one_rule_adopt()`, potem `one_rule_replot()`. Kopia v8: `pazur2_przed_v9`.

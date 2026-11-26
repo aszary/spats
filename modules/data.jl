@@ -1084,7 +1084,10 @@ module Data
     NULL_THR = Ref(0.5)             # prog P_null dla nulli z modelu
     # :model, pulsar bez wiarygodnego modelu: :auto - nulle automatu (jak ranking v6, "model P>=0.5" 344:3:184);
     # :none - zadnych nulli (czysta jedna regula; J1931+1439: S/N -41%)
-    NULL_MODEL_FALLBACK = Ref(:auto)
+    # Od v9 (decyzja 2026-11-26, opcja 3 z tools/one_rule.jl): JEDNA zasada - nulle tylko z wiarygodnego modelu,
+    # pulsary bez niego bez nulli (:none). Wynik: 333:6:192 wobec metody recznej, S/N +19.2%, bez falszowania profili
+    # slabych pulsarow. Powrot do v8: NULL_MODEL_FALLBACK[] = :auto (kopia v8: pazur2_przed_v9)
+    NULL_MODEL_FALLBACK = Ref(:none)
     NULL_MODEL_DIR = Ref("/home/psr/data/OUTPUT/final_v7/model/")
     # true: nulle z modelu dla KAZDEGO pulsara z dopasowanym modelem (jedna regula dla wszystkich, tools/one_rule.jl
     # wariant B); false (v8): tylko modele wiarygodne, reszta wg NULL_MODEL_FALLBACK
