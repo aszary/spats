@@ -627,3 +627,73 @@ function one_rule_eval2_summary(; tie=1.0)
     end
     write(S8_DIR * "OCENA.txt", join(L, "\n") * "\n"); println(join(L, "\n")); println("\nZapisane: $(S8_DIR)OCENA.txt")
 end
+
+# ---- Wykres porownawczy zasad RFI: jeden stos impulsow, obok kolumna znacznikow dla kazdej zasady
+# (pomaranczowe - zly odcinek, czerwone - pojedynczy impuls RFI, szare - null, jasnoczerwone - margines).
+#   include("tools/one_rule.jl"); compare_rules_view()      # -> final_v7/porownanie_zasad.pdf
+OR_VIEW_VARIANTS = [
+    ("v9", NamedTuple()),
+    ("A+B+TPA4σ", merge(OR_ABm, (rfi_tpa_k=4.0,))),
+    ("A+B+TPA4σ i kształt", merge(OR_ABm, (rfi_tpa_k=4.0, rfi_tpa_struct=2.0))),
+    ("A+B+kształt i z>6", merge(OR_ABm, (rfi_struct=2.0, rfi_struct_z=6.0))),
+]
+function compare_rules_view(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1110-5637", "J1915+0752", "J1844-0433",
+                                  "J1842+0257", "J1057-7914", "J1404+1159", "J0211-8159"];
+                            variants=OR_VIEW_VARIANTS, out=F7_DIR * "porownanie_zasad.pdf")
+    _VD = SpaTs.Data
+    PyPlot = Main.PyPlot
+    PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
+    mkpath(dirname(out)); pdf = PdfPages(out)
+    cols = Dict(4 => "darkorange", 2 => "red", 1 => "red", 3 => "grey", 6 => "grey", 5 => "salmon")
+    for psr in psrs
+        try
+            p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
+            D = Float64.(_f6_load(psr, p)); N, nb = size(D)
+            bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+            m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+            F = _VD.snr_fast(D, bst, bend); s0 = _VD.profile_snr(F)
+            res = [(l, _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf, kw...)) for (l, kw) in variants]
+            nv = length(res)
+            fig = PyPlot.figure(figsize=(12, 8))
+            fig.suptitle("$psr: co wycina każda zasada (pomarańczowe: zły odcinek, czerwone: pojedynczy impuls RFI, szare: null, jasne: margines)", fontsize=8)
+            wcol = 0.045
+            live = [any(!iszero, @view D[i, :]) for i in 1:N]; v = vec(D[live, :])
+            for (k, (l, a)) in enumerate(res)
+                ax = fig.add_axes([0.04 + (k - 1) * wcol, 0.22, wcol * 0.8, 0.7])
+                for r in (4, 2, 1, 3, 6, 5)
+                    ys = findall(==(r), a.reason)
+                    isempty(ys) || ax.scatter(fill(0, length(ys)), ys, marker="_", s=40, c=cols[r], lw=1.2)
+                end
+                ax.set_xlim(-1, 1); ax.set_ylim(0.5, N + 0.5); ax.set_xticks([])
+                ax.set_title(l, fontsize=5, rotation=60, ha="left")
+                k == 1 ? ax.tick_params(labelsize=6) : ax.set_yticks([])
+            end
+            axs = fig.add_axes([0.04 + nv * wcol + 0.01, 0.22, 0.62 - nv * wcol, 0.7])
+            axs.imshow(D, origin="lower", aspect="auto", cmap="Greys_r", vmin=quantile(v, 0.01), vmax=quantile(v, 0.995),
+                       interpolation="nearest", extent=[-0.5, nb - 0.5, 0.5, N + 0.5])
+            axs.axvline(bst, c="orange", lw=0.5); axs.axvline(bend, c="orange", lw=0.5)
+            axs.tick_params(labelleft=false, labelsize=6); axs.set_xlabel("bin (pomarańczowe linie: okno impulsu)", fontsize=7)
+            # struktura tla i szum (pomocniczo)
+            ks = _VD.rfi_struct_ratio(D, bst, bend); zg = _VD.rfi_rms_z(D, bst, bend; local_win=0)
+            axk = fig.add_axes([0.69, 0.22, 0.12, 0.7], sharey=axs)
+            axk.plot(ks, 1:N, c="grey", lw=0.5); axk.axvline(2, c="k", ls="--", lw=0.5); axk.set_xscale("log")
+            axk.set_xlabel("kształt tła / typowy", fontsize=6); axk.tick_params(labelsize=5, labelleft=false)
+            axz = fig.add_axes([0.83, 0.22, 0.12, 0.7], sharey=axs)
+            axz.plot(clamp.(zg, -5, 1000), 1:N, c="grey", lw=0.5); axz.axvline(4, c="k", ls="--", lw=0.5); axz.set_xscale("symlog", linthresh=10)
+            axz.set_xlabel("szum tła z (cała obs.)", fontsize=6); axz.tick_params(labelsize=5, labelleft=false)
+            # tabela liczb
+            axt = fig.add_axes([0.04, 0.02, 0.9, 0.15]); axt.axis("off")
+            lines = [@sprintf("%-22s  odcinki %4d   pojedyncze RFI %4d   nulle %4d   margines %3d   razem %4d   S/N %.1f -> %.1f (%+.1f%%)",
+                              l, count(==(4), a.reason), count(r -> r in (1, 2), a.reason), count(r -> r in (3, 6), a.reason),
+                              count(==(5), a.reason), length(a.bad), s0, _VD.profile_snr(F; drop=a.bad), 100(_VD.profile_snr(F; drop=a.bad) / s0 - 1))
+                     for (l, a) in res]
+            axt.text(0, 1, join(lines, "\n"), fontsize=7, family="monospace", va="top", transform=axt.transAxes)
+            pdf.savefig(fig); PyPlot.close(fig)
+            println(psr, " ok")
+        catch e
+            e isa InterruptException && rethrow()
+            println("$psr BŁĄD: ", first(sprint(showerror, e), 200))
+        end
+    end
+    pdf.close(); println("Wykres: $out")
+end
