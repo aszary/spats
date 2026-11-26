@@ -3927,3 +3927,34 @@ Marginesy ręczne względem zasięgu 3σ: przód mediana 17, tył 26 binów. Jas
 w 1–10 binach z przodu (168/bin wobec ~115 tła), dalej płasko → ±20 wystarcza. „Okno ucina emisję” bywa artefaktem
 miary 3σ (niewygładzona, skrajne biny w ±100): J1914+0219 (−99) — szum. J0630-2834: bardzo jasny, poziom ~0.3% maks.
 ciągnie się za pulsem do > bin 730, poza oba okna — emisja albo artefakt linii bazowej, nierozstrzygnięte.
+
+## 2026-11-26 — test stabilności okna on-pulse (pazur, 257 PSR + J0211)
+
+Skrypty: `~/claude/work/scripts/window_stability.py` (pomiar), `window_stability_analyse.py` (analiza, log
+`~/claude/work/logs/window_stability_analyse.log`). Wyniki: `~/output/claude/window_stability/results_v2.csv` (pulsar × okno),
+`pairs.csv` (różnice względem okna final), pełne produkty `<PSR>/full.npz` (stos pulsów po zapach float32 + dla każdego
+okna E_on, E_off, baseline, LRFS per bin, LRFS sumaryczne, 2DFS), razem 2.1 GB. `results.csv` = pierwsza, wadliwa wersja
+testowa (3 PSR; usunięcie zablokowane regułą, zostaje). Wykresy `~/claude/work/figures/window_stability/01..05`.
+
+Okna: core (rdzeń Song+23), final (rdzeń ±20, odniesienie), x1.5, x2.0 (wokół środka, max nb/2), manual (pmod, 85 PSR).
+Każde okno z własną linią bazową (mediana binów poza oknem on i poza oknem off). Wielkości: nf = 2·P(E<0), fweak =
+P(E < 3σ_off), S/N średniego pulsu, P3 (pik LRFS w ±30% P3 z params), P2 i asymetria z 2DFS w wierszu tej cechy, m̄.
+Poprawki po drodze: (1) globalny pik LRFS u nullerów = szum czerwony (J0034: P3 = 127) → pik lokalny przy P3 z params;
+(2) linia bazowa z tych samych binów co E_off zaniża σ(E_off) → baseline z binów poza on i off; (3) u szerokich profili
+okno x1.5/x2.0 przycięte do nb/2 → brak niezależnej linii bazowej: 28 par / 18 PSR wykluczonych ze statystyk nullingu.
+
+**Wyniki:**
+- **P3, P2, kierunek dryfu, m̄: praktycznie niezależne od okna.** P3 (157 PSR z S/N cechy > 5): pik przesuwa się > 1 bin
+  częstotliwości w 0 (core), 3 (x1.5), 5 (x2.0), 0 (manual); S/N cechy P3 mediana 1.01 / 0.99 / 0.98 / 1.00 względem final,
+  przy x2.0 dolne 10% traci ≥ 23%, 7 PSR spada poniżej S/N 5. P2 (87 PSR z wyraźną asymetrią): mediana |ΔP2/P2| ≤ 0.8%,
+  > 10% w 4 / 8 / 13 / 3; znak asymetrii zmienia się w 0–1 przypadku. m̄: > 10% zmiany w 36/258 tylko przy x2.0.
+- **Nulling: silnie zależny od okna przy niskim S/N pojedynczego pulsu.** |Δnf| > 0.05 wobec final:
+  core 43/256, x1.5 62/251, x2.0 103/240, manual 5/85. Zależność od S/N średniego pulsu (snrE, okno final):
+  x2.0: snrE < 2: 46/53 (mediana |Δnf| 0.16), 2–5: 54/77 (0.08), 5–10: 3/47, > 10: 0/63; core: 31/56, 12/81, 0/52, 0/67.
+  Szersze okno zawsze podnosi nf (szum → P(E<0) → 0.5); węższe obniża. Przykłady x2.0: J1427-4158 0.20 → 0.49,
+  J1302-6350 0.04 → 0.30, J1750-3503 0.05 → 0.26. Estymator 2·P(E<0) wiarygodny tylko przy snrE ≳ 5.
+- **Okna ręczne vs final: różnica pomijalna** (szerokość 1.06×, |Δnf| > 0.05 w 5/85, P3/P2 bez zmian) — zmiana konwencji
+  na Song+23 ±20 nie zmieniła wyników.
+- S/N energii spada z szerokością szybciej niż 1/√w (błąd linii bazowej daje wariancję ∝ w²); rdzeń daje medianowo 1.43× S/N.
+Wniosek praktyczny: do dryfu (LRFS/2DFS) okno final jest bezpieczne, nawet 2× szersze zmienia mało; do nullingu używać
+rdzenia (lub ważenia profilem) i podawać nf tylko dla snrE ≳ 5, z testem stabilności dla słabszych.
