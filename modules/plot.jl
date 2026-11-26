@@ -3797,7 +3797,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
     end
 
     """
-        sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false)
+        sliding_lrfs(data, outdir, params; window=nothing, step=1, name_mod="pulsar", show_=false)
 
     Like Basu & Mitra (2018, MNRAS 475, 5098) Figs. 2-5, with the window moved by `step` pulses (1 =
     continuous; they used 50, which they note makes horizontal stripes). Page 1 (left figure of the paper):
@@ -3807,7 +3807,7 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
     (0 = profile peak) - for each peak if the spectrum has a second one. Files: <name_mod>_sliding_lrfs.pdf,
     _lrfs_tracks.pdf, _sliding_lrfs.csv (window, strongest frequency), _lrfs_tracks.txt (slopes).
     """
-    function sliding_lrfs(data, outdir, params; window=256, step=1, name_mod="pulsar", show_=false, nsig=3.0, style=:nasza,
+    function sliding_lrfs(data, outdir, params; window=nothing, step=1, name_mod="pulsar", show_=false, nsig=3.0, style=:nasza,
                           nulls=Int[], track_sign=nothing)
         # track_sign: konwencja fazy na wykresie tracks i w nachyleniach (-1 Basu & Mitra, +1 nasza = jak mapa fazy);
         # domyslnie -1 dla :basu, +1 dla :nasza; wersja koncowa: +1
@@ -3819,6 +3819,8 @@ drifting"). Several peaks (`ts`) are drawn in different colours, as their Fig. 4
         p = params
         bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
         N, nb = size(data)
+        # dlugosc okna (fft) z params["nfft"], domyslnie 256; window=... nadpisuje
+        window = min(something(window, Int(something(get(p, "nfft", nothing), 256))), N)
         p3 = get(p, "p3", nothing)
         r = sliding_lrfs_compute(data, bst, bend; window=window, step=step)
         t1 = sliding_lrfs_tracks(data, bst, bend; window=window, step=step, nsig=nsig, p3=p3, per_bin=basu, common_unwrap=!basu)

@@ -34,7 +34,7 @@ function _sl_data(psr)
     return D, p
 end
 
-function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, basu_step=50, outdir=SL_DIR)
+function sliding_lrfs_run(psrs=SL_PSRS; window=nothing, step=1, basu_step=50, outdir=SL_DIR)
     mkpath(outdir)
     PL = SpaTs.Plot
     pdfs = String[]; summary = String[]
@@ -44,6 +44,7 @@ function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, basu_step=50, outdir
             D, p = Base.invokelatest(_sl_data, psr)
             od = joinpath(outdir, psr); mkpath(od)
             N = size(D, 1)
+            w = something(window, Int(something(get(p, "nfft", nothing), 256)))   # okno = params["nfft"]
             bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
             push!(summary, "$psr  N=$N  P3 (params) = $(get(p, "p3", "brak"))")
             # ---------- V1: nasza wersja - LRFS z poprawionym panelem fazy + sliding LRFS (krok 1)
@@ -58,8 +59,8 @@ function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, basu_step=50, outdir
                 Base.invokelatest(PL.lrfs, d3, od, p; name_mod="$(psr)_v1_nasza_psrsalsa", pulses=D)
                 push!(pdfs, joinpath(od, "$(psr)_v1_nasza_psrsalsa_lrfs.pdf"))
             end
-            N > window || (push!(summary, "    za mało impulsów na okno $window"); continue)
-            r1 = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=step, name_mod=psr, style=:nasza)
+            N > w || (push!(summary, "    za mało impulsów na okno $w"); continue)
+            r1 = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=w, step=step, name_mod=psr, style=:nasza)
             push!(pdfs, joinpath(od, "$(psr)_v1_nasza_sliding.pdf"), joinpath(od, "$(psr)_v1_nasza_tracks.pdf"))
             push!(summary, "    V1 nasza: " * r1.info)
             # histogram faz jak w TPA XX, ale po naszemu: bloki 64 bez selekcji S/N, 0 w szczycie profilu
@@ -75,7 +76,7 @@ function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, basu_step=50, outdir
                 push!(pdfs, joinpath(od, "$(psr)_v1_nasza_phase.pdf"))
             end
             # ---------- V2: jak Basu & Mitra (2018) - okno 256, krok jak u nich (50), rys. 2 lewy i prawy
-            res = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=basu_step, name_mod=psr, style=:basu)
+            res = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=w, step=basu_step, name_mod=psr, style=:basu)
             push!(pdfs, joinpath(od, "$(psr)_v2_basu_mitra_sliding.pdf"), joinpath(od, "$(psr)_v2_basu_mitra_tracks.pdf"))
             push!(summary, "    V2 Basu & Mitra: " * res.info)
             # ---------- V3: jak TPA XX (Hsu+2026) - LRFS (FFT 200, rys. 2) + fazy w blokach 64 (rys. 4)
@@ -118,7 +119,7 @@ function sliding_lrfs_run(psrs=SL_PSRS; window=256, step=1, basu_step=50, outdir
 end
 
 """
-    sliding_lrfs_final(psrs=SL_PSRS; window=256)
+    sliding_lrfs_final(psrs=SL_PSRS; window=nothing)
 
 Wersja koncowa: dla kazdego pulsara 2 strony - sliding LRFS w naszej wersji (krok 1, jasnosc impulsow z
 nullami automatu, mapa widma, mapa fazy przy fp, srednie widmo, profil) i tracks jak Basu & Mitra 2018
@@ -126,7 +127,7 @@ nullami automatu, mapa widma, mapa fazy przy fp, srednie widmo, profil) i tracks
 w skladowych). Wynik: sliding_lrfs/<psr>/<psr>_final.pdf, wszystko razem: sliding_lrfs/final.pdf,
 liczby: sliding_lrfs/final.txt.
 """
-function sliding_lrfs_final(psrs=SL_PSRS; window=256, outdir=SL_DIR)
+function sliding_lrfs_final(psrs=SL_PSRS; window=nothing, outdir=SL_DIR)
     mkpath(outdir)
     PL = SpaTs.Plot
     pdfs = String[]; summary = String[]
@@ -136,11 +137,12 @@ function sliding_lrfs_final(psrs=SL_PSRS; window=256, outdir=SL_DIR)
             D, p = Base.invokelatest(_sl_data, psr)
             od = joinpath(outdir, psr); mkpath(od)
             N = size(D, 1)
-            N > window || (push!(summary, "$psr  N=$N  za mało impulsów na okno $window"); continue)
+            w = something(window, Int(something(get(p, "nfft", nothing), 256)))   # okno = params["nfft"]
+            N > w || (push!(summary, "$psr  N=$N  za mało impulsów na okno $w"); continue)
             nul = Int[]
             for (a, b) in SpaTs.Data.zaps_to_ranges(SpaTs.Data.zaps_null_of(p)); append!(nul, a:b); end
-            Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=1, name_mod=psr, style=:nasza, nulls=nul)
-            res = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=window, step=50, name_mod=psr, style=:basu,
+            Base.invokelatest(PL.sliding_lrfs, D, od, p; window=w, step=1, name_mod=psr, style=:nasza, nulls=nul)
+            res = Base.invokelatest(PL.sliding_lrfs, D, od, p; window=w, step=50, name_mod=psr, style=:basu,
                                     track_sign=1)          # faza w naszej konwencji, jak na mapie fazy
             f1 = joinpath(od, "$(psr)_v1_nasza_sliding.pdf"); f2 = joinpath(od, "$(psr)_v2_basu_mitra_tracks.pdf")
             fo = joinpath(od, "$(psr)_final.pdf")

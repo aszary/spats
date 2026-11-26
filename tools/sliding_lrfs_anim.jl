@@ -57,13 +57,14 @@ function _anim_track(peaks; nlab=3, tol=4)
 end
 
 "Dane klatek: |LRFS| okna, widmo, cechy okna (sledzone) z fazami, profil okna."
-function _anim_prepare(D, p; window=256, step=8, nsig=3.0, thr=5.0, fixed=true, nfix=2)
+function _anim_prepare(D, p; window=nothing, step=8, nsig=3.0, thr=5.0, fixed=true, nfix=2)
     # fixed=true: cechy = `nfix` najsilniejszych szczytow SREDNIEGO widma calej obserwacji (calego sliding LRFS),
     # stale przez cala animacje - patrzymy tylko, jak sie zmienia ich sila i faza; false: wykrywane w kazdym oknie
     PL = SpaTs.Plot
     N, nb = size(D)
     bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
     X, good = PL._demeaned(D)
+    window = min(something(window, Int(something(get(p, "nfft", nothing), 256))), N)   # okno = params["nfft"]
     on = bst:bend; off = PL._far_offpulse(nb, bst, bend)
     nf = window ÷ 2
     freq = collect(1:nf) ./ window
@@ -184,7 +185,7 @@ function _anim_update!(art, d, b)
 end
 
 "PDF (strona = polozenie okna; w xpdf strzalki / PgDn = przesuwanie) i GIF dla pulsara."
-function sliding_lrfs_anim(psr="J1555-3134"; window=256, step=8, outdir=SL_DIR, gif=true, fps=8)
+function sliding_lrfs_anim(psr="J1555-3134"; window=nothing, step=8, outdir=SL_DIR, gif=true, fps=8)
     D, p = Base.invokelatest(_sl_data, psr)
     d = _anim_prepare(D, p; window=window, step=step)
     od = joinpath(outdir, psr); mkpath(od)
@@ -217,7 +218,7 @@ function sliding_lrfs_anim(psr="J1555-3134"; window=256, step=8, outdir=SL_DIR, 
 end
 
 """
-    sliding_lrfs_player(psr; window=256, speed=2, interval=30, size=(9.5, 5.2), dpi=80, thr=5.0)
+    sliding_lrfs_player(psr; window=nothing, speed=2, interval=30, size=(9.5, 5.2), dpi=80, thr=5.0)
 
 Interaktywna animacja w jednym oknie (wymaga ekranu, np. VNC): Odtwórz / Pauza (przycisk albo spacja) - okno
 samo przesuwa sie od poczatku do konca obserwacji; w pauzie suwak przesuwa okno recznie, strzalki <- -> o jeden
@@ -226,7 +227,7 @@ krok; Odtwórz po pauzie kontynuuje od miejsca suwaka, na koncu zaczyna od pocza
 miedzy klatkami (ms). Animacje napedza petla w Julii (timer okna graficznego przez PyCall/VNC bywa martwy);
 funkcja trzyma konsole, dopoki okno jest otwarte - zamknij okno, zeby wrocic.
 """
-function sliding_lrfs_player_julia(psr="J1555-3134"; window=256, speed=2, interval=30, size=(9.5, 5.2), dpi=80, thr=5.0)
+function sliding_lrfs_player_julia(psr="J1555-3134"; window=nothing, speed=2, interval=30, size=(9.5, 5.2), dpi=80, thr=5.0)
     D, p = Base.invokelatest(_sl_data, psr)
     d = _anim_prepare(D, p; window=window, step=1, thr=thr)
     widgets = pyimport("matplotlib.widgets"); plt = pyimport("matplotlib.pyplot")
@@ -302,12 +303,12 @@ function sliding_lrfs_player_julia(psr="J1555-3134"; window=256, speed=2, interv
 end
 
 """
-    sliding_lrfs_export(psr; window=256, thr=5.0) -> katalog
+    sliding_lrfs_export(psr; window=nothing, thr=5.0) -> katalog
 
 Liczy klatki (krok 1 impuls, cechy wykrywane w kazdym oknie) i zapisuje je dla odtwarzacza w Pythonie
 (tools/lrfs_player.py): meta.json + tablice Float32 (kolumnowo, jak w Julii).
 """
-function sliding_lrfs_export(psr="J1555-3134"; window=256, thr=5.0, outdir=SL_DIR)
+function sliding_lrfs_export(psr="J1555-3134"; window=nothing, thr=5.0, outdir=SL_DIR)
     D, p = Base.invokelatest(_sl_data, psr)
     d = _anim_prepare(D, p; window=window, step=1, thr=thr)
     od = joinpath(outdir, psr, "player"); mkpath(od)
@@ -323,13 +324,13 @@ function sliding_lrfs_export(psr="J1555-3134"; window=256, thr=5.0, outdir=SL_DI
 end
 
 """
-    sliding_lrfs_player(psr; window=256, speed=2, interval=30, thr=5.0)
+    sliding_lrfs_player(psr; window=nothing, speed=2, interval=30, thr=5.0)
 
 Interaktywna animacja sliding LRFS (wymaga ekranu, np. VNC): liczy klatki w Julii i otwiera odtwarzacz
 tools/lrfs_player.py w zwyklym python3 + matplotlib (bez PyCall - tam timery okna bywaly martwe).
 Odtwórz / Pauza: przycisk albo spacja; w pauzie suwak albo strzalki; predkosc + / -.
 """
-function sliding_lrfs_player(psr="J1555-3134"; window=256, speed=2, interval=30, thr=5.0)
+function sliding_lrfs_player(psr="J1555-3134"; window=nothing, speed=2, interval=30, thr=5.0)
     od = sliding_lrfs_export(psr; window=window, thr=thr)
     py = joinpath(@__DIR__, "lrfs_player.py")
     println("Uruchamiam: python3 $py $od --speed $speed --interval $interval")
