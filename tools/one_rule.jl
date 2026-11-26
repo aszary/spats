@@ -62,6 +62,8 @@ function _or_nulls(rule, E, σ, live, m_ok, m_any)
         return findall(out)
     elseif rule == :model_all
         return isnothing(m_any) ? Int[] : m_any.rows[m_any.P .>= 0.5]
+    elseif rule == :model_ok
+        return isnothing(m_ok) ? Int[] : m_ok.rows[m_ok.P .>= 0.5]     # opcja 3: tylko pewny model, reszta bez nulli
     elseif rule == :v8
         return isnothing(m_ok) ? nothing : m_ok.rows[m_ok.P .>= 0.5]
     end
@@ -240,3 +242,22 @@ function one_rule_details(; a="v8 (obecny): model P>=0.5, bez modelu automat", b
     write(F7_DIR * "one_rule/SZCZEGOLY.txt", join(L, "\n") * "\n")
     println("\nZapisane: $(F7_DIR)one_rule/SZCZEGOLY.txt")
 end
+
+# ---- Trzy opcje do wyboru na tych samych danych: v8, B (model wszedzie), 3 (model tylko pewny, reszta bez nulli)
+#   include("tools/one_rule.jl"); one_rule_three()          # ~20-30 min; wynik: final_v7/one_rule_three/WYNIK.txt
+function _or_three_setup!()
+    global S8_DIR = F7_DIR * "one_rule_three/"
+    global OR_RULES = [("v8 (obecny) model pewny + automat", :v8), ("B model wszedzie", :model_all),
+                       ("3 model tylko pewny reszta bez nulli", :model_ok)]
+    global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
+end
+
+function one_rule_three(; n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    _or_three_setup!(); mkpath(S8_DIR)
+    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); _or_three_setup!(); Base.invokelatest(_or_part, $k, $n)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "or3"; every=120)
+    one_rule_three_summary()
+end
+
+one_rule_three_summary() = (_or_three_setup!(); simple_v8_summary(; title="Trzy opcje wycinania nulli: v8, B, 3", basename_="v8"))
