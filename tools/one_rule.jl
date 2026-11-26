@@ -190,7 +190,7 @@ function one_rule_adopt()
     while isdir(bk); k += 1; bk = F6_ROOT * "pazur2_przed_v9_$k"; end
     mv(dst, bk); mv(src, dst)
     println("Przyjęte: $(strip(read(dst * "/.wariant", String))). Stara wersja: $bk.")
-    println("Domyślne w kodzie trzeba jeszcze zmienić (napisz Claude'owi).")
+    println("Domyślne w kodzie są już v9 (Data.NULL_MODEL_FALLBACK[] = :none, commit ee57001).")
 end
 
 # ---- Szczegoly: B wobec v8 dla kazdego pulsara (S/N, nulle, status modelu energii).
