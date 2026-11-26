@@ -189,6 +189,8 @@ function test_onpulse_fixing()
     j0034 = data["J0034-0721"]
     @test j0034["bin_st"] == 419
     @test j0034["bin_end"] == 605
+    @test j0034["fft"] == 512
+    @test j0034["nfft"] == 512
     @test !haskey(j0034, "IP_start")
 
     # J0151-0635 two MP components (C1: 450-511, C2: 511-573)
@@ -196,6 +198,7 @@ function test_onpulse_fixing()
     j0151 = data["J0151-0635"]
     @test j0151["bin_st"] == 450
     @test j0151["bin_end"] == 573
+    @test j0151["fft"] == 512
 
     # J0905-5127 has both MP and IP
     @test haskey(data, "J0905-5127")
@@ -204,6 +207,8 @@ function test_onpulse_fixing()
     @test j0905["bin_end"] == 271
     @test j0905["IP_start"] == 732
     @test j0905["IP_end"] == 779
+    @test j0905["fft"] == 256
+    @test j0905["nfft"] == 256
 
     println("test_onpulse_fixing passed successfully!")
     return true

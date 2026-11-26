@@ -1191,6 +1191,9 @@ data = Data.load_ascii(txt_file)
         if haskey(info, "IP_start")
             println("     IP: IP_start = $(info["IP_start"]), IP_end = $(info["IP_end"])")
         end
+        if haskey(info, "fft")
+            println("     FFT: fft = $(info["fft"])")
+        end
         return true
     end
 

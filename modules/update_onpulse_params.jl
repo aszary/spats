@@ -83,15 +83,16 @@ function parse_onpulse_csv(csv_path::String="input/onpulsefixing.csv")
     results = Dict{String, Dict{String, Any}}()
 
     # Define component column index triplets for bins (1-based index in the CSV):
-    # C1: col 16 (region), col 17 (bin_start), col 18 (bin_end)
-    # C2: col 19 (region), col 20 (bin_start), col 21 (bin_end)
-    # C3: col 22 (region), col 23 (bin_start), col 24 (bin_end)
-    # C4: col 25 (region), col 26 (bin_start), col 27 (bin_end)
+    # With FFT_length_used added as col 3:
+    # C1: col 17 (region), col 18 (bin_start), col 19 (bin_end)
+    # C2: col 20 (region), col 21 (bin_start), col 22 (bin_end)
+    # C3: col 23 (region), col 24 (bin_start), col 25 (bin_end)
+    # C4: col 26 (region), col 27 (bin_start), col 28 (bin_end)
     comp_cols = [
-        (16, 17, 18),
-        (19, 20, 21),
-        (22, 23, 24),
-        (25, 26, 27)
+        (17, 18, 19),
+        (20, 21, 22),
+        (23, 24, 25),
+        (26, 27, 28)
     ]
 
     open(csv_path, "r") do io
@@ -110,6 +111,9 @@ function parse_onpulse_csv(csv_path::String="input/onpulsefixing.csv")
             mp_ends   = Float64[]
             ip_starts = Float64[]
             ip_ends   = Float64[]
+
+            # FFT length used (column 3: FFT_length_used)
+            fft_len = length(row) >= 3 ? parse_float_safe(row[3]) : nothing
 
             for (reg_idx, st_idx, en_idx) in comp_cols
                 if reg_idx > length(row)
@@ -137,6 +141,11 @@ function parse_onpulse_csv(csv_path::String="input/onpulsefixing.csv")
             if !isempty(ip_starts) && !isempty(ip_ends)
                 entry["IP_start"] = round(Int, minimum(ip_starts))
                 entry["IP_end"]   = round(Int, maximum(ip_ends))
+            end
+
+            if !isnothing(fft_len)
+                entry["fft"]  = round(Int, fft_len)
+                entry["nfft"] = round(Int, fft_len)
             end
 
             results[jname] = entry
@@ -173,6 +182,12 @@ function update_single_params!(params_path::String, onpulse_info::Dict{String, A
     if haskey(onpulse_info, "IP_start") && haskey(onpulse_info, "IP_end")
         params["IP_start"] = onpulse_info["IP_start"]
         params["IP_end"]   = onpulse_info["IP_end"]
+    end
+
+    # Update or add fft / nfft parameters
+    if haskey(onpulse_info, "fft")
+        params["fft"]  = onpulse_info["fft"]
+        params["nfft"] = onpulse_info["nfft"]
     end
 
     if !dry_run

@@ -33,15 +33,15 @@ def parse_onpulse_csv(csv_path: str = "input/onpulsefixing.csv") -> Dict[str, Di
 
     results = {}
     # Component column index triplets in onpulsefixing.csv (0-indexed):
-    # C1: reg=15, st=16, en=17
-    # C2: reg=18, st=19, en=20
-    # C3: reg=21, st=22, en=23
-    # C4: reg=24, st=25, en=26
+    # C1: reg=16, st=17, en=18
+    # C2: reg=19, st=20, en=21
+    # C3: reg=22, st=23, en=24
+    # C4: reg=25, st=26, en=27
     comp_cols = [
-        (15, 16, 17),
-        (18, 19, 20),
-        (21, 22, 23),
-        (24, 25, 26)
+        (16, 17, 18),
+        (19, 20, 21),
+        (22, 23, 24),
+        (25, 26, 27)
     ]
 
     with open(csv_path, mode='r', encoding='utf-8') as f:
@@ -55,6 +55,9 @@ def parse_onpulse_csv(csv_path: str = "input/onpulsefixing.csv") -> Dict[str, Di
 
             mp_starts, mp_ends = [], []
             ip_starts, ip_ends = [], []
+
+            # FFT length used (column index 2: FFT_length_used)
+            fft_len = parse_float_safe(row[2]) if len(row) > 2 else None
 
             for reg_idx, st_idx, en_idx in comp_cols:
                 if reg_idx >= len(row):
@@ -79,6 +82,10 @@ def parse_onpulse_csv(csv_path: str = "input/onpulsefixing.csv") -> Dict[str, Di
                 entry["IP_start"] = int(round(min(ip_starts)))
                 entry["IP_end"] = int(round(max(ip_ends)))
 
+            if fft_len is not None:
+                entry["fft"] = int(round(fft_len))
+                entry["nfft"] = int(round(fft_len))
+
             if entry:
                 results[jname] = entry
 
@@ -100,6 +107,11 @@ def update_single_params(params_path: str, onpulse_info: Dict[str, int], dry_run
     if "IP_start" in onpulse_info and "IP_end" in onpulse_info:
         params["IP_start"] = onpulse_info["IP_start"]
         params["IP_end"] = onpulse_info["IP_end"]
+
+    # Apply fft / nfft updates
+    if "fft" in onpulse_info:
+        params["fft"] = onpulse_info["fft"]
+        params["nfft"] = onpulse_info["nfft"]
 
     backup_path = os.path.join(os.path.dirname(params_path), "params_pre_reonpuls.json")
 
