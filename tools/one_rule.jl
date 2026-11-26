@@ -697,3 +697,62 @@ function compare_rules_view(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J11
     end
     pdf.close(); println("Wykres: $out")
 end
+
+# ---- Lepszy wykres porownawczy: osobny stos impulsow dla kazdej zasady, wyciete impulsy przykryte pasem przez cala
+# szerokosc (turkus - pojedynczy RFI, zielony - zly odcinek, fiolet - null, zolty - margines). Dane w mapie "inferno".
+#   include("tools/one_rule.jl"); compare_rules_view2()     # -> final_v7/porownanie_zasad2.pdf
+function compare_rules_view2(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1110-5637", "J1915+0752", "J1844-0433",
+                                   "J1842+0257", "J1057-7914", "J1404+1159", "J0211-8159"];
+                             variants=OR_VIEW_VARIANTS, out=F7_DIR * "porownanie_zasad2.pdf", zoom=nothing)
+    _VD = SpaTs.Data
+    PyPlot = Main.PyPlot
+    PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
+    patches = Main.PyCall.pyimport("matplotlib.patches")
+    mkpath(dirname(out)); pdf = PdfPages(out)
+    rgba = Dict(2 => (0.0, 0.9, 0.9, 0.55), 1 => (0.0, 0.9, 0.9, 0.55), 4 => (0.2, 0.9, 0.2, 0.55),
+                3 => (0.7, 0.3, 1.0, 0.55), 6 => (0.7, 0.3, 1.0, 0.55), 5 => (1.0, 0.95, 0.2, 0.55))
+    for psr in psrs
+        try
+            p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
+            D = Float64.(_f6_load(psr, p)); N, nb = size(D)
+            bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+            m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+            F = _VD.snr_fast(D, bst, bend); s0 = _VD.profile_snr(F)
+            res = [(l, _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf, kw...)) for (l, kw) in variants]
+            live = [any(!iszero, @view D[i, :]) for i in 1:N]; v = vec(D[live, :])
+            lo, hi = quantile(v, 0.02), quantile(v, 0.995)
+            rows = isnothing(zoom) ? (1:N) : zoom
+            nv = length(res)
+            fig = PyPlot.figure(figsize=(4.2 * nv, 9))
+            fig.suptitle("$psr - co wycina każda zasada", fontsize=11)
+            for (k, (l, a)) in enumerate(res)
+                ax = fig.add_subplot(1, nv, k)
+                ax.imshow(D, origin="lower", aspect="auto", cmap="inferno", vmin=lo, vmax=hi, interpolation="nearest",
+                          extent=[-0.5, nb - 0.5, 0.5, N + 0.5])
+                ov = zeros(N, 1, 4)
+                for i in 1:N
+                    r = Int(a.reason[i]); haskey(rgba, r) && (ov[i, 1, :] .= rgba[r])
+                end
+                ax.imshow(ov, origin="lower", aspect="auto", interpolation="nearest", extent=[-0.5, nb - 0.5, 0.5, N + 0.5])
+                ax.axvline(bst, c="white", lw=0.6, ls="--"); ax.axvline(bend, c="white", lw=0.6, ls="--")
+                ax.set_ylim(first(rows) - 0.5, last(rows) + 0.5)
+                s1 = _VD.profile_snr(F; drop=a.bad)
+                ax.set_title(@sprintf("%s\nRFI %d, odcinki %d, nulle %d%s\nS/N %.0f -> %.0f (%+.1f%%)", l,
+                                      count(r -> r in (1, 2), a.reason), count(==(4), a.reason), count(r -> r in (3, 6), a.reason),
+                                      count(==(5), a.reason) > 0 ? ", margines $(count(==(5), a.reason))" : "",
+                                      s0, s1, 100(s1 / s0 - 1)), fontsize=9)
+                ax.set_xlabel("bin", fontsize=8); k == 1 && ax.set_ylabel("impuls (od 1)", fontsize=8); ax.tick_params(labelsize=7)
+            end
+            hs = [patches.Patch(color=c[1:3], alpha=0.7, label=t) for (c, t) in ((rgba[2], "pojedynczy impuls RFI"), (rgba[4], "zły odcinek"),
+                                                                                (rgba[3], "null"), (rgba[5], "margines"))]
+            fig.legend(handles=hs, loc="lower center", ncol=4, fontsize=9, frameon=false)
+            fig.subplots_adjust(left=0.05, right=0.99, top=0.88, bottom=0.08, wspace=0.12)
+            pdf.savefig(fig); PyPlot.close(fig)
+            println(psr, " ok")
+        catch e
+            e isa InterruptException && rethrow()
+            println("$psr BŁĄD: ", first(sprint(showerror, e), 200))
+        end
+    end
+    pdf.close(); println("Wykres: $out")
+end
