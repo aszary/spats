@@ -23,6 +23,8 @@ using Printf, Statistics, LinearAlgebra, FFTW, JSON
 F6_ROOT = "/home/psr/data/OUTPUT/"
 F6_DIR = F6_ROOT * "final_v6/"
 F6_DATA = "/home/psr/data/new/"
+# _f6_load potrzebuje _debased_spcf (modules/zap_verify.jl) - wczytywane od razu, zeby dzialalo w kazdej sesji
+isdefined(Main, :_debased_spcf) || Base.include(Main, joinpath(@__DIR__, "..", "modules", "zap_verify.jl"))
 F6_GP = Ref(false)          # v7: linia bazowa GP jako dodatkowa opcja (domyslnie jak v6)
 # nazwa => (margines przy nullach, tryb, prog P_null). Tryb :auto = nulle automatu, :model = JEDNA REGULA
 # (tylko model energii, jak w publikacji), :union = automat + model. Bez wiarygodnego modelu -> automat.
