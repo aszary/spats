@@ -187,3 +187,56 @@ function one_rule_adopt()
     println("Przyjęte: $(strip(read(dst * "/.wariant", String))). Stara wersja: $bk.")
     println("Domyślne w kodzie trzeba jeszcze zmienić (napisz Claude'owi).")
 end
+
+# ---- Szczegoly: B wobec v8 dla kazdego pulsara (S/N, nulle, status modelu energii).
+#   include("tools/one_rule.jl"); one_rule_details()      # wynik: final_v7/one_rule/SZCZEGOLY.txt
+function _or_rows(dir)
+    R = Dict{String,Dict{String,Dict{String,Float64}}}()
+    for f in filter(f -> occursin(r"^part_\d+\.csv$", basename(f)), readdir(dir; join=true))
+        H = split(first(eachline(f)), ",")
+        for l in Iterators.drop(eachline(f), 1)
+            v = split(l, ",")
+            length(v) > length(H) && (v = vcat(v[1:1], [join(v[2:2+length(v)-length(H)], ",")], v[3+length(v)-length(H):end]))
+            length(v) == length(H) || continue
+            get!(R, v[2], Dict{String,Dict{String,Float64}}())[v[1]] =
+                Dict(h => something(tryparse(Float64, x), NaN) for (h, x) in zip(H[3:end], v[3:end]))
+        end
+    end
+    R
+end
+
+function one_rule_details(; a="v8 (obecny): model P>=0.5, bez modelu automat", b="B: model energii P>=0.5 dla wszystkich", tie=1.0)
+    R = _or_rows(F7_DIR * "one_rule/")
+    A = R[a]; B = R[b]
+    st = Dict{String,String}()
+    for l in Iterators.drop(eachline(NR_MODEL * "nulls_model.csv"), 1)
+        r = split(l, ","); length(r) >= 2 && (st[r[1]] = r[2])
+    end
+    status(q) = (s = get(st, q, "brak w liście"); s == "ok" ? "wiarygodny" : isfile(NR_MODEL * "nulls_model/$q.csv") ? "niepewny ($s)" : "brak modelu ($s)")
+    L = String[]; pr(s) = (println(s); push!(L, s))
+    ps = sort([q for q in keys(B) if haskey(A, q)])
+    pr("# Szczegóły: $b wobec $a ($(length(ps)) pulsarów)\n")
+    # liczby wg statusu modelu
+    pr("## Status modelu energii\n")
+    pr("| status | pulsary | B gorsze o >$(tie)% | B lepsze o >$(tie)% | nulle v8 | nulle B |")
+    pr("|---|---|---|---|---|---|")
+    groups = Dict{String,Vector{String}}()
+    for q in ps; push!(get!(groups, first(split(status(q), " ")), String[]), q); end
+    for (g, qs) in sort(collect(groups), by=x -> x[1])
+        d = [100 * (B[q]["snr"] / A[q]["snr"] - 1) for q in qs if A[q]["snr"] > 0]
+        pr(@sprintf("| %s | %d | %d | %d | %d | %d |", g, length(qs), count(<(-tie), d), count(>(tie), d),
+                    round(Int, sum(A[q]["n_null"] for q in qs)), round(Int, sum(B[q]["n_null"] for q in qs))))
+    end
+    for (title, sel) in (("B gorsze od v8", x -> x < -tie), ("B lepsze od v8", x -> x > tie))
+        pr("\n## $title (S/N o >$(tie)%)\n")
+        pr("| pulsar | model | S/N v8 | S/N B | zmiana | S/N ręcznie | nulle v8 | nulle B | wycięte v8 | wycięte B | N |")
+        pr("|---|---|---|---|---|---|---|---|---|---|---|")
+        rows = [(q, 100 * (B[q]["snr"] / A[q]["snr"] - 1)) for q in ps if A[q]["snr"] > 0]
+        for (q, d) in sort(filter(x -> sel(x[2]), rows), by=x -> sel(-1) ? x[2] : -x[2])
+            pr(@sprintf("| %s | %s | %.1f | %.1f | %+.1f%% | %.1f | %d | %d | %d | %d | %d |", q, status(q), A[q]["snr"], B[q]["snr"], d,
+                        B[q]["snr_manual"], A[q]["n_null"], B[q]["n_null"], A[q]["n_cut"], B[q]["n_cut"], B[q]["N"]))
+        end
+    end
+    write(F7_DIR * "one_rule/SZCZEGOLY.txt", join(L, "\n") * "\n")
+    println("\nZapisane: $(F7_DIR)one_rule/SZCZEGOLY.txt")
+end
