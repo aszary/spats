@@ -769,7 +769,7 @@ function compare_rules_pages(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1
     PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
     patches = Main.PyCall.pyimport("matplotlib.patches")
     mkpath(dirname(out)); pdf = PdfPages(out)
-    col = Dict(1 => "red", 2 => "red", 4 => "darkorange", 3 => "grey", 6 => "grey", 5 => "gold")
+    col = Dict(1 => "red", 2 => "red", 4 => "darkorange", 3 => "grey", 6 => "grey", 5 => "gold", 7 => "royalblue")
     for psr in psrs
         try
             p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
@@ -782,8 +782,15 @@ function compare_rules_pages(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1
             rows = isnothing(zoom) ? (1:N) : zoom
             w = max(1, round(Int, 0.15 * (bend - bst + 1)))
             xl = (max(1, bst - 4w), min(nb, bend + 4w))          # przyblizenie na okno impulsu z kawalkiem tla
-            for (l, kw) in variants
-                a = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf, kw...)
+            for (l, kw) in vcat(variants, [("metoda ręczna", :manual)])
+                if kw === :manual
+                    mr = _or_manual_rows(psr, p, N, bst, bend)
+                    isnothing(mr) && (println("  $psr: brak wycięć metody ręcznej"); continue)
+                    rr = zeros(Int8, N); rr[mr] .= 7
+                    a = (bad=mr, reason=rr)
+                else
+                    a = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf, kw...)
+                end
                 cut = falses(N); cut[a.bad] .= true
                 A = copy(D); A[cut, :] .= NaN
                 s1 = _VD.profile_snr(F; drop=a.bad)
@@ -802,7 +809,7 @@ function compare_rules_pages(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1
                     ax.set_title(t, fontsize=10); ax.set_xlabel("bin", fontsize=8); ax.tick_params(labelsize=7)
                 end
                 ax1.set_ylabel("impuls (od 1)", fontsize=8); ax2.tick_params(labelleft=false)
-                for r in (4, 1, 2, 3, 6, 5)
+                for r in (4, 1, 2, 3, 6, 5, 7)
                     ys = findall(==(r), a.reason)
                     isempty(ys) || axm.barh(ys, 1, height=1.0, color=col[r], lw=0)
                 end
@@ -814,7 +821,7 @@ function compare_rules_pages(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1
                 pm = max(maximum(pr0), eps())
                 axp.plot(1:nb, pr0 ./ pm, c="grey", lw=0.8, label="przed"); axp.plot(1:nb, pr1 ./ pm, c="black", lw=0.9, label="po")
                 axp.set_xlim(xl...); axp.legend(fontsize=7); axp.tick_params(labelsize=7); axp.set_xlabel("bin", fontsize=8)
-                hs = [patches.Patch(color=c, label=t) for (c, t) in (("red", "RFI"), ("darkorange", "zły odcinek"), ("grey", "null"), ("gold", "margines"))]
+                hs = [patches.Patch(color=c, label=t) for (c, t) in (("red", "RFI"), ("darkorange", "zły odcinek"), ("grey", "null"), ("gold", "margines"), ("royalblue", "metoda ręczna"))]
                 fig.legend(handles=hs, loc="upper right", fontsize=8, frameon=false)
                 pdf.savefig(fig); PyPlot.close(fig)
             end
@@ -825,4 +832,17 @@ function compare_rules_pages(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1
         end
     end
     pdf.close(); println("Wykres: $out  (dla każdego pulsara $(length(variants)) strony: ", join(first.(variants), ", "), ")")
+end
+
+"Wyciete impulsy metody recznej (od 1): zapisane w zap_cmp albo odczytane z archiwum pazur/<psr>/pulsar.spCF + zaps."
+function _or_manual_rows(psr, p, N, bst, bend)
+    _VD = SpaTs.Data
+    c = get(p, "zap_cmp", Dict())
+    z = get(c, "zaps_maciej", nothing)
+    isnothing(z) || return _VD.zaps_to_rows(z, N)
+    pf = F6_ROOT * "pazur/$psr/"
+    ref = _VD.zapped_rows(pf * "pulsar.spCF", bst, bend)
+    (isnothing(ref) || ref.N != N) && return nothing
+    rp = isfile(pf * "params.json") ? SpaTs.Tools.read_params(pf * "params.json") : Dict()
+    return sort(unique(vcat(ref.rows, _VD.zaps_to_rows(get(rp, "zaps", nothing), N))))
 end
