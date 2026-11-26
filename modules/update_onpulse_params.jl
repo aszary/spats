@@ -14,8 +14,6 @@ Modifies on-pulse regions in `params.json` for all pulsars based on `input/onpul
 
 module OnpulseFixer
 
-using CSV
-using DataFrames
 using JSON
 
 export parse_onpulse_csv, update_params_files, update_single_params!
@@ -38,16 +36,50 @@ function parse_float_safe(val)
 end
 
 """
+    _parse_csv_line(line::AbstractString) -> Vector{String}
+
+RFC4180-compliant CSV line parser handling quoted fields containing commas.
+Uses pure Julia standard string operations without external package dependencies.
+"""
+function _parse_csv_line(line::AbstractString)
+    fields = String[]
+    current = IOBuffer()
+    in_quotes = false
+    i = 1
+    chars = collect(line)
+    n = length(chars)
+
+    while i <= n
+        c = chars[i]
+        if c == '"'
+            if in_quotes && i < n && chars[i+1] == '"'
+                # Escaped quote: ""
+                write(current, '"')
+                i += 1
+            else
+                in_quotes = !in_quotes
+            end
+        elseif c == ',' && !in_quotes
+            push!(fields, String(take!(current)))
+        else
+            write(current, c)
+        end
+        i += 1
+    end
+    push!(fields, String(take!(current)))
+    return fields
+end
+
+"""
     parse_onpulse_csv(csv_path::String) -> Dict{String, Dict{String, Any}}
 
-Reads onpulsefixing.csv and aggregates min/max bins for MP and IP.
+Reads onpulsefixing.csv and aggregates min/max bins for MP and IP using standard library only.
 """
 function parse_onpulse_csv(csv_path::String="input/onpulsefixing.csv")
     if !isfile(csv_path)
         error("CSV file not found at: $csv_path")
     end
 
-    df = CSV.read(csv_path, DataFrame; normalizenames=false)
     results = Dict{String, Dict{String, Any}}()
 
     # Define component column index triplets for bins (1-based index in the CSV):
@@ -62,44 +94,53 @@ function parse_onpulse_csv(csv_path::String="input/onpulsefixing.csv")
         (25, 26, 27)
     ]
 
-    for row in eachrow(df)
-        jname = strip(string(row[1]))
-        if isempty(jname)
-            continue
-        end
+    open(csv_path, "r") do io
+        # Read and discard header
+        header_line = readline(io)
+        for line in eachline(io)
+            stripped_line = strip(line)
+            isempty(stripped_line) && continue
+            row = _parse_csv_line(stripped_line)
+            length(row) < 1 && continue
 
-        mp_starts = Float64[]
-        mp_ends   = Float64[]
-        ip_starts = Float64[]
-        ip_ends   = Float64[]
+            jname = strip(row[1])
+            isempty(jname) && continue
 
-        for (reg_idx, st_idx, en_idx) in comp_cols
-            reg_val = row[reg_idx]
-            reg = ismissing(reg_val) ? "" : uppercase(strip(string(reg_val)))
-            st = parse_float_safe(row[st_idx])
-            en = parse_float_safe(row[en_idx])
+            mp_starts = Float64[]
+            mp_ends   = Float64[]
+            ip_starts = Float64[]
+            ip_ends   = Float64[]
 
-            if reg == "MP"
-                !isnothing(st) && push!(mp_starts, st)
-                !isnothing(en) && push!(mp_ends, en)
-            elseif reg == "IP"
-                !isnothing(st) && push!(ip_starts, st)
-                !isnothing(en) && push!(ip_ends, en)
+            for (reg_idx, st_idx, en_idx) in comp_cols
+                if reg_idx > length(row)
+                    continue
+                end
+                reg = uppercase(strip(row[reg_idx]))
+                st = st_idx <= length(row) ? parse_float_safe(row[st_idx]) : nothing
+                en = en_idx <= length(row) ? parse_float_safe(row[en_idx]) : nothing
+
+                if reg == "MP"
+                    !isnothing(st) && push!(mp_starts, st)
+                    !isnothing(en) && push!(mp_ends, en)
+                elseif reg == "IP"
+                    !isnothing(st) && push!(ip_starts, st)
+                    !isnothing(en) && push!(ip_ends, en)
+                end
             end
-        end
 
-        entry = Dict{String, Any}()
-        if !isempty(mp_starts) && !isempty(mp_ends)
-            entry["bin_st"]  = round(Int, minimum(mp_starts))
-            entry["bin_end"] = round(Int, maximum(mp_ends))
-        end
+            entry = Dict{String, Any}()
+            if !isempty(mp_starts) && !isempty(mp_ends)
+                entry["bin_st"]  = round(Int, minimum(mp_starts))
+                entry["bin_end"] = round(Int, maximum(mp_ends))
+            end
 
-        if !isempty(ip_starts) && !isempty(ip_ends)
-            entry["IP_start"] = round(Int, minimum(ip_starts))
-            entry["IP_end"]   = round(Int, maximum(ip_ends))
-        end
+            if !isempty(ip_starts) && !isempty(ip_ends)
+                entry["IP_start"] = round(Int, minimum(ip_starts))
+                entry["IP_end"]   = round(Int, maximum(ip_ends))
+            end
 
-        results[jname] = entry
+            results[jname] = entry
+        end
     end
 
     return results
