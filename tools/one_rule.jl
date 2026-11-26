@@ -280,9 +280,9 @@ end
 # (one_rule_hard/ = pierwszy test bez wykluczenia jasnych impulsow: z>6 psul 162 pulsary)
 function _or_hard_setup!()
     global S8_DIR = F7_DIR * "one_rule_hard4/"
-    global OR_RULES = [("v9", :model_ok, (rfi_hard=Inf,)),
-                       ("v9 + silne RFI z>6, struktura poza oknem >1.5x", :model_ok, (rfi_hard=6.0, rfi_hard_struct=1.5)),
-                       ("v9 + silne RFI z>6, struktura poza oknem >2x", :model_ok, (rfi_hard=6.0, rfi_hard_struct=2.0))]
+    global OR_RULES = [("v9", :model_ok, (rfi_struct=Inf,)),
+                       ("v9 + RFI: struktura poza oknem >1.5x typowej", :model_ok, (rfi_struct=1.5,)),
+                       ("v9 + RFI: struktura poza oknem >2x typowej", :model_ok, (rfi_struct=2.0,))]
     global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
 end
 
@@ -301,7 +301,7 @@ one_rule_hard_summary() = (_or_hard_setup!(); simple_v8_summary(; title="Silne R
 #   include("tools/one_rule.jl"); hard_rfi_view(["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217"])
 #   -> final_v7/one_rule_hard4/podglad.pdf
 using PyPlot, PyCall
-function hard_rfi_view(psrs; z=6.0, excess=0.0, struct_=2.0, out=F7_DIR * "one_rule_hard4/podglad.pdf")
+function hard_rfi_view(psrs; struct_=2.0, z=6.0, excess=0.0, out=F7_DIR * "one_rule_hard4/podglad.pdf")
     _VD = SpaTs.Data
     PyPlot = Main.PyPlot
     mkpath(dirname(out)); PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
@@ -312,14 +312,14 @@ function hard_rfi_view(psrs; z=6.0, excess=0.0, struct_=2.0, out=F7_DIR * "one_r
             D = Float64.(_f6_load(psr, p)); N, nb = size(D)
             bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
             m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
-            a0 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_hard=Inf)
-            a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_hard=z, rfi_hard_excess=excess, rfi_hard_struct=struct_)
+            a0 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf)
+            a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=struct_)
             add = sort(setdiff(a1.bad, a0.bad)); zz = _VD.rfi_rms_z(D, bst, bend)
             sn = _VD.pulse_signal_noise(D, bst, bend)
             sg = sn.s[sn.good]; md = median(sg); sd = 1.4826 * median(abs.(sg .- md))
             s0 = _VD.profile_snr(D, bst, bend; drop=a0.bad); s1 = _VD.profile_snr(D, bst, bend; drop=a1.bad)
             fig = PyPlot.figure(figsize=(11, 7.5))
-            fig.suptitle(@sprintf("%s: przy z>%.0f dochodzi %d impulsów; S/N v9 %.1f -> %.1f (%+.1f%%)", psr, z, length(add), s0, s1, 100(s1 / s0 - 1)), fontsize=9)
+            fig.suptitle(@sprintf("%s: przy strukturze >%.1fx dochodzi %d impulsów; S/N v9 %.1f -> %.1f (%+.1f%%)", psr, struct_, length(add), s0, s1, 100(s1 / s0 - 1)), fontsize=9)
             live = [any(!iszero, @view D[i, :]) for i in 1:N]; v = vec(D[live, :])
             ax = fig.add_axes([0.06, 0.32, 0.50, 0.6])
             ax.imshow(D, origin="lower", aspect="auto", cmap="Greys_r", vmin=quantile(v, 0.01), vmax=quantile(v, 0.995),
@@ -350,7 +350,7 @@ function hard_rfi_view(psrs; z=6.0, excess=0.0, struct_=2.0, out=F7_DIR * "one_r
             # rozbicie: wprost z reguly silnego RFI (te same warunki co w auto_zap) a posrednio (inny wybor reszty)
             zg = _VD.rfi_rms_z(D, bst, bend; local_win=0); q = _VD.rfi_rms_ratio(D, bst, bend)
             ks = _VD.rfi_struct_ratio(D, bst, bend)
-            direct = [i for i in add if (zz[i] > z || zg[i] > z) && q[i] > 1 + excess && ks[i] > struct_]
+            direct = [i for i in add if ks[i] > struct_]
             other = setdiff(add, direct)
             rs = Dict{Int,Int}(); for i in add; rs[a1.reason[i]] = get(rs, a1.reason[i], 0) + 1; end
             @printf("    wprost z reguły: %d (szum / typowy: mediana %.2f, min %.2f) | pośrednio: %d (szum / typowy: mediana %.2f, z lok. %.1f, z całość %.1f) | powody w a1: %s\n",

@@ -178,3 +178,9 @@ nie psują S/N średniego profilu, więc bezpiecznik ich nie przepuszczał (J093
 energie, nulle i LRFS. Porównanie z listą wyciętych impulsów TPA VIII (`stats.csv`, `tools/tpa_zap_compare.jl`):
 przed poprawką z 1551 impulsów TPA wycięliśmy 66%, 508 zostało (część z z ≫ 3). Słabsze RFI (3 < z ≤ 6) jak dotąd,
 z bezpiecznikiem. Kopia v9: `pazur2_przed_v9_2`.
+
+**Prostsza zasada (2026-11-26, w teście):** jedna reguła zamiast progu szumu - impuls wycinamy, gdy **struktura tła
+poza oknem impulsu** (wygładzone tło: paski, fale, pochyłe tło) jest > 1,5× / 2× typowej (`rfi_struct_ratio`,
+`Data.RFI_STRUCT[]`, teraz `Inf` = wyłączone). Prawdziwa emisja jest tylko w oknie, RFI ma kształt także poza nim;
+czysty szum daje ≈1 niezależnie od poziomu (J0820). Okno sprawdzane tylko kontrolnie (`window_signal_check`:
+korelacja z profilem). Test: `one_rule_hard()` → `final_v7/one_rule_hard4/`, podgląd `hard_rfi_view`.

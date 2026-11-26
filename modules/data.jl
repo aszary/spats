@@ -1170,9 +1170,10 @@ module Data
     # true: nulle z modelu dla KAZDEGO pulsara z dopasowanym modelem (jedna regula dla wszystkich, tools/one_rule.jl
     # wariant B); false (v8): tylko modele wiarygodne, reszta wg NULL_MODEL_FALLBACK
     NULL_MODEL_ANY = Ref(false)
-    # v9.1 (decyzja 2026-11-26): silne RFI (z > RFI_HARD, odchylenie szumu poza impulsem od mediany ~31 sasiadow)
-    # wycinane ZAWSZE, bez bezpiecznika S/N (poziome paski - J0932-3217). Inf = jak v9 (tylko z bezpiecznikiem).
-    RFI_HARD = Ref(Inf)             # test one_rule_hard: z>6 sam w sobie psul 162 pulsary (jasne impulsy) - wylaczone
+    # RFI z ksztaltem poza oknem (paski, fale, pochyle tlo): impuls ze struktura tla poza oknem > RFI_STRUCT razy
+    # typowa (rfi_struct_ratio) wycinany zawsze, bez bezpiecznika S/N. Inf = wylaczone (jak v9) - w tescie (one_rule_hard).
+    # (Wczesniej: prog z szumu RFI_HARD - odrzucony, z>6 psul 149-162 pulsary.)
+    RFI_STRUCT = Ref(Inf)
     NULL_EXTRA = Dict{String,Vector{Int}}()
     NULL_EXTRA_CUR = Ref{Union{Nothing,Vector{Int}}}(nothing)
     const _NULL_EXTRA_LOADED = Ref(false)
@@ -1211,10 +1212,10 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, RFI_HARD[]), rfi_hard_excess=get(ZAP_STEPS[], :rfi_hard_excess, 0.0), rfi_hard_struct=get(ZAP_STEPS[], :rfi_hard_struct, 2.0), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
-        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0, rfi_hard_excess=0, rfi_hard_struct=0))..., kw...)
+        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0))..., kw...)
         reason = copy(a.reason)
         why = a.why
         if gate
@@ -1225,24 +1226,16 @@ module Data
         nfake = fake_nulls_to_noisy!(reason, sn; frac=null_max_frac, faded_frac=null_faded_frac)
         nfake > 0 && (why *= " ($nfake imp. 'nulli' z sygnałem -> zaszumione / wygaszona emisja)")
         if rfi
-            # silne RFI (z > rfi_hard) wycinane zawsze, bez bezpiecznika S/N: poziome paski (przesuniecie tla na calym
-            # impulsie) nie psuja S/N sredniego profilu, wiec bezpiecznik ich nie przepuszczal (J0932-3217: z ~ 13-24
-            # zostawione; TPA je wycielo), a psuja energie, nulle i LRFS
-            if isfinite(rfi_hard)
-                # z wzgledem sasiadow ALBO wzgledem calej obserwacji: w srodku dlugiego zlego odcinka sasiedzi tez sa zli,
-                # wiec lokalne z go nie widzi (J1012-5857: odcinek ~530-800 z falami tla, lokalnie z < 0);
-                # oraz szum poza impulsem wyraznie wiekszy od typowego (> 1 + rfi_hard_excess): u pulsara o bardzo
-                # stabilnym szumie maleńkie wahania daja duze z przy czystym tle (J0820-1350: czyste impulsy z = 7-13)
-                zl = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win)
-                zg = rfi_rms_z(data, bin_st, bin_end; local_win=0)
-                q = rfi_rms_ratio(data, bin_st, bin_end)
-                # i STRUKTURA poza oknem (paski, fale, pochyle tlo): prawdziwa emisja jest tylko w oknie impulsu, RFI ma
-                # ksztalt takze poza nim; sam wyzszy szum (czyste tlo, J0820-1350) tego nie ma (K / typowe ~ 1)
+            # JEDNA prosta regula na RFI z ksztaltem (paski, fale, pochyle tlo): prawdziwa emisja jest tylko w oknie impulsu,
+            # RFI ma strukture takze POZA nim. Impuls, w ktorym struktura tla poza oknem jest > rfi_struct razy typowa,
+            # wycinamy zawsze, bez bezpiecznika S/N (paski nie psuja S/N sredniego profilu, wiec bezpiecznik ich nie
+            # przepuszczal: J0932-3217, J1012-5857). Sam wyzszy szum przy czystym tle (J0820-1350) tego nie daje.
+            # Wczesniejsze proby (sam prog z szumu, test one_rule_hard): z>6 psul 149-162 pulsary - wylapywal tez czyste impulsy.
+            if isfinite(rfi_struct)
                 ks = rfi_struct_ratio(data, bin_st, bin_end)
-                hard = [i for i in eachindex(zl) if reason[i] == 0 && (zl[i] > rfi_hard || zg[i] > rfi_hard) &&
-                                                     q[i] > 1 + rfi_hard_excess && ks[i] > rfi_hard_struct]
+                hard = [i for i in eachindex(ks) if reason[i] == 0 && ks[i] > rfi_struct]
                 reason[hard] .= 2
-                isempty(hard) || (why *= " + silne RFI (z > $(rfi_hard), struktura poza oknem > $(rfi_hard_struct)x): $(length(hard)) imp.")
+                isempty(hard) || (why *= " + RFI z kształtem poza oknem (> $(rfi_struct)x typowego): $(length(hard)) imp.")
             end
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
