@@ -379,3 +379,26 @@ function hard_rfi_view(psrs; struct_=3.0, z=6.0, excess=0.0, out=F7_DIR * "one_r
     end
     pdf.close(); println("Podgląd: $out")
 end
+
+# ---- Tabela impulsow: struktura poza oknem, z, szum, korelacja okna z profilem i czy wyciete (v9 / nowa regula).
+#   include("tools/one_rule.jl"); rfi_pulse_table("J0932-3217", 1:25)
+function rfi_pulse_table(psr, rng; struct_=3.0)
+    _VD = SpaTs.Data
+    p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
+    D = Float64.(_f6_load(psr, p)); N = size(D, 1)
+    bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+    m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+    a0 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf)
+    a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=struct_)
+    ks = _VD.rfi_struct_ratio(D, bst, bend); zl = _VD.rfi_rms_z(D, bst, bend); q = _VD.rfi_rms_ratio(D, bst, bend)
+    wc = _VD.window_signal_check(D, bst, bend)
+    powod = Dict(0 => "-", 1 => "pusty", 2 => "RFI/śmieć", 3 => "null", 4 => "zaszumiony", 5 => "margines", 6 => "wygaszony")
+    println("$psr: impulsy od 0 (jak w pazi); próg struktury $(struct_)x")
+    println(" impuls | struktura/typowa | z (RFI) | szum/typowy | korelacja okna | v9 | nowa reguła")
+    for i in rng
+        1 <= i + 1 <= N || continue
+        j = i + 1
+        @printf(" %6d | %16.2f | %7.1f | %11.2f | %14.2f | %-10s | %s\n", i, ks[j], zl[j], q[j], wc.r[j],
+                get(powod, Int(a0.reason[j]), string(a0.reason[j])), get(powod, Int(a1.reason[j]), string(a1.reason[j])))
+    end
+end
