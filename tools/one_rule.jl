@@ -347,6 +347,17 @@ function hard_rfi_view(psrs; z=6.0, excess=0.1, out=F7_DIR * "one_rule_hard3/pod
             pdf.savefig(fig); PyPlot.close(fig)
             @printf("%-12s dochodzi %d imp., S/N %+.1f%%, jasność (σ) mediana %.1f, z mediana %.1f\n", psr, length(add), 100(s1 / s0 - 1),
                     isempty(add) ? NaN : median((sn.s[add] .- md) ./ sd), isempty(add) ? NaN : median(zz[add]))
+            # rozbicie: wprost z reguly silnego RFI (te same warunki co w auto_zap) a posrednio (inny wybor reszty)
+            zg = _VD.rfi_rms_z(D, bst, bend; local_win=0); q = _VD.rfi_rms_ratio(D, bst, bend)
+            direct = [i for i in add if (zz[i] > z || zg[i] > z) && q[i] > 1 + excess]
+            other = setdiff(add, direct)
+            rs = Dict{Int,Int}(); for i in add; rs[a1.reason[i]] = get(rs, a1.reason[i], 0) + 1; end
+            @printf("    wprost z reguły: %d (szum / typowy: mediana %.2f, min %.2f) | pośrednio: %d (szum / typowy: mediana %.2f, z lok. %.1f, z całość %.1f) | powody w a1: %s\n",
+                    length(direct), isempty(direct) ? NaN : median(q[direct]), isempty(direct) ? NaN : minimum(q[direct]),
+                    length(other), isempty(other) ? NaN : median(q[other]), isempty(other) ? NaN : median(zz[other]),
+                    isempty(other) ? NaN : median(zg[other]), join(["$k:$v" for (k, v) in sort(collect(rs))], " "))
+            @printf("    szum / typowy we wszystkich impulsach: mediana 1.00, 90%%: %.2f, 99%%: %.2f\n",
+                    quantile(filter(isfinite, q), 0.9), quantile(filter(isfinite, q), 0.99))
         catch e
             e isa InterruptException && rethrow()
             println("$psr BŁĄD: ", first(sprint(showerror, e), 200))
