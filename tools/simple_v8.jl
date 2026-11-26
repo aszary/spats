@@ -80,7 +80,10 @@ function simple_v8_summary(; tie=1.0, title="Prostsze wycinanie: RFI z całej ob
     for f in filter(f -> occursin(r"^part_\d+\.csv$", basename(f)), readdir(S8_DIR; join=true))
         H = split(first(eachline(f)), ",")
         for l in Iterators.drop(eachline(f), 1)
-            v = split(l, ","); length(v) == length(H) || continue
+            v = split(l, ",")
+            # nazwa wariantu z przecinkiem (one_rule: "v8 ..., bez modelu automat") - sklejamy z powrotem
+            length(v) > length(H) && (v = vcat(v[1:1], [join(v[2:2+length(v)-length(H)], ",")], v[3+length(v)-length(H):end]))
+            length(v) == length(H) || continue
             get!(R, v[2], Dict{String,Dict{String,Float64}}())[v[1]] =
                 Dict(h => something(tryparse(Float64, x), NaN) for (h, x) in zip(H[3:end], v[3:end]))
         end
@@ -120,6 +123,14 @@ function simple_v8_summary(; tie=1.0, title="Prostsze wycinanie: RFI z całej ob
         pr(@sprintf("| %s | %.2f%% | %.1f%% | %d z %d | %+.1f%% | %d z %d | %+.1f%% |", name, 100ec, 100nc,
                     count(>(1), b), length(b), isempty(b) ? NaN : maximum(b), count(<(-1), b), length(b),
                     isempty(b) ? NaN : minimum(b)))
+    end
+    pr("\n## Pulsary, w których wariant jest gorszy od metody ręcznej (S/N niższe o >$(tie)%)\n")
+    for (name, _, _, _) in S8_VARIANTS
+        rr = get(R, name, nothing); isnothing(rr) && continue
+        w = sort([(q, 100 * (r["snr"] / r["snr_manual"] - 1)) for (q, r) in rr
+                  if isfinite(num(r, "snr_manual")) && r["snr_manual"] > 0 && r["snr"] < (1 - tie / 100) * r["snr_manual"]], by=last)
+        pr("- $name: " * (isempty(w) ? "brak" : join([@sprintf("%s %+.1f%%", q, d) for (q, d) in w[1:min(end, 12)]], ", ") *
+                          (length(w) > 12 ? " … (razem $(length(w)))" : "")))
     end
     write(S8_DIR * "WYNIK.txt", join(L, "\n") * "\n")
     println("\nZapisane: $(S8_DIR)WYNIK.txt")
