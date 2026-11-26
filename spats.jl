@@ -18,6 +18,7 @@ module SpaTs
     include("modules/LrfsDiagnostics.jl")
     include("modules/lrfs_batch.jl")
     include("modules/PhaseModes.jl")
+    include("modules/update_onpulse_params.jl")
 
 
 
@@ -1158,6 +1159,52 @@ data = Data.load_ascii(txt_file)
                                  name_mod=psr_name, show_=show_)
     end
 
+    """
+        update_onpulse_single(outdir; csv_path="input/onpulsefixing.csv", dry_run=false)
+
+    Updates `params.json` for a single pulsar directory based on `onpulsefixing.csv`:
+    - Reads MP (bin_st, bin_end) and IP (IP_start, IP_end) from the CSV.
+    - Saves a backup as `params_pre_reonpuls.json`.
+    - Writes updated values to `params.json`.
+    """
+    function update_onpulse_single(outdir; csv_path="input/onpulsefixing.csv", dry_run=false)
+        pfile = joinpath(outdir, "params.json")
+        if !isfile(pfile)
+            @warn "params.json not found in $outdir"
+            return false
+        end
+
+        psr_name = basename(rstrip(outdir, ['/', '\\']))
+        # Strip suffix like _16 or _32 to match JName in CSV
+        base_name = replace(psr_name, r"_\d+$" => "")
+
+        onpulse_data = OnpulseFixer.parse_onpulse_csv(csv_path)
+        if !haskey(onpulse_data, base_name)
+            @warn "Pulsar $base_name not found in $csv_path"
+            return false
+        end
+
+        info = onpulse_data[base_name]
+        OnpulseFixer.update_single_params!(pfile, info; dry_run=dry_run)
+        println("[OK] Zaktualizowano $pfile dla $base_name:")
+        println("     MP: bin_st = $(get(info, "bin_st", "N/A")), bin_end = $(get(info, "bin_end", "N/A"))")
+        if haskey(info, "IP_start")
+            println("     IP: IP_start = $(info["IP_start"]), IP_end = $(info["IP_end"])")
+        end
+        return true
+    end
+
+    """
+        update_onpulse_all(vpmout; csv_path="input/onpulsefixing.csv", dry_run=false)
+
+    Updates `params.json` for all pulsars found in `vpmout` (e.g. `/home/psr/output/`)
+    matching records in `onpulsefixing.csv`.
+    """
+    function update_onpulse_all(vpmout; csv_path="input/onpulsefixing.csv", dry_run=false)
+        dirs = [vpmout]
+        return OnpulseFixer.update_params_files(dirs; csv_path=csv_path, dry_run=dry_run)
+    end
+
 
 
 
@@ -1273,13 +1320,13 @@ data = Data.load_ascii(txt_file)
 
 
 
-        lrfs(vpmout*"J1901-0906"; show_=true)
+        #lrfs(vpmout*"J1901-0906"; show_=true)
 
         # FFT length diagnostic (spectra overlay and FWHM vs 1.44/N) for J1555-3134
-        fft_length_diagnostic(vpmout*"J1901-0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+        #fft_length_diagnostic(vpmout*"J1901-0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
 
         # LRFS with optimal N automatically selected from FWHM(N) plateau
-        lrfs_optimal(vpmout*"J1901-0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+        #lrfs_optimal(vpmout*"J1901-0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
 
 
 
@@ -1287,6 +1334,15 @@ data = Data.load_ascii(txt_file)
         # LRFS Phase-Track batch — mirrors DriftBatch above
         #LrfsBatch.batch_analyze_lrfs(vpmout, list_file, "lrfs_classifications_olddriftfix.csv")
         #LrfsBatch.plot_lrfs_results("lrfs_classifications_olddrift.csv", "lrfs_chart_olddriftfix.pdf")
+
+        # ----------------------------------------------------------------------
+        # Aktualizacja on-pulse regions (MP / IP) na podstawie onpulsefixing.csv:
+        # 1. Test dla pojedynczego pulsara:
+         update_onpulse_single(vpmout*"J0905-5127")
+        #
+        # 2. Aktualizacja dla calosci danych w katalogu wyjsciowym:
+        # update_onpulse_all(vpmout)
+        # ----------------------------------------------------------------------
     end
 
     

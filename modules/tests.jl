@@ -175,10 +175,45 @@ function test_select_optimum_nfft_from_fwhm()
     return true
 end
 
+function test_onpulse_fixing()
+    println("Running test_onpulse_fixing...")
+    # Include OnpulseFixer if not defined
+    if !isdefined(@__MODULE__, :OnpulseFixer)
+        include("update_onpulse_params.jl")
+    end
+    data = OnpulseFixer.parse_onpulse_csv("input/onpulsefixing.csv")
+    @test length(data) >= 500
+
+    # J0034-0721 single MP component
+    @test haskey(data, "J0034-0721")
+    j0034 = data["J0034-0721"]
+    @test j0034["bin_st"] == 419
+    @test j0034["bin_end"] == 605
+    @test !haskey(j0034, "IP_start")
+
+    # J0151-0635 two MP components (C1: 450-511, C2: 511-573)
+    @test haskey(data, "J0151-0635")
+    j0151 = data["J0151-0635"]
+    @test j0151["bin_st"] == 450
+    @test j0151["bin_end"] == 573
+
+    # J0905-5127 has both MP and IP
+    @test haskey(data, "J0905-5127")
+    j0905 = data["J0905-5127"]
+    @test j0905["bin_st"] == 244
+    @test j0905["bin_end"] == 271
+    @test j0905["IP_start"] == 732
+    @test j0905["IP_end"] == 779
+
+    println("test_onpulse_fixing passed successfully!")
+    return true
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     test_basu_fig4_synthetic()
     test_find_frequency_peaks()
     test_determine_optimum_nfft()
     test_welch_lrfs_and_diagnostic()
     test_select_optimum_nfft_from_fwhm()
+    test_onpulse_fixing()
 end
