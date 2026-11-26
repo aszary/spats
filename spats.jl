@@ -1381,10 +1381,10 @@ data = Data.load_ascii(txt_file)
         # ----------------------------------------------------------------------
         # Aktualizacja on-pulse regions (MP / IP) oraz FFT na podstawie onpulsefixing.csv:
         # 1. Test aktualizacji pojedynczego pulsara:
-         update_onpulse_single(vpmout*"J0034-0721")
+         #update_onpulse_single(vpmout*"J0034-0721")
         #
         # 2. Aktualizacja dla calosci danych w katalogu wyjsciowym:
-        # update_onpulse_all(vpmout)
+         update_onpulse_all(vpmout)
         #
         # 3. Uruchomienie LRFS z dlugoscia FFT pobrana z zaktualizowanego params.json:
         # lrfs_params(vpmout*"J0034-0721"; show_=true)
