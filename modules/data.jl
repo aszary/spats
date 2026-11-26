@@ -1245,9 +1245,9 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), rfi_struct_z=get(ZAP_STEPS[], :rfi_struct_z, Inf), rfi_tpa_k=get(ZAP_STEPS[], :rfi_tpa_k, Inf), rfi_safe=get(ZAP_STEPS[], :rfi_safe, true), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), rfi_struct_z=get(ZAP_STEPS[], :rfi_struct_z, Inf), rfi_tpa_k=get(ZAP_STEPS[], :rfi_tpa_k, Inf), rfi_tpa_struct=get(ZAP_STEPS[], :rfi_tpa_struct, 0.0), rfi_safe=get(ZAP_STEPS[], :rfi_safe, true), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
-        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0, rfi_struct_z=0, rfi_tpa_k=0, rfi_safe=0)), values(kw))
+        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0, rfi_struct_z=0, rfi_tpa_k=0, rfi_tpa_struct=0, rfi_safe=0)), values(kw))
         sn, a, reason, why = _az_pre(data, bin_st, bin_end, gate, null_max_frac, null_faded_frac, corekw)
         if rfi
             # rfi_safe=false: bez tego kroku (prosta pojedyncza regula RFI - testy one_rule_simple)
@@ -1323,6 +1323,12 @@ module Data
                     new_t = [i for i in eachindex(rr) if keep[i] && rr[i] > m + rfi_tpa_k * s]
                     isempty(new_t) && break
                     append!(tpa, new_t); keep[new_t] .= false
+                end
+                # rfi_tpa_struct > 0: tylko impulsy, ktore maja tez ksztalt tla (struktura > rfi_tpa_struct x typowa) -
+                # chroni czyste impulsy jasnych pulsarow, w ktorych sam szum tla rosnie (emisja, scyntylacja)
+                if rfi_tpa_struct > 0 && !isempty(tpa)
+                    kt = rfi_struct_ratio(data, bin_st, bin_end)
+                    tpa = [i for i in tpa if kt[i] > rfi_tpa_struct]
                 end
                 reason[tpa] .= 2
                 isempty(tpa) || (why *= " + RFI jak TPA VIII (rms > mediana + $(rfi_tpa_k)σ, iteracyjnie): $(length(tpa)) imp.")
