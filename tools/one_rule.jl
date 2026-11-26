@@ -18,7 +18,7 @@ OR_RULES = [
     ("C: impuls bez emisji (E < 3σ)", :pulse3),
     ("D: seria 5 impulsów bez emisji (suma < 3σ)", :run5),
 ]
-S8_VARIANTS = [(n, NamedTuple(), :x, 0.0) for (n, _) in OR_RULES]     # tylko nazwy - do podsumowania
+S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]     # tylko nazwy - do podsumowania
 
 "Model energii pulsara niezaleznie od oceny wiarygodnosci (plik z P_null, jesli dopasowanie istnieje)."
 function _or_model_any(psr)
@@ -92,10 +92,11 @@ function _or_part(k, n)
             P = fill(NaN, N); isnothing(m) || (P[m.rows] .= m.P)       # ocena wycietej emisji: tylko wiarygodny model
             snr_none = _VD.profile_snr(D, bst, bend)
             snr_man = something(get(get(p, "zap_cmp", Dict()), "snr_maciej", nothing), NaN)
-            for (name, rule) in OR_RULES
+            for rr in OR_RULES
+                name, rule = rr[1], rr[2]; kw = length(rr) >= 3 ? rr[3] : NamedTuple()
                 extra = _or_nulls(rule, E, σ, live, m, ma)
-                a = isnothing(extra) ? _VD.auto_zap(D, bst, bend; null_mode=:auto) :
-                                       _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra)
+                a = isnothing(extra) ? _VD.auto_zap(D, bst, bend; null_mode=:auto, kw...) :
+                                       _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, kw...)
                 sp = _VD.split_zaps(a.reason)
                 rfi = sp.rfi; nul = sp.null
                 cut = Set(a.bad); rs = Set(rfi)
@@ -128,3 +129,23 @@ function one_rule(; n=32)
 end
 
 one_rule_summary() = simple_v8_summary(; title="Jedna metoda wycinania nulli dla wszystkich pulsarów (porównanie z v8)", basename_="v8")
+
+# ---- Margines przy RFI na prawdziwych danych: regula B z marginesem (1 impuls z kazdej strony odcinka RFI) i bez.
+# Ocena: S/N profilu (bez marginesu w RFI zostaja sasiednie, czesciowo zaklocone impulsy -> S/N spada) i liczba
+# niewycietych impulsow z szumem poza impulsem > 3σ ("RFI zostawione").
+#   include("tools/one_rule.jl"); one_rule_margin()         # ~20-30 min; wynik: final_v7/one_rule_margin/WYNIK.txt
+function _or_margin_setup!()
+    global S8_DIR = F7_DIR * "one_rule_margin/"
+    global OR_RULES = [("B z marginesem przy RFI", :model_all, NamedTuple()), ("B bez marginesu przy RFI", :model_all, (pad=0,))]
+    global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
+end
+
+function one_rule_margin(; n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    _or_margin_setup!(); mkpath(S8_DIR)
+    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); _or_margin_setup!(); Base.invokelatest(_or_part, $k, $n)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "orm"; every=120)
+    one_rule_margin_summary()
+end
+
+one_rule_margin_summary() = (_or_margin_setup!(); simple_v8_summary(; title="Reguła B: margines przy RFI czy bez (prawdziwe dane)", basename_="B z marginesem"))
