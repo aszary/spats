@@ -228,3 +228,53 @@ function tpa_rule_compare(psrs=["J0932-3217", "J1915+0752", "J1057-7914", "J1926
     tpa_zap_plots(; only=psrs, name="porownanie_v9.pdf")
     tpa_zap_plots(; only=psrs, zkw=zkw, name="porownanie_regula.pdf")
 end
+
+"""
+Ktora zasada najblizej odtwarza wyciecia TPA (Xiaoxi, stats.csv): na wspolnych pulsarach z wycieciami TPA, dla kazdej
+zasady - ile impulsow TPA wycinamy (odtworzone), ile naszych wyciec RFI jest poza lista TPA. Uwaga: TPA wycinalo tylko
+w 79 pulsarach (tam, gdzie nie bylo dlugiego czystego odcinka), wiec "poza lista TPA" nie musi znaczyc blednie.
+    include("tools/tpa_zap_compare.jl"); tpa_rule_scores()
+"""
+function tpa_rule_scores(; variants=[("v9", NamedTuple()), ("struktura >2x i z>6", (rfi_struct=2.0, rfi_struct_z=6.0)),
+                                     ("struktura >2x i z>4", (rfi_struct=2.0, rfi_struct_z=4.0)), ("TPA VIII 4σ", (rfi_tpa_k=4.0,))],
+                         out=TZ_DIR)
+    _VD = SpaTs.Data
+    mkpath(out)
+    T = _tz_tpa(); ours = Set(_f6_psrs())
+    psrs = sort([q for (q, t) in T if q in ours && t.nz > 0])
+    tot = Dict(l => zeros(Int, 4) for (l, _) in variants)      # TPA, odtworzone, nasze RFI, nasze poza TPA
+    per = Dict{String,Vector{String}}()
+    for psr in psrs
+        try
+            t = T[psr]
+            p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
+            D = Float64.(_f6_load(psr, p)); N = size(D, 1)
+            bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+            m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+            tz = Set(i + 1 for i in t.zaps if 0 <= i < N)               # od 1
+            row = String[]
+            for (l, kw) in variants
+                a = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf, kw...)
+                rfi = Set(_VD.split_zaps(a.reason).rfi); cut = Set(a.bad)
+                v = [length(tz), length(intersect(tz, cut)), length(rfi), length(setdiff(rfi, tz))]
+                tot[l] .+= v
+                push!(row, @sprintf("%d/%d", v[2], v[1]))
+            end
+            per[psr] = row
+            println(rpad(psr, 12), " ", join(row, "  "))
+        catch e
+            e isa InterruptException && rethrow()
+            println("$psr BŁĄD: ", first(sprint(showerror, e), 150))
+        end
+    end
+    L = ["# Która zasada najbliżej odtwarza wycięcia TPA (Xiaoxi) - $(length(psrs)) wspólnych pulsarów z wycięciami TPA\n",
+         "| zasada | impulsy TPA | wycinamy też my | odtworzone | nasze RFI | nasze RFI poza listą TPA |", "|---|---|---|---|---|---|"]
+    for (l, _) in variants
+        v = tot[l]
+        push!(L, @sprintf("| %s | %d | %d | %.0f%% | %d | %d |", l, v[1], v[2], 100v[2] / max(v[1], 1), v[3], v[4]))
+    end
+    push!(L, "", "## Pulsary (wycięte z listy TPA / lista TPA): " * join([l for (l, _) in variants], " | "))
+    for q in sort(collect(keys(per))); push!(L, "- $q: " * join(per[q], " | ")); end
+    write(out * "zasady_vs_TPA.txt", join(L, "\n") * "\n")
+    println(join(L[1:3+length(variants)], "\n")); println("\nZapisane: $(out)zasady_vs_TPA.txt")
+end
