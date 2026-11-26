@@ -1245,9 +1245,9 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), rfi_struct_z=get(ZAP_STEPS[], :rfi_struct_z, Inf), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
-        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0)), values(kw))
+        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0, rfi_struct_z=0)), values(kw))
         sn, a, reason, why = _az_pre(data, bin_st, bin_end, gate, null_max_frac, null_faded_frac, corekw)
         if rfi
             # JEDNA prosta regula na RFI z ksztaltem (paski, fale, pochyle tlo): prawdziwa emisja jest tylko w oknie impulsu,
@@ -1257,7 +1257,14 @@ module Data
             # Wczesniejsze proby (sam prog z szumu, test one_rule_hard): z>6 psul 149-162 pulsary - wylapywal tez czyste impulsy.
             if isfinite(rfi_struct)
                 ks = rfi_struct_ratio(data, bin_st, bin_end)
-                hard = [i for i in eachindex(ks) if reason[i] == 0 && ks[i] > rfi_struct]
+                # opcjonalnie (rfi_struct_z): do tego mocno podniesiony szum tla (z wzgledem sasiadow albo calosci) -
+                # w bardzo jasnym J0820-1350 czyste impulsy z lekkimi falami tla mialy strukture ~2.2x, ale z ~3.5
+                if isfinite(rfi_struct_z)
+                    zl = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win); zg = rfi_rms_z(data, bin_st, bin_end; local_win=0)
+                    hard = [i for i in eachindex(ks) if reason[i] == 0 && ks[i] > rfi_struct && (zl[i] > rfi_struct_z || zg[i] > rfi_struct_z)]
+                else
+                    hard = [i for i in eachindex(ks) if reason[i] == 0 && ks[i] > rfi_struct]
+                end
                 reason[hard] .= 2
                 isempty(hard) || (why *= " + RFI z kształtem poza oknem (> $(rfi_struct)x typowego): $(length(hard)) imp.")
             end

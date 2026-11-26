@@ -302,7 +302,7 @@ one_rule_hard_summary() = (_or_hard_setup!(); simple_v8_summary(; title="Silne R
 #   include("tools/one_rule.jl"); hard_rfi_view(["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217"])
 #   -> final_v7/one_rule_hard5/podglad.pdf
 using PyPlot, PyCall
-function hard_rfi_view(psrs; struct_=3.0, z=6.0, excess=0.0, out=F7_DIR * "one_rule_hard5/podglad.pdf")
+function hard_rfi_view(psrs; struct_=3.0, z=6.0, excess=0.0, zkw=NamedTuple(), out=F7_DIR * "one_rule_hard5/podglad.pdf")
     _VD = SpaTs.Data
     PyPlot = Main.PyPlot
     mkpath(dirname(out)); PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
@@ -314,7 +314,7 @@ function hard_rfi_view(psrs; struct_=3.0, z=6.0, excess=0.0, out=F7_DIR * "one_r
             bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
             m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
             a0 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf)
-            a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=struct_)
+            a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=struct_, zkw...)
             add = sort(setdiff(a1.bad, a0.bad)); zz = _VD.rfi_rms_z(D, bst, bend)
             sn = _VD.pulse_signal_noise(D, bst, bend)
             sg = sn.s[sn.good]; md = median(sg); sd = 1.4826 * median(abs.(sg .- md))
@@ -409,7 +409,9 @@ end
 # okna z profilem i bez struktury > 2x (podejrzenie, ze to dobre impulsy).
 #   include("tools/one_rule.jl"); quick_rfi_test()        # -> final_v7/one_rule_quick/{WYNIK.txt, podglad_<prog>.pdf}
 function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217", "J1915+0752"];
-                        thresholds=(2.0, 2.5, 3.0), out=F7_DIR * "one_rule_quick/", plots=true)
+                        variants=[("2x", (rfi_struct=2.0,)), ("2.5x", (rfi_struct=2.5,)), ("1.5x i z>6", (rfi_struct=1.5, rfi_struct_z=6.0)),
+                                  ("2x i z>6", (rfi_struct=2.0, rfi_struct_z=6.0)), ("2x i z>4", (rfi_struct=2.0, rfi_struct_z=4.0))],
+                        out=F7_DIR * "one_rule_quick/", plots=true)
     _VD = SpaTs.Data
     mkpath(out)
     L = String[]; pr(s) = (println(s); push!(L, s))
@@ -433,13 +435,13 @@ function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3
             s0 = _VD.profile_snr(F; drop=a0.bad)
             left0 = [i - 1 for i in 1:N if bad(i) && !(i in a0.bad)]
             pr(@sprintf("| %s | v9 | - | - | %d %s | - |", psr, length(left0), isempty(left0) ? "" : string(left0[1:min(end, 12)])))
-            for t in thresholds
-                a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=t)
+            for (lab, kw) in variants
+                a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, kw...)
                 cut = Set(a1.bad); add = sort(setdiff(a1.bad, a0.bad))
                 s1 = _VD.profile_snr(F; drop=a1.bad)
                 left = [i - 1 for i in 1:N if bad(i) && !(i in cut)]
                 good = [i - 1 for i in add if ks[i] <= 2 && isfinite(wc.r[i]) && wc.r[i] >= rtyp - 0.1]
-                pr(@sprintf("| %s | %.1fx | %d | %+.1f%% | %d %s | %d %s |", psr, t, length(add), 100(s1 / s0 - 1),
+                pr(@sprintf("| %s | %s | %d | %+.1f%% | %d %s | %d %s |", psr, lab, length(add), 100(s1 / s0 - 1),
                             length(left), isempty(left) ? "" : string(left[1:min(end, 12)]),
                             length(good), isempty(good) ? "" : string(good[1:min(end, 12)])))
             end
@@ -451,8 +453,8 @@ function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3
     pr("\nNumery impulsów od 0 (jak w pazi). Struktura = tło poza oknem wygładzone, względem typowego impulsu.")
     write(out * "WYNIK.txt", join(L, "\n") * "\n")
     if plots
-        for t in thresholds
-            hard_rfi_view(psrs; struct_=t, out=out * @sprintf("podglad_%.1f.pdf", t))
+        for (k, (lab, kw)) in enumerate(variants)
+            hard_rfi_view(psrs; struct_=kw.rfi_struct, zkw=Base.structdiff(kw, (rfi_struct=0,)), out=out * "podglad_$(k)_" * replace(lab, r"[^0-9a-z.]" => "") * ".pdf")
         end
     end
     println("\nZapisane: $(out)WYNIK.txt" * (plots ? " i podglad_<próg>.pdf" : ""))
