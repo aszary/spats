@@ -1,26 +1,130 @@
-# Test JEDNEJ metody wycinania dla WSZYSTKICH pulsarow (bez mieszania: model w czesci pulsarow, automat w reszcie).
-# pazur2 bez zmian; liczy warianty na tych samych danych i porownuje z obecnym v8 i z metoda reczna.
-#   A: automat dla wszystkich (bez modelu energii) - jedna metoda, jak v5/v7 bez modelu
-#   B: prosta regula dla wszystkich: null = seria >= 5 impulsow bez wykrytej emisji (bez "wygaszen" i pojedynczych
-#      pustych impulsow); RFI bez zmian
-#   C: B + RFI z calej obserwacji (mediana szumu wszystkich impulsow zamiast 31 sasiadow)
+# Test JEDNEJ metody wycinania nulli dla WSZYSTKICH pulsarow (bez mieszania: model w czesci pulsarow, automat
+# w reszcie). Kazdy wariant to jedna cala regula, ta sama dla kazdego pulsara; RFI we wszystkich tak samo (jak teraz).
+#   A  automat                    - nulle automatu (bez modelu energii)
+#   B  model energii P >= 0.5     - regula z publikacji (TPA XIX) dla wszystkich, takze tam, gdzie model jest
+#                                   niepewny (bez dopasowanego modelu: bez nulli)
+#   C  impuls bez emisji          - energia impulsu < 3σ szumu (σ z energii poza impulsem)
+#   D  seria bez emisji           - kazde 5 kolejnych impulsow, ktorych suma energii < 3σ (szum sumy 5)
+# Porownanie z obecnym v8 (model w czesci pulsarow + automat w reszcie) i z metoda reczna; pazur2 bez zmian.
 #   ENV["SPATS_NO_MAIN"]="1"; include("spats.jl"); include("tools/one_rule.jl"); one_rule()
 # ~20-30 min na 32 procesach, wznawialne. Wynik: final_v7/one_rule/WYNIK.txt
 isdefined(Main, :_s8_part) || include(joinpath(@__DIR__, "simple_v8.jl"))
 S8_DIR = F7_DIR * "one_rule/"
-S8_VARIANTS = [
-    ("v8 (obecny): model P>=0.5, bez modelu automat", NamedTuple(), :model_fb, 0.5),
-    ("A: automat dla wszystkich", NamedTuple(), :auto, 0.0),
-    ("B: null = seria >=5 impulsów bez emisji, dla wszystkich", (use_faded=false, use_null1=false), :auto, 0.0),
-    ("C: B + RFI z całej obserwacji", (use_faded=false, use_null1=false, rfi_win=0), :auto, 0.0),
+# nazwa => regula nulli (symbol); ustawienia automatu bez zmian
+OR_RULES = [
+    ("v8 (obecny): model P>=0.5, bez modelu automat", :v8),
+    ("A: automat", :auto),
+    ("B: model energii P>=0.5 dla wszystkich", :model_all),
+    ("C: impuls bez emisji (E < 3σ)", :pulse3),
+    ("D: seria 5 impulsów bez emisji (suma < 3σ)", :run5),
 ]
+S8_VARIANTS = [(n, NamedTuple(), :x, 0.0) for (n, _) in OR_RULES]     # tylko nazwy - do podsumowania
+
+"Model energii pulsara niezaleznie od oceny wiarygodnosci (plik z P_null, jesli dopasowanie istnieje)."
+function _or_model_any(psr)
+    pf = NR_MODEL * "nulls_model/$psr.csv"
+    isfile(pf) || return nothing
+    rows = Int[]; P = Float64[]
+    for l in Iterators.drop(eachline(pf), 1)
+        r = split(l, ","); push!(rows, parse(Int, r[1]) + 1); push!(P, parse(Float64, r[3]))
+    end
+    return (rows=rows, P=P)
+end
+
+"Energie impulsow (on) i szum energii: σ z energii w ciaglym kawalku poza impulsem tej samej szerokosci (MAD)."
+function _or_energy(D, bst, bend)
+    PL = SpaTs.Plot
+    N, nb = size(D)
+    on = bst:bend
+    offb = PL.dc_offblock(nb, bst, bend, length(on))
+    rest = setdiff(SpaTs.Data.offpulse_bins(D, bst, bend), offb)
+    isempty(rest) && (rest = offb)
+    base = [mean(@view D[i, rest]) for i in 1:N]
+    E = [sum(@view D[i, on]) - length(on) * base[i] for i in 1:N]
+    Eo = [sum(@view D[i, offb]) - length(offb) * base[i] for i in 1:N]
+    live = [any(!iszero, @view D[i, :]) for i in 1:N]
+    u = Eo[live]
+    σ = 1.4826 * median(abs.(u .- median(u)))
+    return E, σ, live
+end
+
+function _or_nulls(rule, E, σ, live, m_ok, m_any)
+    N = length(E)
+    if rule == :pulse3
+        return [i for i in 1:N if live[i] && E[i] < 3σ]
+    elseif rule == :run5
+        out = falses(N)
+        for s in 1:N-4
+            r = s:s+4
+            all(live[r]) || continue
+            sum(E[r]) < 3σ * sqrt(5) && (out[r] .= true)
+        end
+        return findall(out)
+    elseif rule == :model_all
+        return isnothing(m_any) ? Int[] : m_any.rows[m_any.P .>= 0.5]
+    elseif rule == :v8
+        return isnothing(m_ok) ? nothing : m_ok.rows[m_ok.P .>= 0.5]
+    end
+    return nothing                                       # :auto
+end
+
+function _or_part(k, n)
+    _VD = SpaTs.Data
+    mkpath(S8_DIR)
+    f = S8_DIR * "part_$k.csv"
+    done = isfile(f) ? Set(split(l, ",")[1] for l in Iterators.drop(eachline(f), 1)) : Set{String}()
+    isfile(f) || open(io -> println(io, S8_HEADER), f, "w")
+    psrs = filter(!in(done), _f6_psrs()[k:n:end])
+    for (j, psr) in enumerate(psrs)
+        t0 = time()
+        try
+            p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
+            D = _f6_load(psr, p)
+            N = size(D, 1)
+            bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+            on = bst:bend
+            off = _VD.offpulse_bins(D, bst, bend)
+            Ebase = [sum(@view D[i, on]) - length(on) * mean(@view D[i, off]) for i in 1:N]
+            E, σ, live = _or_energy(D, bst, bend)
+            zl = _VD.rfi_rms_z(D, bst, bend)
+            zg = _VD.rfi_rms_z(D, bst, bend; local_win=0)
+            m = _nr_model(psr); ma = _or_model_any(psr)
+            P = fill(NaN, N); isnothing(m) || (P[m.rows] .= m.P)       # ocena wycietej emisji: tylko wiarygodny model
+            snr_none = _VD.profile_snr(D, bst, bend)
+            snr_man = something(get(get(p, "zap_cmp", Dict()), "snr_maciej", nothing), NaN)
+            for (name, rule) in OR_RULES
+                extra = _or_nulls(rule, E, σ, live, m, ma)
+                a = isnothing(extra) ? _VD.auto_zap(D, bst, bend; null_mode=:auto) :
+                                       _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra)
+                sp = _VD.split_zaps(a.reason)
+                rfi = sp.rfi; nul = sp.null
+                cut = Set(a.bad); rs = Set(rfi)
+                U = [i for i in 1:N if isfinite(P[i]) && !(i in rs)]
+                C = [i for i in U if i in cut]; K = [i for i in U if !(i in cut)]
+                ea, na = isempty(U) ? (NaN, NaN) : (sum(1 .- P[U]), sum(P[U]))
+                Ee = isempty(U) || !(ea > 0) ? NaN : sum((1 .- P[U]) .* Ebase[U]) / ea
+                row = [psr, name, N, length(a.bad), length(rfi), length(nul), snr_none,
+                       _VD.profile_snr(D, bst, bend; drop=a.bad), snr_man, _VD.profile_snr(D, bst, bend; drop=rfi),
+                       count(i -> !(i in cut) && zl[i] > 3, 1:N), count(i -> !(i in cut) && zg[i] > 3, 1:N),
+                       isempty(C) ? 0.0 : sum(1 .- P[C]), ea, isempty(C) ? 0.0 : sum(P[C]), na,
+                       isempty(K) ? NaN : mean(Ebase[K]), Ee]
+                open(io -> println(io, join([x isa AbstractFloat ? @sprintf("%.6g", x) : string(x) for x in row], ",")), f, "a")
+            end
+            @printf("[%d/%d] %-12s ok (%.0f s)\n", j, length(psrs), psr, time() - t0)
+        catch e
+            e isa InterruptException && rethrow()
+            println("[$j/$(length(psrs))] $psr BŁĄD: ", first(sprint(showerror, e), 200))
+        end
+        flush(stdout)
+    end
+end
 
 function one_rule(; n=32)
     isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
     mkpath(S8_DIR)
-    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); Base.invokelatest(_s8_part, $k, $n)" for k in 1:n]
+    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); Base.invokelatest(_or_part, $k, $n)" for k in 1:n]
     Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "or"; every=120)
     one_rule_summary()
 end
 
-one_rule_summary() = simple_v8_summary(; title="Jedna metoda wycinania dla wszystkich pulsarów (porównanie z v8)", basename_="v8")
+one_rule_summary() = simple_v8_summary(; title="Jedna metoda wycinania nulli dla wszystkich pulsarów (porównanie z v8)", basename_="v8")
