@@ -276,12 +276,13 @@ function one_rule_replot()
 end
 
 # ---- Silne RFI zawsze wycinane (z > prog, bez bezpiecznika S/N), na v9; test na wszystkich pulsarach.
-#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard/WYNIK.txt
+#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard2/WYNIK.txt
+# (one_rule_hard/ = pierwszy test bez wykluczenia jasnych impulsow: z>6 psul 162 pulsary)
 function _or_hard_setup!()
-    global S8_DIR = F7_DIR * "one_rule_hard/"
+    global S8_DIR = F7_DIR * "one_rule_hard2/"
     global OR_RULES = [("v9", :model_ok, (rfi_hard=Inf,)),
-                       ("v9 + silne RFI z>10 zawsze", :model_ok, (rfi_hard=10.0,)),
-                       ("v9 + silne RFI z>6 zawsze", :model_ok, (rfi_hard=6.0,))]
+                       ("v9 + silne RFI z>10 (bez jasnych impulsów)", :model_ok, (rfi_hard=10.0,)),
+                       ("v9 + silne RFI z>6 (bez jasnych impulsów)", :model_ok, (rfi_hard=6.0,))]
     global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
 end
 

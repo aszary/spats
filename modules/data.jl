@@ -1094,7 +1094,7 @@ module Data
     NULL_MODEL_ANY = Ref(false)
     # v9.1 (decyzja 2026-11-26): silne RFI (z > RFI_HARD, odchylenie szumu poza impulsem od mediany ~31 sasiadow)
     # wycinane ZAWSZE, bez bezpiecznika S/N (poziome paski - J0932-3217). Inf = jak v9 (tylko z bezpiecznikiem).
-    RFI_HARD = Ref(6.0)
+    RFI_HARD = Ref(Inf)             # test one_rule_hard: z>6 sam w sobie psul 162 pulsary (jasne impulsy) - wylaczone
     NULL_EXTRA = Dict{String,Vector{Int}}()
     NULL_EXTRA_CUR = Ref{Union{Nothing,Vector{Int}}}(nothing)
     const _NULL_EXTRA_LOADED = Ref(false)
@@ -1133,10 +1133,10 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, RFI_HARD[]), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, RFI_HARD[]), rfi_hard_bright=get(ZAP_STEPS[], :rfi_hard_bright, 3.0), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
-        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0))..., kw...)
+        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0, rfi_hard_bright=0))..., kw...)
         reason = copy(a.reason)
         why = a.why
         if gate
@@ -1152,7 +1152,11 @@ module Data
             # zostawione; TPA je wycielo), a psuja energie, nulle i LRFS
             if isfinite(rfi_hard)
                 zh = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win)
-                hard = [i for i in eachindex(zh) if reason[i] == 0 && zh[i] > rfi_hard]
+                # tylko impulsy, ktore NIE sa wyjatkowo jasne: u jasnych pulsarow bardzo jasny impuls podnosi szum poza
+                # oknem (emisja wylewa sie), a sama miara z brala go za RFI (test: z>6 psul 162 pulsary, J0820-1350 -3.5%)
+                sg = [sn.s[i] for i in eachindex(sn.s) if sn.good[i]]
+                bright_lim = isempty(sg) ? Inf : median(sg) + rfi_hard_bright * 1.4826 * median(abs.(sg .- median(sg)))
+                hard = [i for i in eachindex(zh) if reason[i] == 0 && zh[i] > rfi_hard && !(sn.s[i] > bright_lim)]
                 reason[hard] .= 2
                 isempty(hard) || (why *= " + silne RFI (z > $(rfi_hard)): $(length(hard)) imp.")
             end
