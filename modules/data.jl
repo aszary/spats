@@ -1250,42 +1250,6 @@ module Data
         corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0, rfi_struct_z=0, rfi_tpa_k=0)), values(kw))
         sn, a, reason, why = _az_pre(data, bin_st, bin_end, gate, null_max_frac, null_faded_frac, corekw)
         if rfi
-            # Regula TPA VIII (Song+2023, dodatek D.3) do porownania: impulsy, ktorych szum poza oknem (rms) przekracza
-            # mediane CALEJ obserwacji o > rfi_tpa_k sigma (odporna MAD), szukane iteracyjnie, wycinane bez bezpiecznika S/N
-            if isfinite(rfi_tpa_k)
-                off_t = offpulse_bins(data, bin_st, bin_end)
-                rr = [any(!iszero, @view data[i, :]) ? std(@view data[i, off_t]) : NaN for i in eachindex(reason)]
-                keep = [reason[i] == 0 && isfinite(rr[i]) for i in eachindex(reason)]
-                tpa = Int[]
-                while true
-                    v = rr[keep]; length(v) < 10 && break
-                    m = median(v); s = 1.4826 * median(abs.(v .- m))
-                    s > 0 || break
-                    new_t = [i for i in eachindex(rr) if keep[i] && rr[i] > m + rfi_tpa_k * s]
-                    isempty(new_t) && break
-                    append!(tpa, new_t); keep[new_t] .= false
-                end
-                reason[tpa] .= 2
-                isempty(tpa) || (why *= " + RFI jak TPA VIII (rms > mediana + $(rfi_tpa_k)σ, iteracyjnie): $(length(tpa)) imp.")
-            end
-            # JEDNA prosta regula na RFI z ksztaltem (paski, fale, pochyle tlo): prawdziwa emisja jest tylko w oknie impulsu,
-            # RFI ma strukture takze POZA nim. Impuls, w ktorym struktura tla poza oknem jest > rfi_struct razy typowa,
-            # wycinamy zawsze, bez bezpiecznika S/N (paski nie psuja S/N sredniego profilu, wiec bezpiecznik ich nie
-            # przepuszczal: J0932-3217, J1012-5857). Sam wyzszy szum przy czystym tle (J0820-1350) tego nie daje.
-            # Wczesniejsze proby (sam prog z szumu, test one_rule_hard): z>6 psul 149-162 pulsary - wylapywal tez czyste impulsy.
-            if isfinite(rfi_struct)
-                ks = rfi_struct_ratio(data, bin_st, bin_end)
-                # opcjonalnie (rfi_struct_z): do tego mocno podniesiony szum tla (z wzgledem sasiadow albo calosci) -
-                # w bardzo jasnym J0820-1350 czyste impulsy z lekkimi falami tla mialy strukture ~2.2x, ale z ~3.5
-                if isfinite(rfi_struct_z)
-                    zl = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win); zg = rfi_rms_z(data, bin_st, bin_end; local_win=0)
-                    hard = [i for i in eachindex(ks) if reason[i] == 0 && ks[i] > rfi_struct && (zl[i] > rfi_struct_z || zg[i] > rfi_struct_z)]
-                else
-                    hard = [i for i in eachindex(ks) if reason[i] == 0 && ks[i] > rfi_struct]
-                end
-                reason[hard] .= 2
-                isempty(hard) || (why *= " + RFI z kształtem poza oknem (> $(rfi_struct)x typowego): $(length(hard)) imp.")
-            end
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
             # szybkie S/N: profile bazowe (bez cut0 / bez rfi0) liczone raz, kandydaci (reason == 0, wiec rozlaczni
@@ -1339,6 +1303,45 @@ module Data
             end
             reason[new] .= 2
             isempty(new) || (why *= " + RFI (skok szumu off-pulse): $(length(new)) imp.")
+            # Ponizsze reguly dzialaja PO kroku RFI z bezpiecznikiem (wczesniej przed nim: zmienialy punkt odniesienia
+            # bezpiecznika i ten nagle przepuszczal wątpliwych kandydatow - posrednie wyciecia, J0924-5814, J1738-3211).
+            # Krok z bezpiecznikiem decyduje wiec dokladnie jak w v9, a te reguly tylko dokladaja wlasne wykrycia.
+            # Regula TPA VIII (Song+2023, dodatek D.3) do porownania: impulsy, ktorych szum poza oknem (rms) przekracza
+            # mediane CALEJ obserwacji o > rfi_tpa_k sigma (odporna MAD), szukane iteracyjnie, wycinane bez bezpiecznika S/N
+            if isfinite(rfi_tpa_k)
+                off_t = offpulse_bins(data, bin_st, bin_end)
+                rr = [any(!iszero, @view data[i, :]) ? std(@view data[i, off_t]) : NaN for i in eachindex(reason)]
+                keep = [reason[i] == 0 && isfinite(rr[i]) for i in eachindex(reason)]
+                tpa = Int[]
+                while true
+                    v = rr[keep]; length(v) < 10 && break
+                    m = median(v); s = 1.4826 * median(abs.(v .- m))
+                    s > 0 || break
+                    new_t = [i for i in eachindex(rr) if keep[i] && rr[i] > m + rfi_tpa_k * s]
+                    isempty(new_t) && break
+                    append!(tpa, new_t); keep[new_t] .= false
+                end
+                reason[tpa] .= 2
+                isempty(tpa) || (why *= " + RFI jak TPA VIII (rms > mediana + $(rfi_tpa_k)σ, iteracyjnie): $(length(tpa)) imp.")
+            end
+            # JEDNA prosta regula na RFI z ksztaltem (paski, fale, pochyle tlo): prawdziwa emisja jest tylko w oknie impulsu,
+            # RFI ma strukture takze POZA nim. Impuls, w ktorym struktura tla poza oknem jest > rfi_struct razy typowa,
+            # wycinamy zawsze, bez bezpiecznika S/N (paski nie psuja S/N sredniego profilu, wiec bezpiecznik ich nie
+            # przepuszczal: J0932-3217, J1012-5857). Sam wyzszy szum przy czystym tle (J0820-1350) tego nie daje.
+            # Wczesniejsze proby (sam prog z szumu, test one_rule_hard): z>6 psul 149-162 pulsary - wylapywal tez czyste impulsy.
+            if isfinite(rfi_struct)
+                ks = rfi_struct_ratio(data, bin_st, bin_end)
+                # opcjonalnie (rfi_struct_z): do tego mocno podniesiony szum tla (z wzgledem sasiadow albo calosci) -
+                # w bardzo jasnym J0820-1350 czyste impulsy z lekkimi falami tla mialy strukture ~2.2x, ale z ~3.5
+                if isfinite(rfi_struct_z)
+                    zl = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win); zg = rfi_rms_z(data, bin_st, bin_end; local_win=0)
+                    hard = [i for i in eachindex(ks) if reason[i] == 0 && ks[i] > rfi_struct && (zl[i] > rfi_struct_z || zg[i] > rfi_struct_z)]
+                else
+                    hard = [i for i in eachindex(ks) if reason[i] == 0 && ks[i] > rfi_struct]
+                end
+                reason[hard] .= 2
+                isempty(hard) || (why *= " + RFI z kształtem poza oknem (> $(rfi_struct)x typowego): $(length(hard)) imp.")
+            end
         end
         # v6: bez marginesu przy nullach (impuls na brzegu nulla z czescia emisji to emisja; margines
         # zostaje tylko przy RFI / zaszumionych odcinkach) + pewne nulle z modelu energii (P_null >= 0.95),

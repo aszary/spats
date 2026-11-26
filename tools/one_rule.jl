@@ -277,10 +277,10 @@ function one_rule_replot()
 end
 
 # ---- Silne RFI zawsze wycinane (z > prog, bez bezpiecznika S/N), na v9; test na wszystkich pulsarach.
-#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard6/WYNIK.txt
+#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard7/WYNIK.txt
 # (one_rule_hard/ = pierwszy test bez wykluczenia jasnych impulsow: z>6 psul 162 pulsary)
 function _or_hard_setup!()
-    global S8_DIR = F7_DIR * "one_rule_hard6/"
+    global S8_DIR = F7_DIR * "one_rule_hard7/"
     global OR_RULES = [("v9", :model_ok, (rfi_struct=Inf,)),
                        ("v9 + RFI: struktura tła >2x i z>6", :model_ok, (rfi_struct=2.0, rfi_struct_z=6.0)),
                        ("v9 + RFI: struktura tła >2x i z>4", :model_ok, (rfi_struct=2.0, rfi_struct_z=4.0)),
