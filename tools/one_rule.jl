@@ -402,3 +402,58 @@ function rfi_pulse_table(psr, rng; struct_=3.0)
                 get(powod, Int(a0.reason[j]), string(a0.reason[j])), get(powod, Int(a1.reason[j]), string(a1.reason[j])))
     end
 end
+
+# ---- Szybki test kilku progow na kilku pulsarach (minuty): ile dochodzi, S/N, i co ZLEGO zostaje niewyciete.
+# "Zle zostawione" = niewyciety impuls z wyrazna struktura poza oknem (> 2x typowej) i silnym szumem (z > 6 wzgledem
+# sasiadow albo calosci) - takie impulsy powinny wypasc. "Wyciete z sygnalem" = dochodzace impulsy z typowa korelacja
+# okna z profilem i bez struktury > 2x (podejrzenie, ze to dobre impulsy).
+#   include("tools/one_rule.jl"); quick_rfi_test()        # -> final_v7/one_rule_quick/{WYNIK.txt, podglad_<prog>.pdf}
+function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217", "J1915+0752"];
+                        thresholds=(2.0, 2.5, 3.0), out=F7_DIR * "one_rule_quick/", plots=true)
+    _VD = SpaTs.Data
+    mkpath(out)
+    L = String[]; pr(s) = (println(s); push!(L, s))
+    pr("# Szybki test reguły RFI (struktura tła poza oknem > próg × typowa): $(join(psrs, ", "))\n")
+    pr("| pulsar | próg | dochodzi | S/N wobec v9 | złe zostawione (struktura>2x i z>6) | wycięte, a wyglądają dobrze |")
+    pr("|---|---|---|---|---|---|")
+    for psr in psrs
+        try
+            p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
+            D = Float64.(_f6_load(psr, p)); N = size(D, 1)
+            bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+            m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+            ks = _VD.rfi_struct_ratio(D, bst, bend)
+            zl = _VD.rfi_rms_z(D, bst, bend); zg = _VD.rfi_rms_z(D, bst, bend; local_win=0)
+            wc = _VD.window_signal_check(D, bst, bend)
+            rtyp = median(filter(isfinite, wc.r))
+            live = [any(!iszero, @view D[i, :]) for i in 1:N]
+            bad(i) = live[i] && ks[i] > 2 && (zl[i] > 6 || zg[i] > 6)
+            F = _VD.snr_fast(D, bst, bend)
+            a0 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf)
+            s0 = _VD.profile_snr(F; drop=a0.bad)
+            left0 = [i - 1 for i in 1:N if bad(i) && !(i in a0.bad)]
+            pr(@sprintf("| %s | v9 | - | - | %d %s | - |", psr, length(left0), isempty(left0) ? "" : string(left0[1:min(end, 12)])))
+            for t in thresholds
+                a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=t)
+                cut = Set(a1.bad); add = sort(setdiff(a1.bad, a0.bad))
+                s1 = _VD.profile_snr(F; drop=a1.bad)
+                left = [i - 1 for i in 1:N if bad(i) && !(i in cut)]
+                good = [i - 1 for i in add if ks[i] <= 2 && isfinite(wc.r[i]) && wc.r[i] >= rtyp - 0.1]
+                pr(@sprintf("| %s | %.1fx | %d | %+.1f%% | %d %s | %d %s |", psr, t, length(add), 100(s1 / s0 - 1),
+                            length(left), isempty(left) ? "" : string(left[1:min(end, 12)]),
+                            length(good), isempty(good) ? "" : string(good[1:min(end, 12)])))
+            end
+        catch e
+            e isa InterruptException && rethrow()
+            pr("| $psr | BŁĄD: $(first(sprint(showerror, e), 150)) |")
+        end
+    end
+    pr("\nNumery impulsów od 0 (jak w pazi). Struktura = tło poza oknem wygładzone, względem typowego impulsu.")
+    write(out * "WYNIK.txt", join(L, "\n") * "\n")
+    if plots
+        for t in thresholds
+            hard_rfi_view(psrs; struct_=t, out=out * @sprintf("podglad_%.1f.pdf", t))
+        end
+    end
+    println("\nZapisane: $(out)WYNIK.txt" * (plots ? " i podglad_<próg>.pdf" : ""))
+end
