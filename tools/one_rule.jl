@@ -276,13 +276,13 @@ function one_rule_replot()
 end
 
 # ---- Silne RFI zawsze wycinane (z > prog, bez bezpiecznika S/N), na v9; test na wszystkich pulsarach.
-#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard3/WYNIK.txt
+#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard4/WYNIK.txt
 # (one_rule_hard/ = pierwszy test bez wykluczenia jasnych impulsow: z>6 psul 162 pulsary)
 function _or_hard_setup!()
-    global S8_DIR = F7_DIR * "one_rule_hard3/"
+    global S8_DIR = F7_DIR * "one_rule_hard4/"
     global OR_RULES = [("v9", :model_ok, (rfi_hard=Inf,)),
-                       ("v9 + silne RFI z>6 lok./całość, szum >+10%", :model_ok, (rfi_hard=6.0, rfi_hard_excess=0.1)),
-                       ("v9 + silne RFI z>6 lok./całość, szum >+20%", :model_ok, (rfi_hard=6.0, rfi_hard_excess=0.2))]
+                       ("v9 + silne RFI z>6, struktura poza oknem >1.5x", :model_ok, (rfi_hard=6.0, rfi_hard_struct=1.5)),
+                       ("v9 + silne RFI z>6, struktura poza oknem >2x", :model_ok, (rfi_hard=6.0, rfi_hard_struct=2.0))]
     global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
 end
 
@@ -299,9 +299,9 @@ one_rule_hard_summary() = (_or_hard_setup!(); simple_v8_summary(; title="Silne R
 # ---- Podglad: ktore impulsy dochodza przy silnym RFI (rfi_hard) wzgledem v9 - stos impulsow z zaznaczeniami,
 # z(RFI) i jasnosc tych impulsow, profil sredni dodanych impulsow (czy maja emisje / paski).
 #   include("tools/one_rule.jl"); hard_rfi_view(["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217"])
-#   -> final_v7/one_rule_hard3/podglad.pdf
+#   -> final_v7/one_rule_hard4/podglad.pdf
 using PyPlot, PyCall
-function hard_rfi_view(psrs; z=6.0, excess=0.1, out=F7_DIR * "one_rule_hard3/podglad.pdf")
+function hard_rfi_view(psrs; z=6.0, excess=0.0, struct_=2.0, out=F7_DIR * "one_rule_hard4/podglad.pdf")
     _VD = SpaTs.Data
     PyPlot = Main.PyPlot
     mkpath(dirname(out)); PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
@@ -313,7 +313,7 @@ function hard_rfi_view(psrs; z=6.0, excess=0.1, out=F7_DIR * "one_rule_hard3/pod
             bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
             m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
             a0 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_hard=Inf)
-            a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_hard=z, rfi_hard_excess=excess)
+            a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_hard=z, rfi_hard_excess=excess, rfi_hard_struct=struct_)
             add = sort(setdiff(a1.bad, a0.bad)); zz = _VD.rfi_rms_z(D, bst, bend)
             sn = _VD.pulse_signal_noise(D, bst, bend)
             sg = sn.s[sn.good]; md = median(sg); sd = 1.4826 * median(abs.(sg .- md))
@@ -349,7 +349,8 @@ function hard_rfi_view(psrs; z=6.0, excess=0.1, out=F7_DIR * "one_rule_hard3/pod
                     isempty(add) ? NaN : median((sn.s[add] .- md) ./ sd), isempty(add) ? NaN : median(zz[add]))
             # rozbicie: wprost z reguly silnego RFI (te same warunki co w auto_zap) a posrednio (inny wybor reszty)
             zg = _VD.rfi_rms_z(D, bst, bend; local_win=0); q = _VD.rfi_rms_ratio(D, bst, bend)
-            direct = [i for i in add if (zz[i] > z || zg[i] > z) && q[i] > 1 + excess]
+            ks = _VD.rfi_struct_ratio(D, bst, bend)
+            direct = [i for i in add if (zz[i] > z || zg[i] > z) && q[i] > 1 + excess && ks[i] > struct_]
             other = setdiff(add, direct)
             rs = Dict{Int,Int}(); for i in add; rs[a1.reason[i]] = get(rs, a1.reason[i], 0) + 1; end
             @printf("    wprost z reguły: %d (szum / typowy: mediana %.2f, min %.2f) | pośrednio: %d (szum / typowy: mediana %.2f, z lok. %.1f, z całość %.1f) | powody w a1: %s\n",
@@ -358,6 +359,13 @@ function hard_rfi_view(psrs; z=6.0, excess=0.1, out=F7_DIR * "one_rule_hard3/pod
                     isempty(other) ? NaN : median(zg[other]), join(["$k:$v" for (k, v) in sort(collect(rs))], " "))
             @printf("    szum / typowy we wszystkich impulsach: mediana 1.00, 90%%: %.2f, 99%%: %.2f\n",
                     quantile(filter(isfinite, q), 0.9), quantile(filter(isfinite, q), 0.99))
+            fm(v) = (w = filter(isfinite, v); isempty(w) ? "-" : @sprintf("%.2f", median(w)))
+            @printf("    struktura poza oknem / typowa: wprost %s, pośrednio %s; wszystkie impulsy 90%%: %.2f, 99%%: %.2f\n",
+                    fm(ks[direct]), fm(ks[other]), quantile(filter(isfinite, ks), 0.9), quantile(filter(isfinite, ks), 0.99))
+            # okno: czy jest tam sygnal pulsara (korelacja z profilem) i ile (energia wzgledem typowej)
+            wc = _VD.window_signal_check(D, bst, bend)
+            @printf("    okno - korelacja z profilem: wprost %s, pośrednio %s, wszystkie %s (10%% najniższych < %.2f); energia / typowa: wprost %s, pośrednio %s\n",
+                    fm(wc.r[direct]), fm(wc.r[other]), fm(wc.r), quantile(filter(isfinite, wc.r), 0.1), fm(wc.e[direct]), fm(wc.e[other]))
         catch e
             e isa InterruptException && rethrow()
             println("$psr BŁĄD: ", first(sprint(showerror, e), 200))

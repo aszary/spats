@@ -1025,6 +1025,71 @@ module Data
         return g[res .> k * sd]
     end
 
+    """
+    Struktura POZA oknem impulsu (paski, fale, pochyle tlo): w kazdym impulsie tlo poza oknem wygladzone srednia
+    biezaca `w` binow (osobno w kazdym ciaglym kawalku), K = rms wygladzonego / (rms surowego / sqrt(w)).
+    Czysty szum daje K ~ 1 niezaleznie od poziomu szumu (jasny pulsar, scyntylacja), RFI z ksztaltem - K >> 1.
+    Zwraca K / mediana(K) calej obserwacji (1.0 = typowy impuls; NaN = impuls wyciety).
+    """
+    function rfi_struct_ratio(data, bin_st, bin_end; w=32)
+        N = size(data, 1)
+        out = fill(NaN, N)
+        off = offpulse_bins(data, bin_st, bin_end)
+        runs = UnitRange{Int}[]; s = 1
+        for t in 2:length(off)+1
+            (t > length(off) || off[t] != off[t-1] + 1) && (push!(runs, off[s]:off[t-1]); s = t)
+        end
+        runs = filter(r -> length(r) >= 2w, runs)
+        isempty(runs) && return out
+        K = fill(NaN, N)
+        for i in 1:N
+            any(!iszero, @view data[i, :]) || continue
+            sm = Float64[]; raw = Float64[]
+            for r in runs
+                x = Float64.(@view data[i, r]); x .-= mean(x)
+                c = vcat(0.0, cumsum(x))
+                append!(sm, [(c[t+w] - c[t]) / w for t in 1:length(x)-w+1]); append!(raw, x)
+            end
+            σ = std(raw)
+            σ > 0 && (K[i] = std(sm) / (σ / sqrt(w)))
+        end
+        m = median(filter(isfinite, K))
+        m > 0 && (out .= K ./ m)
+        return out
+    end
+
+    """
+    Czy w oknie impulsu jest SYGNAL PULSARA, czy ciag dalszy zaklocenia: w kazdym impulsie tlo w oknie wyznaczone
+    prosta dopasowana do `nb_side` binow tuz po obu stronach okna (fala / pochyle tlo przechodzace przez okno nie
+    udaje wtedy sygnalu), potem korelacja reszty w oknie ze srednim profilem (szablonem). Zwraca (r, e):
+    r - korelacja z szablonem (pulsar: zwykle > 0, typowa wartosc jak w innych impulsach; RFI: ~0 albo ujemna),
+    e - energia w oknie po odjeciu tla w jednostkach typowej (mediany) energii impulsu.
+    """
+    function window_signal_check(data, bin_st, bin_end; nb_side=20)
+        N, nb = size(data)
+        on = bin_st:bin_end
+        live = [any(!iszero, @view data[i, :]) for i in 1:N]
+        r = fill(NaN, N); e = fill(NaN, N)
+        any(live) || return (r=r, e=e)
+        side = vcat(max(1, bin_st - nb_side):bin_st-1, bin_end+1:min(nb, bin_end + nb_side))
+        length(side) >= 4 || return (r=r, e=e)
+        tmpl = vec(mean(@view(data[live, on]), dims=1))
+        xs = Float64.(side); A = hcat(ones(length(xs)), xs)
+        tm = tmpl .- mean(tmpl); tn = sqrt(sum(abs2, tm))
+        E = fill(NaN, N)
+        for i in 1:N
+            live[i] || continue
+            c = A \ Float64.(data[i, side])                 # tlo: a + b * bin, z binow obok okna
+            y = Float64.(data[i, on]) .- (c[1] .+ c[2] .* collect(on))
+            E[i] = sum(y)
+            ym = y .- mean(y); yn = sqrt(sum(abs2, ym))
+            (yn > 0 && tn > 0) && (r[i] = sum(ym .* tm) / (yn * tn))
+        end
+        mE = median(filter(isfinite, E))
+        mE != 0 && (e .= E ./ mE)
+        return (r=r, e=e)
+    end
+
     "Szum poza impulsem kazdego impulsu wzgledem mediany calej obserwacji (1.0 = typowy; NaN = impuls wyciety)."
     function rfi_rms_ratio(data, bin_st, bin_end)
         N = size(data, 1)
@@ -1146,10 +1211,10 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, RFI_HARD[]), rfi_hard_excess=get(ZAP_STEPS[], :rfi_hard_excess, 0.1), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, RFI_HARD[]), rfi_hard_excess=get(ZAP_STEPS[], :rfi_hard_excess, 0.0), rfi_hard_struct=get(ZAP_STEPS[], :rfi_hard_struct, 2.0), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
-        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0, rfi_hard_excess=0))..., kw...)
+        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0, rfi_hard_excess=0, rfi_hard_struct=0))..., kw...)
         reason = copy(a.reason)
         why = a.why
         if gate
@@ -1171,10 +1236,13 @@ module Data
                 zl = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win)
                 zg = rfi_rms_z(data, bin_st, bin_end; local_win=0)
                 q = rfi_rms_ratio(data, bin_st, bin_end)
+                # i STRUKTURA poza oknem (paski, fale, pochyle tlo): prawdziwa emisja jest tylko w oknie impulsu, RFI ma
+                # ksztalt takze poza nim; sam wyzszy szum (czyste tlo, J0820-1350) tego nie ma (K / typowe ~ 1)
+                ks = rfi_struct_ratio(data, bin_st, bin_end)
                 hard = [i for i in eachindex(zl) if reason[i] == 0 && (zl[i] > rfi_hard || zg[i] > rfi_hard) &&
-                                                     q[i] > 1 + rfi_hard_excess]
+                                                     q[i] > 1 + rfi_hard_excess && ks[i] > rfi_hard_struct]
                 reason[hard] .= 2
-                isempty(hard) || (why *= " + silne RFI (z > $(rfi_hard), szum > +$(round(Int, 100rfi_hard_excess))%): $(length(hard)) imp.")
+                isempty(hard) || (why *= " + silne RFI (z > $(rfi_hard), struktura poza oknem > $(rfi_hard_struct)x): $(length(hard)) imp.")
             end
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
