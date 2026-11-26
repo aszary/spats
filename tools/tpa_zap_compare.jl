@@ -6,6 +6,7 @@
 #   ENV["SPATS_NO_MAIN"]="1"; include("spats.jl"); include("tools/tpa_zap_compare.jl"); tpa_zap_compare()
 # Wynik: /home/psr/data/OUTPUT/tpa_zap/WYNIK.txt (+ tabela.csv)
 isdefined(Main, :_f6_load) || include(joinpath(@__DIR__, "final_v6.jl"))
+isdefined(Main, :_nr_model) || include(joinpath(@__DIR__, "null_rules_real.jl"))      # model nulli (tpa_zap_plots z zkw)
 using Printf, Statistics
 TZ_DIR = F6_ROOT * "tpa_zap/"
 TZ_STATS = joinpath(@__DIR__, "..", "stats.csv")
@@ -101,7 +102,6 @@ using PyPlot, PyCall
 function tpa_zap_plots(; out=TZ_DIR, only=nothing, zkw=nothing, name="porownanie.pdf")
     # zkw = ustawienia automatu (np. (rfi_struct=2.0, rfi_struct_z=6.0)): nasze wyciecia liczone od nowa ta regula
     # (v9 + zkw) zamiast z pazur2 - porownanie proponowanej reguly z TPA przed jej przyjeciem
-    isnothing(zkw) || isdefined(Main, :_nr_model) || Base.include(Main, joinpath(@__DIR__, "null_rules_real.jl"))
     _VD = SpaTs.Data
     mkpath(out)
     T = _tz_tpa(); ours = Set(_f6_psrs())
