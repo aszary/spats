@@ -1210,21 +1210,43 @@ module Data
         get(NULL_EXTRA, psr, NULL_MODE[] == :model && NULL_MODEL_FALLBACK[] == :none ? Int[] : nothing)
     end
 
+    # Etap automatu przed krokiem RFI (sygnal impulsow, auto_zap_core, bramka S/N, 'nulle' z sygnalem) zapamietany:
+    # warianty rozniace sie tylko RFI / nullami z modelu (testy one_rule_*) licza go raz zamiast kilka razy. Klucz =
+    # skrot CALEJ tresci danych (kazda liczba) + okno + ustawienia, wiec zmienione dane albo ustawienia licza sie od nowa;
+    # zwracana kopia `reason` (dalsze kroki ja zmieniaja). Wynik identyczny jak bez pamieci.
+    const _AZ_MEMO = Dict{UInt,Any}()
+    function _az_datahash(data)
+        h = hash(size(data))
+        @inbounds for x in data; h = hash(x, h); end
+        return h
+    end
+    function _az_pre(data, bin_st, bin_end, gate, null_max_frac, null_faded_frac, corekw)
+        key = hash((_az_datahash(data), bin_st, bin_end, gate, null_max_frac, null_faded_frac, sort(collect(pairs(corekw)), by=first)))
+        m = get(_AZ_MEMO, key, nothing)
+        if m === nothing
+            sn = pulse_signal_noise(data, bin_st, bin_end)
+            a = auto_zap_core(sn; corekw...)
+            reason = copy(a.reason)
+            why = a.why
+            if gate
+                back = profile_gate(data, bin_st, bin_end, reason)
+                reason[back] .= 0
+                isempty(back) || (why *= " (bramka S/N profilu przywróciła $(length(back)) imp.)")
+            end
+            nfake = fake_nulls_to_noisy!(reason, sn; frac=null_max_frac, faded_frac=null_faded_frac)
+            nfake > 0 && (why *= " ($nfake imp. 'nulli' z sygnałem -> zaszumione / wygaszona emisja)")
+            length(_AZ_MEMO) >= 8 && empty!(_AZ_MEMO)
+            m = _AZ_MEMO[key] = (sn, a, reason, why)
+        end
+        return m[1], deepcopy(m[2]), copy(m[3]), m[4]      # kopie: nikt nie zmieni zapamietanego wyniku
+    end
+
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
                       rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
-        sn = pulse_signal_noise(data, bin_st, bin_end)
-        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0))..., kw...)
-        reason = copy(a.reason)
-        why = a.why
-        if gate
-            back = profile_gate(data, bin_st, bin_end, reason)
-            reason[back] .= 0
-            isempty(back) || (why *= " (bramka S/N profilu przywróciła $(length(back)) imp.)")
-        end
-        nfake = fake_nulls_to_noisy!(reason, sn; frac=null_max_frac, faded_frac=null_faded_frac)
-        nfake > 0 && (why *= " ($nfake imp. 'nulli' z sygnałem -> zaszumione / wygaszona emisja)")
+        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0)), values(kw))
+        sn, a, reason, why = _az_pre(data, bin_st, bin_end, gate, null_max_frac, null_faded_frac, corekw)
         if rfi
             # JEDNA prosta regula na RFI z ksztaltem (paski, fale, pochyle tlo): prawdziwa emisja jest tylko w oknie impulsu,
             # RFI ma strukture takze POZA nim. Impuls, w ktorym struktura tla poza oknem jest > rfi_struct razy typowa,

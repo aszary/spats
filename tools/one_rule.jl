@@ -92,7 +92,8 @@ function _or_part(k, n)
             zg = _VD.rfi_rms_z(D, bst, bend; local_win=0)
             m = _nr_model(psr); ma = _or_model_any(psr)
             P = fill(NaN, N); isnothing(m) || (P[m.rows] .= m.P)       # ocena wycietej emisji: tylko wiarygodny model
-            snr_none = _VD.profile_snr(D, bst, bend)
+            F = _VD.snr_fast(D, bst, bend)                # szybkie S/N: profil i biny poza impulsem raz (te same liczby)
+            snr_none = _VD.profile_snr(F)
             snr_man = something(get(get(p, "zap_cmp", Dict()), "snr_maciej", nothing), NaN)
             for rr in OR_RULES
                 name, rule = rr[1], rr[2]; kw = length(rr) >= 3 ? rr[3] : NamedTuple()
@@ -107,7 +108,7 @@ function _or_part(k, n)
                 ea, na = isempty(U) ? (NaN, NaN) : (sum(1 .- P[U]), sum(P[U]))
                 Ee = isempty(U) || !(ea > 0) ? NaN : sum((1 .- P[U]) .* Ebase[U]) / ea
                 row = [psr, name, N, length(a.bad), length(rfi), length(nul), snr_none,
-                       _VD.profile_snr(D, bst, bend; drop=a.bad), snr_man, _VD.profile_snr(D, bst, bend; drop=rfi),
+                       _VD.profile_snr(F; drop=a.bad), snr_man, _VD.profile_snr(F; drop=rfi),
                        count(i -> !(i in cut) && zl[i] > 3, 1:N), count(i -> !(i in cut) && zg[i] > 3, 1:N),
                        isempty(C) ? 0.0 : sum(1 .- P[C]), ea, isempty(C) ? 0.0 : sum(P[C]), na,
                        isempty(K) ? NaN : mean(Ebase[K]), Ee]
