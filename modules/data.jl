@@ -558,7 +558,7 @@ module Data
                            nsigma=6.0, f_null=0.25, q_on=0.9, noise_fac=2.0, zdet=2.0,
                            f_rel=0.15, zrel=1.0, ac_sigma=4.5, min_run_fade=30,
                            local_win=31, noise_z=nothing, use_junk=true, use_jump=true, use_null1=true,
-                           use_faded=true, use_noisy=true, use_closegaps=true, kw...)
+                           use_faded=true, use_noisy=true, use_closegaps=true, noisy_med=false, kw...)
         # use_*: wylaczanie krokow do testu, ktore sa potrzebne (tools/final_v7.jl); domyslnie wszystkie
         s, v, good = sn.s, sn.v, sn.good
         N = length(s)
@@ -647,6 +647,14 @@ module Data
         noisy = [Nn[i] > 0 &&
                  ((Vn[i] / (Nn[i] * vtyp) > noise_fac && effv[i] < 0.5 * etv) ||
                   (Wn[i] / (Nn[i] * wtyp) > noise_fac && effw_[i] < 0.5 * etw)) for i in 1:N]
+        # noisy_med: MEDIANA szumu w oknie zamiast sredniej - pojedynczy bardzo glosny impuls podnosil srednia okna
+        # i wycinane bylo cale okno (~10 czystych sasiadow; test one_rule_eval: ~3500 wycietych z czystym tlem)
+        if noisy_med
+            medw(x, i) = (js = [j for j in lon(i):hin(i) if ok[j]]; isempty(js) ? 0.0 : median(x[js]))
+            noisy = [Nn[i] > 0 &&
+                     ((medw(v, i) > noise_fac * vtyp && effv[i] < 0.5 * etv) ||
+                      (medw(sn.vwhite, i) > noise_fac * wtyp && effw_[i] < 0.5 * etw)) for i in 1:N]
+        end
 
         function runfilter(st, mr=min_run)
             st = copy(st); i = 1

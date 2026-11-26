@@ -10,7 +10,7 @@
 # ~20-30 min na 32 procesach, wznawialne. Wynik: final_v7/one_rule/WYNIK.txt
 isdefined(Main, :_s8_part) || include(joinpath(@__DIR__, "simple_v8.jl"))
 isdefined(Main, :_tz_tpa) || include(joinpath(@__DIR__, "tpa_zap_compare.jl"))     # lista wyciec TPA (Xiaoxi) do oceny
-OR_HEADER = S8_HEADER * ",rfi_clean,left_bad,tpa_n,tpa_hit"
+OR_HEADER = S8_HEADER * ",rfi_clean,left_bad,tpa_n,tpa_hit,rfi_clean_odc"
 isdefined(Main, :_OR_TPA) || (global _OR_TPA = Ref{Any}(nothing))
 _or_tpa() = (isnothing(_OR_TPA[]) && (_OR_TPA[] = try _tz_tpa() catch; Dict{String,Any}() end); _OR_TPA[])
 S8_DIR = F7_DIR * "one_rule/"
@@ -122,7 +122,8 @@ function _or_part(k, n)
                        count(i -> !(i in cut) && zl[i] > 3, 1:N), count(i -> !(i in cut) && zg[i] > 3, 1:N),
                        isempty(C) ? 0.0 : sum(1 .- P[C]), ea, isempty(C) ? 0.0 : sum(P[C]), na,
                        isempty(K) ? NaN : mean(Ebase[K]), Ee,
-                       count(clean, rfi), count(i -> badbg(i) && !(i in cut), 1:N), length(tz), length(intersect(tz, cut))]
+                       count(clean, rfi), count(i -> badbg(i) && !(i in cut), 1:N), length(tz), length(intersect(tz, cut)),
+                       count(i -> clean(i) && a.reason[i] in (4, 5), 1:N)]
                 open(io -> println(io, join([x isa AbstractFloat ? @sprintf("%.6g", x) : string(x) for x in row], ",")), f, "a")
             end
             @printf("[%d/%d] %-12s ok (%.0f s)\n", j, length(psrs), psr, time() - t0)
@@ -582,3 +583,47 @@ function one_rule_eval_summary(; tie=1.0)
 end
 quick_eval() = quick_rfi_test(["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217", "J1915+0752", "J1844-0433", "J1842+0257"];
                               variants=OR_EVAL_VARIANTS[2:end], out=F7_DIR * "one_rule_quick_eval/")
+
+# ---- To samo z poprawionym krokiem A (mediana szumu w oknie zamiast sredniej: pojedynczy glosny impuls nie wycina
+# calego okna czystych sasiadow). Kolumna "z czystym tłem w odcinkach" pokazuje, ile czystych wycina sam krok A.
+#   include("tools/one_rule.jl"); one_rule_eval2()          # -> final_v7/one_rule_eval2/OCENA.txt
+OR_Am = merge(OR_A, (noisy_med=true,)); OR_ABm = merge(OR_AB, (noisy_med=true,))
+OR_EVAL2_VARIANTS = [
+    ("v9 (obecne, z marginesem)", NamedTuple()),
+    ("A(med) + TPA 4σ", merge(OR_Am, (rfi_tpa_k=4.0,))),
+    ("A(med) + B + TPA 4σ", merge(OR_ABm, (rfi_tpa_k=4.0,))),
+    ("A(med) + B + TPA 4σ i kształt >2x", merge(OR_ABm, (rfi_tpa_k=4.0, rfi_tpa_struct=2.0))),
+    ("A(med) + B + kształt >2x i z>6", merge(OR_ABm, (rfi_struct=2.0, rfi_struct_z=6.0))),
+    ("A(śr.) + B + TPA 4σ (jak poprzednio)", merge(OR_AB, (rfi_tpa_k=4.0,))),
+]
+function _or_eval2_setup!()
+    global S8_DIR = F7_DIR * "one_rule_eval2/"
+    global OR_RULES = [(n, :model_ok, kw) for (n, kw) in OR_EVAL2_VARIANTS]
+    global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
+    global OR_EVAL_VARIANTS_CUR = OR_EVAL2_VARIANTS
+end
+function one_rule_eval2(; n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    _or_eval2_setup!(); mkpath(S8_DIR)
+    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); _or_eval2_setup!(); Base.invokelatest(_or_part, $k, $n)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "ore2"; every=120)
+    one_rule_eval2_summary()
+end
+function one_rule_eval2_summary(; tie=1.0)
+    _or_eval2_setup!()
+    simple_v8_summary(; title="Proste zasady RFI (krok A z mediana) - porównanie z v9", basename_="v9")
+    R = _or_rows(S8_DIR)
+    L = ["# Co realnie wycinają proste zasady RFI, krok A z medianą (wszystkie pulsary)\n",
+         "| zasada | wycięte RFI | z czystym tłem | w tym w odcinkach (A) | % czystych | zostawione złe | TPA odtworzone | lepiej : gorzej : remis vs ręcznie | średni zysk S/N |",
+         "|---|---|---|---|---|---|---|---|---|"]
+    for (name, _) in OR_EVAL2_VARIANTS
+        rr = get(R, name, nothing); isnothing(rr) && continue
+        sumk(k) = sum(get(r, k, 0.0) for r in values(rr))
+        nr, nc, no, lb, tn, th = sumk("n_rfi"), sumk("rfi_clean"), sumk("rfi_clean_odc"), sumk("left_bad"), sumk("tpa_n"), sumk("tpa_hit")
+        dm = [100 * (r["snr"] / r["snr_manual"] - 1) for r in values(rr) if isfinite(get(r, "snr_manual", NaN)) && r["snr_manual"] > 0]
+        g = [100 * (r["snr"] / r["snr_none"] - 1) for r in values(rr) if r["snr_none"] >= 3 && isfinite(r["snr"])]
+        push!(L, @sprintf("| %s | %d | %d | %d | %.0f%% | %d | %.0f%% | %d : %d : %d | %+.1f%% |", name, nr, nc, no, 100nc / max(nr, 1), lb,
+                          100th / max(tn, 1), count(>(tie), dm), count(<(-tie), dm), count(x -> abs(x) <= tie, dm), mean(g)))
+    end
+    write(S8_DIR * "OCENA.txt", join(L, "\n") * "\n"); println(join(L, "\n")); println("\nZapisane: $(S8_DIR)OCENA.txt")
+end
