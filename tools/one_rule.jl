@@ -489,3 +489,32 @@ end
 one_rule_simple_summary() = (_or_simple_setup!(); simple_v8_summary(; title="Całe RFI jedną prostą regułą (nulle jak v9) - porównanie z v9", basename_="v9"))
 "Szybko na 5 pulsarach (tabela + podglady): proste reguly RFI."
 quick_simple() = quick_rfi_test(; variants=OR_SIMPLE_VARIANTS[2:end], out=F7_DIR * "one_rule_quick_simple/")
+
+# ---- Prosta zasada RFI z DWOCH czesci: (1) zle odcinki (krok automatu "zaszumione odcinki / zly poczatek" -
+# odpowiednik obcinania zlych fragmentow u TPA VIII) + (2) jedna regula dla pojedynczych impulsow. Wylaczone: pojedyncze
+# smieci, skoki szumu, regula z bezpiecznikiem S/N. Sama regula pojedynczych impulsow (one_rule_simple) gubila dlugie
+# zle odcinki (J1844 -101%, sredni zysk S/N +5% zamiast +19%).
+OR_SIMPLE2 = (use_junk=false, use_jump=false, use_noisy=true, rfi_safe=false)
+OR_SIMPLE2_VARIANTS = [
+    ("v9 (obecne: kilka krokow RFI)", NamedTuple()),
+    ("odcinki + TPA VIII 4σ", merge(OR_SIMPLE2, (rfi_tpa_k=4.0,))),
+    ("odcinki + TPA VIII 6σ", merge(OR_SIMPLE2, (rfi_tpa_k=6.0,))),
+    ("odcinki + z > 6", merge(OR_SIMPLE2, (rfi_struct=0.0, rfi_struct_z=6.0))),
+    ("odcinki + struktura > 2x i z > 6", merge(OR_SIMPLE2, (rfi_struct=2.0, rfi_struct_z=6.0))),
+]
+function _or_simple2_setup!()
+    global S8_DIR = F7_DIR * "one_rule_simple2/"
+    global OR_RULES = [(n, :model_ok, kw) for (n, kw) in OR_SIMPLE2_VARIANTS]
+    global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
+end
+"Test na wszystkich pulsarach: zle odcinki + jedna regula dla pojedynczych impulsow. -> final_v7/one_rule_simple2/WYNIK.txt"
+function one_rule_simple2(; n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    _or_simple2_setup!(); mkpath(S8_DIR)
+    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); _or_simple2_setup!(); Base.invokelatest(_or_part, $k, $n)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "ors2"; every=120)
+    one_rule_simple2_summary()
+end
+one_rule_simple2_summary() = (_or_simple2_setup!(); simple_v8_summary(; title="Prosta zasada RFI: złe odcinki + jedna reguła dla pojedynczych impulsów - porównanie z v9", basename_="v9"))
+quick_simple2() = quick_rfi_test(["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217", "J1915+0752", "J1844-0433", "J1842+0257"];
+                                 variants=OR_SIMPLE2_VARIANTS[2:end], out=F7_DIR * "one_rule_quick_simple2/")
