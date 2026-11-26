@@ -1025,7 +1025,6 @@ module Data
         return g[res .> k * sd]
     end
 
-    "Like `rfi_rms`, but returns the z-score (residual / robust sd) of every pulse (NaN for empty ones)."
     "Szum poza impulsem kazdego impulsu wzgledem mediany calej obserwacji (1.0 = typowy; NaN = impuls wyciety)."
     function rfi_rms_ratio(data, bin_st, bin_end)
         N = size(data, 1)
@@ -1039,6 +1038,7 @@ module Data
         return q
     end
 
+    "Like `rfi_rms`, but returns the z-score (residual / robust sd) of every pulse (NaN for empty ones)."
     function rfi_rms_z(data, bin_st, bin_end; local_win=31)
         N = size(data, 1)
         z = fill(NaN, N)
