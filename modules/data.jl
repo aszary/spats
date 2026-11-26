@@ -1092,6 +1092,9 @@ module Data
     # true: nulle z modelu dla KAZDEGO pulsara z dopasowanym modelem (jedna regula dla wszystkich, tools/one_rule.jl
     # wariant B); false (v8): tylko modele wiarygodne, reszta wg NULL_MODEL_FALLBACK
     NULL_MODEL_ANY = Ref(false)
+    # v9.1 (decyzja 2026-11-26): silne RFI (z > RFI_HARD, odchylenie szumu poza impulsem od mediany ~31 sasiadow)
+    # wycinane ZAWSZE, bez bezpiecznika S/N (poziome paski - J0932-3217). Inf = jak v9 (tylko z bezpiecznikiem).
+    RFI_HARD = Ref(6.0)
     NULL_EXTRA = Dict{String,Vector{Int}}()
     NULL_EXTRA_CUR = Ref{Union{Nothing,Vector{Int}}}(nothing)
     const _NULL_EXTRA_LOADED = Ref(false)
@@ -1130,7 +1133,7 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, Inf), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, RFI_HARD[]), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
         a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0))..., kw...)

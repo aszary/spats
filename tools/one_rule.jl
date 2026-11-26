@@ -164,7 +164,8 @@ function one_rule_build(; rule=:model_ok, margin=true, n=32)
     kw = margin ? NamedTuple() : (pad=0,)
     anym = rule == :model_all
     write(out * ".wariant", "v9: nulle = model energii P>=0.5 " * (anym ? "dla wszystkich pulsarow z modelem" : "tylko gdy model wiarygodny") *
-                            " (reszta bez nulli); RFI jak v8" * (margin ? ", margines przy RFI" : ", bez marginesu przy RFI"))
+                            " (reszta bez nulli); RFI jak v8" * (margin ? ", margines przy RFI" : ", bez marginesu przy RFI") *
+                            "; silne RFI (z > $(SpaTs.Data.RFI_HARD[])) zawsze wycinane")
     println("\n===== WERSJA v9 (" * (anym ? "reguła B" : "opcja 3: model tylko pewny") * ") → $out =====")
     cfg = "SpaTs.Data.ZAP_STEPS[] = $(repr(kw)); SpaTs.Data.NULL_MODE[] = :model; SpaTs.Data.NULL_THR[] = 0.5; " *
           "SpaTs.Data.NULL_MODEL_ANY[] = $anym; SpaTs.Data.NULL_MODEL_FALLBACK[] = :none; " *
@@ -276,7 +277,7 @@ end
 #   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard/WYNIK.txt
 function _or_hard_setup!()
     global S8_DIR = F7_DIR * "one_rule_hard/"
-    global OR_RULES = [("v9", :model_ok, NamedTuple()),
+    global OR_RULES = [("v9", :model_ok, (rfi_hard=Inf,)),
                        ("v9 + silne RFI z>10 zawsze", :model_ok, (rfi_hard=10.0,)),
                        ("v9 + silne RFI z>6 zawsze", :model_ok, (rfi_hard=6.0,))]
     global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]

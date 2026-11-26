@@ -163,3 +163,12 @@ Wybór (`tools/one_rule.jl`, wszystkie pulsary, te same dane):
 
 Margines przy RFI zostaje: bez niego 31 pulsarów traci >1% S/N (J1148 −9,4%). Budowa i przyjęcie:
 `one_rule_build()`, `one_rule_adopt()`, potem `one_rule_replot()`. Kopia v8: `pazur2_przed_v9`.
+
+### v9.1 (2026-11-26): silne RFI zawsze
+
+Impuls z silnym RFI (z > 6: szum poza impulsem odstaje o ponad 6σ od mediany ~31 sąsiadów) wycinamy zawsze, bez
+bezpiecznika S/N (`Data.RFI_HARD[] = 6.0`; `Inf` = jak v9). Powód: poziome paski (przesunięcie tła na całym impulsie)
+nie psują S/N średniego profilu, więc bezpiecznik ich nie przepuszczał (J0932−3217: z ≈ 13–24 zostawione), a psują
+energie, nulle i LRFS. Porównanie z listą wyciętych impulsów TPA VIII (`stats.csv`, `tools/tpa_zap_compare.jl`):
+przed poprawką z 1551 impulsów TPA wycięliśmy 66%, 508 zostało (część z z ≫ 3). Słabsze RFI (3 < z ≤ 6) jak dotąd,
+z bezpiecznikiem. Kopia v9: `pazur2_przed_v9_2`.
