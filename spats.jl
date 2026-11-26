@@ -1320,7 +1320,7 @@ data = Data.load_ascii(txt_file)
 
 
 
-        #lrfs(vpmout*"J1901-0906"; show_=true)
+        lrfs(vpmout*"J0034-0721"; show_=true)
 
         # FFT length diagnostic (spectra overlay and FWHM vs 1.44/N) for J1555-3134
         #fft_length_diagnostic(vpmout*"J1901-0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
@@ -1341,7 +1341,7 @@ data = Data.load_ascii(txt_file)
          #update_onpulse_single(vpmout*"J0459-0210")
         #
         # 2. Aktualizacja dla calosci danych w katalogu wyjsciowym:
-         update_onpulse_all(vpmout)
+         #update_onpulse_all(vpmout)
         # ----------------------------------------------------------------------
     end
 
