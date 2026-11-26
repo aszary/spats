@@ -1338,10 +1338,10 @@ data = Data.load_ascii(txt_file)
         # ----------------------------------------------------------------------
         # Aktualizacja on-pulse regions (MP / IP) na podstawie onpulsefixing.csv:
         # 1. Test dla pojedynczego pulsara:
-         update_onpulse_single(vpmout*"J0459-0210")
+         #update_onpulse_single(vpmout*"J0459-0210")
         #
         # 2. Aktualizacja dla calosci danych w katalogu wyjsciowym:
-        # update_onpulse_all(vpmout)
+         update_onpulse_all(vpmout)
         # ----------------------------------------------------------------------
     end
 
