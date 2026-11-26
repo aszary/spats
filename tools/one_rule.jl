@@ -277,13 +277,13 @@ function one_rule_replot()
 end
 
 # ---- Silne RFI zawsze wycinane (z > prog, bez bezpiecznika S/N), na v9; test na wszystkich pulsarach.
-#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard4/WYNIK.txt
+#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard5/WYNIK.txt
 # (one_rule_hard/ = pierwszy test bez wykluczenia jasnych impulsow: z>6 psul 162 pulsary)
 function _or_hard_setup!()
-    global S8_DIR = F7_DIR * "one_rule_hard4/"
+    global S8_DIR = F7_DIR * "one_rule_hard5/"
     global OR_RULES = [("v9", :model_ok, (rfi_struct=Inf,)),
-                       ("v9 + RFI: struktura poza oknem >1.5x typowej", :model_ok, (rfi_struct=1.5,)),
-                       ("v9 + RFI: struktura poza oknem >2x typowej", :model_ok, (rfi_struct=2.0,))]
+                       ("v9 + RFI: struktura poza oknem >3x typowej", :model_ok, (rfi_struct=3.0,)),
+                       ("v9 + RFI: struktura poza oknem >5x typowej", :model_ok, (rfi_struct=5.0,))]
     global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
 end
 
@@ -300,9 +300,9 @@ one_rule_hard_summary() = (_or_hard_setup!(); simple_v8_summary(; title="Silne R
 # ---- Podglad: ktore impulsy dochodza przy silnym RFI (rfi_hard) wzgledem v9 - stos impulsow z zaznaczeniami,
 # z(RFI) i jasnosc tych impulsow, profil sredni dodanych impulsow (czy maja emisje / paski).
 #   include("tools/one_rule.jl"); hard_rfi_view(["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217"])
-#   -> final_v7/one_rule_hard4/podglad.pdf
+#   -> final_v7/one_rule_hard5/podglad.pdf
 using PyPlot, PyCall
-function hard_rfi_view(psrs; struct_=2.0, z=6.0, excess=0.0, out=F7_DIR * "one_rule_hard4/podglad.pdf")
+function hard_rfi_view(psrs; struct_=3.0, z=6.0, excess=0.0, out=F7_DIR * "one_rule_hard5/podglad.pdf")
     _VD = SpaTs.Data
     PyPlot = Main.PyPlot
     mkpath(dirname(out)); PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
@@ -325,14 +325,19 @@ function hard_rfi_view(psrs; struct_=2.0, z=6.0, excess=0.0, out=F7_DIR * "one_r
             ax = fig.add_axes([0.06, 0.32, 0.50, 0.6])
             ax.imshow(D, origin="lower", aspect="auto", cmap="Greys_r", vmin=quantile(v, 0.01), vmax=quantile(v, 0.995),
                       interpolation="nearest", extent=[-0.5, nb - 0.5, 0.5, N + 0.5])
+            # znaczniki: niebieskie - wyciete juz w v9 (kazdy powod), czerwone - dochodza z nowej reguly
+            isempty(a0.bad) || ax.scatter(fill(-0.045nb, length(a0.bad)), a0.bad, marker="_", s=10, c="royalblue", clip_on=false)
             isempty(add) || ax.scatter(fill(-0.02nb, length(add)), add, marker=">", s=12, c="red", clip_on=false)
             ax.axvline(bst, c="orange", lw=0.5); ax.axvline(bend, c="orange", lw=0.5)
-            ax.set_ylabel("impuls (od 1); czerwone: dochodzą przy silnym RFI", fontsize=7); ax.tick_params(labelsize=6)
+            ax.set_ylabel("impuls (od 1); niebieskie: wycięte w v9, czerwone: dochodzą", fontsize=7); ax.tick_params(labelsize=6)
+            # struktura tla poza oknem w kazdym impulsie (to mierzy regula) - widac cale zle odcinki
+            ksv = _VD.rfi_struct_ratio(D, bst, bend)
             ax2 = fig.add_axes([0.62, 0.62, 0.34, 0.3])
-            ax2.scatter((sn.s[sn.good] .- md) ./ sd, zz[sn.good], s=2, c="grey", lw=0)
-            isempty(add) || ax2.scatter((sn.s[add] .- md) ./ sd, zz[add], s=10, c="red", lw=0)
-            ax2.axhline(z, c="k", ls="--", lw=0.6); ax2.set_yscale("symlog", linthresh=10)
-            ax2.set_xlabel("jasność impulsu (σ od mediany)", fontsize=7); ax2.set_ylabel("z (RFI)", fontsize=7); ax2.tick_params(labelsize=6)
+            ax2.scatter(1:N, ksv, s=2, c="grey", lw=0)
+            isempty(a0.bad) || ax2.scatter(a0.bad, ksv[a0.bad], s=3, c="royalblue", lw=0)
+            isempty(add) || ax2.scatter(add, ksv[add], s=8, c="red", lw=0)
+            ax2.axhline(struct_, c="k", ls="--", lw=0.6); ax2.set_yscale("log")
+            ax2.set_xlabel("impuls", fontsize=7); ax2.set_ylabel("struktura poza oknem / typowa", fontsize=7); ax2.tick_params(labelsize=6)
             ax3 = fig.add_axes([0.62, 0.32, 0.34, 0.22])
             good = [i for i in 1:N if live[i] && !(i in a1.bad)]
             pg = vec(mean(D[good, :], dims=1)); ax3.plot(pg ./ max(maximum(pg), eps()), c="grey", lw=0.8, label="zostawione")

@@ -1027,7 +1027,9 @@ module Data
 
     """
     Struktura POZA oknem impulsu (paski, fale, pochyle tlo): w kazdym impulsie tlo poza oknem wygladzone srednia
-    biezaca `w` binow (osobno w kazdym ciaglym kawalku), K = rms wygladzonego / (rms surowego / sqrt(w)).
+    biezaca `w` binow (osobno w kazdym ciaglym kawalku), K = rms wygladzonego / (sigma_bialy / sqrt(w)), gdzie
+    sigma_bialy = szum bialy z ROZNIC sasiednich binow (odporny, MAD) - wolne fale i paski prawie go nie zmieniaja,
+    wiec K nie nasyca sie (wczesniej dzielone przez rms surowego, ktory przy wielkich falach tez rosl: J1012 max ~2.2x).
     Czysty szum daje K ~ 1 niezaleznie od poziomu szumu (jasny pulsar, scyntylacja), RFI z ksztaltem - K >> 1.
     Zwraca K / mediana(K) calej obserwacji (1.0 = typowy impuls; NaN = impuls wyciety).
     """
@@ -1044,13 +1046,13 @@ module Data
         K = fill(NaN, N)
         for i in 1:N
             any(!iszero, @view data[i, :]) || continue
-            sm = Float64[]; raw = Float64[]
+            sm = Float64[]; dd = Float64[]
             for r in runs
                 x = Float64.(@view data[i, r]); x .-= mean(x)
                 c = vcat(0.0, cumsum(x))
-                append!(sm, [(c[t+w] - c[t]) / w for t in 1:length(x)-w+1]); append!(raw, x)
+                append!(sm, [(c[t+w] - c[t]) / w for t in 1:length(x)-w+1]); append!(dd, diff(x))
             end
-            σ = std(raw)
+            σ = 1.4826 * median(abs.(dd .- median(dd))) / sqrt(2)
             σ > 0 && (K[i] = std(sm) / (σ / sqrt(w)))
         end
         m = median(filter(isfinite, K))
