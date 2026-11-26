@@ -168,7 +168,10 @@ Margines przy RFI zostaje: bez niego 31 pulsarów traci >1% S/N (J1148 −9,4%).
 
 **Na razie wyłączone** (`RFI_HARD = Inf`): test na wszystkich pulsarach pokazał, że sam próg z tnie też jasne dobre
 impulsy (z>6: 162 pulsary gorsze niż v9, 22 gorsze od metody ręcznej; z>10: 72). W teście wersja z wykluczeniem
-wyjątkowo jasnych impulsów (`rfi_hard_bright = 3`, `one_rule_hard`). Planowana zasada:
+wyjątkowo jasnych impulsów nic nie dała (149 pulsarów); podgląd (`hard_rfi_view`) pokazał, że dochodzące impulsy to
+w większości prawdziwe śmieci (J1012, J0932, J1110), a spadek S/N bierze się z wycięcia tylko części długiego złego
+odcinka (lokalne z go nie widzi), fałszywe tylko w pulsarze o bardzo stabilnym szumie (J0820). Test `one_rule_hard`
+(final_v7/one_rule_hard3): z > 6 względem sąsiadów ALBO całej obserwacji i szum poza impulsem > +10% / +20%. Planowana zasada:
 impuls z silnym RFI (z > 6: szum poza impulsem odstaje o ponad 6σ od mediany ~31 sąsiadów) wycinamy zawsze, bez
 bezpiecznika S/N (`Data.RFI_HARD[] = 6.0`; `Inf` = jak v9). Powód: poziome paski (przesunięcie tła na całym impulsie)
 nie psują S/N średniego profilu, więc bezpiecznik ich nie przepuszczał (J0932−3217: z ≈ 13–24 zostawione), a psują

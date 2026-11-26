@@ -1026,6 +1026,19 @@ module Data
     end
 
     "Like `rfi_rms`, but returns the z-score (residual / robust sd) of every pulse (NaN for empty ones)."
+    "Szum poza impulsem kazdego impulsu wzgledem mediany calej obserwacji (1.0 = typowy; NaN = impuls wyciety)."
+    function rfi_rms_ratio(data, bin_st, bin_end)
+        N = size(data, 1)
+        q = fill(NaN, N)
+        off = offpulse_bins(data, bin_st, bin_end)
+        g = findall(i -> any(!iszero, @view data[i, :]), 1:N)
+        isempty(g) && return q
+        r = [std(@view data[i, off]) for i in g]
+        m = median(r)
+        m > 0 && (q[g] .= r ./ m)
+        return q
+    end
+
     function rfi_rms_z(data, bin_st, bin_end; local_win=31)
         N = size(data, 1)
         z = fill(NaN, N)
@@ -1133,10 +1146,10 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, RFI_HARD[]), rfi_hard_bright=get(ZAP_STEPS[], :rfi_hard_bright, 3.0), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, RFI_HARD[]), rfi_hard_excess=get(ZAP_STEPS[], :rfi_hard_excess, 0.1), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
-        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0, rfi_hard_bright=0))..., kw...)
+        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0, rfi_hard_excess=0))..., kw...)
         reason = copy(a.reason)
         why = a.why
         if gate
@@ -1151,14 +1164,17 @@ module Data
             # impulsie) nie psuja S/N sredniego profilu, wiec bezpiecznik ich nie przepuszczal (J0932-3217: z ~ 13-24
             # zostawione; TPA je wycielo), a psuja energie, nulle i LRFS
             if isfinite(rfi_hard)
-                zh = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win)
-                # tylko impulsy, ktore NIE sa wyjatkowo jasne: u jasnych pulsarow bardzo jasny impuls podnosi szum poza
-                # oknem (emisja wylewa sie), a sama miara z brala go za RFI (test: z>6 psul 162 pulsary, J0820-1350 -3.5%)
-                sg = [sn.s[i] for i in eachindex(sn.s) if sn.good[i]]
-                bright_lim = isempty(sg) ? Inf : median(sg) + rfi_hard_bright * 1.4826 * median(abs.(sg .- median(sg)))
-                hard = [i for i in eachindex(zh) if reason[i] == 0 && zh[i] > rfi_hard && !(sn.s[i] > bright_lim)]
+                # z wzgledem sasiadow ALBO wzgledem calej obserwacji: w srodku dlugiego zlego odcinka sasiedzi tez sa zli,
+                # wiec lokalne z go nie widzi (J1012-5857: odcinek ~530-800 z falami tla, lokalnie z < 0);
+                # oraz szum poza impulsem wyraznie wiekszy od typowego (> 1 + rfi_hard_excess): u pulsara o bardzo
+                # stabilnym szumie maleńkie wahania daja duze z przy czystym tle (J0820-1350: czyste impulsy z = 7-13)
+                zl = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win)
+                zg = rfi_rms_z(data, bin_st, bin_end; local_win=0)
+                q = rfi_rms_ratio(data, bin_st, bin_end)
+                hard = [i for i in eachindex(zl) if reason[i] == 0 && (zl[i] > rfi_hard || zg[i] > rfi_hard) &&
+                                                     q[i] > 1 + rfi_hard_excess]
                 reason[hard] .= 2
-                isempty(hard) || (why *= " + silne RFI (z > $(rfi_hard)): $(length(hard)) imp.")
+                isempty(hard) || (why *= " + silne RFI (z > $(rfi_hard), szum > +$(round(Int, 100rfi_hard_excess))%): $(length(hard)) imp.")
             end
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
