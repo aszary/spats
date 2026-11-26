@@ -1086,6 +1086,9 @@ module Data
     # :none - zadnych nulli (czysta jedna regula; J1931+1439: S/N -41%)
     NULL_MODEL_FALLBACK = Ref(:auto)
     NULL_MODEL_DIR = Ref("/home/psr/data/OUTPUT/final_v7/model/")
+    # true: nulle z modelu dla KAZDEGO pulsara z dopasowanym modelem (jedna regula dla wszystkich, tools/one_rule.jl
+    # wariant B); false (v8): tylko modele wiarygodne, reszta wg NULL_MODEL_FALLBACK
+    NULL_MODEL_ANY = Ref(false)
     NULL_EXTRA = Dict{String,Vector{Int}}()
     NULL_EXTRA_CUR = Ref{Union{Nothing,Vector{Int}}}(nothing)
     const _NULL_EXTRA_LOADED = Ref(false)
@@ -1098,7 +1101,8 @@ module Data
         n = 0
         for l in Iterators.drop(eachline(f), 1)
             r = split(l, ",")
-            (length(r) >= 2 && r[2] == "ok") || continue
+            # NULL_MODEL_ANY (regula B / v9): model kazdego pulsara z dopasowaniem, nie tylko wiarygodnego
+            (length(r) >= 2 && (r[2] == "ok" || NULL_MODEL_ANY[])) || continue
             pf = joinpath(dir, "nulls_model", r[1] * ".csv")
             isfile(pf) || continue
             rows = Int[]

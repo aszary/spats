@@ -149,3 +149,41 @@ function one_rule_margin(; n=32)
 end
 
 one_rule_margin_summary() = (_or_margin_setup!(); simple_v8_summary(; title="Reguła B: margines przy RFI czy bez (prawdziwe dane)", basename_="B z marginesem"))
+
+# ---- Wersja v9 = regula B dla wszystkich pulsarow (po tescie i decyzji). pazur2 bez zmian do one_rule_adopt().
+#   include("tools/one_rule.jl"); one_rule_build()                # margines przy RFI jak dotad (margin=false: bez)
+#   one_rule_adopt()                                              # pazur2 -> pazur2_przed_v9, nowa wersja -> pazur2
+OR_OUT = F7_DIR * "one_rule/"
+function one_rule_build(; margin=true, n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    out = OR_OUT * "pazur2_final/"; mkpath(out)
+    kw = margin ? NamedTuple() : (pad=0,)
+    write(out * ".wariant", "v9: nulle = model energii P>=0.5 dla wszystkich pulsarow (bez modelu: bez nulli); RFI jak v8" *
+                            (margin ? ", margines przy RFI" : ", bez marginesu przy RFI"))
+    println("\n===== WERSJA v9 (reguła B) → $out =====")
+    cfg = "SpaTs.Data.ZAP_STEPS[] = $(repr(kw)); SpaTs.Data.NULL_MODE[] = :model; SpaTs.Data.NULL_THR[] = 0.5; " *
+          "SpaTs.Data.NULL_MODEL_ANY[] = true; SpaTs.Data.NULL_MODEL_FALLBACK[] = :none; " *
+          "SpaTs.Data.NULL_MODEL_DIR[] = \"$(F7_DIR)model/\"; "
+    cf = "SpaTs.chan_first_list([\"$(F6_ROOT)zap_verify_v3/\", \"$(F6_ROOT)zap_verify/\"])"
+    codes = [F7_PRE * cfg * "SpaTs.autozap_all(out=\"$out\", only=$(repr(_f6_psrs()[k:n:end])), skip_done=true, keep_manual=false, " *
+             "reuse_window=true, window_root=\"$(F6_ROOT)pazur2/\", chan_first=$cf)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, OR_OUT * "logs", "build"; every=120)
+    vd = OR_OUT * "zap_verify_final/"
+    codes = [F7_PRE * cfg * "Base.invokelatest(Main.zap_verify; pazur2=\"$out\", out=\"$vd\", part=\"$k/$n\", chans=false, save_rfi=true)"
+             for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, OR_OUT * "logs", "verify"; every=120)
+    Base.invokelatest(Main.zap_verify_summary; out=vd)
+    SpaTs.compare_zap_methods(mine=out, outdir=OR_OUT * "zap_comparison_final/")
+    println("Potem, po decyzji: one_rule_adopt()")
+end
+
+"Przyjecie v9: pazur2 -> pazur2_przed_v9 (albo _2...), one_rule/pazur2_final -> pazur2."
+function one_rule_adopt()
+    src, dst, bk = OR_OUT * "pazur2_final", F6_ROOT * "pazur2", F6_ROOT * "pazur2_przed_v9"
+    isdir(src) || error("brak $src - najpierw one_rule_build()")
+    k = 1
+    while isdir(bk); k += 1; bk = F6_ROOT * "pazur2_przed_v9_$k"; end
+    mv(dst, bk); mv(src, dst)
+    println("Przyjęte: $(strip(read(dst * "/.wariant", String))). Stara wersja: $bk.")
+    println("Domyślne w kodzie trzeba jeszcze zmienić (napisz Claude'owi).")
+end
