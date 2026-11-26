@@ -283,7 +283,8 @@ function _or_hard_setup!()
     global S8_DIR = F7_DIR * "one_rule_hard6/"
     global OR_RULES = [("v9", :model_ok, (rfi_struct=Inf,)),
                        ("v9 + RFI: struktura tła >2x i z>6", :model_ok, (rfi_struct=2.0, rfi_struct_z=6.0)),
-                       ("v9 + RFI: struktura tła >2x i z>4", :model_ok, (rfi_struct=2.0, rfi_struct_z=4.0))]
+                       ("v9 + RFI: struktura tła >2x i z>4", :model_ok, (rfi_struct=2.0, rfi_struct_z=4.0)),
+                       ("v9 + RFI jak TPA VIII: rms > mediana + 4σ, iteracyjnie", :model_ok, (rfi_tpa_k=4.0,))]
     global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
 end
 
@@ -410,7 +411,8 @@ end
 #   include("tools/one_rule.jl"); quick_rfi_test()        # -> final_v7/one_rule_quick/{WYNIK.txt, podglad_<prog>.pdf}
 function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217", "J1915+0752"];
                         variants=[("2x", (rfi_struct=2.0,)), ("2.5x", (rfi_struct=2.5,)), ("1.5x i z>6", (rfi_struct=1.5, rfi_struct_z=6.0)),
-                                  ("2x i z>6", (rfi_struct=2.0, rfi_struct_z=6.0)), ("2x i z>4", (rfi_struct=2.0, rfi_struct_z=4.0))],
+                                  ("2x i z>6", (rfi_struct=2.0, rfi_struct_z=6.0)), ("2x i z>4", (rfi_struct=2.0, rfi_struct_z=4.0)),
+                                  ("TPA 4σ", (rfi_tpa_k=4.0,))],
                         out=F7_DIR * "one_rule_quick/", plots=true)
     _VD = SpaTs.Data
     mkpath(out)
@@ -454,7 +456,7 @@ function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3
     write(out * "WYNIK.txt", join(L, "\n") * "\n")
     if plots
         for (k, (lab, kw)) in enumerate(variants)
-            hard_rfi_view(psrs; struct_=kw.rfi_struct, zkw=Base.structdiff(kw, (rfi_struct=0,)), out=out * "podglad_$(k)_" * replace(lab, r"[^0-9a-z.]" => "") * ".pdf")
+            hard_rfi_view(psrs; struct_=get(kw, :rfi_struct, Inf), zkw=Base.structdiff(kw, (rfi_struct=0,)), out=out * "podglad_$(k)_" * replace(lab, r"[^0-9a-z.]" => "") * ".pdf")
         end
     end
     println("\nZapisane: $(out)WYNIK.txt" * (plots ? " i podglad_<próg>.pdf" : ""))

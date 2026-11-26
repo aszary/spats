@@ -1245,11 +1245,29 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), rfi_struct_z=get(ZAP_STEPS[], :rfi_struct_z, Inf), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), rfi_struct_z=get(ZAP_STEPS[], :rfi_struct_z, Inf), rfi_tpa_k=get(ZAP_STEPS[], :rfi_tpa_k, Inf), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
-        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0, rfi_struct_z=0)), values(kw))
+        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0, rfi_struct_z=0, rfi_tpa_k=0)), values(kw))
         sn, a, reason, why = _az_pre(data, bin_st, bin_end, gate, null_max_frac, null_faded_frac, corekw)
         if rfi
+            # Regula TPA VIII (Song+2023, dodatek D.3) do porownania: impulsy, ktorych szum poza oknem (rms) przekracza
+            # mediane CALEJ obserwacji o > rfi_tpa_k sigma (odporna MAD), szukane iteracyjnie, wycinane bez bezpiecznika S/N
+            if isfinite(rfi_tpa_k)
+                off_t = offpulse_bins(data, bin_st, bin_end)
+                rr = [any(!iszero, @view data[i, :]) ? std(@view data[i, off_t]) : NaN for i in eachindex(reason)]
+                keep = [reason[i] == 0 && isfinite(rr[i]) for i in eachindex(reason)]
+                tpa = Int[]
+                while true
+                    v = rr[keep]; length(v) < 10 && break
+                    m = median(v); s = 1.4826 * median(abs.(v .- m))
+                    s > 0 || break
+                    new_t = [i for i in eachindex(rr) if keep[i] && rr[i] > m + rfi_tpa_k * s]
+                    isempty(new_t) && break
+                    append!(tpa, new_t); keep[new_t] .= false
+                end
+                reason[tpa] .= 2
+                isempty(tpa) || (why *= " + RFI jak TPA VIII (rms > mediana + $(rfi_tpa_k)σ, iteracyjnie): $(length(tpa)) imp.")
+            end
             # JEDNA prosta regula na RFI z ksztaltem (paski, fale, pochyle tlo): prawdziwa emisja jest tylko w oknie impulsu,
             # RFI ma strukture takze POZA nim. Impuls, w ktorym struktura tla poza oknem jest > rfi_struct razy typowa,
             # wycinamy zawsze, bez bezpiecznika S/N (paski nie psuja S/N sredniego profilu, wiec bezpiecznik ich nie
