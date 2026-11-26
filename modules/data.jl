@@ -1245,11 +1245,13 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), rfi_struct_z=get(ZAP_STEPS[], :rfi_struct_z, Inf), rfi_tpa_k=get(ZAP_STEPS[], :rfi_tpa_k, Inf), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_struct=get(ZAP_STEPS[], :rfi_struct, RFI_STRUCT[]), rfi_struct_z=get(ZAP_STEPS[], :rfi_struct_z, Inf), rfi_tpa_k=get(ZAP_STEPS[], :rfi_tpa_k, Inf), rfi_safe=get(ZAP_STEPS[], :rfi_safe, true), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
-        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0, rfi_struct_z=0, rfi_tpa_k=0)), values(kw))
+        corekw = merge(Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_struct=0, rfi_struct_z=0, rfi_tpa_k=0, rfi_safe=0)), values(kw))
         sn, a, reason, why = _az_pre(data, bin_st, bin_end, gate, null_max_frac, null_faded_frac, corekw)
         if rfi
+            # rfi_safe=false: bez tego kroku (prosta pojedyncza regula RFI - testy one_rule_simple)
+            if rfi_safe
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
             # szybkie S/N: profile bazowe (bez cut0 / bez rfi0) liczone raz, kandydaci (reason == 0, wiec rozlaczni
@@ -1303,6 +1305,7 @@ module Data
             end
             reason[new] .= 2
             isempty(new) || (why *= " + RFI (skok szumu off-pulse): $(length(new)) imp.")
+            end
             # Ponizsze reguly dzialaja PO kroku RFI z bezpiecznikiem (wczesniej przed nim: zmienialy punkt odniesienia
             # bezpiecznika i ten nagle przepuszczal wątpliwych kandydatow - posrednie wyciecia, J0924-5814, J1738-3211).
             # Krok z bezpiecznikiem decyduje wiec dokladnie jak w v9, a te reguly tylko dokladaja wlasne wykrycia.

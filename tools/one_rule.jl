@@ -418,8 +418,8 @@ function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3
     mkpath(out)
     L = String[]; pr(s) = (println(s); push!(L, s))
     pr("# Szybki test reguły RFI (struktura tła poza oknem > próg × typowa): $(join(psrs, ", "))\n")
-    pr("| pulsar | próg | dochodzi | S/N wobec v9 | złe zostawione (struktura>2x i z>6) | wycięte, a wyglądają dobrze |")
-    pr("|---|---|---|---|---|---|")
+    pr("| pulsar | próg | dochodzi | odpada (v9 wycinał) | S/N wobec v9 | złe zostawione (struktura>2x i z>6) | wycięte, a wyglądają dobrze |")
+    pr("|---|---|---|---|---|---|---|")
     for psr in psrs
         try
             p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
@@ -436,14 +436,14 @@ function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3
             a0 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf)
             s0 = _VD.profile_snr(F; drop=a0.bad)
             left0 = [i - 1 for i in 1:N if bad(i) && !(i in a0.bad)]
-            pr(@sprintf("| %s | v9 | - | - | %d %s | - |", psr, length(left0), isempty(left0) ? "" : string(left0[1:min(end, 12)])))
+            pr(@sprintf("| %s | v9 | - | - | - | %d %s | - |", psr, length(left0), isempty(left0) ? "" : string(left0[1:min(end, 12)])))
             for (lab, kw) in variants
                 a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, kw...)
                 cut = Set(a1.bad); add = sort(setdiff(a1.bad, a0.bad))
                 s1 = _VD.profile_snr(F; drop=a1.bad)
                 left = [i - 1 for i in 1:N if bad(i) && !(i in cut)]
                 good = [i - 1 for i in add if ks[i] <= 2 && isfinite(wc.r[i]) && wc.r[i] >= rtyp - 0.1]
-                pr(@sprintf("| %s | %s | %d | %+.1f%% | %d %s | %d %s |", psr, lab, length(add), 100(s1 / s0 - 1),
+                pr(@sprintf("| %s | %s | %d | %d | %+.1f%% | %d %s | %d %s |", psr, lab, length(add), length(setdiff(a0.bad, a1.bad)), 100(s1 / s0 - 1),
                             length(left), isempty(left) ? "" : string(left[1:min(end, 12)]),
                             length(good), isempty(good) ? "" : string(good[1:min(end, 12)])))
             end
@@ -461,3 +461,31 @@ function quick_rfi_test(psrs=["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3
     end
     println("\nZapisane: $(out)WYNIK.txt" * (plots ? " i podglad_<próg>.pdf" : ""))
 end
+
+# ---- CALE RFI jedna prosta regula (jak nulle: jedna zasada). Wylaczone wszystkie kroki RFI automatu (pojedyncze smieci,
+# skoki szumu, zaszumione odcinki / zly poczatek, regula z bezpiecznikiem S/N) - zostaje tylko wybrana regula.
+# Nulle jak v9 (model, tylko wiarygodny). Kanaly wycinane przed sumowaniem bez zmian (to przygotowanie danych).
+OR_SIMPLE = (use_junk=false, use_jump=false, use_noisy=false, rfi_safe=false)
+OR_SIMPLE_VARIANTS = [
+    ("v9 (obecne: kilka krokow RFI)", NamedTuple()),
+    ("tylko TPA VIII: rms > mediana + 4σ, iteracyjnie", merge(OR_SIMPLE, (rfi_tpa_k=4.0,))),
+    ("tylko TPA VIII z 6σ", merge(OR_SIMPLE, (rfi_tpa_k=6.0,))),
+    ("tylko z > 6 (sasiedzi albo calosc)", merge(OR_SIMPLE, (rfi_struct=0.0, rfi_struct_z=6.0))),
+    ("tylko struktura tla > 2x i z > 6", merge(OR_SIMPLE, (rfi_struct=2.0, rfi_struct_z=6.0))),
+]
+function _or_simple_setup!()
+    global S8_DIR = F7_DIR * "one_rule_simple/"
+    global OR_RULES = [(n, :model_ok, kw) for (n, kw) in OR_SIMPLE_VARIANTS]
+    global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
+end
+"Test na wszystkich pulsarach: kazda prosta regula RFI zamiast wszystkich krokow RFI automatu. -> final_v7/one_rule_simple/WYNIK.txt"
+function one_rule_simple(; n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    _or_simple_setup!(); mkpath(S8_DIR)
+    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); _or_simple_setup!(); Base.invokelatest(_or_part, $k, $n)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "ors"; every=120)
+    one_rule_simple_summary()
+end
+one_rule_simple_summary() = (_or_simple_setup!(); simple_v8_summary(; title="Całe RFI jedną prostą regułą (nulle jak v9) - porównanie z v9", basename_="v9"))
+"Szybko na 5 pulsarach (tabela + podglady): proste reguly RFI."
+quick_simple() = quick_rfi_test(; variants=OR_SIMPLE_VARIANTS[2:end], out=F7_DIR * "one_rule_quick_simple/")
