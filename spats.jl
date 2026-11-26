@@ -1141,6 +1141,39 @@ data = Data.load_ascii(txt_file)
     end
 
     """
+        lrfs_params(outdir; start=1, number=nothing, darkness=0.3, show_=true)
+
+    Alternative LRFS function that strictly takes the FFT length (`fft` or `nfft`)
+    from the updated `params.json` (as populated from `onpulsefixing.csv`).
+    If not specified in `params.json`, defaults to 256.
+    """
+    function lrfs_params(outdir; start=1, number=nothing, darkness=0.3, show_=true)
+        txt_file = ensure_debase_file(outdir)
+        p = Tools.read_params(joinpath(outdir, "params.json"))
+        data = Data.load_ascii(txt_file)
+        Data.zap!(data; ranges=haskey(p, "zaps") ? p["zaps"] : nothing)
+        bin_st = Int(p["bin_st"])
+        bin_end = Int(p["bin_end"])
+        psr_name = basename(rstrip(outdir, ['/', '\\']))
+
+        # Read Nfft strictly from params.json ("fft" or "nfft")
+        nfft_val = if haskey(p, "fft") && !isnothing(p["fft"])
+            Int(p["fft"])
+        elseif haskey(p, "nfft") && !isnothing(p["nfft"])
+            Int(p["nfft"])
+        else
+            @warn "No 'fft' or 'nfft' found in $(joinpath(outdir, "params.json")), defaulting to 256."
+            256
+        end
+
+        println(">>> Running lrfs_params for $psr_name with Nfft=$nfft_val from params.json <<<")
+        return Plot.lrfs_obsolete(data, outdir; start=start, number=number,
+                                  bin_st=bin_st, bin_end=bin_end,
+                                  darkness=darkness, name_mod="$(psr_name)_Nfft$(nfft_val)",
+                                  manual_nfft=nfft_val, show_=show_)
+    end
+
+    """
         lrfs_optimal(outdir; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
 
     Performs the FWHM(N) plateau diagnostic to pick the optimal N, then creates
@@ -1339,12 +1372,15 @@ data = Data.load_ascii(txt_file)
         #LrfsBatch.plot_lrfs_results("lrfs_classifications_olddrift.csv", "lrfs_chart_olddriftfix.pdf")
 
         # ----------------------------------------------------------------------
-        # Aktualizacja on-pulse regions (MP / IP) na podstawie onpulsefixing.csv:
-        # 1. Test dla pojedynczego pulsara:
-         #update_onpulse_single(vpmout*"J0459-0210")
+        # Aktualizacja on-pulse regions (MP / IP) oraz FFT na podstawie onpulsefixing.csv:
+        # 1. Test aktualizacji pojedynczego pulsara:
+        # update_onpulse_single(vpmout*"J0034-0721")
         #
         # 2. Aktualizacja dla calosci danych w katalogu wyjsciowym:
-         #update_onpulse_all(vpmout)
+        # update_onpulse_all(vpmout)
+        #
+        # 3. Uruchomienie LRFS z dlugoscia FFT pobrana z zaktualizowanego params.json:
+        # lrfs_params(vpmout*"J0034-0721"; show_=true)
         # ----------------------------------------------------------------------
     end
 
