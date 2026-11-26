@@ -98,14 +98,17 @@ end
 # ---- Wykresy porownawcze: strona zbiorcza + strona na pulsar (stos impulsow z zaznaczeniami, z(RFI), profile).
 #   include("tools/tpa_zap_compare.jl"); tpa_zap_plots()          # -> tpa_zap/porownanie.pdf
 using PyPlot, PyCall
-function tpa_zap_plots(; out=TZ_DIR, only=nothing)
+function tpa_zap_plots(; out=TZ_DIR, only=nothing, zkw=nothing, name="porownanie.pdf")
+    # zkw = ustawienia automatu (np. (rfi_struct=2.0, rfi_struct_z=6.0)): nasze wyciecia liczone od nowa ta regula
+    # (v9 + zkw) zamiast z pazur2 - porownanie proponowanej reguly z TPA przed jej przyjeciem
+    isnothing(zkw) || isdefined(Main, :_nr_model) || Base.include(Main, joinpath(@__DIR__, "null_rules_real.jl"))
     _VD = SpaTs.Data
     mkpath(out)
     T = _tz_tpa(); ours = Set(_f6_psrs())
     psrs = sort([q for (q, t) in T if q in ours && t.nz > 0])
     isnothing(only) || (psrs = filter(in(Set(only)), psrs))
     PdfPages = pyimport("matplotlib.backends.backend_pdf").PdfPages
-    pf = out * "porownanie.pdf"; pdf = PdfPages(pf)
+    pf = out * name; pdf = PdfPages(pf)
     S = []                                   # do strony zbiorczej
     pages = []
     for psr in psrs
@@ -114,8 +117,16 @@ function tpa_zap_plots(; out=TZ_DIR, only=nothing)
             p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
             D = Float64.(_f6_load(psr, p)); N, nb = size(D)
             bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
-            rfi = Set(_tz_rows0(_VD.zaps_rfi_of(p), N)); nul = Set(_tz_rows0(_VD.zaps_null_of(p), N))
-            allc = Set(_tz_rows0(_VD.zaps_of(p), N)); tz = Set(i for i in t.zaps if 0 <= i < N)
+            if isnothing(zkw)
+                rfi = Set(_tz_rows0(_VD.zaps_rfi_of(p), N)); nul = Set(_tz_rows0(_VD.zaps_null_of(p), N))
+                allc0 = Set(_tz_rows0(_VD.zaps_of(p), N))
+            else
+                m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+                a = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, zkw...)
+                sp = _VD.split_zaps(a.reason)
+                rfi = Set(sp.rfi .- 1); nul = Set(sp.null .- 1); allc0 = Set(a.bad .- 1)
+            end
+            allc = allc0; tz = Set(i for i in t.zaps if 0 <= i < N)
             z = _VD.rfi_rms_z(D, bst, bend)
             com = intersect(tz, rfi); tonly = setdiff(tz, allc); oonly = setdiff(rfi, tz)
             snr0 = _VD.profile_snr(D, bst, bend)
@@ -205,4 +216,15 @@ function tpa_zap_plots(; out=TZ_DIR, only=nothing)
     pdf.close()
     println("Wykresy: $pf  ($(length(pages)) pulsarów + strona zbiorcza)")
     return pf
+end
+
+"""
+Porownanie z TPA (Xiaoxi, stats.csv) na wybranych pulsarach: obecne v9 (pazur2) i proponowana regula RFI
+(struktura tla poza oknem > 2x i z > 6). Dwa pliki: tpa_zap/porownanie_v9.pdf i porownanie_regula.pdf.
+    include("tools/tpa_zap_compare.jl"); tpa_rule_compare()
+"""
+function tpa_rule_compare(psrs=["J0932-3217", "J1915+0752", "J1057-7914", "J1926+1648", "J1808-0813", "J1404+1159"];
+                          zkw=(rfi_struct=2.0, rfi_struct_z=6.0))
+    tpa_zap_plots(; only=psrs, name="porownanie_v9.pdf")
+    tpa_zap_plots(; only=psrs, zkw=zkw, name="porownanie_regula.pdf")
 end
