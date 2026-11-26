@@ -1596,24 +1596,10 @@ module Data
     zap_chans_of(p) = haskey(p, "zaps2") ? get(p, "zap_chans2", nothing) : get(p, "zap_chans", nothing)
 
 
-    """
-        profile_snr(data, bin_st, bin_end; drop=Int[]) -> Float64
-
-    Standard S/N of the integrated profile (Lorimer & Kramer): sum the
-    pulses (all-zero rows = already zapped, and rows `drop` left out), then
-
-        S/N = Σ_on (P − mean_off) / (σ_off · √n_on)
-
-    with the fixed on-pulse window `bin_st:bin_end` and σ_off the rms of the
-    integrated profile off the pulse. Same data + same window for every zap
-    set, so the comparison between methods is fair (unlike pazi, which picks
-    its own width).
-    """
-    """
-    Szybkie S/N profilu przy wielu wywolaniach na tych samych danych (bezpiecznik RFI): suma profilu i biny poza
-    impulsem liczone RAZ, potem dla `drop` odejmowane tylko wyciete impulsy (koszt ~ liczba wycietych x biny zamiast
-    wszystkie impulsy x biny). Ten sam wzor co `profile_snr` (roznice tylko zaokraglen, ~1e-12 wzglednie).
-    """
+    # Szybkie S/N profilu przy wielu wywolaniach na tych samych danych (bezpiecznik RFI): suma profilu i biny poza
+    # impulsem liczone RAZ, potem dla `drop` odejmowane tylko wyciete impulsy (koszt ~ liczba wycietych x biny zamiast
+    # wszystkie impulsy x biny). Ten sam wzor co `profile_snr` (roznice tylko zaokraglen, ~1e-16 wzglednie).
+    # (komentarz, nie docstring: struktura w tym miejscu modulu nie przyjmuje docstringu)
     struct SnrFast{T}
         X::Matrix{T}; live::BitVector; Ptot::Vector{T}; on::UnitRange{Int}; off::Vector{Int}
     end
@@ -1639,6 +1625,18 @@ module Data
     end
     profile_snr(F::SnrFast; drop=Int[]) = snr_of(F, snr_profile(F, drop)...)
 
+    """
+        profile_snr(data, bin_st, bin_end; drop=Int[]) -> Float64
+
+    Standard S/N of the integrated profile (Lorimer & Kramer): sum the
+    pulses (all-zero rows = already zapped, and rows `drop` left out), then
+        S/N = Σ_on (P − mean_off) / (σ_off · √n_on)
+
+    with the fixed on-pulse window `bin_st:bin_end` and σ_off the rms of the
+    integrated profile off the pulse. Same data + same window for every zap
+    set, so the comparison between methods is fair (unlike pazi, which picks
+    its own width).
+    """
     function profile_snr(data, bin_st, bin_end; drop=Int[])
         N, nb = size(data)
         keep = [any(!iszero, @view data[i, :]) for i in 1:N]
