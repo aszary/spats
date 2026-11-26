@@ -756,3 +756,73 @@ function compare_rules_view2(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1
     end
     pdf.close(); println("Wykres: $out")
 end
+
+# ---- Wykres "przed / po" dla kazdej zasady (styl jak pulsar_autozap): jedna zasada na strone, lewy panel oryginal,
+# prawy dane po wycieciu (wyciete impulsy biale), miedzy nimi pasek z powodem. Strony pulsar po pulsarze: v9 i
+# kolejne zasady dla tego samego pulsara - przewijajac widac, co ZOSTALO w danych.
+#   include("tools/one_rule.jl"); compare_rules_pages()      # -> final_v7/porownanie_zasad3.pdf
+function compare_rules_pages(psrs=["J0932-3217", "J1012-5857", "J0820-1350", "J1110-5637", "J1915+0752", "J1844-0433",
+                                   "J1842+0257", "J1057-7914", "J1404+1159", "J0211-8159"];
+                             variants=OR_VIEW_VARIANTS, out=F7_DIR * "porownanie_zasad3.pdf", zoom=nothing)
+    _VD = SpaTs.Data
+    PyPlot = Main.PyPlot
+    PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
+    patches = Main.PyCall.pyimport("matplotlib.patches")
+    mkpath(dirname(out)); pdf = PdfPages(out)
+    col = Dict(1 => "red", 2 => "red", 4 => "darkorange", 3 => "grey", 6 => "grey", 5 => "gold")
+    for psr in psrs
+        try
+            p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
+            D = Float64.(_f6_load(psr, p)); N, nb = size(D)
+            bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+            m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+            F = _VD.snr_fast(D, bst, bend); s0 = _VD.profile_snr(F)
+            live = [any(!iszero, @view D[i, :]) for i in 1:N]; v = vec(D[live, :])
+            lo, hi = quantile(v, 0.01), quantile(v, 0.995)
+            rows = isnothing(zoom) ? (1:N) : zoom
+            w = max(1, round(Int, 0.15 * (bend - bst + 1)))
+            xl = (max(1, bst - 4w), min(nb, bend + 4w))          # przyblizenie na okno impulsu z kawalkiem tla
+            for (l, kw) in variants
+                a = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_struct=Inf, kw...)
+                cut = falses(N); cut[a.bad] .= true
+                A = copy(D); A[cut, :] .= NaN
+                s1 = _VD.profile_snr(F; drop=a.bad)
+                fig = PyPlot.figure(figsize=(11, 8))
+                fig.suptitle(@sprintf("%s - zasada: %s\nwycięte %d z %d  (RFI %d, złe odcinki %d, nulle %d%s)   S/N profilu %.1f -> %.1f",
+                                      psr, l, length(a.bad), N, count(r -> r in (1, 2), a.reason), count(==(4), a.reason),
+                                      count(r -> r in (3, 6), a.reason), count(==(5), a.reason) > 0 ? ", margines $(count(==(5), a.reason))" : "",
+                                      s0, s1), fontsize=10)
+                cm = PyPlot.get_cmap("afmhot").copy(); cm.set_bad("white")
+                ax1 = fig.add_axes([0.07, 0.30, 0.40, 0.58]); ax2 = fig.add_axes([0.53, 0.30, 0.40, 0.58], sharey=ax1)
+                axm = fig.add_axes([0.475, 0.30, 0.02, 0.58], sharey=ax1)
+                for (ax, M, t) in ((ax1, D, "PRZED (oryginał)"), (ax2, A, "PO (wycięte impulsy białe)"))
+                    ax.imshow(M, origin="lower", aspect="auto", cmap=cm, vmin=lo, vmax=hi, interpolation="nearest",
+                              extent=[0.5, nb + 0.5, 0.5, N + 0.5])
+                    ax.set_xlim(xl...); ax.set_ylim(first(rows) - 0.5, last(rows) + 0.5)
+                    ax.set_title(t, fontsize=10); ax.set_xlabel("bin", fontsize=8); ax.tick_params(labelsize=7)
+                end
+                ax1.set_ylabel("impuls (od 1)", fontsize=8); ax2.tick_params(labelleft=false)
+                for r in (4, 1, 2, 3, 6, 5)
+                    ys = findall(==(r), a.reason)
+                    isempty(ys) || axm.barh(ys, 1, height=1.0, color=col[r], lw=0)
+                end
+                axm.set_xlim(0, 1); axm.set_xticks([]); axm.tick_params(labelleft=false)
+                # profile przed / po
+                axp = fig.add_axes([0.07, 0.07, 0.86, 0.16])
+                pr0 = vec(mean(D[live, :], dims=1)); keep = live .& .!cut
+                pr1 = any(keep) ? vec(mean(D[keep, :], dims=1)) : zeros(nb)
+                pm = max(maximum(pr0), eps())
+                axp.plot(1:nb, pr0 ./ pm, c="grey", lw=0.8, label="przed"); axp.plot(1:nb, pr1 ./ pm, c="black", lw=0.9, label="po")
+                axp.set_xlim(xl...); axp.legend(fontsize=7); axp.tick_params(labelsize=7); axp.set_xlabel("bin", fontsize=8)
+                hs = [patches.Patch(color=c, label=t) for (c, t) in (("red", "RFI"), ("darkorange", "zły odcinek"), ("grey", "null"), ("gold", "margines"))]
+                fig.legend(handles=hs, loc="upper right", fontsize=8, frameon=false)
+                pdf.savefig(fig); PyPlot.close(fig)
+            end
+            println(psr, " ok")
+        catch e
+            e isa InterruptException && rethrow()
+            println("$psr BŁĄD: ", first(sprint(showerror, e), 200))
+        end
+    end
+    pdf.close(); println("Wykres: $out  (dla każdego pulsara $(length(variants)) strony: ", join(first.(variants), ", "), ")")
+end
