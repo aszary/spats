@@ -50,11 +50,56 @@ function _f6_psrs()
     sort([k for (k, v) in st if v in ("ok", "reczny")])
 end
 
-function _f6_load(psr, p)
+F6_CACHE = F6_ROOT * "cache_debased/"     # stosy impulsow po odjeciu tla (pamiec podreczna, dokladna kopia)
+
+"""
+Klucz pamieci podrecznej: obserwacja, okno impulsu, kanaly wyciete przed sumowaniem, nazwy, rozmiary i czasy
+modyfikacji plikow zrodlowych - kazda zmiana danych albo ustawien daje nowy klucz (stara kopia nieuzywana).
+"""
+function _f6_key(psr, p, obsdir)
+    fs = sort(readdir(obsdir))
+    src = join(["$f:$(filesize(joinpath(obsdir, f))):$(mtime(joinpath(obsdir, f)))" for f in fs], ";")
+    "$psr|$(basename(obsdir))|$(Int(p["bin_st"]))-$(Int(p["bin_end"]))|$(something(get(p, "zap_chans16", nothing), ""))|$src"
+end
+
+function _f6_load(psr, p; cache=true)
     obs = sort(filter(d -> isdir(joinpath(F6_DATA, psr, d)), readdir(joinpath(F6_DATA, psr))))
+    obsdir = joinpath(F6_DATA, psr, obs[1])
+    # pamiec podreczna: raz przerobione dane (PSRCHIVE: suma, kanaly, odjecie tla, konwersja do tekstu) zapisane
+    # binarnie - kolejne testy wczytuja je w ulamku sekundy; te same liczby co bez pamieci (zapis bit w bit)
+    key = cache ? _f6_key(psr, p, obsdir) : ""
+    cf = F6_CACHE * psr * ".bin"; kf = F6_CACHE * psr * ".key"
+    if cache && isfile(cf) && isfile(kf) && read(kf, String) == key
+        try
+            return open(cf) do io
+                T = read(io, UInt8) == 0x04 ? Float32 : Float64
+                N = read(io, Int64); nb = read(io, Int64)
+                M = Matrix{T}(undef, N, nb); read!(io, M); M
+            end
+        catch e
+            println("pamięć podręczna $psr nieczytelna - liczę od nowa: ", first(sprint(showerror, e), 100))
+        end
+    end
+    D = _f6_load_raw(psr, p, obsdir)
+    if cache && D isa AbstractMatrix && eltype(D) in (Float32, Float64)
+        try
+            mkpath(F6_CACHE)
+            tmpf = cf * ".tmp$(getpid())"
+            open(tmpf, "w") do io
+                write(io, eltype(D) == Float32 ? 0x04 : 0x08); write(io, Int64(size(D, 1)), Int64(size(D, 2))); write(io, D)
+            end
+            mv(tmpf, cf; force=true); write(kf, key)
+        catch e
+            println("nie zapisano pamięci podręcznej $psr: ", first(sprint(showerror, e), 100))
+        end
+    end
+    return D
+end
+
+function _f6_load_raw(psr, p, obsdir)
     tmp = mktempdir()
     try
-        return Main._debased_spcf(joinpath(F6_DATA, psr, obs[1]) * "/", tmp, Int(p["bin_st"]), Int(p["bin_end"]);
+        return Main._debased_spcf(obsdir * "/", tmp, Int(p["bin_st"]), Int(p["bin_end"]);
                                   chans16=something(get(p, "zap_chans16", nothing), ""))
     finally
         rm(tmp; recursive=true, force=true)

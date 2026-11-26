@@ -1162,12 +1162,16 @@ module Data
             end
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
-            s_ref = profile_snr(data, bin_st, bin_end; drop=cut0)
-            s_ref_rfi = profile_snr(data, bin_st, bin_end; drop=rfi0)
+            # szybkie S/N: profile bazowe (bez cut0 / bez rfi0) liczone raz, kandydaci (reason == 0, wiec rozlaczni
+            # z cut0 i rfi0) odejmowani wierszami - ten sam wynik co profile_snr(...; drop=vcat(cut0, cand))
+            F = snr_fast(data, bin_st, bin_end)
+            Pc0, nc0 = snr_profile(F, cut0); Pr0, nr0 = snr_profile(F, rfi0)
+            s_ref = snr_of(F, Pc0, nc0)
+            s_ref_rfi = snr_of(F, Pr0, nr0)
             ok(cand) = isempty(cand) ||
-                (!(profile_snr(data, bin_st, bin_end; drop=vcat(cut0, cand)) < (1 - rfi_tol) * s_ref) &&
+                (!(snr_of(F, snr_profile(F, cand; base=Pc0, nbase=nc0)...) < (1 - rfi_tol) * s_ref) &&
                  (rfi_ref == :cut ||
-                  !(profile_snr(data, bin_st, bin_end; drop=vcat(rfi0, cand)) < (1 - rfi_tol) * s_ref_rfi)))
+                  !(snr_of(F, snr_profile(F, cand; base=Pr0, nbase=nr0)...) < (1 - rfi_tol) * s_ref_rfi)))
             new = Int[]
             if rfi_greedy
                 # nowy bezpiecznik: gdy caly zestaw (> rfi_k) przechodzi - jak dotad; gdy nie - zamiast
@@ -1182,13 +1186,19 @@ module Data
                     # wg z stawiala na poczatku jasne impulsy z lekko wyzszym szumem (test syntetyczny)
                     # dokladamy tylko impulsy, ktore same nie obnizaja S/N (inaczej limit 1% "zuzywaly" jasne
                     # dobre impulsy z lekko wyzszym szumem: test syntetyczny J2136, falszywe 0.5% -> 2.2%)
-                    gain = Dict(i => profile_snr(data, bin_st, bin_end; drop=vcat(cut0, i)) for i in cand)
+                    gain = Dict(i => snr_of(F, snr_profile(F, (i,); base=Pc0, nbase=nc0)...) for i in cand)
                     cur = s_ref
+                    # profile po dotychczas dolozonych (new), bez cut0 i bez rfi0 - aktualizowane jednym wierszem
+                    # (ten sam warunek co wczesniej: s_new >= cur i ok(vcat(new, i)))
+                    Pc, nc = copy(Pc0), nc0; Pr, nr = copy(Pr0), nr0
                     for i in sort(cand, by=i -> -gain[i])
-                        s_new = profile_snr(data, bin_st, bin_end; drop=vcat(cut0, new, i))
-                        if s_new >= cur && ok(vcat(new, i))
-                            push!(new, i); cur = s_new
-                        end
+                        Pci, nci = snr_profile(F, (i,); base=Pc, nbase=nc)
+                        s_new = snr_of(F, Pci, nci)
+                        (s_new >= cur && !(s_new < (1 - rfi_tol) * s_ref)) || continue
+                        Pri, nri = snr_profile(F, (i,); base=Pr, nbase=nr)
+                        (rfi_ref == :cut || !(snr_of(F, Pri, nri) < (1 - rfi_tol) * s_ref_rfi)) || continue
+                        push!(new, i); cur = s_new
+                        Pc, nc = Pci, nci; Pr, nr = Pri, nri
                     end
                     sort!(new)
                 end
@@ -1599,6 +1609,36 @@ module Data
     set, so the comparison between methods is fair (unlike pazi, which picks
     its own width).
     """
+    """
+    Szybkie S/N profilu przy wielu wywolaniach na tych samych danych (bezpiecznik RFI): suma profilu i biny poza
+    impulsem liczone RAZ, potem dla `drop` odejmowane tylko wyciete impulsy (koszt ~ liczba wycietych x biny zamiast
+    wszystkie impulsy x biny). Ten sam wzor co `profile_snr` (roznice tylko zaokraglen, ~1e-12 wzglednie).
+    """
+    struct SnrFast{T}
+        X::Matrix{T}; live::BitVector; Ptot::Vector{T}; on::UnitRange{Int}; off::Vector{Int}
+    end
+    function snr_fast(data, bin_st, bin_end)
+        N = size(data, 1)
+        live = BitVector([any(!iszero, @view data[i, :]) for i in 1:N])
+        Ptot = vec(sum(@view(data[live, :]), dims=1))
+        SnrFast(data, live, Ptot, bin_st:bin_end, offpulse_bins(data, bin_st, bin_end))
+    end
+    "Profil bez impulsow `drop` (od 1, powtorzenia i martwe pomijane) i liczba zostawionych."
+    function snr_profile(F::SnrFast, drop; base=F.Ptot, nbase=count(F.live))
+        P = copy(base); seen = Set{Int}()
+        for i in drop
+            (1 <= i <= length(F.live) && F.live[i] && !(i in seen)) || continue
+            push!(seen, i); P .-= @view F.X[i, :]
+        end
+        return P, nbase - length(seen)
+    end
+    function snr_of(F::SnrFast, P, nkeep)
+        nkeep <= 0 && return NaN
+        μ, σ = mean(P[F.off]), std(P[F.off])
+        return σ > 0 ? sum(P[F.on] .- μ) / (σ * sqrt(length(F.on))) : NaN
+    end
+    profile_snr(F::SnrFast; drop=Int[]) = snr_of(F, snr_profile(F, drop)...)
+
     function profile_snr(data, bin_st, bin_end; drop=Int[])
         N, nb = size(data)
         keep = [any(!iszero, @view data[i, :]) for i in 1:N]
