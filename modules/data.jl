@@ -1130,10 +1130,10 @@ module Data
 
     function auto_zap(data, bin_st, bin_end; gate=get(ZAP_STEPS[], :gate, true), rfi=get(ZAP_STEPS[], :rfi, true),
                       rfi_k=3.0, rfi_tol=get(ZAP_STEPS[], :rfi_tol, 0.01), rfi_ref=:both,
-                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), null_max_frac=0.5, null_faded_frac=0.15,
+                      rfi_greedy=RFI_GREEDY[], rfi_win=get(ZAP_STEPS[], :rfi_win, 31), rfi_hard=get(ZAP_STEPS[], :rfi_hard, Inf), null_max_frac=0.5, null_faded_frac=0.15,
                       null_margin=NULL_MARGIN[], null_mode=NULL_MODE[], null_extra=NULL_EXTRA_CUR[], kw...)
         sn = pulse_signal_noise(data, bin_st, bin_end)
-        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0))..., kw...)
+        a = auto_zap_core(sn; Base.structdiff(ZAP_STEPS[], (gate=0, rfi=0, rfi_tol=0, rfi_win=0, rfi_hard=0))..., kw...)
         reason = copy(a.reason)
         why = a.why
         if gate
@@ -1144,6 +1144,15 @@ module Data
         nfake = fake_nulls_to_noisy!(reason, sn; frac=null_max_frac, faded_frac=null_faded_frac)
         nfake > 0 && (why *= " ($nfake imp. 'nulli' z sygnałem -> zaszumione / wygaszona emisja)")
         if rfi
+            # silne RFI (z > rfi_hard) wycinane zawsze, bez bezpiecznika S/N: poziome paski (przesuniecie tla na calym
+            # impulsie) nie psuja S/N sredniego profilu, wiec bezpiecznik ich nie przepuszczal (J0932-3217: z ~ 13-24
+            # zostawione; TPA je wycielo), a psuja energie, nulle i LRFS
+            if isfinite(rfi_hard)
+                zh = rfi_rms_z(data, bin_st, bin_end; local_win=rfi_win)
+                hard = [i for i in eachindex(zh) if reason[i] == 0 && zh[i] > rfi_hard]
+                reason[hard] .= 2
+                isempty(hard) || (why *= " + silne RFI (z > $(rfi_hard)): $(length(hard)) imp.")
+            end
             cut0 = findall(>(0), reason)
             rfi0 = split_zaps(reason).rfi
             s_ref = profile_snr(data, bin_st, bin_end; drop=cut0)

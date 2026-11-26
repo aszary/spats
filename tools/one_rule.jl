@@ -271,3 +271,23 @@ function one_rule_replot()
     Base.invokelatest(Main.sliding_lrfs_final)
     Base.invokelatest(Main.drift_table_run)
 end
+
+# ---- Silne RFI zawsze wycinane (z > prog, bez bezpiecznika S/N), na v9; test na wszystkich pulsarach.
+#   include("tools/one_rule.jl"); one_rule_hard()            # ~20-30 min; wynik: final_v7/one_rule_hard/WYNIK.txt
+function _or_hard_setup!()
+    global S8_DIR = F7_DIR * "one_rule_hard/"
+    global OR_RULES = [("v9", :model_ok, NamedTuple()),
+                       ("v9 + silne RFI z>10 zawsze", :model_ok, (rfi_hard=10.0,)),
+                       ("v9 + silne RFI z>6 zawsze", :model_ok, (rfi_hard=6.0,))]
+    global S8_VARIANTS = [(r[1], NamedTuple(), :x, 0.0) for r in OR_RULES]
+end
+
+function one_rule_hard(; n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    _or_hard_setup!(); mkpath(S8_DIR)
+    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); _or_hard_setup!(); Base.invokelatest(_or_part, $k, $n)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, S8_DIR * "logs", "orh"; every=120)
+    one_rule_hard_summary()
+end
+
+one_rule_hard_summary() = (_or_hard_setup!(); simple_v8_summary(; title="Silne RFI zawsze wycinane (bez bezpiecznika S/N) - porównanie z v9", basename_="v9"))
