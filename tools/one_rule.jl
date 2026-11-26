@@ -917,3 +917,74 @@ function v10_build_windows(; window_root="/home/psr/output/", out=F6_ROOT * "paz
     SpaTs.compare_zap_methods(mine=out, outdir=out * "zap_comparison/")
     println("Gotowe: $out (dane po wycięciu w $out<pulsar>/pulsar.spCF, tylko RFI: pulsar_rfi.spCF)")
 end
+
+# ---- Tylko automat (v10): w params.json kazdego pulsara dopisuje, ktore impulsy wyciac i ktore kanaly - nic wiecej
+# (bez weryfikacji, bez nowych archiwow, pulsar.spCF bez zmian). Okno on-pulse (bin_st, bin_end) z tego params.json,
+# surowe dane z /home/psr/data/new/. Przed pierwsza zmiana kopia: params_pre_automat.json. Dopisywane klucze:
+#   zaps2 (wszystkie wyciete), zaps2_rfi (RFI), zaps2_null (nulle), zaps2_other, zap_chans16 (kanaly przed sumowaniem),
+#   zap_rule (opis zasady). Numery impulsow od 0, zakresy jak w zaps ("12 40-45"). Pozostale klucze bez zmian.
+#   include("tools/one_rule.jl"); automat_zaps(dir="/home/psr/output/")     # 32 procesy, wznawialne
+AZ_LOG = F6_ROOT * "automat_zaps/"
+function _az_one(psr, dir, chf)
+    _VD = SpaTs.Data
+    pf = joinpath(dir, psr, "params.json")
+    p = SpaTs.Tools.read_params(pf)
+    (isnothing(get(p, "bin_st", nothing)) || isnothing(get(p, "bin_end", nothing))) && return "brak_okna"
+    isdir(joinpath(F6_DATA, psr)) || return "brak_danych"
+    q = deepcopy(p); q["zap_chans16"] = get(chf, psr, "")
+    D = _f6_load(psr, q); N = size(D, 1)
+    bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+    m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+    a = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra)          # domyslne ustawienia = v10 (ZAP_FINAL)
+    sp = _VD.split_zaps(a.reason)
+    bk = joinpath(dir, psr, "params_pre_automat.json")
+    isfile(bk) || cp(pf, bk)
+    p["zaps2"] = _VD.pulses_to_zaps(a.bad)
+    p["zaps2_rfi"] = _VD.pulses_to_zaps(sp.rfi)
+    p["zaps2_null"] = _VD.pulses_to_zaps(sp.null)
+    p["zaps2_other"] = _VD.pulses_to_zaps(sp.other)
+    p["zap_chans16"] = get(chf, psr, "")
+    p["zap_rule"] = "automat v10: zle odcinki + pojedyncze smieci + TPA VIII 4σ (bez marginesow); nulle P_null>=0.5 z wiarygodnego modelu"
+    SpaTs.Tools.save_params(pf, p)
+    ns = get(p, "nsubint", nothing)
+    return @sprintf("ok,%d,%d,%d,%d,%s", N, length(a.bad), length(sp.rfi), length(sp.null),
+                    (ns isa Number && ns != N) ? "UWAGA nsubint=$(ns)" : "")
+end
+
+function _az_part(dir, k, n)
+    mkpath(AZ_LOG)
+    f = AZ_LOG * "part_$k.csv"
+    done = isfile(f) ? Set(split(l, ",")[1] for l in Iterators.drop(eachline(f), 1)) : Set{String}()
+    isfile(f) || open(io -> println(io, "pulsar,status,N,wyciete,rfi,nulle,uwagi"), f, "w")
+    chf = SpaTs.chan_first_list([F6_ROOT * "zap_verify_v3/", F6_ROOT * "zap_verify/"])
+    psrs = sort(filter(d -> isfile(joinpath(dir, d, "params.json")), readdir(dir)))
+    for psr in filter(!in(done), psrs[k:n:end])
+        t0 = time()
+        st = try
+            _az_one(psr, dir, chf)
+        catch e
+            e isa InterruptException && rethrow()
+            "blad,,,,," * replace(first(sprint(showerror, e), 120), "," => ";")
+        end
+        open(io -> println(io, "$psr,$st"), f, "a")
+        @printf("%-12s %s (%.0f s)\n", psr, st, time() - t0); flush(stdout)
+    end
+end
+
+function automat_zaps(; dir="/home/psr/output/", n=32)
+    endswith(dir, "/") || (dir *= "/")
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    np = count(d -> isfile(joinpath(dir, d, "params.json")), readdir(dir))
+    println("Automat v10: $np pulsarów w $dir - dopisuję wycięte impulsy i kanały do params.json (kopia: params_pre_automat.json)")
+    codes = [F7_PRE * "include(\"tools/one_rule.jl\"); Base.invokelatest(_az_part, \"$dir\", $k, $n)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, AZ_LOG * "logs", "az"; every=120)
+    rows = String[]
+    for f in filter(f -> occursin(r"^part_\d+\.csv$", basename(f)), readdir(AZ_LOG; join=true))
+        append!(rows, collect(Iterators.drop(eachline(f), 1)))
+    end
+    st(r) = split(r, ",")[2]
+    println("\nGotowe: ok $(count(r -> st(r) == "ok", rows)), brak okna $(count(r -> st(r) == "brak_okna", rows)), " *
+            "brak danych $(count(r -> st(r) == "brak_danych", rows)), błędy $(count(r -> st(r) == "blad", rows)) z $(length(rows))")
+    write(AZ_LOG * "podsumowanie.csv", "pulsar,status,N,wyciete,rfi,nulle,uwagi\n" * join(sort(rows), "\n") * "\n")
+    println("Lista: $(AZ_LOG)podsumowanie.csv")
+end
