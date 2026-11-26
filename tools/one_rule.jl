@@ -175,6 +175,8 @@ function one_rule_build(; rule=:model_ok, margin=true, n=32)
              "reuse_window=true, window_root=\"$(F6_ROOT)pazur2/\", chan_first=$cf)" for k in 1:n]
     Base.invokelatest(Main._run_parallel, codes, OR_OUT * "logs", "build"; every=120)
     vd = OR_OUT * "zap_verify_final/"
+    # nowa budowa: weryfikacja od zera (jest wznawialna - inaczej pominelaby pulsary z poprzedniej budowy)
+    isfile(out * ".verify_started") || rm(vd; recursive=true, force=true); touch(out * ".verify_started")
     codes = [F7_PRE * cfg * "Base.invokelatest(Main.zap_verify; pazur2=\"$out\", out=\"$vd\", part=\"$k/$n\", chans=false, save_rfi=true)"
              for k in 1:n]
     Base.invokelatest(Main._run_parallel, codes, OR_OUT * "logs", "verify"; every=120)
