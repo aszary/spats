@@ -295,3 +295,62 @@ function one_rule_hard(; n=32)
 end
 
 one_rule_hard_summary() = (_or_hard_setup!(); simple_v8_summary(; title="Silne RFI zawsze wycinane (bez bezpiecznika S/N) - porównanie z v9", basename_="v9"))
+
+# ---- Podglad: ktore impulsy dochodza przy silnym RFI (rfi_hard) wzgledem v9 - stos impulsow z zaznaczeniami,
+# z(RFI) i jasnosc tych impulsow, profil sredni dodanych impulsow (czy maja emisje / paski).
+#   include("tools/one_rule.jl"); hard_rfi_view(["J1012-5857", "J0820-1350", "J1110-5637", "J0932-3217"])
+#   -> final_v7/one_rule_hard2/podglad.pdf
+using PyPlot, PyCall
+function hard_rfi_view(psrs; z=6.0, out=F7_DIR * "one_rule_hard2/podglad.pdf")
+    _VD = SpaTs.Data
+    PyPlot = Main.PyPlot
+    PdfPages = Main.PyCall.pyimport("matplotlib.backends.backend_pdf").PdfPages
+    pdf = PdfPages(out)
+    for psr in psrs
+        try
+            p = SpaTs.Tools.read_params(joinpath(F6_ROOT, "pazur2", psr, "params.json"))
+            D = Float64.(_f6_load(psr, p)); N, nb = size(D)
+            bst, bend = Int(p["bin_st"]), Int(p["bin_end"])
+            m = _nr_model(psr); extra = isnothing(m) ? Int[] : m.rows[m.P .>= 0.5]
+            a0 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_hard=Inf)
+            a1 = _VD.auto_zap(D, bst, bend; null_mode=:model, null_extra=extra, rfi_hard=z)
+            add = sort(setdiff(a1.bad, a0.bad)); zz = _VD.rfi_rms_z(D, bst, bend)
+            sn = _VD.pulse_signal_noise(D, bst, bend)
+            sg = sn.s[sn.good]; md = median(sg); sd = 1.4826 * median(abs.(sg .- md))
+            s0 = _VD.profile_snr(D, bst, bend; drop=a0.bad); s1 = _VD.profile_snr(D, bst, bend; drop=a1.bad)
+            fig = PyPlot.figure(figsize=(11, 7.5))
+            fig.suptitle(@sprintf("%s: przy z>%.0f dochodzi %d impulsów; S/N v9 %.1f -> %.1f (%+.1f%%)", psr, z, length(add), s0, s1, 100(s1 / s0 - 1)), fontsize=9)
+            live = [any(!iszero, @view D[i, :]) for i in 1:N]; v = vec(D[live, :])
+            ax = fig.add_axes([0.06, 0.32, 0.50, 0.6])
+            ax.imshow(D, origin="lower", aspect="auto", cmap="Greys_r", vmin=quantile(v, 0.01), vmax=quantile(v, 0.995),
+                      interpolation="nearest", extent=[-0.5, nb - 0.5, 0.5, N + 0.5])
+            isempty(add) || ax.scatter(fill(-0.02nb, length(add)), add, marker=">", s=12, c="red", clip_on=false)
+            ax.axvline(bst, c="orange", lw=0.5); ax.axvline(bend, c="orange", lw=0.5)
+            ax.set_ylabel("impuls (od 1); czerwone: dochodzą przy silnym RFI", fontsize=7); ax.tick_params(labelsize=6)
+            ax2 = fig.add_axes([0.62, 0.62, 0.34, 0.3])
+            ax2.scatter((sn.s[sn.good] .- md) ./ sd, zz[sn.good], s=2, c="grey", lw=0)
+            isempty(add) || ax2.scatter((sn.s[add] .- md) ./ sd, zz[add], s=10, c="red", lw=0)
+            ax2.axhline(z, c="k", ls="--", lw=0.6); ax2.set_yscale("symlog", linthresh=10)
+            ax2.set_xlabel("jasność impulsu (σ od mediany)", fontsize=7); ax2.set_ylabel("z (RFI)", fontsize=7); ax2.tick_params(labelsize=6)
+            ax3 = fig.add_axes([0.62, 0.32, 0.34, 0.22])
+            good = [i for i in 1:N if live[i] && !(i in a1.bad)]
+            pg = vec(mean(D[good, :], dims=1)); ax3.plot(pg ./ max(maximum(pg), eps()), c="grey", lw=0.8, label="zostawione")
+            if !isempty(add)
+                pa = vec(mean(D[add, :], dims=1)); ax3.plot(pa ./ max(maximum(pg), eps()), c="red", lw=0.8, label="dochodzące (średnia)")
+            end
+            ax3.legend(fontsize=6); ax3.tick_params(labelsize=6); ax3.set_xlabel("bin", fontsize=7)
+            ax4 = fig.add_axes([0.06, 0.06, 0.50, 0.18])
+            for (k, i) in enumerate(add[1:min(end, 6)])
+                ax4.plot(D[i, :] .+ 3k * std(v), lw=0.5)
+            end
+            ax4.set_title("kilka dochodzących impulsów (przesunięte w pionie)", fontsize=7); ax4.tick_params(labelsize=6)
+            pdf.savefig(fig); PyPlot.close(fig)
+            @printf("%-12s dochodzi %d imp., S/N %+.1f%%, jasność (σ) mediana %.1f, z mediana %.1f\n", psr, length(add), 100(s1 / s0 - 1),
+                    isempty(add) ? NaN : median((sn.s[add] .- md) ./ sd), isempty(add) ? NaN : median(zz[add]))
+        catch e
+            e isa InterruptException && rethrow()
+            println("$psr BŁĄD: ", first(sprint(showerror, e), 200))
+        end
+    end
+    pdf.close(); println("Podgląd: $out")
+end
