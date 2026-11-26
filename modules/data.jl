@@ -1163,7 +1163,13 @@ module Data
     # pusty = wszystkie kroki. Od v7 (2026-11-18) wypelnianie krotkich wysp wylaczone na stale
     # (auto_zap_core min_keep=0; bez wplywu na wyniki), model nulli z linia bazowa GP (final_v7/model).
     # Powrot do v6: NULL_MODEL_DIR[] = ".../final_v6/model/" i ZAP_STEPS[] = (min_keep=3,)
-    ZAP_STEPS = Ref{Any}(NamedTuple())
+    # v10 (decyzja 2026-11-26, ostateczna): RFI = A zle odcinki (mediana szumu w oknie +-5 impulsow > 2x typowy, >= 5
+    # impulsow) + B pojedyncze smieci (skorelowana struktura tla) + regula TPA VIII (Song+2023): rms tla > mediana + 4σ,
+    # iteracyjnie. Bez skokow szumu, bez reguly z bezpiecznikiem S/N, BEZ MARGINESOW. Nulle jak v9 (model, tylko
+    # wiarygodny). Test one_rule_eval2: wyciete z czystym tlem 7% (v9 24%), zostawione wyraznie zle 60 (v9 2246), lista
+    # TPA (Xiaoxi) odtworzona w 94% (v9 67%). Powrot do v9: ZAP_STEPS[] = NamedTuple() (kopia: pazur2_przed_v10).
+    ZAP_FINAL = (use_jump=false, noisy_med=true, pad=0, rfi_safe=false, rfi_tpa_k=4.0)
+    ZAP_STEPS = Ref{Any}(ZAP_FINAL)
     # Od v8 (2026-11-25, decyzja): nulle JEDNA REGULA z publikacji (TPA XIX) - impuls z P_null >= 0.5 w pulsarach
     # z wiarygodnym modelem; bez wiarygodnego modelu nulle automatu (NULL_MODEL_FALLBACK). Wynik na 531 pulsarach:
     # 346:2:183 wobec metody recznej, S/N +19.1%, wyciete 8.9%, NF a literatura +0.5 pp (mediana).

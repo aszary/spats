@@ -184,3 +184,29 @@ poza oknem impulsu** (wygładzone tło: paski, fale, pochyłe tło) jest > 1,5×
 `Data.RFI_STRUCT[]`, teraz `Inf` = wyłączone). Prawdziwa emisja jest tylko w oknie, RFI ma kształt także poza nim;
 czysty szum daje ≈1 niezależnie od poziomu (J0820). Okno sprawdzane tylko kontrolnie (`window_signal_check`:
 korelacja z profilem). Test: `one_rule_hard()` → `final_v7/one_rule_hard4/`, podgląd `hard_rfi_view`.
+
+## Stan v10 (2026-11-26, ostateczna zasada)
+
+Wybrana po teście, co realnie wycinają proste zasady (`tools/one_rule.jl`, `one_rule_eval2`, wykresy
+`compare_rules_pages`). Bez marginesów. Domyślnie w kodzie: `Data.ZAP_STEPS[] = ZAP_FINAL`
+= `(use_jump=false, noisy_med=true, pad=0, rfi_safe=false, rfi_tpa_k=4.0)`; nulle jak v9.
+
+1. **Kanały** z RFI wycinane przed sumowaniem (bez zmian).
+2. **Złe odcinki**: mediana szumu tła (całkowitego albo białego) w oknie ±5 impulsów > 2× typowa dla obserwacji
+   i okno niesie mniej niż połowę typowego S/N; tylko odcinki ≥ 5 impulsów. (Odcinki zostają, gdy bramka S/N
+   profilu pokaże, że z nimi profil jest lepszy - jak dotąd.)
+3. **Pojedyncze śmieci**: skorelowana struktura tła (stosunek szumu całkowitego do białego > mediana + 6σ albo
+   autokorelacja tła > mediana + 4,5σ).
+4. **Reguła TPA VIII** (Song+2023): rms tła > mediana obserwacji + 4σ (σ = 1,4826·MAD), iteracyjnie, bez bezpiecznika.
+5. **Nulle**: P_null ≥ 0,5 tylko w pulsarach z wiarygodnym modelem energii.
+
+Wyłączone względem v9: skoki szumu, reguła z bezpiecznikiem S/N (3σ od sąsiadów), marginesy.
+
+| zasada (wszystkie pulsary) | wycięte z czystym tłem | zostawione wyraźnie złe | lista TPA (Xiaoxi) | vs metoda ręczna | zysk S/N |
+|---|---|---|---|---|---|
+| v9 | 24% | 2246 | 67% | 332 : 6 : 192 | +19,3% |
+| **v10** | **7%** | **60** | **94%** | 158 : 120 : 252 | +13,1% |
+
+Niższe S/N profilu jest świadomym kosztem: v10 wycina paski i fale (niewidoczne w średnim profilu) oraz część
+impulsów jasnych pulsarów z głośniejszym tłem. Budowa: `v10_build()`, `v10_adopt()`, `one_rule_replot()`.
+Kopia v9: `pazur2_przed_v10`.

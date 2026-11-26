@@ -846,3 +846,43 @@ function _or_manual_rows(psr, p, N, bst, bend)
     rp = isfile(pf * "params.json") ? SpaTs.Tools.read_params(pf * "params.json") : Dict()
     return sort(unique(vcat(ref.rows, _VD.zaps_to_rows(get(rp, "zaps", nothing), N))))
 end
+
+# ---- v10 (ostateczna, decyzja 2026-11-26): RFI = zle odcinki (mediana) + pojedyncze smieci + TPA VIII 4σ, bez
+# marginesow; nulle jak v9. Ustawienia domyslne w kodzie (Data.ZAP_STEPS = ZAP_FINAL) - budowa ich nie nadpisuje.
+#   include("tools/one_rule.jl"); v10_build()    # -> final_v7/v10/pazur2_final + weryfikacja + porownanie z metoda reczna
+#   v10_adopt()                                   # pazur2 -> pazur2_przed_v10, nowa wersja -> pazur2
+#   one_rule_replot()                             # sliding LRFS + tabela dryfu na nowych danych
+V10_OUT = F7_DIR * "v10/"
+function v10_build(; n=32)
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    out = V10_OUT * "pazur2_final/"; mkpath(out)
+    write(out * ".wariant", "v10: RFI = zle odcinki (mediana szumu w oknie > 2x typowy, >= 5 imp.) + pojedyncze smieci + " *
+                            "TPA VIII (rms > mediana + 4σ, iteracyjnie); bez marginesow; nulle = model energii P>=0.5 tylko gdy wiarygodny. " *
+                            "ZAP_STEPS = $(repr(SpaTs.Data.ZAP_FINAL))")
+    println("\n===== WERSJA v10 → $out =====")
+    cfg = "SpaTs.Data.ZAP_STEPS[] = SpaTs.Data.ZAP_FINAL; SpaTs.Data.NULL_MODE[] = :model; SpaTs.Data.NULL_THR[] = 0.5; " *
+          "SpaTs.Data.NULL_MODEL_ANY[] = false; SpaTs.Data.NULL_MODEL_FALLBACK[] = :none; " *
+          "SpaTs.Data.NULL_MODEL_DIR[] = \"$(F7_DIR)model/\"; "
+    cf = "SpaTs.chan_first_list([\"$(F6_ROOT)zap_verify_v3/\", \"$(F6_ROOT)zap_verify/\"])"
+    codes = [F7_PRE * cfg * "SpaTs.autozap_all(out=\"$out\", only=$(repr(_f6_psrs()[k:n:end])), skip_done=true, keep_manual=false, " *
+             "reuse_window=true, window_root=\"$(F6_ROOT)pazur2/\", chan_first=$cf)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, V10_OUT * "logs", "build"; every=120)
+    vd = V10_OUT * "zap_verify_final/"
+    isfile(out * ".verify_started") || rm(vd; recursive=true, force=true); touch(out * ".verify_started")
+    codes = [F7_PRE * cfg * "Base.invokelatest(Main.zap_verify; pazur2=\"$out\", out=\"$vd\", part=\"$k/$n\", chans=false, save_rfi=true)"
+             for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, V10_OUT * "logs", "verify"; every=120)
+    Base.invokelatest(Main.zap_verify_summary; out=vd)
+    SpaTs.compare_zap_methods(mine=out, outdir=V10_OUT * "zap_comparison_final/")
+    println("Potem: v10_adopt()")
+end
+
+"Przyjecie v10: pazur2 -> pazur2_przed_v10 (albo _2...), v10/pazur2_final -> pazur2."
+function v10_adopt()
+    src, dst, bk = V10_OUT * "pazur2_final", F6_ROOT * "pazur2", F6_ROOT * "pazur2_przed_v10"
+    isdir(src) || error("brak $src - najpierw v10_build()")
+    k = 1
+    while isdir(bk); k += 1; bk = F6_ROOT * "pazur2_przed_v10_$k"; end
+    mv(dst, bk); mv(src, dst)
+    println("Przyjęte: $(strip(read(dst * "/.wariant", String))). Stara wersja: $bk. Domyślne w kodzie są już v10.")
+end
