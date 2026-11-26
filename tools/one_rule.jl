@@ -886,3 +886,34 @@ function v10_adopt()
     mv(dst, bk); mv(src, dst)
     println("Przyjęte: $(strip(read(dst * "/.wariant", String))). Stara wersja: $bk. Domyślne w kodzie są już v10.")
 end
+
+"""
+v10 z oknami on-pulse z innego katalogu (np. poprawione okna w ~/output): okna (bin_st, bin_end) brane z
+`window_root/<psr>/params.json`, surowe dane z /home/psr/data/new/, wynik TYLKO do `out` (window_root bez zmian).
+Porownanie z metoda reczna: wyciecia z `ref_root` (domyslnie ten sam katalog co okna).
+    include("tools/one_rule.jl"); v10_build_windows(window_root="/home/psr/output/", out="/home/psr/data/OUTPUT/pazur_v10/")
+"""
+function v10_build_windows(; window_root="/home/psr/output/", out=F6_ROOT * "pazur_v10/", ref_root=window_root, n=32)
+    endswith(out, "/") || (out *= "/")
+    abspath(out) == abspath(window_root) && error("out nie może być katalogiem z oknami ($window_root) - wybierz nowy katalog")
+    isdefined(Main, :_run_parallel) || Base.include(Main, "modules/zap_verify.jl")
+    mkpath(out)
+    psrs = sort(filter(d -> isfile(joinpath(window_root, d, "params.json")), readdir(window_root)))
+    println("Okna on-pulse z $window_root: $(length(psrs)) pulsarów → $out")
+    write(out * ".wariant", "v10 (ZAP_FINAL) z oknami on-pulse z $window_root")
+    cfg = "SpaTs.Data.ZAP_STEPS[] = SpaTs.Data.ZAP_FINAL; SpaTs.Data.NULL_MODE[] = :model; SpaTs.Data.NULL_THR[] = 0.5; " *
+          "SpaTs.Data.NULL_MODEL_ANY[] = false; SpaTs.Data.NULL_MODEL_FALLBACK[] = :none; " *
+          "SpaTs.Data.NULL_MODEL_DIR[] = \"$(F7_DIR)model/\"; "
+    cf = "SpaTs.chan_first_list([\"$(F6_ROOT)zap_verify_v3/\", \"$(F6_ROOT)zap_verify/\"])"
+    logs = out * "logs/"
+    codes = [F7_PRE * cfg * "SpaTs.autozap_all(out=\"$out\", only=$(repr(psrs[k:n:end])), skip_done=true, keep_manual=false, " *
+             "reuse_window=true, window_root=\"$window_root\", ref_root=\"$ref_root\", chan_first=$cf)" for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, logs, "build"; every=120)
+    vd = out * "zap_verify/"
+    codes = [F7_PRE * cfg * "Base.invokelatest(Main.zap_verify; pazur2=\"$out\", out=\"$vd\", part=\"$k/$n\", chans=false, save_rfi=true)"
+             for k in 1:n]
+    Base.invokelatest(Main._run_parallel, codes, logs, "verify"; every=120)
+    Base.invokelatest(Main.zap_verify_summary; out=vd)
+    SpaTs.compare_zap_methods(mine=out, outdir=out * "zap_comparison/")
+    println("Gotowe: $out (dane po wycięciu w $out<pulsar>/pulsar.spCF, tylko RFI: pulsar_rfi.spCF)")
+end
