@@ -1193,14 +1193,14 @@ data = Data.load_ascii(txt_file)
     end
 
     """
-        update_onpulse_single(outdir; csv_path="input/onpulsefixing.csv", dry_run=false)
+        update_onpulse_single(outdir; csv_path="input/onpulsefixing.csv", dry_run=false, only_fft=true)
 
     Updates `params.json` for a single pulsar directory based on `onpulsefixing.csv`:
-    - Reads MP (bin_st, bin_end) and IP (IP_start, IP_end) from the CSV.
+    - By default (`only_fft=true`), updates ONLY `fft` and `nfft` without modifying `bin_st` or `bin_end`.
     - Saves a backup as `params_pre_reonpuls.json`.
     - Writes updated values to `params.json`.
     """
-    function update_onpulse_single(outdir; csv_path="input/onpulsefixing.csv", dry_run=false)
+    function update_onpulse_single(outdir; csv_path="input/onpulsefixing.csv", dry_run=false, only_fft=true)
         pfile = joinpath(outdir, "params.json")
         if !isfile(pfile)
             @warn "params.json not found in $outdir"
@@ -1218,27 +1218,34 @@ data = Data.load_ascii(txt_file)
         end
 
         info = onpulse_data[base_name]
-        OnpulseFixer.update_single_params!(pfile, info; dry_run=dry_run)
+        OnpulseFixer.update_single_params!(pfile, info; dry_run=dry_run, only_fft=only_fft)
         println("[OK] Zaktualizowano $pfile dla $base_name:")
-        println("     MP: bin_st = $(get(info, "bin_st", "N/A")), bin_end = $(get(info, "bin_end", "N/A"))")
-        if haskey(info, "IP_start")
-            println("     IP: IP_start = $(info["IP_start"]), IP_end = $(info["IP_end"])")
-        end
-        if haskey(info, "fft")
-            println("     FFT: fft = $(info["fft"])")
+        if only_fft
+            if haskey(info, "fft")
+                println("     FFT: fft = $(info["fft"])")
+            end
+        else
+            println("     MP: bin_st = $(get(info, "bin_st", "N/A")), bin_end = $(get(info, "bin_end", "N/A"))")
+            if haskey(info, "IP_start")
+                println("     IP: IP_start = $(info["IP_start"]), IP_end = $(info["IP_end"])")
+            end
+            if haskey(info, "fft")
+                println("     FFT: fft = $(info["fft"])")
+            end
         end
         return true
     end
 
     """
-        update_onpulse_all(vpmout; csv_path="input/onpulsefixing.csv", dry_run=false)
+        update_onpulse_all(vpmout; csv_path="input/onpulsefixing.csv", dry_run=false, only_fft=true)
 
     Updates `params.json` for all pulsars found in `vpmout` (e.g. `/home/psr/output/`)
     matching records in `onpulsefixing.csv`.
+    Defaults to updating ONLY `fft` and `nfft`.
     """
-    function update_onpulse_all(vpmout; csv_path="input/onpulsefixing.csv", dry_run=false)
+    function update_onpulse_all(vpmout; csv_path="input/onpulsefixing.csv", dry_run=false, only_fft=true)
         dirs = [vpmout]
-        return OnpulseFixer.update_params_files(dirs; csv_path=csv_path, dry_run=dry_run)
+        return OnpulseFixer.update_params_files(dirs; csv_path=csv_path, dry_run=dry_run, only_fft=only_fft)
     end
 
 

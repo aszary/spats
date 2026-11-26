@@ -156,11 +156,14 @@ function parse_onpulse_csv(csv_path::String="input/onpulsefixing.csv")
 end
 
 """
-    update_single_params!(params_path::String, onpulse_info::Dict{String, Any}; dry_run::Bool=false)
+    update_single_params!(params_path::String, onpulse_info::Dict{String, Any};
+                          dry_run::Bool=false, only_fft::Bool=true)
 
 Updates a single params.json file, saving a backup as params_pre_reonpuls.json.
+When `only_fft=true` (default), modifies ONLY the `fft` and `nfft` parameters without touching `bin_st`, `bin_end`, etc.
 """
-function update_single_params!(params_path::String, onpulse_info::Dict{String, Any}; dry_run::Bool=false)
+function update_single_params!(params_path::String, onpulse_info::Dict{String, Any};
+                               dry_run::Bool=false, only_fft::Bool=true)
     if !isfile(params_path)
         return false
     end
@@ -172,19 +175,22 @@ function update_single_params!(params_path::String, onpulse_info::Dict{String, A
 
     backup_path = joinpath(dirname(params_path), "params_pre_reonpuls.json")
 
-    # Update MP values
-    if haskey(onpulse_info, "bin_st") && haskey(onpulse_info, "bin_end")
-        params["bin_st"]  = onpulse_info["bin_st"]
-        params["bin_end"] = onpulse_info["bin_end"]
+    # If only_fft is false, update on-pulse regions (MP and IP)
+    if !only_fft
+        # Update MP values
+        if haskey(onpulse_info, "bin_st") && haskey(onpulse_info, "bin_end")
+            params["bin_st"]  = onpulse_info["bin_st"]
+            params["bin_end"] = onpulse_info["bin_end"]
+        end
+
+        # Update or add IP values
+        if haskey(onpulse_info, "IP_start") && haskey(onpulse_info, "IP_end")
+            params["IP_start"] = onpulse_info["IP_start"]
+            params["IP_end"]   = onpulse_info["IP_end"]
+        end
     end
 
-    # Update or add IP values
-    if haskey(onpulse_info, "IP_start") && haskey(onpulse_info, "IP_end")
-        params["IP_start"] = onpulse_info["IP_start"]
-        params["IP_end"]   = onpulse_info["IP_end"]
-    end
-
-    # Update or add fft / nfft parameters
+    # Update fft / nfft parameters from onpulsefixing.csv
     if haskey(onpulse_info, "fft")
         params["fft"]  = onpulse_info["fft"]
         params["nfft"] = onpulse_info["nfft"]
@@ -206,14 +212,15 @@ end
 """
     update_params_files(search_dirs::Vector{String}=["/home/psr/output", "output"];
                         csv_path::String="input/onpulsefixing.csv",
-                        dry_run::Bool=false)
+                        dry_run::Bool=false, only_fft::Bool=true)
 
 Finds and updates params.json files in all target directories for each pulsar in the CSV.
+Defaults to updating ONLY `fft` and `nfft`.
 """
 function update_params_files(search_dirs::Vector{String}=["/home/psr/output", "output"];
                             csv_path::String="input/onpulsefixing.csv",
-                            dry_run::Bool=false)
-    println("Loading on-pulse regions from $csv_path ...")
+                            dry_run::Bool=false, only_fft::Bool=true)
+    println("Loading on-pulse data from $csv_path (only_fft=$only_fft) ...")
     onpulse_data = parse_onpulse_csv(csv_path)
     println("Loaded $(length(onpulse_data)) pulsar definitions.")
 
@@ -233,11 +240,15 @@ function update_params_files(search_dirs::Vector{String}=["/home/psr/output", "o
                 candidate_dir = joinpath(sdir, fvar)
                 pfile = joinpath(candidate_dir, "params.json")
                 if isfile(pfile)
-                    update_single_params!(pfile, info; dry_run=dry_run)
+                    update_single_params!(pfile, info; dry_run=dry_run, only_fft=only_fft)
                     updated_count += 1
                     found = true
-                    println("  [OK] Updated $pfile -> bin_st=$(get(info, "bin_st", "N/A")), bin_end=$(get(info, "bin_end", "N/A"))" *
-                            (haskey(info, "IP_start") ? ", IP_start=$(info["IP_start"]), IP_end=$(info["IP_end"])" : ""))
+                    if only_fft
+                        println("  [OK] Updated $pfile -> fft=$(get(info, "fft", "N/A"))")
+                    else
+                        println("  [OK] Updated $pfile -> bin_st=$(get(info, "bin_st", "N/A")), bin_end=$(get(info, "bin_end", "N/A")), fft=$(get(info, "fft", "N/A"))" *
+                                (haskey(info, "IP_start") ? ", IP_start=$(info["IP_start"]), IP_end=$(info["IP_end"])" : ""))
+                    end
                 end
             end
         end

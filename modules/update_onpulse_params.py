@@ -91,22 +91,24 @@ def parse_onpulse_csv(csv_path: str = "input/onpulsefixing.csv") -> Dict[str, Di
 
     return results
 
-def update_single_params(params_path: str, onpulse_info: Dict[str, int], dry_run: bool = False) -> bool:
+def update_single_params(params_path: str, onpulse_info: Dict[str, int], dry_run: bool = False, only_fft: bool = True) -> bool:
     if not os.path.isfile(params_path):
         return False
 
     with open(params_path, 'r', encoding='utf-8') as f:
         params = json.load(f)
 
-    # Apply MP updates
-    if "bin_st" in onpulse_info and "bin_end" in onpulse_info:
-        params["bin_st"] = onpulse_info["bin_st"]
-        params["bin_end"] = onpulse_info["bin_end"]
+    # Only update MP/IP if only_fft is False
+    if not only_fft:
+        # Apply MP updates
+        if "bin_st" in onpulse_info and "bin_end" in onpulse_info:
+            params["bin_st"] = onpulse_info["bin_st"]
+            params["bin_end"] = onpulse_info["bin_end"]
 
-    # Apply IP updates
-    if "IP_start" in onpulse_info and "IP_end" in onpulse_info:
-        params["IP_start"] = onpulse_info["IP_start"]
-        params["IP_end"] = onpulse_info["IP_end"]
+        # Apply IP updates
+        if "IP_start" in onpulse_info and "IP_end" in onpulse_info:
+            params["IP_start"] = onpulse_info["IP_start"]
+            params["IP_end"] = onpulse_info["IP_end"]
 
     # Apply fft / nfft updates
     if "fft" in onpulse_info:
@@ -122,11 +124,11 @@ def update_single_params(params_path: str, onpulse_info: Dict[str, int], dry_run
 
     return True
 
-def update_params_files(search_dirs=None, csv_path="input/onpulsefixing.csv", dry_run=False):
+def update_params_files(search_dirs=None, csv_path="input/onpulsefixing.csv", dry_run=False, only_fft=True):
     if search_dirs is None:
         search_dirs = ["/home/psr/output", "output"]
 
-    print(f"Loading on-pulse regions from {csv_path} ...")
+    print(f"Loading data from {csv_path} (only_fft={only_fft}) ...")
     onpulse_data = parse_onpulse_csv(csv_path)
     print(f"Loaded {len(onpulse_data)} pulsar definitions.")
 
@@ -144,11 +146,14 @@ def update_params_files(search_dirs=None, csv_path="input/onpulsefixing.csv", dr
                 candidate_dir = os.path.join(sdir, fvar)
                 pfile = os.path.join(candidate_dir, "params.json")
                 if os.path.isfile(pfile):
-                    update_single_params(pfile, info, dry_run=dry_run)
+                    update_single_params(pfile, info, dry_run=dry_run, only_fft=only_fft)
                     updated_count += 1
                     found = True
-                    ip_str = f", IP_start={info['IP_start']}, IP_end={info['IP_end']}" if "IP_start" in info else ""
-                    print(f"  [OK] Updated {pfile} -> bin_st={info.get('bin_st')}, bin_end={info.get('bin_end')}{ip_str}")
+                    if only_fft:
+                        print(f"  [OK] Updated {pfile} -> fft={info.get('fft')}")
+                    else:
+                        ip_str = f", IP_start={info['IP_start']}, IP_end={info['IP_end']}" if "IP_start" in info else ""
+                        print(f"  [OK] Updated {pfile} -> bin_st={info.get('bin_st')}, bin_end={info.get('bin_end')}, fft={info.get('fft')}{ip_str}")
 
         if not found:
             not_found.append(jname)
@@ -160,4 +165,4 @@ def update_params_files(search_dirs=None, csv_path="input/onpulsefixing.csv", dr
 
 if __name__ == "__main__":
     dirs = sys.argv[1:] if len(sys.argv) > 1 else ["/home/psr/output", "output"]
-    update_params_files(search_dirs=dirs)
+    update_params_files(search_dirs=dirs, only_fft=True)
