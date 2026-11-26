@@ -1323,10 +1323,10 @@ data = Data.load_ascii(txt_file)
         lrfs(vpmout*"J0034-0721"; show_=true)
 
         # FFT length diagnostic (spectra overlay and FWHM vs 1.44/N) for J1555-3134
-        #fft_length_diagnostic(vpmout*"J1901-0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+        fft_length_diagnostic(vpmout*"J0034-0721"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
 
         # LRFS with optimal N automatically selected from FWHM(N) plateau
-        #lrfs_optimal(vpmout*"J1901-0906"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
+        lrfs_optimal(vpmout*"J0034-0721"; N_list=[32, 64, 128, 256, 512, nothing], show_=true)
 
 
 
