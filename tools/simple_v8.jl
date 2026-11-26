@@ -49,8 +49,9 @@ function _s8_part(k, n)
             snr_man = something(get(get(p, "zap_cmp", Dict()), "snr_maciej", nothing), NaN)
             for (name, kw, mode, thr) in S8_VARIANTS
                 # tryb :model bez wiarygodnego modelu: pusta lista -> zadnych nulli (jedna regula, bez automatu)
+                # :model_fb = :model, a pulsar bez wiarygodnego modelu - nulle automatu (v8); :model - bez nulli
                 extra = isnothing(m) ? (mode == :model ? Int[] : nothing) : m.rows[m.P .>= thr]
-                a = _VD.auto_zap(D, bst, bend; null_mode=mode, null_extra=extra, kw...)
+                a = _VD.auto_zap(D, bst, bend; null_mode=(mode == :model_fb ? :model : mode), null_extra=extra, kw...)
                 sp = _VD.split_zaps(a.reason)
                 rfi = sp.rfi; nul = sp.null
                 cut = Set(a.bad); rs = Set(rfi)
@@ -74,7 +75,7 @@ function _s8_part(k, n)
     end
 end
 
-function simple_v8_summary(; tie=1.0)
+function simple_v8_summary(; tie=1.0, title="Prostsze wycinanie: RFI z całej obserwacji, bez marginesu, nulle tylko z modelu (P>=0.8)", basename_="v7")
     R = Dict{String,Dict{String,Dict{String,Float64}}}()          # wariant => pulsar => wiersz
     for f in filter(f -> occursin(r"^part_\d+\.csv$", basename(f)), readdir(S8_DIR; join=true))
         H = split(first(eachline(f)), ",")
@@ -86,9 +87,9 @@ function simple_v8_summary(; tie=1.0)
     end
     base = get(R, S8_VARIANTS[1][1], Dict{String,Dict{String,Float64}}())
     L = String[]; pr(s) = (println(s); push!(L, s))
-    pr("# Prostsze wycinanie: RFI z całej obserwacji, bez marginesu, nulle tylko z modelu (P>=0.8)\n")
-    pr("Pulsary: $(length(base)). Zmiana względem v7 na tych samych danych; „RFI zostawione” = impulsy niewycięte z szumem poza impulsem > 3σ (lokalnie / względem całej obserwacji).\n")
-    pr("| wariant | gorzej niż v7 o >1% S/N | lepiej o >1% | najgorzej | vs ręcznie lepszy : gorszy : remis | średni zysk S/N | wycięte | RFI | nulle | RFI zostawione: lokalnie / całość | dane tylko po RFI: tracą >1% S/N |")
+    pr("# $title\n")
+    pr("Pulsary: $(length(base)). Zmiana względem $basename_ na tych samych danych; „RFI zostawione” = impulsy niewycięte z szumem poza impulsem > 3σ (lokalnie / względem całej obserwacji).\n")
+    pr("| wariant | gorzej niż $basename_ o >1% S/N | lepiej o >1% | najgorzej | vs ręcznie lepszy : gorszy : remis | średni zysk S/N | wycięte | RFI | nulle | RFI zostawione: lokalnie / całość | dane tylko po RFI: tracą >1% S/N |")
     pr("|---|---|---|---|---|---|---|---|---|---|---|")
     num(r, k) = get(r, k, NaN)
     for (name, _, _, _) in S8_VARIANTS
